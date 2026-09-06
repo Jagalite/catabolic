@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 import platform
+import plistlib
 import subprocess
 import tempfile
 import time
@@ -39,6 +40,18 @@ def detach(target, system):
         )
         if result.returncode == 0:
             return
+        if system == "Darwin":
+            # A detach can unmount the volume before returning an error. Use
+            # its original device, not the now-empty mountpoint, for retries.
+            # Only treat an error as success when hdiutil confirms it is gone.
+            info = plistlib.loads(run(["hdiutil", "info", "-plist"]).encode())
+            devices = {
+                entity["dev-entry"]
+                for image in info["images"]
+                for entity in image["system-entities"]
+            }
+            if str(target) not in devices:
+                return
         if (
             system != "Darwin"
             or "resource busy" not in result.stderr.lower()
@@ -63,6 +76,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="catabolic-mount-qa-") as directory:
         root = Path(directory).resolve()
         mounted = []
+        devices = {}
 
         def mount(name):
             target = root / name
@@ -86,16 +100,20 @@ def main():
                             str(image),
                         ]
                     )
-                run(
-                    [
-                        "hdiutil",
-                        "attach",
-                        "-nobrowse",
-                        "-mountpoint",
-                        str(target),
-                        str(image),
-                    ]
+                attachment = plistlib.loads(
+                    run(
+                        [
+                            "hdiutil",
+                            "attach",
+                            "-plist",
+                            "-nobrowse",
+                            "-mountpoint",
+                            str(target),
+                            str(image),
+                        ]
+                    ).encode()
                 )
+                devices[target] = attachment["system-entities"][0]["dev-entry"]
             else:
                 run(
                     [
@@ -112,7 +130,7 @@ def main():
             return target
 
         def unmount(target):
-            detach(target, system)
+            detach(devices[target] if system == "Darwin" else target, system)
             mounted.remove(target)
 
         report = {"passed": False, "platform": system, "checks": []}
