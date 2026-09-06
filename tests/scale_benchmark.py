@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Retained high-cardinality fixtures; each measurement runs in a fresh process.
 
 Fixture seeding uses SQL batches, deliberately bypassing per-item CLI import cost.

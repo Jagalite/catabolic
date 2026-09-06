@@ -1,5 +1,10 @@
 # SQL queries for people and agents
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 Catabolic exposes SQLite through a noninteractive, read-only command. Agents use
 structured JSON on stdout and errors on stderr. No server or embedded agent
 runtime is required.

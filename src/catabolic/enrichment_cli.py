@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """CLI surface for curation and optional processing capabilities."""
 
 import json

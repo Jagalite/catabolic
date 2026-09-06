@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Catalog-wide vocabulary and explicit, independently attributed tag assertions."""
 
 import math

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Domain validation shared by every application entry point."""
 
 from __future__ import annotations

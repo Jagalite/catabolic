@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Explicit catalog-specific copy preferences, evaluated before layout naming."""
 
 import json

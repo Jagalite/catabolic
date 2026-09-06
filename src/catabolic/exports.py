@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Interoperable metadata exports and new, non-overwriting projection bundles."""
 
 import json

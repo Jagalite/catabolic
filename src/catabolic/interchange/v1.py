@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Open Catalog's Catabolic manifest v1 profile.
 
 Field types and annotations generate the normative structural schema and field

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Manifest v3 records the output mode and regular-file ownership separately."""
 
 from typing import Literal

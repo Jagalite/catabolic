@@ -1,5 +1,10 @@
 # GraphQL querying
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 `catabolic graphql` executes read-only GraphQL documents locally against one
 SQLite snapshot. It returns JSON for agents and scripts without requiring a
 server, network port, or service process. SQL remains available through `query`

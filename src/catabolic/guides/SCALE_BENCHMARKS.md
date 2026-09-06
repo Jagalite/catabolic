@@ -1,5 +1,10 @@
 # Higher-cardinality benchmarks
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 Run the retained synthetic benchmark from an installed development checkout:
 
 ```sh

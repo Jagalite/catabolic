@@ -1,3 +1,6 @@
+-- SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+-- SPDX-License-Identifier: MIT
+
 -- Frozen schema from Catabolic before numbered migrations. Do not regenerate.
 CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE profiles(id TEXT PRIMARY KEY);

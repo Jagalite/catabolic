@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Numbered, checked migrations with a verified backup and a rehearsal."""
 
 from __future__ import annotations

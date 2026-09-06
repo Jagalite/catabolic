@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Bounded, read-only SQL for humans and command-line agents."""
 
 from __future__ import annotations

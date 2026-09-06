@@ -1,16 +1,21 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Explicit, bounded import adapters using official application CLIs."""
 
 import os
 import shutil
-import stat
-import subprocess
 import tempfile
 from collections import defaultdict
 from pathlib import Path
+from uuid import uuid4
 
+from .curation import occurrence
 from .domain import CatabolicError
 from .exports import http_base
-from .filesystem import open_directory, parent_handle, root_handle, source_stat
+from .filesystem import open_directory
+from .process_runner import CommandFailure, command_output
+from .source_access import validated_source
 
 
 def import_catalog(
@@ -58,21 +63,15 @@ def import_catalog(
     actions = []
     for decision in decisions.values():
         file, item = decision["file"], decision["item"]
-        with root_handle(app.binding("source", file["location"])) as root:
-            status = source_stat(root, file["path"])
-        if (
-            file["status"] != "present"
-            or str(status.st_size) != file["size"]
-            or str(status.st_mtime_ns) != file["mtime_ns"]
-        ):
-            raise CatabolicError(
-                "import source changed or is unobserved; rescan before importing"
-            )
+        snapshot = import_source(app, file)
+        with validated_source(snapshot) as fd:
+            snapshot["ctime_ns"] = os.fstat(fd).st_ctime_ns
+        decision["snapshot"] = snapshot
         actions.append(
             {
                 "file_id": file["id"],
                 "item_id": item["id"],
-                "source": file["source_path"],
+                "source": str(Path(snapshot["root"]) / snapshot["path"]),
                 "size": file["size"],
             }
         )
@@ -86,6 +85,8 @@ def import_catalog(
         "completed": [],
         "complete": True,
         "copies_media": True,
+        "outcome": "not_started",
+        "attempts": [],
     }
     groups = defaultdict(list)
     for decision in decisions.values():
@@ -115,6 +116,16 @@ def import_catalog(
     # Stage one logical book or photo at a time. External tools see private copies.
     for group in groups.values():
         item = group[0]["item"]
+        attempt = {
+            "id": str(uuid4()),
+            "file_ids": [value["file"]["id"] for value in group],
+            "outcome": "failed_before_launch",
+        }
+        result["attempts"].append(attempt)
+
+        def launched(attempt=attempt):
+            attempt["outcome"] = "external_outcome_unknown"
+
         try:
             with tempfile.TemporaryDirectory(prefix="catabolic-import-") as temporary:
                 for decision in group:
@@ -122,7 +133,7 @@ def import_catalog(
                     stage = Path(temporary) / (
                         "asset" + Path(file["path"]).suffix.lower()
                     )
-                    stage_file(app, file, stage)
+                    stage_file(app, file, stage, snapshot=decision["snapshot"])
                 if target == "immich":
                     argv = [program, "upload", "--no-progress", str(stage)]
                 else:
@@ -141,52 +152,54 @@ def import_catalog(
                     if item["metadata"].get("author"):
                         argv.append("--authors=" + str(item["metadata"]["author"]))
                     argv.append(temporary)
-                process = subprocess.run(
+                command_output(
                     argv,
                     env=env,
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
                     timeout=timeout,
-                    check=False,
+                    maximum=8 * 1024 * 1024,
+                    capture=False,
+                    on_start=launched,
                 )
-                if process.returncode:
-                    raise CatabolicError(
-                        f"{executable} exited with status {process.returncode}"
-                    )
+                attempt["outcome"] = "completed"
                 result["completed"].extend(value["file"]["id"] for value in group)
-        except (OSError, CatabolicError, subprocess.TimeoutExpired) as exc:
+        except (OSError, CatabolicError, CommandFailure, KeyboardInterrupt) as exc:
             result.update(
                 complete=False,
-                applied=bool(result["completed"]),
+                applied=True
+                if result["completed"]
+                else (
+                    None if attempt["outcome"] == "external_outcome_unknown" else False
+                ),
+                outcome=attempt["outcome"],
+                safe_to_retry=attempt["outcome"] == "failed_before_launch"
+                and not result["completed"],
+                interrupted=isinstance(exc, KeyboardInterrupt),
                 failed_files=[value["file"]["id"] for value in group],
-                error=str(exc),
+                error="import interrupted; inspect the destination before retrying"
+                if isinstance(exc, KeyboardInterrupt)
+                else str(exc),
             )
             return result
+    result["outcome"] = "completed"
     result["applied"] = True
     return result
 
 
-def stage_file(app, file, stage):
-    with root_handle(app.binding("source", file["location"])) as root:
-        with parent_handle(root, file["path"]) as (parent, leaf):
-            fd = os.open(
-                leaf, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent
-            )
-            with os.fdopen(fd, "rb") as source:
-                before = os.fstat(source.fileno())
-                if (
-                    not stat.S_ISREG(before.st_mode)
-                    or str(before.st_size) != file["size"]
-                    or str(before.st_mtime_ns) != file["mtime_ns"]
-                ):
-                    raise CatabolicError("import source changed after preview")
-                with stage.open("xb") as output:
-                    shutil.copyfileobj(source, output)
-                after = os.fstat(source.fileno())
-                if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
-                    after.st_size,
-                    after.st_mtime_ns,
-                    after.st_ctime_ns,
-                ):
-                    raise CatabolicError("import source changed while staging")
+def import_source(app, file):
+    """Portable manifest fields must agree with the local recorded occurrence."""
+    snapshot = occurrence(app.store, app.profile, file["id"])
+    if any(
+        str(snapshot.get(key)) != str(file.get(key))
+        for key in ("location", "path", "status", "size", "mtime_ns")
+    ):
+        raise CatabolicError(
+            "import source changed or disagrees with inventory; rescan before importing"
+        )
+    return snapshot
+
+
+def stage_file(app, file, stage, *, snapshot=None):
+    snapshot = snapshot if snapshot is not None else import_source(app, file)
+    with validated_source(snapshot) as fd:
+        with os.fdopen(os.dup(fd), "rb") as source, stage.open("xb") as output:
+            shutil.copyfileobj(source, output)

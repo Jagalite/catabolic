@@ -1,5 +1,10 @@
 # Query-driven symlink folders
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 A layout can save a SQL or GraphQL selection. The query decides membership; the
 layout names the selected files; a catalog binding chooses the output folder.
 This supports folders such as recent films, a reading list, an artist's recordings,

@@ -1,5 +1,10 @@
 # Catabolic
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 Catabolic is an independent Python application for media inventory and symlink or hardlink
 catalogs. Its application core owns catalog decisions, SQLite state, source scans,
 and recoverable link synchronization. The CLI is an adapter over that core.
@@ -430,10 +435,11 @@ atomic compare-and-delete primitive: simultaneous external renames or writes to
 the output tree are outside the supported concurrency model. This is not a sandbox
 against a malicious process running as the same user.
 
-Scanning currently buffers one location's metadata in memory. Synchronization
-preflights the full selected scope, then revalidates the affected source and
-destination before each mutation. Larger-library performance has not been
-characterized. Tests cover process interruption; power-loss durability on
+Scanning stages inventory in disposable SQLite storage with 500-row Python
+buffers. Synchronization preflights the full selected scope, then revalidates the
+affected source and destination before each mutation. Synthetic scale benchmarks
+and representative-media acceptance are available; results depend on storage and
+workload. Tests cover process interruption; power-loss durability on
 every supported filesystem has not been established. Keep source and output paths
 in the same relative relationship in Plex's filesystem namespace.
 
@@ -501,3 +507,12 @@ hardware-dependent wall-clock thresholds.
 for 10k/100k/1m database fixtures and 10k/100k real synthetic file/link trees. It
 records peak RSS, existing application limits, repeat/change behavior, and crash
 recovery separately from fixture-generation costs.
+
+## License
+
+Catabolic's code and documentation are licensed under [MIT](LICENSE), copyright
+2026 The Catabolic Contributors. Files carry SPDX notices; JSON, existing SQL
+migrations, and frozen specification artifacts use adjacent `.license` files so
+that their content and checksums stay intact. Keep these files together when
+redistributing them. Dependencies retain their own licenses, and external media
+and provider data remain subject to their respective rights and terms.

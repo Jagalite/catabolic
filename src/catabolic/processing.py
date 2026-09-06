@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Read-only file processing with bounded subprocesses and durable CLI jobs."""
 
 import errno
@@ -5,11 +8,7 @@ import hashlib
 import json
 import os
 import re
-import selectors
 import shutil
-import signal
-import stat
-import subprocess
 import threading
 import time
 from collections import OrderedDict, deque
@@ -21,7 +20,9 @@ from uuid import uuid4
 
 from .curation import bounded_rows, occurrence, page_limit, payload_object
 from .domain import CatabolicError
-from .filesystem import parent_handle, root_handle
+from .process_runner import CommandFailure as ProcessingFailure
+from .process_runner import command_output as command_output
+from .source_access import validated_source as validated_source
 from .store import encode
 
 OPERATIONS = ("sniff", "hash", "verify", "probe", "text", "decode")
@@ -38,60 +39,6 @@ TERMINAL = (
 
 
 @contextmanager
-def validated_source(snapshot):
-    if snapshot.get("status") != "present" or not snapshot.get("root"):
-        raise CatabolicError(
-            "source is not recorded present; scan the mounted source first"
-        )
-    binding = {
-        "root": snapshot["root"],
-        "device": snapshot["root_device"],
-        "inode": snapshot["root_inode"],
-    }
-    with root_handle(binding) as root:
-        with parent_handle(root, snapshot["path"]) as (parent, leaf):
-            fd = os.open(
-                leaf, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent
-            )
-            try:
-                before = os.fstat(fd)
-                if (
-                    not stat.S_ISREG(before.st_mode)
-                    or any(
-                        getattr(before, "st_" + k) != snapshot[k]
-                        for k in ("size", "mtime_ns", "inode")
-                        if k != "inode"
-                    )
-                    or before.st_ino != snapshot["inode"]
-                    or before.st_dev != snapshot["device"]
-                ):
-                    raise CatabolicError(
-                        "source changed since scan; rescan before processing"
-                    )
-                if (
-                    "ctime_ns" in snapshot
-                    and before.st_ctime_ns != snapshot["ctime_ns"]
-                ):
-                    raise CatabolicError("source revision changed; enqueue a new job")
-                yield fd
-                after = os.fstat(fd)
-                named = os.stat(leaf, dir_fd=parent, follow_symlinks=False)
-                keys = ("st_size", "st_mtime_ns", "st_ctime_ns", "st_dev", "st_ino")
-                if any(
-                    getattr(before, k) != getattr(after, k)
-                    or getattr(before, k) != getattr(named, k)
-                    for k in keys
-                ):
-                    raise CatabolicError(
-                        "source changed during processing; result discarded"
-                    )
-                with root_handle(binding):
-                    pass
-            finally:
-                os.close(fd)
-
-
-@contextmanager
 def worker_pool(workers, cancel):
     pool = ThreadPoolExecutor(max_workers=workers)
     try:
@@ -101,72 +48,6 @@ def worker_pool(workers, cancel):
         raise
     finally:
         pool.shutdown(wait=True, cancel_futures=True)
-
-
-class ProcessingFailure(Exception):
-    def __init__(self, state, message):
-        self.state = state
-        super().__init__(message)
-
-
-def command_output(
-    argv, *, pass_fds=(), timeout=20, maximum=2 * 1024 * 1024, cancel=None
-):
-    """Drain both pipes with a shared cap; kill the process group on every failure."""
-    proc = subprocess.Popen(
-        argv,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        pass_fds=pass_fds,
-        start_new_session=True,
-    )
-    buffers = {"stdout": bytearray(), "stderr": bytearray()}
-    deadline = time.monotonic() + timeout
-    try:
-        with selectors.DefaultSelector() as selector:
-            for label, pipe in (("stdout", proc.stdout), ("stderr", proc.stderr)):
-                os.set_blocking(pipe.fileno(), False)
-                selector.register(pipe, selectors.EVENT_READ, label)
-            total = 0
-            while selector.get_map() or proc.poll() is None:
-                if cancel is not None and cancel.is_set():
-                    raise ProcessingFailure("cancelled", "processing cancelled")
-                if time.monotonic() >= deadline:
-                    raise ProcessingFailure(
-                        "timeout", "extractor exceeded the elapsed-time limit"
-                    )
-                for key, _ in selector.select(
-                    min(0.05, max(0, deadline - time.monotonic()))
-                ):
-                    data = os.read(key.fd, 65536)
-                    if not data:
-                        selector.unregister(key.fileobj)
-                        continue
-                    total += len(data)
-                    if total > maximum:
-                        raise ProcessingFailure(
-                            "partial", "extractor output exceeded the byte limit"
-                        )
-                    buffers[key.data].extend(data)
-            code = proc.wait()
-            if code:
-                # Tool output can include paths or arbitrary source metadata. Bound it.
-                raise ProcessingFailure(
-                    "failed",
-                    f"extractor exit {code}: "
-                    + buffers["stderr"].decode("utf-8", "replace")[:1000],
-                )
-            return bytes(buffers["stdout"])
-    finally:
-        if proc.poll() is None:
-            try:
-                os.killpg(proc.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        proc.wait()
-        proc.stdout.close()
-        proc.stderr.close()
 
 
 @lru_cache(maxsize=16)

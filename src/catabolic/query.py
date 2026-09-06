@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Read-only catalog queries. Availability is recorded evidence, not a live probe."""
 
 from __future__ import annotations

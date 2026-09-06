@@ -1,5 +1,8 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,6 +12,8 @@ description = "Media inventory and recoverable symbolic-link catalogs"
 requires-python = ">=3.11"
 dependencies = ["graphql-core==3.2.12", "pydantic==2.13.5"]
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Operating System :: MacOS",
@@ -26,7 +31,7 @@ catabolic = "catabolic.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-catabolic = ["migrations/*.sql", "interchange/releases/*.json", "interchange/releases/*.md", "guides/*.md"]
+catabolic = ["migrations/*.sql", "migrations/*.license", "interchange/releases/*.json", "interchange/releases/*.md", "interchange/releases/*.license", "guides/*.md"]
 
 [tool.ruff]
 target-version = "py311"

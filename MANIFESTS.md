@@ -1,5 +1,10 @@
 # Catalog manifests
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 `catabolic manifest` exports additional catalog information as versioned JSON.
 It can write to stdout, a separate metadata file, or a reserved metadata file
 inside a generated symlink folder. It works with explicit mappings, layouts,

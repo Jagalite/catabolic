@@ -1,5 +1,10 @@
 # Media beyond movies and TV
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 Schema 3 separates four concepts: inventoried files, identified content items,
 relationships between items, and catalog destinations. The same scanning,
 read-only SQL, recoverable synchronization, and verification work across media

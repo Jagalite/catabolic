@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Read-only experiment: change graph loading, retain the actual layout planner.
 
 The batch loader intentionally supports only this fixture's one-hop outgoing

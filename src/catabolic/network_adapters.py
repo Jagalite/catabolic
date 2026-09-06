@@ -1,40 +1,75 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Small explicit HTTP adapters; credentials never enter catalog records."""
 
+import base64
 import json
+import math
 import os
 import re
-import urllib.error
+import sys
 import urllib.parse
-import urllib.request
 from datetime import datetime, timezone
 
 from .curation import Curation, bounded_text, page_limit
 from .domain import CatabolicError
+from .process_runner import CommandFailure, command_output
 from .store import encode
 
 
-class NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
+def request(url, *, headers=None, method="GET", maximum=1024 * 1024, timeout=15):
+    """Bound the whole request, including DNS, TLS, headers and a slow body."""
+    if (
+        type(timeout) not in (int, float)
+        or not math.isfinite(timeout)
+        or not 0 < timeout <= 60
+    ):
         raise CatabolicError(
-            "redirect refused; configure the final endpoint explicitly"
+            "HTTP timeout must be greater than zero and at most 60 seconds"
         )
-
-
-def request(url, *, headers=None, method="GET", maximum=1024 * 1024):
-    req = urllib.request.Request(url, headers=headers or {}, method=method)
-    opener = urllib.request.build_opener(NoRedirect, urllib.request.ProxyHandler({}))
-    try:
-        with opener.open(req, timeout=15) as response:
-            raw = response.read(maximum + 1)
-            if len(raw) > maximum:
-                raise CatabolicError("HTTP response exceeds byte limit")
-            return raw
-    except urllib.error.HTTPError as exc:
-        raise CatabolicError(f"HTTP request failed with status {exc.code}") from None
-    except (urllib.error.URLError, TimeoutError, OSError):
+    if type(maximum) is not int or not 0 <= maximum <= 8 * 1024 * 1024:
+        raise CatabolicError("HTTP response limit must be 0..8 MiB")
+    parsed = urllib.parse.urlsplit(url)
+    if (
+        parsed.scheme not in ("http", "https")
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+    ):
         raise CatabolicError(
-            "HTTP request failed; check endpoint, credentials and network"
-        ) from None
+            "HTTP endpoint must use HTTP(S) without embedded credentials"
+        )
+    payload = encode(
+        {
+            "url": url,
+            "headers": headers or {},
+            "method": method,
+            "maximum": maximum,
+            "timeout": timeout,
+        }
+    ).encode()
+    if len(payload) > 256 * 1024:
+        raise CatabolicError("HTTP request exceeds input limit")
+    try:
+        raw = command_output(
+            [sys.executable, "-m", "catabolic.http_worker"],
+            input_bytes=payload,
+            timeout=timeout,
+            maximum=2 * maximum + 4096,
+        )
+        result = json.loads(raw)
+        if "error" in result:
+            raise CatabolicError(result["error"])
+        return base64.b64decode(result["body"], validate=True)
+    except CommandFailure as exc:
+        if exc.state == "timeout":
+            raise CatabolicError(
+                "HTTP request exceeded the elapsed-time limit"
+            ) from None
+        raise CatabolicError("HTTP worker failed; check endpoint and network") from None
+    except (OSError, ValueError, KeyError, TypeError):
+        raise CatabolicError("HTTP worker failed; check endpoint and network") from None
 
 
 def token(environment):

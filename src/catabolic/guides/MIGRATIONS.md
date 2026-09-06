@@ -1,5 +1,10 @@
 # Database migrations
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 Catabolic uses ordered SQL files and one Python runner. Users can skip application
 releases: upgrading schema 1 to schema 7 applies migrations 2 through 7 in order.
 There is no separate script for every possible pair of versions. The shipped

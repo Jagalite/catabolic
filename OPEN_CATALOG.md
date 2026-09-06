@@ -1,5 +1,10 @@
 # Open Catalog contract
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 Catabolic has a code-defined interchange contract: `catabolic.catalog-manifest`.
 Current exports use format version **3**, adding explicit output modes and
 hardlink/retention ownership to the tagging introduced in v2. Versions 1 and 2

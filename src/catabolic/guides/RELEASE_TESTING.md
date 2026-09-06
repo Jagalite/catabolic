@@ -1,5 +1,10 @@
 # Release verification
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 Catabolic has three complementary test layers. A passing unit suite does not
 substitute for installed-package, storage, or consumer acceptance.
 
@@ -29,9 +34,13 @@ The harness imports no Catabolic implementation modules and uses the installed
 entry point from outside the checkout. FFmpeg and ffprobe must be on PATH.
 
 ```sh
-python -m pip wheel --no-deps --wheel-dir dist .
+python -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock
+python -m pip wheel --no-deps --no-build-isolation --wheel-dir dist .
 python -m venv /tmp/catabolic-release-env
-/tmp/catabolic-release-env/bin/python -m pip install dist/catabolic-*.whl
+/tmp/catabolic-release-env/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock
+/tmp/catabolic-release-env/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements/runtime.lock
+/tmp/catabolic-release-env/bin/python -m pip install --no-deps dist/catabolic-*.whl
+/tmp/catabolic-release-env/bin/python -m pip check
 python scripts/acceptance.py --cli /tmp/catabolic-release-env/bin/catabolic
 ```
 
@@ -94,6 +103,19 @@ This verifies one Jellyfin version's scanner and static playback behavior. It do
 not certify Plex, other Jellyfin versions, client rendering, transcoding, or NAS.
 
 ## CI gate
+
+Release dependencies are pinned in `requirements/{build,runtime,dev}.lock` with
+PyPI wheel hashes across platforms. CI installs those locks with hash enforcement
+and installs Catabolic separately without dependency resolution. The build backend
+and GitHub Actions are pinned as well. Update the pins and hashes together, run
+`pip check`, and repeat packaged acceptance when changing them. Runtime pins cover
+Python dependencies; they do not freeze the operating system or FFmpeg.
+
+`python scripts/audit_dependencies.py --report dependency-audit.json` checks the
+public package names and versions in these locks against OSV. Advisories or an
+unavailable/malformed response fail the check; an unavailable service does not
+count as a clean audit. CI requires this check. The checked build environment uses
+pip 26.2, which includes the fix for CVE-2026-13346.
 
 `.github/workflows/ci.yml` runs the regression suite on Linux/macOS and Python
 3.11/3.14. A separate job builds one wheel used by the installed CLI, storage and

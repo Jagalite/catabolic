@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Deterministic fake media. Every path is created beneath a fresh fixture root."""
 
 from __future__ import annotations

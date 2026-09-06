@@ -1,5 +1,10 @@
 # Catabolic design
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 Status: the explicit-identification core and CLI are implemented in Python.
 Schema 6 adds persisted proposal review and optional enrichment jobs; see
 [ENRICHMENT.md](ENRICHMENT.md) for current processing and integration boundaries.

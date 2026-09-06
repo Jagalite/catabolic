@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Versioned persistence. Opening a database never initializes or migrates it."""
 
 from __future__ import annotations
@@ -16,6 +19,10 @@ from .migration import (
     validate_database,
 )
 
+# Reviewed recovery adapters exist for these schemas. New journal versions must
+# be admitted explicitly, with compatibility tests, rather than by a numeric range.
+RECOVERABLE_SCHEMAS = frozenset({1, 2, 3, 4, 5, 6, 7})
+
 
 class Store:
     def __init__(
@@ -32,10 +39,7 @@ class Store:
                 self.db.execute("BEGIN")
             version = self.db.execute("PRAGMA user_version").fetchone()[0]
             self.schema_version = version
-            # Schemas 2 through 4 use the original symlink journal without
-            # changing link-journal semantics. Revisit this allowlist if the
-            # reconciliation model changes.
-            legacy_recovery = for_recovery and 1 <= version < SCHEMA_VERSION
+            legacy_recovery = for_recovery and version in RECOVERABLE_SCHEMAS
             if version != SCHEMA_VERSION and not legacy_recovery:
                 if 1 <= version < SCHEMA_VERSION:
                     raise CatabolicError(

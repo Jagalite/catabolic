@@ -1,5 +1,10 @@
 # Tags and curation
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 Tags are catalog-wide data, independent of media kind, machine profile and output
 folder. They apply explicitly to logical items or inventoried files. Tagging does
 not modify source filenames, embedded media tags, sidecars or symlinks. Layout

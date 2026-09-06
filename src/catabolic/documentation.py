@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Offline guides shipped with the CLI; no database or checkout is required."""
 
 from importlib.resources import files

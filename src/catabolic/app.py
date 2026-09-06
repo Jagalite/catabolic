@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Application use cases, independent of terminal parsing and presentation."""
 
 from __future__ import annotations

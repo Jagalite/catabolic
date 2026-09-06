@@ -1,5 +1,10 @@
 # Hardlink outputs
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 Catalogs default to symlinks. Hardlinks are an explicit, catalog-wide option;
 profiles may bind that catalog to different roots but share its link mode.
 Naming presets and SQL/GraphQL selections work with either mode.

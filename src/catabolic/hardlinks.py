@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Hardlink reconciliation: regular-file ownership and non-destructive retirement.
 
 Regular media files are never unlinked or overwritten here. Retirement uses an

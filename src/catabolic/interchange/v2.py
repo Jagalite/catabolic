@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Manifest v2 adds explicit tag vocabulary and attributed item/file assertions."""
 
 from typing import Annotated, Literal

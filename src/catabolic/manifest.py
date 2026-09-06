@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Versioned metadata snapshots and guarded atomic manifest publication."""
 
 import hashlib

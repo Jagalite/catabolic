@@ -1,5 +1,10 @@
 # Catabolic native layout v1
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 The `catabolic` preset defines the `catabolic.native` output layout, version 1.
 It applies to every supported media kind and file role, including custom values.
 Ordinary filesystem symlinks point to source files; generating this output never

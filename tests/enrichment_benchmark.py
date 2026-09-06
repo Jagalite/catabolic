@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Bounded real-file scan/probe measurements; never accepts an existing fixture root."""
 
 import argparse

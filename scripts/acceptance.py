@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Exercise an installed Catabolic CLI with generated, independently specified media.
 
 Requires ffmpeg/ffprobe. Uses a NEW disposable root, never an existing library.

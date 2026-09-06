@@ -1,5 +1,10 @@
 # Media enrichment, curation and processing
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 Schema 6 adds optional processing and curation workflows. Inventory and queries
 remain usable without FFmpeg, credentials, a daemon, or source metadata writes.
 Current commands require schema 7. Older databases require `db upgrade --dry-run` followed by `db upgrade`.
@@ -295,7 +300,11 @@ refresh event. Recovery preserves the marker. Unchanged subsequent syncs do not
 queue duplicate events. `refresh run` sends the HTTP request explicitly, independently
 of link operations, with up to three attempts before explicit retry. Delivery is
 at least once: a crash after the remote server accepts a request may cause a repeat.
-Redirects are refused and errors omit credential values. The adapter is tested
+Requests have a 15-second overall deadline, including worker startup, DNS, TLS,
+headers and response consumption. A supervised private process makes stalled
+network calls cancellable; credentials travel over stdin, not command arguments.
+The response byte cap remains in force. Redirects are refused and errors omit
+credential values. The adapter is tested
 against the protocol contract; live application/version certification is separate.
 
 ## Storage and scale boundaries

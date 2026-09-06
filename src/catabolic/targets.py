@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Versioned application output profiles and documented compatibility scope."""
 
 from copy import deepcopy

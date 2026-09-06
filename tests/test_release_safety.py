@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Policy boundaries and live filesystem changes against disposable catalogs."""
 
 import errno

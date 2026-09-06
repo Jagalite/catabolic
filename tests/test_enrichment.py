@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """New catalog workflows against disposable sources, real tools and crash fixtures."""
 
 import hashlib

@@ -1,5 +1,10 @@
 # Schemas and offline documentation
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 The installed CLI includes its guides and examples. Reading or searching them
 requires no database, network connection, or repository checkout:
 

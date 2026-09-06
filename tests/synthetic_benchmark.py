@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Repeatable filesystem integration scenarios with optional scale measurements."""
 
 from __future__ import annotations

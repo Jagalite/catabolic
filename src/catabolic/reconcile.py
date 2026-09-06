@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Live reconciliation and durable recovery of filesystem operations."""
 
 from __future__ import annotations

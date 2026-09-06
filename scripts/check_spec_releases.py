@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Reject edits/deletions of artifacts already present in a base Git commit."""
 
 import argparse

@@ -1,5 +1,10 @@
 # Catabolic parity and improvement roadmap
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 Status: roadmap accepted on 2026-09-06. Schema 6 implements the first workflows
 across these areas, including the lightweight processing pipeline.
 [ENRICHMENT.md](ENRICHMENT.md) is the authoritative implemented-command guide.

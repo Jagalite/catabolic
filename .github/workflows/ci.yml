@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 name: Tests and interchange contract
 on:
   push:
@@ -12,11 +15,11 @@ jobs:
         python: ['3.11', '3.14']
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python }}
       - name: Require real probe/decode tools
@@ -29,7 +32,11 @@ jobs:
           fi
           ffmpeg -version
           ffprobe -version
-      - run: python -m pip install '.[dev]'
+      - run: python -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock
+      - run: python -m pip install --require-hashes --only-binary=:all: -r requirements/dev.lock
+      - run: python -m pip install --no-deps --no-build-isolation .
+      - run: python -m pip check
+      - run: python scripts/audit_dependencies.py --report dependency-audit.json
       - run: python -m unittest discover -s tests -q
       - run: ruff check src tests scripts
       - run: ruff format --check src tests scripts
@@ -46,15 +53,22 @@ jobs:
               subprocess.run(['python', 'scripts/check_spec_releases.py', base], check=True)
           PY
 
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: dependency-audit-${{ matrix.os }}-${{ matrix.python }}
+          path: dependency-audit.json
+
   wheel:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.11'
-      - run: python -m pip wheel --no-deps --wheel-dir dist .
-      - uses: actions/upload-artifact@v4
+      - run: python -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock
+      - run: python -m pip wheel --no-deps --no-build-isolation --wheel-dir dist .
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-wheel
           path: dist/*.whl
@@ -70,8 +84,8 @@ jobs:
             python: '3.14'
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python }}
       - name: Install required media tools
@@ -82,14 +96,17 @@ jobs:
           else
             brew install ffmpeg
           fi
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: release-wheel
           path: dist
       - name: Install exact wheel in a clean environment
         run: |
           python -m venv "$RUNNER_TEMP/catabolic-release"
-          "$RUNNER_TEMP/catabolic-release/bin/python" -m pip install dist/*.whl
+          "$RUNNER_TEMP/catabolic-release/bin/python" -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock
+          "$RUNNER_TEMP/catabolic-release/bin/python" -m pip install --require-hashes --only-binary=:all: -r requirements/runtime.lock
+          "$RUNNER_TEMP/catabolic-release/bin/python" -m pip install --no-deps dist/*.whl
+          "$RUNNER_TEMP/catabolic-release/bin/python" -m pip check
           "$RUNNER_TEMP/catabolic-release/bin/catabolic" docs enrichment
       - name: Installed CLI and representative media
         run: python scripts/acceptance.py --cli "$RUNNER_TEMP/catabolic-release/bin/catabolic" --root "$RUNNER_TEMP/media-acceptance"
@@ -100,7 +117,7 @@ jobs:
           else
             python scripts/storage_acceptance.py --cli "$RUNNER_TEMP/catabolic-release/bin/catabolic" --report "$RUNNER_TEMP/storage-acceptance.json"
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: acceptance-${{ matrix.os }}
@@ -112,21 +129,24 @@ jobs:
     needs: wheel
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.11'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: release-wheel
           path: dist
       - run: |
           python -m venv "$RUNNER_TEMP/catabolic-consumer"
-          "$RUNNER_TEMP/catabolic-consumer/bin/python" -m pip install dist/*.whl
+          "$RUNNER_TEMP/catabolic-consumer/bin/python" -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock
+          "$RUNNER_TEMP/catabolic-consumer/bin/python" -m pip install --require-hashes --only-binary=:all: -r requirements/runtime.lock
+          "$RUNNER_TEMP/catabolic-consumer/bin/python" -m pip install --no-deps dist/*.whl
+          "$RUNNER_TEMP/catabolic-consumer/bin/python" -m pip check
       - name: Real Jellyfin scan and playback
         run: python scripts/acceptance.py --cli "$RUNNER_TEMP/catabolic-consumer/bin/catabolic" --root "$RUNNER_TEMP/jellyfin-acceptance" --jellyfin-image jellyfin/jellyfin:10.11.8
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: jellyfin-acceptance

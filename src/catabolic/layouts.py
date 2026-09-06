@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Declarative naming layouts. Applying a layout records desired mappings only."""
 
 import hashlib

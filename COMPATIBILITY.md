@@ -1,5 +1,10 @@
 # Application outputs and compatibility
 
+<!--
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+-->
+
 Catabolic exposes 20 application targets through `target list` and `target show`.
 Seventeen use versioned naming profiles; calibre, Calibre-Web and Immich use
 explicit import adapters. These are implementation-level capabilities with
@@ -155,7 +160,7 @@ Imports use only active primary associations represented by the selected catalog
 Use query folders to narrow the selection. The default cap is 1,000 source files,
 adjustable with `--limit` up to 10,000. `--timeout` bounds each external invocation
 to 1–3,600 seconds (default 300). The complete selected scope is checked against
-recorded size/mtime and safe source bindings before starting.
+recorded device/inode, size/mtime and safe source bindings before starting.
 
 calibre imports EPUB/PDF/etc. copies through `calibredb add`, grouping all formats
 of a logical item in one staging directory. Title, optional author and a scoped
@@ -194,3 +199,30 @@ Tests exercise all 17 layouts with real temporary symlinks, repeat sync, source
 preservation, profile validation, export parsing and path collisions. Import
 tests use mocked and real executable stand-ins to check staging isolation, failures and
 credential/delete-option handling. These do not replace real application scans.
+
+## Import source checks and failure outcomes
+
+Preflight and staging validate the recorded source device, inode, size and
+modification time. Staging also pins the preflight change time and revalidates the
+named file and root after copying. A replacement that preserves timestamps is
+refused. Source checks use the same implementation as processing.
+
+External import tools run in a supervised process group. Their total captured or
+discarded output is limited to 8 MiB; timeout, interruption and excessive output
+retire the group, including descendants left by an exited parent. This is lifecycle
+control, not a sandbox for an untrusted importer.
+
+JSON results include `outcome` and per-group `attempts` with IDs and file IDs:
+
+- `not_started`: preview or no eligible work.
+- `failed_before_launch`: the current group never launched an external tool.
+- `completed`: the external tool reported success.
+- `external_outcome_unknown`: a launched tool failed, timed out, or was interrupted;
+  inspect the destination before retrying. It may already contain imported data.
+
+`applied` is true when at least one group completed, false when no tool started,
+and null when the first launched group has an unknown outcome. `completed` lists
+only confirmed groups. `safe_to_retry` is false for uncertain or partially applied
+failures. Keyboard interruption returns the outcome report and exit code 130.
+Attempt IDs describe the invocation; they are not a durable import/resume journal.
+If the CLI is killed before it can return a result, inspect the external target.

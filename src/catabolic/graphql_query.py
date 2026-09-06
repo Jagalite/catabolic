@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Bounded, read-only GraphQL over the catalog's recorded state."""
 
 import json

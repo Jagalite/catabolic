@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 import copy
 import hashlib
 import json
@@ -16,6 +19,7 @@ from catabolic.exports import build_export, publish_bundle
 from catabolic.importers import import_catalog
 from catabolic.layouts import PRESETS, Layouts, validate_layout
 from catabolic.manifest import Manifest
+from catabolic.process_runner import CommandFailure
 from catabolic.reconcile import Reconciler
 from catabolic.store import Store
 from catabolic.targets import definitions, describe
@@ -284,7 +288,7 @@ class TargetTest(unittest.TestCase):
     def test_import_preflight_grouped_formats_and_source_isolation(self):
         document = self.document()
         destination = str(self.root / "calibre-library")
-        with patch("catabolic.importers.subprocess.run") as run:
+        with patch("catabolic.importers.command_output") as run:
             plan = import_catalog(self.app, document, "calibre", destination)
             self.assertEqual(len(plan["actions"]), 2)
             run.assert_not_called()
@@ -308,11 +312,12 @@ class TargetTest(unittest.TestCase):
                 self.assertNotIn("IMMICH_DELETE_ASSETS", kwargs["env"])
                 self.assertNotIn("IMMICH_DELETE_DUPLICATES", kwargs["env"])
                 stage.unlink()
-            return subprocess.CompletedProcess(argv, 0)
+            kwargs["on_start"]()
+            return b""
 
         with (
             patch("catabolic.importers.shutil.which", return_value="/fake/tool"),
-            patch("catabolic.importers.subprocess.run", side_effect=importer),
+            patch("catabolic.importers.command_output", side_effect=importer),
             patch.dict(
                 os.environ,
                 {
@@ -348,8 +353,8 @@ class TargetTest(unittest.TestCase):
         with (
             patch("catabolic.importers.shutil.which", return_value="/fake/calibredb"),
             patch(
-                "catabolic.importers.subprocess.run",
-                return_value=subprocess.CompletedProcess([], 7),
+                "catabolic.importers.command_output",
+                side_effect=CommandFailure("failed", "command exit 7"),
             ),
         ):
             result = import_catalog(

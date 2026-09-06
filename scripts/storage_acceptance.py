@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Actual separate filesystems and source unmounts, using only new temporary mounts.
 
 macOS: hdiutil disposable sparse images. Linux: run as root for private tmpfs mounts.

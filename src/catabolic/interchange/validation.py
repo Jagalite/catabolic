@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Non-mutating document validation and lossless JSON-value round trips."""
 
 import hashlib

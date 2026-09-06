@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Persisted, reviewable identification and association decisions."""
 
 import json
@@ -224,7 +227,7 @@ class Curation:
                 "proposal is stale; inventory or curation changed; submit a new proposal"
             )
         if accept:
-            from .processing import validated_source
+            from .source_access import validated_source
 
             with validated_source(before["file"]):
                 pass

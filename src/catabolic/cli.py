@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Terminal adapter. All behavior lives in application use cases."""
 
 from __future__ import annotations
@@ -1115,6 +1118,12 @@ def main(argv: list[str] | None = None) -> int:
             if args.command == "spec" and args.operation == "docs" and not args.json
             else "\n",
         )
+        if (
+            args.command == "target"
+            and args.operation == "import"
+            and result.get("interrupted") is True
+        ):
+            return 130
         if args.command == "graphql" and result.get("errors"):
             return 2
         if args.command == "spec":

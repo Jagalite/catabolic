@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Disposable disk staging: inventory size does not determine Python heap size."""
 
 import sqlite3

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """Shared connection and writer-lock rules for ordinary use and upgrades."""
 
 import fcntl

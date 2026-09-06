@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
 """POSIX directory-relative operations; never traverse a symbolic-link parent."""
 
 from __future__ import annotations
