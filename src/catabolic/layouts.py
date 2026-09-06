@@ -225,7 +225,7 @@ def validate_layout(definition):
             if (
                 not isinstance(alias, str)
                 or not re.fullmatch(r"[a-z][a-z0-9_]*", alias)
-                or alias in aliases | {"file", "association"}
+                or alias in aliases | {"file", "association", "probe"}
             ):
                 raise CatabolicError("relation aliases must be unique lowercase names")
             if (
@@ -245,7 +245,11 @@ def validate_layout(definition):
                 media_kind(selector["target_kind"])
             aliases.add(alias)
         for _, field, _, _ in _parts(rule["path"]):
-            if field and field.split(".")[0] not in aliases | {"file", "association"}:
+            if field and field.split(".")[0] not in aliases | {
+                "file",
+                "association",
+                "probe",
+            }:
                 raise CatabolicError(f"unknown template alias: {field}")
     encode(definition)  # Refuse nonfinite JSON before persisting any configuration.
     return definition
@@ -493,6 +497,15 @@ class Layouts:
             raise CatabolicError(
                 "layout planning supports at most 100000 active identifications"
             )
+        from .copy_selection import CopySelection
+
+        associations, copy_report = CopySelection(self.app).filter(
+            catalog, associations
+        )
+        if copy_report.get("blockers"):
+            raise CatabolicError(
+                "copy selection blocked: " + encode(copy_report["blockers"])
+            )
         for association, selected, context in _layout_contexts(
             self.store, associations, definition["rules"]
         ):
@@ -520,6 +533,17 @@ class Layouts:
                 )
                 if _RELATION_ERROR in context:
                     raise CatabolicError(context[_RELATION_ERROR])
+                if "{probe." in selected["path"] and "probe" not in context:
+                    from .processing import current_fact
+
+                    fact = current_fact(
+                        self.store, self.app.profile, association["file_id"]
+                    )
+                    context["probe"] = (
+                        fact["data"].get("summary", {})
+                        if fact and fact["current"]
+                        else {}
+                    )
                 destination = render_path(
                     selected["path"],
                     context,

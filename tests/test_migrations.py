@@ -320,7 +320,11 @@ class MigrationTest(unittest.TestCase):
             with self.subTest(sql=sql):
                 migrations = (
                     *load_migrations(),
-                    Migration(4, "004_bad_change.sql", sql),
+                    Migration(
+                        SCHEMA_VERSION + 1,
+                        f"{SCHEMA_VERSION + 1:03d}_bad_change.sql",
+                        sql,
+                    ),
                 )
                 with self.assertRaisesRegex(CatabolicError, "existing|preservation"):
                     upgrade_database(self.path, migrations=migrations)
@@ -330,18 +334,24 @@ class MigrationTest(unittest.TestCase):
         migrations = (
             *load_migrations(),
             Migration(
-                4, "004_add_notes.sql", "ALTER TABLE items ADD COLUMN note TEXT;"
+                SCHEMA_VERSION + 1,
+                f"{SCHEMA_VERSION + 1:03d}_add_notes.sql",
+                "ALTER TABLE items ADD COLUMN note TEXT;",
             ),
             Migration(
-                5,
-                "005_add_audit.sql",
+                SCHEMA_VERSION + 2,
+                f"{SCHEMA_VERSION + 2:03d}_add_audit.sql",
                 "CREATE TABLE audit(id INTEGER PRIMARY KEY, item_id TEXT REFERENCES items(id));",
             ),
         )
         result = upgrade_database(self.path, migrations=migrations)
-        self.assertEqual([row["version"] for row in result["applied"]], [2, 3, 4, 5])
         self.assertEqual(
-            inspect_database(self.path, migrations=migrations, full=True)["schema"], 5
+            [row["version"] for row in result["applied"]],
+            list(range(2, SCHEMA_VERSION + 3)),
+        )
+        self.assertEqual(
+            inspect_database(self.path, migrations=migrations, full=True)["schema"],
+            SCHEMA_VERSION + 2,
         )
         db = connect_database(self.path)
         try:
@@ -353,8 +363,8 @@ class MigrationTest(unittest.TestCase):
         migrations = (
             *load_migrations(),
             Migration(
-                4,
-                "004_bad_trigger.sql",
+                SCHEMA_VERSION + 1,
+                f"{SCHEMA_VERSION + 1:03d}_bad_trigger.sql",
                 """CREATE TRIGGER change_metadata AFTER INSERT ON schema_migrations
                 BEGIN UPDATE items SET metadata='{}'; END;""",
             ),
@@ -370,7 +380,12 @@ class MigrationTest(unittest.TestCase):
             "ATTACH ':memory:' AS other;",
         ):
             with self.subTest(sql=sql):
-                migrations = (*load_migrations(), Migration(4, "004_unsafe.sql", sql))
+                migrations = (
+                    *load_migrations(),
+                    Migration(
+                        SCHEMA_VERSION + 1, f"{SCHEMA_VERSION + 1:03d}_unsafe.sql", sql
+                    ),
+                )
                 with self.assertRaises(CatabolicError):
                     upgrade_database(self.path, migrations=migrations)
                 self.assert_legacy_intact()
@@ -379,8 +394,8 @@ class MigrationTest(unittest.TestCase):
         migrations = (
             *load_migrations(),
             Migration(
-                4,
-                "004_trigger.sql",
+                SCHEMA_VERSION + 1,
+                f"{SCHEMA_VERSION + 1:03d}_trigger.sql",
                 """CREATE TABLE notes(value TEXT DEFAULT 'a;b');
         CREATE TRIGGER keep_notes AFTER INSERT ON notes BEGIN SELECT 1; SELECT 2; END;
         -- trailing comment with a semicolon;
@@ -389,7 +404,8 @@ class MigrationTest(unittest.TestCase):
         )
         self.assertTrue(upgrade_database(self.path, migrations=migrations)["upgraded"])
         self.assertEqual(
-            inspect_database(self.path, migrations=migrations)["schema"], 4
+            inspect_database(self.path, migrations=migrations)["schema"],
+            SCHEMA_VERSION + 1,
         )
 
     def test_foreign_key_damage_is_rejected_before_backup(self):
@@ -539,7 +555,7 @@ migration.upgrade_database(sys.argv[1])
 import os, sys
 import catabolic.migration as migration
 steps = (*migration.load_migrations(), migration.Migration(
-    4, '004_add_notes.sql', 'ALTER TABLE items ADD COLUMN note TEXT;'))
+    migration.SCHEMA_VERSION + 1, f'{migration.SCHEMA_VERSION + 1:03d}_add_notes.sql', 'ALTER TABLE items ADD COLUMN note TEXT;'))
 def stop(stage, db, version):
     if stage == 'upgrade:after_migration' and version == 2:
         os._exit(86)
@@ -557,13 +573,19 @@ migration.upgrade_database(sys.argv[1], migrations=steps)
         steps = (
             *load_migrations(),
             Migration(
-                4, "004_add_notes.sql", "ALTER TABLE items ADD COLUMN note TEXT;"
+                SCHEMA_VERSION + 1,
+                f"{SCHEMA_VERSION + 1:03d}_add_notes.sql",
+                "ALTER TABLE items ADD COLUMN note TEXT;",
             ),
         )
         result = upgrade_database(self.path, migrations=steps)
-        self.assertEqual([row["version"] for row in result["applied"]], [2, 3, 4])
         self.assertEqual(
-            inspect_database(self.path, migrations=steps, full=True)["schema"], 4
+            [row["version"] for row in result["applied"]],
+            list(range(2, SCHEMA_VERSION + 2)),
+        )
+        self.assertEqual(
+            inspect_database(self.path, migrations=steps, full=True)["schema"],
+            SCHEMA_VERSION + 1,
         )
 
     def test_fresh_initialization_and_upgrade_have_the_same_schema(self):

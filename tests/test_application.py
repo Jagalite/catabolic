@@ -468,7 +468,7 @@ class CatalogTest(unittest.TestCase):
 
     def test_directory_change_during_scan_preserves_inventory(self):
 
-        original_listdir = os.listdir
+        original_listdir = os.scandir
         changed = False
 
         def changing_listdir(fd):
@@ -479,7 +479,7 @@ class CatalogTest(unittest.TestCase):
                 (self.source / "new.mkv").write_bytes(b"new")
             return entries
 
-        with patch("catabolic.filesystem.os.listdir", side_effect=changing_listdir):
+        with patch("catabolic.filesystem.os.scandir", side_effect=changing_listdir):
             result = self.app.scan()
         self.assertFalse(result["complete"])
         self.assertEqual(len(self.app.files()["files"]), 1)

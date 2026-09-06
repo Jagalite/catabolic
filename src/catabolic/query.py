@@ -10,6 +10,7 @@ from pathlib import PurePosixPath
 from .domain import CatabolicError, name
 from .media import RELATIONS, ROLES, media_kind, vocabulary
 from .store import Store, encode
+from .tagging import resolve_tag, tag_filters, tag_name
 
 
 def identity_pair(value: str) -> tuple[str, str]:
@@ -196,6 +197,10 @@ class CatalogQuery:
         kind=None,
         year=None,
         identity=None,
+        tags=(),
+        any_tags=(),
+        not_tags=(),
+        descendants=False,
         sort="id",
         descending=False,
         limit=100,
@@ -239,6 +244,16 @@ class CatalogQuery:
                 + ")"
             )
             values.extend(item_values)
+        tag_clauses, tag_values = tag_filters(
+            self.store.db,
+            "file",
+            tags=tags,
+            any_tags=any_tags,
+            not_tags=not_tags,
+            descendants=descendants,
+        )
+        clauses.extend(tag_clauses)
+        values.extend(tag_values)
         return self._page(
             "files",
             "f.*,o.size,o.mtime_ns,coalesce(o.status,'unknown') AS status,o.scan_id,s.finished_at AS observed_at",
@@ -266,6 +281,10 @@ class CatalogQuery:
                 kind,
                 year,
                 identity,
+                tags,
+                any_tags,
+                not_tags,
+                descendants,
             ],
         )
 
@@ -296,6 +315,10 @@ class CatalogQuery:
         identity=None,
         metadata=(),
         catalog=None,
+        tags=(),
+        any_tags=(),
+        not_tags=(),
+        descendants=False,
         sort="id",
         descending=False,
         limit=100,
@@ -310,6 +333,16 @@ class CatalogQuery:
                 "i.id IN (SELECT m.item_id FROM mappings m WHERE m.catalog=? AND m.active=1)"
             )
             values.append(catalog)
+        tag_clauses, tag_values = tag_filters(
+            self.store.db,
+            "item",
+            tags=tags,
+            any_tags=any_tags,
+            not_tags=not_tags,
+            descendants=descendants,
+        )
+        clauses.extend(tag_clauses)
+        values.extend(tag_values)
         result = self._page(
             "items",
             "i.*",
@@ -325,9 +358,132 @@ class CatalogQuery:
             descending,
             limit,
             cursor,
-            [search, kind, year, identity, list(metadata), catalog],
+            [
+                search,
+                kind,
+                year,
+                identity,
+                list(metadata),
+                catalog,
+                tags,
+                any_tags,
+                not_tags,
+                descendants,
+            ],
         )
         self._decorate_items(result["items"])
+        return result
+
+    def tags(
+        self,
+        *,
+        search=None,
+        namespace=None,
+        parent=None,
+        child=None,
+        limit=100,
+        cursor=None,
+    ):
+        clauses, values = [], []
+        if search is not None:
+            clauses.append(
+                "EXISTS (SELECT 1 FROM tag_names n WHERE n.tag_id=t.id AND contains_text(n.name,?))"
+            )
+            values.append(search)
+        if namespace is not None:
+            prefix = tag_name(namespace + ":placeholder").partition(":")[0] + ":"
+            clauses.append("substr(t.name,1,?)=?")
+            values.extend((len(prefix), prefix))
+        for reference, column, other in (
+            (parent, "child_id", "parent_id"),
+            (child, "parent_id", "child_id"),
+        ):
+            if reference is not None:
+                clauses.append(
+                    f"t.id IN (SELECT {column} FROM tag_parents WHERE {other}=?)"
+                )
+                values.append(resolve_tag(self.store.db, reference))
+        result = self._page(
+            "tags",
+            "t.*",
+            "tags t",
+            clauses,
+            values,
+            {"name": "t.name"},
+            "name",
+            False,
+            limit,
+            cursor,
+            [search, namespace, parent, child],
+        )
+        by_id = {row["id"]: row for row in result["tags"]}
+        for row in by_id.values():
+            row["aliases"], row["parent_ids"] = [], []
+        ids = list(by_id)
+        for offset in range(0, len(ids), 500):
+            batch = ids[offset : offset + 500]
+            marks = ",".join("?" for _ in batch)
+            for row in self.store.rows(
+                f"SELECT name,tag_id FROM tag_names WHERE tag_id IN ({marks}) ORDER BY name",
+                tuple(batch),
+            ):
+                if row["name"] != by_id[row["tag_id"]]["name"]:
+                    by_id[row["tag_id"]]["aliases"].append(row["name"])
+            for row in self.store.rows(
+                f"SELECT child_id,parent_id FROM tag_parents WHERE child_id IN ({marks}) ORDER BY parent_id",
+                tuple(batch),
+            ):
+                by_id[row["child_id"]]["parent_ids"].append(row["parent_id"])
+        return result
+
+    def taggings(
+        self,
+        *,
+        tag=None,
+        item=None,
+        file=None,
+        source=None,
+        active="active",
+        limit=100,
+        cursor=None,
+    ):
+        if item is not None and file is not None:
+            raise CatabolicError("choose item or file for an assignment query")
+        self._exists("items", item)
+        self._exists("files", file)
+        if active not in ("active", "disabled", "all"):
+            raise CatabolicError("active must be active, disabled, or all")
+        clauses, values = [], []
+        if tag is not None:
+            clauses.append("a.tag_id=?")
+            values.append(resolve_tag(self.store.db, tag))
+        if active != "all":
+            clauses.append("a.active=?")
+            values.append(int(active == "active"))
+        if source is not None:
+            clauses.append("a.source=?")
+            values.append(source)
+        for subject, identifier in (("item", item), ("file", file)):
+            if identifier is not None:
+                clauses.append("a.subject_type=? AND a.subject_id=?")
+                values.extend((subject, identifier))
+        source_sql = """(SELECT id,'item' AS subject_type,item_id AS subject_id,tag_id,source,confidence,note,active,created_at,updated_at FROM item_tags
+            UNION ALL SELECT id,'file',file_id,tag_id,source,confidence,note,active,created_at,updated_at FROM file_tags) a JOIN tags t ON t.id=a.tag_id"""
+        result = self._page(
+            "taggings",
+            "a.*,t.name AS tag_name",
+            source_sql,
+            clauses,
+            values,
+            {"id": "a.id"},
+            "id",
+            False,
+            limit,
+            cursor,
+            [tag, item, file, source, active],
+        )
+        for row in result["taggings"]:
+            row["active"] = bool(row["active"])
         return result
 
     def mappings(

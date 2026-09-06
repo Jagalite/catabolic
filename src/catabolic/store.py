@@ -31,10 +31,13 @@ class Store:
             if not writable:
                 self.db.execute("BEGIN")
             version = self.db.execute("PRAGMA user_version").fetchone()[0]
-            # Schemas 2 and 3 add history and identification tables without
+            self.schema_version = version
+            # Schemas 2 through 4 use the original symlink journal without
             # changing link-journal semantics. Revisit this allowlist if the
             # reconciliation model changes.
-            legacy_recovery = for_recovery and SCHEMA_VERSION == 3 and version in (1, 2)
+            legacy_recovery = (
+                for_recovery and SCHEMA_VERSION == 6 and version in (1, 2, 3, 4, 5)
+            )
             if version != SCHEMA_VERSION and not legacy_recovery:
                 if 1 <= version < SCHEMA_VERSION:
                     raise CatabolicError(

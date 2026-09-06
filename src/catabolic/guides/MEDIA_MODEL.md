@@ -163,15 +163,16 @@ ORDER BY r.position, a.association_id;
 See [QUERYING.md](QUERYING.md) for CLI parameter binding and row semantics.
 See [OUTPUT_LAYOUTS.md](OUTPUT_LAYOUTS.md) for generated paths using item/file
 metadata and relationship selectors, and [GRAPHQL.md](GRAPHQL.md) for nested queries.
-Automatic media probing, provider research, and metadata refresh remain future
-features. This release catalogs supplied identities and metadata; it does not claim
-codec decoding, artwork extraction, or consumer-specific library recognition.
+Optional probing, decoding checks, TMDB movie candidates, and reviewed metadata
+updates are available through the enrichment workflow. These preserve supplied
+curation and do not imply consumer-specific library recognition. See
+[ENRICHMENT.md](ENRICHMENT.md).
 
 ## Upgrade and preservation
 
 Run `db upgrade --dry-run`, then `db upgrade` for an existing schema-1 or schema-2
 database. The runner verifies a backup, rehearses the migration, and commits the
-whole chain atomically. New databases initialize at schema 3.
+whole chain atomically. New databases initialize at schema 6.
 
 Migration 003 adds tables and indexes. Every distinct historical file/item pair,
 including disabled mappings, becomes an active `primary` identification with
@@ -181,3 +182,10 @@ IDs, metadata, profile bindings, and owned links remain unchanged. Fresh
 associations record origin `explicit` or `mapping`. New relationships are empty
 until explicitly supplied. Link-journal recovery remains supported for schemas
 1 and 2 before upgrading.
+
+## Tagging
+
+See [TAGGING.md](TAGGING.md) (`catabolic docs tags`) for schema 4 tag tables,
+CLI commands, SQL views, GraphQL fields, boolean/descendant filters and generated
+tag-selected folders. Tags apply explicitly to items or files and are shared
+across profiles. Manifest v2 carries their vocabulary and attributed assertions.

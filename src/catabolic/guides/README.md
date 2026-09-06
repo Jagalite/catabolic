@@ -1,6 +1,6 @@
 # Catabolic
 
-Catabolic is an independent Python application for media inventory and symbolic-link
+Catabolic is an independent Python application for media inventory and symlink or hardlink
 catalogs. Its application core owns catalog decisions, SQLite state, source scans,
 and recoverable link synchronization. The CLI is an adapter over that core.
 
@@ -16,9 +16,12 @@ machine profiles, multiple catalogs, searchable and paginated catalog queries, i
 recovery, declarative output layouts, read-only SQL and GraphQL, and explicit,
 backed-up database upgrades.
 
-Automatic media research, metadata-provider integration, proposal review, scheduled
-maintenance, and migration from 4dlink are future work. Users and agents supply
-identifications; output paths can be explicit or generated from saved layouts.
+Schema 6 also adds lightweight signature inspection, optional FFmpeg probing,
+resumable processing, checksum integrity reports, persisted identification proposals,
+sidecar discovery, preferred-copy policies, completeness reports, content search,
+periodic watching, and a Jellyfin refresh adapter. See [ENRICHMENT.md](ENRICHMENT.md)
+or `catabolic docs enrichment` for commands and the implemented scope. Automatic
+identification remains an explicit review workflow; migration from 4dlink is future work.
 
 ## Install and run
 
@@ -142,6 +145,21 @@ For example:
 ```sh
 catabolic --db catalog.sqlite3 graphql '{ items(first: 10) { nodes { id title kind } pageInfo { hasNextPage endCursor } } }'
 ```
+
+## Hardlink outputs
+
+Symlinks remain the default. `catalog bind NAME --link-mode hardlink` opts a
+catalog into same-filesystem hardlinks. Cross-filesystem operations are refused;
+final-reference removal is blocked, and other retired links are retained without
+automatic deletion. Read [HARDLINKS.md](HARDLINKS.md) or `catabolic docs hardlinks`.
+
+## Tags and curation
+
+[TAGGING.md](TAGGING.md) and `catabolic docs tags` cover namespaced tags, aliases,
+acyclic parent relationships, explicit item/file tagging, provenance, bulk
+assignment, all/any/none filters, SQL/GraphQL and tag-driven output folders.
+Tagging preserves sources; generated manifest v3 exports carry the tagging data.
+Existing manifest v1 documents remain readable.
 
 ## Metadata manifests
 
@@ -295,7 +313,7 @@ profile, filters, and ordering; the page size may change. Cursors are opaque and
 do not keep a snapshot alive between commands. Restart pagination after catalog
 changes or an application upgrade. Each returned page is internally consistent.
 
-Queries use schema 3. Search and metadata filters can scan matching
+Queries use schema 6. Search and metadata filters can scan matching
 tables; there is no full-text index. Very large catalogs
 may need additional indexes or a separate search index after measurement.
 
@@ -315,7 +333,7 @@ Agents can discover the SQL interface and run parameterized queries from the CLI
 
 The documented views are `catalog_items`, `catalog_identities`, `catalog_files`,
 `catalog_entries`, `catalog_item_files`, and `catalog_relationships`. These views
-exist only on the query connection; the underlying media model requires schema 3.
+exist only on the query connection; the underlying media model requires schema 6.
 File, entry, and association views contain every profile; `:profile` is bound to
 the selected CLI profile for explicit filtering. Items and relationships are
 shared across profiles. SQLite enforces read-only execution.
@@ -366,7 +384,7 @@ change while operations are pending. Scans remain available to refresh evidence.
 ## Database upgrades
 
 Application releases and database schema versions are separate. New databases
-start at schema 3. Schema 1 and 2 databases require an explicit upgrade; ordinary
+start at schema 6. Schema 1 through 5 databases require an explicit upgrade; ordinary
 commands never migrate them automatically.
 
 ```sh

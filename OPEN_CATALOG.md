@@ -1,8 +1,9 @@
 # Open Catalog contract
 
-Catabolic now has a code-defined interchange contract. Its first profile describes
-the existing `catabolic.catalog-manifest`, format version `1`, without changing
-that document's field names or meaning. It is a project-defined catalog projection
+Catabolic has a code-defined interchange contract: `catabolic.catalog-manifest`.
+Current exports use format version **3**, adding explicit output modes and
+hardlink/retention ownership to the tagging introduced in v2. Versions 1 and 2
+remain readable, with their models and artifacts frozen unchanged. It is a project-defined catalog projection
 profile, not an independently standardized format or a complete database backup.
 
 The separate [Catabolic native layout v1](NATIVE_LAYOUT.md) specifies symlink
@@ -11,16 +12,23 @@ included in the manifest's saved layout definition. Plex and custom outputs can
 produce valid manifests without following the native naming contract.
 
 The source of truth for structural fields is
-[`src/catabolic/interchange/v1.py`](src/catabolic/interchange/v1.py).
+[`src/catabolic/interchange/v1.py`](src/catabolic/interchange/v1.py) and
+[`src/catabolic/interchange/v2.py`](src/catabolic/interchange/v2.py), and
+[`src/catabolic/interchange/v3.py`](src/catabolic/interchange/v3.py).
 Pydantic types and `label(...)` annotations supply required/nullable types,
 descriptions, examples, version introduction, and deprecation information.
 The generator emits JSON Schema Draft 2020-12 and a Markdown field reference:
 
+- [Frozen v3 JSON Schema](src/catabolic/interchange/releases/manifest-v3.schema.json)
+- [Generated v3 field reference](src/catabolic/interchange/releases/manifest-v3.md)
+- [Frozen v2 JSON Schema](src/catabolic/interchange/releases/manifest-v2.schema.json)
+- [Generated v2 field reference](src/catabolic/interchange/releases/manifest-v2.md)
 - [Frozen v1 JSON Schema](src/catabolic/interchange/releases/manifest-v1.schema.json)
 - [Generated v1 field reference](src/catabolic/interchange/releases/manifest-v1.md)
 - [Release checksums](src/catabolic/interchange/releases/index.json)
 
-The schema ID is `urn:catabolic:open-catalog:manifest:1`. No network fetch or
+Schema IDs are `urn:catabolic:open-catalog:manifest:1` and
+`urn:catabolic:open-catalog:manifest:2`, plus `urn:catabolic:open-catalog:manifest:3`. No network fetch or
 schema registry is required. Pydantic is pinned so dependency upgrades cannot
 silently alter generated artifacts. The independently implemented `jsonschema`
 validator checks real exports and compatibility fixtures in the test suite.
@@ -31,6 +39,7 @@ These commands do not require `--db` or access source files:
 
 ```sh
 catabolic spec schema
+catabolic spec schema --format-version 1
 catabolic spec docs
 catabolic spec check
 catabolic spec validate --file catalog.json
@@ -55,7 +64,10 @@ The codec validates incoming documents; it does not merge them into a database,
 copy media, restore ownership, run embedded SQL/GraphQL, or create symlinks.
 Database import/merge semantics need a separate reviewed design. A manifest
 contains one active projection and outgoing related items; it omits unmapped
-media, disabled decisions, full scan history, journals, and other catalogs.
+media, disabled mappings/relationships, full scan history, journals, and other catalogs.
+Version 2 does retain withdrawn tag assertions on included subjects. Its tagging
+collections include the ancestor vocabulary closure and aliases; see
+[TAGGING.md](TAGGING.md). It does not implicitly downgrade to v1 or discard tags.
 
 ## Semantic requirements beyond JSON Schema
 
@@ -138,8 +150,11 @@ For the next format version:
 
 No generator overwrites released files automatically. `spec schema` and `spec docs`
 write stdout so a candidate can be reviewed before it becomes a release artifact.
-The existing v1 profile is the starting contract; broader interchange and database
+The frozen v1, v2 and v3 profiles are the current contracts; broader interchange and database
 merge guarantees should be added only with their own semantics and tests.
 
 Implementation references: [Pydantic models](https://pydantic.dev/docs/validation/latest/concepts/models/)
 and [JSON Schema generation](https://github.com/pydantic/pydantic/blob/main/docs/concepts/json_schema.md).
+
+Manifest v3 encodes the output mechanism and separates hardlink ownership from
+symlink targets; [HARDLINKS.md](HARDLINKS.md) defines those semantics.

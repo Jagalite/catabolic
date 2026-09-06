@@ -61,7 +61,7 @@ through `catabolic layout presets`. Its identifying field is:
 ```
 
 The profile version identifies naming semantics. The definition's top-level
-`version: 1` identifies the layout language; the manifest's `format_version: 1`
+`version: 1` identifies the layout language; the manifest's `format_version: 3`
 identifies the separate Open Catalog metadata contract. These versions evolve
 independently. Native v1 rules must remain fixed; changes require a new profile
 version and an explicit saved-layout update, preview, apply and synchronization.
@@ -104,3 +104,6 @@ updating and syncing a changed catalog. A directory without a manifest is still
 a native symlink projection, but consumers will lack its rich metadata. See
 [MANIFESTS.md](MANIFESTS.md) and [OPEN_CATALOG.md](OPEN_CATALOG.md) for export and
 validation semantics. No per-item metadata files are emitted in v1.
+
+The native naming layout also works with hardlink catalogs. Link mechanism is
+configured separately with `catalog bind --link-mode`; see [HARDLINKS.md](HARDLINKS.md).

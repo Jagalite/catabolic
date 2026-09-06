@@ -13,7 +13,7 @@ from uuid import uuid4
 from . import __version__
 from .domain import CatabolicError
 from .filesystem import DIRECTORY_FLAGS, open_directory, owner_state, root_handle
-from .interchange.v1 import FORMAT, VERSION
+from .interchange.v3 import FORMAT, VERSION
 from .interchange.validation import validate_document
 from .layouts import Layouts
 from .migration import SCHEMA_VERSION
@@ -61,6 +61,7 @@ class Manifest:
         if extra is not None:
             encode(extra)
         Reconciler(self.app).catalogs(catalog)
+        link_mode = self.app.link_mode(catalog)
         mappings = bounded(
             self.store.rows(
                 "SELECT * FROM mappings WHERE catalog=? AND active=1 ORDER BY path,id LIMIT ?",
@@ -166,7 +167,7 @@ class Manifest:
             )
             expected = (
                 os.path.relpath(source, str(PurePosixPath(output).parent))
-                if source and output
+                if source and output and link_mode == "symlink"
                 else None
             )
             entries.append(
@@ -192,7 +193,11 @@ class Manifest:
             "database_id": self.store.database_id,
             "database_schema": SCHEMA_VERSION,
             "profile": self.app.profile,
-            "catalog": {"id": catalog, "output_root": output_root},
+            "catalog": {
+                "id": catalog,
+                "output_root": output_root,
+                "link_mode": link_mode,
+            },
             "state": "desired_catalog",
             "filesystem_verified": False,
             "layout": layout,
@@ -204,6 +209,85 @@ class Manifest:
             "recorded_links": records,
             "extra": extra if extra is not None else {},
         }
+        # Preserve provenance even for withdrawn assignments on included entities.
+        taggings = []
+        for subject, included in (("item", items), ("file", files)):
+            for batch in batches(included):
+                marks = ",".join("?" for _ in batch)
+                rows = self.store.rows(
+                    f"SELECT * FROM {subject}_tags WHERE {subject}_id IN ({marks}) ORDER BY id LIMIT ?",
+                    (*batch, MAX_RECORDS + 1),
+                )
+                for row in rows:
+                    row["subject_type"] = subject
+                    row["subject_id"] = row.pop(subject + "_id")
+                    row["active"] = bool(row["active"])
+                taggings.extend(rows)
+                bounded(taggings, "taggings")
+        tags, names, parents = {}, [], []
+        frontier = {row["tag_id"] for row in taggings}
+        while frontier:
+            bounded(set(tags) | frontier, "tag closure")
+            next_ids = set()
+            for batch in batches(frontier):
+                marks = ",".join("?" for _ in batch)
+                tags.update(
+                    (row["id"], row)
+                    for row in self.store.rows(
+                        f"SELECT * FROM tags WHERE id IN ({marks})", tuple(batch)
+                    )
+                )
+                names.extend(
+                    self.store.rows(
+                        f"SELECT * FROM tag_names WHERE tag_id IN ({marks}) LIMIT ?",
+                        (*batch, MAX_RECORDS + 1),
+                    )
+                )
+                edges = self.store.rows(
+                    f"SELECT * FROM tag_parents WHERE child_id IN ({marks}) LIMIT ?",
+                    (*batch, MAX_RECORDS + 1),
+                )
+                parents.extend(edges)
+                next_ids.update(row["parent_id"] for row in edges)
+                bounded(names, "tag names")
+                bounded(parents, "tag parents")
+            frontier = next_ids - tags.keys()
+        content.update(
+            tags=[tags[key] for key in sorted(tags)],
+            tag_names=sorted(names, key=lambda r: r["name"]),
+            tag_parents=sorted(parents, key=lambda r: (r["child_id"], r["parent_id"])),
+            taggings=sorted(taggings, key=lambda r: r["id"]),
+        )
+        for table, key in (
+            ("owned_hardlinks", "hardlinks"),
+            ("retained_hardlinks", "retained_hardlinks"),
+        ):
+            records = bounded(
+                self.store.rows(
+                    f"SELECT * FROM {table} WHERE profile=? AND catalog=? ORDER BY path LIMIT ?",
+                    (self.app.profile, catalog, MAX_RECORDS + 1),
+                ),
+                key,
+            )
+            content[key] = []
+            for record in records:
+                target = json.loads(record["target"])
+                entry = {
+                    "path": record["path"],
+                    **{
+                        key: target[key]
+                        for key in ("file_id", "location", "source_path")
+                    },
+                    **{key: str(target[key]) for key in ("device", "inode")},
+                }
+                if table == "retained_hardlinks":
+                    entry.update(
+                        {
+                            key: record[key]
+                            for key in ("id", "original_path", "retained_at")
+                        }
+                    )
+                content[key].append(entry)
         content["counts"] = {
             key: len(content[key])
             for key in (
@@ -213,6 +297,12 @@ class Manifest:
                 "associations",
                 "relationships",
                 "recorded_links",
+                "tags",
+                "tag_names",
+                "tag_parents",
+                "taggings",
+                "hardlinks",
+                "retained_hardlinks",
             )
         }
         result = {
@@ -378,13 +468,15 @@ class Manifest:
                 )
                 valid = (
                     existing["format"] == FORMAT
-                    and existing["format_version"] == VERSION
+                    and existing["format_version"] in (1, 2, 3)
                     and digest(content) == existing["content_sha256"]
                 )
             except (KeyError, ValueError, TypeError, RecursionError) as exc:
                 raise CatabolicError(
                     "refusing to replace an unrelated or edited metadata file"
                 ) from exc
+            if valid:
+                validate_document(existing)
             if not same_owner or not valid:
                 raise CatabolicError(
                     "refusing to replace a foreign, edited, or unsupported manifest"

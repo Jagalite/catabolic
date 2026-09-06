@@ -26,6 +26,35 @@ def page_arguments(command, sorts=None, default=None):
         command.add_argument("--descending", action="store_true")
 
 
+def tag_filters(command):
+    command.add_argument(
+        "--tag",
+        dest="tags",
+        action="append",
+        default=[],
+        help="require each tag; repeat for AND",
+    )
+    command.add_argument(
+        "--any-tag",
+        dest="any_tags",
+        action="append",
+        default=[],
+        help="require at least one of these tags",
+    )
+    command.add_argument(
+        "--not-tag",
+        dest="not_tags",
+        action="append",
+        default=[],
+        help="exclude any of these tags",
+    )
+    command.add_argument(
+        "--descendants",
+        action="store_true",
+        help="include descendants of selected tags",
+    )
+
+
 def item_filters(command):
     command.add_argument(
         "--kind", help="media kind; see item types; custom:name is supported"
@@ -43,7 +72,7 @@ def parser() -> argparse.ArgumentParser:
 
     root = argparse.ArgumentParser(
         prog="catabolic",
-        description="Inventory media and maintain safe symbolic-link catalogs.",
+        description="Inventory media and maintain catalogs with symlinks or hardlinks.",
     )
     root.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     root.add_argument(
@@ -60,6 +89,9 @@ def parser() -> argparse.ArgumentParser:
         help="machine-readable JSON on stdout; errors on stderr",
     )
     commands = root.add_subparsers(dest="command", required=True)
+    from .enrichment_cli import register
+
+    register(commands)
     commands.add_parser(
         "init", help="create a new database; its parent directory must exist"
     )
@@ -119,8 +151,13 @@ def parser() -> argparse.ArgumentParser:
         "spec",
         help="generate/check the interchange specification; no database required",
     ).add_subparsers(dest="operation", required=True)
-    spec.add_parser("schema", help="emit generated JSON Schema")
-    spec.add_parser("docs", help="emit generated Markdown field reference")
+    for operation, help_text in (
+        ("schema", "emit generated JSON Schema"),
+        ("docs", "emit generated Markdown field reference"),
+    ):
+        spec.add_parser(operation, help=help_text).add_argument(
+            "--format-version", type=int, choices=(1, 2, 3), default=3
+        )
     spec.add_parser("check", help="check models against frozen versioned artifacts")
     for operation in ("validate", "roundtrip"):
         spec.add_parser(
@@ -275,6 +312,18 @@ def parser() -> argparse.ArgumentParser:
             "bind", help="register a directory; catalogs can create a default output"
         )
         bind.add_argument("name")
+        if entity == "catalog":
+            bind.add_argument(
+                "--link-mode",
+                choices=("symlink", "hardlink"),
+                help="explicit output mode; new catalogs default to symlink, existing mode is preserved",
+            )
+            retained = sub.add_parser(
+                "retained", help="list retained hardlinks; no automatic deletion"
+            )
+            retained.add_argument("name")
+            retained.add_argument("--limit", type=int, default=100)
+            retained.add_argument("--after", help="retained ID from the previous page")
         bind.add_argument(
             "--root",
             required=entity == "location",
@@ -311,6 +360,7 @@ def parser() -> argparse.ArgumentParser:
         help="availability recorded by the selected profile's scans",
     )
     files.add_argument("--item")
+    tag_filters(files)
     item_filters(files)
     page_arguments(files, ("id", "path", "size", "mtime"), "id")
     items = commands.add_parser("item").add_subparsers(dest="operation", required=True)
@@ -327,6 +377,7 @@ def parser() -> argparse.ArgumentParser:
         metavar="KEY=JSON_VALUE",
         help="exact top-level metadata match; repeat to combine filters",
     )
+    tag_filters(listing)
     item_filters(listing)
     page_arguments(listing, ("id", "title", "year"), "id")
     show = items.add_parser(
@@ -344,6 +395,53 @@ def parser() -> argparse.ArgumentParser:
         "--identity", action="append", default=[], metavar="NAMESPACE=VALUE"
     )
     put.add_argument("--metadata", default="{}", help="JSON object")
+    tags = commands.add_parser(
+        "tag", help="namespaced tags, aliases, hierarchy and attributed assignments"
+    ).add_subparsers(dest="operation", required=True)
+    listing = tags.add_parser("list")
+    for option in ("search", "namespace", "parent", "child"):
+        listing.add_argument("--" + option)
+    page_arguments(listing)
+    put = tags.add_parser("put", help="create a tag or update its description")
+    put.add_argument("name")
+    put.add_argument("--description")
+    rename = tags.add_parser(
+        "rename", help="rename while retaining the old name as an alias"
+    )
+    rename.add_argument("name")
+    rename.add_argument("new_name")
+    alias = tags.add_parser("alias")
+    alias.add_argument("name")
+    alias.add_argument("alias")
+    alias.add_argument("--remove", action="store_true")
+    parent = tags.add_parser(
+        "parent", help="add or remove a direct parent; cycles are rejected"
+    )
+    parent.add_argument("child")
+    parent.add_argument("parent")
+    parent.add_argument("--remove", action="store_true")
+    for operation in ("add", "remove"):
+        assign = tags.add_parser(
+            operation, help="atomic batch of up to 1000 explicit tag assertions"
+        )
+        assign.add_argument("names", nargs="+")
+        assign.add_argument("--item", dest="items", action="append", default=[])
+        assign.add_argument("--file", dest="files", action="append", default=[])
+        assign.add_argument(
+            "--source",
+            default="manual",
+            help="independent provenance, e.g. manual or agent:curator",
+        )
+        if operation == "add":
+            assign.add_argument("--confidence", type=float)
+            assign.add_argument("--note", default="")
+    assertions = tags.add_parser("assignments")
+    for option in ("tag", "item", "file", "source"):
+        assertions.add_argument("--" + option)
+    assertions.add_argument(
+        "--active", choices=("active", "disabled", "all"), default="active"
+    )
+    page_arguments(assertions)
     associations = commands.add_parser(
         "association", help="identify files independently of catalog placement"
     ).add_subparsers(dest="operation", required=True)
@@ -412,6 +510,12 @@ def parser() -> argparse.ArgumentParser:
     mappings.add_parser("disable").add_argument("id")
     for command in ("sync", "verify", "recover"):
         sub = commands.add_parser(command)
+        if command == "recover":
+            sub.add_argument(
+                "--cancel-unapplied",
+                action="store_true",
+                help="cancel hardlink intent only if output is untouched or data safely retained",
+            )
         scope = sub.add_mutually_exclusive_group()
         scope.add_argument("--catalog", default="global")
         scope.add_argument("--all-catalogs", action="store_true")
@@ -438,9 +542,9 @@ def dispatch(args: argparse.Namespace) -> dict:
         from .interchange.validation import MAX_BYTES, decode_document, document_value
 
         if args.operation == "schema":
-            return specification.schema()
+            return specification.schema(args.format_version)
         if args.operation == "docs":
-            return {"markdown": specification.reference_text()}
+            return {"markdown": specification.reference_text(args.format_version)}
         if args.operation == "check":
             return specification.check_release()
         if args.operation == "diff":
@@ -501,6 +605,23 @@ def dispatch(args: argparse.Namespace) -> dict:
         raise CatabolicError(
             "select --db or set CATABOLIC_DB; no database is selected implicitly"
         )
+    if args.command == "watch":
+        from .watching import watch
+
+        return watch(
+            args.db,
+            args.profile,
+            operation=args.kind,
+            location=args.location,
+            settle=args.settle,
+            workers=args.workers,
+            batch=args.batch,
+            interval=args.interval,
+            cycles=args.cycles,
+            progress=lambda value: print(
+                json.dumps(value), file=sys.stderr, flush=True
+            ),
+        )
     if args.command == "init":
         if args.profile != "default":
             raise CatabolicError(
@@ -534,8 +655,12 @@ def dispatch(args: argparse.Namespace) -> dict:
             max_rows=args.max_rows,
             timeout_ms=args.timeout_ms,
         )
-    writable = (
-        args.command == "export"
+    from . import enrichment_cli
+
+    writable = enrichment_cli.writable(args) or (
+        args.command == "tag"
+        and args.operation not in ("list", "assignments")
+        or args.command == "export"
         and args.output is not None
         or args.command == "manifest"
         and (args.in_catalog or args.output not in (None, "-"))
@@ -551,6 +676,8 @@ def dispatch(args: argparse.Namespace) -> dict:
     ) as store:
         app = Application(store, args.profile)
         command = args.command
+        if command in enrichment_cli.COMMANDS:
+            return enrichment_cli.dispatch(app, args)
         if command in ("export", "target"):
             from contextlib import nullcontext
 
@@ -660,6 +787,49 @@ def dispatch(args: argparse.Namespace) -> dict:
                 allow_empty=args.allow_empty,
                 limit=args.limit,
             )
+        if command == "tag":
+            if args.operation == "list":
+                return app.queries.tags(
+                    **options(
+                        args,
+                        "search",
+                        "namespace",
+                        "parent",
+                        "child",
+                        "limit",
+                        "cursor",
+                    )
+                )
+            if args.operation == "assignments":
+                return app.queries.taggings(
+                    **options(
+                        args,
+                        "tag",
+                        "item",
+                        "file",
+                        "source",
+                        "active",
+                        "limit",
+                        "cursor",
+                    )
+                )
+            if args.operation == "put":
+                return app.tags.put(args.name, description=args.description)
+            if args.operation == "rename":
+                return app.tags.rename(args.name, args.new_name)
+            if args.operation == "alias":
+                return app.tags.alias(args.name, args.alias, remove=args.remove)
+            if args.operation == "parent":
+                return app.tags.parent(args.child, args.parent, remove=args.remove)
+            return app.tags.assign(
+                args.names,
+                items=args.items,
+                files=args.files,
+                source=args.source,
+                confidence=getattr(args, "confidence", None),
+                note=getattr(args, "note", ""),
+                remove=args.operation == "remove",
+            )
         if command in ("association", "relationship"):
             if args.operation == "list":
                 return (
@@ -717,16 +887,44 @@ def dispatch(args: argparse.Namespace) -> dict:
             )
         if command in ("location", "catalog"):
             kind = "source" if command == "location" else "output"
-            return (
-                app.bind(kind, args.name, args.root)
-                if args.operation == "bind"
-                else {
-                    "bindings": store.rows(
-                        "SELECT * FROM bindings WHERE profile=? AND kind=? ORDER BY owner",
-                        (args.profile, kind),
-                    )
+            if args.operation == "retained":
+                if not 1 <= args.limit <= 1000:
+                    raise CatabolicError("limit must be between 1 and 1000")
+                Reconciler(app).catalogs(args.name)
+                rows = store.rows(
+                    "SELECT * FROM retained_hardlinks WHERE profile=? AND catalog=? AND id>? ORDER BY id LIMIT ?",
+                    (args.profile, args.name, args.after or "", args.limit + 1),
+                )
+                more = len(rows) > args.limit
+                rows = rows[: args.limit]
+                return {
+                    "retained": rows,
+                    "next_after": rows[-1]["id"] if more else None,
+                    "warning": "Recorded retained data is never automatically purged; inspect before any manual deletion.",
                 }
+            if args.operation == "bind":
+                result = app.bind(
+                    kind,
+                    args.name,
+                    args.root,
+                    link_mode=getattr(args, "link_mode", None),
+                )
+                if kind == "output":
+                    result = {**result, "link_mode": app.link_mode(args.name)}
+                    if result["link_mode"] == "hardlink":
+                        from .hardlinks import WARNING
+
+                        result["warnings"] = [WARNING]
+                return result
+            rows = store.rows(
+                "SELECT * FROM bindings WHERE profile=? AND kind=? ORDER BY owner",
+                (args.profile, kind),
             )
+            if kind == "output":
+                rows = [
+                    {**row, "link_mode": app.link_mode(row["owner"])} for row in rows
+                ]
+            return {"bindings": rows}
         if command == "scan":
             return app.scan(args.location, exclude=args.exclude)
         if command == "files":
@@ -743,6 +941,10 @@ def dispatch(args: argparse.Namespace) -> dict:
                     "kind",
                     "year",
                     "identity",
+                    "tags",
+                    "any_tags",
+                    "not_tags",
+                    "descendants",
                     "sort",
                     "descending",
                     "limit",
@@ -760,6 +962,10 @@ def dispatch(args: argparse.Namespace) -> dict:
                         "kind",
                         "year",
                         "identity",
+                        "tags",
+                        "any_tags",
+                        "not_tags",
+                        "descendants",
                         "sort",
                         "descending",
                         "limit",
@@ -813,14 +1019,12 @@ def dispatch(args: argparse.Namespace) -> dict:
         reconciler = Reconciler(app)
         catalog = None if args.all_catalogs else args.catalog
         if command == "sync":
-            return (
-                reconciler.preview(catalog)
-                if args.dry_run
-                else reconciler.apply(catalog)
-            )
+            if args.dry_run:
+                return reconciler.preview(catalog)
+            return reconciler.apply(catalog)
         if command == "verify":
             return reconciler.verify(catalog)
-        return reconciler.recover(catalog)
+        return reconciler.recover(catalog, cancel_unapplied=args.cancel_unapplied)
 
 
 def read_text(path, maximum):

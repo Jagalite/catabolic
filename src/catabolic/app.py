@@ -12,6 +12,7 @@ from .media import media_kind
 from .media_catalog import MediaCatalog
 from .query import CatalogQuery
 from .store import Store, encode
+from .tagging import Tagging
 
 
 class Application:
@@ -22,6 +23,7 @@ class Application:
             raise CatabolicError(f"unknown profile: {profile}")
         self.queries = CatalogQuery(store, profile)
         self.media = MediaCatalog(self)
+        self.tags = Tagging(self)
 
     def status(self) -> dict:
         return {
@@ -142,11 +144,50 @@ class Application:
             os.close(fd)
         return path
 
-    def bind(self, kind: str, owner: str, root: str | None = None) -> dict:
+    def link_mode(self, catalog):
+        if self.store.schema_version < 5:
+            return "symlink"
+        rows = self.store.rows(
+            "SELECT mode FROM catalog_link_modes WHERE catalog=?", (catalog,)
+        )
+        return rows[0]["mode"] if rows else "symlink"
+
+    def _check_link_mode(self, catalog, mode):
+        if mode not in ("symlink", "hardlink"):
+            raise CatabolicError("link mode must be symlink or hardlink")
+        if mode != self.link_mode(catalog):
+            for table in (
+                "owned_links",
+                "owned_hardlinks",
+                "retained_hardlinks",
+                "journal",
+            ):
+                if self.store.rows(
+                    f"SELECT 1 FROM {table} WHERE catalog=? LIMIT 1", (catalog,)
+                ):
+                    raise CatabolicError(
+                        "cannot change link mode while this catalog has owned links, retained data or pending operations; create a separate catalog"
+                    )
+
+    def _save_link_mode(self, catalog, mode):
+        if mode is not None:
+            with self.store.transaction() as db:
+                db.execute(
+                    "INSERT INTO catalog_link_modes VALUES (?,?) ON CONFLICT(catalog) DO UPDATE SET mode=excluded.mode",
+                    (catalog, mode),
+                )
+
+    def bind(
+        self, kind: str, owner: str, root: str | None = None, *, link_mode=None
+    ) -> dict:
         self.require_recovered()
         if kind not in ("source", "output"):
             raise CatabolicError("binding kind must be source or output")
         name(owner)
+        if link_mode is not None:
+            if kind != "output":
+                raise CatabolicError("link mode applies only to output catalogs")
+            self._check_link_mode(owner, link_mode)
         if root is None:
             if kind != "output":
                 raise CatabolicError("source bindings require an explicit root")
@@ -158,6 +199,7 @@ class Application:
                 # Omission never relocates or silently repairs an existing binding.
                 with root_handle(existing[0]):
                     pass
+                self._save_link_mode(owner, link_mode)
                 return existing[0]
             path = self._default_output_root(owner)
         else:
@@ -177,6 +219,7 @@ class Application:
             st.st_dev,
             st.st_ino,
         ):
+            self._save_link_mode(owner, link_mode)
             return old[0]
         if old:
             if self.store.rows(
@@ -185,11 +228,15 @@ class Application:
                 raise CatabolicError(
                     "recover pending filesystem operations before changing bindings"
                 )
-            if kind == "output" and self.store.rows(
-                "SELECT path FROM owned_links WHERE profile=? AND catalog=?",
-                (self.profile, owner),
-            ):
-                raise CatabolicError("cannot rebind an output while it has owned links")
+            if kind == "output":
+                for table in ("owned_links", "owned_hardlinks", "retained_hardlinks"):
+                    if self.store.rows(
+                        f"SELECT path FROM {table} WHERE profile=? AND catalog=? LIMIT 1",
+                        (self.profile, owner),
+                    ):
+                        raise CatabolicError(
+                            "cannot rebind an output while it has owned links or retained hardlinks"
+                        )
         with self.store.transaction() as db:
             table = "locations" if kind == "source" else "catalogs"
             db.execute(
@@ -199,6 +246,11 @@ class Application:
                 "INSERT INTO bindings VALUES (?,?,?,?,?,?) ON CONFLICT(profile,kind,owner) DO UPDATE SET root=excluded.root,device=excluded.device,inode=excluded.inode",
                 (self.profile, kind, owner, str(path), st.st_dev, st.st_ino),
             )
+            if link_mode is not None:
+                db.execute(
+                    "INSERT INTO catalog_link_modes VALUES (?,?) ON CONFLICT(catalog) DO UPDATE SET mode=excluded.mode",
+                    (owner, link_mode),
+                )
             if kind == "source":
                 db.execute(
                     "DELETE FROM observations WHERE profile=? AND file_id IN (SELECT id FROM files WHERE location=?)",
@@ -229,90 +281,98 @@ class Application:
         )
         reports = []
         for source in locations:
-            observed: list[dict] = []
-            errors: list[str] = []
-            try:
-                binding = self.binding("source", source)
-                with root_handle(binding) as fd:
-                    observed, errors = walk_files(fd, exclude=excluded)
-                    # Reopen by name to detect a mount or root replaced during traversal.
-                    with root_handle(binding):
-                        pass
-            except (OSError, CatabolicError) as exc:
-                errors.append(str(exc))
-            scan_id = str(uuid4())
-            complete = not errors
-            with self.store.transaction() as db:
-                # Unknown IDs are input errors, not failed scan records.
-                if not db.execute(
-                    "SELECT id FROM locations WHERE id=?", (source,)
-                ).fetchone():
-                    raise CatabolicError(f"unknown location: {source}")
-                db.execute(
-                    "INSERT INTO scans(id,profile,location,complete,observed,errors) VALUES (?,?,?,?,?,?)",
-                    (
-                        scan_id,
-                        self.profile,
-                        source,
-                        int(complete),
-                        len(observed),
-                        encode(errors),
-                    ),
-                )
-                db.execute(
-                    "INSERT INTO meta(key,value) VALUES (?,?)",
-                    (f"scan:{scan_id}:scope", encode({"exclude": excluded})),
-                )
-                if complete:
-                    scope_sql = "".join(
-                        " AND NOT (path=? OR substr(path,1,length(?)+1)=? || '/')"
-                        for _ in excluded
-                    )
-                    scope_args = tuple(
-                        value for path in excluded for value in (path, path, path)
+            from .scan_staging import ScanStaging
+
+            with ScanStaging() as staged:
+                observed: list[dict] = []
+                errors: list[str] = []
+                try:
+                    binding = self.binding("source", source)
+                    with root_handle(binding) as fd:
+                        observed, errors = walk_files(
+                            fd, exclude=excluded, sink=staged.append
+                        )
+                        for entry in observed:
+                            staged.append(entry)
+                        # Reopen by name to detect a mount or root replaced during traversal.
+                        with root_handle(binding):
+                            pass
+                except (OSError, CatabolicError) as exc:
+                    errors.append(str(exc))
+                observed = staged
+                scan_id = str(uuid4())
+                complete = not errors
+                with self.store.transaction() as db:
+                    # Unknown IDs are input errors, not failed scan records.
+                    if not db.execute(
+                        "SELECT id FROM locations WHERE id=?", (source,)
+                    ).fetchone():
+                        raise CatabolicError(f"unknown location: {source}")
+                    db.execute(
+                        "INSERT INTO scans(id,profile,location,complete,observed,errors) VALUES (?,?,?,?,?,?)",
+                        (
+                            scan_id,
+                            self.profile,
+                            source,
+                            int(complete),
+                            len(observed),
+                            encode(errors),
+                        ),
                     )
                     db.execute(
-                        """INSERT INTO observations(profile,file_id,size,mtime_ns,device,inode,status,scan_id)
-                        SELECT ?,id,0,0,0,0,'missing',? FROM files WHERE location=?"""
-                        + scope_sql
-                        + " ON CONFLICT(profile,file_id) DO UPDATE SET status='missing',scan_id=excluded.scan_id",
-                        (self.profile, scan_id, source, *scope_args),
+                        "INSERT INTO meta(key,value) VALUES (?,?)",
+                        (f"scan:{scan_id}:scope", encode({"exclude": excluded})),
                     )
-                    for entry in observed:
-                        file_id = str(
-                            uuid5(
-                                UUID(self.store.database_id),
-                                encode([source, entry["path"]]),
+                    if complete:
+                        scope_sql = "".join(
+                            " AND NOT (path=? OR substr(path,1,length(?)+1)=? || '/')"
+                            for _ in excluded
+                        )
+                        scope_args = tuple(
+                            value for path in excluded for value in (path, path, path)
+                        )
+                        db.execute(
+                            """INSERT INTO observations(profile,file_id,size,mtime_ns,device,inode,status,scan_id)
+                            SELECT ?,id,0,0,0,0,'missing',? FROM files WHERE location=?"""
+                            + scope_sql
+                            + " ON CONFLICT(profile,file_id) DO UPDATE SET status='missing',scan_id=excluded.scan_id",
+                            (self.profile, scan_id, source, *scope_args),
+                        )
+                        for entry in observed:
+                            file_id = str(
+                                uuid5(
+                                    UUID(self.store.database_id),
+                                    encode([source, entry["path"]]),
+                                )
                             )
-                        )
-                        db.execute(
-                            "INSERT INTO files VALUES (?,?,?) ON CONFLICT(location,path) DO NOTHING",
-                            (file_id, source, entry["path"]),
-                        )
-                        db.execute(
-                            "INSERT INTO observations VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(profile,file_id) DO UPDATE SET size=excluded.size,mtime_ns=excluded.mtime_ns,device=excluded.device,inode=excluded.inode,status=excluded.status,scan_id=excluded.scan_id",
-                            (
-                                self.profile,
-                                file_id,
-                                entry["size"],
-                                entry["mtime_ns"],
-                                entry["device"],
-                                entry["inode"],
-                                "present",
-                                scan_id,
-                            ),
-                        )
-            reports.append(
-                {
-                    "scan_id": scan_id,
-                    "location": source,
-                    "complete": complete,
-                    "observed": len(observed),
-                    "published": len(observed) if complete else 0,
-                    "errors": errors,
-                    "excluded": list(excluded),
-                }
-            )
+                            db.execute(
+                                "INSERT INTO files VALUES (?,?,?) ON CONFLICT(location,path) DO NOTHING",
+                                (file_id, source, entry["path"]),
+                            )
+                            db.execute(
+                                "INSERT INTO observations VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(profile,file_id) DO UPDATE SET size=excluded.size,mtime_ns=excluded.mtime_ns,device=excluded.device,inode=excluded.inode,status=excluded.status,scan_id=excluded.scan_id",
+                                (
+                                    self.profile,
+                                    file_id,
+                                    entry["size"],
+                                    entry["mtime_ns"],
+                                    entry["device"],
+                                    entry["inode"],
+                                    "present",
+                                    scan_id,
+                                ),
+                            )
+                reports.append(
+                    {
+                        "scan_id": scan_id,
+                        "location": source,
+                        "complete": complete,
+                        "observed": len(observed),
+                        "published": len(observed) if complete else 0,
+                        "errors": errors,
+                        "excluded": list(excluded),
+                    }
+                )
         return {
             "complete": all(report["complete"] for report in reports),
             "scans": reports,
@@ -327,6 +387,8 @@ class Application:
         identities: dict[str, str],
         metadata: dict,
         item_id: str | None = None,
+        *,
+        _db=None,
     ) -> dict:
         media_kind(kind)
         if not isinstance(metadata, dict):
@@ -339,7 +401,9 @@ class Application:
             name(namespace)
             if not isinstance(value, str) or not value.strip():
                 raise CatabolicError("identity values must be nonempty strings")
-        with self.store.transaction() as db:
+        from contextlib import nullcontext
+
+        with nullcontext(_db) if _db is not None else self.store.transaction() as db:
             matches = {
                 row[0]
                 for namespace, value in identities.items()

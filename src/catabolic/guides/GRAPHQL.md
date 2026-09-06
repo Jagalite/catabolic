@@ -135,3 +135,20 @@ The public GraphQL interface starts at version 1 and is separate from SQLite's
 schema version. Additive fields can preserve interface compatibility; future
 breaking API changes require an explicit versioning decision. This feature
 introduces no database migration.
+
+## Tagging
+
+See [TAGGING.md](TAGGING.md) (`catabolic docs tags`) for schema 4 tag tables,
+CLI commands, SQL views, GraphQL fields, boolean/descendant filters and generated
+tag-selected folders. Tags apply explicitly to items or files and are shared
+across profiles. Manifest v2 carries their vocabulary and attributed assertions.
+
+For output link modes, hardlink ownership, retained data and manifest v3, see
+[HARDLINKS.md](HARDLINKS.md) (`catabolic docs hardlinks`).
+
+## Enrichment
+
+`File.facts` exposes recorded processing results. `jobs` and `proposals` return
+context-paginated summary pages; `job(id:)` and `proposal(id:)` return full JSON
+records. `contentSearch(text:,first:,after:)` returns word matches with locators.
+These fields are read-only; see [ENRICHMENT.md](ENRICHMENT.md) for examples.

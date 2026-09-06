@@ -102,3 +102,13 @@ can export the same manifest format without adopting native naming rules.
 
 For options on any command, append `--help`, for example
 `catabolic layout put --help` or `catabolic manifest --help`.
+
+## Tagging
+
+See [TAGGING.md](TAGGING.md) (`catabolic docs tags`) for schema 4 tag tables,
+CLI commands, SQL views, GraphQL fields, boolean/descendant filters and generated
+tag-selected folders. Tags apply explicitly to items or files and are shared
+across profiles. Manifest v2 carries their vocabulary and attributed assertions.
+
+For output link modes, hardlink ownership, retained data and manifest v3, see
+[HARDLINKS.md](HARDLINKS.md) (`catabolic docs hardlinks`).

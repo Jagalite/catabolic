@@ -1,9 +1,12 @@
 # Database migrations
 
 Catabolic uses ordered SQL files and one Python runner. Users can skip application
-releases: upgrading schema 1 to schema 4 applies migrations 2, 3, and 4 in order.
+releases: upgrading schema 1 to schema 6 applies migrations 2 through 6 in order.
 There is no separate script for every possible pair of versions. The shipped
-schema is currently **3**; higher versions below are authoring examples.
+schema is currently **6**. Migration `004_tags.sql` adds tag vocabulary, aliases,
+hierarchy and attributed item/file assertions without changing existing rows.
+Migration `005_hardlinks.sql` adds catalog link modes, hardlink ownership and
+retention records. Higher versions below are authoring examples.
 
 ## Operating an upgrade
 
@@ -40,8 +43,10 @@ database stays at its original path. New databases run the same SQL sequence,
 recording history with origin `initialized`. A schema-1 upgrade records migration
 1 as `baseline` and subsequent migrations as `migrated`.
 
-Schema 1 and 2 recovery is explicitly supported by this release because schemas
-2 and 3 add tables without changing the existing link journal. Schema 3 backfills
+Schema 1, 2, 3 and 4 recovery is explicitly supported by this release because schemas
+2 through 4 add tables without changing the existing symlink journal. Schema 5
+adds separately named hardlink operation kinds; legacy recovery still uses only
+the symlink protocol. Schema 3 backfills
 independent identification from both active and disabled mappings; it does not
 change the original mappings or infer new provider identities. If an upgrade reports unfinished link operations, recover
 each affected profile before retrying:
@@ -109,13 +114,15 @@ src/catabolic/migrations/
   001_initial.sql
   002_migration_history.sql
   003_media_model.sql
+  004_tags.sql
+  005_hardlinks.sql
 ```
 
 For the next schema change:
 
-1. Add `004_descriptive_name.sql`. Versions must be contiguous and filenames must
+1. Add `006_descriptive_name.sql`. Versions must be contiguous and filenames must
    use the existing numbered, lowercase convention.
-2. Increment `SCHEMA_VERSION` in `src/catabolic/migration.py` to 4.
+2. Increment `SCHEMA_VERSION` in `src/catabolic/migration.py` to 6.
 3. Add populated fixtures and tests for the oldest supported schema, the previous
    schema, skipped releases, fresh initialization, failure, and interruption.
 4. Build and install a wheel in isolation to verify the SQL resources ship.
@@ -155,3 +162,7 @@ the narrowly permitted legacy-recovery path in `Store`.
 .venv/bin/ruff check src tests
 .venv/bin/ruff format --check src tests
 ```
+
+Schema 6 (`006_enrichment.sql`) adds proposals, decision events, expected sets, copy
+policies, processing jobs/results, checksum baselines, text indexes, refresh state,
+and watch stability records. It preserves all existing rows and ownership tables.

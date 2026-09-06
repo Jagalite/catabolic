@@ -19,7 +19,7 @@ Joins, grouping, aggregates, window functions, CTEs, and ordinary SQLite
 expressions are supported. Exactly one result-producing statement is accepted.
 The views exist only on the query connection; they do not alter the stored schema
 and will not appear in an external `sqlite3` session. The media model requires
-schema 3; older databases must be upgraded explicitly.
+schema 5; older databases must be upgraded explicitly.
 
 ## Views and row meaning
 
@@ -217,3 +217,18 @@ This is an application read-only interface, not a general-purpose OS sandbox.
 SQL returning `item_id`, `file_id`, or `association_id` can be saved as a layout
 selection and refreshed into a symlink catalog. See [QUERY_FOLDERS.md](QUERY_FOLDERS.md)
 for the result contract, CLI workflow, and safeguards against incomplete results.
+
+## Tagging
+
+See [TAGGING.md](TAGGING.md) (`catabolic docs tags`) for schema 4 tag tables,
+CLI commands, SQL views, GraphQL fields, boolean/descendant filters and generated
+tag-selected folders. Tags apply explicitly to items or files and are shared
+across profiles. Manifest v2 carries their vocabulary and attributed assertions.
+
+`catalog_outputs`, `catalog_hardlinks` and `catalog_retained_hardlinks` describe
+output link modes and regular-file ownership; see [HARDLINKS.md](HARDLINKS.md).
+
+Schema 6 adds `catalog_jobs`, `catalog_facts`, `catalog_checksums`,
+`catalog_proposals`, `catalog_decisions`, `catalog_expected`, `catalog_text`,
+and `catalog_refresh`. Facts distinguish recorded-current revisions from stale
+results; they do not imply a live source check. See [ENRICHMENT.md](ENRICHMENT.md).

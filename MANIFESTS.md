@@ -30,22 +30,25 @@ An explicit `--output` inside a catalog is allowed only at that same reserved pa
 ## Information included
 
 The top-level envelope contains `format: "catabolic.catalog-manifest"`,
-`format_version: 1`, generator/version, UTC `generated_at`, `content_sha256`, and
+`format_version: 3`, generator/version, UTC `generated_at`, `content_sha256`, and
 `content`. The content contains:
 
 | Field | Information |
 | --- | --- |
 | `database_id`, `database_schema`, `profile` | Snapshot provenance and selected machine profile |
-| `catalog` | Catalog ID and profile-specific output root, or null if unbound |
+| `catalog` | Catalog ID, link mode and profile-specific output root, or null if unbound |
 | `entries` | Every active mapping: IDs, relative/absolute output paths, associated roles through association IDs, layout ownership, expected and recorded symlink targets |
 | `items` | Item kinds, complete metadata objects, provider identity namespaces/values |
 | `files` | Source location, relative/absolute paths, recorded scan status, size, nanosecond mtime, scan ID and observation time |
 | `associations` | Active identifications for exported file/item pairs, including role, part, origin, and complete metadata |
 | `relationships` | Active outgoing relationships, including positions and metadata |
+| `tags`, `tag_names`, `tag_parents` | Referenced tag vocabulary, ancestor closure, canonical names and aliases |
+| `taggings` | Active and withdrawn assertions for included items/files, with source, confidence, notes and timestamps |
 | `recorded_links` | Link paths/targets recorded by the synchronizer, including paths awaiting retirement |
+| `hardlinks`, `retained_hardlinks` | Recorded regular-file ownership and retained data, with source occurrence and decimal device/inode IDs |
 | `layout` | Managing layout name, current saved definition (including query/parameters), its hash, last-applied definition hash, and whether those hashes match |
 | `extra` | User-supplied JSON object, preserved independently of catalog metadata |
-| `counts` | Entry, item, file, association, relationship, and recorded-link counts |
+| `counts` | Exact lengths of all twelve record collections |
 
 Items include the mapped items and recursively referenced outgoing parents,
 editions, and contributors. For example, a track-only folder can include album
@@ -132,7 +135,14 @@ consumer-specific sidecar, and it is not a replacement for a SQLite backup.
 
 ## Generated interchange specification
 
-The existing manifest v1 format now has typed models, a generated JSON Schema,
-and a generated field reference. See [OPEN_CATALOG.md](OPEN_CATALOG.md) for the
+New exports use manifest v3, including output link modes, hardlink ownership,
+retained data, tag vocabulary, aliases, parent edges and
+active/withdrawn assertions for included subjects. Version 1 and 2 documents remain
+readable. All three versions have frozen typed models, generated JSON Schemas and
+field references. See [TAGGING.md](TAGGING.md) for tag export semantics. See [OPEN_CATALOG.md](OPEN_CATALOG.md) for the
 contract and its preservation/versioning rules. Exports validate before output;
 `catabolic spec validate --file PATH` validates documents without opening a database.
+
+For hardlink catalogs, symlink target/comparison fields are null and
+`recorded_links` is empty. Hardlink records do not claim live verification. See
+[HARDLINKS.md](HARDLINKS.md) for retention and recovery semantics.

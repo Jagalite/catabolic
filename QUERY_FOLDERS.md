@@ -158,3 +158,10 @@ After synchronization, `manifest --catalog NAME --in-catalog` writes a versioned
 JSON metadata snapshot beside the links. It includes source/item metadata and
 the saved layout/query definition. Use `--replace` for a changed export.
 See [MANIFESTS.md](MANIFESTS.md) for contents and refresh semantics.
+
+## Tagging
+
+See [TAGGING.md](TAGGING.md) (`catabolic docs tags`) for schema 4 tag tables,
+CLI commands, SQL views, GraphQL fields, boolean/descendant filters and generated
+tag-selected folders. Tags apply explicitly to items or files and are shared
+across profiles. Manifest v2 carries their vocabulary and attributed assertions.

@@ -12,6 +12,7 @@ from catabolic.app import Application
 from catabolic.domain import CatabolicError
 from catabolic.media import KINDS
 from catabolic.migration import (
+    SCHEMA_VERSION,
     data_snapshot,
     inspect_database,
     load_migrations,
@@ -508,7 +509,7 @@ class MediaMigrationTest(unittest.TestCase):
                 inode = link.lstat().st_ino
                 result = upgrade_database(path)
                 self.assertEqual(result["from_schema"], version)
-                self.assertEqual(result["schema"], 3)
+                self.assertEqual(result["schema"], SCHEMA_VERSION)
                 with Store(path) as store:
                     validate_preservation(store.db, before)
                     self.assertEqual(
@@ -574,4 +575,4 @@ m.upgrade_database(sys.argv[1])
             self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], 2)
             self.assertEqual(data_snapshot(db), before)
             db.close()
-            self.assertEqual(upgrade_database(path)["schema"], 3)
+            self.assertEqual(upgrade_database(path)["schema"], SCHEMA_VERSION)

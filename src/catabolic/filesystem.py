@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -13,6 +14,45 @@ from .store import encode
 
 DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 MARKER = ".catabolic-owner.json"
+
+
+def rename_noreplace(source_fd, source_name, destination_fd, destination_name):
+    """Atomic retirement must never overwrite even a concurrently created file."""
+    import ctypes
+
+    library = ctypes.CDLL(None, use_errno=True)
+    if sys.platform == "darwin":
+        symbol, flags = "renameatx_np", 0x00000004  # SDK sys/stdio.h: RENAME_EXCL
+    elif sys.platform.startswith("linux"):
+        symbol, flags = "renameat2", 1  # Linux RENAME_NOREPLACE
+    else:
+        raise CatabolicError(
+            "safe hardlink retirement requires macOS or Linux exclusive rename support"
+        )
+    function = getattr(library, symbol, None)
+    if function is None:
+        raise CatabolicError(
+            "exclusive rename is unavailable; hardlink retirement refused without an unsafe fallback"
+        )
+    function.argtypes = [
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    ]
+    function.restype = ctypes.c_int
+    if function(
+        source_fd,
+        os.fsencode(source_name),
+        destination_fd,
+        os.fsencode(destination_name),
+        flags,
+    ):
+        error = ctypes.get_errno()
+        raise CatabolicError(
+            f"exclusive hardlink retirement refused: {os.strerror(error)}; destination was not overwritten"
+        )
 
 
 def open_directory(path: str | Path) -> int:
@@ -157,61 +197,69 @@ def _remove_claim_temp(root_fd: int, temporary: str):
     os.unlink(temporary, dir_fd=root_fd)
 
 
-def walk_files(
-    root_fd: int, *, exclude: tuple[str, ...] = ()
-) -> tuple[list[dict], list[str]]:
-    observed: list[dict] = []
-    errors: list[str] = []
+def walk_files(root_fd: int, *, exclude: tuple[str, ...] = (), sink=None):
+    observed = []
+    errors = []
+    omitted = 0
 
-    def visit(fd: int, prefix: str):
+    def error(message):
+        nonlocal omitted
+        if len(errors) < 1000:
+            errors.append(message[:4096])
+        else:
+            omitted += 1
+
+    def visit(fd, prefix):
+        before = os.fstat(fd)
         try:
-            before = os.fstat(fd)
-            names = sorted(os.listdir(fd))
-        except OSError as exc:
-            errors.append(f"{prefix or '.'}: {exc}")
-            return
-        for leaf in names:
-            path = f"{prefix}/{leaf}" if prefix else leaf
-            if path in exclude:
-                continue
-            try:
-                # Invalid paths make the scan incomplete, never silently missing.
-                relative_path(path)
-                st = os.stat(leaf, dir_fd=fd, follow_symlinks=False)
-                if stat.S_ISDIR(st.st_mode):
-                    if st.st_dev != before.st_dev:
-                        raise CatabolicError(
-                            "nested filesystem boundary; register this mount as a separate location"
-                        )
-                    child = os.open(leaf, DIRECTORY_FLAGS, dir_fd=fd)
+            with os.scandir(fd) as entries:
+                for entry in entries:
+                    leaf = entry.name
+                    path = f"{prefix}/{leaf}" if prefix else leaf
+                    if path in exclude:
+                        continue
                     try:
-                        now = os.fstat(child)
-                        if (st.st_dev, st.st_ino) != (now.st_dev, now.st_ino):
-                            raise CatabolicError("directory changed during scan")
-                        visit(child, path)
-                    finally:
-                        os.close(child)
-                elif stat.S_ISREG(st.st_mode):
-                    observed.append(
-                        {
-                            "path": path,
-                            "size": st.st_size,
-                            "mtime_ns": st.st_mtime_ns,
-                            "device": st.st_dev,
-                            "inode": st.st_ino,
-                        }
-                    )
-            except (OSError, CatabolicError) as exc:
-                errors.append(f"{path}: {exc}")
+                        relative_path(path)
+                        st = os.stat(leaf, dir_fd=fd, follow_symlinks=False)
+                        if stat.S_ISDIR(st.st_mode):
+                            if st.st_dev != before.st_dev:
+                                raise CatabolicError(
+                                    "nested filesystem boundary; register this mount as a separate location"
+                                )
+                            child = os.open(leaf, DIRECTORY_FLAGS, dir_fd=fd)
+                            try:
+                                now = os.fstat(child)
+                                if (st.st_dev, st.st_ino) != (now.st_dev, now.st_ino):
+                                    raise CatabolicError(
+                                        "directory changed during scan"
+                                    )
+                                visit(child, path)
+                            finally:
+                                os.close(child)
+                        elif stat.S_ISREG(st.st_mode):
+                            observation = {
+                                "path": path,
+                                "size": st.st_size,
+                                "mtime_ns": st.st_mtime_ns,
+                                "device": st.st_dev,
+                                "inode": st.st_ino,
+                            }
+                            (sink if sink is not None else observed.append)(observation)
+                    except (OSError, CatabolicError) as exc:
+                        error(f"{path}: {exc}")
+        except OSError as exc:
+            error(f"{prefix or '.'}: {exc}")
         after = os.fstat(fd)
         if (before.st_mtime_ns, before.st_ctime_ns) != (
             after.st_mtime_ns,
             after.st_ctime_ns,
         ):
-            errors.append(f"{prefix or '.'}: directory changed during scan")
+            error(f"{prefix or '.'}: directory changed during scan")
 
     try:
         visit(root_fd, "")
     except RecursionError:
-        errors.append("directory nesting exceeds traversal limit")
+        error("directory nesting exceeds traversal limit")
+    if omitted:
+        errors.append(f"{omitted} additional traversal errors omitted")
     return observed, errors

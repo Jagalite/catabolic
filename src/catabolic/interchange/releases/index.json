@@ -1,4 +1,8 @@
 {
+  "manifest-v1.md": "2feb6461b36ae91f06c08df445c37be0cd4426576437fd41bb1e6a0981c3f3fc",
   "manifest-v1.schema.json": "3b0232a9d4b4e48ce93f15e0040ccb20b6f8aec4ad8e05f0185b38ed43d5f4ed",
-  "manifest-v1.md": "2feb6461b36ae91f06c08df445c37be0cd4426576437fd41bb1e6a0981c3f3fc"
+  "manifest-v2.md": "89cca8a567f4a8a4d647d7aae03716ca43fc5eda6e92b1054f1542a2787e5125",
+  "manifest-v2.schema.json": "edd10dc7b43ba3ce21879b539eebe76fd6f6228bd65799cf81724e884ca9ef73",
+  "manifest-v3.md": "6fcc3cba7f2c71fcdebdb4813765c6317efc737d8997f434c55c257e3f3fda7a",
+  "manifest-v3.schema.json": "759f71eeabda0c9906275583fe20ef734b9e89da034d0e5ee04aeb650e1f976c"
 }

@@ -120,3 +120,39 @@ still occupy memory proportional to the selected scope. Each projection catalog
 starts empty, so populated-output reconciliation is outside the measurement.
 OS caches are shared, so these are exploratory estimates rather than controlled
 cold-cache or tail-latency claims. Source hashing records the planner compared.
+
+## Enrichment and staged scans (2026-09-06)
+
+`python -m tests.enrichment_benchmark --root NEW_DIRECTORY` compares the committed
+application/scanner at `7420b3566da519f0036bab8cb00fa4317d85edf6` with the staged
+scanner, using disposable real files. It also probes 50 short generated WAV files
+and checks that an unchanged repeat launches no jobs. The full baseline application
+and filesystem modules are loaded from the current `HEAD`; record the reported
+commit when reproducing this after a commit changes that baseline.
+
+An exploratory local APFS run produced these traced Python allocation peaks:
+
+| Source files | Committed scanner | Staged scanner |
+| --- | ---: | ---: |
+| 1,000 | 0.349 MiB | 0.086 MiB |
+| 10,000 | 3.393 MiB | 0.087 MiB |
+| 100,000 | 34.030 MiB | 0.102 MiB |
+
+These are `tracemalloc` peaks, not total process RSS or SQLite/extractor memory.
+The staged scanner still requires temporary disk space proportional to observations.
+
+The 50-file probe run took 2.03 seconds, plus 0.28 seconds to enqueue. An unchanged
+enqueue/run took 0.018 seconds, reused all 50 jobs, and launched zero probes. These
+small WAV fixtures establish cache behavior, not video, NAS or decoding throughput.
+
+Scan timings were variable: the traced 100,000-file sample was 16.03 seconds for
+the baseline and 32.56 seconds staged. Additional alternating runs without
+`tracemalloc` measured 24.46/69.29 seconds baseline and 17.77/9.55 seconds staged,
+with substantial variation in database publication time. This evidence supports
+bounded Python memory, but not a reliable scan throughput speedup or regression.
+No durability settings on the catalog database were weakened for these results.
+
+Retained local reports from this session are
+`/private/tmp/catabolic-enrichment-scale-baseline-20260906/report.json` and
+`/private/tmp/catabolic-enrichment-scale-baseline-20260906/timing-components.json`.
+These are exploratory integration measurements, not consumer compatibility claims.

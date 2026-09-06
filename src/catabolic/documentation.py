@@ -8,6 +8,24 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "enrichment",
+        "ENRICHMENT.md",
+        "Media enrichment and curation",
+        "Probes, hashing, jobs, proposals, sidecars, copy selection, completeness, text search and refresh.",
+    ),
+    (
+        "hardlinks",
+        "HARDLINKS.md",
+        "Hardlink outputs",
+        "Explicit link modes, cross-filesystem checks, final-reference protection and retained data.",
+    ),
+    (
+        "tags",
+        "TAGGING.md",
+        "Tags and curation",
+        "Namespaced tags, aliases, hierarchy, provenance, boolean queries and manifest v2.",
+    ),
+    (
         "compatibility",
         "COMPATIBILITY.md",
         "Application outputs",

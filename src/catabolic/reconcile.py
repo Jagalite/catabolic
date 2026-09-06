@@ -19,6 +19,10 @@ from .filesystem import (
 )
 
 ACTION_ORDER = {
+    "hard_create": 3,
+    "hard_replace": 4,
+    "hard_remove": 5,
+    "hard_forget": 6,
     "prepare": 0,
     "blocked_source": 1,
     "unchanged": 2,
@@ -70,13 +74,29 @@ class Reconciler:
         actions.sort(
             key=lambda action: (ACTION_ORDER[action.kind], action.catalog, action.path)
         )
+        from .hardlinks import WARNING
+
+        hard_catalogs = [
+            selected
+            for selected in self.catalogs(catalog)
+            if self.app.link_mode(selected) == "hardlink"
+        ]
         return {
+            **(
+                {"warnings": [WARNING], "hardlink_catalogs": hard_catalogs}
+                if hard_catalogs
+                else {}
+            ),
             "safe": not blockers,
             "actions": [action.to_dict() for action in actions],
             "blockers": blockers,
         }
 
     def _catalog_delta(self, catalog: str) -> list[Action]:
+        if self.app.link_mode(catalog) == "hardlink":
+            from .hardlinks import Hardlinks
+
+            return Hardlinks(self).delta(catalog)
         output = self.app.binding("output", catalog)
         actions = []
         mappings = self.store.rows(
@@ -175,14 +195,29 @@ class Reconciler:
             self._execute(operation, after_filesystem=after_filesystem)
             applied.append(action.to_dict())
         verified = self.verify(catalog)
+        events = []
+        if self.store.schema_version >= 6:
+            from .network_adapters import Refresh
+
+            events = Refresh(self.app).after_sync(
+                {"healthy": verified["healthy"]}, catalog
+            )
         return {
             "safe": True,
+            **({"refresh_events": events} if events else {}),
+            **({"warnings": preview["warnings"]} if "warnings" in preview else {}),
             "applied": applied,
             "verification": verified,
             "healthy": verified["healthy"],
         }
 
-    def recover(self, catalog: str | None = "global", *, after_filesystem=None) -> dict:
+    def recover(
+        self,
+        catalog: str | None = "global",
+        *,
+        after_filesystem=None,
+        cancel_unapplied=False,
+    ) -> dict:
         recovered = []
         cancelled = []
         for selected in self.catalogs(catalog):
@@ -190,6 +225,12 @@ class Reconciler:
                 "SELECT * FROM journal WHERE profile=? AND catalog=? ORDER BY rowid",
                 (self.profile, selected),
             ):
+                if cancel_unapplied and operation["kind"].startswith("hard_"):
+                    from .hardlinks import Hardlinks
+
+                    if Hardlinks(self).cancel_obsolete(operation, force=True):
+                        cancelled.append(operation["id"])
+                        continue
                 if self._cancel_obsolete(operation):
                     cancelled.append(operation["id"])
                     continue
@@ -204,6 +245,10 @@ class Reconciler:
     def _cancel_obsolete(self, operation: dict) -> bool:
         """Cancel unapplied intent only after a successful live revalidation."""
         kind = operation["kind"]
+        if kind.startswith("hard_"):
+            from .hardlinks import Hardlinks
+
+            return Hardlinks(self).cancel_obsolete(operation)
         if kind in ("prepare", "forget"):
             return False
         path = operation["path"]
@@ -250,6 +295,10 @@ class Reconciler:
         return True
 
     def _execute(self, operation: dict, *, after_filesystem=None):
+        if operation["kind"].startswith("hard_"):
+            from .hardlinks import Hardlinks
+
+            return Hardlinks(self).execute(operation, after_filesystem=after_filesystem)
         catalog = operation["catalog"]
         output = self.app.binding("output", catalog)
         kind = operation["kind"]
@@ -350,6 +399,14 @@ class Reconciler:
                     "DELETE FROM owned_links WHERE profile=? AND catalog=? AND path=?",
                     (self.profile, catalog, path),
                 )
+            if self.store.schema_version >= 6 and operation["kind"] in (
+                "create",
+                "replace",
+                "remove",
+            ):
+                from .network_adapters import record_output_change
+
+                record_output_change(db, self.profile, operation["catalog"])
             db.execute("DELETE FROM journal WHERE id=?", (operation["id"],))
 
     def _source_target(
@@ -433,6 +490,11 @@ class Reconciler:
     def verify(self, catalog: str | None = "global") -> dict:
         reports = []
         for selected in self.catalogs(catalog):
+            if self.app.link_mode(selected) == "hardlink":
+                from .hardlinks import Hardlinks
+
+                reports.append(Hardlinks(self).verify(selected))
+                continue
             issues = []
             verified = 0
             try:

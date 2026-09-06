@@ -65,8 +65,10 @@ PARENTS = {
 
 
 def vocabulary(value, allowed, label):
-    if value not in allowed and not re.fullmatch(
-        r"custom:[a-z][a-z0-9_.-]{0,62}", value
+    if (
+        not isinstance(value, str)
+        or value not in allowed
+        and not re.fullmatch(r"custom:[a-z][a-z0-9_.-]{0,62}", value)
     ):
         raise CatabolicError(
             f"unknown {label}: {value}; use a built-in name or custom:lowercase_name"

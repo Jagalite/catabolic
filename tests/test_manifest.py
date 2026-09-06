@@ -255,7 +255,7 @@ class ManifestTest(unittest.TestCase):
         prefix = [sys.executable, "-m", "catabolic", "--db", str(self.path), "manifest"]
         result = subprocess.run(prefix, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout)["format_version"], 1)
+        self.assertEqual(json.loads(result.stdout)["format_version"], 3)
         result = subprocess.run(
             [
                 *prefix,

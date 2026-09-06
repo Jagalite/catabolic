@@ -12,6 +12,7 @@ from catabolic.app import Application
 from catabolic.cli import main
 from catabolic.domain import CatabolicError
 from catabolic.graphql_query import execute_graphql
+from catabolic.migration import SCHEMA_VERSION
 from catabolic.store import Store
 from tests.test_media_model import populate_media
 
@@ -106,7 +107,7 @@ class GraphQLTest(unittest.TestCase):
             self.query(
                 "query A { profile } query B { schemaVersion }", operation_name="B"
             )["data"],
-            {"schemaVersion": 3},
+            {"schemaVersion": SCHEMA_VERSION},
         )
 
     def test_rejects_writes_invalid_fields_variables_and_cursors(self):

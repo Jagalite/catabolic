@@ -7,7 +7,11 @@ from pydantic import ValidationError
 
 from ..domain import CatabolicError
 from ..store import encode
-from .v1 import FORMAT, VERSION, Document
+from ..tagging import tag_name, text_value
+from .v1 import FORMAT
+from .v1 import Document as DocumentV1
+from .v2 import Document as DocumentV2
+from .v3 import Document as DocumentV3
 
 MAX_BYTES = 128 * 1024 * 1024
 MAX_RECORDS = 100000
@@ -38,14 +42,23 @@ def validate_document(value):
         not isinstance(value, dict)
         or value.get("format") != FORMAT
         or type(value.get("format_version")) is not int
-        or value["format_version"] != VERSION
+        or value["format_version"] not in (1, 2, 3)
     ):
         raise CatabolicError(
             "unsupported catalog format or version; no conversion attempted"
         )
+    collections = COLLECTIONS + (
+        ("tags", "tag_names", "tag_parents", "taggings")
+        if value["format_version"] >= 2
+        else ()
+    )
+    collections += (
+        ("hardlinks", "retained_hardlinks") if value["format_version"] == 3 else ()
+    )
+    Document = {1: DocumentV1, 2: DocumentV2, 3: DocumentV3}[value["format_version"]]
     raw_content = value.get("content")
     if isinstance(raw_content, dict):
-        for key in COLLECTIONS:
+        for key in collections:
             rows = raw_content.get(key)
             if isinstance(rows, list) and len(rows) > MAX_RECORDS:
                 raise CatabolicError(
@@ -69,7 +82,7 @@ def validate_document(value):
     content = document.content
     if content.filesystem_verified:
         raise CatabolicError("this profile cannot claim live filesystem verification")
-    for key in COLLECTIONS:
+    for key in collections:
         rows = getattr(content, key)
         if getattr(content.counts, key) != len(rows):
             raise CatabolicError(f"catalog count mismatch: {key}")
@@ -152,6 +165,24 @@ def validate_document(value):
             layout.current_definition_sha256 == layout.last_applied_definition_sha256
         ):
             raise CatabolicError("layout definition comparison mismatch")
+    if value["format_version"] >= 2:
+        validate_tags(content, items, files)
+    if value["format_version"] == 3:
+        _index(content.hardlinks, "path", "hardlink path")
+        _index(content.retained_hardlinks, "id", "retirement")
+        _index(content.retained_hardlinks, "path", "retained path")
+        if content.catalog.link_mode == "symlink" and (
+            content.hardlinks or content.retained_hardlinks
+        ):
+            raise CatabolicError("symlink catalog cannot claim hardlink ownership")
+        if content.catalog.link_mode == "hardlink":
+            if content.recorded_links or any(
+                entry.expected_link_target is not None
+                or entry.recorded_link_target is not None
+                or entry.recorded_link_matches_desired is not None
+                for entry in content.entries
+            ):
+                raise CatabolicError("hardlink catalog cannot claim symlink targets")
     return document
 
 
@@ -190,3 +221,55 @@ def encode_document(document):
     if len(raw.encode()) > MAX_BYTES:
         raise CatabolicError("catalog output exceeds 128 MiB")
     return raw
+
+
+def validate_tags(content, items, files):
+    tags = _index(content.tags, "id", "tag")
+    _index(content.tags, "name", "canonical tag name")
+    names = _index(content.tag_names, "name", "tag name")
+    _index(content.taggings, "id", "tagging")
+    for row in content.tag_names:
+        if row.tag_id not in tags or tag_name(row.name) != row.name:
+            raise CatabolicError(
+                "tag name must be normalized and reference an included tag"
+            )
+    for row in content.tags:
+        if row.name not in names or names[row.name].tag_id != row.id:
+            raise CatabolicError("canonical tag name must resolve to its included tag")
+        text_value(row.description, "tag description", 4000, empty=True)
+    edges = set()
+    parents = {identifier: set() for identifier in tags}
+    children = {identifier: set() for identifier in tags}
+    for edge in content.tag_parents:
+        pair = (edge.child_id, edge.parent_id)
+        if edge.child_id not in tags or edge.parent_id not in tags or pair in edges:
+            raise CatabolicError("invalid or duplicate tag parent edge")
+        edges.add(pair)
+        parents[edge.child_id].add(edge.parent_id)
+        children[edge.parent_id].add(edge.child_id)
+    # Iterative topological check avoids Python recursion limits on deep trees.
+    pending = {identifier: len(value) for identifier, value in parents.items()}
+    ready = [identifier for identifier, count in pending.items() if count == 0]
+    visited = 0
+    while ready:
+        identifier = ready.pop()
+        visited += 1
+        for child in children[identifier]:
+            pending[child] -= 1
+            if pending[child] == 0:
+                ready.append(child)
+    if visited != len(tags):
+        raise CatabolicError("tag hierarchy contains a cycle")
+    assignments = set()
+    for row in content.taggings:
+        pair = (row.subject_type, row.subject_id, row.tag_id, row.source)
+        subjects = items if row.subject_type == "item" else files
+        if (
+            row.subject_id not in subjects
+            or row.tag_id not in tags
+            or pair in assignments
+        ):
+            raise CatabolicError("invalid or duplicate tag assignment")
+        text_value(row.source, "tag source", 200)
+        text_value(row.note, "tag note", 4000, empty=True)
+        assignments.add(pair)

@@ -77,6 +77,41 @@ VIEWS.update(
     }
 )
 
+VIEWS.update(
+    {
+        "catalog_outputs": (
+            "Catalog-wide output link modes.",
+            "SELECT c.id AS catalog,coalesce(m.mode,'symlink') AS link_mode FROM main.catalogs c LEFT JOIN main.catalog_link_modes m ON m.catalog=c.id",
+        ),
+        "catalog_hardlinks": (
+            "Recorded hardlink ownership; target is JSON inode/source evidence, not a symlink target.",
+            "SELECT profile,catalog,path,target FROM main.owned_hardlinks",
+        ),
+        "catalog_retained_hardlinks": (
+            "Recorded retained data; never automatically purged.",
+            "SELECT * FROM main.retained_hardlinks",
+        ),
+        "catalog_tags": (
+            "Canonical tag vocabulary, shared across profiles.",
+            "SELECT id AS tag_id,name,description FROM main.tags",
+        ),
+        "catalog_tag_names": (
+            "Canonical names and aliases resolve to the same tag ID.",
+            "SELECT n.name,n.tag_id,n.name=t.name AS canonical FROM main.tag_names n JOIN main.tags t ON t.id=n.tag_id",
+        ),
+        "catalog_tag_parents": (
+            "Direct child-to-parent edges; descendants are opt-in recursive queries.",
+            "SELECT child_id,parent_id FROM main.tag_parents",
+        ),
+        "catalog_taggings": (
+            "Explicit item/file assertions, including withdrawn ones. Filter active=1; each source is independent.",
+            """SELECT a.id AS assignment_id,'item' AS subject_type,a.item_id AS subject_id,a.tag_id,t.name AS tag_name,a.source,a.confidence,a.note,a.active,a.created_at,a.updated_at
+        FROM main.item_tags a JOIN main.tags t ON t.id=a.tag_id UNION ALL
+        SELECT a.id,'file',a.file_id,a.tag_id,t.name,a.source,a.confidence,a.note,a.active,a.created_at,a.updated_at FROM main.file_tags a JOIN main.tags t ON t.id=a.tag_id""",
+        ),
+    }
+)
+
 # Only known computational functions are permitted. In particular, extension,
 # file, and shell functions cannot be called even if a build provides them.
 FUNCTIONS = frozenset(
@@ -96,6 +131,53 @@ acos acosh asin asinh atan atan2 atanh ceil ceiling cos cosh degrees exp floor
 ln log log10 log2 mod pi pow power radians sin sinh sqrt tan tanh trunc
 catalog_title catalog_year casefold
 """.split()
+)
+
+
+VIEWS.update(
+    {
+        "catalog_jobs": (
+            "Durable optional processing jobs and their outcomes.",
+            "SELECT * FROM main.processing_jobs",
+        ),
+        "catalog_proposals": (
+            "Identification and association proposals, including evidence and decisions.",
+            "SELECT * FROM main.proposals",
+        ),
+        "catalog_decisions": (
+            "Append-only proposal decision history.",
+            "SELECT e.*,p.profile,p.file_id FROM main.decision_events e JOIN main.proposals p ON p.id=e.proposal_id",
+        ),
+        "catalog_expected": (
+            "Versioned expected member sets; choose an explicit set ID.",
+            "SELECT * FROM main.expected_sets",
+        ),
+        "catalog_checksums": (
+            "Preserved full-content checksum baselines; not a live integrity assertion.",
+            "SELECT * FROM main.content_baselines",
+        ),
+        "catalog_text": (
+            "Extracted text with locator JSON and processing provenance.",
+            "SELECT * FROM main.text_segments",
+        ),
+        "catalog_refresh": (
+            "Application refresh delivery status; credentials are environment references.",
+            "SELECT * FROM main.refresh_events",
+        ),
+        "catalog_facts": (
+            "Latest successful facts and whether their revision matches recorded inventory; not a live check.",
+            """SELECT f.*,
+        coalesce(f.status='complete' AND o.status='present' AND o.size=json_extract(f.snapshot,'$.size')
+          AND o.mtime_ns=json_extract(f.snapshot,'$.mtime_ns') AND o.inode=json_extract(f.snapshot,'$.inode')
+          AND o.device=json_extract(f.snapshot,'$.device') AND b.root=json_extract(f.snapshot,'$.root')
+          AND b.device=json_extract(f.snapshot,'$.root_device') AND b.inode=json_extract(f.snapshot,'$.root_inode'),0) AS current,
+        json_extract(f.data,'$.summary.width') AS width, json_extract(f.data,'$.summary.height') AS height,
+        json_extract(f.data,'$.summary.hdr') AS hdr, json_extract(f.data,'$.summary.duration') AS duration
+        FROM main.file_facts f JOIN main.files src ON src.id=f.file_id
+        LEFT JOIN main.observations o ON o.profile=f.profile AND o.file_id=f.file_id
+        LEFT JOIN main.bindings b ON b.profile=f.profile AND b.kind='source' AND b.owner=src.location""",
+        ),
+    }
 )
 
 

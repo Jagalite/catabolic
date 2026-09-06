@@ -35,15 +35,22 @@ enum FileSort { ID PATH SIZE MTIME }
 enum MappingSort { ID PATH CATALOG }
 type PageInfo { endCursor: String hasNextPage: Boolean! }
 type Identity { namespace: String! value: String! }
+type Tag { id: ID! name: String! description: String! aliases: [String!]! parentIds: [ID!]! }
+type Tagging { id: ID! subjectType: String! subjectId: ID! tagId: ID! tagName: String! source: String! confidence: Float note: String! active: Boolean! createdAt: String! updatedAt: String! }
+type TagPage { nodes: [Tag!]! pageInfo: PageInfo! }
+type TaggingPage { nodes: [Tagging!]! pageInfo: PageInfo! }
 type Item {
   id: ID! kind: String! title: String year: Int metadata: JSON! identities: [Identity!]!
+  taggings(source: String, active: Active = ACTIVE, first: Int! = 100, after: String): TaggingPage
   associations(role: String, active: Active = ACTIVE, first: Int! = 100, after: String): AssociationPage
   relationships(direction: Direction = BOTH, kind: String, active: Active = ACTIVE, first: Int! = 100, after: String): RelationshipPage
   mappings(catalog: String = "global", allCatalogs: Boolean! = false, active: Active = ALL, first: Int! = 100, after: String): MappingPage
 }
 type File {
+  facts: JSON!
   id: ID! location: String! path: String! sourcePath: String
   size: BigInt mtimeNs: BigInt status: Availability! scanId: ID observedAt: String
+  taggings(source: String, active: Active = ACTIVE, first: Int! = 100, after: String): TaggingPage
   associations(role: String, active: Active = ACTIVE, first: Int! = 100, after: String): AssociationPage
   mappings(catalog: String = "global", allCatalogs: Boolean! = false, active: Active = ALL, first: Int! = 100, after: String): MappingPage
 }
@@ -60,7 +67,7 @@ type Mapping {
   item: Item file: File
 }
 type Catalog {
-  id: ID! root: String
+  id: ID! root: String linkMode: String!
   mappings(active: Active = ALL, first: Int! = 100, after: String): MappingPage
 }
 type ItemPage { nodes: [Item!]! pageInfo: PageInfo! }
@@ -69,11 +76,19 @@ type AssociationPage { nodes: [Association!]! pageInfo: PageInfo! }
 type RelationshipPage { nodes: [Relationship!]! pageInfo: PageInfo! }
 type MappingPage { nodes: [Mapping!]! pageInfo: PageInfo! }
 type CatalogPage { nodes: [Catalog!]! pageInfo: PageInfo! }
+type EvidencePage { nodes: [JSON!]! pageInfo: PageInfo! }
 type Query {
+  job(id: ID!): JSON
+  proposal(id: ID!): JSON
+  jobs(state: String, file: ID, first: Int! = 100, after: String): EvidencePage
+  proposals(state: String, file: ID, first: Int! = 100, after: String): EvidencePage
+  contentSearch(text: String!, first: Int! = 100, after: Int! = 0): JSON!
   profile: String! schemaVersion: Int! mediaTypes: JSON!
-  items(search: String, kind: String, year: Int, identity: String, metadata: [String!], catalog: String, sort: ItemSort = ID, descending: Boolean! = false, first: Int! = 100, after: String): ItemPage
+  tags(search: String, namespace: String, parent: String, child: String, first: Int! = 100, after: String): TagPage
+  taggings(tag: String, item: ID, file: ID, source: String, active: Active = ACTIVE, first: Int! = 100, after: String): TaggingPage
+  items(search: String, kind: String, year: Int, identity: String, metadata: [String!], catalog: String, tags: [String!], anyTags: [String!], notTags: [String!], descendants: Boolean! = false, sort: ItemSort = ID, descending: Boolean! = false, first: Int! = 100, after: String): ItemPage
   item(id: ID, identity: String): Item
-  files(search: String, location: String, status: Availability, unidentified: Boolean! = false, unmapped: Boolean! = false, catalog: String = "global", item: ID, kind: String, year: Int, identity: String, sort: FileSort = ID, descending: Boolean! = false, first: Int! = 100, after: String): FilePage
+  files(search: String, location: String, status: Availability, unidentified: Boolean! = false, unmapped: Boolean! = false, catalog: String = "global", item: ID, kind: String, year: Int, identity: String, tags: [String!], anyTags: [String!], notTags: [String!], descendants: Boolean! = false, sort: FileSort = ID, descending: Boolean! = false, first: Int! = 100, after: String): FilePage
   file(id: ID!): File
   associations(item: ID, file: ID, role: String, active: Active = ACTIVE, first: Int! = 100, after: String): AssociationPage
   relationships(item: ID, direction: Direction = BOTH, kind: String, active: Active = ACTIVE, first: Int! = 100, after: String): RelationshipPage
@@ -162,7 +177,7 @@ class QueryContext:
             self.aborted = "query field budget exceeded"
         self.check()
 
-    def introspection_middleware(self, original, source, info, **args):
+    def introspection_middleware(self, original, source, info, /, **args):
         if info.parent_type.name.startswith("__") or info.field_name.startswith("__"):
             self.count_field()
             value = original(source, info, **args)
@@ -229,7 +244,37 @@ class QueryContext:
             raise CatabolicError("first must be between 1 and 1000")
         key = (field, encode(args))
         if key not in self.cache:
-            if field == "catalogs":
+            if field in ("jobs", "proposals"):
+                table = "processing_jobs" if field == "jobs" else "proposals"
+                conditions, values = ["profile=?"], [self.profile]
+                for key, column in (("state", "state"), ("file", "file_id")):
+                    if args.get(key) is not None:
+                        conditions.append(column + "=?")
+                        values.append(args[key])
+                columns = (
+                    "id,profile,file_id,operation,state,attempts,error,created_at,finished_at"
+                    if field == "jobs"
+                    else "id,profile,file_id,kind,state,source,created_at"
+                )
+                result = self.queries._page(
+                    field,
+                    columns,
+                    table,
+                    conditions,
+                    values,
+                    {"id": "id"},
+                    "id",
+                    False,
+                    limit,
+                    args["cursor"],
+                    [args.get("state"), args.get("file")],
+                )
+                for row in result[field]:
+                    for key in ("snapshot", "options", "payload", "evidence", "result"):
+                        if row.get(key) is not None:
+                            row[key] = json.loads(row[key])
+                self.charge(result)
+            elif field == "catalogs":
                 result = self.queries._page(
                     "catalogs",
                     "c.*",
@@ -256,7 +301,7 @@ class QueryContext:
             },
         }
 
-    def resolve(self, source, info, **args):
+    def resolve(self, source, info, /, **args):
         self.count_field()
         field, parent = info.field_name, info.parent_type.name
         try:
@@ -269,6 +314,23 @@ class QueryContext:
                             "mediaTypes": describe_types(),
                         }[field]
                     )
+                if field in ("job", "proposal"):
+                    from .curation import Curation
+                    from .processing import Processing
+
+                    adapter = Processing if field == "job" else Curation
+                    self.records(1)
+                    return self.charge(
+                        adapter(Application(self.store, self.profile)).get(args["id"])
+                    )
+                if field == "contentSearch":
+                    from .processing import Processing
+
+                    result = Processing(Application(self.store, self.profile)).search(
+                        args["text"], limit=args["first"], after=args["after"]
+                    )
+                    self.records(len(result["hits"]))
+                    return self.charge(result)
                 if field == "item":
                     if (args.get("id") is None) == (args.get("identity") is None):
                         raise CatabolicError("supply exactly one item id or identity")
@@ -282,12 +344,16 @@ class QueryContext:
                 if field == "file":
                     return self.lookup("file", args["id"])
                 return self.page(field, args)
-            if field in ("associations", "relationships", "mappings"):
+            if field in ("associations", "relationships", "mappings", "taggings"):
                 args[{"Item": "item", "File": "file", "Catalog": "catalog"}[parent]] = (
                     source["id"]
                 )
                 return self.page(field, args)
-            if field in ("item", "file", "source", "target"):
+            if field in ("item", "file", "source", "target") and parent in (
+                "Association",
+                "Mapping",
+                "Relationship",
+            ):
                 entity = "file" if field == "file" else "item"
                 return self.lookup(entity, source[field + "_id"])
             if parent == "Item" and field in ("title", "year"):
@@ -295,6 +361,14 @@ class QueryContext:
                 if field == "title":
                     return self.charge(value if isinstance(value, str) else None)
                 return value if type(value) is int and 1 <= value <= 9999 else None
+            if parent == "File" and field == "facts":
+                from .processing import Processing
+
+                result = Processing(Application(self.store, self.profile)).facts(
+                    source["id"]
+                )["facts"]
+                self.records(len(result))
+                return self.charge(result)
             if parent == "File" and field == "sourcePath":
                 return self.charge(
                     self.bound_path("source", source["location"], source["path"])
@@ -303,6 +377,11 @@ class QueryContext:
                 return self.charge(
                     self.bound_path("output", source["catalog"], source["path"])
                 )
+            if parent == "Catalog" and field == "linkMode":
+                return self.queries.store.rows(
+                    "SELECT coalesce((SELECT mode FROM catalog_link_modes WHERE catalog=?),'symlink') AS mode",
+                    (source["id"],),
+                )[0]["mode"]
             if parent == "Catalog" and field == "root":
                 return self.charge(self.bound_path("output", source["id"]))
             snake = re.sub(r"(?<!^)(?=[A-Z])", "_", field).lower()
@@ -319,7 +398,7 @@ class QueryContext:
             raise GraphQLError(str(exc), extensions={"code": "QUERY_ERROR"}) from exc
 
 
-def budget_introspection(original, source, info, **args):
+def budget_introspection(original, source, info, /, **args):
     return info.context.introspection_middleware(original, source, info, **args)
 
 

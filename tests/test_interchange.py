@@ -35,10 +35,23 @@ class InterchangeTest(unittest.TestCase):
     def sample(self):
         return json.loads(FIXTURE.read_text())
 
+    def test_v2_remains_readable_and_preserves_unknown_extensions(self):
+        value = self.sample()
+        value["format_version"] = 2
+        for name in ("tags", "tag_names", "tag_parents", "taggings"):
+            value["content"][name] = []
+            value["content"]["counts"][name] = 0
+        value["vendor:extension"] = {"keep": [None, 1.0, 2**80]}
+        seal(value)
+        Draft202012Validator(specification.schema(2)).validate(value)
+        self.assertEqual(
+            json.loads(encode_document(decode_document(encode(value)))), value
+        )
+
     def test_frozen_schema_reference_and_independent_schema_validation(self):
         self.assertTrue(specification.check_release()["generated_artifacts_match"])
         Draft202012Validator.check_schema(specification.schema())
-        Draft202012Validator(specification.schema()).validate(self.sample())
+        Draft202012Validator(specification.schema(1)).validate(self.sample())
         self.assertEqual(
             document_value(decode_document(FIXTURE.read_text())), self.sample()
         )
@@ -86,7 +99,7 @@ class InterchangeTest(unittest.TestCase):
         self.assertEqual(out, value)
         self.assertEqual(encode(out), encode(value))
         self.assertEqual(out["content_sha256"], value["content_sha256"])
-        Draft202012Validator(specification.schema()).validate(out)
+        Draft202012Validator(specification.schema(1)).validate(out)
 
     def test_rejects_duplicate_keys_unsupported_versions_and_nonfinite_numbers(self):
         raw = FIXTURE.read_text()
@@ -144,7 +157,7 @@ class InterchangeTest(unittest.TestCase):
         value = self.sample()
         value["content"]["items"] = [None] * 100001
         with patch(
-            "catabolic.interchange.validation.Document.model_validate"
+            "catabolic.interchange.validation.DocumentV1.model_validate"
         ) as validate:
             with self.assertRaisesRegex(CatabolicError, "exceeds 100000 items"):
                 validate_document(value)
@@ -152,7 +165,7 @@ class InterchangeTest(unittest.TestCase):
 
     def test_schema_drift_fails_even_if_runtime_accepts_added_fields(self):
         candidate = specification.schema()
-        candidate["properties"]["format_version"]["const"] = 2
+        candidate["properties"]["format_version"]["const"] = 99
         self.assertIn(
             "/properties/format_version/const",
             specification.changes(specification.schema(), candidate),
