@@ -565,8 +565,138 @@ class CatalogTest(unittest.TestCase):
             self.link.unlink()
             self.assertFalse(self.reconciler.verify()["healthy"])
 
+    def test_default_output_structure_and_end_to_end_generation(self):
+        from catabolic.layouts import PRESETS, Layouts
+
+        with patch("catabolic.app.Path.cwd", return_value=self.root):
+            plex = self.app.bind("output", "plex")
+            jellyfin = self.app.bind("output", "jellyfin")
+        self.assertEqual(plex["root"], str(self.root / "catabolic/plex"))
+        self.assertEqual(jellyfin["root"], str(self.root / "catabolic/jellyfin"))
+        self.assertEqual(list((self.root / "catabolic/plex").iterdir()), [])
+        layouts = Layouts(self.app)
+        layouts.put("flat", PRESETS["flat"])
+        self.assertTrue(layouts.run("flat", "plex", apply=True)["applied"])
+        result = Reconciler(self.app).apply("plex")
+        self.assertTrue(result["healthy"])
+        self.assertEqual(result["verification"]["catalogs"][0]["verified_links"], 1)
+        self.assertEqual(self.media.read_bytes(), b"fixture media\n")
+        with patch("catabolic.app.Path.cwd", return_value=self.source):
+            self.assertEqual(self.app.bind("output", "plex"), plex)
+            self.assertEqual(
+                self.app.bind("output", "global")["root"], str(self.output)
+            )
+        self.assertFalse((self.source / "catabolic").exists())
+
+    def test_default_output_refuses_source_overlap_before_creating_directories(self):
+        with patch("catabolic.app.Path.cwd", return_value=self.source):
+            with self.assertRaisesRegex(CatabolicError, "overlaps registered source"):
+                self.app.bind("output", "new")
+        self.assertFalse((self.source / "catabolic").exists())
+        self.assertEqual(self.media.read_bytes(), b"fixture media\n")
+
+    def test_default_output_rejects_symlink_parents_and_leaf(self):
+        parent = self.root / "catabolic"
+        parent.symlink_to(self.source, target_is_directory=True)
+        with patch("catabolic.app.Path.cwd", return_value=self.root):
+            with self.assertRaises((OSError, CatabolicError)):
+                self.app.bind("output", "new")
+        self.assertFalse((self.source / "new").exists())
+        parent.unlink()
+        parent.mkdir()
+        (parent / "new").symlink_to(self.source, target_is_directory=True)
+        with patch("catabolic.app.Path.cwd", return_value=self.root):
+            with self.assertRaises((OSError, CatabolicError)):
+                self.app.bind("output", "new")
+        self.assertEqual(self.media.read_bytes(), b"fixture media\n")
+        self.assertFalse(self.store.rows("SELECT * FROM catalogs WHERE id='new'"))
+
+    def test_default_output_rejects_nonempty_unbound_folder(self):
+        output = self.root / "catabolic/new"
+        output.mkdir(parents=True)
+        external = output / "keep.txt"
+        external.write_text("external")
+        with patch("catabolic.app.Path.cwd", return_value=self.root):
+            with self.assertRaisesRegex(CatabolicError, "already contains files"):
+                self.app.bind("output", "new")
+        self.assertEqual(external.read_text(), "external")
+        self.assertFalse(self.store.rows("SELECT * FROM catalogs WHERE id='new'"))
+
+    def test_default_output_detects_registered_source_case_alias(self):
+        alias = self.source.with_name(self.source.name.upper())
+        if not alias.exists() or not alias.samefile(self.source):
+            self.skipTest("requires a case-insensitive filesystem")
+        self.app.bind("source", "media", str(alias))
+        with patch("catabolic.app.Path.cwd", return_value=self.source):
+            with self.assertRaisesRegex(CatabolicError, "overlaps registered source"):
+                self.app.bind("output", "new")
+        self.assertFalse((self.source / "catabolic").exists())
+
+    def test_default_binding_does_not_recreate_a_missing_existing_root(self):
+        with patch("catabolic.app.Path.cwd", return_value=self.root):
+            before = self.app.bind("output", "new")
+            (self.root / "catabolic/new").rename(self.root / "old-new")
+            with self.assertRaisesRegex(CatabolicError, "unavailable output root"):
+                self.app.bind("output", "new")
+        self.assertFalse((self.root / "catabolic/new").exists())
+        self.assertEqual(self.app.binding("output", "new"), before)
+
+    def test_default_binding_requires_writer_and_explicit_source_root(self):
+        with self.assertRaisesRegex(CatabolicError, "explicit root"):
+            self.app.bind("source", "new")
+        with (
+            Store(self.database) as reader,
+            patch("catabolic.app.Path.cwd", return_value=self.root),
+        ):
+            with self.assertRaisesRegex(CatabolicError, "writable catalog"):
+                Application(reader).bind("output", "new")
+        self.assertFalse((self.root / "catabolic").exists())
+
 
 class CliTest(unittest.TestCase):
+    def test_default_output_cli_and_custom_override(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            database = root / "catalog.sqlite3"
+            Store.initialize(database)
+            custom = root / "custom-output"
+            custom.mkdir()
+            other = root / "other"
+            other.mkdir()
+            prefix = [
+                sys.executable,
+                "-m",
+                "catabolic",
+                "--db",
+                str(database),
+                "--json",
+            ]
+
+            def run(*args, cwd=root):
+                result = subprocess.run(
+                    [*prefix, *args], cwd=cwd, capture_output=True, text=True
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                return json.loads(result.stdout)
+
+            plex = run("catalog", "bind", "plex")
+            self.assertEqual(plex["root"], str(root / "catabolic/plex"))
+            self.assertEqual(run("catalog", "bind", "plex", cwd=other), plex)
+            self.assertFalse((other / "catabolic").exists())
+            custom_binding = run("catalog", "bind", "jellyfin", "--root", str(custom))
+            self.assertEqual(custom_binding["root"], str(custom))
+            self.assertFalse((root / "catabolic/jellyfin").exists())
+            self.assertEqual(
+                run("catalog", "bind", "global")["root"], str(root / "catabolic/global")
+            )
+            missing = subprocess.run(
+                [*prefix, "location", "bind", "source"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(missing.returncode, 2)
+
     def test_public_cli_workflow_and_exit_codes(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()

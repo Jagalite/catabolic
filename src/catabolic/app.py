@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import UUID, uuid4, uuid5
 
 from .domain import CatabolicError, name, relative_path
-from .filesystem import open_directory, root_handle, walk_files
+from .filesystem import DIRECTORY_FLAGS, open_directory, root_handle, walk_files
 from .media import media_kind
 from .media_catalog import MediaCatalog
 from .query import CatalogQuery
@@ -64,17 +64,7 @@ class Application:
             )
         return {"profile": profile}
 
-    def bind(self, kind: str, owner: str, root: str) -> dict:
-        self.require_recovered()
-        if kind not in ("source", "output"):
-            raise CatabolicError("binding kind must be source or output")
-        name(owner)
-        path = Path(root).resolve(strict=True)
-        fd = open_directory(path)
-        try:
-            st = os.fstat(fd)
-        finally:
-            os.close(fd)
+    def _validate_binding_path(self, kind: str, owner: str, path: Path):
         db_path = self.store.path.resolve()
         if db_path.is_relative_to(path):
             raise CatabolicError("a source or output cannot contain the database")
@@ -95,6 +85,89 @@ class Application:
                 raise CatabolicError(
                     f"root overlaps registered {binding['kind']}: {other}"
                 )
+
+    def _guard_default_parent(self, fd: int):
+        # Compare inode identities too: case aliases can defeat path spelling
+        # checks on macOS. Never create a directory inside a registered tree.
+        roots = {
+            (row["device"], row["inode"]): row
+            for row in self.store.rows("SELECT * FROM bindings")
+        }
+        current = os.dup(fd)
+        try:
+            while True:
+                st = os.fstat(current)
+                identity = (st.st_dev, st.st_ino)
+                if identity in roots:
+                    row = roots[identity]
+                    raise CatabolicError(
+                        f"default output overlaps registered {row['kind']}: {row['root']}"
+                    )
+                parent = os.open("..", DIRECTORY_FLAGS, dir_fd=current)
+                parent_st = os.fstat(parent)
+                os.close(current)
+                current = parent
+                if (parent_st.st_dev, parent_st.st_ino) == identity:
+                    break
+        finally:
+            os.close(current)
+
+    def _default_output_root(self, owner: str) -> Path:
+        if self.store.lock_fd is None:
+            raise CatabolicError("default output creation requires a writable catalog")
+        base = Path.cwd()
+        path = base / "catabolic" / owner
+        # Check registered trees before creating any directories. Directory-relative
+        # creation rejects symlink parents rather than following them into media.
+        self._validate_binding_path("output", owner, path)
+        fd = open_directory(base)
+        try:
+            self._guard_default_parent(fd)
+            for component in ("catabolic", owner):
+                try:
+                    os.mkdir(component, mode=0o755, dir_fd=fd)
+                    os.fsync(fd)
+                except FileExistsError:
+                    pass
+                child = os.open(component, DIRECTORY_FLAGS, dir_fd=fd)
+                os.close(fd)
+                fd = child
+                self._guard_default_parent(fd)
+            with os.scandir(fd) as entries:
+                if next(entries, None) is not None:
+                    raise CatabolicError(
+                        "default output already contains files; choose an empty directory or bind --root explicitly"
+                    )
+        finally:
+            os.close(fd)
+        return path
+
+    def bind(self, kind: str, owner: str, root: str | None = None) -> dict:
+        self.require_recovered()
+        if kind not in ("source", "output"):
+            raise CatabolicError("binding kind must be source or output")
+        name(owner)
+        if root is None:
+            if kind != "output":
+                raise CatabolicError("source bindings require an explicit root")
+            existing = self.store.rows(
+                "SELECT * FROM bindings WHERE profile=? AND kind='output' AND owner=?",
+                (self.profile, owner),
+            )
+            if existing:
+                # Omission never relocates or silently repairs an existing binding.
+                with root_handle(existing[0]):
+                    pass
+                return existing[0]
+            path = self._default_output_root(owner)
+        else:
+            path = Path(root).resolve(strict=True)
+        fd = open_directory(path)
+        try:
+            st = os.fstat(fd)
+        finally:
+            os.close(fd)
+        self._validate_binding_path(kind, owner, path)
         old = self.store.rows(
             "SELECT * FROM bindings WHERE profile=? AND kind=? AND owner=?",
             (self.profile, kind, owner),

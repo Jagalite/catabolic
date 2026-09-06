@@ -11,8 +11,24 @@ from .domain import CatabolicError, name, relative_path
 from .media import RELATIONS, ROLES, media_kind, vocabulary
 from .selection import selected_associations, validate_selection
 from .store import encode
+from .targets import definitions as target_definitions
+
+NATIVE_PROFILE = "catabolic.native"
+NATIVE_VERSION = 1
+NATIVE_PATH = "{item.kind}/{item.id}/{association.role}/{file.id}/{file.name}"
+
+
+def native_definition():
+    """Native layout v1; its naming version is independent of definition syntax."""
+    return {
+        "version": 1,
+        "profile": {"id": NATIVE_PROFILE, "version": NATIVE_VERSION},
+        "rules": [{"name": "all", "path": NATIVE_PATH}],
+    }
+
 
 PRESETS = {
+    "catabolic": native_definition(),
     "flat": {
         "version": 1,
         "rules": [{"name": "all", "path": "{item.kind}/{item.id}/{file.name}"}],
@@ -70,6 +86,13 @@ PRESETS = {
     },
 }
 
+PRESETS.update(
+    {
+        ("plex-v1" if key == "plex" else key): value
+        for key, value in target_definitions().items()
+    }
+)
+
 
 def _parts(template):
     if not isinstance(template, str) or not template or len(template) > 4096:
@@ -103,11 +126,35 @@ def _parts(template):
 def validate_layout(definition):
     if (
         not isinstance(definition, dict)
-        or set(definition) - {"version", "rules", "selection"}
+        or set(definition)
+        - {"version", "rules", "selection", "profile", "normalization"}
         or type(definition.get("version")) is not int
         or definition["version"] != 1
     ):
         raise CatabolicError("layout requires version: 1 and rules")
+    if "profile" in definition:
+        profile = definition["profile"]
+        candidates = [native_definition(), *target_definitions().values()]
+        native = next(
+            (value for value in candidates if value["profile"] == profile), None
+        )
+        if (
+            not isinstance(profile, dict)
+            or type(profile.get("version")) is not int
+            or native is None
+        ):
+            raise CatabolicError(
+                "unsupported layout profile; use layout presets for supported versions"
+            )
+        if definition.get("rules") != native["rules"] or definition.get(
+            "normalization"
+        ) != native.get("normalization"):
+            raise CatabolicError(
+                "a versioned profile requires its exact naming rules; "
+                "remove profile to create a custom layout"
+            )
+    if definition.get("normalization", "portable") not in ("portable", "ascii"):
+        raise CatabolicError("normalization must be portable or ascii")
     if "selection" in definition:
         validate_selection(definition["selection"])
     rules = definition.get("rules")
@@ -136,15 +183,25 @@ def validate_layout(definition):
             "roles",
             "has",
             "metadata",
+            "extensions",
         }:
-            raise CatabolicError("when supports kinds, roles, has, and metadata")
-        for key in ("kinds", "roles", "has"):
+            raise CatabolicError(
+                "when supports kinds, roles, has, metadata and extensions"
+            )
+        for key in ("kinds", "roles", "has", "extensions"):
             if key in when and (
                 not isinstance(when[key], list)
                 or not when[key]
                 or not all(isinstance(v, str) for v in when[key])
             ):
                 raise CatabolicError(f"when.{key} must be a nonempty string array")
+        if any(
+            not re.fullmatch(r"\.[a-z0-9]+", extension)
+            for extension in when.get("extensions", [])
+        ):
+            raise CatabolicError(
+                "when.extensions must contain lowercase suffixes such as .epub"
+            )
         for kind in when.get("kinds", []):
             media_kind(kind)
         for role in when.get("roles", []):
@@ -202,7 +259,7 @@ def _component(value):
     return value
 
 
-def render_path(template, context):
+def render_path(template, context, *, normalization="portable"):
     output = []
     for literal, field, spec, _ in _parts(template):
         output.append(literal)
@@ -228,7 +285,10 @@ def render_path(template, context):
         else:
             value = _component(value)
         output.append(value)
-    path = relative_path("".join(output))
+    path = "".join(output)
+    if normalization == "ascii":
+        path = re.sub(r"[^A-Za-z0-9/_.-]", "_", path)
+    path = relative_path(path)
     if len(path.encode()) > 4096 or any(
         len(part.encode()) > 255 for part in path.split("/")
     ):
@@ -271,6 +331,12 @@ def _matching_rule(rules, item, association):
         when = rule.get("when", {})
         if ("kinds" in when and item["kind"] not in when["kinds"]) or (
             "roles" in when and association["role"] not in when["roles"]
+        ):
+            continue
+        if (
+            "extensions" in when
+            and PurePosixPath(association["path"]).suffix.lower()
+            not in when["extensions"]
         ):
             continue
         if any(item["metadata"].get(key) is None for key in when.get("has", [])):
@@ -454,7 +520,11 @@ class Layouts:
                 )
                 if _RELATION_ERROR in context:
                     raise CatabolicError(context[_RELATION_ERROR])
-                destination = render_path(selected["path"], context)
+                destination = render_path(
+                    selected["path"],
+                    context,
+                    normalization=definition.get("normalization", "portable"),
+                )
                 mapping_id = self.app.mapping_id(
                     catalog, association["file_id"], item["id"], destination
                 )

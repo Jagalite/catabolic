@@ -39,6 +39,8 @@ def options(args, *names):
 
 
 def parser() -> argparse.ArgumentParser:
+    from .layouts import PRESETS
+
     root = argparse.ArgumentParser(
         prog="catabolic",
         description="Inventory media and maintain safe symbolic-link catalogs.",
@@ -62,6 +64,57 @@ def parser() -> argparse.ArgumentParser:
         "init", help="create a new database; its parent directory must exist"
     )
     commands.add_parser("status", help="show configuration, counts, and bindings")
+    target = commands.add_parser(
+        "target", help="application compatibility profiles and explicit import adapters"
+    ).add_subparsers(dest="operation", required=True)
+    target.add_parser("list")
+    target.add_parser("show").add_argument("name")
+    importing = target.add_parser(
+        "import", help="preview an import; --apply runs the official application CLI"
+    )
+    importing.add_argument("name", choices=("calibre", "calibre-web", "immich"))
+    importing.add_argument("--catalog", default="global")
+    importing.add_argument(
+        "--destination",
+        required=True,
+        help="local calibre library directory or Immich API URL",
+    )
+    importing.add_argument("--apply", action="store_true")
+    importing.add_argument("--limit", type=int, default=1000)
+    importing.add_argument(
+        "--timeout", type=int, default=300, help="seconds per imported file"
+    )
+    export = commands.add_parser(
+        "export",
+        help="XSPF, OPDS or NFO metadata; optionally publish a fresh projection bundle",
+    )
+    export.add_argument("--format", required=True, choices=("xspf", "opds", "nfo"))
+    export.add_argument("--catalog", default="global")
+    export.add_argument(
+        "--base-url", help="HTTP(S) URL serving the projection root; required for OPDS"
+    )
+    publication = export.add_mutually_exclusive_group()
+    publication.add_argument(
+        "--output", help="new bundle directory; existing paths are never overwritten"
+    )
+    publication.add_argument(
+        "--raw",
+        action="store_true",
+        help="emit a single XSPF or OPDS document instead of the JSON envelope",
+    )
+    docs = commands.add_parser(
+        "docs", help="read or search bundled offline guides; no database required"
+    )
+    docs.add_argument("topic", nargs="?", help="topic name; omitted: list all topics")
+    docs.add_argument(
+        "--search", metavar="TEXT", help="find topics containing all search words"
+    )
+    docs.add_argument(
+        "--json",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="emit structured topics, matches or Markdown for agents",
+    )
     spec = commands.add_parser(
         "spec",
         help="generate/check the interchange specification; no database required",
@@ -124,7 +177,7 @@ def parser() -> argparse.ArgumentParser:
     put_layout.add_argument("name")
     layout_source = put_layout.add_mutually_exclusive_group(required=True)
     layout_source.add_argument("--file", help="JSON definition file; - reads stdin")
-    layout_source.add_argument("--preset", choices=("flat", "plex"))
+    layout_source.add_argument("--preset", choices=tuple(PRESETS))
     selection_source = put_layout.add_mutually_exclusive_group()
     selection_source.add_argument(
         "--select-sql",
@@ -219,10 +272,16 @@ def parser() -> argparse.ArgumentParser:
         )
         sub.add_parser("list")
         bind = sub.add_parser(
-            "bind", help="register or explicitly rebind an existing directory"
+            "bind", help="register a directory; catalogs can create a default output"
         )
         bind.add_argument("name")
-        bind.add_argument("--root", required=True)
+        bind.add_argument(
+            "--root",
+            required=entity == "location",
+            help="existing source directory"
+            if entity == "location"
+            else "existing output directory; omitted: reuse its binding or create ./catabolic/NAME",
+        )
     scan = commands.add_parser(
         "scan", help="publish inventory only after complete source traversal"
     )
@@ -366,6 +425,14 @@ def parser() -> argparse.ArgumentParser:
 
 
 def dispatch(args: argparse.Namespace) -> dict:
+    if args.command == "target" and args.operation in ("list", "show"):
+        from .targets import describe
+
+        return describe(args.name if args.operation == "show" else None)
+    if args.command == "docs":
+        from .documentation import documentation
+
+        return documentation(args.topic, args.search)
     if args.command == "spec":
         from .interchange import specification
         from .interchange.validation import MAX_BYTES, decode_document, document_value
@@ -468,7 +535,9 @@ def dispatch(args: argparse.Namespace) -> dict:
             timeout_ms=args.timeout_ms,
         )
     writable = (
-        args.command == "manifest"
+        args.command == "export"
+        and args.output is not None
+        or args.command == "manifest"
         and (args.in_catalog or args.output not in (None, "-"))
         or args.command in ("scan", "recover")
         or args.command == "sync"
@@ -482,6 +551,35 @@ def dispatch(args: argparse.Namespace) -> dict:
     ) as store:
         app = Application(store, args.profile)
         command = args.command
+        if command in ("export", "target"):
+            from contextlib import nullcontext
+
+            from .exports import build_export, publish_bundle
+            from .importers import import_catalog
+            from .manifest import Manifest
+
+            with store.transaction() if writable else nullcontext():
+                document = Manifest(app).build(args.catalog)
+                if command == "target":
+                    return import_catalog(
+                        app,
+                        document,
+                        args.name,
+                        args.destination,
+                        apply=args.apply,
+                        limit=args.limit,
+                        timeout=args.timeout,
+                    )
+                result = build_export(document, args.format, args.base_url)
+                if args.output:
+                    return publish_bundle(app, document, result, args.output)
+                if args.raw:
+                    if args.format == "nfo":
+                        raise CatabolicError(
+                            "NFO exports can contain multiple files; omit --raw or use --output"
+                        )
+                    return {"raw": result["files"][0]["content"]}
+                return result
         if command == "manifest":
             from .manifest import Manifest
 
@@ -766,11 +864,19 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     json_output = (
         args.json
-        or args.command in ("graphql", "manifest", "spec")
+        or args.command in ("graphql", "manifest", "spec", "target", "export")
         or getattr(args, "format", None) == "json"
     )
     try:
         result = dispatch(args)
+        if args.command == "export" and getattr(args, "raw", False):
+            print(result["raw"], end="")
+            return 0
+        if args.command == "docs" and not args.json:
+            from .documentation import render_documentation
+
+            print(render_documentation(result))
+            return 0
         print(
             result["markdown"]
             if args.command == "spec" and args.operation == "docs" and not args.json
