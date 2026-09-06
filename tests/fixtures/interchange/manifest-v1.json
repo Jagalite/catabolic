@@ -1,0 +1,967 @@
+{
+  "format": "catabolic.catalog-manifest",
+  "format_version": 1,
+  "generator": {
+    "name": "catabolic",
+    "version": "0.1.0"
+  },
+  "generated_at": "2026-09-05T00:00:00+00:00",
+  "content_sha256": "8c5bc7093a7e7f18cf18058af175967aa9f3bc6f9d46cae54baa9ed1be034a36",
+  "content": {
+    "database_id": "36b265c0-5717-4d39-894b-e047d8b5dd55",
+    "database_schema": 3,
+    "profile": "default",
+    "catalog": {
+      "id": "global",
+      "output_root": null
+    },
+    "state": "desired_catalog",
+    "filesystem_verified": false,
+    "layout": null,
+    "entries": [
+      {
+        "mapping_id": "f8c0be3f-76ea-5f57-af3d-6bd381c3c039",
+        "path": "Audiobooks/Book/01.m4b",
+        "output_path": null,
+        "item_id": "chapter1",
+        "file_id": "c5570b2c-31d3-53c3-8889-3cc2d35d9af6",
+        "association_ids": [
+          "44c99caa-11fd-5dd6-9fd7-436e0afd2b6d"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      },
+      {
+        "mapping_id": "77c3ac94-ae13-5a50-970c-aec588b342c1",
+        "path": "Audiobooks/Book/02.m4b",
+        "output_path": null,
+        "item_id": "chapter2",
+        "file_id": "e7b19a5b-0ebc-5b39-8ef1-b30adb2dfb7e",
+        "association_ids": [
+          "d3a944a9-14fd-59ef-a9f7-99c9e8e13543"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      },
+      {
+        "mapping_id": "25c7a903-a9fb-53bf-ba1b-358f23dd5d7d",
+        "path": "Books/Book/Book.epub",
+        "output_path": null,
+        "item_id": "edition",
+        "file_id": "1866dfc5-572c-5e0c-9ca4-2ed24620f621",
+        "association_ids": [
+          "57328d34-de50-54cc-9867-808722513312"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      },
+      {
+        "mapping_id": "aca63632-a1bc-5d38-a232-20b19da2fcce",
+        "path": "Books/Book/Book.pdf",
+        "output_path": null,
+        "item_id": "edition",
+        "file_id": "a8a015e6-cd28-560b-a31f-d87bc65483eb",
+        "association_ids": [
+          "9941c432-151a-50cc-a6f9-ffe2b52cc53d"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      },
+      {
+        "mapping_id": "d6d39599-b6ce-5eb6-b216-eb7e96e48eba",
+        "path": "Comics/Series/01.cbz",
+        "output_path": null,
+        "item_id": "issue",
+        "file_id": "21fe3018-7f1b-5b2b-908b-776f613210c7",
+        "association_ids": [
+          "2cd4e63a-6adc-5959-a1fa-3af79e53fa00"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      },
+      {
+        "mapping_id": "92f47512-1971-5915-a362-e79982d03a9e",
+        "path": "Documents/Notes.txt",
+        "output_path": null,
+        "item_id": "notes",
+        "file_id": "d7370189-0466-53b2-a21d-63b36e6afaba",
+        "association_ids": [
+          "c956f33a-3516-5152-8942-70c98ea27528"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      },
+      {
+        "mapping_id": "e76f163f-09d9-56a6-95ce-9b2a4038177b",
+        "path": "Movies/Movie/Movie.en.srt",
+        "output_path": null,
+        "item_id": "movie",
+        "file_id": "23b12b7e-d323-5c56-981f-eab3a8b964dc",
+        "association_ids": [
+          "d535c9aa-7ce0-58e0-954d-b3a568288457"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      },
+      {
+        "mapping_id": "35dbc405-eb1d-5cbe-b532-32394144bd3d",
+        "path": "Movies/Movie/Movie.mkv",
+        "output_path": null,
+        "item_id": "movie",
+        "file_id": "98fa3fcf-1924-5cad-9667-469a1ef34f59",
+        "association_ids": [
+          "7e08a8f2-3ad9-5fee-b418-8eb71ef18502"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      },
+      {
+        "mapping_id": "6dcf38d9-4581-5765-8a01-691bd7a71490",
+        "path": "Music/Artist/Album/01.flac",
+        "output_path": null,
+        "item_id": "track1",
+        "file_id": "179aeb11-4c64-571b-9766-d1f50cd47a4c",
+        "association_ids": [
+          "078270c4-d689-564b-ab1c-df396442a1c4"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      },
+      {
+        "mapping_id": "92b07660-a9e5-52df-a7b7-19c92eb9ea02",
+        "path": "Music/Artist/Album/02.flac",
+        "output_path": null,
+        "item_id": "track2",
+        "file_id": "42bed766-9d91-5e13-9e3b-122f5bd859ff",
+        "association_ids": [
+          "23348d9e-9334-5083-8f87-f51c78a505d0"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      },
+      {
+        "mapping_id": "2a747025-d487-54c8-ac94-0cdf2b2ee4dd",
+        "path": "Music/Artist/Album/cover.jpg",
+        "output_path": null,
+        "item_id": "album",
+        "file_id": "d40f320e-d52f-5dff-b4b3-13150522599c",
+        "association_ids": [
+          "82808569-f2e7-50fb-a07b-3e1e44300e10"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      },
+      {
+        "mapping_id": "88bb81c9-6b22-596f-bb3f-05850989e5ab",
+        "path": "Photos/Album/Export.jpg",
+        "output_path": null,
+        "item_id": "derivative",
+        "file_id": "557e9a20-0ee8-5297-8fb2-a6b865b34e63",
+        "association_ids": [
+          "2fd3ad4c-0cdd-526e-8e30-46a6062912e0"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      },
+      {
+        "mapping_id": "78efa85d-4eb6-5371-bfd5-8597b6be28c8",
+        "path": "Photos/Album/Original.raw",
+        "output_path": null,
+        "item_id": "photo",
+        "file_id": "eeb28a05-af22-5420-95bb-07075afa0b3b",
+        "association_ids": [
+          "8840d6a7-8e37-5f0a-aeb5-0a4ee4e816b3"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      },
+      {
+        "mapping_id": "a7e9a00f-e410-5677-886f-fbb54658fd3d",
+        "path": "Podcasts/Show/01.mp3",
+        "output_path": null,
+        "item_id": "podcast_ep",
+        "file_id": "87b2c6ac-f715-5d64-bede-6570ef9c1fee",
+        "association_ids": [
+          "376c074a-24d1-5e8e-b71c-58995cc49010"
+        ],
+        "managed_by_layout": null,
+        "expected_link_target": null,
+        "recorded_link_target": null,
+        "recorded_link_matches_desired": null
+      }
+    ],
+    "items": [
+      {
+        "id": "album",
+        "kind": "album",
+        "metadata": {
+          "title": "album",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "artist",
+        "kind": "artist",
+        "metadata": {
+          "title": "artist",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "audio",
+        "kind": "audiobook",
+        "metadata": {
+          "title": "audio",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "book",
+        "kind": "book",
+        "metadata": {
+          "title": "book",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "chapter1",
+        "kind": "audiobook_chapter",
+        "metadata": {
+          "title": "chapter1",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "chapter2",
+        "kind": "audiobook_chapter",
+        "metadata": {
+          "title": "chapter2",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "comics",
+        "kind": "comic_series",
+        "metadata": {
+          "title": "comics",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "derivative",
+        "kind": "photo",
+        "metadata": {
+          "title": "derivative",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "edition",
+        "kind": "book_edition",
+        "metadata": {
+          "title": "edition",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "issue",
+        "kind": "comic_issue",
+        "metadata": {
+          "title": "issue",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "movie",
+        "kind": "movie",
+        "metadata": {
+          "title": "movie",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "narrator",
+        "kind": "person",
+        "metadata": {
+          "title": "narrator",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "notes",
+        "kind": "custom:research_notes",
+        "metadata": {
+          "title": "notes",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "photo",
+        "kind": "photo",
+        "metadata": {
+          "title": "photo",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "photos",
+        "kind": "photo_album",
+        "metadata": {
+          "title": "photos",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "podcast",
+        "kind": "podcast",
+        "metadata": {
+          "title": "podcast",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "podcast_ep",
+        "kind": "podcast_episode",
+        "metadata": {
+          "title": "podcast_ep",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "track1",
+        "kind": "track",
+        "metadata": {
+          "title": "track1",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      },
+      {
+        "id": "track2",
+        "kind": "track",
+        "metadata": {
+          "title": "track2",
+          "unknown": {
+            "retain": [
+              true,
+              null,
+              "Café"
+            ]
+          }
+        },
+        "identities": []
+      }
+    ],
+    "files": [
+      {
+        "id": "179aeb11-4c64-571b-9766-d1f50cd47a4c",
+        "location": "media",
+        "path": "track01.flac",
+        "size": "29",
+        "mtime_ns": "1788659649691232356",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      },
+      {
+        "id": "1866dfc5-572c-5e0c-9ca4-2ed24620f621",
+        "location": "media",
+        "path": "book.epub",
+        "size": "26",
+        "mtime_ns": "1788659649691456860",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      },
+      {
+        "id": "21fe3018-7f1b-5b2b-908b-776f613210c7",
+        "location": "media",
+        "path": "issue.cbz",
+        "size": "26",
+        "mtime_ns": "1788659649692018827",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      },
+      {
+        "id": "23b12b7e-d323-5c56-981f-eab3a8b964dc",
+        "location": "media",
+        "path": "movie.srt",
+        "size": "26",
+        "mtime_ns": "1788659649691144688",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      },
+      {
+        "id": "42bed766-9d91-5e13-9e3b-122f5bd859ff",
+        "location": "media",
+        "path": "track02.flac",
+        "size": "29",
+        "mtime_ns": "1788659649691310358",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      },
+      {
+        "id": "557e9a20-0ee8-5297-8fb2-a6b865b34e63",
+        "location": "media",
+        "path": "photo.jpg",
+        "size": "26",
+        "mtime_ns": "1788659649691861866",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      },
+      {
+        "id": "87b2c6ac-f715-5d64-bede-6570ef9c1fee",
+        "location": "media",
+        "path": "podcast.mp3",
+        "size": "28",
+        "mtime_ns": "1788659649691943368",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      },
+      {
+        "id": "98fa3fcf-1924-5cad-9667-469a1ef34f59",
+        "location": "media",
+        "path": "movie.mkv",
+        "size": "26",
+        "mtime_ns": "1788659649691049061",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      },
+      {
+        "id": "a8a015e6-cd28-560b-a31f-d87bc65483eb",
+        "location": "media",
+        "path": "book.pdf",
+        "size": "25",
+        "mtime_ns": "1788659649691530403",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      },
+      {
+        "id": "c5570b2c-31d3-53c3-8889-3cc2d35d9af6",
+        "location": "media",
+        "path": "chapter01.m4b",
+        "size": "30",
+        "mtime_ns": "1788659649691608029",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      },
+      {
+        "id": "d40f320e-d52f-5dff-b4b3-13150522599c",
+        "location": "media",
+        "path": "cover.jpg",
+        "size": "26",
+        "mtime_ns": "1788659649691383525",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      },
+      {
+        "id": "d7370189-0466-53b2-a21d-63b36e6afaba",
+        "location": "media",
+        "path": "notes.txt",
+        "size": "26",
+        "mtime_ns": "1788659649692093412",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      },
+      {
+        "id": "e7b19a5b-0ebc-5b39-8ef1-b30adb2dfb7e",
+        "location": "media",
+        "path": "chapter02.m4b",
+        "size": "30",
+        "mtime_ns": "1788659649691686989",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      },
+      {
+        "id": "eeb28a05-af22-5420-95bb-07075afa0b3b",
+        "location": "media",
+        "path": "photo.raw",
+        "size": "26",
+        "mtime_ns": "1788659649691783115",
+        "status": "present",
+        "scan_id": "c1571933-59ee-4ea5-bed9-01d14980f1d5",
+        "observed_at": "2026-09-06 01:54:09",
+        "source_root": null,
+        "source_path": null
+      }
+    ],
+    "associations": [
+      {
+        "id": "078270c4-d689-564b-ab1c-df396442a1c4",
+        "file_id": "179aeb11-4c64-571b-9766-d1f50cd47a4c",
+        "item_id": "track1",
+        "role": "primary",
+        "part": null,
+        "metadata": {
+          "format": "flac"
+        },
+        "origin": "explicit",
+        "active": true
+      },
+      {
+        "id": "23348d9e-9334-5083-8f87-f51c78a505d0",
+        "file_id": "42bed766-9d91-5e13-9e3b-122f5bd859ff",
+        "item_id": "track2",
+        "role": "primary",
+        "part": null,
+        "metadata": {
+          "format": "flac"
+        },
+        "origin": "explicit",
+        "active": true
+      },
+      {
+        "id": "2cd4e63a-6adc-5959-a1fa-3af79e53fa00",
+        "file_id": "21fe3018-7f1b-5b2b-908b-776f613210c7",
+        "item_id": "issue",
+        "role": "primary",
+        "part": null,
+        "metadata": {
+          "format": "cbz"
+        },
+        "origin": "explicit",
+        "active": true
+      },
+      {
+        "id": "2fd3ad4c-0cdd-526e-8e30-46a6062912e0",
+        "file_id": "557e9a20-0ee8-5297-8fb2-a6b865b34e63",
+        "item_id": "derivative",
+        "role": "primary",
+        "part": null,
+        "metadata": {
+          "format": "jpg"
+        },
+        "origin": "explicit",
+        "active": true
+      },
+      {
+        "id": "376c074a-24d1-5e8e-b71c-58995cc49010",
+        "file_id": "87b2c6ac-f715-5d64-bede-6570ef9c1fee",
+        "item_id": "podcast_ep",
+        "role": "primary",
+        "part": null,
+        "metadata": {
+          "format": "mp3"
+        },
+        "origin": "explicit",
+        "active": true
+      },
+      {
+        "id": "44c99caa-11fd-5dd6-9fd7-436e0afd2b6d",
+        "file_id": "c5570b2c-31d3-53c3-8889-3cc2d35d9af6",
+        "item_id": "chapter1",
+        "role": "primary",
+        "part": null,
+        "metadata": {
+          "format": "m4b"
+        },
+        "origin": "explicit",
+        "active": true
+      },
+      {
+        "id": "57328d34-de50-54cc-9867-808722513312",
+        "file_id": "1866dfc5-572c-5e0c-9ca4-2ed24620f621",
+        "item_id": "edition",
+        "role": "primary",
+        "part": null,
+        "metadata": {
+          "format": "epub"
+        },
+        "origin": "explicit",
+        "active": true
+      },
+      {
+        "id": "7e08a8f2-3ad9-5fee-b418-8eb71ef18502",
+        "file_id": "98fa3fcf-1924-5cad-9667-469a1ef34f59",
+        "item_id": "movie",
+        "role": "primary",
+        "part": null,
+        "metadata": {
+          "format": "mkv"
+        },
+        "origin": "explicit",
+        "active": true
+      },
+      {
+        "id": "82808569-f2e7-50fb-a07b-3e1e44300e10",
+        "file_id": "d40f320e-d52f-5dff-b4b3-13150522599c",
+        "item_id": "album",
+        "role": "cover",
+        "part": null,
+        "metadata": {
+          "format": "jpg"
+        },
+        "origin": "explicit",
+        "active": true
+      },
+      {
+        "id": "8840d6a7-8e37-5f0a-aeb5-0a4ee4e816b3",
+        "file_id": "eeb28a05-af22-5420-95bb-07075afa0b3b",
+        "item_id": "photo",
+        "role": "primary",
+        "part": null,
+        "metadata": {
+          "format": "raw"
+        },
+        "origin": "explicit",
+        "active": true
+      },
+      {
+        "id": "9941c432-151a-50cc-a6f9-ffe2b52cc53d",
+        "file_id": "a8a015e6-cd28-560b-a31f-d87bc65483eb",
+        "item_id": "edition",
+        "role": "primary",
+        "part": null,
+        "metadata": {
+          "format": "pdf"
+        },
+        "origin": "explicit",
+        "active": true
+      },
+      {
+        "id": "c956f33a-3516-5152-8942-70c98ea27528",
+        "file_id": "d7370189-0466-53b2-a21d-63b36e6afaba",
+        "item_id": "notes",
+        "role": "primary",
+        "part": null,
+        "metadata": {
+          "format": "txt"
+        },
+        "origin": "explicit",
+        "active": true
+      },
+      {
+        "id": "d3a944a9-14fd-59ef-a9f7-99c9e8e13543",
+        "file_id": "e7b19a5b-0ebc-5b39-8ef1-b30adb2dfb7e",
+        "item_id": "chapter2",
+        "role": "primary",
+        "part": null,
+        "metadata": {
+          "format": "m4b"
+        },
+        "origin": "explicit",
+        "active": true
+      },
+      {
+        "id": "d535c9aa-7ce0-58e0-954d-b3a568288457",
+        "file_id": "23b12b7e-d323-5c56-981f-eab3a8b964dc",
+        "item_id": "movie",
+        "role": "subtitle",
+        "part": null,
+        "metadata": {
+          "format": "srt"
+        },
+        "origin": "explicit",
+        "active": true
+      }
+    ],
+    "relationships": [
+      {
+        "id": "049f93e0-bbf6-5e80-9556-03d098618f43",
+        "source_id": "photo",
+        "target_id": "photos",
+        "kind": "part_of",
+        "position": 1,
+        "metadata": {},
+        "active": true
+      },
+      {
+        "id": "07308ec8-1b91-5e0b-8cac-75683efec4c5",
+        "source_id": "derivative",
+        "target_id": "photo",
+        "kind": "derived_from",
+        "position": null,
+        "metadata": {},
+        "active": true
+      },
+      {
+        "id": "1d815e1e-7030-5235-b809-f9415fbc26b3",
+        "source_id": "edition",
+        "target_id": "book",
+        "kind": "edition_of",
+        "position": null,
+        "metadata": {},
+        "active": true
+      },
+      {
+        "id": "446e40fe-e7dc-58f5-b85d-a1b7d42cb897",
+        "source_id": "audio",
+        "target_id": "book",
+        "kind": "edition_of",
+        "position": null,
+        "metadata": {},
+        "active": true
+      },
+      {
+        "id": "4fbf0d43-e466-5676-a0c8-9cf53bb8cdba",
+        "source_id": "album",
+        "target_id": "artist",
+        "kind": "performed_by",
+        "position": null,
+        "metadata": {},
+        "active": true
+      },
+      {
+        "id": "6897fc3d-f1e9-5293-866d-3e0dc98f20ed",
+        "source_id": "chapter2",
+        "target_id": "audio",
+        "kind": "part_of",
+        "position": 2,
+        "metadata": {},
+        "active": true
+      },
+      {
+        "id": "84c87978-1d04-5aac-834a-9e4b827cb4d1",
+        "source_id": "issue",
+        "target_id": "comics",
+        "kind": "part_of",
+        "position": 1,
+        "metadata": {},
+        "active": true
+      },
+      {
+        "id": "86ea43f5-631e-502f-8501-7d975d870649",
+        "source_id": "podcast_ep",
+        "target_id": "podcast",
+        "kind": "part_of",
+        "position": 1,
+        "metadata": {},
+        "active": true
+      },
+      {
+        "id": "b62787f4-37a5-5c70-9ca2-f317a095d932",
+        "source_id": "track2",
+        "target_id": "album",
+        "kind": "part_of",
+        "position": 2,
+        "metadata": {},
+        "active": true
+      },
+      {
+        "id": "cd3a4b30-3a57-5c9e-bee6-143fdb2a1e33",
+        "source_id": "track1",
+        "target_id": "album",
+        "kind": "part_of",
+        "position": 1,
+        "metadata": {},
+        "active": true
+      },
+      {
+        "id": "d1da1be4-453b-5890-81d5-2a67d2ca003d",
+        "source_id": "audio",
+        "target_id": "narrator",
+        "kind": "narrated_by",
+        "position": null,
+        "metadata": {},
+        "active": true
+      },
+      {
+        "id": "f68555dd-a486-5351-8f48-088b416a95df",
+        "source_id": "chapter1",
+        "target_id": "audio",
+        "kind": "part_of",
+        "position": 1,
+        "metadata": {},
+        "active": true
+      }
+    ],
+    "recorded_links": [],
+    "extra": {},
+    "counts": {
+      "entries": 14,
+      "items": 19,
+      "files": 14,
+      "associations": 14,
+      "relationships": 12,
+      "recorded_links": 0
+    }
+  }
+}

@@ -13,13 +13,13 @@ from uuid import uuid4
 from . import __version__
 from .domain import CatabolicError
 from .filesystem import DIRECTORY_FLAGS, open_directory, owner_state, root_handle
+from .interchange.v1 import FORMAT, VERSION
+from .interchange.validation import validate_document
 from .layouts import Layouts
 from .migration import SCHEMA_VERSION
 from .reconcile import Reconciler
 from .store import encode
 
-FORMAT = "catabolic.catalog-manifest"
-VERSION = 1
 FILENAME = ".catabolic-manifest.json"
 MAX_RECORDS = 100000
 MAX_BYTES = 128 * 1024 * 1024
@@ -227,6 +227,7 @@ class Manifest:
             raise CatabolicError(
                 "manifest exceeds the 128 MiB output limit; nothing was exported"
             )
+        validate_document(result)
         return result
 
     def write(self, document, *, output=None, in_catalog=False, replace=False):
@@ -234,6 +235,7 @@ class Manifest:
             raise CatabolicError(
                 "manifest publication requires the catalog writer lock and snapshot"
             )
+        validate_document(document)
         catalog = document["content"]["catalog"]["id"]
         if in_catalog:
             binding = self.app.binding("output", catalog)

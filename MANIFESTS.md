@@ -129,3 +129,10 @@ Input, ownership, and export errors exit 2 with a JSON error on stderr.
 
 This is Catabolic's generic metadata format. It is not an NFO, XMP, or other
 consumer-specific sidecar, and it is not a replacement for a SQLite backup.
+
+## Generated interchange specification
+
+The existing manifest v1 format now has typed models, a generated JSON Schema,
+and a generated field reference. See [OPEN_CATALOG.md](OPEN_CATALOG.md) for the
+contract and its preservation/versioning rules. Exports validate before output;
+`catabolic spec validate --file PATH` validates documents without opening a database.

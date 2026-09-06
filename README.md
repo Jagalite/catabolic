@@ -112,6 +112,12 @@ catabolic --db catalog.sqlite3 graphql '{ items(first: 10) { nodes { id title ki
 
 ## Metadata manifests
 
+[OPEN_CATALOG.md](OPEN_CATALOG.md) describes the typed interchange contract,
+generated JSON Schema and field reference, frozen versions, and lossless JSON-value
+round trips. `catabolic spec schema`, `spec docs`, `spec check`, and
+`spec validate --file catalog.json` work without a database. Manifest exports use
+the same models for validation.
+
 [MANIFESTS.md](MANIFESTS.md) documents versioned JSON exports containing item
 metadata, identities, file roles, relationships, source/output paths, and saved
 layout/query provenance. Export to stdout, a separate file, or the synchronized

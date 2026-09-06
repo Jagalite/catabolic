@@ -62,6 +62,28 @@ def parser() -> argparse.ArgumentParser:
         "init", help="create a new database; its parent directory must exist"
     )
     commands.add_parser("status", help="show configuration, counts, and bindings")
+    spec = commands.add_parser(
+        "spec",
+        help="generate/check the interchange specification; no database required",
+    ).add_subparsers(dest="operation", required=True)
+    spec.add_parser("schema", help="emit generated JSON Schema")
+    spec.add_parser("docs", help="emit generated Markdown field reference")
+    spec.add_parser("check", help="check models against frozen versioned artifacts")
+    for operation in ("validate", "roundtrip"):
+        spec.add_parser(
+            operation,
+            help="validate a catalog document"
+            if operation == "validate"
+            else "validate and re-emit JSON, preserving unknown fields",
+        ).add_argument(
+            "--file", required=True, help="JSON document path; - reads stdin"
+        )
+    spec.add_parser(
+        "diff",
+        help="compare a candidate schema to the generated schema; differences require review",
+    ).add_argument(
+        "--against", required=True, help="candidate JSON Schema path; - reads stdin"
+    )
     manifest = commands.add_parser(
         "manifest", help="export catalog metadata as a versioned JSON snapshot"
     )
@@ -344,6 +366,34 @@ def parser() -> argparse.ArgumentParser:
 
 
 def dispatch(args: argparse.Namespace) -> dict:
+    if args.command == "spec":
+        from .interchange import specification
+        from .interchange.validation import MAX_BYTES, decode_document, document_value
+
+        if args.operation == "schema":
+            return specification.schema()
+        if args.operation == "docs":
+            return {"markdown": specification.reference_text()}
+        if args.operation == "check":
+            return specification.check_release()
+        if args.operation == "diff":
+            other = json.loads(read_text(args.against, 5 * 1024 * 1024))
+            changed = specification.changes(specification.schema(), other)
+            return {
+                "complete": not changed,
+                "compatibility": "identical" if not changed else "review_required",
+                "changed_paths": changed,
+            }
+        document = decode_document(read_text(args.file, MAX_BYTES))
+        if args.operation == "roundtrip":
+            return document_value(document)
+        return {
+            "valid": True,
+            "format": document.format,
+            "format_version": document.format_version,
+            "content_sha256": document.content_sha256,
+            "counts": document.content.counts.model_dump(),
+        }
     if args.command == "item" and args.operation == "types":
         return describe_types()
     if args.command == "layout" and args.operation == "presets":
@@ -716,20 +766,34 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     json_output = (
         args.json
-        or args.command in ("graphql", "manifest")
+        or args.command in ("graphql", "manifest", "spec")
         or getattr(args, "format", None) == "json"
     )
     try:
         result = dispatch(args)
         print(
-            json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False)
+            result["markdown"]
+            if args.command == "spec" and args.operation == "docs" and not args.json
+            else json.dumps(
+                result,
+                indent=2,
+                ensure_ascii=False,
+                allow_nan=False,
+                sort_keys=args.command == "spec" and args.operation == "schema",
+            )
             if json_output
             else render_table(result)
             if args.command == "query" and "rows" in result
-            else render(result)
+            else render(result),
+            end=""
+            if args.command == "spec" and args.operation == "docs" and not args.json
+            else "\n",
         )
         if args.command == "graphql" and result.get("errors"):
             return 2
+        if args.command == "spec":
+            # Unknown envelope fields are data, not this command's status.
+            return 3 if args.operation == "diff" and not result["complete"] else 0
         if any(result.get(key) is False for key in ("safe", "healthy", "complete")):
             return 3
         return 0
