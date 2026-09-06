@@ -2,4 +2,5 @@
 # SPDX-License-Identifier: MIT
 
 include LICENSE
+recursive-include docs *.md
 recursive-include tests *.license

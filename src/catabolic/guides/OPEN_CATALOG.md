@@ -17,20 +17,20 @@ included in the manifest's saved layout definition. Plex and custom outputs can
 produce valid manifests without following the native naming contract.
 
 The source of truth for structural fields is
-[`src/catabolic/interchange/v1.py`](src/catabolic/interchange/v1.py) and
-[`src/catabolic/interchange/v2.py`](src/catabolic/interchange/v2.py), and
-[`src/catabolic/interchange/v3.py`](src/catabolic/interchange/v3.py).
+[`src/catabolic/interchange/v1.py`](../src/catabolic/interchange/v1.py) and
+[`src/catabolic/interchange/v2.py`](../src/catabolic/interchange/v2.py), and
+[`src/catabolic/interchange/v3.py`](../src/catabolic/interchange/v3.py).
 Pydantic types and `label(...)` annotations supply required/nullable types,
 descriptions, examples, version introduction, and deprecation information.
 The generator emits JSON Schema Draft 2020-12 and a Markdown field reference:
 
-- [Frozen v3 JSON Schema](src/catabolic/interchange/releases/manifest-v3.schema.json)
-- [Generated v3 field reference](src/catabolic/interchange/releases/manifest-v3.md)
-- [Frozen v2 JSON Schema](src/catabolic/interchange/releases/manifest-v2.schema.json)
-- [Generated v2 field reference](src/catabolic/interchange/releases/manifest-v2.md)
-- [Frozen v1 JSON Schema](src/catabolic/interchange/releases/manifest-v1.schema.json)
-- [Generated v1 field reference](src/catabolic/interchange/releases/manifest-v1.md)
-- [Release checksums](src/catabolic/interchange/releases/index.json)
+- [Frozen v3 JSON Schema](../src/catabolic/interchange/releases/manifest-v3.schema.json)
+- [Generated v3 field reference](../src/catabolic/interchange/releases/manifest-v3.md)
+- [Frozen v2 JSON Schema](../src/catabolic/interchange/releases/manifest-v2.schema.json)
+- [Generated v2 field reference](../src/catabolic/interchange/releases/manifest-v2.md)
+- [Frozen v1 JSON Schema](../src/catabolic/interchange/releases/manifest-v1.schema.json)
+- [Generated v1 field reference](../src/catabolic/interchange/releases/manifest-v1.md)
+- [Release checksums](../src/catabolic/interchange/releases/index.json)
 
 Schema IDs are `urn:catabolic:open-catalog:manifest:1` and
 `urn:catabolic:open-catalog:manifest:2`, plus `urn:catabolic:open-catalog:manifest:3`. No network fetch or
@@ -125,7 +125,7 @@ float exponent spelling and negative zero. Changing canonicalization requires a
 new format version. A byte-order mark or trailing newline is not part of the
 checksummed content. Document envelope fields are outside the content checksum.
 
-The retained [compatibility fixture](tests/fixtures/interchange/manifest-v1.json)
+The retained [compatibility fixture](../tests/fixtures/interchange/manifest-v1.json)
 and round-trip tests provide executable examples. Whitespace around input JSON
 does not affect verification. Reordering arrays or adding content extensions does
 change the checksum and requires an intentional recomputation.

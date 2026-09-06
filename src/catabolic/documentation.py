@@ -7,7 +7,7 @@ from importlib.resources import files
 
 from .domain import CatabolicError
 
-# Root Markdown files are authoritative. scripts/sync_docs.py publishes copies
+# README.md and docs/ are authoritative. scripts/sync_docs.py publishes copies
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (

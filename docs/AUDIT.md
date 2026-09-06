@@ -66,7 +66,7 @@ The strongest safeguards are in migrations and link reconciliation. The newer ad
 
 ### A1 — Medium: imports can accept a different file under the recorded identity
 
-Locations: [import preflight](src/catabolic/importers.py#L61), [staging](src/catabolic/importers.py#L170), [processing source validation](src/catabolic/processing.py#L41).
+Locations: [import preflight](../src/catabolic/importers.py#L61), [staging](../src/catabolic/importers.py#L170), [processing source validation](../src/catabolic/processing.py#L41).
 
 Import preflight and staging compare size and modification time, but do not compare the opened file's device and inode with its recorded observation. Staging also does not revalidate the named source after copying. Processing already has a stronger descriptor-based validator that checks these properties.
 
@@ -78,7 +78,7 @@ Fix: resolve the current profile occurrence by file ID and use the shared valida
 
 ### A2 — Medium: timeout cleanup can leave subprocess descendants running
 
-Locations: [extractor cleanup](src/catabolic/processing.py#L161), [import subprocess invocation](src/catabolic/importers.py#L144).
+Locations: [extractor cleanup](../src/catabolic/processing.py#L161), [import subprocess invocation](../src/catabolic/importers.py#L144).
 
 `command_output` starts a process group, but kills it only when the direct child is still running. If the direct child exits while a descendant retains the output pipes, the deadline expires and cleanup skips the group kill. Imports separately use `subprocess.run` without creating or managing a process group.
 
@@ -90,7 +90,7 @@ Fix: use one subprocess lifecycle mechanism with explicit process-group ownershi
 
 ### A3 — Medium: a failed external import is reported as unapplied despite side effects
 
-Location: [import error result](src/catabolic/importers.py#L153).
+Location: [import error result](../src/catabolic/importers.py#L153).
 
 On failure, `applied` is derived solely from previously completed groups. A tool can mutate the destination for the current group and then fail or time out. The returned result lacks an explicit indication that this group's side effects are unknown.
 
@@ -102,7 +102,7 @@ Fix: distinguish not started, completed, failed before launch, and external outc
 
 ### A4 — Medium: HTTP adapters lack a total elapsed-time deadline
 
-Locations: [HTTP request](src/catabolic/network_adapters.py#L23), [refresh delivery](src/catabolic/network_adapters.py#L209), [writer lifetime](src/catabolic/store.py#L28).
+Locations: [HTTP request](../src/catabolic/network_adapters.py#L23), [refresh delivery](../src/catabolic/network_adapters.py#L209), [writer lifetime](../src/catabolic/store.py#L28).
 
 The adapter supplies `timeout=15` to urllib, then reads the response up to its byte limit. This limits blocking socket operations, not total request duration. A server that keeps delivering small pieces can retain the operation far beyond 15 seconds. Write-enabled identify and refresh invocations retain the catalog writer lock while waiting.
 
@@ -114,7 +114,7 @@ Fix: enforce a monotonic deadline across connection and response consumption, wh
 
 ## Database integrity assessment
 
-The existing migration path validates the exact known schema and migration ledger, creates a SQLite backup, verifies its identity and contents, rehearses the chain, and then compares the live database with the backup under a SQLite writer reservation before upgrading. Pending filesystem operations block migration. Preservation checks reject changes to existing columns and values. These are useful protections worth retaining. See [migration validation](src/catabolic/migration.py#L160) and [upgrade](src/catabolic/migration.py#L472).
+The existing migration path validates the exact known schema and migration ledger, creates a SQLite backup, verifies its identity and contents, rehearses the chain, and then compares the live database with the backup under a SQLite writer reservation before upgrading. Pending filesystem operations block migration. Preservation checks reject changes to existing columns and values. These are useful protections worth retaining. See [migration validation](../src/catabolic/migration.py#L160) and [upgrade](../src/catabolic/migration.py#L472).
 
 The ordinary Store open checks structure and migration history. Full validation additionally runs SQLite integrity and foreign-key checks, plus the active-mapping/association invariant. It does not validate all application semantics. In particular, several schema-6 operational state/operation fields are unconstrained text, and references such as `file_facts.job_id` do not ensure that the referenced job belongs to the same profile, file, and operation. This is a defense-in-depth gap; this audit did not demonstrate a supported CLI write producing those inconsistent rows.
 
@@ -131,8 +131,8 @@ These recommendations do not establish existing data loss or corruption in the u
 
 1. **Unify source validation and subprocess lifecycle first.** A1 and A2 show actual behavioral drift between adapters. Shared contracts should describe an occurrence revision, validated source handle, execution budget, and outcome without making the CLI responsible for safety rules.
 2. **Separate processing responsibilities along existing boundaries.** `processing.py` currently combines source validation, extractors, queue scheduling, retry history, fact publication, checksum baselines, and text search. Extract these cohesive responsibilities gradually with the existing tests protecting behavior. Introduce typed internal records for job snapshots and outcomes; avoid a large framework or wholesale rewrite.
-3. **Version recovery compatibility explicitly.** [Store recovery admission](src/catabolic/store.py#L35) contains a comment about schemas 2–4 but admits every earlier schema. Current compatibility needs tests per supported version; future journal changes should require an explicit compatibility decision rather than inheriting this range automatically.
-4. **Correct stale operational documentation.** [README](README.md#L433) and its packaged copy say scans buffer an entire location in memory and large-library performance is uncharacterized. Current [scan staging](src/catabolic/scan_staging.py#L6) uses disposable SQLite storage and 500-row buffers, and the repository contains scale/acceptance evidence. The existing document-sync test checks matching copies, not factual freshness.
+3. **Version recovery compatibility explicitly.** [Store recovery admission](../src/catabolic/store.py#L35) contains a comment about schemas 2–4 but admits every earlier schema. Current compatibility needs tests per supported version; future journal changes should require an explicit compatibility decision rather than inheriting this range automatically.
+4. **Correct stale operational documentation.** [README](../README.md#L433) and its packaged copy say scans buffer an entire location in memory and large-library performance is uncharacterized. Current [scan staging](../src/catabolic/scan_staging.py#L6) uses disposable SQLite storage and 500-row buffers, and the repository contains scale/acceptance evidence. The existing document-sync test checks matching copies, not factual freshness.
 
 ## Security and release tooling
 

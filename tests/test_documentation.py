@@ -26,9 +26,10 @@ class DocumentationTest(unittest.TestCase):
         self.assertEqual(len(set(identifiers)), len(identifiers))
         for topic, filename, _, _ in TOPICS:
             with self.subTest(topic=topic):
+                source_root = ROOT if filename == "README.md" else ROOT / "docs"
                 self.assertEqual(
                     documentation(topic)["markdown"],
-                    (ROOT / filename).read_text(encoding="utf-8"),
+                    (source_root / filename).read_text(encoding="utf-8"),
                 )
 
     def test_cli_offline_topics_json_search_and_errors(self):

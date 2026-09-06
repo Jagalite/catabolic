@@ -4,6 +4,7 @@
 """Export repository guides to a GitHub wiki checkout; never commits or pushes."""
 
 import argparse
+import posixpath
 import re
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -17,7 +18,7 @@ SPDX-License-Identifier: MIT
 """
 GROUPS = {
     "Start here": (
-        ("README.md", "Overview", "Capabilities, installation and first movie output"),
+        ("README.md", "Overview", "What Catabolic does and how to try it"),
         ("INSTALLATION.md", "Installation", "pip, pipx, optional tools and upgrades"),
         (
             "GETTING_STARTED.md",
@@ -93,11 +94,15 @@ GROUPS = {
         ("ROADMAP.md", "Roadmap", "Recorded plans and implementation milestones"),
     ),
 }
-PAGES = {source: slug for group in GROUPS.values() for source, slug, _ in group}
+PAGES = {
+    source if source == "README.md" else f"docs/{source}": slug
+    for group in GROUPS.values()
+    for source, slug, _ in group
+}
 LINK = re.compile(r"\[([^\]]+)\]\(([^\s)]+)\)")
 
 
-def wiki_links(markdown):
+def wiki_links(markdown, source="README.md"):
     """Rewrite inline relative links outside fenced examples; keep anchors."""
 
     def replace(match):
@@ -105,7 +110,9 @@ def wiki_links(markdown):
         parsed = urlsplit(target)
         if parsed.scheme or target.startswith(("#", "//")):
             return match.group(0)
-        path = parsed.path.removeprefix("./")
+        path = posixpath.normpath(
+            posixpath.join(posixpath.dirname(source), parsed.path)
+        )
         destination = PAGES.get(path, f"{REPOSITORY}/blob/main/{path}")
         if parsed.fragment:
             destination += "#" + parsed.fragment
@@ -132,7 +139,7 @@ def wiki_links(markdown):
 def render_pages():
     pages = {}
     for source, slug in PAGES.items():
-        body = wiki_links((ROOT / source).read_text(encoding="utf-8"))
+        body = wiki_links((ROOT / source).read_text(encoding="utf-8"), source)
         pages[f"{slug}.md"] = (
             body.rstrip()
             + f"\n\n---\n\n[Edit this guide in the repository]({REPOSITORY}/blob/main/{source}). "

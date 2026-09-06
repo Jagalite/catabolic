@@ -100,7 +100,7 @@ does not automatically imply a manifest version change. See
 
 ## Keep documentation in one place
 
-Root Markdown guides are the editorial sources. `documentation.TOPICS` controls
+`README.md` and the guides in `docs/` are the editorial sources. `documentation.TOPICS` controls
 the installed guide index. After editing or adding a guide:
 
 ```sh
@@ -113,7 +113,7 @@ python scripts/sync_wiki.py --output .local-tests/wiki-export --check
 The wiki generator exports the same guide bodies, rewrites repository-relative
 links for wiki navigation, and creates Home, a sidebar, and a footer. It does not
 publish anything or delete unrelated wiki pages. `--check` detects stale or missing
-managed pages. Edit the root guides and regenerate; direct changes to managed
+managed pages. Edit the guides in `docs/` and regenerate; direct changes to managed
 wiki pages would be replaced on the next export.
 
 For an initialized GitHub wiki, clone it into a separate ignored checkout, export

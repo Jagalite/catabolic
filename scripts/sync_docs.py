@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 # SPDX-License-Identifier: MIT
 
-"""Publish root guides as package data; --check verifies without writing."""
+"""Publish README and docs/ guides as package data; --check never writes."""
 
 import argparse
 import sys
@@ -20,7 +20,8 @@ def main():
     destination = ROOT / "src/catabolic/guides"
     changed = []
     for _, filename, _, _ in TOPICS:
-        source = (ROOT / filename).read_bytes()
+        source_root = ROOT if filename == "README.md" else ROOT / "docs"
+        source = (source_root / filename).read_bytes()
         target = destination / filename
         if not target.exists() or target.read_bytes() != source:
             changed.append(filename)
@@ -33,7 +34,7 @@ def main():
             + ", ".join(changed)
         )
         if args.check:
-            print("Run python scripts/sync_docs.py after editing root guides.")
+            print("Run python scripts/sync_docs.py after editing README or docs/.")
     else:
         print("Bundled guides match their sources.")
     return 1 if args.check and changed else 0
