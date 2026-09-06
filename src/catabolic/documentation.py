@@ -11,6 +11,48 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "installation",
+        "INSTALLATION.md",
+        "Installation and upgrades",
+        "pip, pipx, revision pins, optional tools, configuration and application upgrades.",
+    ),
+    (
+        "getting-started",
+        "GETTING_STARTED.md",
+        "First catalog walkthrough",
+        "A disposable document fixture, identification, native links, tags and a query folder.",
+    ),
+    (
+        "operations",
+        "OPERATIONS.md",
+        "Inventory and recovery",
+        "Multiple sources, profiles, scan evidence, queries, safe synchronization and recovery.",
+    ),
+    (
+        "automation",
+        "AUTOMATION.md",
+        "CLI automation and agents",
+        "Schema discovery, JSON contracts, pagination, decision workflows and retry boundaries.",
+    ),
+    (
+        "troubleshooting",
+        "TROUBLESHOOTING.md",
+        "Troubleshooting",
+        "Bindings, incomplete scans, empty outputs, container paths, hardlinks and diagnostics.",
+    ),
+    (
+        "faq",
+        "FAQ.md",
+        "Frequently asked questions",
+        "Sources, paths, media kinds, naming, query folders, backups and compatibility.",
+    ),
+    (
+        "development",
+        "DEVELOPMENT.md",
+        "Development and documentation",
+        "Checkout setup, tests, module ownership, migrations and wiki publishing.",
+    ),
+    (
         "testing",
         "RELEASE_TESTING.md",
         "Release verification",

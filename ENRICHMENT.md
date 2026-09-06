@@ -223,7 +223,7 @@ A copy-policy file can contain:
 ```sh
 catabolic copies put --catalog plex --file copies.json
 catabolic copies plan --catalog plex
-catabolic layout plan my-layout --catalog plex
+catabolic layout preview my-layout --catalog plex
 catabolic layout apply my-layout --catalog plex
 catabolic sync --catalog plex --dry-run
 ```

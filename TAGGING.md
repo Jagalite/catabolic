@@ -178,7 +178,7 @@ WHERE a.active=1 AND a.subject_type='item' AND n.name=:tag;
 catabolic layout put favorites --preset catabolic \
   --select-sql favorites.sql --params '{"tag":"genre:sci-fi"}'
 catabolic catalog bind favorites
-catabolic layout plan favorites --catalog favorites
+catabolic layout preview favorites --catalog favorites
 catabolic layout apply favorites --catalog favorites
 catabolic sync --catalog favorites --dry-run
 catabolic sync --catalog favorites

@@ -23,8 +23,8 @@ but their structure follows database migrations.
 Joins, grouping, aggregates, window functions, CTEs, and ordinary SQLite
 expressions are supported. Exactly one result-producing statement is accepted.
 The views exist only on the query connection; they do not alter the stored schema
-and will not appear in an external `sqlite3` session. The media model requires
-schema 5; older databases must be upgraded explicitly.
+and will not appear in an external `sqlite3` session. The current query command requires
+schema 7; older databases must be upgraded explicitly.
 
 ## Views and row meaning
 

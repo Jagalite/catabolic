@@ -22,7 +22,7 @@ export CATABOLIC_DB=/absolute/path/catalog.sqlite3
 # The output directory must already exist and be on the source filesystem.
 catabolic catalog bind plex-hard --root /Volumes/media/plex-hard --link-mode hardlink
 catabolic layout put plex-hard --preset plex-v1
-catabolic layout plan plex-hard --catalog plex-hard
+catabolic layout preview plex-hard --catalog plex-hard
 catabolic layout apply plex-hard --catalog plex-hard
 catabolic sync --catalog plex-hard --dry-run
 catabolic sync --catalog plex-hard
