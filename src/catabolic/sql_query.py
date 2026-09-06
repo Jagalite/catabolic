@@ -1,0 +1,381 @@
+"""Bounded, read-only SQL for humans and command-line agents."""
+
+from __future__ import annotations
+
+import json
+import math
+import re
+import sqlite3
+import time
+from contextlib import nullcontext
+
+from .domain import CatabolicError
+from .store import Store
+
+INTERFACE_VERSION = 1
+MAX_SQL_BYTES = 1024 * 1024
+MAX_RESULT_BYTES = 8 * 1024 * 1024
+
+# Connection-local views are an API independent of the stored schema. Qualifying
+# all base tables prevents accidental name resolution through a temporary object.
+VIEWS = {
+    "catalog_items": (
+        "One row per media item, including items with no mappings. Metadata is JSON text.",
+        """SELECT id AS item_id, kind, catalog_title(metadata) AS title,
+        catalog_year(metadata) AS year, metadata FROM main.items""",
+    ),
+    "catalog_identities": (
+        "One row per provider identity. An item may have several identities.",
+        "SELECT item_id, namespace, value FROM main.identities",
+    ),
+    "catalog_files": (
+        "One row per profile and inventoried file. Status is recorded availability, not a live check.",
+        """SELECT p.id AS profile, f.id AS file_id, f.location,
+        f.path AS source_relative_path, b.root AS source_root,
+        CASE WHEN b.root IS NOT NULL THEN rtrim(b.root,'/') || '/' || f.path END AS source_path,
+        o.size, o.mtime_ns, coalesce(o.status,'unknown') AS status,
+        o.scan_id, s.finished_at AS observed_at
+        FROM main.profiles p CROSS JOIN main.files f
+        LEFT JOIN main.observations o ON o.profile=p.id AND o.file_id=f.id
+        LEFT JOIN main.scans s ON s.id=o.scan_id
+        LEFT JOIN main.bindings b ON b.profile=p.id AND b.kind='source' AND b.owner=f.location""",
+    ),
+    "catalog_entries": (
+        "One row per profile and mapping, including disabled mappings. Filter active=1 for current decisions.",
+        """SELECT cf.profile, m.id AS mapping_id, m.catalog, m.active,
+        m.item_id, i.kind, i.title, i.year, m.file_id,
+        cf.location, cf.source_relative_path, cf.source_root, cf.source_path,
+        cf.size, cf.mtime_ns, cf.status, cf.scan_id, cf.observed_at,
+        m.path AS catalog_path, b.root AS output_root,
+        CASE WHEN b.root IS NOT NULL THEN rtrim(b.root,'/') || '/' || m.path END AS output_path,
+        ol.target AS recorded_link_target
+        FROM main.mappings m JOIN catalog_files cf ON cf.file_id=m.file_id
+        JOIN catalog_items i ON i.item_id=m.item_id
+        LEFT JOIN main.bindings b ON b.profile=cf.profile AND b.kind='output' AND b.owner=m.catalog
+        LEFT JOIN main.owned_links ol ON ol.profile=cf.profile AND ol.catalog=m.catalog AND ol.path=m.path""",
+    ),
+}
+
+VIEWS.update(
+    {
+        "catalog_item_files": (
+            "One row per profile and file identification, independent of catalog placement; includes disabled associations.",
+            """SELECT cf.profile,a.id AS association_id,a.item_id,i.kind,i.title,i.year,
+        a.file_id,a.role,a.part,a.metadata,a.origin,a.active,
+        cf.location,cf.source_relative_path,cf.source_root,cf.source_path,
+        cf.size,cf.mtime_ns,cf.status,cf.scan_id,cf.observed_at
+        FROM main.item_files a JOIN catalog_files cf ON cf.file_id=a.file_id
+        JOIN catalog_items i ON i.item_id=a.item_id""",
+        ),
+        "catalog_relationships": (
+            "One row per directed item relationship across all profiles; includes disabled relationships.",
+            """SELECT r.id AS relationship_id,r.source_id,s.kind AS source_kind,
+        s.title AS source_title,r.target_id,t.kind AS target_kind,t.title AS target_title,
+        r.kind,r.position,r.metadata,r.active FROM main.item_relationships r
+        JOIN catalog_items s ON s.item_id=r.source_id JOIN catalog_items t ON t.item_id=r.target_id""",
+        ),
+    }
+)
+
+# Only known computational functions are permitted. In particular, extension,
+# file, and shell functions cannot be called even if a build provides them.
+FUNCTIONS = frozenset(
+    """
+abs avg char coalesce concat concat_ws count format glob group_concat hex if ifnull
+iif instr length like likelihood likely lower ltrim max min nullif octet_length
+printf quote random randomblob replace round rtrim sign soundex sqlite_source_id
+sqlite_version string_agg substr substring sum total trim typeof unicode unlikely
+unhex upper zeroblob date time datetime julianday unixepoch strftime timediff
+row_number rank dense_rank percent_rank cume_dist ntile lag lead first_value
+last_value nth_value json json_array json_array_length json_error_position
+json_extract json_group_array json_group_object json_insert json_object json_patch
+json_quote json_remove json_replace json_set json_type json_valid -> ->>
+jsonb jsonb_array jsonb_extract jsonb_group_array jsonb_group_object jsonb_insert
+jsonb_object jsonb_patch jsonb_remove jsonb_replace jsonb_set
+acos acosh asin asinh atan atan2 atanh ceil ceiling cos cosh degrees exp floor
+ln log log10 log2 mod pi pow power radians sin sinh sqrt tan tanh trunc
+catalog_title catalog_year casefold
+""".split()
+)
+
+
+def parameters(raw: str | None) -> dict:
+    try:
+        result = json.loads(raw) if raw is not None else {}
+        if not isinstance(result, dict):
+            raise ValueError()
+        for key, value in result.items():
+            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) or key == "profile":
+                raise ValueError()
+            if value is not None and type(value) not in (str, int, float, bool):
+                raise ValueError()
+            if type(value) is int and not -(2**63) <= value < 2**63:
+                raise ValueError()
+            if type(value) is float and not math.isfinite(value):
+                raise ValueError()
+        return result
+    except (ValueError, TypeError) as exc:
+        raise CatabolicError(
+            "--params must be a JSON object with named scalar values; profile is reserved, numbers must be finite and integers fit signed 64 bits"
+        ) from exc
+
+
+def _field(raw, key, expected):
+    value = json.loads(raw).get(key)
+    return value if type(value) is expected else None
+
+
+def _setup(db):
+    # Repeated selections reuse temporary views. Changing temp_store after
+    # those views exist is unsafe inside a transaction; set it only once.
+    if db.execute("PRAGMA temp_store").fetchone()[0] != 2:
+        db.execute("PRAGMA temp_store=MEMORY")
+    db.create_function(
+        "catalog_title", 1, lambda raw: _field(raw, "title", str), deterministic=True
+    )
+    db.create_function(
+        "catalog_year",
+        1,
+        lambda raw: (
+            year
+            if (year := _field(raw, "year", int)) is not None and 1 <= year <= 9999
+            else None
+        ),
+        deterministic=True,
+    )
+    db.create_function(
+        "casefold",
+        1,
+        lambda value: value.casefold() if isinstance(value, str) else None,
+        deterministic=True,
+    )
+    for view, (_, sql) in VIEWS.items():
+        db.execute(f"CREATE TEMP VIEW IF NOT EXISTS {view} AS {sql}")
+    db.execute("PRAGMA query_only=ON")
+
+
+def _schema(db, profile):
+    def columns(database, name):
+        quoted = '"' + name.replace('"', '""') + '"'
+        return [
+            {"name": row[1], "declared_type": row[2] or None}
+            for row in db.execute(f"PRAGMA {database}.table_info({quoted})")
+        ]
+
+    return {
+        "interface_version": INTERFACE_VERSION,
+        "profile": profile,
+        "views": [
+            {"name": view, "description": description, "columns": columns("temp", view)}
+            for view, (description, _) in VIEWS.items()
+        ],
+        "tables": [
+            {"name": row[0], "columns": columns("main", row[0])}
+            for row in db.execute(
+                "SELECT name FROM main.sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+            )
+        ],
+        "parameters": {
+            "profile": "Automatically bound to the selected CLI profile. Views contain every profile; use WHERE profile=:profile."
+        },
+        "functions": sorted(
+            {row[0] for row in db.execute("PRAGMA function_list")} & FUNCTIONS
+        ),
+        "sqlite_version": sqlite3.sqlite_version,
+        "limits": {
+            "default_max_rows": 1000,
+            "maximum_max_rows": 10000,
+            "default_timeout_ms": 5000,
+            "maximum_timeout_ms": 60000,
+            "max_sql_bytes": MAX_SQL_BYTES,
+            "max_result_bytes": MAX_RESULT_BYTES,
+        },
+    }
+
+
+def _cell(value):
+    if isinstance(value, bytes):
+        return {"$blob": value.hex()}
+    if isinstance(value, float) and not math.isfinite(value):
+        return {"$float": "Infinity" if value > 0 else "-Infinity"}
+    return value
+
+
+def execute_sql(
+    path,
+    sql: str | None = None,
+    *,
+    profile="default",
+    params=None,
+    describe=False,
+    max_rows=1000,
+    timeout_ms=5000,
+    _store=None,
+):
+    """Read-only SQL; internal selectors may reuse a locked catalog snapshot."""
+    if type(max_rows) is not int or not 1 <= max_rows <= 10000:
+        raise CatabolicError("max-rows must be between 1 and 10000")
+    if type(timeout_ms) is not int or not 1 <= timeout_ms <= 60000:
+        raise CatabolicError("timeout-ms must be between 1 and 60000")
+    bound = parameters(params)
+    if describe:
+        if sql is not None or params is not None:
+            raise CatabolicError("--schema cannot be combined with SQL or --params")
+    elif not sql or not sql.strip():
+        raise CatabolicError(
+            "provide one SQL statement, --file PATH, --file -, or --schema"
+        )
+    elif len(sql.encode("utf-8")) > MAX_SQL_BYTES:
+        raise CatabolicError("SQL exceeds the 1 MiB input limit")
+    bound["profile"] = profile
+    with nullcontext(_store) if _store is not None else Store(path) as store:
+        db = store.db
+        if not db.execute("SELECT 1 FROM profiles WHERE id=?", (profile,)).fetchone():
+            raise CatabolicError(f"unknown profile: {profile}")
+        previous_query_only = db.execute("PRAGMA query_only").fetchone()[0]
+        previous_busy_timeout = db.execute("PRAGMA busy_timeout").fetchone()[0]
+        previous_limits = {}
+        try:
+            _setup(db)
+            if describe:
+                return _schema(db, profile)
+            for category, limit in (
+                (sqlite3.SQLITE_LIMIT_SQL_LENGTH, MAX_SQL_BYTES),
+                (sqlite3.SQLITE_LIMIT_LENGTH, MAX_SQL_BYTES),
+                (sqlite3.SQLITE_LIMIT_COLUMN, 256),
+                (sqlite3.SQLITE_LIMIT_EXPR_DEPTH, 100),
+                (sqlite3.SQLITE_LIMIT_COMPOUND_SELECT, 50),
+                (sqlite3.SQLITE_LIMIT_ATTACHED, 0),
+                (sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 1000),
+            ):
+                previous_limits[category] = db.setlimit(category, limit)
+            db.execute(f"PRAGMA busy_timeout={min(timeout_ms, 5000)}")
+            denied = []
+
+            def authorize(action, arg1, arg2, database, _trigger):
+                if action in (sqlite3.SQLITE_SELECT, sqlite3.SQLITE_RECURSIVE):
+                    return sqlite3.SQLITE_OK
+                if action == sqlite3.SQLITE_READ and database in ("main", "temp"):
+                    return sqlite3.SQLITE_OK
+                if (
+                    action == sqlite3.SQLITE_FUNCTION
+                    and (arg2 or "").lower() in FUNCTIONS
+                ):
+                    return sqlite3.SQLITE_OK
+                denied.append(
+                    arg2 if action == sqlite3.SQLITE_FUNCTION else arg1 or str(action)
+                )
+                return sqlite3.SQLITE_DENY
+
+            deadline = time.monotonic() + timeout_ms / 1000
+            db.set_authorizer(authorize)
+            db.set_progress_handler(lambda: int(time.monotonic() >= deadline), 1000)
+            cursor = None
+            try:
+                cursor = db.execute(sql, bound)
+                if cursor.description is None:
+                    raise CatabolicError("SQL must return a result set")
+                columns = [column[0] for column in cursor.description]
+                rows = []
+                used_bytes = len(
+                    json.dumps(columns, ensure_ascii=False).encode("utf-8")
+                )
+                if used_bytes > MAX_RESULT_BYTES:
+                    raise CatabolicError(
+                        "result column names exceed the output byte limit"
+                    )
+                reason = None
+                for row in cursor:
+                    if time.monotonic() >= deadline:
+                        raise CatabolicError(
+                            "SQL execution timed out; simplify the query or increase --timeout-ms"
+                        )
+                    if len(rows) == max_rows:
+                        reason = "max_rows"
+                        break
+                    converted = [_cell(value) for value in row]
+                    used_bytes += len(
+                        json.dumps(
+                            converted, ensure_ascii=False, allow_nan=False
+                        ).encode("utf-8")
+                    )
+                    if used_bytes > MAX_RESULT_BYTES:
+                        reason = "max_result_bytes"
+                        break
+                    rows.append(converted)
+                return {
+                    "interface_version": INTERFACE_VERSION,
+                    "profile": profile,
+                    "columns": columns,
+                    "rows": rows,
+                    "row_count": len(rows),
+                    "max_rows": max_rows,
+                    "truncated": reason is not None,
+                    "truncation_reason": reason,
+                    "complete": reason is None,
+                }
+            except sqlite3.Error as exc:
+                if denied:
+                    raise CatabolicError(
+                        f"read-only SQL rejected an operation or function: {denied[0]}"
+                    ) from exc
+                if time.monotonic() >= deadline:
+                    raise CatabolicError(
+                        "SQL execution timed out; simplify the query or increase --timeout-ms"
+                    ) from exc
+                raise CatabolicError(f"SQL query failed: {exc}") from exc
+            finally:
+                if cursor is not None:
+                    cursor.close()
+                db.set_progress_handler(None, 0)
+                db.set_authorizer(None)
+
+        finally:
+            db.set_progress_handler(None, 0)
+            db.set_authorizer(None)
+            for category, value in previous_limits.items():
+                db.setlimit(category, value)
+            db.execute(f"PRAGMA query_only={previous_query_only}")
+            db.execute(f"PRAGMA busy_timeout={previous_busy_timeout}")
+
+
+def render_table(result):
+    """Escape cells to keep control characters and embedded newlines on one line."""
+
+    abbreviated = False
+
+    def display(value):
+        nonlocal abbreviated
+        if value is None:
+            return "NULL"
+        text = json.dumps(value, ensure_ascii=True, allow_nan=False)
+        if len(text) > 160:
+            abbreviated = True
+            return text[:157] + "..."
+        return text
+
+    headers = [display(value) for value in result["columns"]]
+    rows = [[display(value) for value in row] for row in result["rows"]]
+
+    def line(row):
+        # Avoid padding every short cell to the width of a large value.
+        return " | ".join(row)
+
+    return "\n".join(
+        [
+            line(headers),
+            " | ".join("---" for _ in headers),
+            *(line(row) for row in rows),
+            f"{result['row_count']} row(s)"
+            + (
+                f"; truncated ({result['truncation_reason']})"
+                if result["truncated"]
+                else ""
+            ),
+            *(
+                ["Long cells abbreviated; use --format json for full values."]
+                if abbreviated
+                else []
+            ),
+        ]
+    )
