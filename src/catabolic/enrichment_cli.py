@@ -24,6 +24,21 @@ def paging(parser, integer=False):
     )
 
 
+def retries(parser):
+    parser.add_argument(
+        "--retry-transient",
+        type=int,
+        default=0,
+        help="0 disables automatic retry; 1..10 additional attempts per job",
+    )
+    parser.add_argument(
+        "--retry-delay",
+        type=int,
+        default=30,
+        help="initial retry delay in seconds, doubles up to one hour",
+    )
+
+
 def register(commands):
     watch = commands.add_parser(
         "watch", help="periodically scan and enqueue stable files; no link sync"
@@ -37,6 +52,7 @@ def register(commands):
     )
     watch.add_argument("--workers", type=int, default=2)
     watch.add_argument("--batch", type=int, default=1000)
+    retries(watch)
 
     proposals = commands.add_parser(
         "proposal", help="persist, inspect and decide identification proposals"
@@ -97,6 +113,7 @@ def register(commands):
     enqueue.add_argument("--options", default="{}")
     paging(enqueue)
     run = process.add_parser("run")
+    retries(run)
     run.add_argument("--workers", type=int, default=2)
     run.add_argument("--per-device", type=int, default=1)
     run.add_argument(
@@ -113,6 +130,9 @@ def register(commands):
     process.add_parser("show").add_argument("id")
     for op in ("cancel", "retry"):
         process.add_parser(op).add_argument("id")
+    history = process.add_parser("attempts")
+    history.add_argument("id")
+    paging(history, integer=True)
     content = commands.add_parser(
         "content", help="checksum groups and indexed content search"
     ).add_subparsers(dest="operation", required=True)
@@ -255,6 +275,8 @@ def dispatch(app, args):
                 per_device=args.per_device,
                 limit=args.limit,
                 storage_groups=json.loads(args.storage_groups),
+                retry_transient=args.retry_transient,
+                retry_delay=args.retry_delay,
             )
         if op == "list":
             return p.list(
@@ -263,6 +285,8 @@ def dispatch(app, args):
                 after=args.after,
                 file_id=args.file_id,
             )
+        if op == "attempts":
+            return p.attempts(args.id, limit=args.limit, after=args.after)
         if op == "show":
             return p.get(args.id)
         if op == "facts":

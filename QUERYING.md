@@ -232,3 +232,6 @@ Schema 6 adds `catalog_jobs`, `catalog_facts`, `catalog_checksums`,
 `catalog_proposals`, `catalog_decisions`, `catalog_expected`, `catalog_text`,
 and `catalog_refresh`. Facts distinguish recorded-current revisions from stale
 results; they do not imply a live source check. See [ENRICHMENT.md](ENRICHMENT.md).
+
+Schema 7 adds `catalog_job_attempts`: attempt states, errors, transient retry
+eligibility and deadlines, joined with profile/file identifiers. Filter by profile.

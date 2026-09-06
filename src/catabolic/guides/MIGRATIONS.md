@@ -1,7 +1,7 @@
 # Database migrations
 
 Catabolic uses ordered SQL files and one Python runner. Users can skip application
-releases: upgrading schema 1 to schema 6 applies migrations 2 through 6 in order.
+releases: upgrading schema 1 to schema 7 applies migrations 2 through 7 in order.
 There is no separate script for every possible pair of versions. The shipped
 schema is currently **6**. Migration `004_tags.sql` adds tag vocabulary, aliases,
 hierarchy and attributed item/file assertions without changing existing rows.
@@ -122,7 +122,7 @@ For the next schema change:
 
 1. Add `006_descriptive_name.sql`. Versions must be contiguous and filenames must
    use the existing numbered, lowercase convention.
-2. Increment `SCHEMA_VERSION` in `src/catabolic/migration.py` to 6.
+2. Increment `SCHEMA_VERSION` in `src/catabolic/migration.py` to the next version.
 3. Add populated fixtures and tests for the oldest supported schema, the previous
    schema, skipped releases, fresh initialization, failure, and interruption.
 4. Build and install a wheel in isolation to verify the SQL resources ship.
@@ -166,3 +166,8 @@ the narrowly permitted legacy-recovery path in `Store`.
 Schema 6 (`006_enrichment.sql`) adds proposals, decision events, expected sets, copy
 policies, processing jobs/results, checksum baselines, text indexes, refresh state,
 and watch stability records. It preserves all existing rows and ownership tables.
+
+Schema 7 (`007_processing_attempts.sql`) adds processing attempt history and indexed
+retry eligibility. Existing jobs and results are preserved. Historical attempts
+are not invented; only newly completed attempts get history rows. Existing
+migrations 1 through 6 remain unchanged.

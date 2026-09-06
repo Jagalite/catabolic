@@ -2,7 +2,7 @@
 
 Schema 6 adds optional processing and curation workflows. Inventory and queries
 remain usable without FFmpeg, credentials, a daemon, or source metadata writes.
-Existing databases require `db upgrade --dry-run` followed by `db upgrade`.
+Current commands require schema 7. Older databases require `db upgrade --dry-run` followed by `db upgrade`.
 The existing backup, rehearsal, preservation and recovery requirements apply.
 
 ## Processing from the CLI
@@ -316,3 +316,52 @@ versions 1–3 remain unchanged and do not export job histories, proposals or th
 new fact tables. The verified SQLite backup preserves all database records. A
 future portable enrichment contract can be versioned independently after use has
 established which result fields should be standardized.
+
+## Transient retry policy (schema 7)
+
+```sh
+catabolic process run --retry-transient 2 --retry-delay 30
+catabolic process attempts JOB_ID --limit 100
+catabolic query "SELECT * FROM catalog_job_attempts WHERE profile=:profile"
+catabolic watch --cycles 0 --retry-transient 2 --retry-delay 30
+```
+
+Automatic retry is opt-in: `--retry-transient 0` is the default. A positive value
+allows up to that many additional attempts after the first attempt, based on the
+job's durable attempt counter. The maximum is 10. Only extractor timeouts and
+classified temporary OS failures (such as EIO, ESTALE, or connection interruption)
+are eligible. Unsupported input, invalid media/parser output, permission denial,
+missing paths, changed revisions, integrity mismatches, cancellation and excessive
+output are not automatically retried. Subprocess nonzero exit alone is not proof
+of a transient error.
+
+A failed attempt records its reason and retry time. Delay doubles from
+`--retry-delay` (default 30 seconds) up to one hour. A subsequent invocation of
+`process run` or watch claims eligible retries once, after their deadline, subject
+to its retry cap and run limit. The runner never sleeps while holding the writer
+lock to wait for a retry. An exhausted job stays failed and queryable. Manual
+`process retry` does not reset its attempt counter; use explicit refresh to start
+a new job after investigation. Old schema-6 failures have no inferred eligibility.
+Source and tool revisions are revalidated before any retry result is accepted.
+Attempt history preserves states/errors, while jobs retain their latest result.
+
+## Bulk output-removal limits
+
+```sh
+catabolic sync --all-catalogs --dry-run --max-removals 10 --max-removal-percent 5
+catabolic sync --all-catalogs --max-removals 10 --max-removal-percent 5
+```
+
+Both limits are optional and apply to the whole selected scope, before journal
+intent or any output mutation. Exceeding either blocks the entire plan. Exact
+limits are allowed; zero blocks every removal. JSON previews include
+`removal_budget` with the count, denominator and percentage. The denominator is
+currently owned output entries across the selected catalogs; newly created links
+do not dilute it. Hardlink retirement counts as a removal even though its data
+is retained. Replacements and forgetting already absent paths are separate actions
+and do not count. These limits do not authorize source deletion or override final
+hardlink-reference protection. Recovery completes previously recorded intent;
+limits apply to fresh synchronization plans, not to replaying that intent.
+
+For scheduled jobs, pass explicit limits appropriate to the catalog on every
+invocation. See `catabolic docs testing` for real media and storage acceptance.

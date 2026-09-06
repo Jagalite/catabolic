@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import stat
 from pathlib import Path
@@ -56,7 +57,25 @@ class Reconciler:
             row["id"] for row in self.store.rows("SELECT id FROM catalogs ORDER BY id")
         ]
 
-    def preview(self, catalog: str | None = "global") -> dict:
+    def preview(
+        self,
+        catalog: str | None = "global",
+        *,
+        max_removals=None,
+        max_removal_percent=None,
+    ) -> dict:
+        if max_removals is not None and (
+            type(max_removals) is not int or max_removals < 0
+        ):
+            raise CatabolicError("max removals must be a nonnegative integer")
+        if max_removal_percent is not None and (
+            type(max_removal_percent) not in (int, float)
+            or not math.isfinite(max_removal_percent)
+            or not 0 <= max_removal_percent <= 100
+        ):
+            raise CatabolicError(
+                "max removal percent must be finite and between 0 and 100"
+            )
         actions: list[Action] = []
         blockers: list[dict] = []
         for selected in self.catalogs(catalog):
@@ -74,6 +93,32 @@ class Reconciler:
         actions.sort(
             key=lambda action: (ACTION_ORDER[action.kind], action.catalog, action.path)
         )
+        removals = sum(a.kind in ("remove", "hard_remove") for a in actions)
+        # Count existing owned output entries, including entries now absent. New
+        # creations must not dilute a removal percentage. Retained data is separate.
+        owned = sum(
+            self.store.db.execute(
+                "SELECT count(*) FROM "
+                + (
+                    "owned_hardlinks"
+                    if self.app.link_mode(selected) == "hardlink"
+                    else "owned_links"
+                )
+                + " WHERE profile=? AND catalog=?",
+                (self.profile, selected),
+            ).fetchone()[0]
+            for selected in self.catalogs(catalog)
+        )
+        percent = 100 * removals / owned if owned else 0
+        if (max_removals is not None and removals > max_removals) or (
+            max_removal_percent is not None and percent > max_removal_percent
+        ):
+            blockers.append(
+                {
+                    "catalog": catalog,
+                    "reason": "bulk-removal limit exceeded; review the full plan before increasing the explicit limit",
+                }
+            )
         from .hardlinks import WARNING
 
         hard_catalogs = [
@@ -88,6 +133,13 @@ class Reconciler:
                 else {}
             ),
             "safe": not blockers,
+            "removal_budget": {
+                "removals": removals,
+                "owned_entries": owned,
+                "percent": percent,
+                "max_removals": max_removals,
+                "max_removal_percent": max_removal_percent,
+            },
             "actions": [action.to_dict() for action in actions],
             "blockers": blockers,
         }
@@ -160,8 +212,17 @@ class Reconciler:
             actions, key=lambda action: (ACTION_ORDER[action.kind], action.path)
         )
 
-    def apply(self, catalog: str | None = "global", *, after_filesystem=None) -> dict:
-        preview = self.preview(catalog)
+    def apply(
+        self,
+        catalog: str | None = "global",
+        *,
+        after_filesystem=None,
+        max_removals=None,
+        max_removal_percent=None,
+    ) -> dict:
+        preview = self.preview(
+            catalog, max_removals=max_removals, max_removal_percent=max_removal_percent
+        )
         if not preview["safe"]:
             return {**preview, "applied": [], "healthy": False}
         applied = []

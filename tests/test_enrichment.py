@@ -805,10 +805,10 @@ class EnrichmentMigrationTest(unittest.TestCase):
             upgrade_database(path, migrations=load_migrations()[:5])
             before = contents(path)
             result = upgrade_database(path)
-            self.assertEqual([s["version"] for s in result["applied"]], [6])
+            self.assertEqual([s["version"] for s in result["applied"]], [6, 7])
             self.assertEqual(contents(Path(result["backup"])), before)
             self.assertEqual(
                 {k: v for k, v in contents(path).items() if k in before}, before
             )
             with Store(path) as store:
-                self.assertEqual(store.schema_version, 6)
+                self.assertEqual(store.schema_version, 7)

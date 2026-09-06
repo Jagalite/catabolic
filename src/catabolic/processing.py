@@ -1,5 +1,6 @@
 """Read-only file processing with bounded subprocesses and durable CLI jobs."""
 
+import errno
 import hashlib
 import json
 import os
@@ -466,10 +467,33 @@ def process(job, cancel):
             "elapsed_seconds": time.monotonic() - started,
         }
     except ProcessingFailure as exc:
-        return {"state": exc.state, "data": {}, "error": str(exc)}
+        return {
+            "state": exc.state,
+            "data": {},
+            "error": str(exc),
+            "retryable": exc.state == "timeout",
+        }
     except CatabolicError as exc:
         return {"state": "changed", "data": {}, "error": str(exc)}
-    except (OSError, ValueError, TypeError, KeyError, RecursionError) as exc:
+    except OSError as exc:
+        transient = {
+            errno.EIO,
+            errno.EAGAIN,
+            errno.EBUSY,
+            errno.ETIMEDOUT,
+            errno.ENETDOWN,
+            errno.ENETUNREACH,
+            errno.ECONNRESET,
+            errno.EHOSTUNREACH,
+            getattr(errno, "ESTALE", -1),
+        }
+        return {
+            "state": "failed",
+            "data": {},
+            "error": str(exc)[:1000],
+            "retryable": exc.errno in transient,
+        }
+    except (ValueError, TypeError, KeyError, RecursionError) as exc:
         return {"state": "failed", "data": {}, "error": str(exc)[:1000]}
 
 
@@ -621,6 +645,18 @@ class Processing:
             row[key] = json.loads(row[key]) if row[key] is not None else None
         return row
 
+    def attempts(self, identifier, *, limit=100, after=0):
+        self.get(identifier)
+        page_limit(limit)
+        rows = self.store.rows(
+            "SELECT * FROM processing_attempts WHERE job_id=? AND attempt>? ORDER BY attempt LIMIT ?",
+            (identifier, after, limit + 1),
+        )
+        return {
+            "attempts": rows[:limit],
+            "next_after": rows[limit - 1]["attempt"] if len(rows) > limit else None,
+        }
+
     def cancel(self, identifier):
         with self.store.transaction() as db:
             changed = db.execute(
@@ -641,7 +677,7 @@ class Processing:
             )
         return {"queued": identifier}
 
-    def _publish(self, job, result):
+    def _publish(self, job, result, *, retry_delay=30):
         state = result["state"]
         data = result["data"]
         error = result["error"]
@@ -727,9 +763,50 @@ class Processing:
                 "UPDATE processing_jobs SET state=?,result=?,error=?,finished_at=CURRENT_TIMESTAMP WHERE id=?",
                 (state, encode(data), error, job["id"]),
             )
+            attempt = db.execute(
+                "SELECT attempts FROM processing_jobs WHERE id=?", (job["id"],)
+            ).fetchone()[0]
+            retryable = state in ("failed", "timeout") and result.get(
+                "retryable", False
+            )
+            retry_after = time.time() + min(
+                3600, retry_delay * 2 ** min(attempt - 1, 12)
+            )
+            db.execute(
+                "DELETE FROM processing_retry_queue WHERE job_id=?", (job["id"],)
+            )
+            if retryable and attempt <= 10:
+                db.execute(
+                    "INSERT INTO processing_retry_queue VALUES (?,?,?,?)",
+                    (job["id"], self.profile, attempt, retry_after),
+                )
+            db.execute(
+                "INSERT INTO processing_attempts(job_id,attempt,state,error,retryable,retry_after) VALUES (?,?,?,?,?,?)",
+                (
+                    job["id"],
+                    attempt,
+                    state,
+                    error,
+                    int(retryable),
+                    retry_after,
+                ),
+            )
         return state
 
-    def run(self, *, workers=2, per_device=1, limit=100, storage_groups=None):
+    def run(
+        self,
+        *,
+        workers=2,
+        per_device=1,
+        limit=100,
+        storage_groups=None,
+        retry_transient=0,
+        retry_delay=30,
+    ):
+        if type(retry_transient) is not int or not 0 <= retry_transient <= 10:
+            raise CatabolicError("retry transient must be 0..10 additional attempts")
+        if type(retry_delay) is not int or not 1 <= retry_delay <= 3600:
+            raise CatabolicError("retry delay must be 1..3600 seconds")
         if (
             type(workers) is not int
             or not 1 <= workers <= 16
@@ -749,6 +826,22 @@ class Processing:
             )
         # Store's process-wide writer lock ensures no other runner owns these claims.
         with self.store.transaction() as db:
+            # Claim due retries once per invocation; never sleep with the writer lock.
+            due = db.execute(
+                """SELECT j.id FROM processing_retry_queue a JOIN processing_jobs j ON j.id=a.job_id
+                WHERE a.retry_after<=? AND a.profile=?
+                AND j.attempts=a.attempt AND j.attempts<=? AND j.state IN ('failed','timeout')
+                ORDER BY a.retry_after,a.job_id LIMIT ?""",
+                (time.time(), self.profile, retry_transient, min(limit, 1000)),
+            ).fetchall()
+            db.executemany(
+                "DELETE FROM processing_retry_queue WHERE job_id=?",
+                [(r[0],) for r in due],
+            )
+            db.executemany(
+                "UPDATE processing_jobs SET state='queued',finished_at=NULL WHERE id=?",
+                [(r[0],) for r in due],
+            )
             db.execute(
                 "UPDATE processing_jobs SET state='queued' WHERE profile=? AND state='running'",
                 (self.profile,),
@@ -856,7 +949,7 @@ class Processing:
                         for bucket in device:
                             devices[bucket] -= 1
                         result = future.result()
-                        state = self._publish(job, result)
+                        state = self._publish(job, result, retry_delay=retry_delay)
                         if state == "complete":
                             key = physical_key(job)
                             cache[key] = result
@@ -872,6 +965,7 @@ class Processing:
             raise
         return {
             "processed": sum(counts.values()),
+            "retried": len(due),
             "reused_physical_results": reused,
             "counts": counts,
             "complete": all(k == "complete" for k in counts),

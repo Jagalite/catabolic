@@ -9,7 +9,17 @@ from .processing import Processing
 from .store import Store, encode
 
 
-def cycle(app, *, operation="probe", location=None, settle=30, workers=2, batch=1000):
+def cycle(
+    app,
+    *,
+    operation="probe",
+    location=None,
+    settle=30,
+    workers=2,
+    batch=1000,
+    retry_transient=0,
+    retry_delay=30,
+):
     if type(settle) is not int or settle < 0 or settle > 86400:
         raise CatabolicError("settle must be 0..86400 seconds")
     if type(batch) is not int or not 1 <= batch <= 1000:
@@ -56,7 +66,12 @@ def cycle(app, *, operation="probe", location=None, settle=30, workers=2, batch=
                 cached += len(result["cached"])
                 errors.extend(result["errors"][: max(0, 100 - len(errors))])
             after = rows[-1]["file_id"]
-    processed = Processing(app).run(workers=workers, limit=batch)
+    processed = Processing(app).run(
+        workers=workers,
+        limit=batch,
+        retry_transient=retry_transient,
+        retry_delay=retry_delay,
+    )
     return {
         "scan": report,
         "queued": enqueued,
@@ -79,6 +94,8 @@ def watch(
     interval=30,
     cycles=1,
     progress=None,
+    retry_transient=0,
+    retry_delay=30,
 ):
     if type(interval) is not int or not 1 <= interval <= 86400:
         raise CatabolicError("interval must be 1..86400 seconds")
@@ -95,6 +112,8 @@ def watch(
                 settle=settle,
                 workers=workers,
                 batch=batch,
+                retry_transient=retry_transient,
+                retry_delay=retry_delay,
             )
         count += 1
         if progress:

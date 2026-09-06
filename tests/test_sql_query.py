@@ -63,6 +63,7 @@ class SQLQueryTest(unittest.TestCase):
                 "catalog_hardlinks",
                 "catalog_retained_hardlinks",
                 "catalog_jobs",
+                "catalog_job_attempts",
                 "catalog_proposals",
                 "catalog_decisions",
                 "catalog_expected",
@@ -128,6 +129,19 @@ class SQLQueryTest(unittest.TestCase):
             self.sql("SELECT year FROM catalog_items WHERE item_id='d'")["rows"],
             [[None]],
         )
+
+    def test_count_compound_tag_view_preserves_read_only_authorization(self):
+        self.cli("tag", "put", "qa:test")
+        self.cli("tag", "add", "qa:test", "--item", "a")
+        self.assertEqual(
+            self.sql("SELECT count(*) FROM catalog_taggings")["rows"], [[1]]
+        )
+        for statement in (
+            "DELETE FROM item_tags",
+            "WITH catalog_taggings AS (SELECT load_extension('untrusted')) SELECT count(*) FROM catalog_taggings",
+        ):
+            with self.assertRaises(CatabolicError):
+                self.sql(statement)
 
     def test_view_paths_are_derived_without_probing_media(self):
         (self.root / "drive-a").rename(self.root / "offline")

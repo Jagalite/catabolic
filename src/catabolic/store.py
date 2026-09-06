@@ -35,9 +35,7 @@ class Store:
             # Schemas 2 through 4 use the original symlink journal without
             # changing link-journal semantics. Revisit this allowlist if the
             # reconciliation model changes.
-            legacy_recovery = (
-                for_recovery and SCHEMA_VERSION == 6 and version in (1, 2, 3, 4, 5)
-            )
+            legacy_recovery = for_recovery and 1 <= version < SCHEMA_VERSION
             if version != SCHEMA_VERSION and not legacy_recovery:
                 if 1 <= version < SCHEMA_VERSION:
                     raise CatabolicError(

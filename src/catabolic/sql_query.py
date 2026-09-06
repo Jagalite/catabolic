@@ -140,6 +140,10 @@ VIEWS.update(
             "Durable optional processing jobs and their outcomes.",
             "SELECT * FROM main.processing_jobs",
         ),
+        "catalog_job_attempts": (
+            "Processing attempt outcomes and transient retry eligibility.",
+            "SELECT a.*,j.profile,j.file_id FROM main.processing_attempts a JOIN main.processing_jobs j ON j.id=a.job_id",
+        ),
         "catalog_proposals": (
             "Identification and association proposals, including evidence and decisions.",
             "SELECT * FROM main.proposals",
@@ -338,6 +342,16 @@ def execute_sql(
                 if action in (sqlite3.SQLITE_SELECT, sqlite3.SQLITE_RECURSIVE):
                     return sqlite3.SQLITE_OK
                 if action == sqlite3.SQLITE_READ and database in ("main", "temp"):
+                    return sqlite3.SQLITE_OK
+                # SQLite can omit the database name for a count(*) over a
+                # compound view. Allow only our registered views and only this
+                # column-less read; underlying reads/functions are still checked.
+                if (
+                    action == sqlite3.SQLITE_READ
+                    and database is None
+                    and arg1 in VIEWS
+                    and arg2 == ""
+                ):
                     return sqlite3.SQLITE_OK
                 if (
                     action == sqlite3.SQLITE_FUNCTION

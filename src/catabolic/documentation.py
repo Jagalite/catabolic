@@ -8,6 +8,12 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "testing",
+        "RELEASE_TESTING.md",
+        "Release verification",
+        "Regression suite, installed-wheel media workflows, real storage mounts and Jellyfin acceptance.",
+    ),
+    (
         "enrichment",
         "ENRICHMENT.md",
         "Media enrichment and curation",

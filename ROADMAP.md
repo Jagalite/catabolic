@@ -263,3 +263,9 @@ Catabolic behavior; it does not claim these other projects lack similar safeguar
 [library-check]: https://github.com/chapmanjacobd/library/blob/ed9005211d53757d43a39542f60c4be9d64c2938/library/mediafiles/media_check.py
 [ffprobe-docs]: https://ffmpeg.org/ffprobe.html
 [ffmpeg-format-options]: https://ffmpeg.org/ffmpeg-formats.html#Format-Options
+
+## Release hardening follow-up
+
+Schema 7 adds explicit whole-plan removal limits and opt-in bounded transient
+retries with durable attempt history. RELEASE_TESTING.md defines the installed
+CLI media, real-mount, and isolated Jellyfin acceptance lanes and their limits.

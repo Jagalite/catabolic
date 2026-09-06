@@ -521,6 +521,16 @@ def parser() -> argparse.ArgumentParser:
         scope.add_argument("--all-catalogs", action="store_true")
         if command == "sync":
             sub.add_argument(
+                "--max-removals",
+                type=int,
+                help="block the entire plan above this output-removal count",
+            )
+            sub.add_argument(
+                "--max-removal-percent",
+                type=float,
+                help="block above this percentage of currently owned output entries",
+            )
+            sub.add_argument(
                 "--dry-run",
                 action="store_true",
                 help="read-only preview; does not scan or write inventory",
@@ -618,6 +628,8 @@ def dispatch(args: argparse.Namespace) -> dict:
             batch=args.batch,
             interval=args.interval,
             cycles=args.cycles,
+            retry_transient=args.retry_transient,
+            retry_delay=args.retry_delay,
             progress=lambda value: print(
                 json.dumps(value), file=sys.stderr, flush=True
             ),
@@ -1019,9 +1031,13 @@ def dispatch(args: argparse.Namespace) -> dict:
         reconciler = Reconciler(app)
         catalog = None if args.all_catalogs else args.catalog
         if command == "sync":
+            limits = {
+                "max_removals": args.max_removals,
+                "max_removal_percent": args.max_removal_percent,
+            }
             if args.dry_run:
-                return reconciler.preview(catalog)
-            return reconciler.apply(catalog)
+                return reconciler.preview(catalog, **limits)
+            return reconciler.apply(catalog, **limits)
         if command == "verify":
             return reconciler.verify(catalog)
         return reconciler.recover(catalog, cancel_unapplied=args.cancel_unapplied)

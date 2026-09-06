@@ -313,7 +313,7 @@ profile, filters, and ordering; the page size may change. Cursors are opaque and
 do not keep a snapshot alive between commands. Restart pagination after catalog
 changes or an application upgrade. Each returned page is internally consistent.
 
-Queries use schema 6. Search and metadata filters can scan matching
+Queries use schema 7. Search and metadata filters can scan matching
 tables; there is no full-text index. Very large catalogs
 may need additional indexes or a separate search index after measurement.
 
@@ -333,7 +333,7 @@ Agents can discover the SQL interface and run parameterized queries from the CLI
 
 The documented views are `catalog_items`, `catalog_identities`, `catalog_files`,
 `catalog_entries`, `catalog_item_files`, and `catalog_relationships`. These views
-exist only on the query connection; the underlying media model requires schema 6.
+exist only on the query connection; the underlying media model requires schema 7.
 File, entry, and association views contain every profile; `:profile` is bound to
 the selected CLI profile for explicit filtering. Items and relationships are
 shared across profiles. SQLite enforces read-only execution.
@@ -384,7 +384,7 @@ change while operations are pending. Scans remain available to refresh evidence.
 ## Database upgrades
 
 Application releases and database schema versions are separate. New databases
-start at schema 6. Schema 1 through 5 databases require an explicit upgrade; ordinary
+start at schema 7. Schema 1 through 6 databases require an explicit upgrade; ordinary
 commands never migrate them automatically.
 
 ```sh
@@ -410,7 +410,7 @@ creating a backup or running the migration SQL. Repeating a completed upgrade
 does nothing and creates no further backup.
 
 Pending link operations in any profile block an upgrade. Finish their recovery
-first; this release supports `recover` against schemas 1 and 2. Unknown schemas,
+first; this release supports `recover` against schemas 1 through 6. Unknown schemas,
 inconsistent migration history, and databases from newer versions are refused.
 Downgrades and automatic backup restoration are not implemented.
 
@@ -436,6 +436,11 @@ destination before each mutation. Larger-library performance has not been
 characterized. Tests cover process interruption; power-loss durability on
 every supported filesystem has not been established. Keep source and output paths
 in the same relative relationship in Plex's filesystem namespace.
+
+For release acceptance, see [RELEASE_TESTING.md](RELEASE_TESTING.md) or
+`catabolic docs testing`. Schema 7 adds durable processing attempt history and
+opt-in transient retries. `sync --max-removals N --max-removal-percent P` checks
+bulk output removals before any filesystem changes.
 
 ## Development
 
