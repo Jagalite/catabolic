@@ -139,8 +139,10 @@ future roadmap ideas.
 
 ## Release status
 
-The current workflow validates changes; it does not publish a PyPI release or
-change repository branch protection. Check the exact commit's required jobs and
+The CI workflow validates changes; the release workflow builds without credentials
+and can publish to PyPI later through an explicit tagged invocation. See
+[release testing](RELEASE_TESTING.md) for token setup and commands. Neither workflow
+changes repository branch protection. Check the exact commit's required jobs and
 artifact reports. Ship the same artifact that passed packaged acceptance, and
 record any remaining platform/consumer limitations. Audit reports describe their
 recorded snapshot, not a perpetual certification of every later commit.

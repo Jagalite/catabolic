@@ -56,10 +56,22 @@ class DependencyAuditTest(unittest.TestCase):
         return io.BytesIO(json.dumps({"results": [{} for _ in range(count)]}).encode())
 
     def test_clean_response_covers_all_pins(self):
-        with patch("urllib.request.urlopen", side_effect=self.response):
-            result = audit()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            locks = root / "requirements"
+            locks.mkdir()
+            (locks / "runtime.lock").write_text("example-runtime==1.0\n")
+            (locks / "release.lock").write_text("example-builder==2.0\n")
+            with (
+                patch("scripts.audit_dependencies.ROOT", root),
+                patch("urllib.request.urlopen", side_effect=self.response),
+            ):
+                result = audit()
         self.assertTrue(result["safe"])
-        self.assertEqual(len(result["packages"]), 16)
+        self.assertEqual(
+            {p["name"] for p in result["packages"]},
+            {"example-runtime", "example-builder"},
+        )
 
     def test_advisories_and_incomplete_responses_do_not_pass(self):
         def vulnerable(request, **kwargs):

@@ -104,7 +104,7 @@ not certify Plex, other Jellyfin versions, client rendering, transcoding, or NAS
 
 ## CI gate
 
-Release dependencies are pinned in `requirements/{build,runtime,dev}.lock` with
+Release dependencies are pinned in `requirements/{build,runtime,dev,release}.lock` with
 PyPI wheel hashes across platforms. CI installs those locks with hash enforcement
 and installs Catabolic separately without dependency resolution. The build backend
 and GitHub Actions are pinned as well. Update the pins and hashes together, run
@@ -123,6 +123,82 @@ Jellyfin lanes. `release-verification` fails if any required lane failed or was
 skipped. Artifact reports identify the platform and consumer version.
 
 Configure repository protection to require `release-verification` before release
-or merge. The workflow does not itself change protection settings or publish a
-package. A future publishing workflow must depend on this gate and publish the
-same validated wheel. Local success alone is not evidence that remote CI passed.
+or merge. The CI workflow does not itself change protection settings or publish a
+package. The separate release workflow below requires these checks and publishes
+the same validated distributions only on explicit request. Local success alone
+is not evidence that remote CI passed.
+
+## Build a release without PyPI credentials
+
+The **Build and release** workflow (`.github/workflows/release.yml`) is available
+from GitHub Actions. Run it on a branch with `publish` left false to build and
+validate packages without any PyPI account or secret:
+
+```sh
+gh workflow run release.yml --ref main -f publish=false
+```
+
+Pushing a `v*` tag also starts a build-only run. The tag must exactly match both
+`pyproject.toml` and `catabolic.__version__`, for example `v0.1.0`. Branch-based
+build-only runs still check that the two declared versions agree. Tag pushes do
+not publish automatically.
+
+The release workflow calls the same CI workflow used for branches and pull
+requests. Its package job uses Python 3.14 and the hash-locked release tools to:
+
+1. Check that bundled documentation matches the sources.
+2. Build a source archive and then build the wheel from that archive using
+   `python -m build --no-isolation`.
+3. Run `twine check --strict` on both distributions.
+4. Compare package metadata, licenses, migrations, schemas, source modules and
+   offline guides with the checkout, and record artifact SHA-256 values.
+5. Upload the wheel and source archive as `python-package-distributions`, with a
+   separate `distribution-report` artifact containing the checksums.
+
+The regression matrix and installed-wheel media, storage, and Jellyfin acceptance
+lanes must all pass. They consume the wheel from that same build. The publishing
+job downloads those exact distributions after the reusable validation workflow
+succeeds; it does not rebuild them. Build or test failures prevent publication.
+
+For a local equivalent, use Python 3.14 and a fresh output directory:
+
+```sh
+python3.14 -m venv .local-tests/release-env
+.local-tests/release-env/bin/python -m pip install --require-hashes --only-binary=:all: -r requirements/release.lock
+.local-tests/release-env/bin/python -m pip check
+.local-tests/release-env/bin/python -m build --no-isolation --outdir .local-tests/release-dist
+.local-tests/release-env/bin/python -m twine check --strict .local-tests/release-dist/*
+.local-tests/release-env/bin/python scripts/check_distribution.py \
+  --dist .local-tests/release-dist --ref refs/heads/main
+```
+
+The content checker expects exactly one wheel and its matching source archive.
+Use a new output directory for another version; stale distributions fail the
+check rather than being mixed into a release. The release tools are build-time
+requirements and do not become Catabolic runtime dependencies.
+
+## Enable PyPI publication later
+
+Add a PyPI API token as `PYPI_API_TOKEN`, either in repository Actions secrets or
+in the `pypi` GitHub environment. Use a token authorized for the intended PyPI
+project. Name availability and project ownership must be established separately.
+The workflow reports a missing token only when publication is explicitly requested.
+No credential is required by its build or test jobs.
+
+To publish, select an existing matching version tag and set `publish=true`:
+
+```sh
+# Publishes to real PyPI after all validation passes; configure the token first.
+gh workflow run release.yml --ref v0.1.0 -f publish=true
+```
+
+A branch cannot be used for publication. Update both version declarations before
+creating a new version tag. Publishing the same filenames again is not supported;
+the workflow does not silently skip already-uploaded files. Inspect PyPI after a
+partially failed upload before deciding how to recover.
+
+The publishing job uses the `pypi` environment. Environment protection rules can
+restrict who may publish and which tags are allowed. This workflow does not create
+PyPI accounts, configure protection rules, or upload on an ordinary push. Its API
+token mode does not produce OIDC publish attestations. A future switch to PyPI
+Trusted Publishing can remove the stored token and enable those attestations.

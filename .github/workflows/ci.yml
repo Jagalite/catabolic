@@ -4,7 +4,9 @@
 name: Tests and interchange contract
 on:
   push:
+    branches: ["**"]
   pull_request:
+  workflow_call:
 permissions:
   contents: read
 jobs:
@@ -61,17 +63,31 @@ jobs:
 
   wheel:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
-          python-version: '3.11'
+          python-version: '3.14'
       - run: 'python -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock'
-      - run: python -m pip wheel --no-deps --no-build-isolation --wheel-dir dist .
+      - run: 'python -m pip install --require-hashes --only-binary=:all: -r requirements/release.lock'
+      - run: python scripts/sync_docs.py --check
+      - run: python -m build --no-isolation --outdir dist
+      - run: python -m twine check --strict dist/*
+      - name: Validate distribution contents and versions
+        run: python scripts/check_distribution.py --dist dist --ref "$GITHUB_REF" --report "$RUNNER_TEMP/distribution-report.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: release-wheel
-          path: dist/*.whl
+          name: python-package-distributions
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: distribution-report
+          path: ${{ runner.temp }}/distribution-report.json
+          if-no-files-found: error
 
   acceptance:
     needs: wheel
@@ -98,7 +114,7 @@ jobs:
           fi
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: release-wheel
+          name: python-package-distributions
           path: dist
       - name: Install exact wheel in a clean environment
         run: |
@@ -136,7 +152,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: release-wheel
+          name: python-package-distributions
           path: dist
       - run: |
           python -m venv "$RUNNER_TEMP/catabolic-consumer"

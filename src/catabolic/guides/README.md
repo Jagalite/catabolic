@@ -15,7 +15,7 @@ Use it yourself or let an AI agent help curate the collection. You decide what
 each file is and how it should be organized; Catabolic keeps track of the files
 and builds the folders.
 
-[Get started](docs/GETTING_STARTED.md) · [Documentation](https://github.com/Jagalite/catabolic/wiki) · [FAQ](docs/FAQ.md)
+[Get started](https://github.com/Jagalite/catabolic/blob/main/docs/GETTING_STARTED.md) · [Documentation](https://github.com/Jagalite/catabolic/wiki) · [FAQ](https://github.com/Jagalite/catabolic/blob/main/docs/FAQ.md)
 
 ## What can you do with it?
 
@@ -41,7 +41,7 @@ Audiobookshelf, Komga, Kavita**, and other applications. Custom naming rules let
 you build a different structure. There are also explicit import options for
 calibre, Calibre-Web, and Immich.
 
-See [supported applications](docs/COMPATIBILITY.md) for the full list and each
+See [supported applications](https://github.com/Jagalite/catabolic/blob/main/docs/COMPATIBILITY.md) for the full list and each
 integration's requirements. Folder presets and import options behave differently;
 imports copy or upload selected media.
 
@@ -57,11 +57,11 @@ catabolic --help
 ```
 
 Prefer pipx or want to install a specific version? See the
-[installation guide](docs/INSTALLATION.md).
+[installation guide](https://github.com/Jagalite/catabolic/blob/main/docs/INSTALLATION.md).
 
 ## Try it without touching your library
 
-The [getting started walkthrough](docs/GETTING_STARTED.md) creates a small sample
+The [getting started walkthrough](https://github.com/Jagalite/catabolic/blob/main/docs/GETTING_STARTED.md) creates a small sample
 collection and walks through cataloging, tagging, and generating your first
 folders. No media server, API key, or FFmpeg installation is needed.
 
@@ -75,13 +75,13 @@ files; they are not independent backups.
 ## Learn more
 
 - [Wiki](https://github.com/Jagalite/catabolic/wiki) — walkthroughs and detailed guides.
-- [Using Catabolic with agents](docs/AUTOMATION.md) — automation and structured output.
-- [SQL queries](docs/QUERYING.md) and [GraphQL](docs/GRAPHQL.md) — explore the catalog.
-- [Troubleshooting](docs/TROUBLESHOOTING.md) — common questions and recovery steps.
-- [Development](docs/DEVELOPMENT.md) — contribute, run tests, and maintain the docs.
+- [Using Catabolic with agents](https://github.com/Jagalite/catabolic/blob/main/docs/AUTOMATION.md) — automation and structured output.
+- [SQL queries](https://github.com/Jagalite/catabolic/blob/main/docs/QUERYING.md) and [GraphQL](https://github.com/Jagalite/catabolic/blob/main/docs/GRAPHQL.md) — explore the catalog.
+- [Troubleshooting](https://github.com/Jagalite/catabolic/blob/main/docs/TROUBLESHOOTING.md) — common questions and recovery steps.
+- [Development](https://github.com/Jagalite/catabolic/blob/main/docs/DEVELOPMENT.md) — contribute, run tests, and maintain the docs.
 
 Documentation is also available offline: run `catabolic docs` after installation.
 
 ## License
 
-[MIT](LICENSE). Copyright 2026 Jaga Tranvo and The Catabolic Contributors.
+[MIT](https://github.com/Jagalite/catabolic/blob/main/LICENSE). Copyright 2026 Jaga Tranvo and The Catabolic Contributors.

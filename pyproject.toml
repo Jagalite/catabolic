@@ -21,6 +21,12 @@ classifiers = [
   "Programming Language :: Python :: 3",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Jagalite/catabolic"
+Documentation = "https://github.com/Jagalite/catabolic/wiki"
+Repository = "https://github.com/Jagalite/catabolic"
+Issues = "https://github.com/Jagalite/catabolic/issues"
+
 [project.optional-dependencies]
 dev = ["ruff==0.16.6", "jsonschema==4.26.0"]
 
