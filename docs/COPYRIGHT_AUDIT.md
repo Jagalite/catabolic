@@ -52,7 +52,7 @@ This assessment does not certify other or future distribution artifacts.
 
 The nine upstream implementation files cited in `ROADMAP.md` were downloaded at
 their recorded revisions, alongside the corresponding repository licenses.
-Those files and local 4DLink reference files were compared against current and
+Those files and local prototype reference files were compared against current and
 historical Catabolic text, including packaged documentation.
 
 | Reference | Revision / location | Files compared | Observed license |
@@ -60,7 +60,7 @@ historical Catabolic text, including packaged documentation.
 | FileBot scripts | `859d2ad985e12e1f1514aa9f8c8f46be3008c439` | `amc.groovy`, `duplicates.groovy`, `miss.groovy` | [GPL version 3 license text](https://raw.githubusercontent.com/filebot/scripts/859d2ad985e12e1f1514aa9f8c8f46be3008c439/LICENSE) |
 | beets | `ba4787f5744d161a3ed5324f3fcbcd93f02d2698` | `beets/autotag/match.py`, `beets/importer/state.py`, `beetsplug/missing.py` | [MIT](https://raw.githubusercontent.com/beetbox/beets/ba4787f5744d161a3ed5324f3fcbcd93f02d2698/LICENSE) |
 | Library | `ed9005211d53757d43a39542f60c4be9d64c2938` | `library/createdb/av.py`, `library/createdb/fs_add_metadata.py`, `library/mediafiles/media_check.py` | [BSD 3-Clause](https://raw.githubusercontent.com/chapmanjacobd/library/ed9005211d53757d43a39542f60c4be9d64c2938/LICENSE) |
-| Local 4DLink | `/Users/jagatranvo/Projects/4DLink` and installed skill | Python source/tests and skill references | Project `LICENSE` contains Apache 2.0; no Git history available in this directory |
+| Local prototype | Local checkout and installed skill; detailed paths retained in the local audit artifacts | Python source/tests and skill references | Project `LICENSE` contains Apache 2.0; no Git history available in this directory |
 
 The comparison covered **267 unique Catabolic text versions and 24 reference
 files**. It found **zero matches** using these thresholds:
@@ -80,7 +80,7 @@ FileBot's script license deserves particular attention if future work imports
 actual script code. A workflow reference alone does not demonstrate copying of
 protected expression. Copyright distinguishes expression from ideas, methods,
 and systems. See the [U.S. Copyright Office guidance](https://www.copyright.gov/help/faq/faq-protect.html).
-Likewise, any actual reuse of Apache-licensed 4DLink code would need to satisfy
+Likewise, any actual reuse of Apache-licensed reference code would need to satisfy
 its applicable license and notice conditions; labeling Catabolic MIT would not
 erase those conditions. See [Apache 2.0, section 4](https://www.apache.org/licenses/LICENSE-2.0).
 

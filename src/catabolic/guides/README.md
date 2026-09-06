@@ -5,15 +5,21 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
-**One catalog for all your media.**
+**Catalog your media. Make its metadata useful everywhere.**
 
 Your movies might live on one drive, your music on another, and your books on a
-NAS. Catabolic brings them into one searchable catalog and creates organized
-folders for the apps you use—without moving or renaming your originals.
+NAS. Catabolic brings them into one searchable catalog with titles, tags,
+identities, and relationships. Keep track of what you have, enrich its metadata,
+and build collections across your storage locations.
+
+When you're ready to use that collection elsewhere, generate **symlink libraries
+in popular media-app folder formats**. Give Plex, Jellyfin, music servers, or
+readers their own organized view without copying, moving, or renaming your
+original files.
 
 Use it yourself or let an AI agent help curate the collection. You decide what
-each file is and how it should be organized; Catabolic keeps track of the files
-and builds the folders.
+each file is and how it should be described and organized; Catabolic maintains
+the catalog and generates the outputs you choose.
 
 [Get started](https://github.com/Jagalite/catabolic/blob/main/docs/GETTING_STARTED.md) · [Documentation](https://github.com/Jagalite/catabolic/wiki) · [FAQ](https://github.com/Jagalite/catabolic/blob/main/docs/FAQ.md)
 
@@ -23,16 +29,17 @@ and builds the folders.
   mounted storage locations, and search the recorded catalog while they're offline.
 - **Organize it your way.** Add titles, identities, tags, and relationships to
   movies, TV, music, books, audiobooks, comics, photos, documents, and more.
-- **Give each app its own library.** Create folders for Plex, Jellyfin, music
-  servers, readers, or your own filing system from the same source files.
 - **Make collections from searches.** Save a selection, such as favorite films or
-  books by an author, and refresh it into a folder when you choose.
+  books by an author, and refresh it into a symlink folder when you choose.
+- **Build symlink libraries for your apps.** Generate popular folder formats or
+  custom layouts from the same catalog, with links back to your source files.
 - **Keep useful metadata alongside your media.** Export catalog details,
   playlists, and metadata files for other tools.
 
 For example, the same film can appear in your Plex library and a favorites folder
-without storing another copy of the movie. Catabolic creates links to the existing
-file. You can preview the changes before applying them.
+without storing another copy of the movie. Each symlink points to the existing
+file while giving it a name and location suited to that library. You can preview
+the changes before applying them.
 
 ## Works with your media apps
 

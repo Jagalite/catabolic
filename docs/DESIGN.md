@@ -9,9 +9,9 @@ Status: the explicit-identification core and CLI are implemented in Python.
 Schema 6 adds persisted proposal review and optional enrichment jobs; see
 [ENRICHMENT.md](ENRICHMENT.md) for current processing and integration boundaries.
 
-Catabolic inventories media and projects curated catalogs as symbolic links. It
-owns its implementation and storage format. The 4dlink skill is a requirements
-reference, not a dependency or a specification to copy unquestioningly.
+Catabolic inventories media, maintains descriptive metadata, and projects curated
+catalogs as symbolic links. It is an independent Python application with its own
+implementation and storage format.
 
 ## Ownership
 

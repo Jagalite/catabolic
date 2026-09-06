@@ -103,12 +103,6 @@ Consumers play or display them. Import adapters copy/upload selected media to
 external applications explicitly. Source backups, media acquisition, and source
 editing remain separate responsibilities.
 
-## Does it depend on 4DLink?
-
-No. The 4DLink skill informed the requirements, but Catabolic is an independent
-Python application with its own database format. It does not import or invoke
-4DLink. An automatic 4DLink database migration is not currently implemented.
-
 ## Is every target certified and is this production-ready?
 
 The package is marked alpha. Naming fixtures, local tests, real consumer acceptance,
