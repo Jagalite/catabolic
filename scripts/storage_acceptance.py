@@ -13,9 +13,39 @@ import os
 import platform
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
-from acceptance import Workflow, require, run
+if __package__:
+    from .acceptance import Workflow, require, run
+else:
+    from acceptance import Workflow, require, run
+
+
+def detach(target, system):
+    """Allow transient macOS disk users to finish without forcing an unmount."""
+    command = (
+        ["hdiutil", "detach", str(target)]
+        if system == "Darwin"
+        else ["umount", str(target)]
+    )
+    for attempt in range(5):
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env={**os.environ, "LC_ALL": "C"},
+        )
+        if result.returncode == 0:
+            return
+        if (
+            system != "Darwin"
+            or "resource busy" not in result.stderr.lower()
+            or attempt == 4
+        ):
+            raise AssertionError(f"command failed: {command}\n{result.stderr[-4000:]}")
+        time.sleep(2)
 
 
 def main():
@@ -82,11 +112,7 @@ def main():
             return target
 
         def unmount(target):
-            run(
-                ["hdiutil", "detach", str(target)]
-                if system == "Darwin"
-                else ["umount", str(target)]
-            )
+            detach(target, system)
             mounted.remove(target)
 
         report = {"passed": False, "platform": system, "checks": []}
@@ -204,7 +230,7 @@ def main():
                     failures.append(str(exc))
             report["cleanup_errors"] = failures
             Path(args.report).write_text(json.dumps(report, indent=2) + "\n")
-            print(json.dumps(report, indent=2))
+            print(json.dumps(report, indent=2), flush=True)
             # Do not recursively clean a mount that could not be detached.
             if failures:
                 os._exit(1)
