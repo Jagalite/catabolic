@@ -800,7 +800,12 @@ with Store(sys.argv[1],writable=True) as store:
 
 class EnrichmentMigrationTest(unittest.TestCase):
     def test_schema_five_upgrade_preserves_catalog_and_backup(self):
-        from catabolic.migration import load_migrations, upgrade_database
+        from catabolic.migration import (
+            SCHEMA_VERSION,
+            load_migrations,
+            upgrade_database,
+            validate_preservation,
+        )
         from tests.test_migrations import contents, create_legacy
 
         with tempfile.TemporaryDirectory() as directory:
@@ -808,10 +813,11 @@ class EnrichmentMigrationTest(unittest.TestCase):
             upgrade_database(path, migrations=load_migrations()[:5])
             before = contents(path)
             result = upgrade_database(path)
-            self.assertEqual([s["version"] for s in result["applied"]], [6, 7])
-            self.assertEqual(contents(Path(result["backup"])), before)
             self.assertEqual(
-                {k: v for k, v in contents(path).items() if k in before}, before
+                [s["version"] for s in result["applied"]],
+                list(range(6, SCHEMA_VERSION + 1)),
             )
+            self.assertEqual(contents(Path(result["backup"])), before)
             with Store(path) as store:
-                self.assertEqual(store.schema_version, 7)
+                validate_preservation(store.db, before)
+                self.assertEqual(store.schema_version, SCHEMA_VERSION)

@@ -53,6 +53,7 @@ GROUPS = {
         ),
     ),
     "Generate and share": (
+        ("ARTIFACTS.md", "Generated-Media", "Recipes, saved outputs and recovery"),
         ("OUTPUT_LAYOUTS.md", "Output-Layouts", "Custom templates and naming rules"),
         ("NATIVE_LAYOUT.md", "Native-Layout", "Catabolic's versioned all-media naming"),
         (

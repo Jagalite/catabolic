@@ -9,6 +9,7 @@ from .curation import Curation
 from .processing import OPERATIONS, Processing
 
 COMMANDS = {
+    "artifact",
     "proposal",
     "sidecar",
     "expected",
@@ -43,6 +44,9 @@ def retries(parser):
 
 
 def register(commands):
+    from .artifact_cli import register as register_artifacts
+
+    register_artifacts(commands)
     watch = commands.add_parser(
         "watch", help="periodically scan and enqueue stable files; no link sync"
     )
@@ -169,7 +173,9 @@ def writable(args):
     cmd = args.command
     op = getattr(args, "operation", None)
     return (
-        cmd in ("sidecar", "identify")
+        cmd == "artifact"
+        and op in ("bind", "recipe", "enqueue", "run", "recover")
+        or cmd in ("sidecar", "identify")
         and args.apply
         or cmd in COMMANDS
         and op
@@ -185,6 +191,11 @@ def dispatch(app, args):
 
     def definition():
         return json.loads(read_text(args.file, 256 * 1024))
+
+    if args.command == "artifact":
+        from .artifact_cli import dispatch as dispatch_artifacts
+
+        return dispatch_artifacts(app, args)
 
     c = Curation(app)
     p = Processing(app)

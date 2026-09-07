@@ -27,6 +27,7 @@ def command_output(
     input_bytes=None,
     capture=True,
     on_start=None,
+    on_poll=None,
 ):
     """Own the whole process group, including descendants after the leader exits.
 
@@ -58,6 +59,8 @@ def command_output(
                 selector.register(proc.stdin, selectors.EVENT_WRITE, "stdin")
             total = 0
             while selector.get_map() or proc.poll() is None:
+                if on_poll is not None:
+                    on_poll()
                 if cancel is not None and cancel.is_set():
                     raise CommandFailure("cancelled", "command cancelled")
                 remaining = deadline - time.monotonic()

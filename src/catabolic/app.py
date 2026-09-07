@@ -73,6 +73,12 @@ class Application:
         db_path = self.store.path.resolve()
         if db_path.is_relative_to(path):
             raise CatabolicError("a source or output cannot contain the database")
+        generated = {
+            row["location"]
+            for row in self.store.rows(
+                "SELECT DISTINCT location FROM generated_locations"
+            )
+        }
         for binding in self.store.rows("SELECT * FROM bindings"):
             if (binding["profile"], binding["kind"], binding["owner"]) == (
                 self.profile,
@@ -86,6 +92,8 @@ class Application:
                 kind == "output"
                 or binding["kind"] == "output"
                 or binding["profile"] == self.profile
+                or binding["kind"] == "source"
+                and binding["owner"] in generated
             ):
                 raise CatabolicError(
                     f"root overlaps registered {binding['kind']}: {other}"
@@ -217,6 +225,16 @@ class Application:
             "SELECT * FROM bindings WHERE profile=? AND kind=? AND owner=?",
             (self.profile, kind, owner),
         )
+        if (
+            not old
+            and kind == "source"
+            and self.store.rows(
+                "SELECT 1 FROM generated_locations WHERE location=?", (owner,)
+            )
+        ):
+            raise CatabolicError(
+                "generated locations are bound through artifact bind and cannot be adopted by another profile"
+            )
         if old and (old[0]["root"], old[0]["device"], old[0]["inode"]) == (
             str(path),
             st.st_dev,
@@ -225,6 +243,12 @@ class Application:
             self._save_link_mode(owner, link_mode)
             return old[0]
         if old:
+            if kind == "source" and self.store.rows(
+                "SELECT 1 FROM generated_locations WHERE location=?", (owner,)
+            ):
+                raise CatabolicError(
+                    "generated location rebinding is not supported; preserve its ownership and pending artifacts"
+                )
             if self.store.rows(
                 "SELECT id FROM journal WHERE profile=?", (self.profile,)
             ):
@@ -292,9 +316,40 @@ class Application:
                 try:
                     binding = self.binding("source", source)
                     with root_handle(binding) as fd:
-                        observed, errors = walk_files(
-                            fd, exclude=excluded, sink=staged.append
-                        )
+                        if self.store.rows(
+                            "SELECT 1 FROM generated_locations WHERE profile=? AND location=?",
+                            (self.profile, source),
+                        ):
+                            from .filesystem import source_stat
+
+                            # Private staging files and foreign files are never inventoried.
+                            for row in self.store.db.execute(
+                                "SELECT path FROM processing_artifacts WHERE profile=? AND location=? AND state='ready'",
+                                (self.profile, source),
+                            ):
+                                path = row["path"]
+                                if any(
+                                    path == part or path.startswith(part + "/")
+                                    for part in excluded
+                                ):
+                                    continue
+                                try:
+                                    st = source_stat(fd, path)
+                                except FileNotFoundError:
+                                    continue
+                                staged.append(
+                                    {
+                                        "path": path,
+                                        "size": st.st_size,
+                                        "mtime_ns": st.st_mtime_ns,
+                                        "device": st.st_dev,
+                                        "inode": st.st_ino,
+                                    }
+                                )
+                        else:
+                            observed, errors = walk_files(
+                                fd, exclude=excluded, sink=staged.append
+                            )
                         for entry in observed:
                             staged.append(entry)
                         # Reopen by name to detect a mount or root replaced during traversal.

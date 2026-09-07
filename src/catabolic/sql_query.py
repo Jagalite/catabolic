@@ -61,6 +61,18 @@ VIEWS = {
 
 VIEWS.update(
     {
+        "catalog_artifacts": (
+            "Generated files and publication state, with input lineage and recipe revision.",
+            "SELECT a.*,j.file_id AS input_file_id,j.snapshot AS input_snapshot,j.recipe_id FROM main.processing_artifacts a JOIN main.processing_jobs j ON j.id=a.job_id",
+        ),
+        "catalog_recipes": (
+            "Immutable processing recipe revisions.",
+            "SELECT * FROM main.processing_recipes",
+        ),
+        "catalog_generated_locations": (
+            "Explicitly owned storage locations for generated files.",
+            "SELECT * FROM main.generated_locations",
+        ),
         "catalog_item_files": (
             "One row per profile and file identification, independent of catalog placement; includes disabled associations.",
             """SELECT cf.profile,a.id AS association_id,a.item_id,i.kind,i.title,i.year,

@@ -542,6 +542,10 @@ def parser() -> argparse.ArgumentParser:
 
 
 def dispatch(args: argparse.Namespace) -> dict:
+    if args.command == "artifact" and args.operation == "capabilities":
+        from .rendering import capabilities
+
+        return capabilities()
     if args.command == "target" and args.operation in ("list", "show"):
         from .targets import describe
 

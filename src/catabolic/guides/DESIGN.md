@@ -20,7 +20,9 @@ renders results. A SQLite repository owns transactions and migrations. A small
 filesystem adapter owns traversal and catalog mutations. Media identification
 produces proposals; it has no filesystem or database mutation authority.
 
-Source media is always read-only. Generated catalogs contain links, not copies.
+Source media is always read-only. Generated catalogs contain links. Optional
+[processing artifacts](ARTIFACTS.md) create new files in separately owned locations;
+those files may subsequently be selected for link catalogs.
 The database contains desired catalog state; filesystem observations determine
 whether that state can safely be applied.
 

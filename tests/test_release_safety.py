@@ -252,7 +252,12 @@ class RetryAndArrivalTest(unittest.TestCase):
 
 class AttemptMigrationTest(unittest.TestCase):
     def test_schema_six_upgrade_preserves_populated_jobs_and_backup(self):
-        from catabolic.migration import load_migrations, upgrade_database
+        from catabolic.migration import (
+            SCHEMA_VERSION,
+            load_migrations,
+            upgrade_database,
+            validate_preservation,
+        )
         from tests.test_migrations import contents, create_legacy
 
         with tempfile.TemporaryDirectory() as directory:
@@ -285,9 +290,11 @@ class AttemptMigrationTest(unittest.TestCase):
                 db.commit()
             before = contents(path)
             result = upgrade_database(path)
-            self.assertEqual([s["version"] for s in result["applied"]], [7])
+            self.assertEqual(
+                [s["version"] for s in result["applied"]],
+                list(range(7, SCHEMA_VERSION + 1)),
+            )
             self.assertEqual(contents(Path(result["backup"])), before)
-            after = contents(path)
-            self.assertEqual({k: v for k, v in after.items() if k in before}, before)
             with Store(path) as store:
+                validate_preservation(store.db, before)
                 self.assertEqual(store.rows("SELECT * FROM processing_attempts"), [])

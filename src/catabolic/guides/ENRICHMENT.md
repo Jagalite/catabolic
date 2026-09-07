@@ -7,8 +7,12 @@ SPDX-License-Identifier: MIT
 
 Schema 6 adds optional processing and curation workflows. Inventory and queries
 remain usable without FFmpeg, credentials, a daemon, or source metadata writes.
-Current commands require schema 7. Older databases require `db upgrade --dry-run` followed by `db upgrade`.
+Current commands require schema 8. Older databases require `db upgrade --dry-run` followed by `db upgrade`.
 The existing backup, rehearsal, preservation and recovery requirements apply.
+
+Saved media outputs use the separate [artifact workflow](ARTIFACTS.md), with owned
+generated locations and recoverable publication. The processing commands below
+analyze source files without changing them.
 
 ## Processing from the CLI
 

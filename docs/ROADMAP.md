@@ -12,6 +12,10 @@ The targets below remain acceptance criteria, not claims of full application
 compatibility: live server/provider certification, rich book/EXIF extraction,
 and event-driven watching remain outside the implemented scope.
 
+Schema 8 adds [saved processing artifacts](ARTIFACTS.md): immutable recipes,
+separate generated locations and recoverable publication for a small preset set.
+Application ingestion adapters and streaming packages remain deferred.
+
 ## Objective and current foundation
 
 Complete useful media-catalog workflows demonstrated by FileBot's public scripts,

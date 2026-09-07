@@ -475,6 +475,46 @@ class Workflow:
             self.cli("sync", "--catalog", "jellyfin")["applied"] == [],
             "source restoration changed output",
         )
+        generated = self.root / "generated"
+        generated.mkdir()
+        self.cli("artifact", "bind", "generated", "--root", str(generated))
+        for preset in ("thumbnail", "remux-mkv", "h264-720p", "subtitle-srt"):
+            recipe = self.cli("artifact", "recipe", preset, "--preset", preset)
+            queued = self.cli(
+                "artifact",
+                "enqueue",
+                "--file-id",
+                files["Feature.mkv"],
+                "--item-id",
+                item,
+                "--recipe",
+                recipe["id"],
+                "--location",
+                "generated",
+            )
+            created = self.cli("artifact", "run", "--limit", "1")["completed"][0]
+            artifact = self.cli("artifact", "show", created["artifact_id"])
+            require(artifact["state"] == "ready", "generated output was not registered")
+            require(
+                digest(generated / artifact["path"]) == artifact["sha256"],
+                "generated output hash mismatch",
+            )
+            require(
+                self.cli("process", "attempts", queued["job_id"])["attempts"][0][
+                    "state"
+                ]
+                == "complete",
+                "missing output attempt history",
+            )
+        require(
+            self.cli("artifact", "recover")["recovered"] == [],
+            "completed outputs needed recovery",
+        )
+        self.cli("scan", "generated")
+        require(
+            self.cli("sync", "--catalog", "jellyfin")["applied"] == [],
+            "generated outputs changed existing selection",
+        )
         for path, before in hashes.items():
             require(
                 digest(self.root / path) == before, f"source content changed: {path}"
@@ -486,6 +526,7 @@ class Workflow:
             "source_hashes": hashes,
             "commands": self.commands,
             "checks": [
+                "generated_artifacts",
                 "probe_values",
                 "languages",
                 "chapters",

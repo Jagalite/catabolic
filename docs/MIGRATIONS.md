@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 -->
 
 Catabolic uses ordered SQL files and one Python runner. Users can skip application
-releases: upgrading schema 1 to schema 7 applies migrations 2 through 7 in order.
+releases: upgrading schema 1 to schema 8 applies migrations 2 through 8 in order.
 There is no separate script for every possible pair of versions. The shipped
 schema is currently **6**. Migration `004_tags.sql` adds tag vocabulary, aliases,
 hierarchy and attributed item/file assertions without changing existing rows.
@@ -176,3 +176,9 @@ Schema 7 (`007_processing_attempts.sql`) adds processing attempt history and ind
 retry eligibility. Existing jobs and results are preserved. Historical attempts
 are not invented; only newly completed attempts get history rows. Existing
 migrations 1 through 6 remain unchanged.
+
+Schema 8 (`008_processing_artifacts.sql`) adds immutable recipes, generated locations
+and recoverable output records. Jobs gain an optional recipe reference; attempts
+gain start/end timestamps and structured results. Existing columns and rows are
+preserved; historical recipe references and attempt details remain null. See
+[Generated media](ARTIFACTS.md) for publication and recovery.

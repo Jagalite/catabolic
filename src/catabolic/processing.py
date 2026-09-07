@@ -14,6 +14,7 @@ import time
 from collections import OrderedDict, deque
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from uuid import uuid4
@@ -501,7 +502,7 @@ class Processing:
         page_limit(limit)
         rows, more = bounded_rows(
             self.store,
-            """SELECT id,profile,file_id,operation,state,attempts,error,created_at,finished_at,
+            """SELECT id,profile,file_id,operation,state,attempts,error,created_at,finished_at,recipe_id,
             snapshot,options,CASE WHEN length(result)<=8192 THEN result END AS result,
             coalesce(length(result)>8192,0) AS result_omitted
             FROM processing_jobs WHERE profile=? AND id>? AND (? IS NULL OR state=?)
@@ -529,16 +530,31 @@ class Processing:
     def attempts(self, identifier, *, limit=100, after=0):
         self.get(identifier)
         page_limit(limit)
-        rows = self.store.rows(
-            "SELECT * FROM processing_attempts WHERE job_id=? AND attempt>? ORDER BY attempt LIMIT ?",
+        rows, more = bounded_rows(
+            self.store,
+            """SELECT job_id,attempt,state,error,retryable,retry_after,created_at,started_at,finished_at,
+            CASE WHEN length(result)<=8192 THEN result END AS result,
+            coalesce(length(result)>8192,0) AS result_omitted
+            FROM processing_attempts WHERE job_id=? AND attempt>? ORDER BY attempt LIMIT ?""",
             (identifier, after, limit + 1),
+            limit,
         )
         return {
-            "attempts": rows[:limit],
-            "next_after": rows[limit - 1]["attempt"] if len(rows) > limit else None,
+            "attempts": rows,
+            "next_after": rows[-1]["attempt"] if more else None,
         }
 
+    def _require_artifact_recovery(self, identifier):
+        if self.store.rows(
+            "SELECT id FROM processing_artifacts WHERE job_id=? AND profile=? AND state IN ('planned','writing','validating','publishing') LIMIT 1",
+            (identifier, self.profile),
+        ):
+            raise CatabolicError(
+                "recover pending artifacts before retrying or cancelling this job"
+            )
+
     def cancel(self, identifier):
+        self._require_artifact_recovery(identifier)
         with self.store.transaction() as db:
             changed = db.execute(
                 "UPDATE processing_jobs SET state='cancelled',finished_at=CURRENT_TIMESTAMP WHERE id=? AND profile=? AND state IN ('queued','running')",
@@ -547,6 +563,7 @@ class Processing:
         return {"cancelled": bool(changed), "id": identifier}
 
     def retry(self, identifier):
+        self._require_artifact_recovery(identifier)
         with self.store.transaction() as db:
             changed = db.execute(
                 "UPDATE processing_jobs SET state='queued',error=NULL,finished_at=NULL WHERE id=? AND profile=? AND state IN ('failed','timeout','cancelled')",
@@ -662,7 +679,7 @@ class Processing:
                     (job["id"], self.profile, attempt, retry_after),
                 )
             db.execute(
-                "INSERT INTO processing_attempts(job_id,attempt,state,error,retryable,retry_after) VALUES (?,?,?,?,?,?)",
+                "INSERT INTO processing_attempts(job_id,attempt,state,error,retryable,retry_after,result,started_at,finished_at) VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",
                 (
                     job["id"],
                     attempt,
@@ -670,6 +687,8 @@ class Processing:
                     error,
                     int(retryable),
                     retry_after,
+                    encode(data),
+                    job.get("started_at"),
                 ),
             )
         return state
@@ -711,7 +730,7 @@ class Processing:
             due = db.execute(
                 """SELECT j.id FROM processing_retry_queue a JOIN processing_jobs j ON j.id=a.job_id
                 WHERE a.retry_after<=? AND a.profile=?
-                AND j.attempts=a.attempt AND j.attempts<=? AND j.state IN ('failed','timeout')
+                AND j.operation!='render' AND j.attempts=a.attempt AND j.attempts<=? AND j.state IN ('failed','timeout')
                 ORDER BY a.retry_after,a.job_id LIMIT ?""",
                 (time.time(), self.profile, retry_transient, min(limit, 1000)),
             ).fetchall()
@@ -724,7 +743,7 @@ class Processing:
                 [(r[0],) for r in due],
             )
             db.execute(
-                "UPDATE processing_jobs SET state='queued' WHERE profile=? AND state='running'",
+                "UPDATE processing_jobs SET state='queued' WHERE profile=? AND state='running' AND operation!='render'",
                 (self.profile,),
             )
         bindings = self.store.rows(
@@ -783,7 +802,7 @@ class Processing:
                             if slots <= 0:
                                 continue
                             rows = self.store.rows(
-                                "SELECT * FROM processing_jobs WHERE profile=? AND state='queued' AND location=? ORDER BY created_at,id LIMIT ?",
+                                "SELECT * FROM processing_jobs WHERE profile=? AND operation!='render' AND state='queued' AND location=? ORDER BY created_at,id LIMIT ?",
                                 (
                                     self.profile,
                                     source,
@@ -798,6 +817,9 @@ class Processing:
                                 job = dict(row)
                                 job["snapshot"] = json.loads(job["snapshot"])
                                 job["options"] = json.loads(job["options"])
+                                job["started_at"] = datetime.now(
+                                    timezone.utc
+                                ).isoformat()
                                 with self.store.transaction() as db:
                                     db.execute(
                                         "UPDATE processing_jobs SET state='running',attempts=attempts+1 WHERE id=?",
