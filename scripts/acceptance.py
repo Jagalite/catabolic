@@ -478,8 +478,25 @@ class Workflow:
         generated = self.root / "generated"
         generated.mkdir()
         self.cli("artifact", "bind", "generated", "--root", str(generated))
+        mobile = self.cli(
+            "rendition",
+            "define",
+            "mobile",
+            "--definition",
+            json.dumps({"role": "custom:mobile", "file_metadata": {"device": "phone"}}),
+        )
         for preset in ("thumbnail", "remux-mkv", "h264-720p", "subtitle-srt"):
-            recipe = self.cli("artifact", "recipe", preset, "--preset", preset)
+            extra = (
+                [
+                    "--output-definition",
+                    mobile["id"],
+                    "--options",
+                    '{"audio_stream":null,"crf":30}',
+                ]
+                if preset == "h264-720p"
+                else []
+            )
+            recipe = self.cli("artifact", "recipe", preset, "--preset", preset, *extra)
             queued = self.cli(
                 "artifact",
                 "enqueue",
@@ -499,6 +516,18 @@ class Workflow:
                 digest(generated / artifact["path"]) == artifact["sha256"],
                 "generated output hash mismatch",
             )
+            rendition = self.cli("rendition", "show", created["output_id"])
+            require(
+                rendition["origin"] == "generated"
+                and rendition["source_file_id"] == files["Feature.mkv"],
+                "missing generated rendition provenance",
+            )
+            if preset == "h264-720p":
+                require(
+                    rendition["definition_id"] == mobile["id"]
+                    and rendition["metadata"]["device"] == "phone",
+                    "custom output definition was not applied",
+                )
             require(
                 self.cli("process", "attempts", queued["job_id"])["attempts"][0][
                     "state"
@@ -509,6 +538,31 @@ class Workflow:
         require(
             self.cli("artifact", "recover")["recovered"] == [],
             "completed outputs needed recovery",
+        )
+        # External output registration records the user's claim without inventing execution history.
+        external = a / "External-remux.mkv"
+        shutil.copyfile(a / "Feature.mkv", external)
+        self.cli("scan", "source-a")
+        external_id = self.cli(
+            "query",
+            "SELECT file_id FROM catalog_files WHERE source_relative_path='External-remux.mkv' AND profile='default'",
+        )["rows"][0][0]
+        external_result = self.cli(
+            "rendition",
+            "register",
+            "--file-id",
+            external_id,
+            "--source-file-id",
+            files["Feature.mkv"],
+            "--item-id",
+            item,
+            "--output-definition",
+            mobile["id"],
+        )
+        require(
+            external_result["origin"] == "registered"
+            and external_result["artifact_id"] is None,
+            "external rendition was mislabeled as generated",
         )
         self.cli("scan", "generated")
         require(
@@ -527,6 +581,8 @@ class Workflow:
             "commands": self.commands,
             "checks": [
                 "generated_artifacts",
+                "custom_rendition_definitions",
+                "external_rendition_registration",
                 "probe_values",
                 "languages",
                 "chapters",

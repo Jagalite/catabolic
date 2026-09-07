@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 -->
 
 Catabolic uses ordered SQL files and one Python runner. Users can skip application
-releases: upgrading schema 1 to schema 8 applies migrations 2 through 8 in order.
+releases: upgrading schema 1 to schema 9 applies migrations 2 through 9 in order.
 There is no separate script for every possible pair of versions. The shipped
 schema is currently **6**. Migration `004_tags.sql` adds tag vocabulary, aliases,
 hierarchy and attributed item/file assertions without changing existing rows.
@@ -182,3 +182,12 @@ and recoverable output records. Jobs gain an optional recipe reference; attempts
 gain start/end timestamps and structured results. Existing columns and rows are
 preserved; historical recipe references and attempt details remain null. See
 [Generated media](ARTIFACTS.md) for publication and recovery.
+
+Schema 9 (`009_output_definitions.sql`) adds reusable output definitions and a
+rendition registry shared by generated and externally registered media. Recipes
+gain a nullable output-definition reference. Existing recipe definitions, digests,
+jobs and artifact rows remain unchanged. Older queued jobs retain their preset's
+same-item semantics when run or recovered. Historical completed outputs are not
+backfilled with invented definitions or provenance. New recipes reference explicit
+immutable definitions. New item/relationship/rendition registration commits with
+artifact publication; a failed transaction leaves no partial catalog item behind.

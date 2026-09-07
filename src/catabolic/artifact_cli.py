@@ -26,6 +26,10 @@ def register(commands):
     recipe.add_argument("name")
     recipe.add_argument("--preset", choices=PRESETS, required=True)
     recipe.add_argument("--options", default="{}")
+    recipe.add_argument(
+        "--output-definition",
+        help="immutable rendition definition ID; defaults to preset semantics",
+    )
     enqueue = commands.add_parser("enqueue")
     enqueue.add_argument("--file-id", required=True)
     enqueue.add_argument("--item-id", required=True)
@@ -50,7 +54,9 @@ def dispatch(app, args):
     if op == "bind":
         return artifacts.bind(args.location, args.root)
     if op == "recipe":
-        return artifacts.recipe(args.name, args.preset, json.loads(args.options))
+        return artifacts.recipe(
+            args.name, args.preset, json.loads(args.options), args.output_definition
+        )
     if op == "enqueue":
         return artifacts.enqueue(args.file_id, args.recipe, args.location, args.item_id)
     if op == "show":

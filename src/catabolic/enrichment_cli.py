@@ -9,6 +9,7 @@ from .curation import Curation
 from .processing import OPERATIONS, Processing
 
 COMMANDS = {
+    "rendition",
     "artifact",
     "proposal",
     "sidecar",
@@ -47,6 +48,9 @@ def register(commands):
     from .artifact_cli import register as register_artifacts
 
     register_artifacts(commands)
+    from .output_cli import register as register_outputs
+
+    register_outputs(commands)
     watch = commands.add_parser(
         "watch", help="periodically scan and enqueue stable files; no link sync"
     )
@@ -173,7 +177,9 @@ def writable(args):
     cmd = args.command
     op = getattr(args, "operation", None)
     return (
-        cmd == "artifact"
+        cmd == "rendition"
+        and op in ("define", "register")
+        or cmd == "artifact"
         and op in ("bind", "recipe", "enqueue", "run", "recover")
         or cmd in ("sidecar", "identify")
         and args.apply
@@ -186,6 +192,11 @@ def writable(args):
 def dispatch(app, args):
     from .cli import read_text
     from .copy_selection import CopySelection
+
+    if args.command == "rendition":
+        from .output_cli import dispatch as dispatch_outputs
+
+        return dispatch_outputs(app, args)
     from .domain import CatabolicError
     from .network_adapters import Refresh, tmdb_candidates
 

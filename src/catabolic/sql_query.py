@@ -69,6 +69,14 @@ VIEWS.update(
             "Immutable processing recipe revisions.",
             "SELECT * FROM main.processing_recipes",
         ),
+        "catalog_renditions": (
+            "Registered and generated media outputs with source lineage and immutable definition IDs; registered provenance is user-declared.",
+            "SELECT * FROM main.media_outputs",
+        ),
+        "catalog_output_definitions": (
+            "Immutable rendition metadata and item relationship policies shared by recipes and external registration.",
+            "SELECT * FROM main.output_definitions",
+        ),
         "catalog_generated_locations": (
             "Explicitly owned storage locations for generated files.",
             "SELECT * FROM main.generated_locations",

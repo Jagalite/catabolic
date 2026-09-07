@@ -17,6 +17,7 @@ from catabolic.app import Application
 from catabolic.artifacts import Artifacts
 from catabolic.domain import CatabolicError
 from catabolic.graphql_query import execute_graphql
+from catabolic.outputs import Outputs
 from catabolic.processing import Processing
 from catabolic.rendering import PRESETS
 from catabolic.sql_query import execute_sql
@@ -151,6 +152,113 @@ class ArtifactTest(unittest.TestCase):
         ):
             with self.assertRaises(CatabolicError):
                 self.a.recipe("bad", "thumbnail", options)
+
+    def test_custom_definition_is_pinned_and_used_for_generated_rendition(self):
+        outputs = Outputs(self.app)
+        first = outputs.define(
+            "mobile", {"role": "custom:mobile", "file_metadata": {"device": "phone"}}
+        )
+        recipe = self.a.recipe(
+            "mobile",
+            "h264-720p",
+            {
+                "audio_stream": None,
+                "video_stream": 0,
+                "crf": 30,
+                "encoder_speed": "veryfast",
+            },
+            first["id"],
+        )
+        self.a.enqueue(self.file_id, recipe["id"], "generated", self.item_id)
+        second = outputs.define("mobile", {"role": "custom:changed"})
+        self.assertNotEqual(first["id"], second["id"])
+        result = self.a.run()
+        self.assertTrue(result["complete"], result)
+        row = outputs.list()["outputs"][0]
+        artifact = self.a.get(row["artifact_id"])
+        self.assertEqual(
+            (row["definition_id"], row["origin"], row["item_id"]),
+            (first["id"], "generated", self.item_id),
+        )
+        self.assertEqual(artifact["role"], "custom:mobile")
+        self.assertEqual(row["metadata"]["device"], "phone")
+        self.assertEqual(
+            artifact["validation"]["output"]["summary"]["audio_codecs"], []
+        )
+        with self.assertRaisesRegex(CatabolicError, "different output registration"):
+            outputs.register(row["file_id"], self.file_id, self.item_id, first["id"])
+
+    def test_new_item_publication_rollback_and_recovery_are_atomic(self):
+        outputs = Outputs(self.app)
+        definition = outputs.define(
+            "frame",
+            {
+                "mode": "new_item",
+                "item_kind": "photo",
+                "item_metadata": {"title": "Frame study"},
+            },
+        )
+        recipe = self.a.recipe(
+            "frame", "thumbnail", output_definition_id=definition["id"]
+        )
+        self.a.enqueue(self.file_id, recipe["id"], "generated", self.item_id)
+        original = Outputs.record
+
+        def interrupt_after_record(*args, **kwargs):
+            original(*args, **kwargs)
+            raise KeyboardInterrupt()
+
+        with (
+            patch.object(Outputs, "record", new=interrupt_after_record),
+            self.assertRaises(KeyboardInterrupt),
+        ):
+            self.a.run()
+        self.assertEqual(len(self.store.rows("SELECT * FROM items")), 1)
+        self.assertEqual(outputs.list()["outputs"], [])
+        self.assertEqual(self.a.list()["artifacts"][0]["state"], "publishing")
+        self.assertTrue(self.a.recover()["complete"])
+        self.assertEqual(self.a.recover()["recovered"], [])
+        self.assertEqual(len(outputs.list()["outputs"]), 1)
+        row = outputs.list()["outputs"][0]
+        self.assertNotEqual(row["item_id"], self.item_id)
+        self.assertEqual(self.a.get(row["artifact_id"])["item_id"], row["item_id"])
+        self.assertEqual(len(self.store.rows("SELECT * FROM item_relationships")), 1)
+        self.assertEqual(self.store.rows("PRAGMA foreign_key_check"), [])
+
+    def test_remux_selected_streams_and_invalid_selection(self):
+        self.enqueue("remux-mkv", {"stream_indices": [0, 1]})
+        result = self.a.run()
+        self.assertTrue(result["complete"], result)
+        artifact = self.a.get(result["completed"][0]["artifact_id"])
+        self.assertEqual(
+            [s["codec_type"] for s in artifact["validation"]["output"]["streams"]],
+            ["video", "audio"],
+        )
+        self.enqueue("remux-mkv", {"stream_indices": [99]})
+        result = self.a.run()
+        self.assertFalse(result["complete"])
+        self.assertEqual(len(Outputs(self.app).list()["outputs"]), 1)
+
+    def test_legacy_queued_job_without_definition_recovers_with_default_semantics(self):
+        # Simulate the immutable schema-8 job payload, which migration deliberately leaves intact.
+        recipe, job = self.enqueue("thumbnail")
+        with self.store.transaction() as db:
+            options = json.loads(
+                db.execute(
+                    "SELECT options FROM processing_jobs WHERE id=?", (job["job_id"],)
+                ).fetchone()[0]
+            )
+            options.pop("output_definition")
+            options["recipe"].pop("output_definition_id")
+            db.execute(
+                "UPDATE processing_jobs SET options=? WHERE id=?",
+                (json.dumps(options), job["job_id"]),
+            )
+        result = self.a.run()
+        self.assertTrue(result["complete"], result)
+        row = Outputs(self.app).list()["outputs"][0]
+        self.assertEqual(row["item_id"], self.item_id)
+        self.assertEqual(self.a.get(row["artifact_id"])["role"], "thumbnail")
 
     def test_abrupt_process_exit_recovers_durable_publication(self):
         for stage in ("writing", "publishing", "register"):

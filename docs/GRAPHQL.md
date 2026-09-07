@@ -75,6 +75,14 @@ Relationships expose their source and target items; associations and mappings
 expose both their file and item. Files expose recorded availability and source
 paths; catalogs and mappings expose profile-specific output paths.
 
+Generated media also exposes `artifact`, `artifacts`, `recipe`, and `recipes`.
+`rendition` and `renditions` cover generated and externally registered renditions;
+`outputDefinition` and `outputDefinitions` expose their immutable catalog policies.
+Single-record fields take `id`; lists use `first`/`after` and return `EvidencePage`
+with JSON `nodes`. `renditions(file:ID)` filters by source file ID. Renditions and
+artifacts are profile-scoped; recipe and output definitions are catalog-wide.
+See [Generated media](ARTIFACTS.md) for provenance semantics and examples.
+
 List filters mirror the existing CLI query layer:
 
 | Query | Filters and ordering |

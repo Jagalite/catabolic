@@ -4,6 +4,7 @@
 """Identification and media relationships independent of catalog placement."""
 
 import json
+from contextlib import nullcontext
 from uuid import UUID, uuid5
 
 from .domain import CatabolicError
@@ -137,6 +138,7 @@ class MediaCatalog:
         position=None,
         clear_position=False,
         metadata=None,
+        _db=None,
     ):
         self.app.require_recovered()
         if source == target:
@@ -146,7 +148,7 @@ class MediaCatalog:
         identifier = self._id("relationship", source, target, kind)
         if clear_position and position is not None:
             raise CatabolicError("position and clear-position cannot be combined")
-        with self.store.transaction() as db:
+        with nullcontext(_db) if _db is not None else self.store.transaction() as db:
             existing = db.execute(
                 "SELECT metadata,position FROM item_relationships WHERE id=?",
                 (identifier,),

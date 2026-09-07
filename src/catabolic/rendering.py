@@ -37,6 +37,14 @@ def definition(preset, options):
         allowed.add("duration_seconds")
     if preset in ("subtitle-srt", "audio-flac", "audio-aac"):
         allowed.add("stream")
+    if preset == "remux-mkv":
+        allowed.add("stream_indices")
+    if preset in ("thumbnail", "preview", "h264-720p", "h264-1080p"):
+        allowed.add("video_stream")
+    if preset in ("preview", "h264-720p", "h264-1080p"):
+        allowed.update(("audio_stream", "crf", "encoder_speed", "audio_bitrate_kbps"))
+    if preset == "audio-aac":
+        allowed.add("audio_bitrate_kbps")
     if set(options) - allowed:
         raise CatabolicError("unsupported recipe option")
     value = {
@@ -52,6 +60,7 @@ def definition(preset, options):
         value["duration_seconds"] = 10
     if "stream" in allowed:
         value["stream"] = 0
+    # Keep omitted settings omitted so old recipe definitions retain their digest.
     value.update(options)
     for key, lower, upper in (
         ("timeout", 1, 86400),
@@ -60,11 +69,42 @@ def definition(preset, options):
         ("start_seconds", 0, 86400),
         ("duration_seconds", 1, 60),
         ("stream", 0, 255),
+        ("video_stream", 0, 255),
+        ("crf", 0, 51),
+        ("audio_bitrate_kbps", 8, 512),
     ):
         if key in value and (
             type(value[key]) is not int or not lower <= value[key] <= upper
         ):
             raise CatabolicError(f"invalid recipe {key}")
+    if (
+        "audio_stream" in value
+        and value["audio_stream"] is not None
+        and (
+            type(value["audio_stream"]) is not int
+            or not 0 <= value["audio_stream"] <= 255
+        )
+    ):
+        raise CatabolicError(
+            "audio_stream must be null or an integer between 0 and 255"
+        )
+    if "encoder_speed" in value and value["encoder_speed"] not in (
+        "veryfast",
+        "medium",
+        "slow",
+    ):
+        raise CatabolicError("encoder_speed must be veryfast, medium, or slow")
+    if "stream_indices" in value:
+        indices = value["stream_indices"]
+        if (
+            not isinstance(indices, list)
+            or not 1 <= len(indices) <= 256
+            or any(type(i) is not int or not 0 <= i <= 255 for i in indices)
+            or len(set(indices)) != len(indices)
+        ):
+            raise CatabolicError(
+                "stream_indices must be a nonempty list of unique stream indices between 0 and 255"
+            )
     return value
 
 
@@ -204,6 +244,14 @@ def render(input_fd, output_fd, recipe, identity, poll):
     selected = streams(before, expected) if expected else before["streams"]
     if not selected or recipe.get("stream", 0) >= len(selected):
         raise CatabolicError("input lacks the requested stream")
+    video_index = recipe.get("video_stream", 0)
+    if expected == "video" and video_index >= len(selected):
+        raise CatabolicError("input lacks the requested video stream")
+    if preset == "remux-mkv" and "stream_indices" in recipe:
+        indexed = {s["index"]: s for s in before["streams"]}
+        if any(i not in indexed for i in recipe["stream_indices"]):
+            raise CatabolicError("input lacks a requested remux stream index")
+        selected = [indexed[i] for i in recipe["stream_indices"]]
     if preset in ("preview", "h264-720p", "h264-1080p") and any(
         s.get("color_transfer") in ("smpte2084", "arib-std-b67")
         for s in streams(before, "video")
@@ -235,13 +283,15 @@ def render(input_fd, output_fd, recipe, identity, poll):
         "0",
     ]
     if preset == "remux-mkv":
-        command += ["-map", "0", "-c", "copy"]
+        for stream in selected:
+            command += ["-map", f"0:{stream['index']}"]
+        command += ["-c", "copy"]
     elif preset == "thumbnail":
         command += [
             "-ss",
             str(recipe["start_seconds"]),
             "-map",
-            f"0:{streams(before, 'video')[0]['index']}",
+            f"0:{streams(before, 'video')[video_index]['index']}",
             "-frames:v",
             "1",
             "-vf",
@@ -258,28 +308,35 @@ def render(input_fd, output_fd, recipe, identity, poll):
             "-c",
             PRESETS[preset][4],
         ]
+        if preset == "audio-aac" and "audio_bitrate_kbps" in recipe:
+            command += ["-b:a", f"{recipe['audio_bitrate_kbps']}k"]
     else:
         height = 1080 if preset == "h264-1080p" else 720
         command += [
             "-map",
-            f"0:{streams(before, 'video')[0]['index']}",
-            "-map",
-            "0:a:0?",
+            f"0:{streams(before, 'video')[video_index]['index']}",
             "-vf",
             f"scale=w=-2:h='trunc(min({height},ih)/2)*2'",
             "-c:v",
             "libx264",
             "-preset",
-            "medium",
+            recipe.get("encoder_speed", "medium"),
             "-crf",
-            "23",
+            str(recipe.get("crf", 23)),
             "-pix_fmt",
             "yuv420p",
             "-c:a",
             "aac",
             "-b:a",
-            "160k",
+            f"{recipe.get('audio_bitrate_kbps', 160)}k",
         ]
+        audio_index = recipe.get("audio_stream", 0)
+        audio = streams(before, "audio")
+        if audio_index is not None:
+            if "audio_stream" in recipe and audio_index >= len(audio):
+                raise CatabolicError("input lacks the requested audio stream")
+            if audio:
+                command += ["-map", f"0:{audio[audio_index]['index']}"]
         if preset == "preview":
             command += [
                 "-ss",
@@ -312,13 +369,34 @@ def render(input_fd, output_fd, recipe, identity, poll):
         raise CatabolicError("output is missing its expected stream")
     if preset == "remux-mkv":
         fields = ("codec_type", "codec_name")
-        if [tuple(s.get(k) for k in fields) for s in before["streams"]] != [
+        if [tuple(s.get(k) for k in fields) for s in selected] != [
             tuple(s.get(k) for k in fields) for s in after["streams"]
         ]:
-            raise CatabolicError("remux did not preserve all streams and codecs")
+            raise CatabolicError(
+                "remux did not preserve the selected streams and codecs"
+            )
     if preset in ("preview", "h264-720p", "h264-1080p"):
         if streams(after, "video")[0].get("codec_name") != "h264":
             raise CatabolicError("output codec does not match the recipe")
+        expected_audio = recipe.get("audio_stream", 0) is not None and bool(
+            streams(before, "audio")
+        )
+        output_audio = streams(after, "audio")
+        if len(output_audio) != int(expected_audio) or any(
+            s.get("codec_name") != "aac" for s in output_audio
+        ):
+            raise CatabolicError("output audio does not match the recipe")
+    if preset in ("audio-flac", "audio-aac", "subtitle-srt"):
+        wanted_codec = {
+            "audio-flac": "flac",
+            "audio-aac": "aac",
+            "subtitle-srt": "subrip",
+        }[preset]
+        if (
+            len(after["streams"]) != 1
+            or after["streams"][0].get("codec_name") != wanted_codec
+        ):
+            raise CatabolicError("extracted stream codec does not match the recipe")
     if preset == "thumbnail" and streams(after, "video")[0].get("codec_name") != "png":
         raise CatabolicError("output is not a PNG thumbnail")
     wanted = duration(before)

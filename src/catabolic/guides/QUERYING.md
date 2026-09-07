@@ -24,7 +24,7 @@ Joins, grouping, aggregates, window functions, CTEs, and ordinary SQLite
 expressions are supported. Exactly one result-producing statement is accepted.
 The views exist only on the query connection; they do not alter the stored schema
 and will not appear in an external `sqlite3` session. The current query command requires
-schema 7; older databases must be upgraded explicitly.
+schema 9; older databases must be upgraded explicitly.
 
 ## Views and row meaning
 
@@ -36,6 +36,13 @@ schema 7; older databases must be upgraded explicitly.
 | `catalog_entries` | One mapping in one profile, including disabled decisions | `profile`, `mapping_id`, `catalog`, `active`, `item_id`, `kind`, `title`, `year`, `file_id`, all source and observation columns from `catalog_files`, `catalog_path`, `output_root`, `output_path`, `recorded_link_target` |
 | `catalog_item_files` | One independent identification in one profile, including disabled associations | `profile`, `association_id`, `item_id`, `kind`, `title`, `year`, `file_id`, `role`, `part`, `metadata`, `origin`, `active`, all source and observation columns from `catalog_files` |
 | `catalog_relationships` | One directed relationship, shared across profiles | `relationship_id`, `source_id`, `source_kind`, `source_title`, `target_id`, `target_kind`, `target_title`, `kind`, `position`, `metadata`, `active` |
+| `catalog_renditions` | One generated or externally registered file rendition in a profile | `id`, `profile`, `file_id`, `source_file_id`, `source_item_id`, `item_id`, `definition_id`, `artifact_id`, `origin`, `metadata`, `created_at` |
+| `catalog_output_definitions` | One immutable rendition definition revision, shared across profiles | `id`, `name`, `revision`, `definition`, `digest`, `created_at` |
+| `catalog_recipes` | One immutable generation recipe revision | `id`, `name`, `revision`, `preset`, `definition`, `digest`, `output_definition_id`, `created_at` |
+
+Rendition `origin` distinguishes Catabolic-generated artifacts from user-declared
+external provenance. Join `definition_id` to output definitions, or `artifact_id`
+to `catalog_artifacts` for validated generation evidence. See [Generated media](ARTIFACTS.md).
 
 File, entry, and identification views contain **every profile**. Items, identities,
 and relationships are shared and have no profile column. The reserved parameter

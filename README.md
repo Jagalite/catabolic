@@ -35,6 +35,8 @@ the catalog and generates the outputs you choose.
   custom layouts from the same catalog, with links back to your source files.
 - **Keep useful metadata alongside your media.** Export catalog details,
   playlists, and metadata files for other tools.
+- **Keep track of custom versions.** Catalog your own remuxes and edits, or use
+  optional FFmpeg recipes to generate separate files with recorded source relationships.
 
 For example, the same film can appear in your Plex library and a favorites folder
 without storing another copy of the movie. Each symlink points to the existing

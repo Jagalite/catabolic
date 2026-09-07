@@ -85,6 +85,10 @@ type Query {
   recipe(id: ID!): JSON
   artifacts(state: String, file: ID, first: Int! = 100, after: String): EvidencePage
   recipes(first: Int! = 100, after: String): EvidencePage
+  rendition(id: ID!): JSON
+  outputDefinition(id: ID!): JSON
+  renditions(file: ID, first: Int! = 100, after: String): EvidencePage
+  outputDefinitions(first: Int! = 100, after: String): EvidencePage
   job(id: ID!): JSON
   proposal(id: ID!): JSON
   jobs(state: String, file: ID, first: Int! = 100, after: String): EvidencePage
@@ -251,7 +255,7 @@ class QueryContext:
             raise CatabolicError("first must be between 1 and 1000")
         key = (field, encode(args))
         if key not in self.cache:
-            if field in ("artifacts", "recipes"):
+            if field in ("artifacts", "recipes", "renditions", "outputDefinitions"):
                 if field == "artifacts":
                     table = (
                         "processing_artifacts a JOIN processing_jobs j ON j.id=a.job_id"
@@ -262,8 +266,21 @@ class QueryContext:
                         if args.get(key) is not None:
                             conditions.append(column + "=?")
                             values.append(args[key])
+                elif field == "renditions":
+                    table, columns = "media_outputs a", "a.*"
+                    conditions, values = ["a.profile=?"], [self.profile]
+                    if args.get("file") is not None:
+                        conditions.append("a.source_file_id=?")
+                        values.append(args["file"])
                 else:
-                    table, columns = "processing_recipes a", "a.*"
+                    table, columns = (
+                        (
+                            "processing_recipes a"
+                            if field == "recipes"
+                            else "output_definitions a"
+                        ),
+                        "a.*",
+                    )
                     conditions, values = [], []
                 result = self.queries._page(
                     field,
@@ -278,9 +295,10 @@ class QueryContext:
                     args["cursor"],
                     [args.get("state"), args.get("file")],
                 )
-                if field == "recipes":
+                if field in ("recipes", "outputDefinitions", "renditions"):
                     for row in result[field]:
-                        row["definition"] = json.loads(row["definition"])
+                        column = "metadata" if field == "renditions" else "definition"
+                        row[column] = json.loads(row[column])
                 self.charge(result)
             elif field in ("jobs", "proposals"):
                 table = "processing_jobs" if field == "jobs" else "proposals"
@@ -361,6 +379,18 @@ class QueryContext:
                         (adapter.get if field == "artifact" else adapter.get_recipe)(
                             args["id"]
                         )
+                    )
+                if field in ("rendition", "outputDefinition"):
+                    from .outputs import Outputs
+
+                    adapter = Outputs(Application(self.store, self.profile))
+                    self.records(1)
+                    return self.charge(
+                        (
+                            adapter.get
+                            if field == "rendition"
+                            else adapter.get_definition
+                        )(args["id"])
                     )
                 if field in ("job", "proposal"):
                     from .curation import Curation

@@ -20,6 +20,7 @@ from .filesystem import (
     rename_noreplace,
     root_handle,
 )
+from .outputs import Outputs
 from .process_runner import CommandFailure
 from .source_access import validated_source
 from .store import encode
@@ -79,9 +80,16 @@ class Artifacts:
             os.close(fd)
         return self.app.binding("source", location)
 
-    def recipe(self, recipe_name, preset, options=None):
+    def recipe(self, recipe_name, preset, options=None, output_definition_id=None):
         name(recipe_name)
         value = rendering.definition(preset, options or {})
+        outputs = Outputs(self.app)
+        output = (
+            outputs.get_definition(output_definition_id)
+            if output_definition_id
+            else self.default_output(preset)
+        )
+        value["output_definition_id"] = output["id"]
         serialized = encode(value)
         digest = hashlib.sha256(serialized.encode()).hexdigest()
         existing = self.store.rows(
@@ -97,10 +105,23 @@ class Artifacts:
                 (recipe_name,),
             ).fetchone()[0]
             db.execute(
-                "INSERT INTO processing_recipes(id,name,revision,preset,definition,digest) VALUES (?,?,?,?,?,?)",
-                (identifier, recipe_name, revision, preset, serialized, digest),
+                "INSERT INTO processing_recipes(id,name,revision,preset,definition,digest,output_definition_id) VALUES (?,?,?,?,?,?,?)",
+                (
+                    identifier,
+                    recipe_name,
+                    revision,
+                    preset,
+                    serialized,
+                    digest,
+                    output["id"],
+                ),
             )
         return self.get_recipe(identifier)
+
+    def default_output(self, preset):
+        return Outputs(self.app).define(
+            "builtin-" + preset, {"role": rendering.PRESETS[preset][2]}
+        )
 
     def get_recipe(self, identifier):
         rows = self.store.rows(
@@ -159,6 +180,12 @@ class Artifacts:
     def enqueue(self, file_id, recipe_id, location, item_id):
         self.app.require_recovered()
         recipe = self.get_recipe(recipe_id)
+        output = (
+            Outputs(self.app).get_definition(recipe["output_definition_id"])
+            if recipe["output_definition_id"]
+            else self.default_output(recipe["preset"])
+        )
+        Outputs(self.app).validate_source_item(file_id, item_id, output["definition"])
         if not self.store.rows(
             "SELECT 1 FROM generated_locations WHERE profile=? AND location=?",
             (self.profile, location),
@@ -170,13 +197,6 @@ class Artifacts:
         with root_handle(binding) as fd:
             if owner_state(fd, self._owner(location)) != "owned":
                 raise CatabolicError("generated location ownership is missing")
-        if not self.store.rows(
-            "SELECT 1 FROM item_files WHERE file_id=? AND item_id=? AND active=1",
-            (file_id, item_id),
-        ):
-            raise CatabolicError(
-                "input must have an active association with the requested item"
-            )
         snapshot = occurrence(self.store, self.profile, file_id)
         with validated_source(snapshot) as fd:
             snapshot["ctime_ns"] = os.fstat(fd).st_ctime_ns
@@ -192,6 +212,7 @@ class Artifacts:
             "tools": available["tools"],
             "destination": binding,
             "item_id": item_id,
+            "output_definition": output,
         }
         key = hashlib.sha256(
             encode([snapshot, recipe["digest"], options]).encode()
@@ -307,6 +328,13 @@ class Artifacts:
             self._register(artifact, st)
 
     def _register(self, artifact, st):
+        job = self.store.rows(
+            "SELECT * FROM processing_jobs WHERE id=?", (artifact["job_id"],)
+        )[0]
+        options = json.loads(job["options"])
+        output = options.get("output_definition") or self.default_output(
+            options["recipe"]["preset"]
+        )
         identifier = str(
             uuid5(
                 UUID(self.store.database_id),
@@ -351,20 +379,18 @@ class Artifacts:
                     scan,
                 ),
             )
-            # Kept inactive until the user explicitly selects the generated file.
-            db.execute(
-                "INSERT INTO item_files(id,file_id,item_id,role,metadata,origin,active) VALUES (?,?,?,?,?,'explicit',0)",
-                (
-                    str(uuid4()),
-                    identifier,
-                    artifact["item_id"],
-                    artifact["role"],
-                    encode({"artifact_id": artifact["id"], "generated": True}),
-                ),
+            output_record = Outputs(self.app).record(
+                db,
+                file_id=identifier,
+                source_file_id=job["file_id"],
+                source_item_id=options["item_id"],
+                definition_id=output["id"],
+                artifact_id=artifact["id"],
+                metadata={"artifact_id": artifact["id"], "generated": True},
             )
             db.execute(
-                "UPDATE processing_artifacts SET state='ready',file_id=?,error=NULL WHERE id=?",
-                (identifier, artifact["id"]),
+                "UPDATE processing_artifacts SET state='ready',file_id=?,item_id=?,error=NULL WHERE id=?",
+                (identifier, output_record["item_id"], artifact["id"]),
             )
             db.execute(
                 "INSERT INTO content_baselines VALUES (?,?,?,?,?,?)",
@@ -397,6 +423,7 @@ class Artifacts:
                 {
                     "artifact_id": artifact["id"],
                     "file_id": identifier,
+                    **output_record,
                     "validation": artifact["validation"],
                 },
             )
@@ -473,6 +500,8 @@ class Artifacts:
         identifier = str(uuid4())
         attempt = job["attempts"] + 1
         extension, _, role, _, _ = rendering.PRESETS[recipe["preset"]]
+        if options.get("output_definition"):
+            role = options["output_definition"]["definition"]["role"]
         with self.store.transaction() as db:
             db.execute(
                 "INSERT INTO processing_attempts(job_id,attempt,state,retryable,retry_after,started_at) VALUES (?,?,'running',0,0,CURRENT_TIMESTAMP)",
@@ -557,10 +586,16 @@ class Artifacts:
                     (size, checksum, encode(validation), identifier),
                 )
             self._publish(self.get(identifier))
+            output_record = self.store.rows(
+                "SELECT id,item_id FROM media_outputs WHERE artifact_id=?",
+                (identifier,),
+            )[0]
             return {
                 "job_id": job["id"],
                 "artifact_id": identifier,
                 "file_id": self.get(identifier)["file_id"],
+                "output_id": output_record["id"],
+                "item_id": output_record["item_id"],
             }
         except BaseException as exc:
             artifact = self.get(identifier)

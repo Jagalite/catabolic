@@ -14,7 +14,7 @@ TOPICS = (
         "artifacts",
         "ARTIFACTS.md",
         "Generated media and processing artifacts",
-        "Recipes, transcodes, remuxing, thumbnails, extraction, publication and recovery.",
+        "Custom renditions, external registration, output definitions, recipes and recovery.",
     ),
     (
         "installation",
