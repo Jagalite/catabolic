@@ -5,6 +5,7 @@
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,7 @@ from catabolic.app import Application
 from catabolic.artifacts import Artifacts
 from catabolic.domain import CatabolicError
 from catabolic.graphql_query import execute_graphql
+from catabolic.item_workflow import ItemWorkflow
 from catabolic.outputs import Outputs
 from catabolic.processing import Processing
 from catabolic.rendering import PRESETS
@@ -152,6 +154,63 @@ class ArtifactTest(unittest.TestCase):
         ):
             with self.assertRaises(CatabolicError):
                 self.a.recipe("bad", "thumbnail", options)
+
+    def test_entry_completion_requires_ready_current_output_and_rejects_reprobe_as_verification(
+        self,
+    ):
+        _, job = self.enqueue()
+        workflow = ItemWorkflow(self.app)
+        workflow.require(
+            self.item_id, "job", "Required thumbnail", target=job["job_id"]
+        )
+        with self.assertRaisesRegex(CatabolicError, "queued"):
+            workflow.set_status(self.item_id, "complete")
+        result = self.a.run()
+        self.assertTrue(result["complete"], result)
+        artifact = self.a.get(result["completed"][0]["artifact_id"])
+        self.assertIsInstance(artifact["publication_snapshot"], dict)
+        workflow.set_status(self.item_id, "complete")
+        original = self.generated / artifact["path"]
+        st = original.stat()
+        os.utime(original, ns=(st.st_atime_ns, st.st_mtime_ns + 2000000000))
+        self.app.scan("generated")
+        processing = Processing(self.app)
+        processing.enqueue("probe", file_ids=[artifact["file_id"]], refresh=True)
+        self.assertTrue(processing.run()["complete"])
+        self.assertEqual(workflow.get(self.item_id)["status"], "needs_attention")
+        # Current checksum proof remains sufficient if an earlier failed check
+        # invalidated the mutable probe cache.
+        with self.store.transaction() as db:
+            db.execute(
+                "UPDATE file_facts SET status='invalidated' WHERE file_id=? AND operation='probe'",
+                (artifact["file_id"],),
+            )
+        processing.enqueue("verify", file_ids=[artifact["file_id"]])
+        self.assertTrue(processing.run()["complete"])
+        self.assertEqual(workflow.get(self.item_id)["status"], "complete")
+        original.unlink()
+        self.app.scan("generated")
+        self.assertEqual(workflow.get(self.item_id)["status"], "needs_attention")
+
+    def test_legacy_artifact_requirement_needs_current_verification(self):
+        self.enqueue()
+        result = self.a.run()
+        artifact = self.a.get(result["completed"][0]["artifact_id"])
+        with self.store.transaction() as db:
+            db.execute(
+                "UPDATE processing_artifacts SET publication_snapshot=NULL WHERE id=?",
+                (artifact["id"],),
+            )
+        workflow = ItemWorkflow(self.app)
+        workflow.require(
+            self.item_id, "artifact", "Legacy output", target=artifact["id"]
+        )
+        with self.assertRaisesRegex(CatabolicError, "stale evidence"):
+            workflow.set_status(self.item_id, "complete")
+        processing = Processing(self.app)
+        processing.enqueue("verify", file_ids=[artifact["file_id"]])
+        self.assertTrue(processing.run()["complete"])
+        workflow.set_status(self.item_id, "complete")
 
     def test_custom_definition_is_pinned_and_used_for_generated_rendition(self):
         outputs = Outputs(self.app)

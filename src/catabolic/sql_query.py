@@ -13,6 +13,7 @@ import time
 from contextlib import nullcontext
 
 from .domain import CatabolicError
+from .item_workflow import CHECKS_SQL, SUMMARY_SQL
 from .store import Store
 
 INTERFACE_VERSION = 1
@@ -61,6 +62,22 @@ VIEWS = {
 
 VIEWS.update(
     {
+        "catalog_item_workflow": (
+            "One item/profile readiness summary; requested status is shared, needs_attention is derived from recorded blockers.",
+            SUMMARY_SQL,
+        ),
+        "catalog_workflow_checks": (
+            "Required checks and automatic blockers. Filter coalesce(satisfied,0)=0 for blockers. No live verification.",
+            CHECKS_SQL,
+        ),
+        "catalog_item_requirements": (
+            "Explicit entry requirements; automatic requirements are evaluated from their recorded evidence profile.",
+            "SELECT * FROM main.item_requirements",
+        ),
+        "catalog_item_worklog": (
+            "Append-only entry notes and workflow events, ordered by id. Actor is supplied attribution, not authenticated identity.",
+            "SELECT * FROM main.item_worklog",
+        ),
         "catalog_artifacts": (
             "Generated files and publication state, with input lineage and recipe revision.",
             "SELECT a.*,j.file_id AS input_file_id,j.snapshot AS input_snapshot,j.recipe_id FROM main.processing_artifacts a JOIN main.processing_jobs j ON j.id=a.job_id",

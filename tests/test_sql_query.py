@@ -57,6 +57,10 @@ class SQLQueryTest(unittest.TestCase):
             set(views),
             {
                 "catalog_items",
+                "catalog_item_workflow",
+                "catalog_workflow_checks",
+                "catalog_item_requirements",
+                "catalog_item_worklog",
                 "catalog_identities",
                 "catalog_files",
                 "catalog_entries",

@@ -15,6 +15,7 @@ from graphql.language import FieldNode, FragmentSpreadNode, OperationDefinitionN
 
 from .app import Application
 from .domain import CatabolicError
+from .item_workflow import CHECKS_SQL
 from .media import describe_types
 from .migration import SCHEMA_VERSION
 from .query import identity_pair
@@ -33,6 +34,8 @@ scalar BigInt
 enum Active { ACTIVE DISABLED ALL }
 enum Direction { INCOMING OUTGOING BOTH }
 enum Availability { PRESENT MISSING UNKNOWN }
+enum EntryStatus { PENDING IN_PROGRESS COMPLETE DEFERRED IGNORED NEEDS_ATTENTION }
+type EntryWorkflow { profile: String! status: EntryStatus! requestedStatus: EntryStatus! revision: Int! updatedAt: String updatedBy: String }
 enum ItemSort { ID TITLE YEAR }
 enum FileSort { ID PATH SIZE MTIME }
 enum MappingSort { ID PATH CATALOG }
@@ -43,6 +46,9 @@ type Tagging { id: ID! subjectType: String! subjectId: ID! tagId: ID! tagName: S
 type TagPage { nodes: [Tag!]! pageInfo: PageInfo! }
 type TaggingPage { nodes: [Tagging!]! pageInfo: PageInfo! }
 type Item {
+  workflow: EntryWorkflow!
+  worklog(first: Int! = 100, after: String): EvidencePage
+  workflowChecks(first: Int! = 100, after: String): EvidencePage
   id: ID! kind: String! title: String year: Int metadata: JSON! identities: [Identity!]!
   taggings(source: String, active: Active = ACTIVE, first: Int! = 100, after: String): TaggingPage
   associations(role: String, active: Active = ACTIVE, first: Int! = 100, after: String): AssociationPage
@@ -97,7 +103,9 @@ type Query {
   profile: String! schemaVersion: Int! mediaTypes: JSON!
   tags(search: String, namespace: String, parent: String, child: String, first: Int! = 100, after: String): TagPage
   taggings(tag: String, item: ID, file: ID, source: String, active: Active = ACTIVE, first: Int! = 100, after: String): TaggingPage
-  items(search: String, kind: String, year: Int, identity: String, metadata: [String!], catalog: String, tags: [String!], anyTags: [String!], notTags: [String!], descendants: Boolean! = false, sort: ItemSort = ID, descending: Boolean! = false, first: Int! = 100, after: String): ItemPage
+  worklog(item: ID!, first: Int! = 100, after: String): EvidencePage
+  workflowChecks(item: ID!, first: Int! = 100, after: String): EvidencePage
+  items(search: String, kind: String, year: Int, identity: String, metadata: [String!], catalog: String, curationStatus: EntryStatus, tags: [String!], anyTags: [String!], notTags: [String!], descendants: Boolean! = false, sort: ItemSort = ID, descending: Boolean! = false, first: Int! = 100, after: String): ItemPage
   item(id: ID, identity: String): Item
   files(search: String, location: String, status: Availability, unidentified: Boolean! = false, unmapped: Boolean! = false, catalog: String = "global", item: ID, kind: String, year: Int, identity: String, tags: [String!], anyTags: [String!], notTags: [String!], descendants: Boolean! = false, sort: FileSort = ID, descending: Boolean! = false, first: Int! = 100, after: String): FilePage
   file(id: ID!): File
@@ -241,7 +249,7 @@ class QueryContext:
         }
         args["limit"] = args.pop("first", 100)
         args["cursor"] = args.pop("after", None)
-        for key in ("active", "direction", "sort", "status"):
+        for key in ("active", "direction", "sort", "status", "curation_status"):
             if isinstance(args.get(key), str):
                 args[key] = args[key].lower()
         if args.pop("all_catalogs", False):
@@ -255,7 +263,41 @@ class QueryContext:
             raise CatabolicError("first must be between 1 and 1000")
         key = (field, encode(args))
         if key not in self.cache:
-            if field in ("artifacts", "recipes", "renditions", "outputDefinitions"):
+            if field == "worklog":
+                self.queries._exists("items", args["item"])
+                result = self.queries._page(
+                    field,
+                    "CAST(w.id AS TEXT) AS id,w.item_id,w.profile,w.revision,w.kind,w.body,w.actor,w.data,w.created_at",
+                    "item_worklog w",
+                    ["w.item_id=?"],
+                    [args["item"]],
+                    {"id": "w.id"},
+                    "id",
+                    False,
+                    limit,
+                    args["cursor"],
+                    [args["item"]],
+                )
+                for row in result[field]:
+                    row["data"] = json.loads(row["data"])
+                self.charge(result)
+            elif field == "workflowChecks":
+                self.queries._exists("items", args["item"])
+                result = self.queries._page(
+                    field,
+                    "c.*,c.check_id AS id,coalesce(c.satisfied,0) AS passed",
+                    f"({CHECKS_SQL}) c",
+                    ["c.item_id=?", "c.profile=?"],
+                    [args["item"], self.profile],
+                    {"id": "c.check_id"},
+                    "id",
+                    False,
+                    limit,
+                    args["cursor"],
+                    [args["item"]],
+                )
+                self.charge(result)
+            elif field in ("artifacts", "recipes", "renditions", "outputDefinitions"):
                 if field == "artifacts":
                     table = (
                         "processing_artifacts a JOIN processing_jobs j ON j.id=a.job_id"
@@ -422,6 +464,9 @@ class QueryContext:
                 if field == "file":
                     return self.lookup("file", args["id"])
                 return self.page(field, args)
+            if parent == "Item" and field in ("worklog", "workflowChecks"):
+                args["item"] = source["id"]
+                return self.page(field, args)
             if field in ("associations", "relationships", "mappings", "taggings"):
                 args[{"Item": "item", "File": "file", "Catalog": "catalog"}[parent]] = (
                     source["id"]
@@ -464,7 +509,7 @@ class QueryContext:
                 return self.charge(self.bound_path("output", source["id"]))
             snake = re.sub(r"(?<!^)(?=[A-Z])", "_", field).lower()
             value = source.get(field, source.get(snake))
-            if field == "status":
+            if field in ("status", "requestedStatus"):
                 value = value.upper()
             if field == "active":
                 value = bool(value)

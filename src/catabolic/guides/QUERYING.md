@@ -24,9 +24,13 @@ Joins, grouping, aggregates, window functions, CTEs, and ordinary SQLite
 expressions are supported. Exactly one result-producing statement is accepted.
 The views exist only on the query connection; they do not alter the stored schema
 and will not appear in an external `sqlite3` session. The current query command requires
-schema 9; older databases must be upgraded explicitly.
+schema 10; older databases must be upgraded explicitly.
 
 ## Views and row meaning
+
+Entry review state and journal queries use `catalog_item_workflow`,
+`catalog_workflow_checks`, `catalog_item_requirements`, and `catalog_item_worklog`.
+These distinguish requested status from effective readiness; see [Entry worklog](WORKLOG.md).
 
 | View | One row represents | Columns |
 | --- | --- | --- |

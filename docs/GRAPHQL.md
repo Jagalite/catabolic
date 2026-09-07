@@ -68,6 +68,11 @@ Global database/profile options go before `graphql`.
 
 ## Data and filtering
 
+Items expose `workflow`, `worklog`, and `workflowChecks`. Filter items with
+`curationStatus` (`PENDING`, `IN_PROGRESS`, `COMPLETE`, `DEFERRED`, `IGNORED`,
+`NEEDS_ATTENTION`). Readiness is evaluated from recorded evidence. See
+[Entry worklog](WORKLOG.md) for completion rules and examples.
+
 Root fields are `items`, `item`, `files`, `file`, `associations`, `relationships`,
 `mappings`, `catalogs`, `profile`, `schemaVersion`, and `mediaTypes`. Items expose
 identities, metadata, file associations, relationships, and output mappings.

@@ -11,6 +11,7 @@ import json
 from pathlib import PurePosixPath
 
 from .domain import CatabolicError, name
+from .item_workflow import STATUSES, SUMMARY_SQL
 from .media import RELATIONS, ROLES, media_kind, vocabulary
 from .store import Store, encode
 from .tagging import resolve_tag, tag_filters, tag_name
@@ -308,6 +309,11 @@ class CatalogQuery:
                 tuple(batch),
             ):
                 by_id[identity.pop("item_id")]["identities"].append(identity)
+            for workflow in self.store.rows(
+                f"SELECT * FROM ({SUMMARY_SQL}) WHERE profile=? AND item_id IN ({placeholders})",
+                (self.profile, *batch),
+            ):
+                by_id[workflow.pop("item_id")]["workflow"] = workflow
 
     def items(
         self,
@@ -318,6 +324,7 @@ class CatalogQuery:
         identity=None,
         metadata=(),
         catalog=None,
+        curation_status=None,
         tags=(),
         any_tags=(),
         not_tags=(),
@@ -328,9 +335,19 @@ class CatalogQuery:
         cursor=None,
     ):
         self._exists("catalogs", catalog)
+        if curation_status is not None and curation_status not in (
+            *STATUSES,
+            "needs_attention",
+        ):
+            raise CatabolicError("invalid curation status")
         clauses, values = self._item_filters(
             search=search, kind=kind, year=year, identity=identity, metadata=metadata
         )
+        if curation_status is not None:
+            clauses.append(
+                f"i.id IN (SELECT item_id FROM ({SUMMARY_SQL}) WHERE profile=? AND status=?)"
+            )
+            values.extend((self.profile, curation_status))
         if catalog is not None:
             clauses.append(
                 "i.id IN (SELECT m.item_id FROM mappings m WHERE m.catalog=? AND m.active=1)"
@@ -368,6 +385,7 @@ class CatalogQuery:
                 identity,
                 list(metadata),
                 catalog,
+                curation_status,
                 tags,
                 any_tags,
                 not_tags,

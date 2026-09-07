@@ -11,6 +11,12 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "worklog",
+        "WORKLOG.md",
+        "Entry status and worklog",
+        "Completion gates, required work, journal notes, history and agent revision checks.",
+    ),
+    (
         "artifacts",
         "ARTIFACTS.md",
         "Generated media and processing artifacts",

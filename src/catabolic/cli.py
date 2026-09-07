@@ -367,12 +367,26 @@ def parser() -> argparse.ArgumentParser:
     item_filters(files)
     page_arguments(files, ("id", "path", "size", "mtime"), "id")
     items = commands.add_parser("item").add_subparsers(dest="operation", required=True)
+    from .workflow_cli import register as register_workflow
+
+    register_workflow(items)
     items.add_parser(
         "types", help="discover media kinds, file roles, and relationship vocabulary"
     )
     listing = items.add_parser("list")
     listing.add_argument("--search", help="literal, case-insensitive title substring")
     listing.add_argument("--catalog", help="items with active mappings in this catalog")
+    listing.add_argument(
+        "--curation-status",
+        choices=(
+            "pending",
+            "in_progress",
+            "complete",
+            "deferred",
+            "ignored",
+            "needs_attention",
+        ),
+    )
     listing.add_argument(
         "--metadata",
         action="append",
@@ -674,21 +688,25 @@ def dispatch(args: argparse.Namespace) -> dict:
             max_rows=args.max_rows,
             timeout_ms=args.timeout_ms,
         )
-    from . import enrichment_cli
+    from . import enrichment_cli, workflow_cli
 
-    writable = enrichment_cli.writable(args) or (
-        args.command == "tag"
-        and args.operation not in ("list", "assignments")
-        or args.command == "export"
-        and args.output is not None
-        or args.command == "manifest"
-        and (args.in_catalog or args.output not in (None, "-"))
-        or args.command in ("scan", "recover")
-        or args.command == "sync"
-        and not args.dry_run
-        or getattr(args, "operation", None) in ("add", "bind", "put", "disable")
-        or args.command == "layout"
-        and args.operation == "apply"
+    writable = (
+        enrichment_cli.writable(args)
+        or workflow_cli.writable(args)
+        or (
+            args.command == "tag"
+            and args.operation not in ("list", "assignments")
+            or args.command == "export"
+            and args.output is not None
+            or args.command == "manifest"
+            and (args.in_catalog or args.output not in (None, "-"))
+            or args.command in ("scan", "recover")
+            or args.command == "sync"
+            and not args.dry_run
+            or getattr(args, "operation", None) in ("add", "bind", "put", "disable")
+            or args.command == "layout"
+            and args.operation == "apply"
+        )
     )
     with Store(
         args.db, writable=writable, for_recovery=args.command == "recover"
@@ -971,6 +989,8 @@ def dispatch(args: argparse.Namespace) -> dict:
                 )
             )
         if command == "item":
+            if args.operation in workflow_cli.COMMANDS:
+                return workflow_cli.dispatch(app, args)
             if args.operation == "list":
                 return app.queries.items(
                     **options(
@@ -978,6 +998,7 @@ def dispatch(args: argparse.Namespace) -> dict:
                         "search",
                         "catalog",
                         "metadata",
+                        "curation_status",
                         "kind",
                         "year",
                         "identity",

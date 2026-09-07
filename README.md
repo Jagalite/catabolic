@@ -29,6 +29,8 @@ the catalog and generates the outputs you choose.
   mounted storage locations, and search the recorded catalog while they're offline.
 - **Organize it your way.** Add titles, identities, tags, and relationships to
   movies, TV, music, books, audiobooks, comics, photos, documents, and more.
+- **Track your cataloging work.** Keep an entry worklog, defer unresolved items,
+  and check required work before marking an entry complete.
 - **Make collections from searches.** Save a selection, such as favorite films or
   books by an author, and refresh it into a symlink folder when you choose.
 - **Build symlink libraries for your apps.** Generate popular folder formats or

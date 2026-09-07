@@ -136,7 +136,7 @@ class Artifacts:
     @staticmethod
     def _decode(row):
         value = dict(row)
-        for key in ("definition", "binding", "validation"):
+        for key in ("definition", "binding", "validation", "publication_snapshot"):
             if value.get(key) is not None:
                 value[key] = json.loads(value[key])
         return value
@@ -389,8 +389,13 @@ class Artifacts:
                 metadata={"artifact_id": artifact["id"], "generated": True},
             )
             db.execute(
-                "UPDATE processing_artifacts SET state='ready',file_id=?,item_id=?,error=NULL WHERE id=?",
-                (identifier, output_record["item_id"], artifact["id"]),
+                "UPDATE processing_artifacts SET state='ready',file_id=?,item_id=?,publication_snapshot=?,error=NULL WHERE id=?",
+                (
+                    identifier,
+                    output_record["item_id"],
+                    encode(snapshot),
+                    artifact["id"],
+                ),
             )
             db.execute(
                 "INSERT INTO content_baselines VALUES (?,?,?,?,?,?)",

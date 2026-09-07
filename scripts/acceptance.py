@@ -252,7 +252,7 @@ class Workflow:
             result.returncode == expected,
             f"CLI {args}: exit {result.returncode}\n{result.stdout[-4000:]}\n{result.stderr[-2000:]}",
         )
-        return json.loads(result.stdout)
+        return json.loads(result.stdout or result.stderr)
 
     def json_file(self, name, data):
         path = self.root / name
@@ -389,6 +389,50 @@ class Workflow:
                 "proposal", "accept", proposal["id"], "--actor", "acceptance"
             )
         item = decision["result"]["item_id"]
+        # Entry-level review is independent of optional analysis failures above.
+        self.cli(
+            "item",
+            "note",
+            item,
+            "--text",
+            "Identified the feature.\nChecked edition metadata.",
+            "--actor",
+            "acceptance",
+        )
+        required_review = self.cli(
+            "item", "require", item, "--kind", "review", "--label", "Review edition"
+        )
+        blocked = self.cli("item", "status", item, "--set", "complete", expected=2)
+        require(
+            "Review edition" in blocked["error"]["message"],
+            "completion error did not identify its blocker",
+        )
+        self.cli(
+            "item",
+            "resolve",
+            required_review["requirement_id"],
+            "--state",
+            "complete",
+            "--note",
+            "Edition checked against fixture",
+        )
+        self.cli(
+            "item",
+            "status",
+            item,
+            "--set",
+            "complete",
+            "--note",
+            "Ready for catalog output",
+        )
+        require(
+            self.cli("item", "status", item)["status"] == "complete",
+            "entry workflow did not complete",
+        )
+        require(
+            len(self.cli("item", "worklog", item)["entries"]) == 4,
+            "worklog lost an entry or recorded a rejected completion",
+        )
         self.cli("tag", "put", "qa:accepted")
         self.cli("tag", "add", "qa:accepted", "--item", item)
         require(
@@ -509,8 +553,28 @@ class Workflow:
                 "--location",
                 "generated",
             )
+            if preset == "thumbnail":
+                self.cli(
+                    "item",
+                    "require",
+                    item,
+                    "--kind",
+                    "job",
+                    "--target",
+                    queued["job_id"],
+                    "--label",
+                    "Thumbnail ready",
+                )
+                require(
+                    self.cli("item", "status", item)["status"] == "needs_attention",
+                    "queued required output did not invalidate readiness",
+                )
             created = self.cli("artifact", "run", "--limit", "1")["completed"][0]
             artifact = self.cli("artifact", "show", created["artifact_id"])
+            require(
+                self.cli("item", "status", item)["status"] == "complete",
+                "ready required output did not restore readiness",
+            )
             require(artifact["state"] == "ready", "generated output was not registered")
             require(
                 digest(generated / artifact["path"]) == artifact["sha256"],
@@ -581,6 +645,7 @@ class Workflow:
             "commands": self.commands,
             "checks": [
                 "generated_artifacts",
+                "entry_worklog_and_completion_gates",
                 "custom_rendition_definitions",
                 "external_rendition_registration",
                 "probe_values",

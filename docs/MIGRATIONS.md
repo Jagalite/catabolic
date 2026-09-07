@@ -6,7 +6,7 @@ SPDX-License-Identifier: MIT
 -->
 
 Catabolic uses ordered SQL files and one Python runner. Users can skip application
-releases: upgrading schema 1 to schema 9 applies migrations 2 through 9 in order.
+releases: upgrading schema 1 to schema 10 applies migrations 2 through 10 in order.
 There is no separate script for every possible pair of versions. The shipped
 schema is currently **6**. Migration `004_tags.sql` adds tag vocabulary, aliases,
 hierarchy and attributed item/file assertions without changing existing rows.
@@ -191,3 +191,9 @@ same-item semantics when run or recovered. Historical completed outputs are not
 backfilled with invented definitions or provenance. New recipes reference explicit
 immutable definitions. New item/relationship/rendition registration commits with
 artifact publication; a failed transaction leaves no partial catalog item behind.
+
+Schema 10 (`010_item_workflow.sql`) adds item workflow state, required completion
+checks, and append-only worklog events. Existing items default to `pending` at
+read time, with revision 0 and no fabricated history. Artifacts gain a nullable
+publication snapshot; existing rows remain unchanged. See [Entry worklog](WORKLOG.md)
+for completion checks, evidence freshness, and requirements for older artifacts.

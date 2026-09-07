@@ -28,6 +28,11 @@ GROUPS = {
         ("FAQ.md", "FAQ", "Common questions and scope"),
     ),
     "Catalog and curate": (
+        (
+            "WORKLOG.md",
+            "Entry-Worklog",
+            "Entry status, completion checks and append-only worklogs",
+        ),
         ("OPERATIONS.md", "Operations", "Sources, profiles, scans, sync and recovery"),
         (
             "MEDIA_MODEL.md",
