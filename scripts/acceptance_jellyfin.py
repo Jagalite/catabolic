@@ -141,7 +141,7 @@ def verify_consumer(workflow, image):
         )
         rows = workflow.cli(
             "query",
-            "SELECT file_id,item_id FROM catalog_item_files WHERE role='subtitle'",
+            "SELECT file_id,item_id FROM catalog_item_files WHERE role='subtitle' AND active=1",
         )["rows"]
         require(len(rows) == 1, "expected one accepted subtitle association")
         file_id, item_id = rows[0]
