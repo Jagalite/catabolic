@@ -246,7 +246,7 @@ creating a backup or running the migration SQL. Repeating a completed upgrade
 does nothing and creates no further backup.
 
 Pending link operations in any profile block an upgrade. Finish their recovery
-first; this release supports `recover` against schemas 1 through 6. Unknown schemas,
+first; this release supports `recover` against schemas 1 through 11. Unknown schemas,
 inconsistent migration history, and databases from newer versions are refused.
 Downgrades and automatic backup restoration are not implemented.
 

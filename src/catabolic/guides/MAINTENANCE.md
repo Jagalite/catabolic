@@ -42,7 +42,9 @@ outputs, not sources; `--inventory-only` skips output work entirely.
 2. Scan sources. Only complete scans publish observations. If any scan is
    incomplete, stop before analysis, layout changes, or link synchronization.
 3. Optionally enqueue stable files for the requested analysis type and run at most
-   `--batch` matching jobs. Unrelated queued jobs and rendering jobs are not run.
+   `--batch` matching jobs. Unrelated queued jobs are not run. Separately, `--rules`
+   enables saved rule evaluation/queuing; `--render-rules N` explicitly permits
+   bounded rendering. See [processing rules and space estimates](RULES.md).
 4. Reapply the saved layout already managing each selected catalog. Catalogs with
    manual mappings retain those mappings. Maintenance does not choose a new
    layout; use `layout apply` once to establish a catalog's layout first.
@@ -140,7 +142,8 @@ cannot be produced if the database cannot be opened. Interruption returns 130.
 
 `--process` accepts `sniff`, `probe`, `hash`, `verify`, `text` or `decode`. Choose
 `sniff` for a lightweight pass; other operations may read entire files or require
-external tools. Rendering and media-server refresh delivery remain separate.
+external tools. Rendering requires `--rules --render-rules N` or an explicit
+`rule run`/`artifact run`. Media-server refresh delivery remains separate.
 
 Stable eligible files are enqueued in pages, and at most `--batch` jobs run per
 invocation (default 100, maximum 1000). `--workers` defaults to 2, with the normal

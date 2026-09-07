@@ -56,6 +56,24 @@ def register(commands):
     )
     command.add_argument("--workers", type=int, default=2)
     command.add_argument(
+        "--rules",
+        action="store_true",
+        help="evaluate enabled processing rules and enqueue a bounded batch",
+    )
+    command.add_argument("--rule-batch", type=int, default=100)
+    command.add_argument(
+        "--render-rules",
+        type=int,
+        default=0,
+        metavar="N",
+        help="also render at most N rule jobs; requires --rules",
+    )
+    command.add_argument(
+        "--rule-max-new-bytes",
+        type=int,
+        help="maximum estimated bytes enqueued by rules this cycle",
+    )
+    command.add_argument(
         "--max-removals",
         type=int,
         default=0,
@@ -259,6 +277,19 @@ def render_report(report):
         )
     lines.extend("Warning: " + warning for warning in report["warnings"])
     for stage in report["stages"]:
+        if stage["stage"] == "rules":
+            from .rule_estimates import human_bytes
+
+            lines.append(
+                "Rules: "
+                + "; ".join(
+                    f"{key}: {value}" for key, value in stage["backlog"].items()
+                )
+            )
+            for volume in stage["space_by_device"]:
+                lines.append(
+                    f"  Device {volume['device']}: additional {human_bytes(volume['expected_bytes'])}; range {human_bytes(volume['low_bytes'])} to {human_bytes(volume['high_bytes'])}; {volume['unknown_count']} unknown; free {human_bytes(volume['available_bytes'])}"
+                )
         if stage["stage"] == "scan":
             for scan in stage["scans"]:
                 lines.extend(
@@ -306,6 +337,10 @@ def run(
     manifest=False,
     limit=100,
     progress=None,
+    rules=False,
+    rule_batch=100,
+    render_rules=0,
+    rule_max_new_bytes=None,
 ):
     if app.store.lock_fd is None:
         raise CatabolicError("maintenance requires the catalog writer lock")
@@ -314,9 +349,17 @@ def run(
         (batch, 1, 1000, "batch"),
         (workers, 1, 16, "workers"),
         (limit, 1, 1000, "limit"),
+        (rule_batch, 1, 1000, "rule batch"),
+        (render_rules, 0, 1000, "render rules"),
     ):
         if type(value) is not int or not low <= value <= high:
             raise CatabolicError(f"{label} must be {low}..{high}")
+    if not rules and (render_rules or rule_max_new_bytes is not None):
+        raise CatabolicError("render-rules and rule-max-new-bytes require --rules")
+    if rule_max_new_bytes is not None and (
+        type(rule_max_new_bytes) is not int or rule_max_new_bytes < 0
+    ):
+        raise CatabolicError("rule max new bytes must be a nonnegative integer")
     if process is not None and process not in OPERATIONS:
         raise CatabolicError("unsupported processing operation")
     if type(max_removals) is not int or max_removals < 0:
@@ -413,6 +456,24 @@ def run(
             analysis_complete = analysis["complete"]
             if not analysis["safe_to_continue"]:
                 raise _Blocked("analysis failed; output changes skipped")
+        if rules:
+            from .rules import maintain
+
+            stage = "rules"
+            rule_report = maintain(
+                app,
+                batch=rule_batch,
+                render_batch=render_rules,
+                max_new_bytes=rule_max_new_bytes,
+                limit=limit,
+                scan_ids={s["scan_id"] for s in scan["scans"]},
+            )
+            record(stage, rule_report)
+            analysis_complete = analysis_complete and rule_report["complete"]
+            if not rule_report["safe_to_continue"]:
+                raise _Blocked(
+                    "processing rules have blockers or failures; output synchronization skipped"
+                )
         if catalogs:
             stage = "planning"
             layout_reports = []
@@ -496,6 +557,12 @@ def run(
         app.store.db.execute("SELECT count(*) FROM files").fetchone()[0] - before
     )
     report["summary"] = statistics(app, catalogs)
+    rule_stage = next((s for s in report["stages"] if s["stage"] == "rules"), None)
+    if rule_stage:
+        report["summary"]["rules"] = {
+            "backlog": rule_stage["backlog"],
+            "space_by_device": rule_stage["space_by_device"],
+        }
     report["warnings"] = list(
         dict.fromkeys(
             warning

@@ -11,6 +11,12 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "rules",
+        "RULES.md",
+        "Processing rules and space estimates",
+        "Retroactive recipe rules, storage estimates, bounded backfills and maintenance integration.",
+    ),
+    (
         "maintenance",
         "MAINTENANCE.md",
         "On-demand maintenance",

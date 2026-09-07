@@ -86,6 +86,14 @@ VIEWS.update(
             "Immutable processing recipe revisions.",
             "SELECT * FROM main.processing_recipes",
         ),
+        "catalog_rules": (
+            "Saved immutable processing rule revisions and maintenance enablement.",
+            "SELECT * FROM main.processing_rules",
+        ),
+        "catalog_rule_jobs": (
+            "Rule-to-job provenance, including jobs retained from old revisions.",
+            "SELECT r.*,j.state FROM main.rule_jobs r JOIN main.processing_jobs j ON j.id=r.job_id",
+        ),
         "catalog_renditions": (
             "Registered and generated media outputs with source lineage and immutable definition IDs; registered provenance is user-declared.",
             "SELECT * FROM main.media_outputs",

@@ -6,12 +6,12 @@ SPDX-License-Identifier: MIT
 -->
 
 Catabolic uses ordered SQL files and one Python runner. Users can skip application
-releases: upgrading schema 1 to schema 10 applies migrations 2 through 10 in order.
+releases: upgrading schema 1 to schema 11 applies migrations 2 through 11 in order.
 There is no separate script for every possible pair of versions. The shipped
-schema is currently **6**. Migration `004_tags.sql` adds tag vocabulary, aliases,
+schema is currently **11**. Migration `004_tags.sql` adds tag vocabulary, aliases,
 hierarchy and attributed item/file assertions without changing existing rows.
 Migration `005_hardlinks.sql` adds catalog link modes, hardlink ownership and
-retention records. Higher versions below are authoring examples.
+retention records. The later shipped migrations are described below.
 
 ## Operating an upgrade
 
@@ -197,3 +197,9 @@ checks, and append-only worklog events. Existing items default to `pending` at
 read time, with revision 0 and no fabricated history. Artifacts gain a nullable
 publication snapshot; existing rows remain unchanged. See [Entry worklog](WORKLOG.md)
 for completion checks, evidence freshness, and requirements for older artifacts.
+
+Schema 11 (`011_processing_rules.sql`) adds immutable processing rule revisions,
+maintenance enablement and rule/job provenance. Existing items, recipes, jobs,
+artifacts and worklogs remain unchanged. No rules are created or enabled during
+upgrade. Estimates are computed from current evidence rather than stored as
+promises about output size. See [processing rules](RULES.md).

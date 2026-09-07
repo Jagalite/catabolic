@@ -72,6 +72,8 @@ class SQLQueryTest(unittest.TestCase):
                 "catalog_jobs",
                 "catalog_artifacts",
                 "catalog_recipes",
+                "catalog_rules",
+                "catalog_rule_jobs",
                 "catalog_renditions",
                 "catalog_output_definitions",
                 "catalog_generated_locations",

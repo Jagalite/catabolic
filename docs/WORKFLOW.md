@@ -113,6 +113,11 @@ backups for the complete journal and operational history.
 
 ## Repeat or monitor
 
+For repeatable thumbnail, preview-clip or transcode generation, configure a
+[processing rule](RULES.md). `rule preview` estimates the full retroactive storage
+cost before queuing; maintenance evaluates enabled rules only with `--rules`,
+and rendering needs the additional `--render-rules N` option.
+
 Repeat the cycle when source files or catalog decisions change. For continuous
 discovery and lightweight sniffing, run:
 

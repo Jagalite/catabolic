@@ -10,7 +10,9 @@ its processing recipes. Both use reusable, versioned **output definitions** for
 metadata, file roles, and item relationships. Originals remain read-only.
 An encode or remux normally stays on the same media item. A distinct edit can
 become a separate related item when its definition explicitly requests that.
-These commands require schema 10; upgrade older catalogs explicitly.
+Current commands require schema 11; upgrade older catalogs explicitly.
+For automatic selection, retroactive backfills and approximate storage needs,
+see [processing rules](RULES.md), also available as `catabolic docs rules`.
 FFmpeg and ffprobe are optional external executables, never bundled dependencies.
 
 ## Initial scope

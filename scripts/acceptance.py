@@ -633,7 +633,75 @@ class Workflow:
             self.cli("sync", "--catalog", "jellyfin")["applied"] == [],
             "generated outputs changed existing selection",
         )
-        maintenance = self.cli("maintenance", "--catalog", "jellyfin", "--manifest")
+        # The installed package must estimate and backfill a rule without
+        # changing primary selections or draining unrelated rendering work.
+        self.cli(
+            "process",
+            "enqueue",
+            "probe",
+            "--file-id",
+            files["Feature.mkv"],
+            "--refresh",
+        )
+        self.cli("process", "run", "--limit", "100")
+        rule_recipe = self.cli(
+            "artifact",
+            "recipe",
+            "rule-preview",
+            "--preset",
+            "preview",
+            "--options",
+            '{"duration_seconds":1}',
+        )
+        rule_selection = self.root / "rule-selection.json"
+        rule_selection.write_text(
+            json.dumps(
+                {
+                    "language": "sql",
+                    "query": "SELECT file_id FROM catalog_files WHERE profile=:profile AND source_relative_path='Feature.mkv'",
+                }
+            )
+        )
+        rule = self.cli(
+            "rule",
+            "put",
+            "preview-backfill",
+            "--recipe",
+            rule_recipe["id"],
+            "--location",
+            "generated",
+            "--selection",
+            str(rule_selection),
+            "--estimate-video-kbps",
+            "2000",
+        )
+        estimate = self.cli("rule", "preview", rule["id"], "--limit", "1")
+        require(
+            estimate["space"]["estimated_count"] == 1
+            and estimate["space"]["expected_bytes"] > 0,
+            "rule preview omitted retroactive storage estimate",
+        )
+        blocked = self.cli(
+            "rule", "apply", rule["id"], "--max-new-bytes", "0", expected=3
+        )
+        require(
+            not blocked["safe"] and not blocked["queued"],
+            "rule exceeded estimated space budget",
+        )
+        self.cli("rule", "apply", rule["id"], "--batch", "1")
+        rendered = self.cli("rule", "run", rule["id"], "--batch", "1")
+        require(
+            rendered["after"]["space"]["expected_bytes"] == 0,
+            "rule did not reuse its completed output",
+        )
+        self.cli("rule", "enable", rule["id"])
+        maintenance = self.cli(
+            "maintenance", "--catalog", "jellyfin", "--manifest", "--rules"
+        )
+        require(
+            maintenance["summary"]["rules"]["backlog"]["satisfied"] == 1,
+            "maintenance omitted rule backlog",
+        )
         require(maintenance["complete"], "on-demand maintenance did not complete")
         require(
             maintenance["summary"]["outputs"]["healthy"],
@@ -668,6 +736,7 @@ class Workflow:
             "commands": self.commands,
             "checks": [
                 "on_demand_maintenance_and_backlog",
+                "processing_rules_and_storage_estimates",
                 "generated_artifacts",
                 "entry_worklog_and_completion_gates",
                 "custom_rendition_definitions",

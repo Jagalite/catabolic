@@ -98,6 +98,9 @@ def parser() -> argparse.ArgumentParser:
     from .maintenance import register as register_maintenance
 
     register_maintenance(commands)
+    from .rule_cli import register as register_rules
+
+    register_rules(commands)
     commands.add_parser(
         "init", help="create a new database; its parent directory must exist"
     )
@@ -691,10 +694,11 @@ def dispatch(args: argparse.Namespace) -> dict:
             max_rows=args.max_rows,
             timeout_ms=args.timeout_ms,
         )
-    from . import enrichment_cli, workflow_cli
+    from . import enrichment_cli, rule_cli, workflow_cli
 
     writable = (
         enrichment_cli.writable(args)
+        or rule_cli.writable(args)
         or workflow_cli.writable(args)
         or (
             args.command == "tag"
@@ -716,6 +720,8 @@ def dispatch(args: argparse.Namespace) -> dict:
     ) as store:
         app = Application(store, args.profile)
         command = args.command
+        if command == "rule":
+            return rule_cli.dispatch(app, args)
         if command == "maintenance":
             from .maintenance import run
 
@@ -734,6 +740,10 @@ def dispatch(args: argparse.Namespace) -> dict:
                     "max_removal_percent",
                     "manifest",
                     "limit",
+                    "rules",
+                    "rule_batch",
+                    "render_rules",
+                    "rule_max_new_bytes",
                 ),
                 progress=lambda value: print(
                     json.dumps(value), file=sys.stderr, flush=True
@@ -1143,6 +1153,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         result = dispatch(args)
+        if (
+            args.command == "rule"
+            and args.operation in ("preview", "apply", "run")
+            and not json_output
+        ):
+            from .rules import render_preview
+
+            print(render_preview(result))
+            return (
+                3
+                if result.get("complete") is False or result.get("safe") is False
+                else 0
+            )
         if args.command == "maintenance" and not json_output:
             from .maintenance import render_report
 

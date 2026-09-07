@@ -21,7 +21,7 @@ from .migration import (
 
 # Reviewed recovery adapters exist for these schemas. New journal versions must
 # be admitted explicitly, with compatibility tests, rather than by a numeric range.
-RECOVERABLE_SCHEMAS = frozenset({1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+RECOVERABLE_SCHEMAS = frozenset({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11})
 
 
 class Store:

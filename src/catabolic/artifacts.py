@@ -177,7 +177,7 @@ class Artifacts:
             raise CatabolicError("unknown artifact")
         return self._decode(rows[0])
 
-    def enqueue(self, file_id, recipe_id, location, item_id):
+    def enqueue(self, file_id, recipe_id, location, item_id, *, _capabilities=None):
         self.app.require_recovered()
         recipe = self.get_recipe(recipe_id)
         output = (
@@ -200,7 +200,9 @@ class Artifacts:
         snapshot = occurrence(self.store, self.profile, file_id)
         with validated_source(snapshot) as fd:
             snapshot["ctime_ns"] = os.fstat(fd).st_ctime_ns
-        available = rendering.capabilities()
+        available = (
+            _capabilities if _capabilities is not None else rendering.capabilities()
+        )
         if not next(
             p["available"]
             for p in available["presets"]
@@ -476,8 +478,18 @@ class Artifacts:
                 recovered.append(artifact["id"])
         return {"recovered": recovered, "errors": errors, "complete": not errors}
 
-    def run(self, *, limit=100):
+    def run(self, *, limit=100, job_ids=None):
         page_limit(limit)
+        if job_ids is not None and (
+            not isinstance(job_ids, list)
+            or len(job_ids) > 1000
+            or any(not isinstance(v, str) for v in job_ids)
+        ):
+            raise CatabolicError("job_ids must contain at most 1000 IDs")
+        ids = tuple(sorted(set(job_ids or [])))
+        scope = (
+            "" if job_ids is None else " AND id IN (" + ",".join("?" for _ in ids) + ")"
+        )
         self.app.require_recovered()
         if self.store.rows(
             "SELECT id FROM processing_artifacts WHERE profile=? AND state IN ('planned','writing','validating','publishing') LIMIT 1",
@@ -487,8 +499,10 @@ class Artifacts:
                 "run artifact recover before starting more output jobs"
             )
         rows = self.store.rows(
-            "SELECT * FROM processing_jobs WHERE profile=? AND operation='render' AND state='queued' ORDER BY created_at,id LIMIT ?",
-            (self.profile, limit),
+            "SELECT * FROM processing_jobs WHERE profile=? AND operation='render' AND state='queued'"
+            + scope
+            + " ORDER BY created_at,id LIMIT ?",
+            (self.profile, *ids, limit),
         )
         completed, errors = [], []
         for job in rows:
