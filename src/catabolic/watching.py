@@ -28,9 +28,37 @@ def cycle(
     if type(batch) is not int or not 1 <= batch <= 1000:
         raise CatabolicError("batch must be 1..1000")
     report = app.scan(location)
-    now = time.time()
     enqueued = cached = 0
     errors = []
+    for ids, _ in stable_batches(app, report, settle=settle, batch=batch):
+        if ids:
+            result = Processing(app).enqueue(operation, file_ids=ids)
+            enqueued += len(result["queued"])
+            cached += len(result["cached"])
+            errors.extend(result["errors"][: max(0, 100 - len(errors))])
+    processed = Processing(app).run(
+        workers=workers,
+        limit=batch,
+        retry_transient=retry_transient,
+        retry_delay=retry_delay,
+    )
+    return {
+        "scan": report,
+        "queued": enqueued,
+        "cached": cached,
+        "errors": errors,
+        "processing": processed,
+        "complete": report["complete"] and not errors and processed["complete"],
+    }
+
+
+def stable_batches(app, report, *, settle=30, batch=1000):
+    """Record revisions and yield stable IDs plus counts still settling.
+
+    Only observations published by these scans qualify, including when their
+    scope excludes paths that have older recorded observations.
+    """
+    now = time.time()
     for scan in report["scans"]:
         if not scan["complete"]:
             continue
@@ -40,8 +68,8 @@ def cycle(
                 """SELECT o.file_id,o.size,o.mtime_ns,o.device,o.inode,o.status,
                 b.root,b.device AS root_device,b.inode AS root_inode FROM observations o
                 JOIN files f ON f.id=o.file_id JOIN bindings b ON b.profile=o.profile AND b.kind='source' AND b.owner=f.location
-                WHERE o.profile=? AND f.location=? AND o.file_id>? ORDER BY o.file_id LIMIT ?""",
-                (app.profile, scan["location"], after, batch),
+                WHERE o.profile=? AND f.location=? AND o.scan_id=? AND o.file_id>? ORDER BY o.file_id LIMIT ?""",
+                (app.profile, scan["location"], scan["scan_id"], after, batch),
             )
             if not rows:
                 break
@@ -63,26 +91,8 @@ def cycle(
                 ).fetchone()[0]
                 <= now - settle
             ]
-            if ids:
-                result = Processing(app).enqueue(operation, file_ids=ids)
-                enqueued += len(result["queued"])
-                cached += len(result["cached"])
-                errors.extend(result["errors"][: max(0, 100 - len(errors))])
+            yield ids, sum(r["status"] == "present" for r in rows) - len(ids)
             after = rows[-1]["file_id"]
-    processed = Processing(app).run(
-        workers=workers,
-        limit=batch,
-        retry_transient=retry_transient,
-        retry_delay=retry_delay,
-    )
-    return {
-        "scan": report,
-        "queued": enqueued,
-        "cached": cached,
-        "errors": errors,
-        "processing": processed,
-        "complete": report["complete"] and not errors and processed["complete"],
-    }
 
 
 def watch(

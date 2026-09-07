@@ -25,6 +25,11 @@ GROUPS = {
             "Getting-Started",
             "A runnable disposable first catalog",
         ),
+        (
+            "WORKFLOW.md",
+            "Recommended-Workflow",
+            "The everyday cataloging and maintenance cycle",
+        ),
         ("FAQ.md", "FAQ", "Common questions and scope"),
     ),
     "Catalog and curate": (
@@ -75,6 +80,7 @@ GROUPS = {
         ),
     ),
     "Operate and contribute": (
+        ("MAINTENANCE.md", "Maintenance", "On-demand upkeep and backlog statistics"),
         (
             "MIGRATIONS.md",
             "Database-Migrations",

@@ -9,6 +9,12 @@ This guide covers ongoing operation after the [first catalog walkthrough](GETTIN
 
 ## Inventory and profiles
 
+For the recommended order of operations, start with the
+[workflow guide](WORKFLOW.md), also available as `catabolic docs workflow`.
+For a single operational cycle with backlog counts, use
+`catabolic maintenance --all-catalogs`; see the [maintenance guide](MAINTENANCE.md)
+or `catabolic docs maintenance` for its zero-removal default and safety boundaries.
+
 Locations identify logical source trees. Profiles bind those locations to concrete
 directories on each machine. File occurrences and media identities are shared;
 observed availability is specific to the selected profile.

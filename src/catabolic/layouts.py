@@ -8,6 +8,7 @@ import json
 import re
 import string
 import unicodedata
+from contextlib import nullcontext
 from pathlib import PurePosixPath
 
 from .domain import CatabolicError, name, relative_path
@@ -646,7 +647,13 @@ class Layouts:
         if type(limit) is not int or not 1 <= limit <= 1000:
             raise CatabolicError("limit must be between 1 and 1000")
         if apply:
-            with self.store.transaction() as db:
+            # Maintenance stages all selected layouts and checks the aggregate
+            # filesystem plan in one transaction before committing mappings.
+            with (
+                nullcontext(self.store.db)
+                if self.store.db.in_transaction
+                else self.store.transaction()
+            ) as db:
                 plan, desired, removals, owned = self._plan(
                     identifier, catalog, replace_layout, allow_empty
                 )

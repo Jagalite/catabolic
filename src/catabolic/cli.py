@@ -95,6 +95,9 @@ def parser() -> argparse.ArgumentParser:
     from .enrichment_cli import register
 
     register(commands)
+    from .maintenance import register as register_maintenance
+
+    register_maintenance(commands)
     commands.add_parser(
         "init", help="create a new database; its parent directory must exist"
     )
@@ -700,7 +703,7 @@ def dispatch(args: argparse.Namespace) -> dict:
             and args.output is not None
             or args.command == "manifest"
             and (args.in_catalog or args.output not in (None, "-"))
-            or args.command in ("scan", "recover")
+            or args.command in ("scan", "recover", "maintenance")
             or args.command == "sync"
             and not args.dry_run
             or getattr(args, "operation", None) in ("add", "bind", "put", "disable")
@@ -713,6 +716,29 @@ def dispatch(args: argparse.Namespace) -> dict:
     ) as store:
         app = Application(store, args.profile)
         command = args.command
+        if command == "maintenance":
+            from .maintenance import run
+
+            return run(
+                app,
+                catalog=None if args.all_catalogs else args.catalog,
+                **options(
+                    args,
+                    "inventory_only",
+                    "exclude",
+                    "process",
+                    "settle",
+                    "batch",
+                    "workers",
+                    "max_removals",
+                    "max_removal_percent",
+                    "manifest",
+                    "limit",
+                ),
+                progress=lambda value: print(
+                    json.dumps(value), file=sys.stderr, flush=True
+                ),
+            )
         if command in enrichment_cli.COMMANDS:
             return enrichment_cli.dispatch(app, args)
         if command in ("export", "target"):
@@ -1117,6 +1143,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         result = dispatch(args)
+        if args.command == "maintenance" and not json_output:
+            from .maintenance import render_report
+
+            print(render_report(result))
+            return 0 if result["complete"] else 3
         if args.command == "export" and getattr(args, "raw", False):
             print(result["raw"], end="")
             return 0

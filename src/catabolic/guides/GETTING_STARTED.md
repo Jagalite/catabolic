@@ -10,6 +10,10 @@ and builds a native Catabolic symlink folder with a metadata manifest. It needs
 an [installed CLI](INSTALLATION.md), Python, and a POSIX shell. It does not need
 FFmpeg, a media server, or an API key. Run the blocks in the same shell.
 
+After this walkthrough, use the [recommended workflow](WORKFLOW.md) for routine
+cataloging, entry worklogs, required processing and source monitoring. It is also
+available as `catabolic docs workflow`.
+
 ## 1. Create an isolated workspace
 
 ```sh

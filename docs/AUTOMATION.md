@@ -118,16 +118,31 @@ empty selection. See [query folders](QUERY_FOLDERS.md) for limits and examples.
 
 ## A deliberate agent workflow
 
+Follow the [recommended workflow](WORKFLOW.md), available offline as
+`catabolic docs workflow`. The sequence below adds agent-specific review steps.
+
+For routine mechanical upkeep, `catabolic --json maintenance --all-catalogs`
+combines scanning, configured layout updates, safe sync and verification, and
+returns aggregate backlog statistics. It does not make curation decisions.
+See [maintenance](MAINTENANCE.md) for stage reporting, optional bounded analysis,
+removal budgets and the distinction between cycle success and unfinished curation.
+
 1. Run `status` and `db status`; handle pending recovery or required migration.
 2. Scan a known source scope, and require a complete scan before interpreting absence.
-3. List unidentified files; follow every required page.
+3. List unidentified files and pending, in-progress or needs-attention items;
+   follow every required page.
 4. Enqueue bounded `sniff`/`probe` work when it will resolve uncertainty.
 5. Record a proposal with evidence, inspect it, and explicitly accept or reject it.
 6. Create or inspect associations, relationships, tags, and copy preferences.
+   Record decisions in the entry worklog. Declare required reviews or processing,
+   then run and inspect any required jobs or artifacts before completing the item.
 7. Save a layout, inspect `layout preview`, then apply its desired mappings.
 8. Inspect `sync --dry-run` with removal budgets, run sync with the same budgets,
    and verify that catalog.
-9. Export or refresh its manifest; deliver a configured server refresh separately.
+9. Mark reviewed entries complete once their required checks pass, then export or
+   refresh the manifest so it includes their latest status. Deliver a configured
+   server refresh separately. Completion does not automatically verify output
+   links; use an explicit review requirement if publication must gate completion.
 
 Direct `item put`, `association put`, and `mapping put` are also available when
 review has already happened. Proposal acceptance is not a prerequisite imposed

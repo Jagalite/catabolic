@@ -86,6 +86,7 @@ files; they are not independent backups.
 ## Learn more
 
 - [Wiki](https://github.com/Jagalite/catabolic/wiki) — walkthroughs and detailed guides.
+- [Recommended workflow](https://github.com/Jagalite/catabolic/blob/main/docs/WORKFLOW.md) — the everyday cataloging cycle; also `catabolic docs workflow`.
 - [Using Catabolic with agents](https://github.com/Jagalite/catabolic/blob/main/docs/AUTOMATION.md) — automation and structured output.
 - [SQL queries](https://github.com/Jagalite/catabolic/blob/main/docs/QUERYING.md) and [GraphQL](https://github.com/Jagalite/catabolic/blob/main/docs/GRAPHQL.md) — explore the catalog.
 - [Troubleshooting](https://github.com/Jagalite/catabolic/blob/main/docs/TROUBLESHOOTING.md) — common questions and recovery steps.

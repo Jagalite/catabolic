@@ -633,6 +633,29 @@ class Workflow:
             self.cli("sync", "--catalog", "jellyfin")["applied"] == [],
             "generated outputs changed existing selection",
         )
+        maintenance = self.cli("maintenance", "--catalog", "jellyfin", "--manifest")
+        require(maintenance["complete"], "on-demand maintenance did not complete")
+        require(
+            maintenance["summary"]["outputs"]["healthy"],
+            "maintenance output verification failed",
+        )
+        require(
+            maintenance["summary"]["items"]["by_status"]["complete"] >= 1,
+            "maintenance lost completed entry status",
+        )
+        require(
+            maintenance["summary"]["files"]["uncataloged_present"] > 0,
+            "maintenance omitted uncataloged files",
+        )
+        repeated = self.cli("maintenance", "--catalog", "jellyfin", "--manifest")
+        require(repeated["complete"], "repeated maintenance did not complete")
+        require(
+            next(stage for stage in repeated["stages"] if stage["stage"] == "sync")[
+                "applied_count"
+            ]
+            == 0,
+            "repeat maintenance changed correct links",
+        )
         for path, before in hashes.items():
             require(
                 digest(self.root / path) == before, f"source content changed: {path}"
@@ -644,6 +667,7 @@ class Workflow:
             "source_hashes": hashes,
             "commands": self.commands,
             "checks": [
+                "on_demand_maintenance_and_backlog",
                 "generated_artifacts",
                 "entry_worklog_and_completion_gates",
                 "custom_rendition_definitions",

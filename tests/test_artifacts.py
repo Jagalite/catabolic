@@ -275,6 +275,14 @@ class ArtifactTest(unittest.TestCase):
         self.assertEqual(len(self.store.rows("SELECT * FROM items")), 1)
         self.assertEqual(outputs.list()["outputs"], [])
         self.assertEqual(self.a.list()["artifacts"][0]["state"], "publishing")
+        from catabolic.maintenance import run as maintain
+
+        scans = self.store.rows("SELECT * FROM scans")
+        blocked = maintain(self.app, inventory_only=True)
+        self.assertFalse(blocked["complete"])
+        self.assertEqual(blocked["stopped_at"], "preflight")
+        self.assertIn("artifact recover", blocked["errors"][0]["message"])
+        self.assertEqual(scans, self.store.rows("SELECT * FROM scans"))
         self.assertTrue(self.a.recover()["complete"])
         self.assertEqual(self.a.recover()["recovered"], [])
         self.assertEqual(len(outputs.list()["outputs"]), 1)

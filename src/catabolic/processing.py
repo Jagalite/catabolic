@@ -702,7 +702,20 @@ class Processing:
         storage_groups=None,
         retry_transient=0,
         retry_delay=30,
+        job_ids=None,
     ):
+        if job_ids is not None and (
+            not isinstance(job_ids, list)
+            or len(job_ids) > 1000
+            or any(not isinstance(value, str) for value in job_ids)
+        ):
+            raise CatabolicError("job_ids must contain at most 1000 IDs")
+        scope_args = tuple(sorted(set(job_ids or [])))
+        scope = (
+            ""
+            if job_ids is None
+            else " AND id IN (" + ",".join("?" for _ in scope_args) + ")"
+        )
         if type(retry_transient) is not int or not 0 <= retry_transient <= 10:
             raise CatabolicError("retry transient must be 0..10 additional attempts")
         if type(retry_delay) is not int or not 1 <= retry_delay <= 3600:
@@ -731,8 +744,16 @@ class Processing:
                 """SELECT j.id FROM processing_retry_queue a JOIN processing_jobs j ON j.id=a.job_id
                 WHERE a.retry_after<=? AND a.profile=?
                 AND j.operation!='render' AND j.attempts=a.attempt AND j.attempts<=? AND j.state IN ('failed','timeout')
-                ORDER BY a.retry_after,a.job_id LIMIT ?""",
-                (time.time(), self.profile, retry_transient, min(limit, 1000)),
+                """
+                + scope.replace("id IN", "j.id IN")
+                + " ORDER BY a.retry_after,a.job_id LIMIT ?",
+                (
+                    time.time(),
+                    self.profile,
+                    retry_transient,
+                    *scope_args,
+                    min(limit, 1000),
+                ),
             ).fetchall()
             db.executemany(
                 "DELETE FROM processing_retry_queue WHERE job_id=?",
@@ -743,8 +764,9 @@ class Processing:
                 [(r[0],) for r in due],
             )
             db.execute(
-                "UPDATE processing_jobs SET state='queued' WHERE profile=? AND state='running' AND operation!='render'",
-                (self.profile,),
+                "UPDATE processing_jobs SET state='queued' WHERE profile=? AND state='running' AND operation!='render'"
+                + scope,
+                (self.profile, *scope_args),
             )
         bindings = self.store.rows(
             "SELECT owner,device FROM bindings WHERE profile=? AND kind='source' ORDER BY owner LIMIT 10001",
@@ -802,10 +824,13 @@ class Processing:
                             if slots <= 0:
                                 continue
                             rows = self.store.rows(
-                                "SELECT * FROM processing_jobs WHERE profile=? AND operation!='render' AND state='queued' AND location=? ORDER BY created_at,id LIMIT ?",
+                                "SELECT * FROM processing_jobs WHERE profile=? AND operation!='render' AND state='queued' AND location=?"
+                                + scope
+                                + " ORDER BY created_at,id LIMIT ?",
                                 (
                                     self.profile,
                                     source,
+                                    *scope_args,
                                     min(
                                         available,
                                         slots,
@@ -873,8 +898,9 @@ class Processing:
             "counts": counts,
             "complete": all(k == "complete" for k in counts),
             "remaining": self.store.db.execute(
-                "SELECT count(*) FROM processing_jobs WHERE profile=? AND state='queued'",
-                (self.profile,),
+                "SELECT count(*) FROM processing_jobs WHERE profile=? AND state='queued'"
+                + scope,
+                (self.profile, *scope_args),
             ).fetchone()[0],
         }
 
