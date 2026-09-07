@@ -6,12 +6,22 @@ SPDX-License-Identifier: MIT
 -->
 
 Catabolic uses ordered SQL files and one Python runner. Users can skip application
-releases: upgrading schema 1 to schema 11 applies migrations 2 through 11 in order.
+releases: upgrading schema 1 to schema 13 applies migrations 2 through 13 in order.
 There is no separate script for every possible pair of versions. The shipped
-schema is currently **11**. Migration `004_tags.sql` adds tag vocabulary, aliases,
+schema is currently **13**. Migration `004_tags.sql` adds tag vocabulary, aliases,
 hierarchy and attributed item/file assertions without changing existing rows.
 Migration `005_hardlinks.sql` adds catalog link modes, hardlink ownership and
 retention records. The later shipped migrations are described below.
+
+Migration `012_rendition_publication.sql` adds catalog-specific rendition policies
+and decisions, accepted external receipts with delivery evidence, and semantic
+rule requirements/evaluations. It changes no existing rows, recipe definitions,
+association activation or historical job requirements.
+
+Migration `013_processor_workers.sql` adds immutable HTTP processor definitions,
+durable dispatch jobs and fenced worker-attempt history. Existing rows and the
+schema-12 migration remain unchanged. No endpoints or remote work are created by
+an upgrade. See [network processors](PROCESSORS.md).
 
 ## Operating an upgrade
 

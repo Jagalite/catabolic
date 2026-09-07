@@ -30,13 +30,13 @@ def register(commands):
     put.add_argument(
         "--required",
         action="store_true",
-        help="attach explicit job completion requirements when applying the rule",
+        help="require a current rendition for each matched input when applying the rule",
     )
     listing = rules.add_parser("list")
     listing.add_argument("--enabled", action="store_true")
     listing.add_argument("--limit", type=int, default=100)
     listing.add_argument("--after", default="")
-    for op in ("show", "enable", "disable", "preview", "apply", "run"):
+    for op in ("show", "stats", "enable", "disable", "preview", "apply", "run"):
         command = rules.add_parser(op)
         command.add_argument("id", help="immutable rule revision ID")
         if op in ("preview", "apply", "run"):
@@ -92,6 +92,8 @@ def dispatch(app, args):
         return rules.enable(args.id, op == "enable")
     if op == "show":
         return rules.get(args.id)
+    if op == "stats":
+        return rules.statistics(args.id)
     if op == "preview":
         return rules.preview(args.id, limit=args.limit)
     if op == "apply":

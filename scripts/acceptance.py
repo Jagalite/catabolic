@@ -695,6 +695,102 @@ class Workflow:
             "rule did not reuse its completed output",
         )
         self.cli("rule", "enable", rule["id"])
+        # Publish generated renditions to a separate library without changing
+        # global associations, then accept an independently produced FFmpeg file.
+        transcodes = self.root / "transcodes"
+        transcodes.mkdir()
+        self.cli("catalog", "bind", "transcodes", "--root", str(transcodes))
+        self.cli(
+            "rendition",
+            "policy",
+            "--catalog",
+            "transcodes",
+            "--definition",
+            '{"purpose":"transcode"}',
+        )
+        self.cli("layout", "put", "transcodes", "--preset", "catabolic")
+        require(
+            self.cli("layout", "apply", "transcodes", "--catalog", "transcodes")[
+                "desired_count"
+            ]
+            == 1,
+            "generated transcode was not admitted",
+        )
+        self.cli("sync", "--catalog", "transcodes", "--dry-run")
+        self.cli("sync", "--catalog", "transcodes")
+        self.cli("verify", "--catalog", "transcodes")
+        self.cli("manifest", "--catalog", "transcodes", "--in-catalog")
+        captured = self.cli(
+            "rendition",
+            "receipt-source",
+            "--file-id",
+            files["Feature.mkv"],
+            "--item-id",
+            item,
+        )
+        delivered = a / "Receipt-remux.mkv"
+        run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-nostdin",
+                "-i",
+                str(a / "Feature.mkv"),
+                "-map",
+                "0",
+                "-c",
+                "copy",
+                str(delivered),
+            ]
+        )
+        self.cli("scan", "source-a")
+        external_definition = self.cli(
+            "rendition",
+            "define",
+            "receipt-remux",
+            "--definition",
+            '{"purpose":"remux"}',
+        )
+        receipt_file = self.root / "receipt.json"
+        receipt_file.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    **captured,
+                    "producer": "ffmpeg-wrapper",
+                    "instance": "acceptance",
+                    "job_id": "remux-1",
+                    "attempt": "1",
+                    "configuration_digest": hashlib.sha256(
+                        b"ffmpeg -map 0 -c copy"
+                    ).hexdigest(),
+                    "tools": {"ffmpeg": run(["ffmpeg", "-version"]).splitlines()[0]},
+                    "outcome": "complete",
+                    "outputs": [
+                        {
+                            "location": "source-a",
+                            "path": delivered.name,
+                            "definition_id": external_definition["id"],
+                            "size": delivered.stat().st_size,
+                            "sha256": digest(delivered),
+                        }
+                    ],
+                }
+            )
+        )
+        imported = self.cli("rendition", "import-receipt", "--file", str(receipt_file))
+        require(not imported["reused"], "first receipt was unexpectedly reused")
+        require(
+            self.cli("rendition", "import-receipt", "--file", str(receipt_file))[
+                "reused"
+            ],
+            "receipt repeat was not idempotent",
+        )
+        require(
+            self.cli("rule", "stats", rule["id"])["attempts"][0]["output_bytes"] > 0,
+            "missing actual rendition storage",
+        )
         maintenance = self.cli(
             "maintenance", "--catalog", "jellyfin", "--manifest", "--rules"
         )
@@ -737,6 +833,8 @@ class Workflow:
             "checks": [
                 "on_demand_maintenance_and_backlog",
                 "processing_rules_and_storage_estimates",
+                "catalog_scoped_rendition_publication",
+                "external_ffmpeg_receipt_import",
                 "generated_artifacts",
                 "entry_worklog_and_completion_gates",
                 "custom_rendition_definitions",

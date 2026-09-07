@@ -97,6 +97,26 @@ LEFT JOIN main.file_facts af ON af.file_id=a.file_id AND af.profile=a.profile AN
 LEFT JOIN main.file_facts av ON av.file_id=a.file_id AND av.profile=a.profile AND av.operation='verify'
 LEFT JOIN main.proposals pr ON pr.id=r.proposal_id
 """
+RULE_CHECKS_SQL = f"""
+SELECT r.item_id,p.id AS profile,r.id AS check_id,'rule' AS kind,
+ 'Rule '||rr.name||' revision '||rr.revision AS label,
+ CASE WHEN r.state='waived' THEN 'waived' ELSE coalesce(j.state,'pending') END AS state,
+ CASE WHEN r.state='waived' THEN 1 ELSE ({JOB_OK}) END AS satisfied,
+ r.rule_id AS target_id,r.profile AS evidence_profile
+FROM main.rule_requirements r CROSS JOIN main.profiles p
+JOIN main.processing_rules rr ON rr.id=r.rule_id
+LEFT JOIN main.processing_jobs j ON j.id=r.job_id
+LEFT JOIN main.observations jo ON jo.file_id=j.file_id AND jo.profile=j.profile
+LEFT JOIN main.bindings jb ON jb.profile=j.profile AND jb.kind='source' AND jb.owner=j.location
+LEFT JOIN main.file_facts jf ON jf.profile=j.profile AND jf.file_id=j.file_id AND jf.operation=j.operation
+LEFT JOIN main.processing_artifacts a ON a.id=json_extract(j.result,'$.artifact_id')
+LEFT JOIN main.files afile ON afile.id=a.file_id
+LEFT JOIN main.observations ao ON ao.file_id=a.file_id AND ao.profile=a.profile
+LEFT JOIN main.bindings ab ON ab.profile=a.profile AND ab.kind='source' AND ab.owner=afile.location
+LEFT JOIN main.file_facts af ON af.file_id=a.file_id AND af.profile=a.profile AND af.operation='probe'
+LEFT JOIN main.file_facts av ON av.file_id=a.file_id AND av.profile=a.profile AND av.operation='verify'
+"""
+CHECKS_SQL += " UNION ALL " + RULE_CHECKS_SQL
 SUMMARY_SQL = f"""SELECT i.id AS item_id,p.id AS profile,
  coalesce(w.status,'pending') AS requested_status,
  CASE WHEN w.status='complete' AND EXISTS(
@@ -333,6 +353,13 @@ class ItemWorkflow:
             row = db.execute(
                 "SELECT * FROM item_requirements WHERE id=?", (requirement_id,)
             ).fetchone()
+            table = "item_requirements"
+            if row is None:
+                row = db.execute(
+                    "SELECT *,'rule' AS kind FROM rule_requirements WHERE id=?",
+                    (requirement_id,),
+                ).fetchone()
+                table = "rule_requirements"
             if row is None:
                 raise CatabolicError("unknown requirement")
             if row["kind"] != "review" and state == "complete":
@@ -341,7 +368,7 @@ class ItemWorkflow:
                 )
             status, revision = self._revision(db, row["item_id"], expected_revision)
             db.execute(
-                "UPDATE item_requirements SET state=? WHERE id=?",
+                f"UPDATE {table} SET state=? WHERE id=?",
                 (state, requirement_id),
             )
             result = self._append(

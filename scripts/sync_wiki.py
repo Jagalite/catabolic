@@ -64,6 +64,16 @@ GROUPS = {
     ),
     "Generate and share": (
         (
+            "PROCESSORS.md",
+            "Network-Processors",
+            "HTTP adapters, worker leases and measured estimates",
+        ),
+        (
+            "RENDITION_WORKFLOWS.md",
+            "Rendition-Workflows",
+            "Publish rendition libraries and import external results",
+        ),
+        (
             "RULES.md",
             "Processing-Rules",
             "Retroactive rendering rules and storage estimates",
@@ -102,6 +112,11 @@ GROUPS = {
             "Measured workloads and scaling boundaries",
         ),
         ("DESIGN.md", "Architecture", "Application and database ownership boundaries"),
+        (
+            "PROCESSING_REVIEW.md",
+            "Processing-Architecture-Review",
+            "Source comparisons and proposed processing integrations",
+        ),
         ("DEVELOPMENT.md", "Development", "Setup, tests and documentation publishing"),
         (
             "RELEASE_TESTING.md",

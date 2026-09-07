@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT
 
 Schema 6 adds optional processing and curation workflows. Inventory and queries
 remain usable without FFmpeg, credentials, a daemon, or source metadata writes.
-Current commands require schema 11. Older databases require `db upgrade --dry-run` followed by `db upgrade`.
+Current commands require schema 13. Older databases require `db upgrade --dry-run` followed by `db upgrade`.
 The existing backup, rehearsal, preservation and recovery requirements apply.
 
 Saved media outputs use the separate [artifact workflow](ARTIFACTS.md), with owned
@@ -92,7 +92,7 @@ file occurrences and checksum baselines stay separate.
 
 `process enqueue --selection selection.json` accepts the existing saved-selection
 contract, with a SQL or paginated GraphQL query returning file IDs. Selections are
-bounded to 10000 IDs and must complete successfully before any jobs are enqueued.
+bounded to 10,000 IDs by default (up to 100,000 with explicit paged selection settings) and must complete successfully before any jobs are enqueued.
 The selection profile should match the processing profile.
 
 ```json

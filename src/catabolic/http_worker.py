@@ -26,7 +26,12 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def fetch(payload):
     req = urllib.request.Request(
-        payload["url"], headers=payload["headers"], method=payload["method"]
+        payload["url"],
+        headers=payload["headers"],
+        method=payload["method"],
+        data=base64.b64decode(payload["body"], validate=True)
+        if payload.get("body") is not None
+        else None,
     )
     opener = urllib.request.build_opener(NoRedirect, urllib.request.ProxyHandler({}))
     try:

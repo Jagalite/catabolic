@@ -88,6 +88,8 @@ def validate_selection(selection):
         "variables",
         "profile",
         "timeout_ms",
+        "page_size",
+        "max_ids",
     }:
         raise CatabolicError(
             "selection supports language, query, params/variables, profile, and timeout_ms"
@@ -100,6 +102,22 @@ def validate_selection(selection):
         raise CatabolicError("selection profile must be a name")
     name(profile)
     timeout = selection.get("timeout_ms", 5000)
+    if (
+        type(selection.get("max_ids", 10000)) is not int
+        or not 1 <= selection.get("max_ids", 10000) <= 100000
+    ):
+        raise CatabolicError("selection max_ids must be 1..100000")
+    if "page_size" in selection and (
+        type(selection["page_size"]) is not int
+        or not 1 <= selection["page_size"] <= 9999
+    ):
+        raise CatabolicError("selection page_size must be 1..9999")
+    if (
+        selection.get("max_ids", 10000) > 10000
+        and language == "sql"
+        and "page_size" not in selection
+    ):
+        raise CatabolicError("larger SQL selections require page_size")
     if type(timeout) is not int or not 1 <= timeout <= 60000:
         raise CatabolicError("selection timeout_ms must be between 1 and 60000")
     query = selection.get("query")
@@ -132,14 +150,17 @@ def select_ids(store, selection):
     profile = selection.get("profile", "default")
     timeout_ms = selection.get("timeout_ms", 5000)
     query = selection["query"]
+    maximum = selection.get("max_ids", MAX_SELECTION_IDS)
     ids, rows_count, pages = set(), 0, 1
     if selection["language"] == "sql":
+        if "page_size" in selection:
+            return paged_sql_ids(store, selection)
         result = execute_sql(
             store.path,
             query,
             profile=profile,
             params=encode(selection.get("params", {})),
-            max_rows=MAX_SELECTION_IDS,
+            max_rows=maximum,
             timeout_ms=timeout_ms,
             _store=store,
         )
@@ -198,7 +219,7 @@ def select_ids(store, selection):
                 raise CatabolicError("selection IDs must be nonempty strings")
             rows_count += len(values)
             pages += 1
-            if rows_count > MAX_SELECTION_IDS or pages > MAX_SELECTION_IDS:
+            if rows_count > maximum or pages > maximum:
                 raise CatabolicError(
                     "selection GraphQL exceeds the complete selection limit"
                 )
@@ -237,7 +258,83 @@ def select_ids(store, selection):
     )
 
 
-def selected_associations(store, selection):
+def paged_sql_ids(store, selection):
+    """Read a stable, sorted ID set in bounded pages using the caller's snapshot."""
+    query = selection["query"].strip().removesuffix(";")
+    params = selection.get("params", {})
+    if (
+        any(key.startswith("__catabolic_") for key in params)
+        or "__catabolic_" in query.lower()
+    ):
+        raise CatabolicError("__catabolic_ is reserved for selection pagination")
+    size = selection["page_size"]
+    maximum = selection.get("max_ids", MAX_SELECTION_IDS)
+    deadline = time.monotonic() + selection.get("timeout_ms", 5000) / 1000
+    after, entity, ids, pages = None, None, set(), 0
+    while True:
+        remaining = int((deadline - time.monotonic()) * 1000)
+        if remaining < 1:
+            raise CatabolicError("selection SQL pagination timed out")
+        sql = f"SELECT DISTINCT * FROM ({query})"
+        if after is not None:
+            sql += f' WHERE "{entity}" COLLATE BINARY > :__catabolic_after'
+        sql += f" ORDER BY 1 COLLATE BINARY LIMIT {size + 1}"
+        # execute_sql reserves only profile. The generated cursor is bound as data.
+        result = execute_sql(
+            store.path,
+            sql,
+            profile=selection.get("profile", "default"),
+            params=encode({**params, "__catabolic_after": after}),
+            max_rows=size + 1,
+            timeout_ms=remaining,
+            _store=store,
+            _stable=True,
+        )
+        if not result["complete"]:
+            raise CatabolicError(
+                "selection page was truncated; no requirements or mappings were changed"
+            )
+        if len(result["columns"]) != 1 or result["columns"][0] not in (
+            "file_id",
+            "item_id",
+            "association_id",
+        ):
+            raise CatabolicError(
+                "selection SQL must return exactly one column: association_id, item_id, or file_id"
+            )
+        entity = result["columns"][0]
+        values = [row[0] for row in result["rows"]]
+        if any(not isinstance(value, str) or not value for value in values):
+            raise CatabolicError("selection IDs must be nonempty strings")
+        more = len(values) > size
+        values = values[:size]
+        ids.update(values)
+        pages += 1
+        if len(ids) > maximum or more and len(ids) >= maximum:
+            raise CatabolicError(
+                "selection exceeds max_ids; no requirements or mappings were changed"
+            )
+        if not more:
+            break
+        if not values or after is not None and values[-1] <= after:
+            raise CatabolicError("selection pagination did not advance")
+        after = values[-1]
+    return (
+        entity,
+        ids,
+        {
+            "language": "sql",
+            "profile": selection.get("profile", "default"),
+            "entity": entity,
+            "selected_ids": len(ids),
+            "returned_rows": len(ids),
+            "pages": pages,
+            "complete": True,
+        },
+    )
+
+
+def selected_associations(store, selection, *, admitted=()):
     entity, identifiers, report = select_ids(store, selection)
     table = {"item_id": "items", "file_id": "files", "association_id": "item_files"}[
         entity
@@ -263,6 +360,12 @@ def selected_associations(store, selection):
             raise CatabolicError(
                 "query selection expands beyond 100000 active associations"
             )
+    column = "id" if entity == "association_id" else entity
+    for row in admitted:
+        if row[column] in identifiers:
+            rows[row["id"]] = row
+    if len(rows) > 100000:
+        raise CatabolicError("query selection expands beyond 100000 associations")
     if found != identifiers:
         raise CatabolicError("selection returned unknown IDs; no mappings were changed")
     if entity == "association_id" and rows.keys() != identifiers:

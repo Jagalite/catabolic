@@ -13,6 +13,32 @@ from .media import ROLES, media_kind, relationship, vocabulary
 from .source_access import validated_source
 from .store import encode
 
+PURPOSES = ("transcode", "remux", "preview", "thumbnail", "audio", "subtitle", "custom")
+PRESET_PURPOSE = {
+    "h264-720p": "transcode",
+    "h264-1080p": "transcode",
+    "preview": "preview",
+    "thumbnail": "thumbnail",
+    "remux-mkv": "remux",
+    "audio-aac": "audio",
+    "audio-flac": "audio",
+    "subtitle-srt": "subtitle",
+}
+# Historical definitions remain byte-for-byte intact. Only known producing presets
+# supply a fallback purpose; codec or filename guesses are never provenance.
+RENDITIONS_SQL = """SELECT m.*,coalesce(json_extract(d.definition,'$.purpose'),
+ CASE r.preset WHEN 'h264-720p' THEN 'transcode' WHEN 'h264-1080p' THEN 'transcode'
+ WHEN 'preview' THEN 'preview' WHEN 'thumbnail' THEN 'thumbnail'
+ WHEN 'remux-mkv' THEN 'remux' WHEN 'audio-aac' THEN 'audio'
+ WHEN 'audio-flac' THEN 'audio' WHEN 'subtitle-srt' THEN 'subtitle' END,'unknown') AS purpose,
+ j.recipe_id, e.producer, e.instance AS producer_instance
+ FROM main.media_outputs m JOIN main.output_definitions d ON d.id=m.definition_id
+ LEFT JOIN main.processing_artifacts a ON a.id=m.artifact_id
+ LEFT JOIN main.processing_jobs j ON j.id=a.job_id
+ LEFT JOIN main.processing_recipes r ON r.id=j.recipe_id
+ LEFT JOIN main.receipt_outputs ro ON ro.output_id=m.id
+ LEFT JOIN main.external_receipts e ON e.id=ro.receipt_id"""
+
 
 def definition(value):
     if not isinstance(value, dict) or set(value) - {
@@ -23,17 +49,23 @@ def definition(value):
         "relationship",
         "item_metadata",
         "file_metadata",
+        "purpose",
     }:
         raise CatabolicError("invalid output definition fields")
     result = {
-        "version": 1,
+        "version": 2 if "purpose" in value else 1,
         "mode": "same_item",
         "role": "primary",
         "file_metadata": {},
         **value,
     }
-    if type(result["version"]) is not int or result["version"] != 1:
+    if type(result["version"]) is not int or result["version"] not in (1, 2):
         raise CatabolicError("unsupported output definition version")
+    if result["version"] == 2:
+        if result.get("purpose") not in PURPOSES:
+            raise CatabolicError("version 2 output definitions require a valid purpose")
+    elif "purpose" in result:
+        raise CatabolicError("purpose requires output definition version 2")
     vocabulary(result["role"], ROLES, "file role")
     if result["mode"] not in ("same_item", "new_item"):
         raise CatabolicError("output mode must be same_item or new_item")
@@ -110,7 +142,7 @@ class Outputs:
 
     def get(self, identifier):
         rows = self.store.rows(
-            "SELECT * FROM media_outputs WHERE profile=? AND id=?",
+            f"SELECT * FROM ({RENDITIONS_SQL}) WHERE profile=? AND id=?",
             (self.profile, identifier),
         )
         if not rows:
@@ -128,7 +160,7 @@ class Outputs:
         else:
             key, sql, values = (
                 "outputs",
-                "SELECT * FROM media_outputs WHERE profile=? AND id>? AND (? IS NULL OR source_file_id=?) ORDER BY id LIMIT ?",
+                f"SELECT * FROM ({RENDITIONS_SQL}) WHERE profile=? AND id>? AND (? IS NULL OR source_file_id=?) ORDER BY id LIMIT ?",
                 (self.profile, after, source_file_id, source_file_id, limit + 1),
             )
         rows, more = bounded_rows(self.store, sql, values, limit)
@@ -163,6 +195,16 @@ class Outputs:
         metadata=None,
     ):
         """Called inside the publication/registration transaction. Never writes media."""
+        # File identity and lineage are shared across profiles. Enforce this at
+        # the common write boundary, including generated and receipted outputs.
+        if db.execute(
+            """WITH RECURSIVE ancestors(id) AS (
+                VALUES (?) UNION SELECT m.source_file_id FROM media_outputs m
+                JOIN ancestors a ON m.file_id=a.id
+            ) SELECT 1 FROM ancestors WHERE id=?""",
+            (source_file_id, file_id),
+        ).fetchone():
+            raise CatabolicError("output lineage would create a cycle")
         value = self.get_definition(definition_id)["definition"]
         identifier = str(uuid4())
         item_id = source_item_id
@@ -233,15 +275,6 @@ class Outputs:
             raise CatabolicError(
                 "generated files keep their recorded processing provenance"
             )
-        # Check globally because file identity is shared across profiles.
-        if self.store.rows(
-            """WITH RECURSIVE ancestors(id) AS (
-            VALUES (?) UNION SELECT m.source_file_id FROM media_outputs m
-            JOIN ancestors a ON m.file_id=a.id
-        ) SELECT 1 FROM ancestors WHERE id=?""",
-            (source_file_id, file_id),
-        ):
-            raise CatabolicError("output lineage would create a cycle")
         # Presence checks are not a claim that Catabolic performed or verified the conversion.
         for key in (source_file_id, file_id):
             with validated_source(occurrence(self.store, self.profile, key)):

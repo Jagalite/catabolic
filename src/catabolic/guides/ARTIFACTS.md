@@ -10,7 +10,7 @@ its processing recipes. Both use reusable, versioned **output definitions** for
 metadata, file roles, and item relationships. Originals remain read-only.
 An encode or remux normally stays on the same media item. A distinct edit can
 become a separate related item when its definition explicitly requests that.
-Current commands require schema 11; upgrade older catalogs explicitly.
+Current commands require schema 12; upgrade older catalogs explicitly.
 For automatic selection, retroactive backfills and approximate storage needs,
 see [processing rules](RULES.md), also available as `catabolic docs rules`.
 FFmpeg and ffprobe are optional external executables, never bundled dependencies.
@@ -236,6 +236,11 @@ completed request reuses its job only after the saved output's identity and full
 checksum are verified; missing or modified outputs cause a new job instead.
 
 ## Selecting outputs and querying
+
+For a dedicated transcode/preview library, use a
+[catalog-specific rendition policy](RENDITION_WORKFLOWS.md). It admits validated
+outputs to that catalog without changing global association activation. The
+explicit association workflow below remains available for general publication.
 
 New rendition associations are initially **inactive**, so default library planning
 continues to use originals. To select a generated file, explicitly activate its

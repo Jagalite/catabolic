@@ -11,6 +11,24 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "processors",
+        "PROCESSORS.md",
+        "Network processors and distributed workers",
+        "HTTP receipt adapters, worker leases, measured estimate calibration and large paged rules.",
+    ),
+    (
+        "renditions",
+        "RENDITION_WORKFLOWS.md",
+        "Rendition publication and external receipts",
+        "Catalog-specific transcode libraries, rendition purpose, receipt imports and retry-safe requirements.",
+    ),
+    (
+        "processing-review",
+        "PROCESSING_REVIEW.md",
+        "Processing architecture review",
+        "Source research and proposed integration of rendition publication, completion and external processors.",
+    ),
+    (
         "rules",
         "RULES.md",
         "Processing rules and space estimates",

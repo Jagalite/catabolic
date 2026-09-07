@@ -309,7 +309,9 @@ class QueryContext:
                             conditions.append(column + "=?")
                             values.append(args[key])
                 elif field == "renditions":
-                    table, columns = "media_outputs a", "a.*"
+                    from .outputs import RENDITIONS_SQL
+
+                    table, columns = f"({RENDITIONS_SQL}) a", "a.*"
                     conditions, values = ["a.profile=?"], [self.profile]
                     if args.get("file") is not None:
                         conditions.append("a.source_file_id=?")

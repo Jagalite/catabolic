@@ -75,7 +75,7 @@ class EstimateTest(unittest.TestCase):
             upgrade_database(path, migrations=load_migrations()[:10])
             before = contents(path)
             result = upgrade_database(path)
-            self.assertEqual(result["schema"], 11)
+            self.assertEqual(result["schema"], 13)
             with Store(path) as store:
                 self.assertEqual(store.rows("SELECT * FROM processing_rules"), [])
                 self.assertEqual(store.rows("SELECT * FROM rule_jobs"), [])
@@ -152,7 +152,7 @@ class RuleTest(unittest.TestCase):
         repeated = self.rules.apply(rule["id"])
         self.assertEqual(repeated["queued"], [])
         self.assertEqual(repeated["counts"]["queued"], 1)
-        self.assertEqual(len(self.store.rows("SELECT * FROM item_requirements")), 1)
+        self.assertEqual(len(self.store.rows("SELECT * FROM rule_requirements")), 1)
         completed = self.rules.run(rule["id"])
         self.assertTrue(completed["complete"], completed)
         self.assertEqual(completed["after"]["space"]["expected_bytes"], 0)

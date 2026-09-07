@@ -30,7 +30,13 @@ PRESETS = {
 def definition(preset, options):
     if preset not in PRESETS or not isinstance(options, dict):
         raise CatabolicError("unknown rendering preset or invalid options")
-    allowed = {"timeout", "max_output_bytes", "reserve_bytes"}
+    allowed = {
+        "timeout",
+        "max_output_bytes",
+        "reserve_bytes",
+        "max_size_ratio",
+        "require_duration",
+    }
     if preset in ("thumbnail", "preview"):
         allowed.add("start_seconds")
     if preset == "preview":
@@ -62,6 +68,14 @@ def definition(preset, options):
         value["stream"] = 0
     # Keep omitted settings omitted so old recipe definitions retain their digest.
     value.update(options)
+    if "require_duration" in value and type(value["require_duration"]) is not bool:
+        raise CatabolicError("require_duration must be boolean")
+    if "max_size_ratio" in value and (
+        type(value["max_size_ratio"]) not in (int, float)
+        or not math.isfinite(value["max_size_ratio"])
+        or not 0 < value["max_size_ratio"] <= 100
+    ):
+        raise CatabolicError("max_size_ratio must be a finite positive ratio up to 100")
     for key, lower, upper in (
         ("timeout", 1, 86400),
         ("max_output_bytes", 1024, 1024**4),
@@ -365,6 +379,13 @@ def render(input_fd, output_fd, recipe, identity, poll):
     size = os.fstat(output_fd).st_size
     if not 0 < size < recipe["max_output_bytes"]:
         raise CatabolicError("empty output or output reached its byte budget")
+    if (
+        "max_size_ratio" in recipe
+        and size > os.fstat(input_fd).st_size * recipe["max_size_ratio"]
+    ):
+        raise CatabolicError(
+            "output exceeds the recipe's maximum input/output size ratio"
+        )
     if expected and not streams(after, expected):
         raise CatabolicError("output is missing its expected stream")
     if preset == "remux-mkv":
@@ -400,6 +421,8 @@ def render(input_fd, output_fd, recipe, identity, poll):
     if preset == "thumbnail" and streams(after, "video")[0].get("codec_name") != "png":
         raise CatabolicError("output is not a PNG thumbnail")
     wanted = duration(before)
+    if recipe.get("require_duration") and (not wanted or not duration(after)):
+        raise CatabolicError("required duration evidence is unknown")
     if preset == "preview":
         wanted = min(
             recipe["duration_seconds"], max(0, wanted - recipe["start_seconds"])

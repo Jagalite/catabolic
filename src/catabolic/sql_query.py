@@ -14,6 +14,7 @@ from contextlib import nullcontext
 
 from .domain import CatabolicError
 from .item_workflow import CHECKS_SQL, SUMMARY_SQL
+from .outputs import RENDITIONS_SQL
 from .store import Store
 
 INTERFACE_VERSION = 1
@@ -96,7 +97,43 @@ VIEWS.update(
         ),
         "catalog_renditions": (
             "Registered and generated media outputs with source lineage and immutable definition IDs; registered provenance is user-declared.",
-            "SELECT * FROM main.media_outputs",
+            RENDITIONS_SQL,
+        ),
+        "catalog_rendition_policies": (
+            "Catalog-scoped rendition admission policies.",
+            "SELECT * FROM main.rendition_policies",
+        ),
+        "catalog_processors": (
+            "Immutable HTTP receipt processor definitions; secrets are environment references.",
+            "SELECT * FROM main.processors",
+        ),
+        "catalog_processor_jobs": (
+            "External submission state and worker generations; capability tokens omitted.",
+            "SELECT id,profile,processor,request,digest,state,generation,worker,lease_until,receipt_id,error,created_at,updated_at FROM main.processor_jobs",
+        ),
+        "catalog_processor_attempts": (
+            "Durable worker attempts including expired generations.",
+            "SELECT * FROM main.processor_attempts",
+        ),
+        "catalog_rendition_decisions": (
+            "Explicit per-catalog rendition exclusions and reasons.",
+            "SELECT * FROM main.rendition_decisions",
+        ),
+        "catalog_external_receipts": (
+            "Accepted producer claims; delivered bytes are independently validated.",
+            "SELECT * FROM main.external_receipts",
+        ),
+        "catalog_receipt_outputs": (
+            "Receipt output references with verified hashes and file snapshots.",
+            "SELECT * FROM main.receipt_outputs",
+        ),
+        "catalog_rule_requirements": (
+            "Semantic rendition requirements and their current job evidence.",
+            "SELECT * FROM main.rule_requirements",
+        ),
+        "catalog_rule_evaluations": (
+            "Complete recorded evaluations of required rules.",
+            "SELECT * FROM main.rule_evaluations",
         ),
         "catalog_output_definitions": (
             "Immutable rendition metadata and item relationship policies shared by recipes and external registration.",
@@ -345,6 +382,7 @@ def execute_sql(
     max_rows=1000,
     timeout_ms=5000,
     _store=None,
+    _stable=False,
 ):
     """Read-only SQL; internal selectors may reuse a locked catalog snapshot."""
     if type(max_rows) is not int or not 1 <= max_rows <= 10000:
@@ -404,6 +442,24 @@ def execute_sql(
                 if (
                     action == sqlite3.SQLITE_FUNCTION
                     and (arg2 or "").lower() in FUNCTIONS
+                    and not (
+                        _stable
+                        and (arg2 or "").lower()
+                        in {
+                            "random",
+                            "randomblob",
+                            "date",
+                            "time",
+                            "datetime",
+                            "julianday",
+                            "unixepoch",
+                            "strftime",
+                            "timediff",
+                            "changes",
+                            "total_changes",
+                            "last_insert_rowid",
+                        }
+                    )
                 ):
                     return sqlite3.SQLITE_OK
                 denied.append(

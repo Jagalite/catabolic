@@ -106,15 +106,27 @@ class Manifest:
             self.store.rows(
                 """SELECT a.* FROM (SELECT DISTINCT item_id,file_id FROM mappings WHERE active=1 AND catalog=?) m
             JOIN item_files a ON a.item_id=m.item_id AND a.file_id=m.file_id
-            WHERE a.active=1 ORDER BY a.id LIMIT ?""",
+            ORDER BY a.id LIMIT ?""",
                 (catalog, MAX_RECORDS + 1),
             ),
             "associations",
         )
         by_pair = defaultdict(list)
+        owner = self.store.rows(
+            "SELECT value FROM meta WHERE key=?", ("layout-catalog:" + catalog,)
+        )
+        admitted = (
+            set(json.loads(owner[0]["value"]).get("rendition_associations", []))
+            if owner
+            else set()
+        )
+        associations = [
+            row for row in associations if row["active"] or row["id"] in admitted
+        ]
         for row in associations:
             row["metadata"] = json.loads(row["metadata"])
-            row["active"] = bool(row["active"])
+            # This is an active-catalog projection, not the global association flag.
+            row["active"] = True
             by_pair[(row["item_id"], row["file_id"])].append(row["id"])
         # Include outgoing parents, editions, and contributors recursively, but
         # not unrelated incoming siblings or their source files.

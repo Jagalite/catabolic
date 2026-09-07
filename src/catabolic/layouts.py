@@ -489,23 +489,69 @@ class Layouts:
                 "layout ownership references missing mappings; refusing to discard its history"
             )
         selection_report = None
+        from .rendition_publication import Publication
+
+        admitted, publication_report = Publication(self.app).candidates(catalog)
+        if (
+            admitted is not None
+            and "selection" in definition
+            and definition["selection"].get("profile", "default") != self.app.profile
+        ):
+            raise CatabolicError(
+                "rendition publication selection must use the current profile"
+            )
         if "selection" in definition:
             associations, selection_report = selected_associations(
-                self.store, definition["selection"]
+                self.store, definition["selection"], admitted=admitted or ()
             )
+        elif (
+            admitted is not None
+            and not publication_report["definition"]["include_originals"]
+        ):
+            associations = []
         else:
             associations = self.store.rows(
                 "SELECT a.*,f.path,f.location FROM item_files a JOIN files f ON f.id=a.file_id WHERE a.active=1 ORDER BY a.id LIMIT 100001"
             )
+            # Detect incomplete input before publication filtering can hide the
+            # sentinel row and turn a partial inventory into removal decisions.
+            if len(associations) > 100000:
+                raise CatabolicError(
+                    "layout planning supports at most 100000 active identifications"
+                )
+        if admitted is not None:
+            if "selection" not in definition:
+                associations = list(
+                    {r["id"]: r for r in [*associations, *admitted]}.values()
+                )
+            if not publication_report["definition"]["include_originals"]:
+                allowed = {r["id"] for r in admitted}
+                associations = [r for r in associations if r["id"] in allowed]
+            else:
+                allowed = {r["id"] for r in admitted}
+                rendition_files = {
+                    r["file_id"]
+                    for r in self.store.rows(
+                        "SELECT DISTINCT file_id FROM media_outputs",
+                    )
+                }
+                associations = [
+                    r
+                    for r in associations
+                    if r["file_id"] not in rendition_files or r["id"] in allowed
+                ]
         if len(associations) > 100000:
             raise CatabolicError(
                 "layout planning supports at most 100000 active identifications"
             )
         from .copy_selection import CopySelection
 
-        associations, copy_report = CopySelection(self.app).filter(
-            catalog, associations
-        )
+        if admitted is None or publication_report["definition"]["mode"] == "preferred":
+            associations, copy_report = CopySelection(self.app).filter(
+                catalog, associations
+            )
+        else:
+            copy_report = {"configured": False}
         if copy_report.get("blockers"):
             raise CatabolicError(
                 "copy selection blocked: " + encode(copy_report["blockers"])
@@ -606,7 +652,7 @@ class Layouts:
             if key not in current or not current[key]["active"]
         ]
         if (
-            selection_report is not None
+            (selection_report is not None or admitted is not None)
             and not desired
             and removals
             and not allow_empty
@@ -616,6 +662,7 @@ class Layouts:
                     "reason": "query layout would clear all generated mappings; inspect the selection and use --allow-empty explicitly"
                 }
             )
+        admitted_ids = {row["id"] for row in admitted or ()}
         plan = {
             "layout": identifier,
             "catalog": catalog,
@@ -629,6 +676,10 @@ class Layouts:
             "unchanged_count": len(desired)
             - sum(c["action"] != "disable" for c in changes),
             "skipped_associations": skipped,
+            "publication": publication_report,
+            "rendition_associations": [
+                r["id"] for r in associations if r["id"] in admitted_ids
+            ],
         }
         if selection_report is not None:
             plan["selection"] = selection_report
@@ -673,6 +724,7 @@ class Layouts:
                         "layout": identifier,
                         "definition_sha256": plan["definition_sha256"],
                         "mapping_ids": sorted(owned | desired.keys()),
+                        "rendition_associations": plan["rendition_associations"],
                     }
                     db.execute(
                         "INSERT INTO meta(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -693,4 +745,9 @@ class Layouts:
             plan["changes"][:limit],
             plan["blockers"][:limit],
         )
+        plan.pop("rendition_associations")
+        publication = plan["publication"]
+        publication["excluded_count"] = len(publication["excluded"])
+        publication["details_truncated"] = len(publication["excluded"]) > limit
+        publication["excluded"] = publication["excluded"][:limit]
         return plan

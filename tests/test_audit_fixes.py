@@ -6,6 +6,7 @@
 import copy
 import json
 import os
+import shlex
 import signal
 import subprocess
 import sys
@@ -73,6 +74,16 @@ class ImportSafetyTest(unittest.TestCase):
             **kwargs,
         )
 
+    def sleeping_importer(self, marker, name="calibredb"):
+        # Exercise importer deadlines, not cold Python interpreter startup.
+        # The shell performs the observable side effect before exec'ing sleep.
+        executable = self.root / name
+        executable.write_text(
+            "#!/bin/sh\n: > " + shlex.quote(str(marker)) + "\nexec sleep 30\n"
+        )
+        executable.chmod(0o700)
+        return executable
+
     def test_replacement_with_preserved_size_and_time_is_rejected(self):
         self.replace_source()
         with (
@@ -133,9 +144,8 @@ class ImportSafetyTest(unittest.TestCase):
 
     def test_timeout_reports_unknown_and_preserves_source(self):
         marker = self.destination / "changed"
-        with self.importer(
-            f"import time\nfrom pathlib import Path\nPath({str(marker)!r}).touch()\ntime.sleep(30)\n"
-        ):
+        executable = self.sleeping_importer(marker)
+        with patch("catabolic.importers.shutil.which", return_value=str(executable)):
             result = self.run_import(timeout=1)
         self.assertTrue(marker.exists())
         self.assertEqual(result["outcome"], "external_outcome_unknown")
@@ -158,11 +168,7 @@ class ImportSafetyTest(unittest.TestCase):
 
     def test_cli_interruption_returns_json_and_exit_130(self):
         marker = self.destination / "started"
-        tool = self.root / "calibredb"
-        tool.write_text(
-            f"#!{sys.executable}\nimport time\nfrom pathlib import Path\nPath({str(marker)!r}).touch()\ntime.sleep(30)\n"
-        )
-        tool.chmod(0o700)
+        self.sleeping_importer(marker)
         database = self.store.path
         self.store.close()
         proc = subprocess.Popen(
@@ -189,7 +195,8 @@ class ImportSafetyTest(unittest.TestCase):
             text=True,
         )
         try:
-            deadline = time.monotonic() + 5
+            # Wait for CLI startup separately from the interruption deadline.
+            deadline = time.monotonic() + 30
             while (
                 not marker.exists()
                 and proc.poll() is None

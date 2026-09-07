@@ -5,9 +5,10 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
-Status: the explicit-identification core and CLI are implemented in Python.
-Schema 6 adds persisted proposal review and optional enrichment jobs; see
-[ENRICHMENT.md](ENRICHMENT.md) for current processing and integration boundaries.
+Status: the catalog core and CLI are implemented in Python, currently schema 13.
+The system includes enrichment jobs, generated renditions, entry worklogs and
+saved processing rules. See [ENRICHMENT.md](ENRICHMENT.md),
+[ARTIFACTS.md](ARTIFACTS.md) and [RULES.md](RULES.md) for current commands.
 
 Catabolic inventories media, maintains descriptive metadata, and projects curated
 catalogs as symbolic links. It is an independent Python application with its own
@@ -133,6 +134,69 @@ nothing. A run can make partial progress, which is reported and recoverable.
 Verification independently inspects output ownership, link targets, and source
 availability instead of treating a successful apply as proof of health.
 
+## Processing, renditions and publication
+
+Processing uses the existing catalog identities and profile bindings. It does
+not create a parallel media database. The responsibilities are:
+
+```text
+scan → recorded facts → Rules selection → Artifacts job and attempt
+                                              ↓
+                                     validated generated file
+                                              ↓
+rendition register / import-receipt → Outputs rendition and source lineage
+                                              ↓
+                         reviewed association → copy selection → layout
+                                              ↓
+                                 mapping → sync → verify → manifest
+```
+
+`processing.py` owns bounded analysis jobs and facts. `rules.py` connects a saved
+SQL/GraphQL selection to an immutable recipe and generated destination, then
+delegates rendering to `artifacts.py`. Rules exclude generated inputs to prevent
+recursive processing. `rule_estimates.py` provides approximate full-backfill and
+batch storage reports, with unknown sizes and runtime limits kept distinct.
+
+`rendering.py` owns the supported recipe options and FFmpeg validation.
+`artifacts.py` owns temporary output files, checksums, durable publication intent,
+registration and recovery. An attempt creates one artifact; a ready artifact has
+an inventoried file, validation evidence and a rendition record. Original media
+remains read-only, and old outputs are preserved.
+
+`outputs.py` gives generated and externally registered files the same descriptive
+output-definition and source-lineage model. External registration records
+user-declared provenance; it does not assert that Catabolic executed or validated
+the external conversion. `receipts.py` imports bounded external results with
+idempotency, source-revision validation and independently hashed delivered bytes.
+Producer claims remain separate from that evidence. New associations are inactive.
+`rendition_publication.py` admits ready renditions to individual catalogs, with
+explicit exclusions; it does not change global activation. Candidate associations
+then use existing selections, copy policies, layouts and reconciliation. Manifests
+export active associations for that catalog projection.
+
+`maintenance.py` orchestrates these services after complete scans and optional
+analysis, before layout/reconciliation. Rules require `--rules`; rendering also
+requires `--render-rules N`. The cycle holds the database writer lock throughout.
+Rendering is serial, with external work outside SQLite write transactions.
+
+`item_workflow.py` remains the shared entry-readiness evaluator for CLI, SQL and
+GraphQL. Required-rule application records semantic requirements for every match
+after successful evaluation/preflight, including deferred work. Current job
+evidence can change on an explicit retry while attempts and worklogs are retained.
+Saving or previewing a rule alone creates no gate. Job completion,
+healthy output links and completed entry curation are distinct evidence.
+
+The [processing architecture review](PROCESSING_REVIEW.md) maps findings from
+Tdarr, Unmanic, FileFlows and FileBot to these boundaries. Schema 12 implements
+catalog-specific publication, semantic requirements and local external receipts;
+see [rendition workflows](RENDITION_WORKFLOWS.md). Schema 13 extends external receipt
+intake through `processors.py`: durable submission intent and fenced attempt
+leases, with HTTP outside the coordinator writer lock and atomic receipt/job
+completion. It does not introduce a second local render engine. `selection.py`
+adds complete keyset pages and `estimate_calibration.py` derives conservative
+planning adjustments from retained successful recipe evidence. See
+[processor workflows](PROCESSORS.md).
+
 ## Schema evolution
 
 Schema changes are immutable numbered SQL resources, bundled with the application.
@@ -205,8 +269,8 @@ classified as structural. Metadata accepts additional JSON fields unchanged.
 
 Source scanning, safe relative links, recovery, and verification are shared by all
 media kinds. Catalog destinations can be explicit or generated by declarative
-layouts; see OUTPUT_LAYOUTS.md. Automatic provider research and media probing
-remain future features. Mixed-media fixtures exercise film/subtitles, albums/artwork,
+layouts; see OUTPUT_LAYOUTS.md. Optional provider proposals and media probing use
+the enrichment pipeline. Mixed-media fixtures exercise film/subtitles, albums/artwork,
 alternate ebook formats, audiobook chapters, podcasts, comics, and photos.
 
 ## Layout and GraphQL boundaries

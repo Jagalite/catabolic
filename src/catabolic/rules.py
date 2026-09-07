@@ -12,6 +12,7 @@ from uuid import uuid4
 from .artifacts import Artifacts
 from .curation import bounded_rows, occurrence, page_limit
 from .domain import CatabolicError, name
+from .estimate_calibration import calibrated, calibration
 from .filesystem import owner_state, root_handle
 from .item_workflow import ItemWorkflow
 from .processing import current_fact
@@ -296,11 +297,16 @@ class Rules:
                 if a["role"] == "primary" and a["file_id"] not in derived
             }
         )
-        if len(pairs) > 10000:
+        if len(pairs) > 100000:
             raise CatabolicError(
-                "rule expands beyond 10000 inputs; narrow the saved selection"
+                "rule expands beyond 100000 inputs; narrow the saved selection"
             )
         rows = [self._candidate(rule, recipe, binding, f, i) for f, i in pairs]
+        measured = calibration(
+            self.store, self.profile, recipe, rule["estimate_options"]
+        )
+        for row in rows:
+            row["estimate"] = calibrated(row["estimate"], measured)
         if scan_ids is not None:
             for row in rows:
                 seen = self.store.rows(
@@ -341,6 +347,7 @@ class Rules:
             "counts": counts,
             "space": estimate_total,
             "matches": rows,
+            "calibration": measured,
         }
 
     @staticmethod
@@ -365,18 +372,109 @@ class Rules:
                     "INSERT INTO rule_jobs(rule_id,job_id,file_id,item_id) VALUES (?,?,?,?) ON CONFLICT DO NOTHING",
                     (rule["id"], job_id, row["file_id"], row["item_id"]),
                 )
-        if rule["required"] and not self.store.rows(
-            "SELECT id FROM item_requirements WHERE item_id=? AND profile=? AND kind='job' AND job_id=?",
-            (row["item_id"], self.profile, job_id),
-        ):
-            ItemWorkflow(self.app).require(
-                row["item_id"],
-                "job",
-                f"Rule {rule['name']} revision {rule['revision']}"[:255],
-                target=job_id,
-                actor="rule:" + rule["id"],
-                note="Required output job selected by an explicit rule application.",
+        if rule["required"]:
+            with self.store.transaction() as db:
+                old = db.execute(
+                    "SELECT * FROM rule_requirements WHERE rule_id=? AND file_id=? AND item_id=?",
+                    (rule["id"], row["file_id"], row["item_id"]),
+                ).fetchone()
+                if old and old["job_id"] != job_id:
+                    db.execute(
+                        "UPDATE rule_requirements SET job_id=? WHERE id=?",
+                        (job_id, old["id"]),
+                    )
+                    workflow = ItemWorkflow(self.app)
+                    status, revision = workflow._revision(db, row["item_id"], None)
+                    workflow._append(
+                        db,
+                        row["item_id"],
+                        "requirement",
+                        "Rule requirement now tracks this job; prior attempts remain in history.",
+                        "rule:" + rule["id"],
+                        {
+                            "requirement_id": old["id"],
+                            "previous_job_id": old["job_id"],
+                            "job_id": job_id,
+                        },
+                        status,
+                        revision,
+                    )
+
+    def _requirements(self, plan):
+        rule = plan["rule"]
+        if not rule["required"]:
+            return
+        evaluation = str(uuid4())
+        workflow = ItemWorkflow(self.app)
+        with self.store.transaction() as db:
+            db.execute(
+                "INSERT INTO rule_evaluations(id,rule_id,matched_inputs,counts) VALUES (?,?,?,?)",
+                (
+                    evaluation,
+                    rule["id"],
+                    plan["matched_inputs"],
+                    encode(plan["counts"]),
+                ),
             )
+            for row in plan["matches"]:
+                old = db.execute(
+                    "SELECT id FROM rule_requirements WHERE rule_id=? AND file_id=? AND item_id=?",
+                    (rule["id"], row["file_id"], row["item_id"]),
+                ).fetchone()
+                if old:
+                    db.execute(
+                        "UPDATE rule_requirements SET evaluation_id=? WHERE id=?",
+                        (evaluation, old["id"]),
+                    )
+                    continue
+                identifier = str(uuid4())
+                db.execute(
+                    "INSERT INTO rule_requirements(id,rule_id,profile,file_id,item_id,evaluation_id) VALUES (?,?,?,?,?,?)",
+                    (
+                        identifier,
+                        rule["id"],
+                        self.profile,
+                        row["file_id"],
+                        row["item_id"],
+                        evaluation,
+                    ),
+                )
+                status, revision = workflow._revision(db, row["item_id"], None)
+                workflow._append(
+                    db,
+                    row["item_id"],
+                    "requirement",
+                    "A current rendition is required, including work not yet queued.",
+                    "rule:" + rule["id"],
+                    {
+                        "requirement_id": identifier,
+                        "rule_id": rule["id"],
+                        "file_id": row["file_id"],
+                    },
+                    status,
+                    revision,
+                )
+
+    def statistics(self, identifier):
+        rule = self.get(identifier)
+        return {
+            "rule_id": identifier,
+            "calibration": calibration(
+                self.store,
+                self.profile,
+                self.artifacts.get_recipe(rule["recipe_id"]),
+                rule["estimate_options"],
+            ),
+            "attempts": self.store.rows(
+                """SELECT p.state,count(*) AS count,sum(a.size) AS output_bytes,
+ sum(CASE WHEN p.started_at IS NOT NULL AND p.finished_at IS NOT NULL THEN max(0,(julianday(p.finished_at)-julianday(p.started_at))*86400) END) AS elapsed_seconds
+ FROM rule_jobs r JOIN processing_attempts p ON p.job_id=r.job_id
+ LEFT JOIN processing_artifacts a ON a.job_id=p.job_id AND a.attempt=p.attempt
+ WHERE r.rule_id=? GROUP BY p.state ORDER BY p.state""",
+                (identifier,),
+            ),
+            "note": "Historical attempt totals, including retained old outputs. Elapsed times are recorded wall time; no savings or future ETA is inferred.",
+        }
 
     def apply(
         self,
@@ -432,6 +530,7 @@ class Rules:
         }
         if blockers:
             return result
+        self._requirements(plan)
         # Adopt matching jobs from an earlier explicit enqueue or interrupted rule application.
         for row in plan["matches"]:
             if row["state"] in ("satisfied", "queued", "running") and row["job_id"]:

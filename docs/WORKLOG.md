@@ -8,7 +8,7 @@ SPDX-License-Identifier: MIT
 Each catalog item has an overall curation status and an append-only worklog.
 Use the worklog for notes, decisions, progress, and reasons for deferring work.
 It applies to the whole item, across its associated files and renditions, and
-supports every built-in and custom media kind. These CLI commands require schema 11.
+supports every built-in and custom media kind. These CLI commands require schema 13.
 
 ## Status and completion checks
 
@@ -32,7 +32,12 @@ Before accepting `complete`, Catabolic checks:
 - The item has a nonempty title.
 - All active `primary` file associations have recorded `present` availability
   and a source binding in the selected profile.
-- All explicitly required files, jobs, artifacts, proposals, and review tasks pass.
+- All explicitly required files, jobs, artifacts, proposals, rule renditions and review tasks pass.
+
+Schema 12 adds semantic requirements created by required-rule application. They
+cover deferred matches and track replacement job evidence across explicit retries.
+See [rendition workflows](RENDITION_WORKFLOWS.md). Existing exact-job requirements
+keep their previous semantics and history.
 
 An item without files can be complete: books, collections, and other abstract
 items need not represent a physical file. Optional files and jobs do not block

@@ -10,7 +10,7 @@ generated destination. They cover existing media and future maintenance cycles.
 Preview reports approximately how much **additional space** the full backfill
 needs before queuing or encoding. Run `catabolic docs rules` to read this offline.
 
-Commands require schema 11. Upgrade older catalogs explicitly with
+Commands require schema 13. Upgrade older catalogs explicitly with
 `db upgrade --dry-run` followed by `db upgrade`. Rules reuse the existing
 [artifact queue, output definitions, validation and recovery](ARTIFACTS.md).
 
@@ -71,7 +71,9 @@ ORDER BY file_id
 
 Such a filter excludes files without facts. Use a broad item selection if you want
 missing evidence to appear explicitly in the deferred count. Current limits are
-10,000 selected IDs and 10,000 expanded input pairs; partition larger libraries.
+10,000 selected IDs by default and 100,000 expanded input pairs. Larger selections
+can opt into `page_size` and `max_ids` up to 100,000; see [processors](PROCESSORS.md).
+Required-rule records are written only after the entire selection succeeds.
 Unknown IDs, timeouts and truncated selections fail before queuing any work.
 
 Matches are `missing`, `stale`, `satisfied`, `queued`, `running`, `failed` or
@@ -165,12 +167,15 @@ Outstanding rule jobs/deferred inputs yield maintenance `complete:false` and exi
 stop dependent output work. Per-job timeouts still apply; the batch limit controls
 job count rather than an overall wall-clock deadline.
 
-`rule put --required` adds ordinary job requirements when apply queues/adopts
-matching jobs. These can make completed entries show `needs_attention` until their
-outputs are ready. Unapplied or deferred matches do not yet create requirements.
-Requirements survive disablement and revisions; waive obsolete ones explicitly
-with a reason. Generated file associations start inactive, as with ordinary
-artifact generation. Rules never replace a primary file or mark an item complete.
+`rule put --required` records semantic rendition requirements when apply completes
+its evaluation and storage preflight, including deferred matches and matches
+beyond the queue batch. Requirements track current job evidence across explicit
+retries, retaining prior attempts in the worklog. Saving or previewing a rule alone
+creates no requirements. Requirements survive disablement and revisions; waive
+obsolete ones explicitly with a reason. Legacy job requirements remain intact.
+See [rendition workflows](RENDITION_WORKFLOWS.md) for completion semantics,
+catalog-specific publication and `rule stats` actual usage reports. Rules never
+replace source files or mark an entry complete.
 
 ## Discovery and automation
 
@@ -187,3 +192,11 @@ List pagination uses `next_after` / `--after`. A preview's `complete:true` means
 selection evaluation finished, even when it reports deferrals or insufficient
 space. Apply completion means the eligible backfill is enqueued; run completion
 means all current matches are satisfied. Errors use the normal CLI exit contract.
+
+## Measured estimate calibration
+
+After three distinct successful source renders for the same recipe/profile,
+previews and `rule stats` report automatic calibration from recorded actual bytes.
+Expected sizes use the median measured ratio; planning budgets never fall below
+the original high estimate. Explicit estimate overrides take precedence. See
+[calibration details](PROCESSORS.md#calibration-and-larger-rules).

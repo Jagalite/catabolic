@@ -18,7 +18,9 @@ from .process_runner import CommandFailure, command_output
 from .store import encode
 
 
-def request(url, *, headers=None, method="GET", maximum=1024 * 1024, timeout=15):
+def request(
+    url, *, headers=None, method="GET", maximum=1024 * 1024, timeout=15, body=None
+):
     """Bound the whole request, including DNS, TLS, headers and a slow body."""
     if (
         type(timeout) not in (int, float)
@@ -47,6 +49,9 @@ def request(url, *, headers=None, method="GET", maximum=1024 * 1024, timeout=15)
             "method": method,
             "maximum": maximum,
             "timeout": timeout,
+            "body": base64.b64encode(body).decode("ascii")
+            if body is not None
+            else None,
         }
     ).encode()
     if len(payload) > 256 * 1024:

@@ -16,6 +16,23 @@ Schema 8 adds [saved processing artifacts](ARTIFACTS.md): immutable recipes,
 separate generated locations and recoverable publication for a small preset set.
 Application ingestion adapters and streaming packages remain deferred.
 
+Schema 11 adds [processing rules and storage estimates](RULES.md) on top of the
+existing job/artifact system. The [processing architecture review](PROCESSING_REVIEW.md)
+records a 2026-09-07 source comparison with Tdarr, Unmanic, FileFlows and FileBot.
+Its proposed follow-up order is catalog-specific rendition publication, semantic
+completion requirements, external result receipts, and measured validation/scale
+improvements. These proposals extend the current ownership boundaries; they are
+not implemented integrations or claims of full parity.
+
+Schema 12 implements the first [rendition workflow](RENDITION_WORKFLOWS.md):
+catalog-scoped admission, semantic rule requirements, local external receipts,
+purpose queries and optional acceptance checks.
+
+Schema 13 adds [network processors and workers](PROCESSORS.md): a receipt-v1 HTTP
+adapter, fenced worker leases, automatic measured estimates and complete paged
+selections up to 100,000 IDs. Vendor-specific bridges, media transfer and parallel
+local rendering are not part of this implementation.
+
 ## Objective and current foundation
 
 Complete useful media-catalog workflows demonstrated by FileBot's public scripts,

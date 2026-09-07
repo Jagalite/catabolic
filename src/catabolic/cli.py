@@ -92,6 +92,9 @@ def parser() -> argparse.ArgumentParser:
         help="machine-readable JSON on stdout; errors on stderr",
     )
     commands = root.add_subparsers(dest="command", required=True)
+    from .processor_cli import register as register_processors
+
+    register_processors(commands)
     from .enrichment_cli import register
 
     register(commands)
@@ -562,6 +565,10 @@ def parser() -> argparse.ArgumentParser:
 
 
 def dispatch(args: argparse.Namespace) -> dict:
+    if args.command == "processor":
+        from .processor_cli import dispatch as dispatch_processor
+
+        return dispatch_processor(args)
     if args.command == "artifact" and args.operation == "capabilities":
         from .rendering import capabilities
 
@@ -697,7 +704,15 @@ def dispatch(args: argparse.Namespace) -> dict:
     from . import enrichment_cli, rule_cli, workflow_cli
 
     writable = (
-        enrichment_cli.writable(args)
+        (
+            args.command == "rendition"
+            and (
+                args.operation in ("exclude", "allow", "import-receipt")
+                or args.operation == "policy"
+                and args.definition is not None
+            )
+        )
+        or enrichment_cli.writable(args)
         or rule_cli.writable(args)
         or workflow_cli.writable(args)
         or (
