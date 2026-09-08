@@ -100,6 +100,11 @@ GROUPS = {
         ),
     ),
     "Operate and contribute": (
+        (
+            "EXPERIENCE_ACCEPTANCE.md",
+            "Experience-Acceptance",
+            "Next phase: complete workflow and agent acceptance benchmark",
+        ),
         ("MAINTENANCE.md", "Maintenance", "On-demand upkeep and backlog statistics"),
         (
             "MIGRATIONS.md",

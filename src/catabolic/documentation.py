@@ -11,6 +11,12 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "experience-acceptance",
+        "EXPERIENCE_ACCEPTANCE.md",
+        "Experience acceptance milestone",
+        "Runnable messy-collection reference journey, independent evaluator and planned isolated agent judgment trials.",
+    ),
+    (
         "catalog-refresh",
         "CATALOG_REFRESH.md",
         "Automatic catalog link updates",

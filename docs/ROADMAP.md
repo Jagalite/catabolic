@@ -37,6 +37,21 @@ Schema 14 adds [automatic catalog link updates](CATALOG_REFRESH.md): durable
 completion events, immediate batch refreshes, and restartable retries. It reuses
 saved layouts and journaled reconciliation without consumer notifications.
 
+## Next phase: prove the complete experience
+
+The next milestone is [one end-to-end workflow and an agent acceptance
+benchmark](EXPERIENCE_ACCEPTANCE.md). Take a messy collection through inventory,
+identification review, version selection, publication and repeat maintenance.
+Measure wrong confident identifications, appropriate and unnecessary deferrals,
+human interventions, interruption recovery and semantic repeat-run stability.
+Feature count and command exit status cannot close it.
+
+Build a reviewed corpus and answer key, prove the reference journey, validate an
+independent evaluator, then run agent trials. Fix friction in existing paths as
+the evidence requires. The synthetic corpus, executable reference journey and
+independent mechanical evaluator are implemented. Isolated agent trials and
+transcript adjudication are pending; reference acceptance is not an agent score.
+
 ## Objective and current foundation
 
 Complete useful media-catalog workflows demonstrated by FileBot's public scripts,

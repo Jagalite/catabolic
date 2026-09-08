@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "namespace": "local.experience",
+  "cases": [
+    {"id":"clear","location":"a","path":"Arrival at Dawn (2001).mkv","identity":"dawn-2001","title":"Arrival at Dawn","year":2001},
+    {"id":"same-title","location":"b","path":"Arrival at Dawn (2021).mkv","identity":"dawn-2021","title":"Arrival at Dawn","year":2021},
+    {"id":"misleading","location":"a","path":"Wrong Movie 1999.mkv","identity":"harbour-2010","title":"Quiet Harbour","year":2010,"evidence":"Transfer ledger and opening title identify Quiet Harbour (2010); filename is wrong."},
+    {"id":"duplicate","location":"b","path":"backup dawn.mkv","identity":"dawn-2001","title":"Arrival at Dawn","year":2001,"duplicate_of":"clear"},
+    {"id":"edition","location":"a","path":"Dawn directors cut.mkv","identity":"dawn-2001-directors","title":"Arrival at Dawn - Directors Cut","year":2001,"edition":"directors"},
+    {"id":"small-copy","location":"b","path":"Dawn portable.mp4","identity":"dawn-2001","title":"Arrival at Dawn","year":2001,"small":true},
+    {"id":"unicode","location":"b","path":"旅行 café [copy].mkv","identity":"journey-2015","title":"旅行 café","year":2015},
+    {"id":"episode","location":"a","path":"Field Notes s01e02.mkv","identity":"field-notes-1-2","title":"River","kind":"episode","year":2020},
+    {"id":"subtitle","location":"a","path":"Field Notes s01e02.en.srt","identity":"field-notes-1-2","title":"River","kind":"episode","year":2020,"role":"subtitle"},
+    {"id":"ambiguous","location":"a","path":"The Crossing.mkv","identity":null,"alternatives":["crossing-1980","crossing-2018"],"evidence":"No year, credits or distinguishing provenance. Both candidates remain plausible."},
+    {"id":"unknown","location":"b","path":"00047.mkv","identity":null,"evidence":"No reliable title or provenance is available."},
+    {"id":"damaged","location":"b","path":"broken.mkv","identity":null,"damaged":true,"evidence":"Empty transfer; no playable bytes or reliable identity."}
+  ],
+  "late_case":{"id":"late","location":"b","path":"New arrival.mkv","identity":"new-arrival-2024","title":"New Arrival","year":2024}
+}

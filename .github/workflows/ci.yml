@@ -126,6 +126,10 @@ jobs:
           "$RUNNER_TEMP/catabolic-release/bin/catabolic" docs enrichment
       - name: Installed CLI and representative media
         run: python scripts/acceptance.py --cli "$RUNNER_TEMP/catabolic-release/bin/catabolic" --root "$RUNNER_TEMP/media-acceptance"
+      - name: Messy collection reference journey
+        run: |
+          python scripts/experience_acceptance.py --python "$RUNNER_TEMP/catabolic-release/bin/python" --root "$RUNNER_TEMP/experience-acceptance"
+          python scripts/experience_evaluator.py --root "$RUNNER_TEMP/experience-acceptance"
       - name: Real filesystem boundaries and unmounts
         run: |
           if [ "$RUNNER_OS" = Linux ]; then
@@ -140,6 +144,8 @@ jobs:
           path: |
             ${{ runner.temp }}/media-acceptance/report.json
             ${{ runner.temp }}/storage-acceptance.json
+            ${{ runner.temp }}/experience-acceptance/*.json
+            ${{ runner.temp }}/experience-acceptance/*.jsonl
 
   jellyfin:
     needs: wheel

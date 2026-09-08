@@ -8,6 +8,15 @@ SPDX-License-Identifier: MIT
 Catabolic has three complementary test layers. A passing unit suite does not
 substitute for installed-package, storage, or consumer acceptance.
 
+The next [experience acceptance milestone](EXPERIENCE_ACCEPTANCE.md) adds a
+separate judgment benchmark over a messy collection. The installed harness below
+supplies known identities itself; it does not measure incorrect confident
+identifications, ambiguity handling or the human effort needed by an agent.
+The new `scripts/experience_acceptance.py` reference lane exercises messy curation,
+smaller-version publication, real child-process interruption and unchanged
+maintenance cycles. `scripts/experience_evaluator.py` independently rechecks the
+retained fixture. Both run in release CI; scored agent trials remain separate.
+
 ## Fast regression suite
 
 ```sh
