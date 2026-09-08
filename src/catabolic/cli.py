@@ -575,10 +575,17 @@ def parser() -> argparse.ArgumentParser:
     from . import program_cli
 
     program_cli.register(commands)
+    from .consumer_cli import register as register_consumers
+
+    register_consumers(commands)
     return root
 
 
 def dispatch(args: argparse.Namespace) -> dict:
+    if args.command in ("consumer", "notify"):
+        from .consumer_cli import dispatch as dispatch_consumer
+
+        return dispatch_consumer(args)
     if args.command == "rule" and args.operation == "run" and args.worker:
         if not args.db:
             raise CatabolicError("select --db or set CATABOLIC_DB")
@@ -1220,7 +1227,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     json_output = (
         args.json
-        or args.command in ("graphql", "manifest", "spec", "target", "export")
+        or args.command
+        in ("graphql", "manifest", "spec", "target", "export", "consumer", "notify")
         or getattr(args, "format", None) == "json"
     )
     try:
@@ -1295,6 +1303,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     except (CatabolicError, OSError, sqlite3.Error, ValueError) as exc:
         error = {"error": {"message": str(exc), "type": type(exc).__name__}}
+        from .consumer_adapters import ConsumerError
+
+        if isinstance(exc, ConsumerError):
+            error["error"].update(exc.result())
         if args.machine:
             from .program_cli import envelope
 

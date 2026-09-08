@@ -327,6 +327,10 @@ class EnrichmentTest(unittest.TestCase):
         )
 
     def test_refresh_retry_is_independent_of_links(self):
+        from catabolic.reconcile import Reconciler
+
+        Reconciler(self.app).apply()
+        output_before = list(self.output.iterdir())
         refresh = Refresh(self.app)
         refresh.configure("global", "http://localhost:8096", "TEST_JELLYFIN_TOKEN")
         self.assertEqual(refresh.after_sync({"healthy": True, "applied": []}), [])
@@ -342,17 +346,27 @@ class EnrichmentTest(unittest.TestCase):
                 side_effect=CatabolicError("HTTP request failed with status 503"),
             ),
         ):
-            self.assertFalse(refresh.run()["complete"])
+            report = refresh.run()
+            self.store.close()
+            self.assertFalse(report["complete"])
+        self.store = Store(self.database, writable=True)
+        self.addCleanup(self.store.close)
+        refresh = Refresh(Application(self.store))
         with (
             patch.dict(os.environ, {"TEST_JELLYFIN_TOKEN": "secret"}),
             patch("catabolic.network_adapters.request", return_value=b"") as request,
         ):
-            self.assertTrue(refresh.run()["complete"])
+            report = refresh.run()
+            self.store.close()
+            self.assertTrue(report["complete"])
             self.assertTrue(request.call_args.args[0].endswith("/Library/Refresh"))
+        self.store = Store(self.database, writable=True)
+        self.addCleanup(self.store.close)
+        refresh = Refresh(Application(self.store))
         self.assertEqual(refresh.list()["events"][0]["attempts"], 2)
         self.assertEqual(refresh.list()["events"][0]["id"], event)
         self.assertNotIn("secret", encode(refresh.list()))
-        self.assertEqual(list(self.output.iterdir()), [])
+        self.assertEqual(list(self.output.iterdir()), output_before)
 
     def test_cli_enqueue_run_and_results(self):
         self.store.close()
@@ -744,13 +758,18 @@ with Store(sys.argv[1],writable=True) as store:
         self.addCleanup(thread.join, 2)
         self.addCleanup(server.shutdown)
         endpoint = f"http://127.0.0.1:{server.server_port}"
+        from catabolic.reconcile import Reconciler
+
+        Reconciler(self.app).apply()
         refresh = Refresh(self.app)
         refresh.configure("global", endpoint, "TEST_JELLYFIN_TOKEN")
         with self.store.transaction() as db:
             record_output_change(db, "default", "global")
         refresh.after_sync({"healthy": True})
         with patch.dict(os.environ, {"TEST_JELLYFIN_TOKEN": "fixture-only-token"}):
-            self.assertTrue(refresh.run()["complete"])
+            report = refresh.run()
+            self.store.close()
+            self.assertTrue(report["complete"])
         self.assertEqual(calls, [("/Library/Refresh", "fixture-only-token")])
         with self.assertRaisesRegex(CatabolicError, "redirect"):
             request(

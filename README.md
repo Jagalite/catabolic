@@ -7,9 +7,10 @@ SPDX-License-Identifier: MIT
 
 **A programmable media catalog.**
 
-Queries decide what media you mean. Rules decide what should be produced or
-analyzed. Projections decide how selected media should appear to another
-application.
+People and agents decide what belongs. Queries select catalog state. Rules
+perform explicit processing and record results. Projections publish selected media
+into maintained output structures. Consumer integrations connect those outputs
+to applications; optional notifications tell people what happened.
 
 Inventory media across drives and mounted storage, identify logical items, and
 inspect their metadata, relationships, technical facts and processing evidence
@@ -70,6 +71,24 @@ calibre, Calibre-Web, and Immich.
 See [supported applications](https://github.com/Jagalite/catabolic/blob/main/docs/COMPATIBILITY.md) for the full list and each
 integration's requirements. Folder presets and import options behave differently;
 imports copy or upload selected media.
+
+### Connect published outputs to Plex or Jellyfin
+
+[Consumer bindings](docs/CONSUMERS.md) connect a projection or media subtree to an
+exact server and library identity. Configure a binding once: verified publication
+then records durable scan generations and can automatically request library scans.
+Unchanged output creates no new scan. Offline servers leave retryable delivery
+work without rerendering completed media or rewriting unchanged links.
+
+Plex supports discovery, existing-library binding, explicit library creation,
+normal section scans and bounded file-path indexing checks. Jellyfin supports
+existing-library bindings and scans; legacy refresh commands remain available.
+Folder naming presets for other apps do not imply an API integration.
+
+Scan acceptance and verified indexing are separate outcomes. Plex must be able
+to read both published symlinks and their resolved targets. Protocol and recovery
+fixtures are tested; live Plex acceptance remains unverified. See the
+[validation record](docs/CONSUMER_VALIDATION.md) for evidence and limitations.
 
 ## Install
 
@@ -177,11 +196,45 @@ catabolic maintenance --all-catalogs --rules --rule-batch 10 --render-rules 1
 Ordinary maintenance does neither. For agents and scheduled runs, use global
 `--json` and check exit codes; see [automation](https://github.com/Jagalite/catabolic/wiki/Automation).
 
+### Set up delivery once
+
+After creating a projection/output catalog named `cinema`, supply `PLEX_TOKEN`
+through protected local configuration and discover the server's libraries:
+
+```sh
+catabolic consumer connection-put home --application plex \
+  --endpoint https://plex.example.test:32400 --credential-env PLEX_TOKEN --apply
+catabolic consumer discover home --type movie
+```
+
+If discovery reports library `7` rooted at `/media/Movies`, preview the binding
+below, then repeat it with `--apply` to save it:
+
+```sh
+catabolic consumer bind cinema-plex --connection home --catalog cinema \
+  --subtree Movies --remote-root /media/Movies --library-id 7 --type movie \
+  --automatic --initial-scan
+catabolic projection execute cinema
+catabolic consumer bindings
+```
+
+Publication performs a bounded delivery drain when automatic delivery is enabled.
+Schedule `catabolic consumer run --limit 10` for delayed retries, or supervise
+`catabolic consumer watch --interval 30`. The CLI does not start a background
+service. Inspect `consumer attempts` and `consumer events` for separate outcomes.
+
+The [consumer guide](docs/CONSUMERS.md) covers explicit library creation, path
+mapping, repair and optional Apprise subscriptions. Apprise is installed separately
+with the `notifications` extra; its per-destination retries are independent of
+scan delivery. Upgrade existing databases explicitly to schema 17; upgrading does
+not enable new automatic network actions.
+
 ## Learn more
 
 - [Wiki](https://github.com/Jagalite/catabolic/wiki) — walkthroughs and detailed guides.
 - [Recommended workflow](https://github.com/Jagalite/catabolic/blob/main/docs/WORKFLOW.md) — the everyday cataloging cycle; also `catabolic docs workflow`.
 - [Processing rules](https://github.com/Jagalite/catabolic/wiki/Processing-Rules) — recipes, retroactive storage estimates and maintenance; also `catabolic docs rules`.
+- [Output consumers](docs/CONSUMERS.md) — Plex/Jellyfin setup, durable scan delivery and optional notifications; also `catabolic docs consumers`.
 - [Rendition workflows](https://github.com/Jagalite/catabolic/wiki/Rendition-Workflows) — transcode libraries, external result receipts and completion requirements.
 - [Using Catabolic with agents](https://github.com/Jagalite/catabolic/blob/main/docs/AUTOMATION.md) — automation and structured output.
 - [SQL queries](https://github.com/Jagalite/catabolic/blob/main/docs/QUERYING.md) and [GraphQL](https://github.com/Jagalite/catabolic/blob/main/docs/GRAPHQL.md) — explore the catalog.

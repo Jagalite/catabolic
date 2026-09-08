@@ -41,6 +41,12 @@ def fetch(payload):
                 raise CatabolicError("HTTP response exceeds byte limit")
             return {"body": base64.b64encode(raw).decode("ascii")}
     except urllib.error.HTTPError as exc:
+        if payload.get("structured_errors"):
+            return {
+                "error": "HTTP request rejected",
+                "status": exc.code,
+                "retry_after": exc.headers.get("Retry-After", "")[:100],
+            }
         raise CatabolicError(f"HTTP request failed with status {exc.code}") from None
     except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError):
         raise CatabolicError(

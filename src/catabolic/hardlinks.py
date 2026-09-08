@@ -478,6 +478,14 @@ class Hardlinks:
 
                 record_output_change(db, self.profile, catalog)
             db.execute("DELETE FROM journal WHERE id=?", (operation["id"],))
+            if self.store.schema_version >= 17 and kind in (
+                "hard_create",
+                "hard_replace",
+                "hard_remove",
+            ):
+                from .consumers import record_change
+
+                record_change(db, self.profile, catalog, path)
 
     def cancel_obsolete(self, operation, *, force=False):
         """Cancel only intent whose original output is untouched or safely retained."""

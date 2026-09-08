@@ -11,6 +11,24 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "consumer-validation",
+        "CONSUMER_VALIDATION.md",
+        "Consumer validation evidence",
+        "Protocol, recovery, installed-wheel and optional notification evidence with live-server limits.",
+    ),
+    (
+        "consumers",
+        "CONSUMERS.md",
+        "Output consumers and notifications",
+        "Plex and Jellyfin setup, durable scans, independent Apprise notifications and recovery.",
+    ),
+    (
+        "consumer-design",
+        "CONSUMER_DESIGN.md",
+        "Consumer implementation decisions",
+        "Publication ownership, schema 17 and adapter boundaries.",
+    ),
+    (
         "programmable",
         "PROGRAMMABLE_CATALOG.md",
         "Queries, rules and projections",

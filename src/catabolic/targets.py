@@ -327,6 +327,15 @@ def describe(target=None):
                 )
                 if definition
                 else ["primary"],
+                "consumer_api": {
+                    "available": identifier in ("plex", "jellyfin"),
+                    "command": "consumer"
+                    if identifier in ("plex", "jellyfin")
+                    else None,
+                    "evidence": "protocol fixtures; live scanner acceptance separate"
+                    if identifier in ("plex", "jellyfin")
+                    else "naming/export support only",
+                },
                 "tested_application_versions": [],
                 "validation": "Catabolic fixtures; application scan unverified",
                 "notes": {

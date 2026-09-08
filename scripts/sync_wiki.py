@@ -69,6 +69,11 @@ GROUPS = {
     ),
     "Generate and share": (
         (
+            "CONSUMERS.md",
+            "Output-Consumers",
+            "Plex and Jellyfin bindings, durable scans and optional Apprise notifications",
+        ),
+        (
             "CATALOG_REFRESH.md",
             "Automatic-Catalog-Updates",
             "Durable completion-triggered catalog link updates",
@@ -105,6 +110,16 @@ GROUPS = {
         ),
     ),
     "Operate and contribute": (
+        (
+            "CONSUMER_DESIGN.md",
+            "Consumer-Architecture",
+            "Publication ownership, adapter decisions and schema 17 migration",
+        ),
+        (
+            "CONSUMER_VALIDATION.md",
+            "Consumer-Validation",
+            "Protocol, recovery and installed-package evidence; live-server limits",
+        ),
         (
             "PROGRAMMABLE_CATALOG_VALIDATION.md",
             "Programmable-Catalog-Validation",
@@ -205,9 +220,10 @@ def render_pages():
         )
     home = [
         "# Catabolic documentation\n\n" + NOTICE,
-        "Catabolic catalogs media across source locations in SQLite and builds "
-        "organized symlink or hardlink folders. People and agents supply identities "
-        "and curation; the CLI supplies inventory, queries, naming and recoverable operations.",
+        "Catabolic gives people and agents a durable media catalog. Queries select state, "
+        "rules perform explicit processing, and projections publish maintained outputs. "
+        "Consumer bindings connect those outputs to Plex or Jellyfin; optional Apprise "
+        "notifications report what happened.",
         "Start with [Installation](Installation), then [Getting Started](Getting-Started). "
         "The walkthrough uses a disposable document, so no existing media library is needed.",
         "These pages track the repository's main branch. For the version you installed, "
@@ -235,7 +251,10 @@ def render_pages():
         "- Identification is independent of output placement.\n"
         "- Layout application changes desired mappings; sync changes links.\n"
         "- A manifest is a catalog snapshot, not a full database backup.\n"
-        "- Naming support and successful application scans are separate evidence.",
+        "- Naming support, scan acceptance and verified indexing are separate evidence.\n"
+        "- Automatic delivery needs an enabled binding; delayed retries need a scheduled "
+        "or supervised worker.\n"
+        "- Notifications have independent delivery state and do not control media servers.",
         f"[Source and issues]({REPOSITORY}) · "
         f"[Current CI]({REPOSITORY}/actions) · [MIT license]({REPOSITORY}/blob/main/LICENSE)",
     ]

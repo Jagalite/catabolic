@@ -276,7 +276,7 @@ class Reconciler:
             events = Refresh(self.app).after_sync(
                 {"healthy": verified["healthy"]}, catalog
             )
-        return {
+        result = {
             "safe": True,
             **({"refresh_events": events} if events else {}),
             **({"warnings": preview["warnings"]} if "warnings" in preview else {}),
@@ -284,6 +284,10 @@ class Reconciler:
             "verification": verified,
             "healthy": verified["healthy"],
         }
+        from .consumers import published
+
+        published(self.app, verified, result)
+        return result
 
     def recover(
         self,
@@ -310,11 +314,16 @@ class Reconciler:
                     continue
                 self._execute(operation, after_filesystem=after_filesystem)
                 recovered.append(operation["id"])
-        return {
+        result = {
             "recovered": recovered,
             "cancelled": cancelled,
             "next": "run sync --dry-run to inspect current desired state",
         }
+        if self.store.schema_version >= 17:
+            from .consumers import published
+
+            published(self.app, self.verify(catalog), result)
+        return result
 
     def _cancel_obsolete(self, operation: dict) -> bool:
         """Cancel unapplied intent only after a successful live revalidation."""
@@ -487,6 +496,14 @@ class Reconciler:
 
                 record_output_change(db, self.profile, operation["catalog"])
             db.execute("DELETE FROM journal WHERE id=?", (operation["id"],))
+            if self.store.schema_version >= 17 and kind in (
+                "create",
+                "replace",
+                "remove",
+            ):
+                from .consumers import record_change
+
+                record_change(db, self.profile, catalog, path)
 
     def _source_target(
         self, mapping: dict, output: dict

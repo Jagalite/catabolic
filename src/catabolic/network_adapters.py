@@ -19,7 +19,14 @@ from .store import encode
 
 
 def request(
-    url, *, headers=None, method="GET", maximum=1024 * 1024, timeout=15, body=None
+    url,
+    *,
+    headers=None,
+    method="GET",
+    maximum=1024 * 1024,
+    timeout=15,
+    body=None,
+    structured_errors=False,
 ):
     """Bound the whole request, including DNS, TLS, headers and a slow body."""
     if (
@@ -52,6 +59,7 @@ def request(
             "body": base64.b64encode(body).decode("ascii")
             if body is not None
             else None,
+            "structured_errors": structured_errors,
         }
     ).encode()
     if len(payload) > 256 * 1024:
@@ -65,6 +73,24 @@ def request(
         )
         result = json.loads(raw)
         if "error" in result:
+            if structured_errors:
+                from .consumer_adapters import ConsumerError
+
+                status = result.get("status")
+                code = (
+                    "unauthorized"
+                    if status in (401, 403)
+                    else "rate_limited"
+                    if status == 429
+                    else "unavailable"
+                    if status == 404
+                    else "unsupported"
+                    if status in (405, 501)
+                    else "invalid_configuration"
+                    if status in (400, 412, 422)
+                    else "temporarily_failed"
+                )
+                raise ConsumerError(code, retry_after=result.get("retry_after"))
             raise CatabolicError(result["error"])
         return base64.b64decode(result["body"], validate=True)
     except CommandFailure as exc:
@@ -250,42 +276,22 @@ class Refresh:
 
     def run(self, *, limit=100):
         page_limit(limit)
-        rows = self.store.rows(
-            "SELECT * FROM refresh_events WHERE profile=? AND state!='complete' AND attempts<3 ORDER BY id LIMIT ?",
-            (self.profile, limit),
-        )
-        results = []
-        for row in rows:
-            target = json.loads(row["target"])
-            with self.store.transaction() as db:
-                db.execute(
-                    "UPDATE refresh_events SET attempts=attempts+1 WHERE id=?",
-                    (row["id"],),
-                )
-            try:
-                request(
-                    target["endpoint"] + "/Library/Refresh",
-                    method="POST",
-                    headers={"X-Emby-Token": token(target["credential_env"])},
-                )
-                state, error = "complete", None
-            except CatabolicError as exc:
-                state, error = "failed", str(exc)
-            with self.store.transaction() as db:
-                db.execute(
-                    "UPDATE refresh_events SET state=?,error=?,finished_at=CURRENT_TIMESTAMP WHERE id=?",
-                    (state, error, row["id"]),
-                )
-            results.append({"id": row["id"], "state": state, "error": error})
-        return {
-            "events": results,
-            "complete": all(r["state"] == "complete" for r in results),
-        }
+        from .legacy_refresh_delivery import drain
+
+        result = {"events": [], "complete": False, "state": "drain_at_command_close"}
+        path, profile = self.store.path, self.profile
+
+        def deliver():
+            result.clear()
+            result.update(drain(path, profile, limit))
+
+        self.store.after_close["legacy-refresh:" + profile] = deliver
+        return result
 
     def retry(self, identifier):
         with self.store.transaction() as db:
             count = db.execute(
-                "UPDATE refresh_events SET attempts=0,state='queued',error=NULL WHERE id=? AND profile=? AND state!='complete'",
+                "UPDATE refresh_events SET attempts=0,state='queued',error=NULL,lease_token=NULL,lease_until=NULL WHERE id=? AND profile=? AND state!='complete'",
                 (identifier, self.profile),
             ).rowcount
         if not count:

@@ -71,7 +71,7 @@ class ProgrammableMigrationTest(unittest.TestCase):
 
     def test_schema14_preserves_all_original_columns_ids_and_foreign_keys(self):
         result = upgrade_database(self.path)
-        self.assertEqual(result["schema"], 16)
+        self.assertEqual(result["schema"], 17)
         with Store(self.path, writable=True) as store:
             validate_preservation(store.db, self.before)
             self.assertEqual(store.rows("PRAGMA foreign_key_check"), [])

@@ -126,6 +126,12 @@ jobs:
           "$RUNNER_TEMP/catabolic-release/bin/catabolic" docs enrichment
       - name: Installed CLI and representative media
         run: python scripts/acceptance.py --cli "$RUNNER_TEMP/catabolic-release/bin/catabolic" --root "$RUNNER_TEMP/media-acceptance"
+      - name: Installed consumer protocol lifecycle
+        run: python scripts/consumer_acceptance.py --cli "$RUNNER_TEMP/catabolic-release/bin/catabolic" --root "$RUNNER_TEMP/consumer-acceptance"
+      - name: Optional Apprise partial delivery
+        run: |
+          "$RUNNER_TEMP/catabolic-release/bin/python" -m pip install --require-hashes --only-binary=:all: -r requirements/notifications.lock
+          python scripts/notification_acceptance.py --cli "$RUNNER_TEMP/catabolic-release/bin/catabolic" --root "$RUNNER_TEMP/notification-acceptance"
       - name: Messy collection reference journey
         run: |
           python scripts/experience_acceptance.py --python "$RUNNER_TEMP/catabolic-release/bin/python" --root "$RUNNER_TEMP/experience-acceptance"
@@ -143,6 +149,8 @@ jobs:
           name: acceptance-${{ matrix.os }}
           path: |
             ${{ runner.temp }}/media-acceptance/report.json
+            ${{ runner.temp }}/consumer-acceptance/report.json
+            ${{ runner.temp }}/notification-acceptance/report.json
             ${{ runner.temp }}/storage-acceptance.json
             ${{ runner.temp }}/experience-acceptance/*.json
             ${{ runner.temp }}/experience-acceptance/*.jsonl

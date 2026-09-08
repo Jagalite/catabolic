@@ -16,7 +16,7 @@ from .store import Store
 def register(commands):
     commands = commands.add_parser(
         "catalog-refresh",
-        help="automatic saved-layout link updates; no media-server calls",
+        help="automatic saved-layout publication; optional configured consumer delivery",
     ).add_subparsers(dest="operation", required=True)
     for action in ("enable", "disable"):
         command = commands.add_parser(action)

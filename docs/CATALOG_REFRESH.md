@@ -11,9 +11,11 @@ external receipt refreshes its links automatically at the end of the producer
 batch. Probe/hash/verification completion for registered renditions also queues a
 refresh, so external video outputs can become eligible after probing.
 
-This updates catalog mappings and filesystem links only. It does not call Plex,
-Jellyfin or other consumers, queue their library-scan notifications, write
-manifests, scan source trees, or start another encode.
+This updates catalog mappings and filesystem links. With an explicitly configured
+[consumer binding](CONSUMERS.md), verified publication records durable library-scan
+work and can drain it after command close. Legacy Jellyfin refresh configuration
+remains suppressed on this path. It does not write manifests, scan source trees,
+or start another encode.
 
 ## Enable a catalog
 

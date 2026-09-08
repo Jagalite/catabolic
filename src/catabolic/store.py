@@ -21,7 +21,9 @@ from .migration import (
 
 # Reviewed recovery adapters exist for these schemas. New journal versions must
 # be admitted explicitly, with compatibility tests, rather than by a numeric range.
-RECOVERABLE_SCHEMAS = frozenset({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16})
+RECOVERABLE_SCHEMAS = frozenset(
+    {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17}
+)
 
 
 class Store:
@@ -31,6 +33,7 @@ class Store:
         self.path = database_path(path)
         self.lock_fd = None
         self.db = None
+        self.after_close = {}
         try:
             if writable:
                 self.lock_fd = acquire_writer_lock(self.path)
@@ -65,6 +68,9 @@ class Store:
         if self.lock_fd is not None:
             os.close(self.lock_fd)
             self.lock_fd = None
+        callbacks, self.after_close = self.after_close, {}
+        for callback in callbacks.values():
+            callback()
 
     def __enter__(self):
         return self
