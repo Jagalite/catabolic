@@ -101,7 +101,16 @@ class Processors:
             )
         return self.get(identifier)
 
-    def enqueue(self, processor, file_id, item_id, definition_id, configuration):
+    def prepare(
+        self,
+        processor,
+        file_id,
+        item_id,
+        definition_id,
+        configuration,
+        *,
+        operation_id=None,
+    ):
         self.app.require_recovered()
         self.get(processor)
         definition = Outputs(self.app).get_definition(definition_id)
@@ -123,12 +132,56 @@ class Processors:
             "configuration": configuration,
             "configuration_digest": hashlib.sha256(serialized.encode()).hexdigest(),
         }
+        if operation_id is not None:
+            from .operations import Operations
+
+            operation = Operations(self.app).get(operation_id)
+            if (
+                operation["operation_kind"] != "external"
+                or operation["preset"] != processor
+                or operation["definition"]["options"] != configuration
+                or operation["definition"]["output_definition_id"] != definition_id
+            ):
+                raise CatabolicError(
+                    "processor request differs from its immutable operation"
+                )
         serialized = encode(payload)
-        digest = hashlib.sha256(serialized.encode()).hexdigest()
+        identity = (
+            serialized if operation_id is None else encode([payload, operation_id])
+        )
+        digest = hashlib.sha256(identity.encode()).hexdigest()
+        return payload, digest
+
+    def enqueue(
+        self,
+        processor,
+        file_id,
+        item_id,
+        definition_id,
+        configuration,
+        *,
+        operation_id=None,
+    ):
+        payload, digest = self.prepare(
+            processor,
+            file_id,
+            item_id,
+            definition_id,
+            configuration,
+            operation_id=operation_id,
+        )
+        serialized = encode(payload)
         with self.store.transaction() as db:
             db.execute(
-                "INSERT INTO processor_jobs(id,profile,processor,request,digest) VALUES (?,?,?,?,?) ON CONFLICT(profile,processor,digest) DO NOTHING",
-                (secrets.token_hex(16), self.profile, processor, serialized, digest),
+                "INSERT INTO processor_jobs(id,profile,processor,request,digest,operation_id) VALUES (?,?,?,?,?,?) ON CONFLICT(profile,processor,digest) DO NOTHING",
+                (
+                    secrets.token_hex(16),
+                    self.profile,
+                    processor,
+                    serialized,
+                    digest,
+                    operation_id,
+                ),
             )
             identifier = db.execute(
                 "SELECT id FROM processor_jobs WHERE profile=? AND processor=? AND digest=?",
@@ -161,18 +214,30 @@ class Processors:
             "next_after": rows[limit - 1]["id"] if len(rows) > limit else None,
         }
 
-    def claim(self, processor, worker, lease_seconds=300, *, resume=False):
+    def claim(
+        self, processor, worker, lease_seconds=300, *, resume=False, job_ids=None
+    ):
         self.app.require_recovered()
         config = self.get(processor)
         text(worker, "worker", 255, empty=False)
         seconds(lease_seconds)
+        if job_ids is not None and (
+            not isinstance(job_ids, list)
+            or len(job_ids) > 1000
+            or any(not isinstance(i, str) for i in job_ids)
+        ):
+            raise CatabolicError("job_ids must contain at most 1000 IDs")
+        scope = "" if job_ids is None else " AND id IN (SELECT value FROM json_each(?))"
+        scope_args = () if job_ids is None else (encode(sorted(set(job_ids))),)
         with self.store.transaction() as db:
             timestamp = now(db)
             row = None
             if resume:
                 row = db.execute(
-                    "SELECT * FROM processor_jobs WHERE profile=? AND processor=? AND worker=? AND state IN ('leased','submitted') AND lease_until>? ORDER BY updated_at,id LIMIT 1",
-                    (self.profile, processor, worker, timestamp),
+                    "SELECT * FROM processor_jobs WHERE profile=? AND processor=? AND worker=? AND state IN ('leased','submitted') AND lease_until>?"
+                    + scope
+                    + " ORDER BY updated_at,id LIMIT 1",
+                    (self.profile, processor, worker, timestamp, *scope_args),
                 ).fetchone()
             if row is None:
                 active = db.execute(
@@ -182,8 +247,10 @@ class Processors:
                 if active >= config["capacity"]:
                     return {"claimed": False, "reason": "processor capacity is leased"}
                 row = db.execute(
-                    "SELECT * FROM processor_jobs WHERE profile=? AND processor=? AND (state='queued' OR (state IN ('leased','submitted') AND lease_until<=?)) ORDER BY created_at,id LIMIT 1",
-                    (self.profile, processor, timestamp),
+                    "SELECT * FROM processor_jobs WHERE profile=? AND processor=? AND (state='queued' OR (state IN ('leased','submitted') AND lease_until<=?))"
+                    + scope
+                    + " ORDER BY created_at,id LIMIT 1",
+                    (self.profile, processor, timestamp, *scope_args),
                 ).fetchone()
                 if row is None:
                     return {"claimed": False, "reason": "no queued or expired work"}

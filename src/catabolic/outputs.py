@@ -174,9 +174,18 @@ class Outputs:
             "SELECT 1 FROM item_files WHERE file_id=? AND item_id=? AND active=1",
             (file_id, item_id),
         ):
-            raise CatabolicError(
-                "input must have an active association with the requested item"
+            from .rendition_publication import ready
+
+            outputs = self.store.rows(
+                f"SELECT * FROM ({RENDITIONS_SQL}) WHERE profile=? AND file_id=? AND item_id=?",
+                (self.profile, file_id, item_id),
             )
+            if not outputs:
+                raise CatabolicError(
+                    "input must have an active association or a validated rendition for the requested item"
+                )
+            for output in outputs:
+                ready(self.app, output)
         if value["mode"] == "new_item":
             kind = self.store.rows("SELECT kind FROM items WHERE id=?", (item_id,))[0][
                 "kind"

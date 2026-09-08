@@ -12,6 +12,7 @@ import sqlite3
 import time
 from contextlib import nullcontext
 
+from .catalog_state import RENDITION_STATE_SQL
 from .domain import CatabolicError
 from .item_workflow import CHECKS_SQL, SUMMARY_SQL
 from .outputs import RENDITIONS_SQL
@@ -24,6 +25,26 @@ MAX_RESULT_BYTES = 8 * 1024 * 1024
 # Connection-local views are an API independent of the stored schema. Qualifying
 # all base tables prevents accidental name resolution through a temporary object.
 VIEWS = {
+    "catalog_rule_processor_jobs": (
+        "Rule provenance for existing fenced external processor jobs.",
+        "SELECT * FROM main.rule_processor_jobs",
+    ),
+    "catalog_queries": (
+        "Immutable saved query revisions; dependencies pin IDs.",
+        "SELECT * FROM main.saved_queries",
+    ),
+    "catalog_query_dependencies": (
+        "Pinned query composition edges.",
+        "SELECT * FROM main.query_dependencies",
+    ),
+    "catalog_projections": (
+        "Configured query and layout per profile/catalog; mappings and owned links record execution separately.",
+        "SELECT * FROM main.projection_bindings",
+    ),
+    "catalog_rendition_state": (
+        "Recorded source/output revision currentness and acceptance; NULL means evidence unknown. Does not replace live publication validation or establish ancestor currentness.",
+        RENDITION_STATE_SQL,
+    ),
     "catalog_items": (
         "One row per media item, including items with no mappings. Metadata is JSON text.",
         """SELECT id AS item_id, kind, catalog_title(metadata) AS title,
@@ -38,7 +59,7 @@ VIEWS = {
         """SELECT p.id AS profile, f.id AS file_id, f.location,
         f.path AS source_relative_path, b.root AS source_root,
         CASE WHEN b.root IS NOT NULL THEN rtrim(b.root,'/') || '/' || f.path END AS source_path,
-        o.size, o.mtime_ns, coalesce(o.status,'unknown') AS status,
+        o.size, o.mtime_ns, o.device, o.inode, b.device AS root_device, b.inode AS root_inode, coalesce(o.status,'unknown') AS status,
         o.scan_id, s.finished_at AS observed_at
         FROM main.profiles p CROSS JOIN main.files f
         LEFT JOIN main.observations o ON o.profile=p.id AND o.file_id=f.id

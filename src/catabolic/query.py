@@ -325,6 +325,8 @@ class CatalogQuery:
         metadata=(),
         catalog=None,
         curation_status=None,
+        has_rendition=None,
+        missing_rendition=None,
         tags=(),
         any_tags=(),
         not_tags=(),
@@ -348,6 +350,18 @@ class CatalogQuery:
                 f"i.id IN (SELECT item_id FROM ({SUMMARY_SQL}) WHERE profile=? AND status=?)"
             )
             values.extend((self.profile, curation_status))
+        from .catalog_state import RENDITION_STATE_SQL, rendition_condition
+
+        for wanted, negate in ((has_rendition, False), (missing_rendition, True)):
+            if wanted is not None:
+                conditions, params = rendition_condition(wanted)
+                clauses.append(
+                    ("NOT " if negate else "")
+                    + f"EXISTS (SELECT 1 FROM ({RENDITION_STATE_SQL}) r WHERE r.profile=? AND r.source_item_id=i.id"
+                    + (" AND " + " AND ".join(conditions) if conditions else "")
+                    + ")"
+                )
+                values.extend((self.profile, *params))
         if catalog is not None:
             clauses.append(
                 "i.id IN (SELECT m.item_id FROM mappings m WHERE m.catalog=? AND m.active=1)"
@@ -386,6 +400,8 @@ class CatalogQuery:
                 list(metadata),
                 catalog,
                 curation_status,
+                has_rendition,
+                missing_rendition,
                 tags,
                 any_tags,
                 not_tags,

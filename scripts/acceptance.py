@@ -854,12 +854,24 @@ class Workflow:
                 digest(self.root / path) == before, f"source content changed: {path}"
             )
         self.hashes = hashes
+        try:
+            from .programmable_acceptance import exercise as programmable
+        except ImportError:
+            from programmable_acceptance import exercise as programmable
+        programming = programmable(self, files["Feature.mkv"])
+        for path, before in hashes.items():
+            require(
+                digest(self.root / path) == before,
+                "programming workflow changed source bytes",
+            )
         return {
+            "programming": programming,
             "media_files": len(media),
             "probe_recipes": recipes,
             "source_hashes": hashes,
             "commands": self.commands,
             "checks": [
+                "programmable_query_rule_projection",
                 "on_demand_maintenance_and_backlog",
                 "processing_rules_and_storage_estimates",
                 "catalog_scoped_rendition_publication",

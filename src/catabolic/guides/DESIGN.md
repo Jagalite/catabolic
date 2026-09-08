@@ -5,14 +5,34 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
-Status: the catalog core and CLI are implemented in Python, currently schema 14.
-The system includes enrichment jobs, generated renditions, entry worklogs and
-saved processing rules. See [ENRICHMENT.md](ENRICHMENT.md),
-[ARTIFACTS.md](ARTIFACTS.md) and [RULES.md](RULES.md) for current commands.
+Status: implemented Python catalog and CLI, schema **16**. The governing model is
+**query → rule → catalog evidence**, or **query → projection → reconciled output**.
+See [the programmable catalog guide](PROGRAMMABLE_CATALOG.md) for commands and
+[the repository review](PROGRAMMABLE_CATALOG_REVIEW.md) for the migration decisions.
 
-Catabolic inventories media, maintains descriptive metadata, and projects curated
-catalogs as symbolic links. It is an independent Python application with its own
-implementation and storage format.
+## Three primitives over one durable catalog
+
+A query is an immutable reusable SQL/GraphQL definition with an explicit result
+contract. Complete typed selections feed rules and projections; arbitrary rows
+and documents remain first-class inspection interfaces. Pinned set compositions
+reuse definitions without hiding truncation, profile changes or language behavior.
+
+A rule attaches that selection to an immutable operation, execution policy and
+result semantics. Analysis records facts, rendering records validated artifacts,
+and external execution records fenced receipts. These retain separate typed
+executors and attempts, using catalog state to connect stages. Desired work,
+queued work, attempts, produced files, validation, accepted renditions and healthy
+publication remain different states. Empty gap queries do not erase required work.
+
+A projection composes the same query contract with copy/rendition selection,
+a reusable layout and a bound catalog output. Its preview stages desired mappings
+in a rollback transaction; execution delegates to the existing reconciliation
+journal and verifies the result. Automatic catalog refresh remains a bounded
+retry queue for output consequences, never an engine that recursively runs rules.
+
+Source files, logical media identity and observed file occurrences remain distinct.
+This unifies configuration and vocabulary without replacing the working domain,
+filesystem safety, migration, job, receipt, manifest or recovery systems.
 
 ## Ownership
 

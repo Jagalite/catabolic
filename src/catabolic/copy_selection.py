@@ -5,6 +5,7 @@
 
 import json
 from collections import defaultdict
+from contextlib import nullcontext
 
 from .curation import occurrence, payload_object
 from .domain import CatabolicError
@@ -29,7 +30,7 @@ class CopySelection:
     def __init__(self, app):
         self.app, self.store = app, app.store
 
-    def put(self, catalog, definition):
+    def put(self, catalog, definition, *, _db=None):
         self.app.require_recovered()
         payload_object(definition)
         if set(definition) - {"require", "prefer", "tie_break", "available_only"}:
@@ -63,7 +64,7 @@ class CopySelection:
                 not isinstance(rule["values"], list) or len(rule["values"]) > 100
             ):
                 raise CatabolicError("values must be a bounded ordered list")
-        with self.store.transaction() as db:
+        with nullcontext(_db) if _db is not None else self.store.transaction() as db:
             db.execute(
                 "INSERT INTO copy_policies VALUES (?,?) ON CONFLICT(catalog) DO UPDATE SET definition=excluded.definition",
                 (catalog, encode(definition)),
@@ -103,9 +104,9 @@ class CopySelection:
                     {k: summary.get(k) for k in ("height", "width", "hdr", "duration")}
                 )
                 values.update(
-                    language=summary.get("languages", []),
-                    video_codec=summary.get("video_codecs", []),
-                    audio_codec=summary.get("audio_codecs", []),
+                    language=summary.get("languages"),
+                    video_codec=summary.get("video_codecs"),
+                    audio_codec=summary.get("audio_codecs"),
                 )
                 failed = [
                     k
@@ -155,6 +156,9 @@ class CopySelection:
                     {
                         "file_id": row["file_id"],
                         "required_fields_failed": failed,
+                        "unknown_fields": sorted(
+                            k for k, v in values.items() if v is None
+                        ),
                         "rank": score,
                         "observed_status": observed["status"],
                     }

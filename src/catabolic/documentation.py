@@ -11,6 +11,24 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "programmable",
+        "PROGRAMMABLE_CATALOG.md",
+        "Queries, rules and projections",
+        "Reusable query contracts, operation rules, safe projections and migration compatibility.",
+    ),
+    (
+        "programmable-review",
+        "PROGRAMMABLE_CATALOG_REVIEW.md",
+        "Programmable catalog implementation review",
+        "Repository findings, retained owners and schema 15-16 redesign decisions.",
+    ),
+    (
+        "programmable-validation",
+        "PROGRAMMABLE_CATALOG_VALIDATION.md",
+        "Programmable catalog validation",
+        "Executed regression, installed consumer and scale evidence with explicit limits.",
+    ),
+    (
         "experience-acceptance",
         "EXPERIENCE_ACCEPTANCE.md",
         "Experience acceptance milestone",

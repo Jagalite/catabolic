@@ -45,6 +45,7 @@ DATABASE_ACTIONS = (
     "layout_full",
     "manifest",
     "manual_mapping",
+    "saved_gap_selection",
 )
 
 
@@ -267,6 +268,21 @@ def seed(root, count, physical):
             if physical
             else None,
         }
+        from catabolic.saved_queries import Queries
+
+        marker["saved_gap_query"] = Queries(store).put(
+            "bounded-gap",
+            {
+                "selection": {
+                    "language": "sql",
+                    "query": "SELECT file_id FROM catalog_files f WHERE f.profile=:profile AND f.source_relative_path<=:last AND NOT EXISTS (SELECT 1 FROM catalog_rendition_state r WHERE r.profile=f.profile AND r.source_file_id=f.file_id AND r.recorded_current=1)",
+                    "params": {"last": source_path(min(count, 100000) - 1)},
+                    "page_size": 1000,
+                    "max_ids": 100000,
+                    "timeout_ms": 60000,
+                }
+            },
+        )["id"]
     (root / MARKER).write_text(encode(marker))
     return {
         "count": count,
@@ -293,6 +309,21 @@ def operate(root, action):
     with Store(path, writable=writable, for_recovery=action == "recover") as store:
         assert store.database_id == marker["database_id"]
         app = Application(store)
+        if action == "saved_gap_selection":
+            from catabolic.saved_queries import Queries
+
+            entity, ids, report = Queries(store).select(marker["saved_gap_query"])
+            assert (
+                entity == "file_id"
+                and len(ids) == min(marker["count"], 100000)
+                and report["complete"]
+            )
+            return {
+                "selected_ids": len(ids),
+                "pages": report["pages"],
+                "complete": True,
+                "id_cap": 100000,
+            }
         if action == "indexed_association":
             identifier = store.rows(
                 "SELECT file_id FROM item_files WHERE id=?", ("association-000000042",)

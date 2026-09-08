@@ -21,7 +21,7 @@ from uuid import UUID, uuid4
 from .database_io import connect_database, database_path, writer_lock
 from .domain import CatabolicError
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 16
 HISTORY_TABLE = "schema_migrations"
 
 
@@ -117,7 +117,42 @@ def _authorize(action, arg1, arg2, _database, _trigger):
 
 
 def execute_migration(db: sqlite3.Connection, step: Migration):
-    db.set_authorizer(_authorize)
+    query_upgrade = (
+        step.version == 15 and step.filename == "015_queries_projections.sql"
+    )
+    if query_upgrade:
+        # Frozen v1 normalization for adopted definitions, independent of future
+        # query validators. Keep original rule/layout JSON untouched.
+        def query_v1(raw, profile):
+            value = json.loads(raw)
+            value["selection"] = {"profile": profile, **value["selection"]}
+            return json.dumps(
+                value, sort_keys=True, ensure_ascii=False, allow_nan=False
+            )
+
+        db.create_function("catabolic_query_v1", 2, query_v1, deterministic=True)
+        db.create_function(
+            "catabolic_sha256_v1",
+            1,
+            lambda raw: hashlib.sha256(raw.encode()).hexdigest(),
+            deterministic=True,
+        )
+    rebuild = step.version == 16 and step.filename == "016_operation_rules.sql"
+    if rebuild:
+        db.execute("PRAGMA defer_foreign_keys=ON")
+
+    def authorize(*args):
+        # SQLite 3.37+ validates ADD COLUMN CHECK with this internal read-only
+        # pragma. No migration SQL gains transaction or connection control.
+        if rebuild and args[:3] == (
+            sqlite3.SQLITE_PRAGMA,
+            "quick_check",
+            "processing_recipes",
+        ):
+            return sqlite3.SQLITE_OK
+        return _authorize(*args)
+
+    db.set_authorizer(authorize)
     try:
         # executescript() can implicitly commit. Execute complete statements
         # individually, preserving the runner's transaction boundary.
@@ -127,6 +162,16 @@ def execute_migration(db: sqlite3.Connection, step: Migration):
         raise CatabolicError(f"migration {step.filename} failed: {exc}") from exc
     finally:
         db.set_authorizer(None)
+        if query_upgrade:
+            db.create_function("catabolic_query_v1", 2, None)
+            db.create_function("catabolic_sha256_v1", 1, None)
+    if rebuild:
+        # SQLite retains deferred DROP TABLE violations even when a replacement
+        # restores every referenced row. Check the final graph before clearing
+        # that bookkeeping; the caller still owns the atomic transaction.
+        if db.execute("PRAGMA foreign_key_check").fetchone() is not None:
+            raise CatabolicError("operation migration violated a foreign key")
+        db.execute("PRAGMA defer_foreign_keys=OFF")
 
 
 def _schema(db: sqlite3.Connection) -> tuple:

@@ -131,6 +131,8 @@ class Artifacts:
             raise CatabolicError(
                 "unknown recipe ID; select an explicit immutable revision"
             )
+        if rows[0].get("operation_kind", "render") != "render":
+            raise CatabolicError("artifact execution requires a render operation")
         return self._decode(rows[0])
 
     @staticmethod
@@ -336,6 +338,9 @@ class Artifacts:
         options = json.loads(job["options"])
         output = options.get("output_definition") or self.default_output(
             options["recipe"]["preset"]
+        )
+        Outputs(self.app).validate_source_item(
+            job["file_id"], options["item_id"], output["definition"]
         )
         identifier = str(
             uuid5(
@@ -561,6 +566,12 @@ class Artifacts:
             )
         artifact = self.get(identifier)
         try:
+            if options.get("output_definition"):
+                Outputs(self.app).validate_source_item(
+                    job["file_id"],
+                    options["item_id"],
+                    options["output_definition"]["definition"],
+                )
             if rendering.tools() != options["tools"]:
                 raise CatabolicError(
                     "FFmpeg or ffprobe changed since enqueue; submit a new job"

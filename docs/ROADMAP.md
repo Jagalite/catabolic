@@ -5,6 +5,9 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
+Schemas 15–16 implement the [programmable catalog foundation](PROGRAMMABLE_CATALOG.md): reusable SQL/GraphQL query contracts, operation rules and projection configuration over the existing durable catalog. [Repository findings](PROGRAMMABLE_CATALOG_REVIEW.md) explain retained boundaries and deliberate limits. Historical milestones below retain their original scope.
+
+
 Status: roadmap accepted on 2026-09-06. Schema 6 implements the first workflows
 across these areas, including the lightweight processing pipeline.
 [ENRICHMENT.md](ENRICHMENT.md) is the authoritative implemented-command guide.

@@ -5,21 +5,25 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
-**Catalog your media. Make its metadata useful everywhere.**
+**A programmable media catalog.**
 
-Your movies might live on one drive, your music on another, and your books on a
-NAS. Catabolic brings them into one searchable catalog with titles, tags,
-identities, and relationships. Keep track of what you have, enrich its metadata,
-and build collections across your storage locations.
+Queries decide what media you mean. Rules decide what should be produced or
+analyzed. Projections decide how selected media should appear to another
+application.
 
-When you're ready to use that collection elsewhere, generate **symlink libraries
-in popular media-app folder formats**. Give Plex, Jellyfin, music servers, or
-readers their own organized view without copying, moving, or renaming your
-original files.
+Inventory media across drives and mounted storage, identify logical items, and
+inspect their metadata, relationships, technical facts and processing evidence
+with SQL or GraphQL. Save a reusable query, attach an operation rule or an output
+projection, preview, execute a bounded batch, and verify the resulting state.
 
-Use it yourself or let an AI agent help curate the collection. You decide what
-each file is and how it should be described and organized; Catabolic maintains
-the catalog and generates the outputs you choose.
+Completed processing becomes catalog evidence. A query for media missing a
+rendition stops matching once that result is recorded. Different projections can
+select different versions of the same item and maintain independent Plex,
+Jellyfin, music or document layouts without changing original files. Durable jobs,
+receipts and filesystem journals preserve recovery when work is interrupted.
+
+Start with the [query → rule → projection guide](docs/PROGRAMMABLE_CATALOG.md),
+including implemented operation types, compatibility and validation limits.
 
 [Get started](https://github.com/Jagalite/catabolic/blob/main/docs/GETTING_STARTED.md) · [Documentation](https://github.com/Jagalite/catabolic/wiki) · [FAQ](https://github.com/Jagalite/catabolic/blob/main/docs/FAQ.md)
 

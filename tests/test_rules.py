@@ -19,7 +19,7 @@ from catabolic.cli import main
 from catabolic.domain import CatabolicError
 from catabolic.item_workflow import ItemWorkflow
 from catabolic.maintenance import run as maintenance
-from catabolic.migration import load_migrations, upgrade_database
+from catabolic.migration import SCHEMA_VERSION, load_migrations, upgrade_database
 from catabolic.processing import Processing
 from catabolic.rule_estimates import estimate, total
 from catabolic.rules import Rules, render_preview
@@ -75,15 +75,15 @@ class EstimateTest(unittest.TestCase):
             upgrade_database(path, migrations=load_migrations()[:10])
             before = contents(path)
             result = upgrade_database(path)
-            self.assertEqual(result["schema"], 14)
+            self.assertEqual(result["schema"], SCHEMA_VERSION)
             with Store(path) as store:
                 self.assertEqual(store.rows("SELECT * FROM processing_rules"), [])
                 self.assertEqual(store.rows("SELECT * FROM rule_jobs"), [])
             # Existing rows, including migration history, must retain their values.
-            after = contents(path)
-            for table, rows in before.items():
-                if table != "schema_migrations":
-                    self.assertEqual(rows, after[table], table)
+            from catabolic.migration import validate_preservation
+
+            with Store(path) as store:
+                validate_preservation(store.db, before)
 
 
 @unittest.skipUnless(

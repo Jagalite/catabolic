@@ -6,6 +6,7 @@
 import hashlib
 import json
 import os
+from contextlib import nullcontext
 
 from .curation import occurrence
 from .domain import CatabolicError
@@ -15,8 +16,16 @@ from .source_access import validated_source
 from .store import encode
 
 
-def ready(app, output):
+def ready(app, output, _ancestors=()):
     """Check current metadata/evidence without decoding or hashing an entire file."""
+    if output["id"] in _ancestors or len(_ancestors) >= 64:
+        raise CatabolicError("rendition lineage cycle or depth exceeds 64")
+    parents = app.store.rows(
+        f"SELECT * FROM ({RENDITIONS_SQL}) WHERE profile=? AND file_id=?",
+        (app.profile, output["source_file_id"]),
+    )
+    for parent in parents:
+        ready(app, parent, (*_ancestors, output["id"]))
     if output["artifact_id"]:
         row = app.store.rows(
             "SELECT a.*,j.snapshot AS input_snapshot FROM processing_artifacts a JOIN processing_jobs j ON j.id=a.job_id WHERE a.id=? AND j.state='complete' AND a.state='ready'",
@@ -112,7 +121,7 @@ class Publication:
             "definition": json.loads(rows[0]["definition"]) if rows else None,
         }
 
-    def put(self, catalog, value):
+    def put(self, catalog, value, *, _db=None):
         from .item_workflow import text
 
         self.app.require_recovered()
@@ -153,7 +162,7 @@ class Publication:
         ):
             raise CatabolicError("unknown rule revision in this profile")
         serialized = encode(value)
-        with self.store.transaction() as db:
+        with nullcontext(_db) if _db is not None else self.store.transaction() as db:
             db.execute(
                 "INSERT INTO rendition_policies VALUES (?,?,?,?) ON CONFLICT(profile,catalog) DO UPDATE SET definition=excluded.definition,digest=excluded.digest",
                 (

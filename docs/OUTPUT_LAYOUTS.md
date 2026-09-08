@@ -5,6 +5,9 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
+A layout is the reusable naming component of a [projection](PROGRAMMABLE_CATALOG.md). A projection binding supplies its query independently; legacy inline selections continue to work.
+
+
 Layouts turn active file identifications into desired catalog paths. An optional
 saved SQL or GraphQL selection limits membership; see [QUERY_FOLDERS.md](QUERY_FOLDERS.md). They are
 versioned JSON definitions, independent of machine profiles and output directory

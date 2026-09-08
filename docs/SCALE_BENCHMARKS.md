@@ -5,6 +5,13 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
+The benchmark now also measures `saved_gap_selection`: a complete reusable SQL
+query for missing current renditions, drained in 1,000-ID pages with an explicit
+100,000-ID cap. Larger fixtures select an explicit path-bounded subset; a cap is
+never treated as implicit completeness. See [the redesign validation](PROGRAMMABLE_CATALOG_VALIDATION.md)
+for the current local run.
+
+
 Run the retained synthetic benchmark from an installed development checkout:
 
 ```sh

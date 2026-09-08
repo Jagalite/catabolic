@@ -5,6 +5,9 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
+Query folders are the legacy embedded-selection form of a [projection](PROGRAMMABLE_CATALOG.md). New `query save` and `projection put` commands let multiple outputs share one immutable query and reuse layout templates; the commands below remain supported.
+
+
 A layout can save a SQL or GraphQL selection. The query decides membership; the
 layout names the selected files; a catalog binding chooses the output folder.
 This supports folders such as recent films, a reading list, an artist's recordings,

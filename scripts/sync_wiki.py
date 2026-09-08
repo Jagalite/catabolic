@@ -18,6 +18,11 @@ SPDX-License-Identifier: MIT
 """
 GROUPS = {
     "Start here": (
+        (
+            "PROGRAMMABLE_CATALOG.md",
+            "Programmable-Catalog",
+            "Queries, rules and projections over one durable catalog",
+        ),
         ("README.md", "Overview", "What Catabolic does and how to try it"),
         ("INSTALLATION.md", "Installation", "pip, pipx, optional tools and upgrades"),
         (
@@ -100,6 +105,16 @@ GROUPS = {
         ),
     ),
     "Operate and contribute": (
+        (
+            "PROGRAMMABLE_CATALOG_VALIDATION.md",
+            "Programmable-Catalog-Validation",
+            "Executed regression, consumer and scale evidence",
+        ),
+        (
+            "PROGRAMMABLE_CATALOG_REVIEW.md",
+            "Programmable-Catalog-Review",
+            "Repository findings and incremental schema 15-16 implementation",
+        ),
         (
             "EXPERIENCE_ACCEPTANCE.md",
             "Experience-Acceptance",

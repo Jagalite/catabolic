@@ -464,8 +464,30 @@ class Layouts:
             )
         return self.get(identifier)
 
-    def _plan(self, identifier, catalog, replace_layout, allow_empty=False):
+    def effective_definition(self, identifier, catalog):
         definition = self.get(identifier)["definition"]
+        if self.store.schema_version >= 15:
+            bindings = self.store.rows(
+                "SELECT * FROM projection_bindings WHERE profile=? AND catalog=?",
+                (self.app.profile, catalog),
+            )
+            if bindings:
+                binding = bindings[0]
+                if binding["layout"] != identifier:
+                    raise CatabolicError(
+                        "projection is configured with a different layout; execute that projection explicitly"
+                    )
+                definition = {
+                    **definition,
+                    "selection": {
+                        "query_id": binding["query_id"],
+                        "profile": self.app.profile,
+                    },
+                }
+        return definition
+
+    def _plan(self, identifier, catalog, replace_layout, allow_empty=False):
+        definition = self.effective_definition(identifier, catalog)
         if not self.store.db.execute(
             "SELECT 1 FROM catalogs WHERE id=?", (catalog,)
         ).fetchone():

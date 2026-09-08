@@ -5,8 +5,11 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
+Migrations 15–16 introduce reusable query revisions, projection bindings and generalized operation rules. Existing IDs, definition JSON, historical jobs and requirements are preserved; see [the exact mapping](PROGRAMMABLE_CATALOG.md#compatibility-evidence-and-limits).
+
+
 Catabolic uses ordered SQL files and one Python runner. Users can skip application
-releases: upgrading schema 1 to schema 14 applies migrations 2 through 14 in order.
+releases: upgrading schema 1 to schema 16 applies migrations 2 through 16 in order.
 There is no separate script for every possible pair of versions. The shipped
 schema is currently **14**. Migration `004_tags.sql` adds tag vocabulary, aliases,
 hierarchy and attributed item/file assertions without changing existing rows.

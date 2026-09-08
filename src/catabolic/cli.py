@@ -79,6 +79,11 @@ def parser() -> argparse.ArgumentParser:
     )
     root.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     root.add_argument(
+        "--machine",
+        action="store_true",
+        help="versioned machine response envelope (v1)",
+    )
+    root.add_argument(
         "--db",
         default=os.environ.get("CATABOLIC_DB"),
         help="explicit database path (or CATABOLIC_DB)",
@@ -266,6 +271,9 @@ def parser() -> argparse.ArgumentParser:
         help="execute one read-only SQL statement; use --schema to discover views",
     )
     query.add_argument("sql", nargs="?")
+    query.add_argument("query_name", nargs="?", help="saved query name or revision ID")
+    query.add_argument("--definition", help="saved query definition JSON file")
+    query.add_argument("--after", default="", help="saved query listing cursor")
     query.add_argument(
         "--file", metavar="PATH", help="read SQL from a UTF-8 file; - reads stdin"
     )
@@ -564,10 +572,19 @@ def parser() -> argparse.ArgumentParser:
                 action="store_true",
                 help="read-only preview; does not scan or write inventory",
             )
+    from . import program_cli
+
+    program_cli.register(commands)
     return root
 
 
 def dispatch(args: argparse.Namespace) -> dict:
+    if args.command == "rule" and args.operation == "run" and args.worker:
+        if not args.db:
+            raise CatabolicError("select --db or set CATABOLIC_DB")
+        from .rule_cli import run_external
+
+        return run_external(args)
     if args.command == "catalog-refresh":
         from .catalog_refresh_cli import dispatch as dispatch_catalog_refresh
 
@@ -616,6 +633,19 @@ def dispatch(args: argparse.Namespace) -> dict:
             "content_sha256": document.content_sha256,
             "counts": document.content.counts.model_dump(),
         }
+    if args.command == "operation" and args.operation in ("types", "schema"):
+        from .program_cli import operation
+
+        return operation(args)
+    if (
+        args.command == "projection"
+        and args.operation == "schema"
+        or args.command == "query"
+        and args.sql == "contract"
+    ):
+        from .program_contracts import definition_schema
+
+        return definition_schema(args.command)
     if args.command == "item" and args.operation == "types":
         return describe_types()
     if args.command == "layout" and args.operation == "presets":
@@ -688,6 +718,14 @@ def dispatch(args: argparse.Namespace) -> dict:
             args.db, dry_run=args.dry_run, backup_dir=args.backup_dir
         )
     if args.command == "query":
+        from . import program_cli
+
+        if args.sql in program_cli.QUERY_COMMANDS:
+            return program_cli.query(args)
+        if args.query_name or args.definition or args.after:
+            raise CatabolicError(
+                "saved query arguments require save, show, list or run"
+            )
         if sum((args.sql is not None, args.file is not None, args.schema)) != 1:
             raise CatabolicError(
                 "choose exactly one SQL statement, --file PATH, --file -, or --schema"
@@ -708,6 +746,14 @@ def dispatch(args: argparse.Namespace) -> dict:
             max_rows=args.max_rows,
             timeout_ms=args.timeout_ms,
         )
+    if args.command == "projection":
+        from .program_cli import projection
+
+        return projection(args)
+    if args.command == "operation":
+        from .program_cli import operation
+
+        return operation(args)
     from . import enrichment_cli, rule_cli, workflow_cli
 
     writable = (
@@ -1175,6 +1221,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         result = dispatch(args)
+        if args.machine:
+            from .program_cli import envelope, exit_code
+
+            code = exit_code(args, result)
+            print(
+                json.dumps(
+                    envelope(args, result, code), ensure_ascii=False, allow_nan=False
+                )
+            )
+            return code
         if (
             args.command == "rule"
             and args.operation in ("preview", "apply", "run")
@@ -1225,7 +1281,7 @@ def main(argv: list[str] | None = None) -> int:
             and result.get("interrupted") is True
         ):
             return 130
-        if args.command == "graphql" and result.get("errors"):
+        if args.command in ("graphql", "query") and result.get("errors"):
             return 2
         if args.command == "spec":
             # Unknown envelope fields are data, not this command's status.
@@ -1235,8 +1291,31 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     except (CatabolicError, OSError, sqlite3.Error, ValueError) as exc:
         error = {"error": {"message": str(exc), "type": type(exc).__name__}}
+        if args.machine:
+            from .program_cli import envelope
+
+            print(json.dumps(envelope(args, error, 2)))
+            return 2
         print(json.dumps(error) if json_output else f"error: {exc}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:
+        if args.machine:
+            from .program_cli import envelope
+
+            print(
+                json.dumps(
+                    envelope(
+                        args,
+                        {
+                            "error": {
+                                "type": "KeyboardInterrupt",
+                                "message": "interrupted; inspect jobs and recover pending filesystem operations",
+                            }
+                        },
+                        130,
+                    )
+                )
+            )
+            return 130
         print("interrupted; use recover if an operation is pending", file=sys.stderr)
         return 130

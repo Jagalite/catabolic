@@ -5,6 +5,9 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
+Prefer [query → rule → projection](PROGRAMMABLE_CATALOG.md) for new automation. Global `--machine` adds a versioned response envelope without changing legacy `--json`. Complete selections, displayed detail caps, execution results and publication readiness remain separate fields.
+
+
 Catabolic exposes its application operations through a noninteractive CLI.
 An agent can discover schemas, inspect evidence, record decisions, and execute
 reviewed changes without a daemon or an embedded agent framework. The person or

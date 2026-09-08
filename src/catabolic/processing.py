@@ -379,6 +379,31 @@ def process(job, cancel):
         return {"state": "failed", "data": {}, "error": str(exc)[:1000]}
 
 
+def operation_config(operation, options=None):
+    if operation not in OPERATIONS:
+        raise CatabolicError("unsupported processing operation")
+    options = payload_object(options or {})
+    if set(options) - {"timeout", "max_bytes", "analysis_bytes", "analysis_us"}:
+        raise CatabolicError("unknown processing option")
+    config = {
+        "timeout": 120 if operation in ("hash", "verify", "decode") else 20,
+        "max_bytes": 2 * 1024 * 1024,
+        "analysis_bytes": 1024 * 1024,
+        "analysis_us": 1000000,
+        **options,
+    }
+    for key, maximum in (
+        ("timeout", 86400),
+        ("max_bytes", 8 * 1024 * 1024),
+        ("analysis_bytes", 64 * 1024 * 1024),
+        ("analysis_us", 60000000),
+    ):
+        if type(config[key]) is not int or not 1 <= config[key] <= maximum:
+            raise CatabolicError(f"invalid {key} budget")
+    config["extractor"] = tool_signature(operation)
+    return config
+
+
 class Processing:
     def __init__(self, app):
         self.app, self.store, self.profile = app, app.store, app.profile
@@ -393,33 +418,27 @@ class Processing:
         after="",
         refresh=False,
         options=None,
+        recipe_id=None,
     ):
         page_limit(limit)
         if location is not None and not self.store.rows(
             "SELECT id FROM locations WHERE id=?", (location,)
         ):
             raise CatabolicError("unknown source location")
-        if operation not in OPERATIONS:
-            raise CatabolicError("unsupported processing operation")
-        options = payload_object(options or {})
-        if set(options) - {"timeout", "max_bytes", "analysis_bytes", "analysis_us"}:
-            raise CatabolicError("unknown processing option")
-        config = {
-            "timeout": 120 if operation in ("hash", "verify", "decode") else 20,
-            "max_bytes": 2 * 1024 * 1024,
-            "analysis_bytes": 1024 * 1024,
-            "analysis_us": 1000000,
-            **options,
-        }
-        for key, maximum in (
-            ("timeout", 86400),
-            ("max_bytes", 8 * 1024 * 1024),
-            ("analysis_bytes", 64 * 1024 * 1024),
-            ("analysis_us", 60000000),
-        ):
-            if type(config[key]) is not int or not 1 <= config[key] <= maximum:
-                raise CatabolicError(f"invalid {key} budget")
-        config["extractor"] = tool_signature(operation)
+        config = operation_config(operation, options)
+        if recipe_id is not None:
+            from .operations import Operations
+
+            recipe = Operations(self.app).get(recipe_id)
+            if (
+                recipe["operation_kind"] != "analysis"
+                or recipe["preset"] != operation
+                or recipe["definition"]["options"] != (options or {})
+            ):
+                raise CatabolicError(
+                    "processing operation does not match its immutable definition"
+                )
+            config["operation_id"] = recipe_id
         if file_ids is not None:
             if (
                 not isinstance(file_ids, list)
@@ -459,7 +478,7 @@ class Processing:
             if (
                 old
                 and (not refresh or old[0]["state"] in ("queued", "running"))
-                and operation != "verify"
+                and (operation != "verify" or recipe_id is not None)
             ):
                 cached.append(old[0]["id"])
                 continue
@@ -477,7 +496,7 @@ class Processing:
             identifier = str(uuid4())
             with self.store.transaction() as db:
                 db.execute(
-                    "INSERT INTO processing_jobs(id,profile,file_id,operation,location,snapshot,options,cache_key) VALUES (?,?,?,?,?,?,?,?)",
+                    "INSERT INTO processing_jobs(id,profile,file_id,operation,location,snapshot,options,cache_key,recipe_id) VALUES (?,?,?,?,?,?,?,?,?)",
                     (
                         identifier,
                         self.profile,
@@ -487,6 +506,7 @@ class Processing:
                         encode(snapshot),
                         encode(config),
                         key,
+                        recipe_id,
                     ),
                 )
             queued.append(identifier)

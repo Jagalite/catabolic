@@ -163,7 +163,7 @@ class Manifest:
         layout = None
         owned = set()
         if owner:
-            definition = layouts.get(owner["layout"])["definition"]
+            definition = layouts.effective_definition(owner["layout"], catalog)
             owned = set(owner["mapping_ids"])
             current_hash = digest(definition)
             layout = {

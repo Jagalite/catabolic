@@ -5,12 +5,14 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
-Rules connect a saved SQL/GraphQL selection to an immutable rendering recipe and
-generated destination. They cover existing media and future maintenance cycles.
+Rules connect a saved query or inline SQL/GraphQL selection to an immutable
+operation. Analysis records facts, rendering produces files in generated storage,
+and external rules queue fenced processor jobs. See [the common rule model](PROGRAMMABLE_CATALOG.md).
+The examples below describe render rules over existing media and maintenance cycles.
 Preview reports approximately how much **additional space** the full backfill
 needs before queuing or encoding. Run `catabolic docs rules` to read this offline.
 
-Commands require schema 14. Upgrade older catalogs explicitly with
+Commands require schema 16. Upgrade older catalogs explicitly with
 `db upgrade --dry-run` followed by `db upgrade`. Rules reuse the existing
 [artifact queue, output definitions, validation and recovery](ARTIFACTS.md).
 
@@ -57,9 +59,9 @@ and worklogs are preserved. Recipe changes never silently alter a saved rule.
 
 Use the shared [SQL/GraphQL selection contract](QUERY_FOLDERS.md). SQL returns one
 column named `item_id`, `file_id` or `association_id`. Rules select active primary
-associations and deduplicate file/item pairs. All generated locations and all
-registered/generated rendition files are excluded as inputs, preventing recursive
-transcoding. A file associated with multiple items can need separate outputs.
+associations and deduplicate file/item pairs. By default, generated locations and registered/generated renditions are excluded
+as render inputs. `--allow-derived` explicitly admits validated rendition inputs
+for catalog-driven chains; it does not trigger subsequent rules recursively. A file associated with multiple items can need separate outputs.
 
 For example, place this query in a selection JSON object to target files above 1080p:
 

@@ -266,10 +266,11 @@ class ReceiptTest(unittest.TestCase):
         upgrade_database(path, migrations=load_migrations()[:11])
         before = contents(path)
         upgrade_database(path)
-        after = contents(path)
-        for table, rows in before.items():
-            if table != "schema_migrations":
-                self.assertEqual(rows, after[table], table)
+        from catabolic.migration import validate_preservation
+        from catabolic.store import Store
+
+        with Store(path) as store:
+            validate_preservation(store.db, before)
 
 
 @unittest.skipUnless(

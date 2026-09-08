@@ -56,6 +56,11 @@ class SQLQueryTest(unittest.TestCase):
         self.assertEqual(
             set(views),
             {
+                "catalog_queries",
+                "catalog_query_dependencies",
+                "catalog_projections",
+                "catalog_rendition_state",
+                "catalog_rule_processor_jobs",
                 "catalog_items",
                 "catalog_item_workflow",
                 "catalog_workflow_checks",

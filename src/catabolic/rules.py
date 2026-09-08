@@ -15,7 +15,8 @@ from .domain import CatabolicError, name
 from .estimate_calibration import calibrated, calibration
 from .filesystem import owner_state, root_handle
 from .item_workflow import ItemWorkflow
-from .processing import current_fact
+from .operations import Operations
+from .processing import Processing, current_fact
 from .rule_estimates import estimate, human_bytes, total
 from .rule_estimates import options as estimate_options
 from .selection import selected_associations, validate_selection
@@ -71,22 +72,42 @@ class Rules:
         *,
         estimates=None,
         required=False,
+        allow_derived=False,
     ):
         self.app.require_recovered()
         name(rule_name)
-        self.artifacts.get_recipe(recipe_id)
+        operation = Operations(self.app).get(recipe_id)
         if not isinstance(selection, dict):
             raise CatabolicError("selection must be a SQL/GraphQL selection object")
         selection = validate_selection({"profile": self.profile, **selection})
+        if "query_id" in selection:
+            from .saved_queries import Queries
+
+            if (
+                Queries(self.store, self.profile).get(selection["query_id"])[
+                    "definition"
+                ]["mode"]
+                != "selection"
+            ):
+                raise CatabolicError("rule requires a complete ID selection")
         if selection.get("profile", "default") != self.profile:
             raise CatabolicError("rule selection must use the rule's profile")
-        if not self.store.rows(
+        if operation["operation_kind"] != "render" and location is not None:
+            raise CatabolicError(
+                "analysis and external rules do not take a local generated destination"
+            )
+        if operation["operation_kind"] == "render" and not self.store.rows(
             "SELECT 1 FROM generated_locations WHERE profile=? AND location=?",
             (self.profile, location),
         ):
             raise CatabolicError("rules require a bound generated destination")
         assumptions = estimate_options({} if estimates is None else estimates)
-        value = encode([recipe_id, location, selection, assumptions, bool(required)])
+        if type(allow_derived) is not bool:
+            raise CatabolicError("allow_derived must be boolean")
+        value = encode(
+            [recipe_id, location, selection, assumptions, bool(required)]
+            + ([True] if allow_derived else [])
+        )
         digest = hashlib.sha256(value.encode()).hexdigest()
         with self.store.transaction() as db:
             old = db.execute(
@@ -106,7 +127,7 @@ class Rules:
                     (self.profile, rule_name),
                 )
                 db.execute(
-                    "INSERT INTO processing_rules(id,profile,name,revision,recipe_id,location,selection,estimate_options,required,digest) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO processing_rules(id,profile,name,revision,recipe_id,location,selection,estimate_options,required,digest,query_id,allow_derived) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         identifier,
                         self.profile,
@@ -118,6 +139,8 @@ class Rules:
                         encode(assumptions),
                         int(required),
                         digest,
+                        selection.get("query_id"),
+                        int(allow_derived),
                     ),
                 )
         return self.get(identifier)
@@ -152,6 +175,14 @@ class Rules:
             recipe["definition"], observation, probe, rule["estimate_options"]
         )
         try:
+            from .outputs import RENDITIONS_SQL
+            from .rendition_publication import ready
+
+            for output in self.store.rows(
+                f"SELECT * FROM ({RENDITIONS_SQL}) WHERE file_id=? AND profile=?",
+                (file_id, self.profile),
+            ):
+                ready(self.app, output)
             with validated_source(observation) as fd:
                 current_ctime = os.fstat(fd).st_ctime_ns
         except (CatabolicError, OSError) as exc:
@@ -270,14 +301,43 @@ class Rules:
 
     def _plan(self, identifier, scan_ids=None):
         rule = self.get(identifier)
-        recipe = self.artifacts.get_recipe(rule["recipe_id"])
+        recipe = Operations(self.app).get(rule["recipe_id"])
+        if recipe["operation_kind"] == "external":
+            from .rule_external import ExternalRule
+
+            return ExternalRule(self).plan(rule, recipe, scan_ids)
+        if recipe["operation_kind"] == "analysis":
+            from .rule_analysis import plan
+
+            return plan(self, rule, recipe, scan_ids)
         binding = self.app.binding("source", rule["location"])
         with root_handle(binding) as fd:
             if owner_state(fd, self.artifacts._owner(rule["location"])) != "owned":
                 raise CatabolicError("generated destination ownership is missing")
             space = os.fstatvfs(fd)
             available = space.f_bavail * space.f_frsize
-        associations, selection = selected_associations(self.store, rule["selection"])
+        admitted = []
+        if rule["allow_derived"]:
+            from .selection import select_ids
+
+            entity, identifiers, _ = select_ids(self.store, rule["selection"])
+            column = "a.id" if entity == "association_id" else "a." + entity
+            identifiers = sorted(identifiers)
+            for start in range(0, len(identifiers), 500):
+                group = identifiers[start : start + 500]
+                admitted.extend(
+                    self.store.rows(
+                        f"SELECT a.*,f.path,f.location FROM item_files a JOIN files f ON f.id=a.file_id WHERE {column} IN ({','.join('?' for _ in group)}) AND EXISTS (SELECT 1 FROM media_outputs m WHERE m.file_id=a.file_id AND m.item_id=a.item_id AND m.profile=?) LIMIT ?",
+                        (*group, self.profile, 100001 - len(admitted)),
+                    )
+                )
+                if len(admitted) > 100000:
+                    raise CatabolicError(
+                        "derived selection expands beyond 100000 associations"
+                    )
+        associations, selection = selected_associations(
+            self.store, rule["selection"], admitted=admitted
+        )
         derived = set()
         ids = sorted({a["file_id"] for a in associations})
         for start in range(0, len(ids), 500):
@@ -294,7 +354,13 @@ class Rules:
             {
                 (a["file_id"], a["item_id"])
                 for a in associations
-                if a["role"] == "primary" and a["file_id"] not in derived
+                if (
+                    a["role"] == "primary"
+                    or selection["entity"] in ("file_id", "association_id")
+                    or rule["allow_derived"]
+                    and a["file_id"] in derived
+                )
+                and (rule["allow_derived"] or a["file_id"] not in derived)
             }
         )
         if len(pairs) > 100000:
@@ -444,7 +510,7 @@ class Rules:
                     db,
                     row["item_id"],
                     "requirement",
-                    "A current rendition is required, including work not yet queued.",
+                    "A current operation result is required, including work not yet queued.",
                     "rule:" + rule["id"],
                     {
                         "requirement_id": identifier,
@@ -457,14 +523,27 @@ class Rules:
 
     def statistics(self, identifier):
         rule = self.get(identifier)
+        operation = Operations(self.app).get(rule["recipe_id"])
+        if operation["operation_kind"] == "external":
+            return {
+                "rule_id": identifier,
+                "calibration": None,
+                "attempts": self.store.rows(
+                    "SELECT a.state,count(*) AS count,sum(CASE WHEN a.finished_at IS NOT NULL THEN max(0,a.finished_at-a.started_at) END) AS lease_elapsed_seconds FROM rule_processor_jobs r JOIN processor_attempts a ON a.job_id=r.job_id WHERE r.rule_id=? GROUP BY a.state ORDER BY a.state",
+                    (identifier,),
+                ),
+                "note": "Historical external lease attempts; lease duration is not measured processor runtime. Output storage and runtime remain unknown.",
+            }
         return {
             "rule_id": identifier,
             "calibration": calibration(
                 self.store,
                 self.profile,
-                self.artifacts.get_recipe(rule["recipe_id"]),
+                operation,
                 rule["estimate_options"],
-            ),
+            )
+            if operation["operation_kind"] == "render"
+            else None,
             "attempts": self.store.rows(
                 """SELECT p.state,count(*) AS count,sum(a.size) AS output_bytes,
  sum(CASE WHEN p.started_at IS NOT NULL AND p.finished_at IS NOT NULL THEN max(0,(julianday(p.finished_at)-julianday(p.started_at))*86400) END) AS elapsed_seconds
@@ -495,6 +574,13 @@ class Rules:
         self.app.require_recovered()
         plan = self._plan(identifier, scan_ids)
         rule = plan["rule"]
+        operation = Operations(self.app).get(rule["recipe_id"])
+        if operation["operation_kind"] == "external":
+            from .rule_external import ExternalRule
+
+            return ExternalRule(self).apply(
+                plan, operation, batch, limit, retry_failed, max_new_bytes
+            )
         candidates = [
             r
             for r in plan["matches"]
@@ -507,6 +593,7 @@ class Rules:
         blockers = []
         if (
             selected
+            and plan["space"]["available_bytes"] is not None
             and storage["planning_bytes"] + plan["space"]["reserve_bytes"]
             > plan["space"]["available_bytes"]
         ):
@@ -539,17 +626,35 @@ class Rules:
         capabilities = None
         for row in selected:
             try:
-                if capabilities is None:
-                    from .rendering import capabilities as available_capabilities
+                operation = Operations(self.app).get(rule["recipe_id"])
+                if operation["operation_kind"] == "analysis":
+                    processing = Processing(self.app)
+                    if row["state"] == "failed" and row["job_id"]:
+                        processing.retry(row["job_id"])
+                        queued = {"job_id": row["job_id"]}
+                    else:
+                        outcome = processing.enqueue(
+                            operation["preset"],
+                            file_ids=[row["file_id"]],
+                            options=operation["definition"]["options"],
+                            recipe_id=operation["id"],
+                            refresh=row["state"] == "stale",
+                        )
+                        if outcome["errors"]:
+                            raise CatabolicError(outcome["errors"][0]["error"])
+                        queued = {"job_id": (outcome["queued"] + outcome["cached"])[0]}
+                else:
+                    if capabilities is None:
+                        from .rendering import capabilities as available_capabilities
 
-                    capabilities = available_capabilities()
-                queued = self.artifacts.enqueue(
-                    row["file_id"],
-                    rule["recipe_id"],
-                    rule["location"],
-                    row["item_id"],
-                    _capabilities=capabilities,
-                )
+                        capabilities = available_capabilities()
+                    queued = self.artifacts.enqueue(
+                        row["file_id"],
+                        rule["recipe_id"],
+                        rule["location"],
+                        row["item_id"],
+                        _capabilities=capabilities,
+                    )
                 if row["state"] == "stale" and queued.get("artifact_id"):
                     raise CatabolicError(
                         "Existing output checksum is intact but its recorded evidence is stale; scan the generated location and run process enqueue verify for the artifact file before reapplying this rule."
@@ -578,6 +683,23 @@ class Rules:
         page_limit(batch)
         page_limit(limit)
         plan = self._plan(identifier, scan_ids)
+        if (
+            Operations(self.app).get(plan["rule"]["recipe_id"])["operation_kind"]
+            == "external"
+        ):
+            return {
+                "rule_id": identifier,
+                "execution": {
+                    "completed": [],
+                    "errors": [],
+                    "complete": True,
+                    "executor": "processor tick or leased processor dispatch",
+                    "pending_external": plan["counts"]["queued"]
+                    + plan["counts"]["running"],
+                },
+                "after": self._bounded(plan, limit),
+                "complete": plan["counts"]["satisfied"] == plan["matched_inputs"],
+            }
         registered = {
             r["job_id"]
             for r in self.store.rows(
@@ -594,6 +716,7 @@ class Rules:
         )
         if (
             selected
+            and plan["space"]["available_bytes"] is not None
             and batch_space["planning_bytes"] + plan["space"]["reserve_bytes"]
             > plan["space"]["available_bytes"]
         ):
@@ -607,8 +730,14 @@ class Rules:
                 "complete": False,
             }
         else:
-            result = self.artifacts.run(
-                limit=batch, job_ids=selected, _refresh=_refresh
+            operation = Operations(self.app).get(plan["rule"]["recipe_id"])
+            executor = (
+                Processing(self.app)
+                if operation["operation_kind"] == "analysis"
+                else self.artifacts
+            )
+            result = executor.run(
+                limit=batch, job_ids=list(dict.fromkeys(selected)), _refresh=_refresh
             )
         after = self._bounded(self._plan(identifier, scan_ids), limit)
         return {
@@ -635,6 +764,8 @@ def maintain(
     seen = set()
     for plan in plans:
         space, rule = plan["space"], plan["rule"]
+        if space["device"] is None:
+            continue
         group = volumes.setdefault(
             space["device"],
             {
@@ -682,9 +813,13 @@ def maintain(
         identifier = plan["rule"]["id"]
         result = {"rule_id": identifier, "preview": rules._bounded(plan, limit)}
         if remaining:
-            allowance = allowances[plan["space"]["device"]]
+            allowance = allowances.get(plan["space"]["device"])
             if bytes_remaining is not None:
-                allowance = min(allowance, bytes_remaining)
+                allowance = (
+                    bytes_remaining
+                    if allowance is None
+                    else min(allowance, bytes_remaining)
+                )
             applied = rules.apply(
                 identifier,
                 batch=remaining,
@@ -696,7 +831,7 @@ def maintain(
             remaining -= len(applied["queued"])
             if bytes_remaining is not None and applied["safe"]:
                 bytes_remaining -= applied["batch_space"]["planning_bytes"]
-            if applied["safe"]:
+            if applied["safe"] and plan["space"]["device"] is not None:
                 allowances[plan["space"]["device"]] -= applied["batch_space"][
                     "planning_bytes"
                 ]

@@ -5,6 +5,9 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
+The query API also exposes saved queries, operation definitions and projections. `items(hasRendition: {...})` and `items(missingRendition: {...})` support recorded-state gaps; see [the shared query contract](PROGRAMMABLE_CATALOG.md).
+
+
 `catabolic graphql` executes read-only GraphQL documents locally against one
 SQLite snapshot. It returns JSON for agents and scripts without requiring a
 server, network port, or service process. SQL remains available through `query`

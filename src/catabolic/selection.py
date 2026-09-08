@@ -81,6 +81,17 @@ def graphql_contract(query):
 
 
 def validate_selection(selection):
+    if isinstance(selection, dict) and "query_id" in selection:
+        if (
+            set(selection) - {"query_id", "profile"}
+            or not isinstance(selection["query_id"], str)
+            or not selection["query_id"]
+        ):
+            raise CatabolicError(
+                "selection reference requires a query_id and optional profile"
+            )
+        name(selection.get("profile", "default"))
+        return selection
     if not isinstance(selection, dict) or set(selection) - {
         "language",
         "query",
@@ -147,6 +158,12 @@ def validate_selection(selection):
 def select_ids(store, selection):
     """Evaluate in the caller's snapshot; errors and truncation never mean empty."""
     validate_selection(selection)
+    if "query_id" in selection:
+        from .saved_queries import Queries
+
+        return Queries(store, selection.get("profile", "default")).select(
+            selection["query_id"]
+        )
     profile = selection.get("profile", "default")
     timeout_ms = selection.get("timeout_ms", 5000)
     query = selection["query"]
@@ -163,6 +180,7 @@ def select_ids(store, selection):
             max_rows=maximum,
             timeout_ms=timeout_ms,
             _store=store,
+            _stable=True,
         )
         if not result["complete"]:
             raise CatabolicError(

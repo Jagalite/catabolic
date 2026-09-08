@@ -6,28 +6,15 @@
 import json
 from uuid import uuid4
 
+from .catalog_state import RENDITION_STATE_SQL
 from .curation import bounded_rows, page_limit
 from .domain import CatabolicError
+from .revision_evidence import _snapshot_matches
 from .store import encode
 
 STATUSES = ("pending", "in_progress", "complete", "deferred", "ignored")
 KINDS = ("review", "file", "job", "artifact", "proposal")
 MAX_NOTE_BYTES = 65536
-
-
-def _snapshot_matches(snapshot, observation, binding):
-    return (
-        " AND ".join(
-            f"json_extract({snapshot},'$.{field}') IS {observation}.{column}"
-            for field, column in (
-                ("size", "size"),
-                ("mtime_ns", "mtime_ns"),
-                ("device", "device"),
-                ("inode", "inode"),
-            )
-        )
-        + f" AND json_extract({snapshot},'$.root') IS {binding}.root AND json_extract({snapshot},'$.root_device') IS {binding}.device AND json_extract({snapshot},'$.root_inode') IS {binding}.inode"
-    )
 
 
 # One evaluator supplies CLI, item summaries, SQL and GraphQL. All table names and
@@ -100,11 +87,16 @@ LEFT JOIN main.proposals pr ON pr.id=r.proposal_id
 RULE_CHECKS_SQL = f"""
 SELECT r.item_id,p.id AS profile,r.id AS check_id,'rule' AS kind,
  'Rule '||rr.name||' revision '||rr.revision AS label,
- CASE WHEN r.state='waived' THEN 'waived' ELSE coalesce(j.state,'pending') END AS state,
- CASE WHEN r.state='waived' THEN 1 ELSE ({JOB_OK}) END AS satisfied,
+ CASE WHEN r.state='waived' THEN 'waived' ELSE coalesce(j.state,pj.state,'pending') END AS state,
+ CASE WHEN r.state='waived' THEN 1 WHEN r.processor_job_id IS NOT NULL THEN
+ pj.state='complete' AND EXISTS (SELECT 1 FROM main.receipt_outputs ro WHERE ro.receipt_id=pj.receipt_id)
+ AND NOT EXISTS (SELECT 1 FROM main.receipt_outputs ro LEFT JOIN ({RENDITION_STATE_SQL}) rs ON rs.id=ro.output_id
+ WHERE ro.receipt_id=pj.receipt_id AND coalesce(rs.recorded_current,0)!=1)
+ ELSE ({JOB_OK}) END AS satisfied,
  r.rule_id AS target_id,r.profile AS evidence_profile
 FROM main.rule_requirements r CROSS JOIN main.profiles p
 JOIN main.processing_rules rr ON rr.id=r.rule_id
+LEFT JOIN main.processor_jobs pj ON pj.id=r.processor_job_id
 LEFT JOIN main.processing_jobs j ON j.id=r.job_id
 LEFT JOIN main.observations jo ON jo.file_id=j.file_id AND jo.profile=j.profile
 LEFT JOIN main.bindings jb ON jb.profile=j.profile AND jb.kind='source' AND jb.owner=j.location

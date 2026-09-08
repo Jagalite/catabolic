@@ -5,6 +5,9 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
+Saved query revisions, composition, `catalog_rendition_state` and reusable query contracts are described in [the programmable catalog guide](PROGRAMMABLE_CATALOG.md). Arbitrary SQL remains available.
+
+
 Catabolic exposes SQLite through a noninteractive, read-only command. Agents use
 structured JSON on stdout and errors on stderr. No server or embedded agent
 runtime is required.
@@ -24,7 +27,7 @@ Joins, grouping, aggregates, window functions, CTEs, and ordinary SQLite
 expressions are supported. Exactly one result-producing statement is accepted.
 The views exist only on the query connection; they do not alter the stored schema
 and will not appear in an external `sqlite3` session. The current query command requires
-schema 14; older databases must be upgraded explicitly.
+schema 16; older databases must be upgraded explicitly.
 
 ## Views and row meaning
 

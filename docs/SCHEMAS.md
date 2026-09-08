@@ -37,6 +37,22 @@ Guides describe the installed release. Markdown links to repository code are
 references; use the topic index to navigate bundled guides. Runtime discovery
 commands below provide the current schemas and vocabularies.
 
+## Programming definition shapes
+
+```sh
+catabolic --machine query contract
+catabolic --machine operation schema
+catabolic operation types
+catabolic --machine projection schema
+catabolic docs programmable
+```
+
+These version-1 JSON Schema input shapes are available without a database.
+Operation-specific options, referenced IDs, profile compatibility and complete
+selection results are additionally checked by the use-case validators. A schema
+validation result does not authorize filesystem changes. Use preview and explicit
+bounded execution, then inspect resulting catalog evidence and verification.
+
 ## SQL views and stored database schema
 
 ```sh

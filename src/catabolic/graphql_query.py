@@ -86,14 +86,21 @@ type RelationshipPage { nodes: [Relationship!]! pageInfo: PageInfo! }
 type MappingPage { nodes: [Mapping!]! pageInfo: PageInfo! }
 type CatalogPage { nodes: [Catalog!]! pageInfo: PageInfo! }
 type EvidencePage { nodes: [JSON!]! pageInfo: PageInfo! }
+input RenditionFilter { purpose: String recipe: ID definition: ID current: Boolean }
 type Query {
+  savedQuery(id: ID!): JSON
+  savedQueries(first: Int! = 100, after: String): EvidencePage
+  operation(id: ID!): JSON
+  operations(first: Int! = 100, after: String): EvidencePage
+  projection(catalog: String!): JSON
+  projections(first: Int! = 100, after: String): EvidencePage
   artifact(id: ID!): JSON
   recipe(id: ID!): JSON
   artifacts(state: String, file: ID, first: Int! = 100, after: String): EvidencePage
   recipes(first: Int! = 100, after: String): EvidencePage
   rendition(id: ID!): JSON
   outputDefinition(id: ID!): JSON
-  renditions(file: ID, first: Int! = 100, after: String): EvidencePage
+  renditions(file: ID, matching: RenditionFilter, first: Int! = 100, after: String): EvidencePage
   outputDefinitions(first: Int! = 100, after: String): EvidencePage
   job(id: ID!): JSON
   proposal(id: ID!): JSON
@@ -105,7 +112,7 @@ type Query {
   taggings(tag: String, item: ID, file: ID, source: String, active: Active = ACTIVE, first: Int! = 100, after: String): TaggingPage
   worklog(item: ID!, first: Int! = 100, after: String): EvidencePage
   workflowChecks(item: ID!, first: Int! = 100, after: String): EvidencePage
-  items(search: String, kind: String, year: Int, identity: String, metadata: [String!], catalog: String, curationStatus: EntryStatus, tags: [String!], anyTags: [String!], notTags: [String!], descendants: Boolean! = false, sort: ItemSort = ID, descending: Boolean! = false, first: Int! = 100, after: String): ItemPage
+  items(hasRendition: RenditionFilter, missingRendition: RenditionFilter, search: String, kind: String, year: Int, identity: String, metadata: [String!], catalog: String, curationStatus: EntryStatus, tags: [String!], anyTags: [String!], notTags: [String!], descendants: Boolean! = false, sort: ItemSort = ID, descending: Boolean! = false, first: Int! = 100, after: String): ItemPage
   item(id: ID, identity: String): Item
   files(search: String, location: String, status: Availability, unidentified: Boolean! = false, unmapped: Boolean! = false, catalog: String = "global", item: ID, kind: String, year: Int, identity: String, tags: [String!], anyTags: [String!], notTags: [String!], descendants: Boolean! = false, sort: FileSort = ID, descending: Boolean! = false, first: Int! = 100, after: String): FilePage
   file(id: ID!): File
@@ -263,7 +270,39 @@ class QueryContext:
             raise CatabolicError("first must be between 1 and 1000")
         key = (field, encode(args))
         if key not in self.cache:
-            if field == "worklog":
+            if field in ("savedQueries", "operations", "projections"):
+                table = {
+                    "savedQueries": "saved_queries",
+                    "operations": "processing_recipes",
+                    "projections": "projection_bindings",
+                }[field]
+                column = "catalog" if field == "projections" else "id"
+                columns = f"a.*,a.{column} AS id"
+                if field == "savedQueries":
+                    columns = "a.id,a.profile,a.name,a.revision,a.digest,a.created_at,CASE WHEN length(a.definition)<=8192 THEN a.definition END AS definition,length(a.definition)>8192 AS definition_omitted"
+                conditions, values = (
+                    ([], [])
+                    if field == "operations"
+                    else (["a.profile=?"], [self.profile])
+                )
+                result = self.queries._page(
+                    field,
+                    columns,
+                    table + " a",
+                    conditions,
+                    values,
+                    {"id": "a." + column},
+                    "id",
+                    False,
+                    limit,
+                    args["cursor"],
+                    [],
+                )
+                for row in result[field]:
+                    if row.get("definition") is not None:
+                        row["definition"] = json.loads(row["definition"])
+                self.charge(result)
+            elif field == "worklog":
                 self.queries._exists("items", args["item"])
                 result = self.queries._page(
                     field,
@@ -309,13 +348,17 @@ class QueryContext:
                             conditions.append(column + "=?")
                             values.append(args[key])
                 elif field == "renditions":
-                    from .outputs import RENDITIONS_SQL
+                    from .catalog_state import RENDITION_STATE_SQL, rendition_condition
 
-                    table, columns = f"({RENDITIONS_SQL}) a", "a.*"
+                    table, columns = f"({RENDITION_STATE_SQL}) a", "a.*"
                     conditions, values = ["a.profile=?"], [self.profile]
                     if args.get("file") is not None:
                         conditions.append("a.source_file_id=?")
                         values.append(args["file"])
+                    if args.get("matching") is not None:
+                        extra, params = rendition_condition(args["matching"], alias="a")
+                        conditions.extend(extra)
+                        values.extend(params)
                 else:
                     table, columns = (
                         (
@@ -337,7 +380,7 @@ class QueryContext:
                     False,
                     limit,
                     args["cursor"],
-                    [args.get("state"), args.get("file")],
+                    [args.get("state"), args.get("file"), args.get("matching")],
                 )
                 if field in ("recipes", "outputDefinitions", "renditions"):
                     for row in result[field]:
@@ -406,6 +449,21 @@ class QueryContext:
         field, parent = info.field_name, info.parent_type.name
         try:
             if parent == "Query":
+                if field in ("savedQuery", "operation", "projection"):
+                    from .operations import Operations
+                    from .projections import Projections
+                    from .saved_queries import Queries
+
+                    app = Application(self.store, self.profile)
+                    adapter = (
+                        Queries(self.store, self.profile)
+                        if field == "savedQuery"
+                        else Operations(app)
+                        if field == "operation"
+                        else Projections(app)
+                    )
+                    self.records(1)
+                    return self.charge(adapter.get(args.get("id", args.get("catalog"))))
                 if field in ("profile", "schemaVersion", "mediaTypes"):
                     return self.charge(
                         {
