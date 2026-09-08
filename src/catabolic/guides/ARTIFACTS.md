@@ -27,16 +27,62 @@ FFmpeg and ffprobe are optional external executables, never bundled dependencies
 | `subtitle-srt` | One selected subtitle stream converted to SRT | `subtitle` |
 | `h264-720p` | SDR H.264/AAC MP4, at most 720 pixels high | `primary` |
 | `h264-1080p` | SDR H.264/AAC MP4, at most 1080 pixels high | `primary` |
+| `av1-720p` | SDR AV1/Opus Matroska, at most 720 pixels high | `primary` |
+| `audio-opus` | Selected audio as stereo 48 kHz Opus | `custom:audio` |
+| `hdr-sdr-1080p` | Tagged BT.2020 PQ/HLG to BT.709 H.264/AAC MP4 | `primary` |
+| `waveform` | Mono waveform PNG of an explicit window up to 60 seconds | `custom:waveform` |
+| `audio-normalize` | Single-pass dynamic loudness normalization to 48 kHz, 16-bit FLAC | `custom:audio` |
 
 Video transcodes and previews default to the first video and optional first audio track.
 They do not preserve every language, subtitle, attachment or HDR property. The
-SDR video presets refuse detected PQ/HLG input; tone mapping is not implemented.
+SDR video presets refuse detected PQ/HLG on the selected input stream. The explicit
+tone-mapping preset requires known BT.2020 primaries/matrix, PQ/HLG transfer and
+color range. Missing tags are not guessed. It linearizes the signal, applies Hable
+tone mapping with an explicit peak assumption, converts to limited-range BT.709,
+and removes input frame side data before encoding. This is not Dolby Vision
+processing or display/visual-quality certification.
 SRT extraction is conversion of an existing subtitle stream, not OCR of bitmap
 subtitles or speech transcription. Unsupported conversions fail explicitly.
 Analysis operations (`probe`, `decode`, `hash`, `verify`, `text`, `sniff`) keep
 using `process enqueue` and `process run`; see [Enrichment](ENRICHMENT.md).
 Live streaming, HLS/DASH packages, multi-input edits, automatic cleanup and
 additional analysis filters are outside this first version.
+
+`artifact capabilities` checks encoders, muxers and filters and lists missing
+requirements per preset. AV1 uses `libsvtav1` and `libopus`; tone mapping also needs
+`zscale`, `tonemap` and `sidedata`. A build without those dependencies rejects enqueue.
+
+```sh
+catabolic artifact recipe mobile-av1 --preset av1-720p \
+  --options '{"crf":32,"encoder_speed":"veryfast","audio_bitrate_kbps":96}'
+catabolic artifact recipe sdr --preset hdr-sdr-1080p --options '{"peak_nits":1000}'
+catabolic artifact recipe waveform --preset waveform \
+  --options '{"stream":0,"start_seconds":10,"duration_seconds":30,"width":1280,"height":240}'
+catabolic artifact recipe normalized --preset audio-normalize \
+  --options '{"integrated_lufs":-16,"true_peak_db":-2,"loudness_range":7}'
+```
+
+AV1 CRF is 0..63 (default 32); speeds `veryfast`, `medium`, `slow` map to SVT
+presets 12, 8, 4. The encoder uses one logical processor. AV1 audio and standalone
+Opus default to 96 kbps, stereo, 48 kHz; video `audio_stream:null` omits audio.
+Matroska is the chosen AV1 container; device compatibility requires separate testing.
+Tone-map `peak_nits` is an integer 100..10000 (default 1000), referenced to 100-nit
+SDR. It is a declared assumption, not measured mastering metadata.
+
+Waveforms accept `stream`, `start_seconds`, `duration_seconds` (1..60), `width`
+(64..4096) and `height` (32..2048), defaulting to the first 60 seconds at 1280×240.
+Audio is downmixed to mono and resampled to 48 kHz for the image. The recorded
+window is not a promise of full-track coverage. Normalization accepts integer
+`integrated_lufs` (-70..-5), `true_peak_db` (-9..0), and `loudness_range` (1..50).
+Defaults are -16 LUFS, -2 dBTP, and 7 LU. Its validation records configured targets;
+it does not claim an independent loudness measurement for every output.
+Normalization removes inherited ReplayGain/R128 gain and peak tags so players do
+not apply stale input gains to the new samples; other descriptive tags are retained.
+
+Filter semantics follow the [FFmpeg filter reference](https://ffmpeg.org/ffmpeg-filters.html#tonemap)
+and [codec reference](https://ffmpeg.org/ffmpeg-codecs.html#libsvtav1). These presets
+reuse existing immutable recipes, generated storage, bounded jobs and publication
+recovery; saved programming bundles also carry their options.
 
 ## Define a rendition once
 

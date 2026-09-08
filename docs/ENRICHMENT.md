@@ -43,7 +43,7 @@ incomplete operation; exit 2 indicates an input/operation error.
 | `hash` | Full SHA-256, streamed in 1 MiB chunks; creates a baseline only if none exists. |
 | `verify` | Recompute SHA-256 and compare against a preserved baseline. Requires a prior hash. |
 | `decode` | Optional `ffmpeg`: full audio/video decoding to a null output; explicitly more expensive than probing. |
-| `text` | Bounded UTF-8 TXT/Markdown lines or SRT/WebVTT cues with line/time locators. |
+| `text` | UTF-8 TXT/Markdown/SRT/WebVTT, or explicit PDF-text/image-OCR backends with page/line/time locators. |
 
 A probe is complete for its configured analysis scope; it is not proof that every
 possible field exists or that the media decodes fully. HDR is unknown when the
@@ -144,6 +144,39 @@ optional SQLite FTS extension. Results include their original locator, job ID,
 and recorded `current` status. Refreshing extracted text replaces derived segments
 and terms; job history retains the previous extraction. Stale hits remain visibly
 marked until refreshed. GraphQL also provides `contentSearch(text:,first:,after:)`.
+
+PDF extraction and image OCR are explicit options on the same durable text job:
+
+```sh
+catabolic process enqueue text --file-id PDF_FILE_ID \
+  --options '{"backend":"pdf","max_pages":100,"timeout":30}'
+catabolic process enqueue text --file-id PNG_FILE_ID \
+  --options '{"backend":"ocr","language":"eng","timeout":60}'
+catabolic process run
+catabolic content search 'catalog example'
+```
+
+The default `utf8` backend is unchanged. `pdf` needs optional Poppler `pdftotext`
+and a PDF signature; it extracts embedded text, preserving page numbers. It does
+not OCR scanned PDF pages. `max_pages` is 1..1000 (default 100); the adapter requests
+one additional page and rejects overflow without publishing a partial index.
+`ocr` needs optional Tesseract plus the requested language data and accepts a
+single PNG or JPEG image, checked by signature. Language is one to four three-letter
+codes joined with `+`, such as `eng+fra`. Multipage TIFF and PDF OCR are outside
+this adapter. Results retain page/line locators and explicitly unverified OCR
+accuracy; recognition is evidence, not accepted identity metadata.
+
+Both adapters read the validated source descriptor and capture text in memory;
+they create no files beside the input. `max_bytes` caps both input size and combined
+subprocess output (default 2 MiB, maximum 8 MiB). Existing timeout/cancellation,
+file-revision revalidation and job history apply. Tesseract uses one OpenMP thread;
+process memory and decoded image dimensions are not hard-capped. Missing tools,
+changed extractor binaries, invalid input, budget exhaustion and empty extraction
+are explicit non-success results. Failed refreshes preserve earlier complete text
+evidence; consult the latest job as well as the search hit's recorded current flag.
+No extractor is installed or invoked automatically by scanning or querying.
+
+The CLI invocation follows the [Tesseract command guide](https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html).
 
 ## Identification proposals and history
 

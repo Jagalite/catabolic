@@ -855,10 +855,13 @@ class Workflow:
             )
         self.hashes = hashes
         try:
+            from .native_processing_acceptance import exercise as native_processing
             from .programmable_acceptance import exercise as programmable
         except ImportError:
+            from native_processing_acceptance import exercise as native_processing
             from programmable_acceptance import exercise as programmable
         programming = programmable(self, files["Feature.mkv"])
+        native = native_processing(self, files["Feature.mkv"], item)
         for path, before in hashes.items():
             require(
                 digest(self.root / path) == before,
@@ -866,6 +869,7 @@ class Workflow:
             )
         return {
             "programming": programming,
+            "native_processing": native,
             "media_files": len(media),
             "probe_recipes": recipes,
             "source_hashes": hashes,

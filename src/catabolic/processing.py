@@ -52,10 +52,12 @@ def worker_pool(workers, cancel):
 
 
 @lru_cache(maxsize=16)
-def tool_version(path, size, modified):
+def tool_version(path, size, modified, version_arg="-version"):
     try:
         return (
-            command_output([path, "-version"], timeout=5, maximum=65536)
+            command_output(
+                [path, version_arg], timeout=5, maximum=65536, include_stderr=True
+            )
             .decode("utf-8", "replace")
             .splitlines()[0]
         )
@@ -63,7 +65,11 @@ def tool_version(path, size, modified):
         return "version unavailable"
 
 
-def tool_signature(operation):
+def tool_signature(operation, backend=None):
+    if operation == "text" and backend in ("pdf", "ocr"):
+        from .document_text import tool_identity
+
+        return tool_identity(backend)
     executable = (
         "ffprobe"
         if operation == "probe"
@@ -207,20 +213,28 @@ def process(job, cancel):
                     "bytes_read": read,
                 }
             elif operation == "text":
-                if Path(snapshot["path"]).suffix.lower() not in (
-                    ".txt",
-                    ".md",
-                    ".srt",
-                    ".vtt",
-                ):
-                    raise ProcessingFailure(
-                        "unsupported", "text supports UTF-8 txt, md, srt and vtt files"
-                    )
-                with os.fdopen(os.dup(fd), "rb") as stream:
-                    raw = stream.read(options["max_bytes"] + 1)
-                if len(raw) > options["max_bytes"]:
-                    raise ProcessingFailure("partial", "text exceeds the byte limit")
-                data = text_payload(raw, Path(snapshot["path"]).suffix.lower())
+                if options.get("backend", "utf8") != "utf8":
+                    from .document_text import extract
+
+                    data = extract(fd, options, cancel)
+                else:
+                    if Path(snapshot["path"]).suffix.lower() not in (
+                        ".txt",
+                        ".md",
+                        ".srt",
+                        ".vtt",
+                    ):
+                        raise ProcessingFailure(
+                            "unsupported",
+                            "text supports UTF-8 txt, md, srt and vtt files; select the pdf or ocr backend explicitly",
+                        )
+                    with os.fdopen(os.dup(fd), "rb") as stream:
+                        raw = stream.read(options["max_bytes"] + 1)
+                    if len(raw) > options["max_bytes"]:
+                        raise ProcessingFailure(
+                            "partial", "text exceeds the byte limit"
+                        )
+                    data = text_payload(raw, Path(snapshot["path"]).suffix.lower())
             else:
                 tool = options["extractor"]
                 if tool != tool_signature(operation):
@@ -382,8 +396,31 @@ def process(job, cancel):
 def operation_config(operation, options=None):
     if operation not in OPERATIONS:
         raise CatabolicError("unsupported processing operation")
-    options = payload_object(options or {})
-    if set(options) - {"timeout", "max_bytes", "analysis_bytes", "analysis_us"}:
+    options = dict(payload_object(options or {}))
+    allowed = {"timeout", "max_bytes", "analysis_bytes", "analysis_us"}
+    if operation == "text":
+        allowed.add("backend")
+        backend = options.get("backend", "utf8")
+        if backend not in ("utf8", "pdf", "ocr"):
+            raise CatabolicError("text backend must be utf8, pdf or ocr")
+        if backend == "pdf":
+            allowed.add("max_pages")
+            options.setdefault("max_pages", 100)
+        if backend == "ocr":
+            allowed.add("language")
+            options.setdefault("language", "eng")
+            if not isinstance(options["language"], str) or not re.fullmatch(
+                r"[a-z]{3}(?:\+[a-z]{3}){0,3}", options["language"]
+            ):
+                raise CatabolicError(
+                    "OCR language must be one to four three-letter language codes"
+                )
+        if "max_pages" in options and (
+            type(options["max_pages"]) is not int
+            or not 1 <= options["max_pages"] <= 1000
+        ):
+            raise CatabolicError("max_pages must be 1..1000")
+    if set(options) - allowed:
         raise CatabolicError("unknown processing option")
     config = {
         "timeout": 120 if operation in ("hash", "verify", "decode") else 20,
@@ -400,7 +437,7 @@ def operation_config(operation, options=None):
     ):
         if type(config[key]) is not int or not 1 <= config[key] <= maximum:
             raise CatabolicError(f"invalid {key} budget")
-    config["extractor"] = tool_signature(operation)
+    config["extractor"] = tool_signature(operation, config.get("backend"))
     return config
 
 

@@ -28,6 +28,7 @@ def command_output(
     capture=True,
     on_start=None,
     on_poll=None,
+    include_stderr=False,
 ):
     """Own the whole process group, including descendants after the leader exits.
 
@@ -96,7 +97,9 @@ def command_output(
                 raise CommandFailure(
                     "failed", f"command exit {code}" + (f": {detail}" if detail else "")
                 )
-            return bytes(buffers["stdout"])
+            return bytes(buffers["stdout"]) + (
+                bytes(buffers["stderr"]) if include_stderr else b""
+            )
     finally:
         # poll() only describes the leader. Always retire our group, including
         # descendants that retained pipes or closed them and kept running.

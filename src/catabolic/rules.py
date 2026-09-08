@@ -265,38 +265,10 @@ class Rules:
                 "state": "deferred",
                 "reason": "Current probe facts are required; enqueue probe work first.",
             }
-        preset = recipe["preset"]
-        expected = {
-            "thumbnail": "video",
-            "preview": "video",
-            "h264-720p": "video",
-            "h264-1080p": "video",
-            "audio-aac": "audio",
-            "audio-flac": "audio",
-            "subtitle-srt": "subtitle",
-        }.get(preset)
-        streams = [
-            s for s in probe.get("streams", []) if s.get("codec_type") == expected
-        ]
-        index = (
-            recipe["definition"].get("video_stream", 0)
-            if expected == "video"
-            else recipe["definition"].get("stream", 0)
-        )
-        if expected and len(streams) <= index:
-            return {
-                **row,
-                "state": "deferred",
-                "reason": "Required stream is absent in recorded probe facts.",
-            }
-        if preset in ("preview", "h264-720p", "h264-1080p") and probe.get(
-            "summary", {}
-        ).get("hdr"):
-            return {
-                **row,
-                "state": "deferred",
-                "reason": "Current transcode presets support SDR; HDR needs a reviewed tone-mapping recipe.",
-            }
+        from .rendering import input_error
+
+        if error := input_error(recipe["definition"], probe):
+            return {**row, "state": "deferred", "reason": error}
         return row
 
     def _plan(self, identifier, scan_ids=None):

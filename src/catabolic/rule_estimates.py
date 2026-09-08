@@ -61,14 +61,26 @@ def estimate(recipe, observation, probe, assumptions):
             result["assumptions"] = [
                 "PNG size varies with image complexity; RGB storage heuristic at a maximum width of 640."
             ]
-    elif preset in ("preview", "h264-720p", "h264-1080p") and duration:
+    elif preset == "waveform":
+        raw = recipe["width"] * recipe["height"] * 4
+        expected, low, high = raw * 0.3 + 4096, 4096, raw * 1.2 + 65536
+        result["method"] = "waveform_rgba_png"
+        result["assumptions"] = [
+            "PNG compression varies with waveform complexity; fixed output dimensions."
+        ]
+    elif (
+        preset in ("preview", "h264-720p", "h264-1080p", "av1-720p", "hdr-sdr-1080p")
+        and duration
+    ):
         if preset == "preview":
             duration = min(
                 recipe["duration_seconds"], max(0, duration - recipe["start_seconds"])
             )
-        kbps = assumptions.get("video_kbps", 5000 if preset == "h264-1080p" else 2500)
+        kbps = assumptions.get(
+            "video_kbps", 5000 if preset in ("h264-1080p", "hdr-sdr-1080p") else 2500
+        )
         audio_rate = (
-            recipe.get("audio_bitrate_kbps", 160)
+            recipe.get("audio_bitrate_kbps", 96 if preset == "av1-720p" else 160)
             if audio and recipe.get("audio_stream", 0) is not None
             else 0
         )
@@ -88,21 +100,29 @@ def estimate(recipe, observation, probe, assumptions):
             result["assumptions"] = [
                 "Stream copy usually stays near source size; selecting fewer streams can make it much smaller."
             ]
-    elif preset == "audio-aac" and duration:
-        bitrate = recipe.get("audio_bitrate_kbps", 128)
+    elif preset in ("audio-aac", "audio-opus") and duration:
+        bitrate = recipe.get(
+            "audio_bitrate_kbps", 96 if preset == "audio-opus" else 128
+        )
         expected = duration * bitrate * 1000 / 8 * 1.02
         low, high = expected * 0.85, expected * 1.2
         result["method"] = "audio_bitrate"
         result["assumptions"] = [
-            f"Assume {bitrate} kbps AAC; when omitted by the recipe, 128 kbps is an estimate of the encoder default."
+            f"Assume {bitrate} kbps audio; VBR and container overhead vary. AAC's omitted 128 kbps is an estimate of the encoder default."
         ]
-    elif preset == "audio-flac" and duration and len(audio) > recipe.get("stream", 0):
+    elif (
+        preset in ("audio-flac", "audio-normalize")
+        and duration
+        and len(audio) > recipe.get("stream", 0)
+    ):
         stream = audio[recipe.get("stream", 0)]
         rate, channels = (
             positive(stream.get("sample_rate")),
             positive(stream.get("channels")),
         )
         bits = positive(stream.get("bits_per_raw_sample")) or 16
+        if preset == "audio-normalize":
+            rate, bits = 48000, 16
         if rate and channels:
             raw = duration * rate * channels * bits / 8
             expected, low, high = raw * 0.65, raw * 0.3, raw * 1.1

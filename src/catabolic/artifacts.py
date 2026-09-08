@@ -205,12 +205,15 @@ class Artifacts:
         available = (
             _capabilities if _capabilities is not None else rendering.capabilities()
         )
-        if not next(
-            p["available"]
-            for p in available["presets"]
-            if p["name"] == recipe["preset"]
-        ):
-            raise CatabolicError("the installed FFmpeg build lacks required encoders")
+        capability = next(
+            p for p in available["presets"] if p["name"] == recipe["preset"]
+        )
+        if not capability["available"]:
+            missing = ", ".join(capability.get("missing", []))
+            raise CatabolicError(
+                "the installed FFmpeg build lacks required encoders, muxers or filters"
+                + (": " + missing if missing else "")
+            )
         options = {
             "recipe": recipe["definition"],
             "tools": available["tools"],

@@ -142,6 +142,21 @@ def capabilities():
                     "analysis_bytes": [1, 67108864],
                     "analysis_us": [1, 60000000],
                 },
+                "text_backends": {
+                    "utf8": {"formats": ["txt", "md", "srt", "vtt"], "default": True},
+                    "pdf": {
+                        "tool": "pdftotext",
+                        "coverage": "embedded text",
+                        "max_pages": [1, 1000],
+                        "default_max_pages": 100,
+                    },
+                    "ocr": {
+                        "tool": "tesseract",
+                        "formats": ["png", "jpeg"],
+                        "language": "one to four three-letter codes joined with +; default eng",
+                        "coverage": "one raster image; recognition accuracy is not verified",
+                    },
+                },
             },
             "external": {
                 "operation": "immutable processor name",

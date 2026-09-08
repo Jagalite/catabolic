@@ -162,9 +162,11 @@ catabolic --db catalog.sqlite3 --machine rule run RULE_ID --batch 100
 
 Analysis supports `sniff`, `hash`, `verify`, `probe`, `text` and `decode`. Full
 verification needs an existing checksum baseline; text extraction supports UTF-8
-text, Markdown, SRT and VTT. Render operations retain the installed presets:
+text, Markdown, SRT and VTT, plus explicit optional PDF-text and image-OCR backends.
+Render operations retain the installed presets:
 thumbnails, short previews, MKV remuxing, AAC/FLAC audio, SRT extraction, and
-H.264 720p/1080p. `artifact capabilities` checks the actual installed FFmpeg build.
+H.264 720p/1080p, AV1/Opus, HDR-to-SDR, waveform PNGs and normalized FLAC.
+`artifact capabilities` checks the actual installed FFmpeg build.
 Render rules require `--location` pointing to explicitly owned generated storage.
 Item selections default to primary associations; explicit file or association
 selections can choose other roles, including extracted audio. Generated inputs
@@ -281,10 +283,10 @@ wheel, real mount/unmount, Jellyfin and scale acceptance lanes remain separate
 validation requirements; their presence is not a claim of a new real-application
 run. See [the validation record](PROGRAMMABLE_CATALOG_VALIDATION.md) for executed checks.
 
-Not implemented as new local presets: AV1/Opus mobile encoding, HDR-to-SDR tone
-mapping, waveform generation, audio normalization, or arbitrary PDF/OCR document
-extraction. These can be externally executed using the receipt protocol; the
-catalog does not invent missing technical evidence or native support. No general
+The [native presets](ARTIFACTS.md) and [document adapters](ENRICHMENT.md) are
+capability-gated and bounded: tone mapping requires tagged HDR and `zscale`, PDF
+extracts embedded text, and OCR accepts single PNG/JPEG images. Arbitrary document
+formats and scanned-PDF OCR still require external processing. No general
 DAG scheduler, query-trigger daemon or automatic recursive rule execution is
 introduced. Recorded-state SQL compares immediate lineage; live admission checks
 all ancestors. Definition transfer does not transfer catalog records or execution evidence.

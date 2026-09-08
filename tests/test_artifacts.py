@@ -21,7 +21,6 @@ from catabolic.graphql_query import execute_graphql
 from catabolic.item_workflow import ItemWorkflow
 from catabolic.outputs import Outputs
 from catabolic.processing import Processing
-from catabolic.rendering import PRESETS
 from catabolic.sql_query import execute_sql
 from catabolic.store import Store
 
@@ -111,7 +110,18 @@ class ArtifactTest(unittest.TestCase):
         return recipe, job
 
     def test_all_presets_generate_separate_valid_files_and_keep_one_item(self):
-        for preset in PRESETS:
+        # New presets have distinct fixtures/capability gates in test_native_processing.
+        presets = (
+            "thumbnail",
+            "preview",
+            "remux-mkv",
+            "audio-flac",
+            "audio-aac",
+            "subtitle-srt",
+            "h264-720p",
+            "h264-1080p",
+        )
+        for preset in presets:
             with self.subTest(preset=preset):
                 recipe, job = self.enqueue(preset)
                 result = self.a.run()
@@ -136,7 +146,7 @@ class ArtifactTest(unittest.TestCase):
                     job["job_id"],
                 )
         self.assertTrue(self.app.scan()["complete"])
-        self.assertEqual(len(self.store.rows("SELECT * FROM files")), len(PRESETS) + 1)
+        self.assertEqual(len(self.store.rows("SELECT * FROM files")), len(presets) + 1)
         self.assertEqual(self.store.rows("PRAGMA foreign_key_check"), [])
 
     def test_recipes_are_immutable_and_unknown_options_are_rejected(self):

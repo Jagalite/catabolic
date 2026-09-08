@@ -24,7 +24,15 @@ PRESETS = {
     "subtitle-srt": ("srt", "srt", "subtitle", "subtitle", "srt"),
     "h264-720p": ("mp4", "mp4", "primary", "video", "libx264"),
     "h264-1080p": ("mp4", "mp4", "primary", "video", "libx264"),
+    "av1-720p": ("mkv", "matroska", "primary", "video", "libsvtav1"),
+    "audio-opus": ("opus", "opus", "custom:audio", "audio", "libopus"),
+    "hdr-sdr-1080p": ("mp4", "mp4", "primary", "video", "libx264"),
+    "waveform": ("png", "image2", "custom:waveform", "audio", "png"),
+    "audio-normalize": ("flac", "flac", "custom:audio", "audio", "flac"),
 }
+VIDEO_TRANSCODES = ("preview", "h264-720p", "h264-1080p", "av1-720p", "hdr-sdr-1080p")
+AUDIO_PRESETS = ("audio-flac", "audio-aac", "audio-opus", "audio-normalize")
+IMAGE_PRESETS = ("thumbnail", "waveform")
 
 
 def definition(preset, options):
@@ -41,16 +49,22 @@ def definition(preset, options):
         allowed.add("start_seconds")
     if preset == "preview":
         allowed.add("duration_seconds")
-    if preset in ("subtitle-srt", "audio-flac", "audio-aac"):
+    if preset in (*AUDIO_PRESETS, "subtitle-srt", "waveform"):
         allowed.add("stream")
     if preset == "remux-mkv":
         allowed.add("stream_indices")
-    if preset in ("thumbnail", "preview", "h264-720p", "h264-1080p"):
+    if preset in ("thumbnail", *VIDEO_TRANSCODES):
         allowed.add("video_stream")
-    if preset in ("preview", "h264-720p", "h264-1080p"):
+    if preset in VIDEO_TRANSCODES:
         allowed.update(("audio_stream", "crf", "encoder_speed", "audio_bitrate_kbps"))
-    if preset == "audio-aac":
+    if preset in ("audio-aac", "audio-opus"):
         allowed.add("audio_bitrate_kbps")
+    if preset == "waveform":
+        allowed.update(("width", "height", "duration_seconds", "start_seconds"))
+    if preset == "audio-normalize":
+        allowed.update(("integrated_lufs", "true_peak_db", "loudness_range"))
+    if preset == "hdr-sdr-1080p":
+        allowed.add("peak_nits")
     if set(options) - allowed:
         raise CatabolicError("unsupported recipe option")
     value = {
@@ -66,6 +80,12 @@ def definition(preset, options):
         value["duration_seconds"] = 10
     if "stream" in allowed:
         value["stream"] = 0
+    if preset == "waveform":
+        value.update(width=1280, height=240, duration_seconds=60)
+    if preset == "audio-normalize":
+        value.update(integrated_lufs=-16, true_peak_db=-2, loudness_range=7)
+    if preset == "hdr-sdr-1080p":
+        value["peak_nits"] = 1000
     # Keep omitted settings omitted so old recipe definitions retain their digest.
     value.update(options)
     if "require_duration" in value and type(value["require_duration"]) is not bool:
@@ -84,8 +104,14 @@ def definition(preset, options):
         ("duration_seconds", 1, 60),
         ("stream", 0, 255),
         ("video_stream", 0, 255),
-        ("crf", 0, 51),
+        ("crf", 0, 63 if preset == "av1-720p" else 51),
         ("audio_bitrate_kbps", 8, 512),
+        ("width", 64, 4096),
+        ("height", 32, 2048),
+        ("integrated_lufs", -70, -5),
+        ("true_peak_db", -9, 0),
+        ("loudness_range", 1, 50),
+        ("peak_nits", 100, 10000),
     ):
         if key in value and (
             type(value[key]) is not int or not lower <= value[key] <= upper
@@ -147,6 +173,28 @@ def capabilities():
                 and re.fullmatch(r"[A-Z.]{1,8}", parts[0])
                 for name in parts[1].split(",")
             }
+    requirements = {}
+    for key, spec in PRESETS.items():
+        needed = {
+            "muxers": {spec[1]},
+            "encoders": {spec[4]} if spec[4] else set(),
+            "filters": set(),
+        }
+        if key in ("thumbnail", *VIDEO_TRANSCODES):
+            needed["filters"].add("scale")
+        if key in VIDEO_TRANSCODES:
+            needed["encoders"].add("libopus" if key == "av1-720p" else "aac")
+        if key == "hdr-sdr-1080p":
+            needed["filters"].update(("zscale", "format", "tonemap", "sidedata"))
+        if key == "waveform":
+            needed["filters"].update(("showwavespic", "aformat", "atrim", "asetpts"))
+        if key == "audio-normalize":
+            needed["filters"].add("loudnorm")
+        requirements[key] = [
+            f"{category}:{name}"
+            for category, names in needed.items()
+            for name in sorted(names - supported.get(category, set()))
+        ]
     return {
         "tools": identity,
         "presets": [
@@ -154,17 +202,8 @@ def capabilities():
                 "name": key,
                 "extension": spec[0],
                 "role": spec[2],
-                "available": available
-                and spec[1] in supported["muxers"]
-                and (spec[4] is None or spec[4] in supported["encoders"])
-                and (
-                    key not in ("thumbnail", "preview", "h264-720p", "h264-1080p")
-                    or "scale" in supported["filters"]
-                )
-                and (
-                    key not in ("preview", "h264-720p", "h264-1080p")
-                    or "aac" in supported["encoders"]
-                ),
+                "available": available and not requirements[key],
+                "missing": requirements[key],
             }
             for key, spec in PRESETS.items()
         ],
@@ -251,9 +290,39 @@ def duration(data):
     return result if math.isfinite(result) and result > 0 else 0
 
 
+def input_error(recipe, data):
+    """The same recorded/live input requirements apply to planning and execution."""
+    preset = recipe["preset"]
+    kind = PRESETS[preset][3]
+    candidates = streams(data, kind) if kind else data["streams"]
+    index = (
+        recipe.get("video_stream", 0) if kind == "video" else recipe.get("stream", 0)
+    )
+    if len(candidates) <= index:
+        return "input lacks the requested stream"
+    if preset in VIDEO_TRANSCODES:
+        video = candidates[index]
+        if preset == "hdr-sdr-1080p":
+            if (
+                video.get("color_transfer") not in ("smpte2084", "arib-std-b67")
+                or video.get("color_primaries") != "bt2020"
+                or video.get("color_space") != "bt2020nc"
+                or video.get("color_range") not in ("tv", "pc")
+            ):
+                return "tone mapping requires tagged BT.2020 PQ/HLG input with a known range"
+        elif video.get("color_transfer") in ("smpte2084", "arib-std-b67"):
+            return "HDR conversion requires a tone-mapping recipe; this preset supports SDR"
+        audio_index = recipe.get("audio_stream")
+        if audio_index is not None and audio_index >= len(streams(data, "audio")):
+            return "input lacks the requested audio stream"
+    return None
+
+
 def render(input_fd, output_fd, recipe, identity, poll):
     preset = recipe["preset"]
     before = probe(input_fd, identity)
+    if error := input_error(recipe, before):
+        raise CatabolicError(error)
     expected = PRESETS[preset][3]
     selected = streams(before, expected) if expected else before["streams"]
     if not selected or recipe.get("stream", 0) >= len(selected):
@@ -266,13 +335,6 @@ def render(input_fd, output_fd, recipe, identity, poll):
         if any(i not in indexed for i in recipe["stream_indices"]):
             raise CatabolicError("input lacks a requested remux stream index")
         selected = [indexed[i] for i in recipe["stream_indices"]]
-    if preset in ("preview", "h264-720p", "h264-1080p") and any(
-        s.get("color_transfer") in ("smpte2084", "arib-std-b67")
-        for s in streams(before, "video")
-    ):
-        raise CatabolicError(
-            "HDR conversion requires a reviewed tone-mapping recipe; these presets support SDR"
-        )
     os.lseek(input_fd, 0, os.SEEK_SET)
     command = [
         identity["ffmpeg"]["tool"],
@@ -315,7 +377,20 @@ def render(input_fd, output_fd, recipe, identity, poll):
             "-update",
             "1",
         ]
-    elif preset in ("audio-flac", "audio-aac", "subtitle-srt"):
+    elif preset == "waveform":
+        command += [
+            "-filter_complex",
+            f"[0:{selected[recipe['stream']]['index']}]atrim=start={recipe['start_seconds']}:duration={recipe['duration_seconds']},asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=mono,showwavespic=s={recipe['width']}x{recipe['height']}:colors=white[wave]",
+            "-map",
+            "[wave]",
+            "-frames:v",
+            "1",
+            "-c:v",
+            "png",
+            "-update",
+            "1",
+        ]
+    elif preset in (*AUDIO_PRESETS, "subtitle-srt"):
         command += [
             "-map",
             f"0:{selected[recipe['stream']]['index']}",
@@ -324,26 +399,82 @@ def render(input_fd, output_fd, recipe, identity, poll):
         ]
         if preset == "audio-aac" and "audio_bitrate_kbps" in recipe:
             command += ["-b:a", f"{recipe['audio_bitrate_kbps']}k"]
+        if preset == "audio-opus":
+            command += [
+                "-b:a",
+                f"{recipe.get('audio_bitrate_kbps', 96)}k",
+                "-ar",
+                "48000",
+                "-ac",
+                "2",
+            ]
+        if preset == "audio-normalize":
+            command += [
+                "-af",
+                f"loudnorm=I={recipe['integrated_lufs']}:TP={recipe['true_peak_db']}:LRA={recipe['loudness_range']}:linear=false",
+                "-ar",
+                "48000",
+                "-sample_fmt",
+                "s16",
+            ]
+            # Gains measured on the input would cause players to adjust the new
+            # normalized samples a second time. Keep other descriptive tags.
+            for key in (
+                "REPLAYGAIN_TRACK_GAIN",
+                "REPLAYGAIN_TRACK_PEAK",
+                "REPLAYGAIN_ALBUM_GAIN",
+                "REPLAYGAIN_ALBUM_PEAK",
+                "R128_TRACK_GAIN",
+                "R128_ALBUM_GAIN",
+            ):
+                command += ["-metadata", key + "=", "-metadata:s:a", key + "="]
     else:
-        height = 1080 if preset == "h264-1080p" else 720
+        height = 1080 if preset in ("h264-1080p", "hdr-sdr-1080p") else 720
+        filters = f"scale=w=-2:h='trunc(min({height},ih)/2)*2'"
+        if preset == "hdr-sdr-1080p":
+            filters = (
+                "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,"
+                f"tonemap=hable:desat=2:peak={recipe['peak_nits'] / 100:g},"
+                "zscale=t=bt709:m=bt709:r=tv,format=yuv420p,"
+                "sidedata=mode=delete," + filters
+            )
         command += [
             "-map",
             f"0:{streams(before, 'video')[video_index]['index']}",
             "-vf",
-            f"scale=w=-2:h='trunc(min({height},ih)/2)*2'",
+            filters,
             "-c:v",
-            "libx264",
+            PRESETS[preset][4],
             "-preset",
-            recipe.get("encoder_speed", "medium"),
+            str(
+                {"veryfast": 12, "medium": 8, "slow": 4}[
+                    recipe.get("encoder_speed", "medium")
+                ]
+            )
+            if preset == "av1-720p"
+            else recipe.get("encoder_speed", "medium"),
             "-crf",
-            str(recipe.get("crf", 23)),
+            str(recipe.get("crf", 32 if preset == "av1-720p" else 23)),
             "-pix_fmt",
             "yuv420p",
             "-c:a",
-            "aac",
+            "libopus" if preset == "av1-720p" else "aac",
             "-b:a",
-            f"{recipe.get('audio_bitrate_kbps', 160)}k",
+            f"{recipe.get('audio_bitrate_kbps', 96 if preset == 'av1-720p' else 160)}k",
         ]
+        if preset == "av1-720p":
+            command += ["-svtav1-params", "lp=1", "-ar", "48000", "-ac", "2"]
+        if preset == "hdr-sdr-1080p":
+            command += [
+                "-color_primaries",
+                "bt709",
+                "-color_trc",
+                "bt709",
+                "-colorspace",
+                "bt709",
+                "-color_range",
+                "tv",
+            ]
         audio_index = recipe.get("audio_stream", 0)
         audio = streams(before, "audio")
         if audio_index is not None:
@@ -363,6 +494,8 @@ def render(input_fd, output_fd, recipe, identity, poll):
         "-threads",
         "1",
         "-filter_threads",
+        "1",
+        "-filter_complex_threads",
         "1",
         "-fs",
         str(recipe["max_output_bytes"]),
@@ -386,7 +519,8 @@ def render(input_fd, output_fd, recipe, identity, poll):
         raise CatabolicError(
             "output exceeds the recipe's maximum input/output size ratio"
         )
-    if expected and not streams(after, expected):
+    output_kind = "video" if preset == "waveform" else expected
+    if output_kind and not streams(after, output_kind):
         raise CatabolicError("output is missing its expected stream")
     if preset == "remux-mkv":
         fields = ("codec_type", "codec_name")
@@ -396,30 +530,52 @@ def render(input_fd, output_fd, recipe, identity, poll):
             raise CatabolicError(
                 "remux did not preserve the selected streams and codecs"
             )
-    if preset in ("preview", "h264-720p", "h264-1080p"):
-        if streams(after, "video")[0].get("codec_name") != "h264":
+    if preset in VIDEO_TRANSCODES:
+        if streams(after, "video")[0].get("codec_name") != (
+            "av1" if preset == "av1-720p" else "h264"
+        ):
             raise CatabolicError("output codec does not match the recipe")
         expected_audio = recipe.get("audio_stream", 0) is not None and bool(
             streams(before, "audio")
         )
         output_audio = streams(after, "audio")
         if len(output_audio) != int(expected_audio) or any(
-            s.get("codec_name") != "aac" for s in output_audio
+            s.get("codec_name") != ("opus" if preset == "av1-720p" else "aac")
+            for s in output_audio
         ):
             raise CatabolicError("output audio does not match the recipe")
-    if preset in ("audio-flac", "audio-aac", "subtitle-srt"):
+    if preset == "hdr-sdr-1080p":
+        output_video = streams(after, "video")[0]
+        if (
+            any(
+                output_video.get(k) != "bt709"
+                for k in ("color_transfer", "color_primaries", "color_space")
+            )
+            or output_video.get("color_range") != "tv"
+        ):
+            raise CatabolicError("output lacks the required BT.709 SDR color evidence")
+    if preset in (*AUDIO_PRESETS, "subtitle-srt"):
         wanted_codec = {
             "audio-flac": "flac",
             "audio-aac": "aac",
             "subtitle-srt": "subrip",
+            "audio-opus": "opus",
+            "audio-normalize": "flac",
         }[preset]
         if (
             len(after["streams"]) != 1
             or after["streams"][0].get("codec_name") != wanted_codec
         ):
             raise CatabolicError("extracted stream codec does not match the recipe")
-    if preset == "thumbnail" and streams(after, "video")[0].get("codec_name") != "png":
-        raise CatabolicError("output is not a PNG thumbnail")
+    if (
+        preset in IMAGE_PRESETS
+        and streams(after, "video")[0].get("codec_name") != "png"
+    ):
+        raise CatabolicError("output is not a PNG image")
+    if preset == "waveform" and any(
+        streams(after, "video")[0].get(k) != recipe[k] for k in ("width", "height")
+    ):
+        raise CatabolicError("waveform dimensions do not match the recipe")
     wanted = duration(before)
     if recipe.get("require_duration") and (not wanted or not duration(after)):
         raise CatabolicError("required duration evidence is unknown")
@@ -428,7 +584,7 @@ def render(input_fd, output_fd, recipe, identity, poll):
             recipe["duration_seconds"], max(0, wanted - recipe["start_seconds"])
         )
     if (
-        preset not in ("thumbnail", "subtitle-srt")
+        preset not in (*IMAGE_PRESETS, "subtitle-srt")
         and wanted
         and abs(duration(after) - wanted) > max(1, wanted * 0.02)
     ):
@@ -439,4 +595,38 @@ def render(input_fd, output_fd, recipe, identity, poll):
         "output": after,
         "coverage": "bounded stream probe and operation-specific checks; not full decode",
         "recipe_digest": hashlib.sha256(encode(recipe).encode()).hexdigest(),
+        **(
+            {
+                "waveform_window": {
+                    "start_seconds": recipe["start_seconds"],
+                    "duration_seconds": recipe["duration_seconds"],
+                }
+            }
+            if preset == "waveform"
+            else {}
+        ),
+        **(
+            {
+                "normalization": {
+                    "mode": "single-pass dynamic",
+                    "integrated_lufs": recipe["integrated_lufs"],
+                    "true_peak_db": recipe["true_peak_db"],
+                    "loudness_range": recipe["loudness_range"],
+                    "coverage": "configured targets; achieved loudness is not independently measured",
+                }
+            }
+            if preset == "audio-normalize"
+            else {}
+        ),
+        **(
+            {
+                "tone_mapping": {
+                    "algorithm": "hable",
+                    "peak_nits": recipe["peak_nits"],
+                    "coverage": "explicit peak assumption and tagged input; not display certification",
+                }
+            }
+            if preset == "hdr-sdr-1080p"
+            else {}
+        ),
     }

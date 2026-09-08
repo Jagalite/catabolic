@@ -128,9 +128,10 @@ Live admission validates the full bounded ancestry. Programming definitions are
 local database configuration; the subsequent `program export/import` follow-up
 adds a separate configuration bundle. Its validation is recorded below.
 
-Native AV1/Opus presets, HDR-to-SDR conversion, waveform generation, normalization
-and general document/OCR extraction are not added. Existing external receipts are
-the extension path for externally generated files. There is no new DAG scheduler,
+The foundation did not add native AV1/Opus, tone mapping, waveforms, normalization
+or document extraction; the native-processing follow-up below adds bounded local
+adapters. Existing external receipts remain the path for other generated files.
+There is no new DAG scheduler,
 recursive event executor or automatic query-trigger daemon. Analysis and external
 runtime/storage estimates remain explicitly unknown where no defensible estimate
 exists. See [the guide](PROGRAMMABLE_CATALOG.md) for operational bounds and
@@ -164,3 +165,48 @@ this follow-up. Earlier results above remain dated foundation evidence.
 Local logs and artifacts use `.local-tests/program-bundle-*`, including
 `program-bundle-final-regression.log`, `program-bundle-acceptance/report.json`,
 `program-bundle-distribution.json`, and the disposable installed environment.
+
+## Native-processing follow-up (2026-09-08)
+
+Added `av1-720p`, `audio-opus`, `hdr-sdr-1080p`, `waveform` and `audio-normalize`
+through the existing immutable recipe, artifact and rule paths. Recorded rule
+planning and live rendering now share selected-stream requirements. Capability
+discovery reports missing encoders, muxers and filters. No migration was needed;
+existing default recipe definitions and the 14 frozen interchange artifacts remain
+unchanged. PDF-text and single-image OCR are explicit backends of the existing
+text job, retaining page/line locators, tool identity and input revision.
+
+The final source regression ran **493 tests in 76.435 seconds: 490 passed and
+three skipped**. New coverage exercises real AV1/Opus, waveform and normalized
+FLAC output, independent decode checks, source preservation, repeat-job reuse,
+selected HDR metadata requirements, unavailable capabilities, document byte/page
+limits, failed-result indexing boundaries, stale-source results, extractor changes
+and immutable caller options. A six-second audio fixture independently measured
+within 0.5 LU of the -16 LUFS target and below -1.5 dBTP after normalization.
+Inherited ReplayGain/R128 gains were absent from the generated file.
+
+A newly built wheel installed into a disposable environment with hash-locked
+runtime dependencies passed **196 CLI commands in 46.403 seconds**. The added
+journey generates and independently decodes AV1/Opus, Opus audio, waveform PNG
+and normalized FLAC, verifies artifact hashes and repeat enqueue identity, and
+rechecks the original fixture bytes. The **84-command reference journey** and
+its independent mechanical evaluator also passed. This remains scripted reference
+evidence; agent judgment was not measured.
+
+The three skipped tests are real HDR conversion (this FFmpeg 8.1.2 build lacks
+`zscale`), PDF extraction (Poppler `pdftotext` absent), and image OCR (Tesseract
+absent). Their rejection, option and persistence paths were tested, but that is
+not proof of the missing tools' runtime behavior. CI setup now installs Poppler
+and Tesseract for the optional real extraction fixtures; remote CI has not run
+for this change. No new consumer, mount/unmount or scale certification is claimed.
+Blind agent trials and transcript adjudication remain open.
+
+Ruff lint/format, guide synchronization, frozen-spec preservation, strict
+wheel/sdist validation and installed dependency checks passed. The validation
+paragraph was added after runtime acceptance; the documentation rebuild checks
+that every packaged non-Markdown runtime file matches the accepted installation.
+Logs, wheel artifacts, the acceptance report and reference corpus are retained
+under `.local-tests/native-processing-*`, including
+`native-processing-verified-regression.log`,
+`native-processing-verified-acceptance/report.json` and
+`native-processing-experience/report.json`.
