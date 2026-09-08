@@ -439,6 +439,9 @@ class Rules:
                     )
 
     def _requirements(self, plan):
+        from .projection_stats import rule_evaluation
+
+        rule_evaluation(self.app, plan)
         rule = plan["rule"]
         if not rule["required"]:
             return
@@ -711,7 +714,11 @@ class Rules:
             result = executor.run(
                 limit=batch, job_ids=list(dict.fromkeys(selected)), _refresh=_refresh
             )
-        after = self._bounded(self._plan(identifier, scan_ids), limit)
+        after_plan = self._plan(identifier, scan_ids)
+        from .projection_stats import rule_evaluation
+
+        rule_evaluation(self.app, after_plan)
+        after = self._bounded(after_plan, limit)
         return {
             "rule_id": identifier,
             "execution": result,

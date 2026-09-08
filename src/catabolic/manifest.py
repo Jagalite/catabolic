@@ -20,6 +20,7 @@ from .interchange.v3 import FORMAT, VERSION
 from .interchange.validation import validate_document
 from .layouts import Layouts
 from .migration import SCHEMA_VERSION
+from .projection_stats import NAMESPACE, exported
 from .reconcile import Reconciler
 from .store import encode
 
@@ -63,6 +64,10 @@ class Manifest:
             raise CatabolicError("extra metadata must be a JSON object")
         if extra is not None:
             encode(extra)
+            if NAMESPACE in extra:
+                raise CatabolicError(
+                    f"{NAMESPACE} is reserved for generated statistics"
+                )
         Reconciler(self.app).catalogs(catalog)
         link_mode = self.app.link_mode(catalog)
         mappings = bounded(
@@ -222,7 +227,7 @@ class Manifest:
             "associations": associations,
             "relationships": [relationships[key] for key in sorted(relationships)],
             "recorded_links": records,
-            "extra": extra if extra is not None else {},
+            "extra": {**(extra or {}), NAMESPACE: exported(self.app, catalog)},
         }
         # Preserve provenance even for withdrawn assignments on included entities.
         taggings = []

@@ -541,6 +541,11 @@ class Layouts:
                 raise CatabolicError(
                     "layout planning supports at most 100000 active identifications"
                 )
+        from .projection_stats import selection as selection_statistics
+
+        selection_snapshot = selection_statistics(
+            self.app, associations, selection_report
+        )
         if admitted is not None:
             if "selection" not in definition:
                 associations = list(
@@ -698,6 +703,7 @@ class Layouts:
             "unchanged_count": len(desired)
             - sum(c["action"] != "disable" for c in changes),
             "skipped_associations": skipped,
+            "selection_statistics": selection_snapshot,
             "publication": publication_report,
             "rendition_associations": [
                 r["id"] for r in associations if r["id"] in admitted_ids
@@ -751,6 +757,14 @@ class Layouts:
                     db.execute(
                         "INSERT INTO meta(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                         ("layout-catalog:" + catalog, encode(state)),
+                    )
+                    from .projection_stats import now, save
+
+                    save(
+                        self.app,
+                        "selection",
+                        catalog,
+                        {**plan["selection_statistics"], "evaluated_at": now()},
                     )
                 plan["applied"] = plan["safe"]
         else:

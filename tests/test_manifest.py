@@ -272,7 +272,8 @@ class ManifestTest(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(json.loads(result.stdout)["written"])
-        self.assertEqual(
-            json.loads((self.root / "manifest.json").read_text())["content"]["extra"],
-            {"purpose": "demo"},
-        )
+        extra = json.loads((self.root / "manifest.json").read_text())["content"][
+            "extra"
+        ]
+        self.assertEqual(extra["purpose"], "demo")
+        self.assertEqual(extra["catabolic:statistics"]["version"], 1)

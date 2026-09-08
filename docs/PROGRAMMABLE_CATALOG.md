@@ -251,6 +251,13 @@ is not itself an immediate filesystem mutation.
 
 ## Compatibility, evidence and limits
 
+Manifest exports include [scoped statistics](OPEN_CATALOG.md#statistics-extension)
+under `content.extra["catabolic:statistics"]`: recorded selection bytes/counts,
+rule evaluation and job progress, observation freshness, and the last link
+execution's action counts and verification. Saved execution statistics remain
+fixed when later catalog state changes. Exports read stored data without
+executing queries, rules or filesystem verification.
+
 Schema **15** adds immutable saved queries, dependency edges and projection
 bindings. Embedded legacy rule and layout selections are adopted as named query
 snapshots; original JSON and IDs remain intact. Legacy rule IDs get query IDs

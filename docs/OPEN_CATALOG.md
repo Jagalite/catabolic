@@ -74,6 +74,55 @@ Version 2 does retain withdrawn tag assertions on included subjects. Its tagging
 collections include the ancestor vocabulary closure and aliases; see
 [TAGGING.md](TAGGING.md). It does not implicitly downgrade to v1 or discard tags.
 
+## Statistics extension
+
+New exports include `content.extra["catabolic:statistics"]`, version **1**.
+This reserved namespace uses the manifest's existing opaque metadata extension;
+the frozen v1–v3 contracts are unchanged. Other user-provided `extra` keys are
+preserved. Supplying the reserved key is rejected. The content checksum covers
+the statistics, and interchange round trips preserve them without executing work.
+
+- `current_recorded` describes the selected profile and catalog at the manifest's
+  `generated_at`. It includes desired entries, distinct mapped items/files,
+  recorded link counts, file availability, unknown sizes, and oldest/newest scan
+  observation timestamps. It reads stored observations, without accessing media.
+- `known_referenced_bytes` is decimal text, summed once per file ID. Unknown sizes
+  are counted separately; missing files retain their last recorded sizes. This
+  is neither deduplicated physical storage nor bytes consumed by symlinks.
+- `last_query_evaluation` records the applied layout's full selection summary
+  before copy/rendition filtering, plus its evaluation timestamp. Its query ID
+  count and associated item/file counts may differ. Preview does not save it.
+- `rules` includes revisions associated through the projection's query, explicit
+  rendition rule policy, or attached jobs for mapped files/items. Each reports
+  its last saved evaluation counts (missing, stale, satisfied, queued, running,
+  failed, deferred), bounded deferred reasons, local/external historical job
+  states, and latest recorded job finish/update timestamps. Evaluation counts
+  cover the whole evaluated rule selection, not just this projection. Job
+  completion does not establish current satisfaction. Rules without saved
+  evaluations report `null`; unrelated rules are excluded.
+- `last_execution` is a persisted snapshot of the last admitted reconciliation,
+  including its recorded inputs, planned/applied action counts, start/end times,
+  elapsed wall time, and verification time, healthy-link count and issue count.
+  It covers ordinary sync, explicit projection execution and automatic refresh.
+  Later database changes do not rewrite it. `completion_unknown` with null final
+  fields means no completion was recorded, including interruption or a crash;
+  recovery alone does not invent completion evidence. A later execution replaces
+  the snapshot. Rejected previews/plans do not replace it.
+
+The extension is bounded to 100,000 mappings/files and 1,000 associated rules;
+exceeding these limits fails before link execution or manifest publication.
+Full action counts are independent of CLI detail limits. Deferred reasons retain
+at most 100 groups and explicitly flag truncation. Legacy outputs have null
+history until new work records it. Standalone read-only verification does not
+persist a new snapshot. `filesystem_verified_at_export` remains false: saved
+verification describes its recorded time, not the present filesystem.
+
+Export does not rerun selection, evaluate rules, scan, verify, or render. Repeated
+exports without state changes retain the same content checksum. A new execution
+can update history even when it changes no links, requiring normal explicit
+manifest replacement. Elapsed time covers reconciliation, not query evaluation
+or processor runtime; multi-catalog runs share the reconciliation interval.
+
 ## Semantic requirements beyond JSON Schema
 
 These requirements are enforced by the codec and tests, rather than inferred

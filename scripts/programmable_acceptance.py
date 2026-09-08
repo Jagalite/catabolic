@@ -92,11 +92,25 @@ def exercise(workflow, file_id):
     finally:
         offline.rename(target)
     assert cli("projection", "execute", "programmable")["complete"]
+    manifest = cli("manifest", "--catalog", "programmable")
+    stats = manifest["content"]["extra"]["catabolic:statistics"]
+    assert stats["version"] == 1
+    assert stats["current_recorded"]["desired_entries"] == 1
+    assert stats["current_recorded"]["selection"]["files"] == 1
+    assert int(stats["current_recorded"]["selection"]["known_referenced_bytes"]) > 0
+    assert stats["last_execution"]["applied_actions"]["create"] == 1
+    assert stats["last_execution"]["verification"]["verified_links"] == 1
+    assert not stats["filesystem_verified_at_export"]
     links = [p for p in target.rglob("*") if p.is_symlink()]
     assert len(links) == 1 and links[0].resolve().is_relative_to(w.root / "generated")
     inode = links[0].lstat().st_ino
     assert cli("projection", "execute", "programmable")["layout"]["change_count"] == 0
     assert links[0].lstat().st_ino == inode
+    repeated_stats = cli("manifest", "--catalog", "programmable")["content"]["extra"][
+        "catabolic:statistics"
+    ]
+    assert repeated_stats["last_execution"]["applied_actions"] == {}
+    assert repeated_stats["last_execution"]["planned_actions"]["unchanged"] == 1
     assert cli("projection", "verify", "programmable")["healthy"]
     assert cli("rule", "apply", rule["id"])["queued"] == []
     assert cli("rule", "run", rule["id"])["execution"]["completed"] == []
@@ -137,6 +151,7 @@ def exercise(workflow, file_id):
             "lineage-backed publication",
             "offline destination retry",
             "stable repeated run",
+            "manifest statistics with full action counts and recorded source bytes",
             "machine envelope",
             "portable definitions with atomic preview and idempotent import",
         ],

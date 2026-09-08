@@ -229,6 +229,13 @@ class Reconciler:
         )
         if not preview["safe"]:
             return {**preview, "applied": [], "healthy": False}
+        from .projection_stats import begin_execution, finish_execution
+
+        statistics = (
+            begin_execution(self.app, self.catalogs(catalog), preview["actions"])
+            if self.store.schema_version >= 16
+            else None
+        )
         applied = []
         for raw in preview["actions"]:
             action = Action(**raw)
@@ -260,6 +267,8 @@ class Reconciler:
             self._execute(operation, after_filesystem=after_filesystem)
             applied.append(action.to_dict())
         verified = self.verify(catalog)
+        if statistics is not None:
+            finish_execution(self.app, *statistics, applied, verified)
         events = []
         if self.store.schema_version >= 6 and self.notify_consumers:
             from .network_adapters import Refresh
