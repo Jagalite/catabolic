@@ -101,6 +101,30 @@ def exercise(workflow, file_id):
     assert cli("rule", "apply", rule["id"])["queued"] == []
     assert cli("rule", "run", rule["id"])["execution"]["completed"] == []
     assert len(cli("rule", "stats", rule["id"])["attempts"]) == 1
+    bundle = cli(
+        "program", "export", "--rule", rule["id"], "--projection", "programmable"
+    )
+    bundle_path = w.json_file("program-bundle.json", bundle)
+    imported_target = w.root / "imported-projection"
+    imported_target.mkdir()
+    cli("catalog", "bind", "imported-program", "--root", str(imported_target))
+    bindings = w.json_file(
+        "program-bindings.json",
+        {
+            "catalogs": {"programmable": "imported-program"},
+            "locations": {"generated": "generated"},
+        },
+    )
+    import_args = ("program", "import", "--file", bundle_path, "--bindings", bindings)
+    preview = cli(*import_args, "--dry-run")
+    assert preview["complete"] and not preview["applied"]
+    assert cli("projection", "show", "imported-program")["legacy"]
+    imported = cli(*import_args)
+    assert imported["applied"]
+    imported_rule = imported["references"]["rules"][rule["id"]]
+    assert not cli("rule", "show", imported_rule)["enabled"]
+    assert cli(*import_args)["references"] == imported["references"]
+    assert list(imported_target.iterdir()) == []
     return {
         "query_id": gap,
         "operation_id": operation["id"],
@@ -114,5 +138,6 @@ def exercise(workflow, file_id):
             "offline destination retry",
             "stable repeated run",
             "machine envelope",
+            "portable definitions with atomic preview and idempotent import",
         ],
     }

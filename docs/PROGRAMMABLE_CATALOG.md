@@ -270,8 +270,8 @@ fields. Exit 0 means that command succeeded, 3 means incomplete/unsafe, 2 means
 error, and 130 means interruption. Argument-parser errors retain argparse's
 stderr behavior. GraphQL exposes saved query/operation/projection definitions;
 SQL schema discovery includes their normalized views. Portable interchange
-schema versions are unchanged; saved programming definitions are currently local
-database configuration, not a new portable interchange object.
+schema versions are unchanged. Programming definitions can be transferred with
+the separate configuration bundle described below.
 
 Implemented and fixture-tested: query reuse/composition, analysis and render
 rules, explicit derived chains, external queue/receipt convergence, projection
@@ -287,5 +287,51 @@ extraction. These can be externally executed using the receipt protocol; the
 catalog does not invent missing technical evidence or native support. No general
 DAG scheduler, query-trigger daemon or automatic recursive rule execution is
 introduced. Recorded-state SQL compares immediate lineage; live admission checks
-all ancestors. Durable query/projection definitions are local configuration;
-portable definition interchange remains follow-up work.
+all ancestors. Definition transfer does not transfer catalog records or execution evidence.
+
+## Transfer programming definitions
+
+`program export` writes a version 1 `catabolic.program` JSON bundle. Select one
+or more roots with repeated `--query ID`, `--rule ID` and `--projection CATALOG`.
+The bundle includes their saved query dependencies, operation/output definitions,
+layouts and copy/rendition policies, bounded to 256 definitions, 32 dependency
+levels and 4 MiB. This is a separate configuration format; Open Catalog manifests
+and their frozen schemas are unchanged.
+
+```sh
+catabolic --db source.sqlite3 --json program export \
+  --rule RULE_ID --projection mobile > program.json
+catabolic --db destination.sqlite3 --machine program import \
+  --file program.json --bindings bindings.json --prefix mobile --dry-run
+catabolic --db destination.sqlite3 --machine program import \
+  --file program.json --bindings bindings.json --prefix mobile
+```
+
+For this example, `bindings.json` maps exported resource names to existing local
+resources, such as `{"catalogs":{"mobile":"phone"},"locations":{"generated":"derived"}}`.
+External operations also require `"processors":{"remote":"local-worker"}`.
+Create/bind those resources with their existing commands first. Imports do not
+create mount bindings, generated directories, processors or credentials. Export
+omits processor endpoints and credential configuration; operation options and
+query parameters are included as supplied, so inspect them before sharing.
+
+Import remaps composition/query IDs, operation/output IDs and rendition-policy
+rule/output references. Structured selection profiles use the destination
+`--profile`. SQL/GraphQL text, parameters, variables, metadata and operation options
+remain literal: embedded item/file/recipe IDs, profile names and location predicates
+must be reviewed for the destination. Import validates configuration without
+executing queries, checking their results or transferring media identities.
+
+Names receive `PREFIX.` (default `imported.`), subject to the usual 64-character
+name bound. Saved queries and operations retain immutable revisions. Conflicting
+rules/layouts/projections fail atomically; use another prefix or an unconfigured
+destination catalog. A bundle must not contain conflicting rule revisions sharing
+one name. Each imported projection needs a distinct destination catalog.
+
+Dry-run exercises the same validators inside a rolled-back transaction; returned
+new IDs are temporary preview IDs. A failed import preserves all prior definitions
+and rule enablement. A successful repeat reuses IDs and preserves existing rule
+enablement. Newly imported rules start disabled, and automatic refresh is not
+enabled by import. Import creates no jobs, mappings or output files. Inspect the
+returned references, run rule/projection previews, then explicitly enable or
+execute the selected workflow using the ordinary commands and removal budgets.

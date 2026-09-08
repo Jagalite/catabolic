@@ -125,7 +125,8 @@ SQL retains arbitrary predicates; GraphQL provides common rendition-gap filters
 and bounded evidence/discovery rather than complete SQL-filter parity. Recorded
 currentness is immediate snapshot evidence, not live recursive source checking.
 Live admission validates the full bounded ancestry. Programming definitions are
-local database configuration; portable definition interchange remains follow-up.
+local database configuration; the subsequent `program export/import` follow-up
+adds a separate configuration bundle. Its validation is recorded below.
 
 Native AV1/Opus presets, HDR-to-SDR conversion, waveform generation, normalization
 and general document/OCR extraction are not added. Existing external receipts are
@@ -134,3 +135,32 @@ recursive event executor or automatic query-trigger daemon. Analysis and externa
 runtime/storage estimates remain explicitly unknown where no defensible estimate
 exists. See [the guide](PROGRAMMABLE_CATALOG.md) for operational bounds and
 compatibility details.
+
+## Configuration-transfer follow-up (2026-09-08)
+
+The foundation was committed as `b4e997d` after a fresh **466-test** regression
+pass. The subsequent `program export/import` implementation passed **475 tests**
+in 74.632 seconds. Nine new tests cover cross-database/profile dependency remapping,
+atomic preview and failed-import rollback, repeat imports preserving enabled rules,
+render/output and external-processor mappings, legacy nullable output definitions,
+conflicting layouts/projections, malformed references/cycles/bounds, and CLI JSON
+and machine-envelope round trips.
+
+A newly built wheel installed into a fresh environment with hash-locked runtime
+dependencies passed **175 CLI commands** in 38.808 seconds. The installed journey
+includes definition export, rollback preview, disabled imported rules and stable
+repeat imports, alongside existing real-FFmpeg processing and source-preservation
+checks. Wheel/sdist metadata and all **152 packaged source/data files** passed
+distribution validation; `pip check`, Ruff lint/format, compilation, guide sync,
+`spec check` and all **14 frozen interchange artifacts** passed. This paragraph
+and its bundled copy were finalized after the runtime replay.
+
+FFmpeg descriptor reopening and localhost fixture servers require host permissions
+in this execution environment: an initial sandboxed baseline run failed those
+boundaries, and the host-permission baseline/follow-up runs above passed. No new
+Jellyfin, mount/unmount, scale, dependency-audit or remote CI result is claimed for
+this follow-up. Earlier results above remain dated foundation evidence.
+
+Local logs and artifacts use `.local-tests/program-bundle-*`, including
+`program-bundle-final-regression.log`, `program-bundle-acceptance/report.json`,
+`program-bundle-distribution.json`, and the disposable installed environment.

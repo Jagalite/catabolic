@@ -37,6 +37,21 @@ def query(args):
 
 
 def register(commands):
+    programs = commands.add_parser(
+        "program",
+        help="export and atomically import query/rule/projection configuration",
+    ).add_subparsers(dest="operation", required=True)
+    export = programs.add_parser("export")
+    export.add_argument("--query", action="append", default=[])
+    export.add_argument("--rule", action="append", default=[])
+    export.add_argument("--projection", action="append", default=[])
+    importing = programs.add_parser("import")
+    importing.add_argument("--file", required=True)
+    importing.add_argument(
+        "--bindings", help="JSON maps for catalogs, locations and processors"
+    )
+    importing.add_argument("--prefix", default="imported")
+    importing.add_argument("--dry-run", action="store_true")
     operations = commands.add_parser(
         "operation",
         help="immutable processing definitions and supported operation types",
@@ -145,6 +160,26 @@ def operation(args):
         if args.operation == "show":
             return operations.get(args.id)
         return operations.list(args.limit, args.after)
+
+
+def program(args):
+    from .cli import read_text
+    from .program_bundle import MAX_BYTES, Programs
+
+    with Store(args.db, writable=args.operation == "import") as store:
+        programs = Programs(Application(store, args.profile))
+        if args.operation == "export":
+            return programs.export(
+                queries=args.query, rules=args.rule, projections=args.projection
+            )
+        return programs.import_bundle(
+            json.loads(read_text(args.file, MAX_BYTES)),
+            bindings=json.loads(read_text(args.bindings, 65536))
+            if args.bindings
+            else None,
+            prefix=args.prefix,
+            dry_run=args.dry_run,
+        )
 
 
 def envelope(args, data, code):

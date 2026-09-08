@@ -746,6 +746,10 @@ def dispatch(args: argparse.Namespace) -> dict:
             max_rows=args.max_rows,
             timeout_ms=args.timeout_ms,
         )
+    if args.command == "program":
+        from .program_cli import program
+
+        return program(args)
     if args.command == "projection":
         from .program_cli import projection
 

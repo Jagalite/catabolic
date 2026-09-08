@@ -13,3 +13,4 @@ dist/
 *.sqlite3.lock
 .ruff_cache/
 .local-tests/
+.DS_Store
