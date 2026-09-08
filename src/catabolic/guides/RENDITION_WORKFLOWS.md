@@ -38,6 +38,13 @@ After saving a layout, `maintenance --catalog transcodes --manifest` refreshes i
 Adding `--rules --render-rules 1` also evaluates enabled rules and permits one
 render. Source media and previous generated files remain intact.
 
+## Automatic link updates
+
+After applying a saved layout, enable `catalog-refresh enable --catalog transcodes`
+to update links after rendition completion. Use `catalog-refresh watch` for durable
+retries after restarts or unavailable destinations. This path never calls a media
+server or queues library scans. See [automatic catalog links](CATALOG_REFRESH.md).
+
 ## Publication policy
 
 `rendition policy --catalog NAME` reads the current profile's policy. Supplying

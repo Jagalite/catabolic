@@ -11,6 +11,7 @@ import time
 from contextlib import ExitStack
 from uuid import uuid4
 
+from .catalog_refresh import enqueue, finish
 from .curation import occurrence
 from .domain import CatabolicError, relative_path
 from .item_workflow import text
@@ -101,18 +102,21 @@ def import_receipt(app, value, *, _accepted=None):
         if _accepted is not None:
             with app.store.transaction() as db:
                 _accepted(db, previous[0]["id"])
-        return {
-            "receipt_id": previous[0]["id"],
-            "reused": True,
-            "output_ids": [
-                r["output_id"]
-                for r in app.store.rows(
-                    "SELECT output_id FROM receipt_outputs WHERE receipt_id=? ORDER BY output_id",
-                    (previous[0]["id"],),
-                )
-            ],
-            "evidence": "previously accepted receipt; reuse is not a fresh verification",
-        }
+        return finish(
+            app,
+            {
+                "receipt_id": previous[0]["id"],
+                "reused": True,
+                "output_ids": [
+                    r["output_id"]
+                    for r in app.store.rows(
+                        "SELECT output_id FROM receipt_outputs WHERE receipt_id=? ORDER BY output_id",
+                        (previous[0]["id"],),
+                    )
+                ],
+                "evidence": "previously accepted receipt; reuse is not a fresh verification",
+            },
+        )
     source = value["source"]
     if not isinstance(source, dict) or set(source) != {
         "file_id",
@@ -233,9 +237,13 @@ def import_receipt(app, value, *, _accepted=None):
             stack.close()
             if _accepted is not None:
                 _accepted(db, identifier)
-    return {
-        "receipt_id": identifier,
-        "reused": False,
-        "output_ids": [r[0] for r in records],
-        "evidence": "delivered size and SHA-256 verified; processing claims are producer-declared",
-    }
+            enqueue(db, app.profile)
+    return finish(
+        app,
+        {
+            "receipt_id": identifier,
+            "reused": False,
+            "output_ids": [r[0] for r in records],
+            "evidence": "delivered size and SHA-256 verified; processing claims are producer-declared",
+        },
+    )

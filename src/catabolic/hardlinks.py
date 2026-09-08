@@ -464,10 +464,15 @@ class Hardlinks:
                     "DELETE FROM owned_hardlinks WHERE profile=? AND catalog=? AND path=?",
                     (self.profile, catalog, path),
                 )
-            if self.store.schema_version >= 6 and kind in (
-                "hard_create",
-                "hard_replace",
-                "hard_remove",
+            if (
+                self.store.schema_version >= 6
+                and self.r.notify_consumers
+                and kind
+                in (
+                    "hard_create",
+                    "hard_replace",
+                    "hard_remove",
+                )
             ):
                 from .network_adapters import record_output_change
 

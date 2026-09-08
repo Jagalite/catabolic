@@ -434,6 +434,10 @@ class Artifacts:
                     "validation": artifact["validation"],
                 },
             )
+            if self.store.schema_version >= 14:
+                from .catalog_refresh import enqueue
+
+                enqueue(db, self.profile)
 
     def _fail(self, artifact, state, error):
         with self.store.transaction() as db:
@@ -476,9 +480,13 @@ class Artifacts:
                     "interrupted before validated publication; retained partial file for inspection",
                 )
                 recovered.append(artifact["id"])
-        return {"recovered": recovered, "errors": errors, "complete": not errors}
+        from .catalog_refresh import finish
 
-    def run(self, *, limit=100, job_ids=None):
+        return finish(
+            self.app, {"recovered": recovered, "errors": errors, "complete": not errors}
+        )
+
+    def run(self, *, limit=100, job_ids=None, _refresh=True):
         page_limit(limit)
         if job_ids is not None and (
             not isinstance(job_ids, list)
@@ -510,7 +518,13 @@ class Artifacts:
                 completed.append(self._run_one(job))
             except (OSError, CatabolicError, CommandFailure, ValueError) as exc:
                 errors.append({"job_id": job["id"], "error": str(exc)[:4000]})
-        return {"completed": completed, "errors": errors, "complete": not errors}
+        from .catalog_refresh import finish
+
+        return finish(
+            self.app,
+            {"completed": completed, "errors": errors, "complete": not errors},
+            enabled=_refresh,
+        )
 
     def _run_one(self, job):
         options = json.loads(job["options"])

@@ -11,6 +11,12 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "catalog-refresh",
+        "CATALOG_REFRESH.md",
+        "Automatic catalog link updates",
+        "Durable rendition completion triggers, saved layout refreshes and restartable link-only retries.",
+    ),
+    (
         "processors",
         "PROCESSORS.md",
         "Network processors and distributed workers",

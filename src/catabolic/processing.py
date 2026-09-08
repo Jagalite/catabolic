@@ -633,6 +633,17 @@ class Processing:
                         state,
                     ),
                 )
+                if (
+                    self.store.schema_version >= 14
+                    and job["operation"] in ("probe", "verify", "hash")
+                    and db.execute(
+                        "SELECT 1 FROM media_outputs WHERE profile=? AND file_id=? LIMIT 1",
+                        (self.profile, job["file_id"]),
+                    ).fetchone()
+                ):
+                    from .catalog_refresh import enqueue
+
+                    enqueue(db, self.profile)
                 if job["operation"] == "text":
                     db.execute(
                         "DELETE FROM text_segments WHERE profile=? AND file_id=?",
@@ -703,6 +714,7 @@ class Processing:
         retry_transient=0,
         retry_delay=30,
         job_ids=None,
+        _refresh=True,
     ):
         if job_ids is not None and (
             not isinstance(job_ids, list)
@@ -891,18 +903,24 @@ class Processing:
         except BaseException:
             cancel.set()
             raise
-        return {
-            "processed": sum(counts.values()),
-            "retried": len(due),
-            "reused_physical_results": reused,
-            "counts": counts,
-            "complete": all(k == "complete" for k in counts),
-            "remaining": self.store.db.execute(
-                "SELECT count(*) FROM processing_jobs WHERE profile=? AND state='queued'"
-                + scope,
-                (self.profile, *scope_args),
-            ).fetchone()[0],
-        }
+        from .catalog_refresh import finish
+
+        return finish(
+            self.app,
+            {
+                "processed": sum(counts.values()),
+                "retried": len(due),
+                "reused_physical_results": reused,
+                "counts": counts,
+                "complete": all(k == "complete" for k in counts),
+                "remaining": self.store.db.execute(
+                    "SELECT count(*) FROM processing_jobs WHERE profile=? AND state='queued'"
+                    + scope,
+                    (self.profile, *scope_args),
+                ).fetchone()[0],
+            },
+            enabled=_refresh,
+        )
 
     def facts(self, file_id):
         return {

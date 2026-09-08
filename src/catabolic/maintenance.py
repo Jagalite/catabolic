@@ -210,7 +210,9 @@ def _analysis(app, scan, operation, settle, batch, workers):
                         pending += 1
                 elif row["state"] != "complete":
                     failures += 1
-    result = processor.run(workers=workers, limit=batch, job_ids=selected)
+    result = processor.run(
+        workers=workers, limit=batch, job_ids=selected, _refresh=False
+    )
     return {
         "operation": operation,
         "queued": queued,

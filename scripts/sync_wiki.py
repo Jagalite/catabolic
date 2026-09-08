@@ -64,6 +64,11 @@ GROUPS = {
     ),
     "Generate and share": (
         (
+            "CATALOG_REFRESH.md",
+            "Automatic-Catalog-Updates",
+            "Durable completion-triggered catalog link updates",
+        ),
+        (
             "PROCESSORS.md",
             "Network-Processors",
             "HTTP adapters, worker leases and measured estimates",

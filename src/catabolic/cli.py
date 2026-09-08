@@ -95,6 +95,9 @@ def parser() -> argparse.ArgumentParser:
     from .processor_cli import register as register_processors
 
     register_processors(commands)
+    from .catalog_refresh_cli import register as register_catalog_refresh
+
+    register_catalog_refresh(commands)
     from .enrichment_cli import register
 
     register(commands)
@@ -565,6 +568,10 @@ def parser() -> argparse.ArgumentParser:
 
 
 def dispatch(args: argparse.Namespace) -> dict:
+    if args.command == "catalog-refresh":
+        from .catalog_refresh_cli import dispatch as dispatch_catalog_refresh
+
+        return dispatch_catalog_refresh(args)
     if args.command == "processor":
         from .processor_cli import dispatch as dispatch_processor
 

@@ -5,7 +5,7 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
-Status: the catalog core and CLI are implemented in Python, currently schema 13.
+Status: the catalog core and CLI are implemented in Python, currently schema 14.
 The system includes enrichment jobs, generated renditions, entry worklogs and
 saved processing rules. See [ENRICHMENT.md](ENRICHMENT.md),
 [ARTIFACTS.md](ARTIFACTS.md) and [RULES.md](RULES.md) for current commands.
@@ -196,6 +196,16 @@ completion. It does not introduce a second local render engine. `selection.py`
 adds complete keyset pages and `estimate_calibration.py` derives conservative
 planning adjustments from retained successful recipe evidence. See
 [processor workflows](PROCESSORS.md).
+
+Schema 14 adds `catalog_refresh.py`, which connects committed rendition evidence
+to opted-in catalogs through a durable, coalesced queue. Producers record refresh
+intent in their completion transaction and drain it after the batch. The worker
+reuses saved layouts and the existing reconciler, verifies the resulting links,
+and acknowledges only the completed event generation. Failed publication remains
+retryable independently of rendering; a foreground worker handles delayed retries
+and crash recovery. Automatic refresh suppresses consumer notifications and does
+not scan source trees or export manifests. See
+[automatic catalog link updates](CATALOG_REFRESH.md) for configuration and recovery.
 
 ## Schema evolution
 

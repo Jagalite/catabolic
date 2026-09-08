@@ -10,7 +10,7 @@ generated destination. They cover existing media and future maintenance cycles.
 Preview reports approximately how much **additional space** the full backfill
 needs before queuing or encoding. Run `catabolic docs rules` to read this offline.
 
-Commands require schema 13. Upgrade older catalogs explicitly with
+Commands require schema 14. Upgrade older catalogs explicitly with
 `db upgrade --dry-run` followed by `db upgrade`. Rules reuse the existing
 [artifact queue, output definitions, validation and recovery](ARTIFACTS.md).
 

@@ -116,8 +116,9 @@ Do not publish unfinished outputs or advertise complete until delivery is durabl
 A lost PUT acknowledgement leaves the local job leased; the next tick repeats the
 same PUT. An accepted running response changes it to submitted; later ticks GET
 that attempt. Invalid/unscanned receipts leave the lease pending, so fix delivery
-or scan the output location and retry before expiry. Publication remains explicit:
-select a rendition policy, preview/apply its layout, sync and verify.
+or scan the output location and retry before expiry. Select a rendition policy and apply its saved layout. Schema 14 can then update
+catalog links automatically on receipt/probe completion; enable it per catalog
+with `catalog-refresh enable`. See [automatic catalog links](CATALOG_REFRESH.md).
 
 ## Calibration and larger rules
 

@@ -75,7 +75,7 @@ class EstimateTest(unittest.TestCase):
             upgrade_database(path, migrations=load_migrations()[:10])
             before = contents(path)
             result = upgrade_database(path)
-            self.assertEqual(result["schema"], 13)
+            self.assertEqual(result["schema"], 14)
             with Store(path) as store:
                 self.assertEqual(store.rows("SELECT * FROM processing_rules"), [])
                 self.assertEqual(store.rows("SELECT * FROM rule_jobs"), [])

@@ -779,8 +779,37 @@ class Workflow:
                 }
             )
         )
+        receipt_catalog = self.root / "receipt-links"
+        receipt_catalog.mkdir()
+        self.cli("catalog", "bind", "receipts", "--root", str(receipt_catalog))
+        self.cli(
+            "rendition",
+            "policy",
+            "--catalog",
+            "receipts",
+            "--definition",
+            json.dumps({"definition_id": external_definition["id"]}),
+        )
+        self.cli("layout", "put", "receipts", "--preset", "catabolic")
+        self.cli("layout", "apply", "receipts", "--catalog", "receipts")
+        self.cli("catalog-refresh", "enable", "--catalog", "receipts")
         imported = self.cli("rendition", "import-receipt", "--file", str(receipt_file))
         require(not imported["reused"], "first receipt was unexpectedly reused")
+        require(
+            imported["catalog_refresh"]["complete"],
+            "automatic link publication is pending",
+        )
+        receipt_links = [
+            path for path in receipt_catalog.rglob("*") if path.is_symlink()
+        ]
+        require(
+            len(receipt_links) == 1 and receipt_links[0].resolve() == delivered,
+            "receipt completion did not automatically publish its catalog link",
+        )
+        require(
+            not self.cli("catalog-refresh", "pending")["pending"],
+            "verified link refresh was not acknowledged",
+        )
         require(
             self.cli("rendition", "import-receipt", "--file", str(receipt_file))[
                 "reused"
@@ -835,6 +864,7 @@ class Workflow:
                 "processing_rules_and_storage_estimates",
                 "catalog_scoped_rendition_publication",
                 "external_ffmpeg_receipt_import",
+                "automatic_catalog_link_updates",
                 "generated_artifacts",
                 "entry_worklog_and_completion_gates",
                 "custom_rendition_definitions",

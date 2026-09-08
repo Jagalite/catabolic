@@ -38,10 +38,11 @@ ACTION_ORDER = {
 
 
 class Reconciler:
-    def __init__(self, app: Application):
+    def __init__(self, app: Application, *, notify_consumers=True):
         self.app = app
         self.store = app.store
         self.profile = app.profile
+        self.notify_consumers = notify_consumers
 
     def owner(self, catalog: str) -> dict:
         return {
@@ -260,7 +261,7 @@ class Reconciler:
             applied.append(action.to_dict())
         verified = self.verify(catalog)
         events = []
-        if self.store.schema_version >= 6:
+        if self.store.schema_version >= 6 and self.notify_consumers:
             from .network_adapters import Refresh
 
             events = Refresh(self.app).after_sync(
@@ -463,10 +464,15 @@ class Reconciler:
                     "DELETE FROM owned_links WHERE profile=? AND catalog=? AND path=?",
                     (self.profile, catalog, path),
                 )
-            if self.store.schema_version >= 6 and operation["kind"] in (
-                "create",
-                "replace",
-                "remove",
+            if (
+                self.store.schema_version >= 6
+                and self.notify_consumers
+                and operation["kind"]
+                in (
+                    "create",
+                    "replace",
+                    "remove",
+                )
             ):
                 from .network_adapters import record_output_change
 

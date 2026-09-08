@@ -574,7 +574,7 @@ class Rules:
         )
         return result
 
-    def run(self, identifier, *, batch=1, limit=100, scan_ids=None):
+    def run(self, identifier, *, batch=1, limit=100, scan_ids=None, _refresh=True):
         page_limit(batch)
         page_limit(limit)
         plan = self._plan(identifier, scan_ids)
@@ -607,7 +607,9 @@ class Rules:
                 "complete": False,
             }
         else:
-            result = self.artifacts.run(limit=batch, job_ids=selected)
+            result = self.artifacts.run(
+                limit=batch, job_ids=selected, _refresh=_refresh
+            )
         after = self._bounded(self._plan(identifier, scan_ids), limit)
         return {
             "rule_id": identifier,
@@ -702,7 +704,11 @@ def maintain(
                 healthy = False
         if render_remaining and healthy:
             executed = rules.run(
-                identifier, batch=render_remaining, limit=limit, scan_ids=scan_ids
+                identifier,
+                batch=render_remaining,
+                limit=limit,
+                scan_ids=scan_ids,
+                _refresh=False,
             )
             result["run"] = executed
             render_remaining -= len(executed["execution"]["completed"]) + len(
@@ -730,6 +736,7 @@ def maintain(
 
 def render_preview(result):
     execution_errors = result.get("execution", {}).get("errors", [])
+    refresh = result.get("execution", {}).get("catalog_refresh")
     if "after" in result:
         result = result["after"]
     rule, space = result["rule"], result["space"]
@@ -761,4 +768,12 @@ def render_preview(result):
         )
         lines.extend("    " + value for value in row["estimate"]["assumptions"])
     lines.extend("Rendering error: " + error["error"] for error in execution_errors)
+    if refresh:
+        lines.append(
+            "Catalog link refresh: "
+            + ("complete" if refresh["complete"] else "pending retry")
+        )
+        lines.extend(
+            "Link refresh: " + error["error"] for error in refresh.get("errors", [])
+        )
     return "\n".join(lines)

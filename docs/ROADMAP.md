@@ -33,6 +33,10 @@ adapter, fenced worker leases, automatic measured estimates and complete paged
 selections up to 100,000 IDs. Vendor-specific bridges, media transfer and parallel
 local rendering are not part of this implementation.
 
+Schema 14 adds [automatic catalog link updates](CATALOG_REFRESH.md): durable
+completion events, immediate batch refreshes, and restartable retries. It reuses
+saved layouts and journaled reconciliation without consumer notifications.
+
 ## Objective and current foundation
 
 Complete useful media-catalog workflows demonstrated by FileBot's public scripts,
