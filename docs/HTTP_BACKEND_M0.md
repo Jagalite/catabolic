@@ -144,7 +144,7 @@ the same outbox in their committing transaction.
 | M4 | Implemented; exact range, mutation, disconnect and memory tests pass | 32 MiB streamed with at most 64 KiB chunks and traced peak below 4 MiB |
 | M5 | Implemented; shared work, restart, cancellation and quota rollback tested | Durable requests use existing jobs and one reservation per job |
 | M6 | Implemented; durable polling/SSE and reviewed definition edits | Replay expiry/principal tests and preview rollback/stale-plan tests pass |
-| M7 | Optional package, foreground deployment and installed journey implemented | Local macOS journey and full regression passed; Linux/macOS CI qualification pending |
+| M7 | Optional package, foreground deployment and installed journey implemented | Local regression and both installed HTTP CI lanes passed; remaining release lanes and protocol follow-up pending |
 | M8 | Deferred | Sessions/OIDC/delegation without weakening token deployments |
 
 A read-only deployment can be qualified after the applicable M2–M4 gates; request
@@ -205,3 +205,9 @@ Distribution validation compared 196 packaged files against source; wheel and
 sdist metadata passed strict Twine checks. The installed environment's dependency
 check passed. The final transport test adds one test after the full run; CI will
 run that exact final revision.
+
+
+The installed HTTP lanes on Linux/Python 3.11 and macOS/Python 3.14 passed for
+`7a6072b` in [CI run 34409324346](https://github.com/Jagalite/catabolic/actions/runs/34409324346).
+A final protocol review added explicit HEAD Range ignoring, unknown range-unit
+handling and weak If-None-Match comparison tests; its follow-up CI is required.

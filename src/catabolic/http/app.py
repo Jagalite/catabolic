@@ -566,13 +566,15 @@ def create_app(
             if request.headers.get("if-match") not in (None, "*"):
                 raise AccessError("precondition_failed", 412)
             if any(
-                value.strip() in (etag, "*")
+                value.strip().removeprefix("W/") in (etag.removeprefix("W/"), "*")
                 for value in request.headers.get("if-none-match", "").split(",")
             ):
                 owned.__exit__(None, None, None)
                 owned = None
                 return Response(status_code=304, headers=headers)
-            range_header = request.headers.get("range")
+            range_header = (
+                request.headers.get("range") if request.method == "GET" else None
+            )
             if request.headers.get("if-range"):
                 range_header = None  # Weak revision validators cannot satisfy If-Range.
             try:

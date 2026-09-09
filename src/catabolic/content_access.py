@@ -6,6 +6,7 @@
 import hashlib
 import mimetypes
 import os
+import re
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -102,10 +103,13 @@ def opened(access, file_id, revision):
 def byte_range(value, size):
     if value is None:
         return 0, size, False
-    if not value.startswith("bytes=") or "," in value:
+    if value.partition("=")[0].lower() != "bytes":
+        return 0, size, False
+    match = re.fullmatch(r"bytes=([0-9]*)-([0-9]*)", value, re.IGNORECASE)
+    if not match:
         raise AccessError("range_not_satisfiable", 416)
     try:
-        left, right = value[6:].split("-", 1)
+        left, right = match.groups()
         if left:
             start = int(left)
             end = int(right) if right else size - 1

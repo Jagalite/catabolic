@@ -217,10 +217,11 @@ descriptor after closing the Store. Catalog databases, credential files and
 unregistered partial outputs are not content endpoints. No route accepts a path.
 HTML and SVG are attachments; responses set nosniff, no-referrer and private/no-store.
 
-GET/HEAD support full responses and single bounded, suffix and open-ended byte
-ranges. Invalid or multiple ranges return 416 with `Content-Range: bytes */SIZE`.
+GET supports full responses and single bounded, suffix and open-ended byte
+ranges. HEAD ignores Range and returns full representation headers; unknown range
+units are ignored. Invalid or multiple ranges return 416 with `Content-Range: bytes */SIZE`.
 Empty files return zero bytes. ETags are weak revision validators, not cryptographic
-byte identities. `If-None-Match` supports 304; a specific `If-Match` fails because
+byte identities. `If-None-Match` uses weak comparison and supports 304; a specific `If-Match` fails because
 no strong ETag is available. `If-Range` falls back to a full response. Source
 replacement and in-place changes never silently select a new catalog revision.
 
@@ -285,7 +286,8 @@ and execution contracts. Plans are bounded to 10,000 records per dependency tabl
 Default limits are eight active streams globally, two per principal, 64 KiB
 application chunks, 120 admitted requests per principal per minute and 1 MiB request
 bodies. `--streams` and `--streams-per-principal` configure stream limits. Use one
-API process and local SQLite storage. WAL is not enabled by this feature. Backup,
+API process and local SQLite storage. WAL is not enabled by this feature. Range and conditional behavior follows
+[RFC 9110](https://www.rfc-editor.org/rfc/rfc9110.html#section-14.2). Backup,
 migration and recovery remain explicit local administration.
 
 Non-loopback listening requires `--allow-network` and either `--tls-cert` with

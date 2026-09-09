@@ -694,3 +694,27 @@ class HTTPTest(unittest.TestCase):
         self.assertEqual(response.status_code, 413)
         self.assertEqual(response.json()["code"], "body_too_large")
         self.assertEqual(response.headers["content-type"], "application/problem+json")
+
+    def test_head_range_unknown_units_and_weak_conditional_comparison(self):
+        response = self.client.head(
+            self.content, headers={**self.headers, "Range": "bytes=1-3"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-length"], str(len(self.payload)))
+        self.assertNotIn("content-range", response.headers)
+        response = self.client.get(
+            self.content, headers={**self.headers, "Range": "unknown=1-3"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, self.payload)
+        response = self.client.get(
+            self.content, headers={**self.headers, "Range": "Bytes=1-3"}
+        )
+        self.assertEqual(response.status_code, 206)
+        self.assertEqual(response.content, self.payload[1:4])
+        response = self.client.get(
+            self.content,
+            headers={**self.headers, "If-None-Match": f'"{self.revision}"'},
+        )
+        self.assertEqual(response.status_code, 304)
+        self.assertEqual(response.content, b"")
