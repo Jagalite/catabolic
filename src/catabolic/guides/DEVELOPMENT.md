@@ -146,3 +146,16 @@ changes repository branch protection. Check the exact commit's required jobs and
 artifact reports. Ship the same artifact that passed packaged acceptance, and
 record any remaining platform/consumer limitations. Audit reports describe their
 recorded snapshot, not a perpetual certification of every later commit.
+
+
+## Optional HTTP validation
+
+Install `requirements/http-test.lock` with `--require-hashes --only-binary=:all:`
+to run the HTTP tests; CLI-only environments skip them. Run
+`python -m unittest tests.test_execution_claims tests.test_http_backend tests.test_http_renditions -q`
+for local claims, adversarial access, exact content and real rendition coverage.
+Build a wheel, install it with locked HTTP dependencies into a fresh virtualenv,
+then run `scripts/http_acceptance.py --python VENV/bin/python --root NEW_DIRECTORY`.
+The script owns only disposable fixtures and foreground child processes. CI runs
+this installed journey on Linux and macOS. Never substitute a production catalog,
+media root or live account credential for these fixtures.

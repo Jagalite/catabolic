@@ -11,6 +11,12 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "http",
+        "HTTP.md",
+        "HTTP catalog and content backend",
+        "Scoped tokens, queries, descriptor streaming, durable rendition requests and deployment.",
+    ),
+    (
         "trust",
         "TRUST_POLICIES.md",
         "Owner trust policies",

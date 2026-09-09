@@ -61,6 +61,19 @@ without storing another copy of the movie. Each symlink points to the existing
 file while giving it a name and location suited to that library. You can preview
 the changes before applying them.
 
+## Build an application on the catalog
+
+The optional [HTTP backend](docs/HTTP.md) exposes authorized GraphQL, operator SQL,
+saved queries, metadata, revision-pinned content and durable rendition requests.
+Scoped tokens can permit browser derivatives while denying originals. A separate
+foreground worker prepares approved recipes; reusable short-lived tickets support
+browser range requests. CLI and HTTP share jobs, artifacts and recovery.
+
+Install the optional HTTP dependencies and configure grants/source exposure before
+starting `catabolic --db catalog.db api serve`. The server defaults to loopback
+and existing-content mode. Processing requires explicit enablement and a worker.
+The [HTTP guide](docs/HTTP.md) records limits and current release qualification.
+
 ## Works with your media apps
 
 Folder presets cover **Plex, Jellyfin, Emby, Kodi, Infuse, Navidrome,

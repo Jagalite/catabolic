@@ -600,6 +600,9 @@ def parser() -> argparse.ArgumentParser:
     from . import program_cli
 
     program_cli.register(commands)
+    from .api_cli import register as register_api
+
+    register_api(commands)
     from .consumer_cli import register as register_consumers
 
     register_consumers(commands)
@@ -607,6 +610,10 @@ def parser() -> argparse.ArgumentParser:
 
 
 def dispatch(args: argparse.Namespace) -> dict:
+    if args.command == "api":
+        from .api_cli import dispatch as dispatch_api
+
+        return dispatch_api(args)
     if args.command in ("consumer", "notify"):
         from .consumer_cli import dispatch as dispatch_consumer
 

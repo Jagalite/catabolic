@@ -326,3 +326,13 @@ in `source_identity_policies`, separately from exported logical catalog programs
 ## Schema 20: trust policy evidence
 
 Adds individual source identity settings, policy revisions and change history. Existing schema-19 policies retain their behavior; migration records a baseline without inventing past evidence. See [Trust policies](TRUST_POLICIES.md). No local override is enabled by upgrade.
+
+
+## Schemas 21–22: local claims and optional HTTP state
+
+Schema 21 adds fenced local execution leases and a durable job event outbox.
+Schema 22 adds principals, hashed credentials, grants, explicit source exposure,
+content tickets, caller requests, storage reservations, cursors and audit records.
+Existing media, recipes, jobs, artifacts and frozen interchange contracts remain
+owned by their existing tables. Upgrade does not expose a source or enable a
+server/worker. Server startup never migrates. See [HTTP deployment](HTTP.md).

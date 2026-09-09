@@ -19,6 +19,7 @@ from functools import lru_cache
 from pathlib import Path
 from uuid import uuid4
 
+from . import execution_claims
 from .curation import bounded_rows, occurrence, page_limit, payload_object
 from .domain import CatabolicError
 from .process_runner import CommandFailure as ProcessingFailure
@@ -613,7 +614,13 @@ class Processing:
             )
 
     def cancel(self, identifier):
-        self._require_artifact_recovery(identifier)
+        if self.store.rows(
+            "SELECT 1 FROM processing_artifacts WHERE job_id=? AND state='publishing'",
+            (identifier,),
+        ):
+            raise CatabolicError(
+                "recover publication intent before cancelling this job"
+            )
         with self.store.transaction() as db:
             changed = db.execute(
                 "UPDATE processing_jobs SET state='cancelled',finished_at=CURRENT_TIMESTAMP WHERE id=? AND profile=? AND state IN ('queued','running')",
@@ -808,7 +815,10 @@ class Processing:
             raise CatabolicError(
                 "storage groups must map source names to nonempty group names"
             )
-        # Store's process-wide writer lock ensures no other runner owns these claims.
+        # Reclaim only abandoned attempts; other local invocations may be live.
+        for row in self.store.rows("SELECT * FROM execution_claims"):
+            if not execution_claims.live(row):
+                execution_claims.release(self.store, row)
         with self.store.transaction() as db:
             # Claim due retries once per invocation; never sleep with the writer lock.
             due = db.execute(
@@ -835,7 +845,7 @@ class Processing:
                 [(r[0],) for r in due],
             )
             db.execute(
-                "UPDATE processing_jobs SET state='queued' WHERE profile=? AND state='running' AND operation!='render'"
+                "UPDATE processing_jobs SET state='queued' WHERE profile=? AND state='running' AND operation!='render' AND NOT EXISTS (SELECT 1 FROM execution_claims c WHERE c.job_id=processing_jobs.id AND c.lease_until>unixepoch())"
                 + scope,
                 (self.profile, *scope_args),
             )
@@ -921,6 +931,9 @@ class Processing:
                                         "UPDATE processing_jobs SET state='running',attempts=attempts+1 WHERE id=?",
                                         (job["id"],),
                                     )
+                                job["claim"] = execution_claims.claim(
+                                    self.store, job["id"]
+                                )
                                 key = physical_key(job)
                                 if key in cache:
                                     future = pool.submit(
@@ -942,13 +955,20 @@ class Processing:
                     queues.rotate(-1)
                     if not pending:
                         break
-                    done, _ = wait(pending, timeout=0.1, return_when=FIRST_COMPLETED)
+                    with execution_claims.detached(
+                        self.store, [job["claim"] for job, _ in pending.values()]
+                    ):
+                        done, _ = wait(
+                            pending, timeout=0.1, return_when=FIRST_COMPLETED
+                        )
                     for future in done:
                         job, device = pending.pop(future)
                         for bucket in device:
                             devices[bucket] -= 1
                         result = future.result()
+                        execution_claims.fence(self.store, job["claim"])
                         state = self._publish(job, result, retry_delay=retry_delay)
+                        execution_claims.release(self.store, job["claim"])
                         if state == "complete":
                             key = physical_key(job)
                             cache[key] = result
@@ -961,6 +981,9 @@ class Processing:
                         counts[state] = counts.get(state, 0) + 1
         except BaseException:
             cancel.set()
+            if self.store.db is not None:
+                for job, _ in pending.values():
+                    execution_claims.release(self.store, job["claim"])
             raise
         from .catalog_refresh import finish
 

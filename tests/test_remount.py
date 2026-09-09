@@ -11,7 +11,7 @@ from unittest.mock import patch
 from catabolic.app import Application
 from catabolic.domain import CatabolicError
 from catabolic.filesystem import root_handle
-from catabolic.migration import load_migrations, upgrade_database
+from catabolic.migration import SCHEMA_VERSION, load_migrations, upgrade_database
 from catabolic.reconcile import Reconciler
 from catabolic.remount import repair
 from catabolic.store import Store, encode
@@ -173,7 +173,7 @@ class RemountTest(unittest.TestCase):
     def test_populated_migration_does_not_adopt_current_mounts(self):
         path = create_legacy(self.root)
         upgrade_database(path, migrations=load_migrations()[:17])
-        self.assertEqual(upgrade_database(path)["schema"], 20)
+        self.assertEqual(upgrade_database(path)["schema"], SCHEMA_VERSION)
         with Store(path) as store:
             self.assertEqual(store.rows("SELECT * FROM binding_volumes"), [])
             self.assertTrue(store.rows("SELECT * FROM bindings"))

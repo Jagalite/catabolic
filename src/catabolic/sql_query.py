@@ -414,6 +414,7 @@ def execute_sql(
     timeout_ms=5000,
     _store=None,
     _stable=False,
+    _http=False,
 ):
     """Read-only SQL; internal selectors may reuse a locked catalog snapshot."""
     if type(max_rows) is not int or not 1 <= max_rows <= 10000:
@@ -454,11 +455,41 @@ def execute_sql(
                 previous_limits[category] = db.setlimit(category, limit)
             db.execute(f"PRAGMA busy_timeout={min(timeout_ms, 5000)}")
             denied = []
+            http_tables = (
+                {
+                    r[0]
+                    for r in db.execute(
+                        "SELECT name FROM main.sqlite_schema WHERE type='table'"
+                    )
+                }
+                if _http
+                else set()
+            )
+
+            private_tables = {"execution_claims", "sqlite_master", "sqlite_schema"}
+            if _http:
+                for table in http_tables:
+                    columns = {
+                        r[1]
+                        for r in db.execute(
+                            'PRAGMA main.table_info("' + table.replace('"', '""') + '")'
+                        )
+                    }
+                    if table.startswith("api_") or columns & {
+                        "token",
+                        "lease_token",
+                        "credential_env",
+                        "secret",
+                        "password",
+                    }:
+                        private_tables.add(table)
 
             def authorize(action, arg1, arg2, database, _trigger):
                 if action in (sqlite3.SQLITE_SELECT, sqlite3.SQLITE_RECURSIVE):
                     return sqlite3.SQLITE_OK
                 if action == sqlite3.SQLITE_READ and database in ("main", "temp"):
+                    if _http and (arg1.startswith("api_") or arg1 in private_tables):
+                        return sqlite3.SQLITE_DENY
                     return sqlite3.SQLITE_OK
                 # SQLite can omit the database name for a count(*) over a
                 # compound view. Allow only our registered views and only this
@@ -466,7 +497,13 @@ def execute_sql(
                 if (
                     action == sqlite3.SQLITE_READ
                     and database is None
-                    and arg1 in VIEWS
+                    and (
+                        arg1 in VIEWS
+                        or _http
+                        and arg1 in http_tables
+                        and not arg1.startswith("api_")
+                        and arg1 not in private_tables
+                    )
                     and arg2 == ""
                 ):
                     return sqlite3.SQLITE_OK
@@ -524,7 +561,14 @@ def execute_sql(
                     if len(rows) == max_rows:
                         reason = "max_rows"
                         break
-                    converted = [_cell(value) for value in row]
+                    converted = [
+                        {"$integer": str(value)}
+                        if _http
+                        and type(value) is int
+                        and abs(value) > 9007199254740991
+                        else _cell(value)
+                        for value in row
+                    ]
                     used_bytes += len(
                         json.dumps(
                             converted, ensure_ascii=False, allow_nan=False

@@ -594,6 +594,7 @@ def execute_graphql(
     operation_name=None,
     timeout_ms=5000,
     _store=None,
+    _context_factory=None,
 ):
     if type(timeout_ms) is not int or not 1 <= timeout_ms <= 60000:
         raise CatabolicError("timeout-ms must be between 1 and 60000")
@@ -622,8 +623,8 @@ def execute_graphql(
         with nullcontext(_store) if _store is not None else Store(path) as store:
             previous_query_only = store.db.execute("PRAGMA query_only").fetchone()[0]
             try:
+                context = (_context_factory or QueryContext)(store, profile, deadline)
                 store.db.execute("PRAGMA query_only=ON")
-                context = QueryContext(store, profile, deadline)
                 store.db.set_progress_handler(
                     lambda: int(time.monotonic() > deadline), 1000
                 )

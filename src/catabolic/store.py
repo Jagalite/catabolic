@@ -30,6 +30,7 @@ class Store:
     def __init__(
         self, path: str | Path, *, writable: bool = False, for_recovery: bool = False
     ):
+        self.writable = writable
         self.path = database_path(path)
         self.lock_fd = None
         self.db = None
@@ -57,6 +58,45 @@ class Store:
             self.close()
             raise
 
+    @contextmanager
+    def detached(self):
+        """Release this session for slow work, retaining deferred publication callbacks."""
+        import time
+
+        if self.db.in_transaction:
+            raise CatabolicError("cannot detach an active transaction")
+        self.db.close()
+        self.db = None
+        if self.lock_fd is not None:
+            os.close(self.lock_fd)
+            self.lock_fd = None
+        try:
+            yield
+        finally:
+            deadline = time.monotonic() + 5
+            while True:
+                try:
+                    if self.writable:
+                        self.lock_fd = acquire_writer_lock(self.path)
+                    break
+                except CatabolicError:
+                    if time.monotonic() >= deadline:
+                        raise
+                    time.sleep(0.02)
+            try:
+                self.db = connect_database(self.path, writable=self.writable)
+                info = validate_database(self.db, load_migrations())
+                if info["database_id"] != self.database_id:
+                    raise CatabolicError("catalog replaced during detached execution")
+            except BaseException:
+                if self.db is not None:
+                    self.db.close()
+                    self.db = None
+                if self.lock_fd is not None:
+                    os.close(self.lock_fd)
+                    self.lock_fd = None
+                raise
+
     @classmethod
     def initialize(cls, path: str | Path) -> dict:
         return initialize_database(path)
@@ -80,6 +120,24 @@ class Store:
 
     @contextmanager
     def transaction(self):
+        if self.db.in_transaction:
+            if not self.writable:
+                raise CatabolicError(
+                    "a read-only session cannot start a write transaction"
+                )
+            from uuid import uuid4
+
+            savepoint = "nested_" + uuid4().hex
+            self.db.execute("SAVEPOINT " + savepoint)
+            try:
+                yield self.db
+            except BaseException:
+                self.db.execute("ROLLBACK TO " + savepoint)
+                self.db.execute("RELEASE " + savepoint)
+                raise
+            else:
+                self.db.execute("RELEASE " + savepoint)
+            return
         self.db.execute("BEGIN IMMEDIATE")
         try:
             yield self.db

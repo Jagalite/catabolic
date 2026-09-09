@@ -10,7 +10,7 @@ import stat
 from pathlib import Path
 from uuid import UUID, uuid4, uuid5
 
-from . import rendering
+from . import execution_claims, rendering
 from .curation import bounded_rows, occurrence, page_limit
 from .domain import CatabolicError, name
 from .filesystem import (
@@ -29,6 +29,7 @@ from .store import encode
 class Artifacts:
     def __init__(self, app):
         self.app, self.store, self.profile = app, app.store, app.profile
+        self._verification_claim = None
 
     def _owner(self, location):
         return {
@@ -179,7 +180,16 @@ class Artifacts:
             raise CatabolicError("unknown artifact")
         return self._decode(rows[0])
 
-    def enqueue(self, file_id, recipe_id, location, item_id, *, _capabilities=None):
+    def enqueue(
+        self,
+        file_id,
+        recipe_id,
+        location,
+        item_id,
+        *,
+        _capabilities=None,
+        _full_cache_check=True,
+    ):
         self.app.require_recovered()
         recipe = self.get_recipe(recipe_id)
         output = (
@@ -237,7 +247,9 @@ class Artifacts:
                     "SELECT id FROM processing_artifacts WHERE job_id=? AND state='ready'",
                     (old["id"],),
                 )
-                if artifacts and self._usable(self.get(artifacts[0]["id"])):
+                if artifacts and self._usable(
+                    self.get(artifacts[0]["id"]), full=_full_cache_check
+                ):
                     return {
                         "job_id": old["id"],
                         "artifact_id": artifacts[0]["id"],
@@ -273,7 +285,13 @@ class Artifacts:
                 raise CatabolicError(
                     "artifact identity or size changed; refusing publication"
                 )
-            if rendering.digest(fd) != artifact["sha256"]:
+            if self.store.writable and not self.store.db.in_transaction:
+                claims = [self._verification_claim] if self._verification_claim else []
+                with execution_claims.detached(self.store, claims):
+                    digest = rendering.digest(fd)
+            else:
+                digest = rendering.digest(fd)
+            if digest != artifact["sha256"]:
                 raise CatabolicError("artifact checksum changed; refusing publication")
             after = os.fstat(fd)
             named = os.stat(leaf, dir_fd=root, follow_symlinks=False)
@@ -288,8 +306,14 @@ class Artifacts:
         finally:
             os.close(fd)
 
-    def _usable(self, artifact):
+    def _usable(self, artifact, *, full=True):
         try:
+            if not full:
+                if not artifact.get("publication_snapshot"):
+                    return False
+                with validated_source(artifact["publication_snapshot"]):
+                    pass
+                return True
             with root_handle(artifact["binding"]) as root:
                 if owner_state(root, self._owner(artifact["location"])) != "owned":
                     return False
@@ -310,8 +334,14 @@ class Artifacts:
             ),
         )
         db.execute(
-            "UPDATE processing_jobs SET state=?,result=?,error=?,finished_at=CURRENT_TIMESTAMP WHERE id=?",
-            (state, encode(result) if result is not None else None, error, job_id),
+            "UPDATE processing_jobs SET state=?,result=?,error=?,finished_at=CURRENT_TIMESTAMP WHERE id=? AND attempts=? AND state!='cancelled'",
+            (
+                state,
+                encode(result) if result is not None else None,
+                error,
+                job_id,
+                attempt,
+            ),
         )
 
     def _publish(self, artifact):
@@ -470,12 +500,22 @@ class Artifacts:
         recovered, errors = [], []
         for row in rows:
             artifact = self.get(row["id"])
+            if execution_claims.active(self.store, artifact["job_id"]):
+                continue
             if artifact["state"] == "publishing":
                 try:
+                    self._verification_claim = execution_claims.claim(
+                        self.store, artifact["job_id"]
+                    )
                     self._publish(artifact)
+                    execution_claims.release(self.store, self._verification_claim)
+                    self._verification_claim = None
                     recovered.append(artifact["id"])
                 except (OSError, CatabolicError) as exc:
                     errors.append({"id": artifact["id"], "error": str(exc)})
+                    if self._verification_claim:
+                        execution_claims.release(self.store, self._verification_claim)
+                        self._verification_claim = None
                     with self.store.transaction() as db:
                         db.execute(
                             "UPDATE processing_artifacts SET error=? WHERE id=?",
@@ -507,9 +547,12 @@ class Artifacts:
             "" if job_ids is None else " AND id IN (" + ",".join("?" for _ in ids) + ")"
         )
         self.app.require_recovered()
-        if self.store.rows(
-            "SELECT id FROM processing_artifacts WHERE profile=? AND state IN ('planned','writing','validating','publishing') LIMIT 1",
-            (self.profile,),
+        if any(
+            not execution_claims.active(self.store, row["job_id"])
+            for row in self.store.rows(
+                "SELECT job_id FROM processing_artifacts WHERE profile=? AND state IN ('planned','writing','validating','publishing')",
+                (self.profile,),
+            )
         ):
             raise CatabolicError(
                 "run artifact recover before starting more output jobs"
@@ -568,6 +611,7 @@ class Artifacts:
                 ),
             )
         artifact = self.get(identifier)
+        claim = execution_claims.claim(self.store, job["id"])
         try:
             if options.get("output_definition"):
                 Outputs(self.app).validate_source_item(
@@ -613,16 +657,17 @@ class Artifacts:
                             )
 
                     poll()
-                    validation = rendering.render(
-                        input_fd, output_fd, recipe, options["tools"], poll
-                    )
+                    with execution_claims.detached(self.store, [claim]):
+                        validation = rendering.render(
+                            input_fd, output_fd, recipe, options["tools"], poll
+                        )
+                        checksum = rendering.digest(output_fd)
+                        size = os.fstat(output_fd).st_size
                     with self.store.transaction() as db:
                         db.execute(
                             "UPDATE processing_artifacts SET state='validating' WHERE id=?",
                             (identifier,),
                         )
-                    checksum = rendering.digest(output_fd)
-                    size = os.fstat(output_fd).st_size
                 finally:
                     os.close(output_fd)
                 os.fsync(root)
@@ -638,7 +683,11 @@ class Artifacts:
                     "UPDATE processing_artifacts SET state='publishing',size=?,sha256=?,validation=? WHERE id=?",
                     (size, checksum, encode(validation), identifier),
                 )
+            execution_claims.fence(self.store, claim)
+            self._verification_claim = claim
             self._publish(self.get(identifier))
+            self._verification_claim = None
+            execution_claims.release(self.store, claim)
             output_record = self.store.rows(
                 "SELECT id,item_id FROM media_outputs WHERE artifact_id=?",
                 (identifier,),
@@ -651,7 +700,15 @@ class Artifacts:
                 "item_id": output_record["item_id"],
             }
         except BaseException as exc:
+            if self.store.db is None:
+                raise
             artifact = self.get(identifier)
+            try:
+                execution_claims.fence(self.store, claim)
+            except CatabolicError:
+                # A successor or cancellation owns the job state now.
+                raise exc from None
+            execution_claims.release(self.store, claim)
             if artifact["state"] not in ("publishing", "ready"):
                 self._fail(
                     artifact,

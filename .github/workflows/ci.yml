@@ -184,9 +184,56 @@ jobs:
             ${{ runner.temp }}/jellyfin-acceptance/report.json
             ${{ runner.temp }}/jellyfin-acceptance/jellyfin.log
 
+  http:
+    needs: wheel
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: '3.11'
+          - os: macos-latest
+            python: '3.14'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install media tools
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          else
+            brew install ffmpeg
+          fi
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: python-package-distributions
+          path: dist
+      - name: Install HTTP extra with locked dependencies
+        run: |
+          python -m venv "$RUNNER_TEMP/catabolic-http"
+          "$RUNNER_TEMP/catabolic-http/bin/python" -m pip install --require-hashes --only-binary=:all: -r requirements/http-test.lock
+          "$RUNNER_TEMP/catabolic-http/bin/python" -m pip install --no-deps dist/*.whl
+          "$RUNNER_TEMP/catabolic-http/bin/python" -m pip check
+      - name: Authorization, streaming and local execution gates
+        run: '"$RUNNER_TEMP/catabolic-http/bin/python" -m unittest tests.test_execution_claims tests.test_http_backend tests.test_http_renditions -q'
+      - name: Installed client, server and worker journey
+        run: 'python scripts/http_acceptance.py --python "$RUNNER_TEMP/catabolic-http/bin/python" --root "$RUNNER_TEMP/http-acceptance"'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: http-acceptance-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/http-acceptance/report.json
+            ${{ runner.temp }}/http-acceptance/serve.log
+            ${{ runner.temp }}/http-acceptance/worker.log
+
   release-verification:
     if: always()
-    needs: [test, wheel, acceptance, jellyfin]
+    needs: [test, wheel, acceptance, jellyfin, http]
     runs-on: ubuntu-latest
     steps:
       - name: Require all validation lanes
