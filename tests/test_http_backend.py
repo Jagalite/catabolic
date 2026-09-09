@@ -718,3 +718,43 @@ class HTTPTest(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 304)
         self.assertEqual(response.content, b"")
+
+    def test_sse_rechecks_revocation_without_holding_database_session(self):
+        import asyncio
+
+        messages = []
+
+        async def run():
+            async def receive():
+                return {"type": "http.request", "body": b"", "more_body": False}
+
+            async def send(message):
+                if message["type"] == "http.response.body" and message.get("body"):
+                    messages.append(message["body"])
+                    if len(messages) == 1:
+                        with Store(self.database, writable=True) as store:
+                            revoke(store, self.credential["token_id"])
+
+            scope = {
+                "type": "http",
+                "asgi": {"version": "3.0", "spec_version": "2.4"},
+                "method": "GET",
+                "scheme": "http",
+                "path": "/v1/events",
+                "query_string": b"follow=true",
+                "headers": [
+                    (b"host", b"testserver"),
+                    (b"authorization", self.headers["Authorization"].encode()),
+                ],
+                "server": ("testserver", 80),
+                "client": ("127.0.0.1", 10000),
+                "root_path": "",
+                "http_version": "1.1",
+            }
+            await asyncio.wait_for(self.client.app(scope, receive, send), timeout=5)
+
+        asyncio.run(run())
+        self.assertEqual(len(messages), 2)
+        self.assertIn(b"resync-required", messages[-1])
+        self.assertIn(b"unauthorized", messages[-1])
+        self.assertEqual(self.client.app.state.limits.active, {})

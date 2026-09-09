@@ -5,7 +5,8 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
-Status: implementation and local qualification in progress through M7.
+Status: implementation delivered through M7; installed HTTP acceptance passed on
+Linux and macOS. The required release-verification CI job tracks all compatibility lanes.
 The executable interface and deployment contract are documented in [HTTP.md](HTTP.md).
 Baseline checked: `main` at `e24a3b3`, database schema 20, clean working tree
 before this document. This is a companion to the owner's supplied HTTP backend
@@ -144,7 +145,7 @@ the same outbox in their committing transaction.
 | M4 | Implemented; exact range, mutation, disconnect and memory tests pass | 32 MiB streamed with at most 64 KiB chunks and traced peak below 4 MiB |
 | M5 | Implemented; shared work, restart, cancellation and quota rollback tested | Durable requests use existing jobs and one reservation per job |
 | M6 | Implemented; durable polling/SSE and reviewed definition edits | Replay expiry/principal tests and preview rollback/stale-plan tests pass |
-| M7 | Optional package, foreground deployment and installed journey implemented | Local regression and both installed HTTP CI lanes passed; remaining release lanes and protocol follow-up pending |
+| M7 | Optional package, foreground deployment and installed journey implemented | Installed HTTP journeys passed on Linux and macOS; release-verification requires all compatibility lanes |
 | M8 | Deferred | Sessions/OIDC/delegation without weakening token deployments |
 
 A read-only deployment can be qualified after the applicable M2–M4 gates; request
@@ -187,8 +188,7 @@ server/worker restart, exact PNG range bytes and original-download denial.
 The dependency lock audit returned no OSV advisories. The local SQLite runtime is
 3.53.3; WAL remains disabled. No production media, live Plex/Jellyfin account,
 source trust override or public listener was used. Linux/macOS installed CI lanes
-are part of release verification; their results must be recorded before calling
-M7 release-qualified.
+are part of release verification; their executed results are recorded below.
 
 Implemented scope choices: operator HTTP routes edit validated definitions but do
 not publish a projection or run a rule backfill; those retain existing CLI plan
@@ -210,4 +210,13 @@ run that exact final revision.
 The installed HTTP lanes on Linux/Python 3.11 and macOS/Python 3.14 passed for
 `7a6072b` in [CI run 34409324346](https://github.com/Jagalite/catabolic/actions/runs/34409324346).
 A final protocol review added explicit HEAD Range ignoring, unknown range-unit
-handling and weak If-None-Match comparison tests; its follow-up CI is required.
+handling and weak If-None-Match comparison tests. Both installed HTTP lanes passed
+again for `3312254` in [CI run 34409546902](https://github.com/Jagalite/catabolic/actions/runs/34409546902).
+The required aggregate job also includes existing unit, installed media, filesystem,
+consumer, notification and real Jellyfin lanes; consult that job for release status.
+
+The final acceptance refinement submits the two shared demands concurrently,
+retrying the documented catalog_busy outcome, and revokes a token during an active
+SSE transfer while proving a separate writer can open the catalog. Both tests
+passed locally in 2.328 seconds. This refinement changes tests and documentation
+only; HTTP implementation behavior remains the code qualified at `3312254`.

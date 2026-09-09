@@ -307,5 +307,6 @@ It creates local FFmpeg media and credentials, exercises GraphQL and a saved
 selection, requests a rendition, restarts server/worker, checks recovery, obtains a
 ticket, compares exact PNG range bytes, denies original download and replays events.
 Reports exclude credentials. CI contains Linux/Python 3.11 and macOS/Python 3.14
-installed lanes. Local macOS acceptance passed during implementation; Linux release
-qualification requires that CI lane to pass. See [implementation evidence](HTTP_BACKEND_M0.md).
+installed lanes. Both installed HTTP lanes passed for implementation commit `3312254` in
+[release CI](https://github.com/Jagalite/catabolic/actions/runs/34409546902).
+The aggregate release-verification job also requires all existing compatibility lanes. See [implementation evidence](HTTP_BACKEND_M0.md).

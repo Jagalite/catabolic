@@ -139,16 +139,27 @@ class RenditionHTTPTest(unittest.TestCase):
         self.addCleanup(self.client.close)
 
     def test_shared_work_restart_ticket_and_independent_cancel(self):
-        first = self.client.post(
-            "/v1/rendition-requests", headers=self.headers[0], json=self.body
-        )
-        self.assertEqual(first.status_code, 202, first.text)
-        first = first.json()
-        second = self.client.post(
-            "/v1/rendition-requests", headers=self.headers[1], json=self.body
-        )
-        self.assertEqual(second.status_code, 202, second.text)
-        second = second.json()
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+
+        started = Barrier(2)
+
+        def submit(headers):
+            started.wait(timeout=5)
+            for _ in range(100):
+                response = self.client.post(
+                    "/v1/rendition-requests", headers=headers, json=self.body
+                )
+                if response.status_code != 503:
+                    return response
+                time.sleep(0.01)
+            return response
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            responses = list(pool.map(submit, self.headers))
+        for response in responses:
+            self.assertEqual(response.status_code, 202, response.text)
+        first, second = [response.json() for response in responses]
         self.assertNotEqual(first["request_id"], second["request_id"])
         with Store(self.database) as store:
             self.assertEqual(len(store.rows("SELECT id FROM processing_jobs")), 1)
