@@ -8,7 +8,7 @@ import stat
 from contextlib import contextmanager
 
 from .domain import CatabolicError
-from .filesystem import parent_handle, root_handle
+from .filesystem import BoundRoot, parent_handle, root_handle
 
 
 @contextmanager
@@ -17,11 +17,16 @@ def validated_source(snapshot):
         raise CatabolicError(
             "source is not recorded present; scan the mounted source first"
         )
-    binding = {
-        "root": snapshot["root"],
-        "device": snapshot["root_device"],
-        "inode": snapshot["root_inode"],
-    }
+    binding = BoundRoot(
+        {
+            "kind": "source",
+            "root": snapshot["root"],
+            "device": snapshot["root_device"],
+            "inode": snapshot["root_inode"],
+        },
+        snapshot.get("volume_uuid"),
+        policy=snapshot.get("source_policy"),
+    )
     with root_handle(binding) as root:
         with parent_handle(root, snapshot["path"]) as (parent, leaf):
             fd = os.open(
@@ -60,7 +65,13 @@ def validated_source(snapshot):
                     raise CatabolicError(
                         "source changed while reading; result discarded"
                     )
-                with root_handle(binding):
-                    pass
+                with root_handle(binding) as current_root:
+                    if (os.fstat(root).st_dev, os.fstat(root).st_ino) != (
+                        os.fstat(current_root).st_dev,
+                        os.fstat(current_root).st_ino,
+                    ):
+                        raise CatabolicError(
+                            "source root changed while reading; result discarded"
+                        )
             finally:
                 os.close(fd)

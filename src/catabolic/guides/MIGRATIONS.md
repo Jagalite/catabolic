@@ -11,7 +11,7 @@ Migrations 15–16 introduce reusable query revisions, projection bindings and g
 Catabolic uses ordered SQL files and one Python runner. Users can skip application
 releases: upgrading schema 1 to schema 16 applies migrations 2 through 16 in order.
 There is no separate script for every possible pair of versions. The shipped
-schema is currently **14**. Migration `004_tags.sql` adds tag vocabulary, aliases,
+schema is currently **20**. Migration `004_tags.sql` adds tag vocabulary, aliases,
 hierarchy and attributed item/file assertions without changing existing rows.
 Migration `005_hardlinks.sql` adds catalog link modes, hardlink ownership and
 retention records. The later shipped migrations are described below.
@@ -220,3 +220,109 @@ maintenance enablement and rule/job provenance. Existing items, recipes, jobs,
 artifacts and worklogs remain unchanged. No rules are created or enabled during
 upgrade. Estimates are computed from current evidence rather than stored as
 promises about output size. See [processing rules](RULES.md).
+
+## Repair after a reboot or remount
+
+Schema 18 records stable filesystem volume UUIDs separately from machine device
+numbers. New bindings capture UUIDs when the filesystem supports them. Migration
+does not adopt whatever happens to be mounted at existing paths. Device numbers
+remain checked during ordinary work; a changed number requires verified repair.
+Enrolled bindings additionally check volume identity, including when a replacement
+volume reuses the old device number. Logical/serialized binding contracts remain
+unchanged; volume evidence is local and is not transferred in program bundles.
+
+On macOS, UUIDs come from `fgetattrlist` on an open directory descriptor
+(`ATTR_VOL_UUID`). Linux uses bounded `findmnt --json --target ... --output UUID`;
+filesystems without a reported UUID retain legacy checks and cannot use this
+repair. A UUID is identity evidence, not a cryptographic guarantee against a cloned
+volume. Directory inode, ownership and source/link checks remain required.
+
+Preview repair of all bindings in the selected profile:
+
+```sh
+catabolic --db catalog.db --json remount
+# For old bindings without UUID evidence, explicitly authorize first enrollment:
+catabolic --db catalog.db --json remount --adopt-existing
+# Review roots, before/after device IDs, UUIDs, and verification totals.
+catabolic --db catalog.db --json remount --adopt-existing \
+  --expected-plan PLAN_ID_FROM_PREVIEW --apply
+catabolic --db catalog.db --json verify
+catabolic --db catalog.db consumer run --limit 10
+```
+
+Preview is read-only. Apply rechecks the exact plan under the catalog writer lock,
+then updates binding identities and the device fields of verified published source
+observations in one transaction. It checks every active mapping, owned symlink,
+resolved source's size/mtime/inode and output ownership marker. It verifies again
+before commit. Missing/replaced roots, wrong volume UUIDs, changed media, modified
+links, pending filesystem recovery and active consumer leases block repair.
+Initially this path supports symlink outputs only; hardlink and retained-hardlink
+ownership require separate recovery support.
+
+Repair does not rewrite links, edit source files, replay processing, or send scans.
+Consumer/publication references are updated together; pending generations and
+acknowledgements are preserved. Binding revisions fence stale delivery responses.
+The observation publication trigger is suppressed only inside the repair
+transaction so device renumbering cannot masquerade as new media. An interruption
+rolls back all repair records, including the trigger guard. The repair audit stores
+the verified plan. Other inventory observations remain unchanged until a normal
+scan; no full source-tree traversal is performed by repair.
+
+## Trust replacement sources explicitly
+
+Schema 19 adds an optional identity policy per source and local profile. Strict
+identity checking remains the default. Neither upgrading nor importing a program
+bundle enables path trust. Output ownership checks are not configurable here.
+
+For a one-time replacement at a source's existing path:
+
+```sh
+catabolic --db catalog.db --json remount --trust-source seed1
+# Review the preview, including the old/new roots, UUIDs and checked file counts.
+catabolic --db catalog.db --json remount --trust-source seed1 \
+  --expected-plan PLAN_ID_FROM_PREVIEW --apply
+```
+
+Repeat `--trust-source` to select several sources. This explicitly accepts the new
+source root UUID/device/inode and treats media at the recorded relative paths as
+the selected media. It verifies that every published source exists as a healthy
+regular file and that the output marker and symlinks still match. It refreshes
+size, modification time and file inode/device observations for those published
+sources, recording the repair plan. New file versions produce normal pending
+publication generations; a trusted replacement is not suppressed as a harmless
+remount. Scan the source normally to refresh the rest of its inventory. This
+operation does not prove byte-for-byte equivalence and does not change the
+persistent policy. Generated artifact sources and hardlink repair remain excluded.
+
+For an ongoing setting that trusts whatever is mounted at one source path:
+
+```sh
+catabolic --db catalog.db location trust seed1 --identity path
+catabolic --db catalog.db location trust seed1 --identity path --apply
+catabolic --db catalog.db --json location list
+catabolic --db catalog.db scan seed1
+```
+
+`path` disables UUID, device and root-inode comparison for that source only. It
+still requires an accessible directory with no symlink traversal. Scan completion
+checks that the root did not change during traversal. Publication still checks
+source-file versions against observations, so changed files need a completed scan
+before they can be published. Missing sources, unhealthy media, output ownership,
+changed output roots, and filesystem journals retain their existing checks.
+Credentials, consumer identities and other sources' policies are unaffected.
+Configuring a policy does not scan, rewrite links or request a Plex scan.
+
+Restore strict checking with:
+
+```sh
+catabolic --db catalog.db location trust seed1 --identity strict --apply
+```
+
+This restores checking against the saved identity; it does not silently adopt a
+replacement. If storage changed while path trust was enabled, use the explicit
+one-time repair before continuing in strict mode. The persistent choice is stored
+in `source_identity_policies`, separately from exported logical catalog programs.
+
+## Schema 20: trust policy evidence
+
+Adds individual source identity settings, policy revisions and change history. Existing schema-19 policies retain their behavior; migration records a baseline without inventing past evidence. See [Trust policies](TRUST_POLICIES.md). No local override is enabled by upgrade.

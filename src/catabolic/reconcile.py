@@ -593,6 +593,7 @@ class Reconciler:
                 continue
             issues = []
             verified = 0
+            source_evidence = {}
             try:
                 output = self.app.binding("output", selected)
                 with root_handle(output) as fd:
@@ -619,6 +620,7 @@ class Reconciler:
                         active_paths.add(path)
                         try:
                             source = self.app.binding("source", mapping["location"])
+                            source_evidence[mapping["location"]] = source.evidence
                             with root_handle(source) as source_fd:
                                 current = source_stat(source_fd, mapping["source_path"])
                             if mapping["status"] != "present":
@@ -668,6 +670,12 @@ class Reconciler:
                 {
                     "catalog": selected,
                     "healthy": not issues,
+                    "source_validation": source_evidence,
+                    "identity_verified": not issues
+                    and all(
+                        v.get("identity_verified", False)
+                        for v in source_evidence.values()
+                    ),
                     "verified_links": verified,
                     "issues": issues,
                 }

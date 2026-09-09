@@ -20,6 +20,60 @@ attempts survive. Upgrade alone enables no new network side effects. Connection
 and binding records belong to a local profile; program bundles and manifests do
 not transfer credentials, live server identities or notification destinations.
 
+### Sign in with Plex
+
+Authorize Catabolic using Plex's browser PIN flow. These commands need no catalog
+and make requests only to Plex's fixed HTTPS authentication service:
+
+```sh
+catabolic consumer plex-login
+# Open authorization_url in a browser and approve Catabolic on Plex's page.
+catabolic consumer plex-login-complete LOGIN_ID
+```
+
+Use the returned `login_id` in the second command. You can open the link on another
+device while running Catabolic over SSH. Catabolic never asks for your password.
+Completion checks once: if still awaiting authorization, repeat after at least one
+second. It reports `expired` when the local PIN deadline passes; start a new login.
+No background process or callback web server is started. The browser link itself
+contains a temporary authorization code; keep it private. `--machine` remains v1;
+pending or expired login returns exit code 3 and `complete: false`.
+
+Successful completion returns `credential_file`, never the token. Then explicitly
+configure the server you intend to access (replace the example address and path):
+
+```sh
+catabolic --db catalog.db consumer connection-put home --application plex \
+  --endpoint https://plex.example.test:32400 \
+  --credential-file /absolute/path/from/credential_file --apply
+catabolic --db catalog.db consumer discover home --type movie
+```
+
+Login alone does not connect a server, bind or create a library, or scan anything.
+Continue with the existing-library or explicit-creation workflow below. Account
+resource discovery is not implemented; choose the server address explicitly.
+
+The default credential directory is `~/.config/catabolic/credentials`; both login
+commands accept `--credential-dir` for a different local private directory. Files
+are owner-only (0600) inside a private directory (0700), written atomically and
+synced to disk. This is permission-protected local storage, not encrypted Keychain
+storage. Keep it outside catalogs, exported outputs and shared directories. Run
+scheduled workers as the same OS user with access to the credential file. The
+catalog's legacy `credential_env` column stores a `file:/absolute/path` reference
+for these connections; existing environment references retain their behavior.
+Notification credentials remain environment-only. No database migration is needed.
+
+Repeat completion reuses the saved credential without polling Plex again; it does
+not revalidate an already-saved token. Server operations check authentication as
+usual. If authorization is revoked, sign in again, then use `connection-put` with
+`--credential-file NEW_FILE --apply --repair` for the same server identity and retry
+blocked deliveries. Network/rate-limit failures do not erase the pending login or
+existing credentials. Removing a local credential file does not revoke it at Plex;
+manage Catabolic's authorization through Plex's Authorized Devices settings.
+Tokens are account credentials, not grants limited to the locally bound library.
+
+### Supply a token manually
+
 Supply a token through the named environment variable using your protected local
 secret configuration. Do not put a token in an endpoint or command argument.
 HTTPS uses certificate verification; redirects are refused. Use HTTP only on a
@@ -38,6 +92,12 @@ Discovery returns machine identity/version, capability and permission evidence,
 and library IDs, UUIDs, names, types and configured roots. Mutation permission
 may remain unknown until an explicitly authorized operation is attempted. Select
 by stable ID, never by title: duplicate library names are supported.
+
+If publication is blocked after a reboot by changed device IDs, use the
+[verified remount repair](MIGRATIONS.md#repair-after-a-reboot-or-remount) before
+retrying delivery. For intentionally replaced storage, see the
+[per-source trust options](MIGRATIONS.md#trust-replacement-sources-explicitly).
+Do not recreate output links to bypass identity checks.
 
 ## Bind an existing library once
 

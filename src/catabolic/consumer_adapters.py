@@ -113,6 +113,13 @@ def endpoint(value):
     return value.rstrip("/")
 
 
+def consumer_credential_ref(value):
+    if isinstance(value, str) and value.startswith("file:"):
+        path(value[5:])
+        return value
+    return credential_ref(value)
+
+
 def credential_ref(value):
     if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
         raise ConsumerError("invalid_configuration")
@@ -157,7 +164,14 @@ class HTTPAdapter:
 
     def call(self, route, method="GET", params=None):
         try:
-            secret = token(self.connection["credential_env"])
+            reference = self.connection["credential_env"]
+            client_id = None
+            if reference.startswith("file:"):
+                from .plex_login import credential
+
+                secret, client_id = credential(reference)
+            else:
+                secret = token(reference)
         except CatabolicError:
             raise ConsumerError("unauthorized") from None
         headers = {
@@ -168,6 +182,9 @@ class HTTPAdapter:
             if self.connection["application"] == "plex"
             else "application/json",
         }
+        if client_id:
+            headers["X-Plex-Client-Identifier"] = client_id
+            headers["X-Plex-Product"] = "Catabolic"
         try:
             return request(
                 self.base + route + ("?" + urlencode(params) if params else ""),
@@ -262,7 +279,7 @@ class Plex(HTTPAdapter):
             "POST",
             {
                 "name": spec["name"],
-                "type": self.types[spec["type"]],
+                "type": spec["type"],  # Library kind, not a numeric media/search type.
                 "location": spec["root"],
                 "scanner": spec["scanner"],
                 "agent": spec["agent"],
@@ -273,7 +290,7 @@ class Plex(HTTPAdapter):
     def scan(self, library):
         # Normal section scan. No force/metadata refresh, trash or deletion API.
         self.call(
-            "/library/sections/" + quote(library["id"], safe="") + "/refresh", "POST"
+            "/library/sections/" + quote(library["id"], safe="") + "/refresh", "GET"
         )
 
     def indexed(self, library, expected, limit):

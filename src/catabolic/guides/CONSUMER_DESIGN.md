@@ -96,3 +96,47 @@ Live Plex acceptance requires an explicitly authorized disposable library/root;
 no production tokens or libraries are inferred from this machine. Record live
 evidence separately from protocol tests. Preserve existing Jellyfin and media
 acceptance lanes, frozen interchange contracts and populated migration fixtures.
+
+## Plex wire-contract correction (2026-09-08)
+
+Reviewed clean checkout `e3081ca` against the current
+[Plex reference](https://developer.plex.tv/pms/) and
+[Python PlexAPI source](https://python-plexapi.readthedocs.io/en/latest/_modules/plexapi/library.html).
+The reference currently describes section refresh as POST and creation `type` as
+an integer. Python PlexAPI differs: `LibrarySection.update()` calls the section
+refresh endpoint without `force`, using
+[`PlexServer.query()`'s default GET](https://python-plexapi.readthedocs.io/en/latest/_modules/plexapi/server.html#PlexServer.query).
+`Library.add()` POSTs library-kind strings such as `movie` and `show`, with
+`location`, rather than converting the type to a numeric media ID.
+
+Catabolic follows these Python PlexAPI requests: GET for a normal section scan,
+POST with a string library kind for creation. Numeric scanner/agent discovery
+and media-search parameters retain their separate contracts. This is a client
+compatibility choice in the presence of conflicting documentation, not evidence
+that all Plex versions reject POST scans or accept numeric creation types.
+
+Both local protocol fixtures enforce the chosen contract. Regression tests reject
+POST scans, forced refresh parameters and numeric creation types; outbound tests
+check GET scans and creation of movie, show, artist and photo library kinds.
+The pre-fix adapter fails those outbound tests. No live Plex server was contacted;
+real-server acceptance remains unverified and requires an explicitly authorized
+disposable server/library. Creation-intent recovery and delivery state are unchanged.
+
+## Optional Plex account authorization
+
+The explicit `plex-login` / `plex-login-complete` pair implements the
+[Plex PIN polling flow](https://forums.plex.tv/t/authenticating-with-plex/609370),
+also exposed by Python PlexAPI's `MyPlexPinLogin`. Fixed HTTPS Plex endpoints use
+the existing bounded HTTP subprocess with verified TLS and refused redirects.
+Login stores a stable client identity and resumable, expiring PIN outside SQLite;
+completion validates the account token before atomically replacing PIN state with
+an owner-only credential. No password, account profile or token is returned in
+machine results. Local credential references extend consumer connection storage
+without changing existing environment references, notification credentials,
+creation intents, bindings or delivery generations. No schema migration or new
+dependency is required. Login is separate from explicit server connection setup.
+
+The initial storage backend uses POSIX file permissions, not encryption or an OS
+keychain. Login does not auto-discover account resources or launch a browser.
+Tests simulate Plex authorization and fault responses; live account authorization
+and real media-server acceptance remain unverified.

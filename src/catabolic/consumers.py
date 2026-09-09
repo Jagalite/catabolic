@@ -80,9 +80,12 @@ def local_valid(app, bindings):
         with root_handle(current):
             pass
         catalogs.add(row["catalog"])
+    validations = {}
     for catalog in catalogs:
-        if not Reconciler(app).verify(catalog)["healthy"]:
+        validations[catalog] = Reconciler(app).verify(catalog)
+        if not validations[catalog]["healthy"]:
             raise ConsumerError("publication_unhealthy")
+    return validations
 
 
 def publication_verified(app, db, catalog):
@@ -247,7 +250,7 @@ def claim(path, profile, *, automatic=False):
                 ]
                 if any(value != evidence[0] for value in evidence):
                     raise ConsumerError("library_binding_evidence_mismatch")
-                local_valid(app, rows)
+                validations = local_valid(app, rows)
             except (CatabolicError, OSError) as exc:
                 repair = isinstance(exc, ConsumerError) and not exc.safe_to_retry
                 code = (
@@ -284,6 +287,7 @@ def claim(path, profile, *, automatic=False):
                     "id": r["id"],
                     "revision": r["revision"],
                     "generation": r["generation"],
+                    "publication_validation": validations[r["catalog"]],
                     "connection_revision": connection(app, r["connection_id"])[
                         "revision"
                     ],

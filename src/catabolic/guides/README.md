@@ -198,8 +198,13 @@ Ordinary maintenance does neither. For agents and scheduled runs, use global
 
 ### Set up delivery once
 
-After creating a projection/output catalog named `cinema`, supply `PLEX_TOKEN`
-through protected local configuration and discover the server's libraries:
+For browser sign-in, run `catabolic consumer plex-login`, open its authorization
+link, then run `catabolic consumer plex-login-complete LOGIN_ID`. Use the returned
+path with `connection-put --credential-file PATH`; no token is printed. See the
+[sign-in guide](docs/CONSUMERS.md#sign-in-with-plex) for SSH and scheduled workers.
+
+Alternatively, after creating a projection/output catalog named `cinema`, supply
+`PLEX_TOKEN` through protected local configuration and discover the server's libraries:
 
 ```sh
 catabolic consumer connection-put home --application plex \
@@ -246,3 +251,5 @@ Documentation is also available offline: run `catabolic docs` after installation
 ## License
 
 [MIT](https://github.com/Jagalite/catabolic/blob/main/LICENSE). Copyright 2026 Jaga Tranvo and The Catabolic Contributors.
+
+Owner-controlled source identity settings and their evidence are described in [Trust policies](docs/TRUST_POLICIES.md), also available with `catabolic docs trust`.

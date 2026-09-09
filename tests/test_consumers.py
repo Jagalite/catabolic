@@ -12,10 +12,11 @@ import tempfile
 import threading
 import time
 import unittest
+from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 from xml.etree import ElementTree as ET
 
 from catabolic.app import Application
@@ -106,10 +107,20 @@ class ProtocolServer:
                             ET.SubElement(node, "Location", path=r)
                     body = ET.tostring(root)
                 elif route.path == "/library/sections" and self.command == "POST":
+                    # Python PlexAPI Library.add uses library-kind strings, not IDs.
+                    if params.get("type") not in (
+                        ["movie"],
+                        ["show"],
+                        ["artist"],
+                        ["photo"],
+                    ):
+                        self.send_error(400)
+                        return
                     row = fixture.library(
                         str(len(fixture.libraries) + 1), params["location"][0]
                     )
                     row.update(
+                        type=params["type"][0],
                         name=params["name"][0],
                         scanner=params["scanner"][0],
                         agent=params["agent"][0],
@@ -120,6 +131,13 @@ class ProtocolServer:
                 elif route.path == "/system/agents":
                     body = b'<MediaContainer><Agent identifier="fixture.agent"/></MediaContainer>'
                 elif route.path.endswith("/refresh"):
+                    # Contract chosen from LibrarySection.update, not adapter internals.
+                    if self.command != "GET":
+                        self.send_error(405)
+                        return
+                    if params:
+                        self.send_error(400)
+                        return
                     fixture.scans.append(route.path)
                     if fixture.on_scan:
                         callback, fixture.on_scan = fixture.on_scan, None
@@ -505,6 +523,95 @@ class ConsumerTest(unittest.TestCase):
         self.assertEqual(report["deliveries"][0]["state"], "stale_acknowledgement")
         self.assertEqual(self.status()["bindings"][0]["state"], "disabled")
         self.assertEqual(len(self.remote.libraries), 2)
+
+    def plex_adapter(self):
+        return Plex(
+            {
+                "endpoint": self.remote.url,
+                "application": "plex",
+                "credential_env": "CATABOLIC_TEST_PLEX_TOKEN",
+            }
+        )
+
+    def test_plex_scan_uses_get_without_metadata_refresh_parameters(self):
+        self.plex_adapter().scan({"id": "1"})
+        self.assertEqual(
+            self.remote.requests[-1], ("GET", "/library/sections/1/refresh", {})
+        )
+        self.assertEqual(self.remote.scans, ["/library/sections/1/refresh"])
+
+    def test_plex_creation_posts_library_kind_strings(self):
+        for kind in ("movie", "show", "artist", "photo"):
+            with self.subTest(kind=kind):
+                self.plex_adapter().create(
+                    {
+                        "name": "Contract library",
+                        "type": kind,
+                        "root": "/new",
+                        "scanner": "Fixture Scanner",
+                        "agent": "fixture.agent",
+                        "language": "en-US",
+                    }
+                )
+                self.assertEqual(
+                    self.remote.requests[-1],
+                    (
+                        "POST",
+                        "/library/sections",
+                        {
+                            "name": ["Contract library"],
+                            "type": [kind],
+                            "location": ["/new"],
+                            "scanner": ["Fixture Scanner"],
+                            "agent": ["fixture.agent"],
+                            "language": ["en-US"],
+                        },
+                    ),
+                )
+                self.assertEqual(self.remote.libraries[-1]["type"], kind)
+
+    def test_protocol_fixtures_reject_incorrect_scan_and_creation_contracts(self):
+        from scripts.consumer_acceptance import Fixture
+
+        acceptance = Fixture()
+        self.addCleanup(acceptance.close)
+        for fixture, endpoint, section in (
+            (self.remote, self.remote.url, "1"),
+            (acceptance, acceptance.endpoint, "7"),
+        ):
+            with self.subTest(endpoint=endpoint):
+                before = len(fixture.libraries)
+                url = urlsplit(endpoint)
+                connection = HTTPConnection(url.hostname, url.port, timeout=5)
+                self.addCleanup(connection.close)
+                for method, route, expected in (
+                    ("POST", f"/library/sections/{section}/refresh", 405),
+                    ("GET", f"/library/sections/{section}/refresh?force=1", 400),
+                    *(
+                        (
+                            "POST",
+                            "/library/sections?"
+                            + urlencode(
+                                {
+                                    "name": "Invalid",
+                                    "location": "/new",
+                                    "scanner": "Fixture Scanner",
+                                    "agent": "fixture.agent",
+                                    "language": "en-US",
+                                    "type": kind,
+                                }
+                            ),
+                            400,
+                        )
+                        for kind in (1, 2, 8, 13, "unknown")
+                    ),
+                ):
+                    connection.request(method, route)
+                    response = connection.getresponse()
+                    response.read()
+                    self.assertEqual(response.status, expected)
+                self.assertEqual(len(fixture.libraries), before)
+                self.assertFalse(fixture.scans)
 
     def test_creation_preview_apply_repeat_and_uncertain_crash(self):
         spec = {

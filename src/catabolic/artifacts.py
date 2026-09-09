@@ -626,6 +626,12 @@ class Artifacts:
                 finally:
                     os.close(output_fd)
                 os.fsync(root)
+            captured = json.loads(job["snapshot"])
+            current = occurrence(self.store, self.profile, job["file_id"])
+            if any(current.get(k) != v for k, v in captured.items() if k != "ctime_ns"):
+                raise CatabolicError(
+                    "source or policy changed before publication; enqueue a new job"
+                )
             # The source descriptor context validates the input before publication intent is committed.
             with self.store.transaction() as db:
                 db.execute(

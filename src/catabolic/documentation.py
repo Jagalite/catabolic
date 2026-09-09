@@ -11,6 +11,12 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "trust",
+        "TRUST_POLICIES.md",
+        "Owner trust policies",
+        "Source settings, policy history, truthful validation and retained correctness boundaries.",
+    ),
+    (
         "consumer-validation",
         "CONSUMER_VALIDATION.md",
         "Consumer validation evidence",

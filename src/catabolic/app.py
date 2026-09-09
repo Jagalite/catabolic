@@ -264,6 +264,15 @@ class Application:
                         raise CatabolicError(
                             "cannot rebind an output while it has owned links or retained hardlinks"
                         )
+        from .volume_identity import volume_uuid
+
+        fd = open_directory(path)
+        try:
+            stable_volume = volume_uuid(fd)
+            if (os.fstat(fd).st_dev, os.fstat(fd).st_ino) != (st.st_dev, st.st_ino):
+                raise CatabolicError("root changed during binding")
+        finally:
+            os.close(fd)
         with self.store.transaction() as db:
             table = "locations" if kind == "source" else "catalogs"
             db.execute(
@@ -273,6 +282,16 @@ class Application:
                 "INSERT INTO bindings VALUES (?,?,?,?,?,?) ON CONFLICT(profile,kind,owner) DO UPDATE SET root=excluded.root,device=excluded.device,inode=excluded.inode",
                 (self.profile, kind, owner, str(path), st.st_dev, st.st_ino),
             )
+            if self.store.schema_version >= 18:
+                db.execute(
+                    "DELETE FROM binding_volumes WHERE profile=? AND kind=? AND owner=?",
+                    (self.profile, kind, owner),
+                )
+                if stable_volume:
+                    db.execute(
+                        "INSERT INTO binding_volumes VALUES (?,?,?,?)",
+                        (self.profile, kind, owner, stable_volume),
+                    )
             if link_mode is not None:
                 db.execute(
                     "INSERT INTO catalog_link_modes VALUES (?,?) ON CONFLICT(catalog) DO UPDATE SET mode=excluded.mode",
@@ -292,7 +311,22 @@ class Application:
         )
         if not rows:
             raise CatabolicError(f"unbound {kind} {owner} in profile {self.profile}")
-        return rows[0]
+        from .filesystem import BoundRoot
+
+        volumes = (
+            self.store.rows(
+                "SELECT volume_uuid FROM binding_volumes WHERE profile=? AND kind=? AND owner=?",
+                (self.profile, kind, owner),
+            )
+            if self.store.schema_version >= 18
+            else []
+        )
+        from .source_trust import effective
+
+        policy = effective(self, owner) if kind == "source" else None
+        return BoundRoot(
+            rows[0], volumes[0]["volume_uuid"] if volumes else None, policy=policy
+        )
 
     def scan(
         self, location: str | None = None, *, exclude: list[str] | None = None
@@ -311,6 +345,7 @@ class Application:
             from .scan_staging import ScanStaging
 
             with ScanStaging() as staged:
+                binding = None
                 observed: list[dict] = []
                 errors: list[str] = []
                 try:
@@ -353,8 +388,12 @@ class Application:
                         for entry in observed:
                             staged.append(entry)
                         # Reopen by name to detect a mount or root replaced during traversal.
-                        with root_handle(binding):
-                            pass
+                        with root_handle(binding) as current_fd:
+                            if (os.fstat(fd).st_dev, os.fstat(fd).st_ino) != (
+                                os.fstat(current_fd).st_dev,
+                                os.fstat(current_fd).st_ino,
+                            ):
+                                raise CatabolicError("source root changed during scan")
                 except (OSError, CatabolicError) as exc:
                     errors.append(str(exc))
                 observed = staged
@@ -380,6 +419,13 @@ class Application:
                     db.execute(
                         "INSERT INTO meta(key,value) VALUES (?,?)",
                         (f"scan:{scan_id}:scope", encode({"exclude": excluded})),
+                    )
+                    db.execute(
+                        "INSERT INTO meta(key,value) VALUES (?,?)",
+                        (
+                            f"scan:{scan_id}:validation",
+                            encode(getattr(binding, "evidence", {})),
+                        ),
                     )
                     if complete:
                         scope_sql = "".join(
@@ -422,6 +468,7 @@ class Application:
                             )
                 reports.append(
                     {
+                        "validation": dict(getattr(binding, "evidence", {})),
                         "scan_id": scan_id,
                         "location": source,
                         "complete": complete,

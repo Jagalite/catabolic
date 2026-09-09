@@ -5,6 +5,7 @@
 
 import json
 import time
+from pathlib import Path
 
 from .app import Application
 from .consumer_adapters import ConsumerError, path, text
@@ -18,11 +19,25 @@ def register(commands):
         "consumer",
         help="Plex/Jellyfin connections, library bindings and durable scan delivery",
     ).add_subparsers(dest="operation", required=True)
+    for op in ("plex-login", "plex-login-complete"):
+        p = sub.add_parser(
+            op, help="authorize Catabolic with Plex; no scans or library changes"
+        )
+        p.add_argument(
+            "--credential-dir",
+            default=str(Path.home() / ".config/catabolic/credentials"),
+        )
+        if op == "plex-login-complete":
+            p.add_argument("id", help="login_id from plex-login")
     p = sub.add_parser("connection-put")
     p.add_argument("id")
     p.add_argument("--application", choices=("plex", "jellyfin"), required=True)
     p.add_argument("--endpoint", required=True)
-    p.add_argument("--credential-env", required=True)
+    credentials = p.add_mutually_exclusive_group(required=True)
+    credentials.add_argument("--credential-env")
+    credentials.add_argument(
+        "--credential-file", help="private JSON credential from plex-login-complete"
+    )
     p.add_argument("--apply", action="store_true")
     p.add_argument("--repair", action="store_true")
     p = sub.add_parser("discover")
@@ -98,6 +113,15 @@ def dispatch(args):
     from . import notifications
     from .cli import read_text
 
+    if args.command == "consumer" and args.operation in (
+        "plex-login",
+        "plex-login-complete",
+    ):
+        from . import plex_login
+
+        if args.operation == "plex-login":
+            return plex_login.start(args.credential_dir)
+        return plex_login.complete(args.credential_dir, args.id)
     if not args.db:
         raise ConsumerError("database_required")
     op, database, profile = args.operation, args.db, args.profile
@@ -171,7 +195,9 @@ def dispatch(args):
             args.id,
             args.application,
             args.endpoint,
-            args.credential_env,
+            "file:" + str(Path(args.credential_file).expanduser().absolute())
+            if args.credential_file
+            else args.credential_env,
             apply=args.apply,
             repair=args.repair,
         )

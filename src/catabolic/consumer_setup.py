@@ -10,7 +10,7 @@ from .app import Application
 from .consumer_adapters import (
     ConsumerError,
     adapter,
-    credential_ref,
+    consumer_credential_ref,
     endpoint,
     path,
     text,
@@ -41,12 +41,18 @@ def put_connection(
     text(identifier, 255)
     if application not in ("plex", "jellyfin"):
         raise ConsumerError("unsupported")
+    if (
+        application != "plex"
+        and isinstance(credential_env, str)
+        and credential_env.startswith("file:")
+    ):
+        raise ConsumerError("plex_credential_requires_plex_connection")
     value = {
         "id": identifier,
         "profile": profile,
         "application": application,
         "endpoint": endpoint(address),
-        "credential_env": credential_ref(credential_env),
+        "credential_env": consumer_credential_ref(credential_env),
     }
     identity = adapter(value).inspect()
     value.update(server_id=identity["server_id"], evidence=encode(identity))

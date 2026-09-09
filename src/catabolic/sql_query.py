@@ -25,6 +25,16 @@ MAX_RESULT_BYTES = 8 * 1024 * 1024
 # Connection-local views are an API independent of the stored schema. Qualifying
 # all base tables prevents accidental name resolution through a temporary object.
 VIEWS = {
+    "catalog_scan_validation": (
+        "Historical scan checks and local policy revision. NULL means unrecorded evidence; inventory completion is independent of identity verification.",
+        """SELECT s.id AS scan_id,s.profile,s.location,s.complete,
+        json_extract(m.value,'$.policy.revision') AS policy_revision,
+        json_extract(m.value,'$.allowed') AS execution_allowed,
+        json_extract(m.value,'$.availability') AS availability,
+        json_extract(m.value,'$.identity_verified') AS identity_verified,
+        json_extract(m.value,'$.checks') AS checks
+        FROM main.scans s LEFT JOIN main.meta m ON m.key='scan:' || s.id || ':validation'""",
+    ),
     "catalog_rule_processor_jobs": (
         "Rule provenance for existing fenced external processor jobs.",
         "SELECT * FROM main.rule_processor_jobs",

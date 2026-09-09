@@ -191,6 +191,10 @@ class Fixture:
                         ET.SubElement(row, "Location", path=path)
                 elif route.path == "/library/sections" and self.command == "POST":
                     q = parse_qs(route.query)
+                    # This movie fixture enforces Library.add's string type contract.
+                    if q.get("type") != ["movie"]:
+                        self.send_error(400)
+                        return
                     fixture.libraries.append(
                         ("8", "uuid-8", q["location"][0], q["name"][0])
                     )
@@ -198,14 +202,15 @@ class Fixture:
                     ET.SubElement(root, "Scanner", name="Fixture Scanner")
                 elif route.path == "/system/agents":
                     ET.SubElement(root, "Agent", identifier="fixture.agent")
-                elif (
-                    route.path
-                    in {
-                        f"/library/sections/{row[0]}/refresh"
-                        for row in fixture.libraries
-                    }
-                    and self.command == "POST"
-                ):
+                elif route.path in {
+                    f"/library/sections/{row[0]}/refresh" for row in fixture.libraries
+                }:
+                    if self.command != "GET":
+                        self.send_error(405)
+                        return
+                    if route.query:
+                        self.send_error(400)
+                        return
                     fixture.scans += 1
                 elif route.path.endswith("/all"):
                     for n, path in enumerate(fixture.expected_paths()):

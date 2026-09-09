@@ -105,7 +105,9 @@ def current_fact(store, profile, file_id, operation="probe"):
     snapshot = json.loads(row["snapshot"])
     now = occurrence(store, profile, file_id)
     row["current"] = row["status"] == "complete" and all(
-        now.get(k) == v for k, v in snapshot.items() if k != "ctime_ns"
+        now.get(k) == v
+        for k, v in snapshot.items()
+        if k not in ("ctime_ns", "source_policy", "volume_uuid")
     )
     row["data"] = json.loads(row["data"])
     row["snapshot"] = snapshot

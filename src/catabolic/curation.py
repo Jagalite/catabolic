@@ -64,7 +64,17 @@ def occurrence(store, profile, file_id):
     )
     if not rows:
         raise CatabolicError(f"unknown file: {file_id}")
-    return rows[0]
+    snapshot = rows[0]
+    if store.schema_version >= 20:
+        from .source_trust import source_policy
+
+        snapshot["source_policy"] = source_policy(store, profile, snapshot["location"])
+        volumes = store.rows(
+            "SELECT volume_uuid FROM binding_volumes WHERE profile=? AND kind='source' AND owner=?",
+            (profile, snapshot["location"]),
+        )
+        snapshot["volume_uuid"] = volumes[0]["volume_uuid"] if volumes else None
+    return snapshot
 
 
 class Curation:

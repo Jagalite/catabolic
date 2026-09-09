@@ -331,6 +331,15 @@ def parser() -> argparse.ArgumentParser:
             dest="operation", required=True
         )
         sub.add_parser("list")
+        if entity == "location":
+            trust = sub.add_parser(
+                "trust", help="per-source filesystem identity policy"
+            )
+            trust.add_argument("name")
+            trust.add_argument("--identity", choices=("strict", "path"))
+            for check in ("uuid", "device", "inode"):
+                trust.add_argument("--" + check, choices=("check", "skip"))
+            trust.add_argument("--apply", action="store_true")
         bind = sub.add_parser(
             "bind", help="register a directory; catalogs can create a default output"
         )
@@ -354,6 +363,22 @@ def parser() -> argparse.ArgumentParser:
             if entity == "location"
             else "existing output directory; omitted: reuse its binding or create ./catabolic/NAME",
         )
+    remount = commands.add_parser(
+        "remount", help="preview or apply verified volume remount repair"
+    )
+    remount.add_argument(
+        "--adopt-existing",
+        action="store_true",
+        help="explicitly enroll legacy bindings without stored volume UUIDs",
+    )
+    remount.add_argument("--expected-plan", help="plan_id from the preview")
+    remount.add_argument("--apply", action="store_true")
+    remount.add_argument(
+        "--trust-source",
+        action="append",
+        default=[],
+        help="explicitly adopt replacement media at this source path; repeat per source",
+    )
     scan = commands.add_parser(
         "scan", help="publish inventory only after complete source traversal"
     )
@@ -768,30 +793,37 @@ def dispatch(args: argparse.Namespace) -> dict:
     from . import enrichment_cli, rule_cli, workflow_cli
 
     writable = (
-        (
-            args.command == "rendition"
-            and (
-                args.operation in ("exclude", "allow", "import-receipt")
-                or args.operation == "policy"
-                and args.definition is not None
-            )
-        )
-        or enrichment_cli.writable(args)
-        or rule_cli.writable(args)
-        or workflow_cli.writable(args)
+        args.command == "remount"
+        and args.apply
+        or args.command == "location"
+        and args.operation == "trust"
+        and args.apply
         or (
-            args.command == "tag"
-            and args.operation not in ("list", "assignments")
-            or args.command == "export"
-            and args.output is not None
-            or args.command == "manifest"
-            and (args.in_catalog or args.output not in (None, "-"))
-            or args.command in ("scan", "recover", "maintenance")
-            or args.command == "sync"
-            and not args.dry_run
-            or getattr(args, "operation", None) in ("add", "bind", "put", "disable")
-            or args.command == "layout"
-            and args.operation == "apply"
+            (
+                args.command == "rendition"
+                and (
+                    args.operation in ("exclude", "allow", "import-receipt")
+                    or args.operation == "policy"
+                    and args.definition is not None
+                )
+            )
+            or enrichment_cli.writable(args)
+            or rule_cli.writable(args)
+            or workflow_cli.writable(args)
+            or (
+                args.command == "tag"
+                and args.operation not in ("list", "assignments")
+                or args.command == "export"
+                and args.output is not None
+                or args.command == "manifest"
+                and (args.in_catalog or args.output not in (None, "-"))
+                or args.command in ("scan", "recover", "maintenance")
+                or args.command == "sync"
+                and not args.dry_run
+                or getattr(args, "operation", None) in ("add", "bind", "put", "disable")
+                or args.command == "layout"
+                and args.operation == "apply"
+            )
         )
     )
     with Store(
@@ -1029,6 +1061,16 @@ def dispatch(args: argparse.Namespace) -> dict:
                     metadata=metadata,
                 )
             )
+        if command == "remount":
+            from .remount import repair
+
+            return repair(
+                app,
+                apply=args.apply,
+                adopt_existing=args.adopt_existing,
+                expected_plan=args.expected_plan,
+                trust_sources=args.trust_source,
+            )
         if command == "status":
             return app.status()
         if command == "profile":
@@ -1039,6 +1081,20 @@ def dispatch(args: argparse.Namespace) -> dict:
             )
         if command in ("location", "catalog"):
             kind = "source" if command == "location" else "output"
+            if args.operation == "trust":
+                from .source_trust import configure
+
+                return configure(
+                    app,
+                    args.name,
+                    args.identity,
+                    apply=args.apply,
+                    overrides={
+                        k: getattr(args, k)
+                        for k in ("uuid", "device", "inode")
+                        if getattr(args, k) is not None
+                    },
+                )
             if args.operation == "retained":
                 if not 1 <= args.limit <= 1000:
                     raise CatabolicError("limit must be between 1 and 1000")
@@ -1072,6 +1128,15 @@ def dispatch(args: argparse.Namespace) -> dict:
                 "SELECT * FROM bindings WHERE profile=? AND kind=? ORDER BY owner",
                 (args.profile, kind),
             )
+            if kind == "source":
+                for row in rows:
+                    policies = store.rows(
+                        "SELECT identity_policy FROM source_identity_policies WHERE profile=? AND location=?",
+                        (args.profile, row["owner"]),
+                    )
+                    row["identity_policy"] = (
+                        policies[0]["identity_policy"] if policies else "strict"
+                    )
             if kind == "output":
                 rows = [
                     {**row, "link_mode": app.link_mode(row["owner"])} for row in rows

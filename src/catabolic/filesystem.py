@@ -19,6 +19,22 @@ DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 MARKER = ".catabolic-owner.json"
 
 
+class BoundRoot(dict):
+    """Binding mapping plus runtime UUID evidence; keep serialized contracts unchanged."""
+
+    def __init__(self, value, volume_uuid=None, trust_path=False, policy=None):
+        super().__init__(value)
+        self.volume_uuid = volume_uuid
+        self.policy = policy or {
+            "revision": 0,
+            "settings": dict.fromkeys(
+                ("uuid", "device", "inode"), "skip" if trust_path else "check"
+            ),
+        }
+        self.trust_path = all(v == "skip" for v in self.policy["settings"].values())
+        self.evidence = {"policy": self.policy, "checks": {}, "allowed": False}
+
+
 def rename_noreplace(source_fd, source_name, destination_fd, destination_name):
     """Atomic retirement must never overwrite even a concurrently created file."""
     import ctypes
@@ -76,18 +92,56 @@ def open_directory(path: str | Path) -> int:
 
 @contextmanager
 def root_handle(binding: dict):
+    evidence = getattr(binding, "evidence", {})
+    evidence.update(
+        allowed=False, identity_verified=False, availability="unknown", checks={}
+    )
     try:
         fd = open_directory(binding["root"])
     except OSError as exc:
+        evidence["availability"] = "unavailable"
         raise CatabolicError(
-            f"unavailable {binding['kind']} root: {binding['root']}: {exc}"
+            f"unavailable {binding.get('kind', 'source')} root: {binding['root']}: {exc}"
         ) from exc
     try:
         st = os.fstat(fd)
-        if (st.st_dev, st.st_ino) != (binding["device"], binding["inode"]):
-            raise CatabolicError(
-                f"root identity changed: {binding['root']}; explicitly rebind it"
+        evidence["availability"] = "available"
+        settings = (
+            getattr(binding, "policy", {}).get("settings", {})
+            if binding.get("kind") == "source"
+            else {}
+        )
+        evidence = getattr(binding, "evidence", {})
+        checks = evidence.setdefault("checks", {})
+        evidence["allowed"] = False
+        for check in ("uuid", "device", "inode"):
+            if settings.get(check) == "skip":
+                checks[check] = "skipped_owner_policy"
+                continue
+            if check == "uuid":
+                expected = getattr(binding, "volume_uuid", None)
+                if expected is None:
+                    checks[check] = "not_enrolled"
+                    continue
+                from .volume_identity import volume_uuid
+
+                actual = volume_uuid(fd)
+            else:
+                expected = binding[check]
+                actual = st.st_dev if check == "device" else st.st_ino
+            checks[check] = (
+                "matched" if actual == expected else "mismatched_or_unavailable"
             )
+            if actual != expected:
+                raise CatabolicError(
+                    "bound volume identity changed or unavailable"
+                    if check == "uuid"
+                    else f"root identity changed: {binding['root']}; inspect remount repair"
+                )
+        evidence["allowed"] = True
+        evidence["identity_verified"] = all(
+            checks.get(k) == "matched" for k in ("uuid", "device", "inode")
+        )
         yield fd
     finally:
         os.close(fd)
