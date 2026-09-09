@@ -29,6 +29,20 @@ def register(commands):
         )
         if op == "plex-login-complete":
             p.add_argument("id", help="login_id from plex-login")
+    p = sub.add_parser(
+        "import", help="preview/apply Plex metadata and file associations"
+    )
+    p.add_argument("connection")
+    p.add_argument("--library-id", required=True)
+    p.add_argument(
+        "--map",
+        required=True,
+        help="JSON path mappings from Plex roots to scanned sources",
+    )
+    p.add_argument("--offset", type=int, default=0)
+    p.add_argument("--limit", type=int, default=100)
+    p.add_argument("--expected-plan", help="plan_id from a reviewed preview")
+    p.add_argument("--apply", action="store_true")
     p = sub.add_parser("connection-put")
     p.add_argument("id")
     p.add_argument("--application", choices=("plex", "jellyfin"), required=True)
@@ -188,6 +202,20 @@ def dispatch(args):
                         (profile, args.id),
                     )
             return {"id": args.id, "operation": op, "complete": True}
+    if op == "import":
+        from .plex_import import run
+
+        return run(
+            database,
+            profile,
+            args.connection,
+            args.library_id,
+            json.loads(read_text(args.map, 65536)),
+            offset=args.offset,
+            limit=args.limit,
+            apply=args.apply,
+            expected_plan=args.expected_plan,
+        )
     if op == "connection-put":
         return put_connection(
             database,

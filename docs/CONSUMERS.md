@@ -13,12 +13,31 @@ media, rerun completed processing, or delete source files.
 
 ## Upgrade and connect
 
-Schema 17 is an additive migration. Run `catabolic --db catalog.db db upgrade
---dry-run`, then `catabolic --db catalog.db db upgrade`. Existing catalog IDs,
-profiles, projections, jobs, ownership, Jellyfin targets, dirty work and refresh
-attempts survive. Upgrade alone enables no new network side effects. Connection
-and binding records belong to a local profile; program bundles and manifests do
-not transfer credentials, live server identities or notification destinations.
+Select the same database and profile used for your published outputs. Examples
+below use `--db catalog.db` and the default profile; add the global
+`--profile NAME` option when needed. Check and upgrade an existing database before
+configuring consumers:
+
+```sh
+catabolic --db catalog.db db status
+catabolic --db catalog.db db upgrade --dry-run
+catabolic --db catalog.db db upgrade
+```
+
+The current schema is 20. Consumer delivery was introduced in schema 17;
+schemas 18–20 add volume identity, source trust policies and validation evidence.
+See [database migrations](MIGRATIONS.md) for backup and repair behavior. Existing
+catalog IDs, profiles, projections, jobs, ownership, Jellyfin targets, dirty work
+and refresh attempts survive upgrade. Upgrade alone enables no new network actions.
+Connection and binding records belong to a local profile; program bundles and
+manifests do not transfer credentials, live server identities or notification
+destinations.
+
+For an existing Plex library, follow **sign in → connect → discover → bind →
+publish → run delivery → verify indexing**. Create the output catalog/layout or
+projection first using the [getting started guide](GETTING_STARTED.md) or
+[projection guide](PROGRAMMABLE_CATALOG.md). Library creation is a separate,
+explicit option below.
 
 ### Sign in with Plex
 
@@ -61,7 +80,8 @@ storage. Keep it outside catalogs, exported outputs and shared directories. Run
 scheduled workers as the same OS user with access to the credential file. The
 catalog's legacy `credential_env` column stores a `file:/absolute/path` reference
 for these connections; existing environment references retain their behavior.
-Notification credentials remain environment-only. No database migration is needed.
+Notification credentials remain environment-only. Browser sign-in itself requires
+no database; credential-file connections need no additional credential migration.
 
 Repeat completion reuses the saved credential without polling Plex again; it does
 not revalidate an already-saved token. Server operations check authentication as
@@ -99,6 +119,88 @@ retrying delivery. For intentionally replaced storage, see the
 [per-source trust options](MIGRATIONS.md#trust-replacement-sources-explicitly).
 Do not recreate output links to bypass identity checks.
 
+## Import an existing Plex library into Catabolic
+
+`consumer import` reads Plex metadata and associates it with files already scanned
+into Catabolic. It uses the saved Plex connection, including browser-login
+credentials. No output binding or new Plex library is required. It reads the
+remote server and writes only local catalog decisions when you apply a preview;
+it does not download media, publish links, request scans, or modify Plex.
+
+First bind and scan the source locations using the [setup guide](GETTING_STARTED.md).
+Then discover the library ID with `consumer discover home`. Create a local JSON
+mapping file, `plex-import-map.json`, translating Plex's file paths into Catabolic
+source locations and optional relative subtrees:
+
+```json
+[
+  {"remote_root": "/media/Movies", "location": "seed1", "subtree": "Movies"},
+  {"remote_root": "/archive/Movies", "location": "seed2", "subtree": "Films"}
+]
+```
+
+If `seed1` is bound to `/Volumes/seed1`, the first entry maps
+`/media/Movies/Example.mkv` to the inventoried `Movies/Example.mkv` at that source.
+Omit `subtree` when the remote root corresponds to the source root. Mappings use
+POSIX paths, must not overlap on the remote side, and never infer a match from a
+filename or title. Map original media roots to scanned sources, not an output
+symlink tree; aliases and symlink resolution are not inferred.
+
+```sh
+catabolic --db catalog.db consumer import home --library-id 7 \
+  --map plex-import-map.json --limit 100
+# Review candidates, preserved_fields, deferred entries, and plan_id.
+catabolic --db catalog.db consumer import home --library-id 7 \
+  --map plex-import-map.json --limit 100 --apply --expected-plan PLAN_ID
+```
+
+Preview does not write the database. Apply refetches the page and checks its plan
+against the database/profile, connection, library identity, mappings, remote
+metadata and local curation snapshots. If anything relevant changed, preview again.
+Files must still match their scanned revisions. Network requests run outside the
+local database writer lock. Keep the library stable while paging: offset paging
+is not a remote snapshot, and concurrent library edits can move page boundaries.
+After such changes, restart at offset zero; unchanged imports are safe to repeat.
+
+Each command reads one page of at most 100 Plex items. If `next_offset` is non-null,
+repeat preview and apply with `--offset NEXT_OFFSET`; each page has its own plan ID.
+`page_complete` means the page has no deferred entries or apply errors; `complete`
+also requires the final page. Partial results return exit code 3. Apply imports
+eligible candidates even when other entries are deferred, and reports each
+accepted proposal in `imported`. An unchanged repeat creates no new decision.
+
+### Imported metadata and conflict handling
+
+Supported library types are movies, TV (episode files), music (track files), and
+photos. Imports include titles, available year/summary/release-date/duration fields,
+movie edition labels, and episode or track numbering and parent labels. Multipart
+files retain part numbers. Different Plex items remain distinct even when they
+share an IMDb or other provider GUID; automatic edition merging is not attempted.
+
+Identity is scoped by Plex server identity, library UUID and item rating key.
+Curation proposals and decision history retain the remote path and Plex/provider
+GUID evidence. Existing metadata fields are preserved; differing values appear in
+`preserved_fields`, and missing fields may be filled. A changed Plex GUID, a file
+already associated with another item, conflicting parts, duplicate file paths,
+unmapped paths, missing inventory or changed sources are deferred for review.
+Fix mappings or curation explicitly, rescan changed sources, and preview again.
+
+This imports file-backed items and their descriptive metadata. Series/season and
+artist/album labels are metadata; parent items and structural relationships are
+not synthesized. Collections, playlists, watched state, ratings, artwork downloads,
+standalone parent records and remote-only files are not imported. Existing TV/music
+layouts that require parent relationships still need those relationships curated.
+Unsupported or incomplete remote entries are reported rather than silently counted
+as imported. Library reads use the [Plex library API](https://developer.plex.tv/pms/) and the
+`id:asc` rating-key sort documented in [PlexAPI source](https://python-plexapi.readthedocs.io/en/stable/_modules/plexapi/library.html);
+live-server import acceptance remains unverified.
+
+Decisions are durable per file, not atomic across a page. If interrupted, rerun the
+preview: accepted files become unchanged, and pending decisions can be resumed.
+The import does not mark curation complete, infer output membership, remove local
+items absent from Plex, or overwrite manually edited fields. No schema migration
+is added for this feature.
+
 ## Bind an existing library once
 
 Assume projection/output catalog `cinema` publishes to `/host/published`, with
@@ -112,7 +214,9 @@ catabolic --db catalog.db consumer bind cinema-plex --connection home \
   --catalog cinema --subtree Movies --remote-root /media/Movies \
   --library-id 7 --type movie --automatic --initial-scan --apply
 catabolic --db catalog.db projection execute cinema
+catabolic --db catalog.db consumer run --limit 10
 catabolic --db catalog.db consumer bindings
+catabolic --db catalog.db consumer verify-indexing cinema-plex --limit 100
 ```
 
 `--initial-scan` explicitly schedules the already-published output. Repeating the
@@ -127,7 +231,15 @@ Paths must be POSIX namespaces, without traversal, empty components or backslash
 Overlapping remote scopes within one library are rejected. Several nonoverlapping
 bindings can share one library; one projection can have several consumers.
 Movie/show/artist/photo are Plex types; mixed trees need separate appropriate
-bindings. An existing output catalog can be bound even without a saved projection.
+bindings. An existing output catalog can be bound even without a saved projection. After
+applying its layout, use these commands in place of `projection execute`:
+
+```sh
+catabolic --db catalog.db sync --catalog cinema --dry-run
+catabolic --db catalog.db sync --catalog cinema
+catabolic --db catalog.db verify --catalog cinema
+catabolic --db catalog.db consumer run --limit 10
+```
 
 Equal host/container path strings are declarations, not proof of shared storage.
 Plex must access both symlinks and their resolved source/rendition targets, with

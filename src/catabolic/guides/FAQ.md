@@ -96,6 +96,44 @@ and no interactive curation prompts. Follow pagination and exit statuses. Use
 proposals when decisions need review, removal budgets for scheduled sync, and
 recovery after interruptions. [Automation](AUTOMATION.md) explains the contract.
 
+## Can Catabolic sign in to Plex and update my library?
+
+Yes. Run `catabolic consumer plex-login`, open the returned authorization link,
+and use `consumer plex-login-complete LOGIN_ID` after approving it. Completion
+returns a private credential-file path; Catabolic does not ask for your password
+or print the token. You then explicitly configure your server address, discover
+its libraries, and bind an output catalog to a library ID. Login alone does not
+create or scan a library.
+
+A binding with `--automatic` delivers scans after verified publication. Use
+`consumer run` on a schedule or supervise `consumer watch` for delayed retries.
+Unchanged publication does not request another scan. Catabolic can also explicitly
+create a Plex library using scanner/agent choices reported by that server. See
+[the Plex setup walkthrough](CONSUMERS.md).
+
+## Can I import my existing Plex catalog?
+
+Yes. `consumer import` reads a selected Plex library using a saved connection and
+maps exact remote file paths to scanned Catabolic sources. Preview a page, review
+its proposed metadata and associations, then apply using the returned plan ID.
+Existing fields are preserved and unchanged repeats do not duplicate items.
+Conflicting associations and unavailable files remain explicit review work.
+
+The import covers file-backed movies, episodes, tracks and photos. It does not
+copy media or import watched state, playlists, artwork, or parent relationships.
+See [Plex import](CONSUMERS.md#import-an-existing-plex-library-into-catabolic) for
+path mappings, pagination, conflict handling and restart behavior.
+
+## Plex accepted the scan, so why are my files missing?
+
+Scan acceptance and indexing are separate outcomes. Check `consumer bindings`,
+`consumer attempts`, and `consumer events`, then run
+`consumer verify-indexing BINDING_ID --limit 100`. The bounded path check can be
+inconclusive while Plex is indexing or when the library exceeds the checked page.
+Confirm that the binding's remote root matches Plex's namespace and that Plex can
+read both the published symlinks and their resolved targets. Matching titles or
+file counts do not establish that the expected files were indexed or can play.
+
 ## Is it a media player, downloader, or backup system?
 
 No. Catabolic inventories, describes, queries, and projects existing files.

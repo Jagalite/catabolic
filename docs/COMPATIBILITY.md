@@ -23,6 +23,28 @@ mechanism, preset name, supported kinds and roles, exact rules (including file
 extensions and required template fields), upstream documentation and validation
 status. The target interface and each naming profile currently have version 1.
 
+## Server integrations
+
+Consumer bindings add server operations to published folders. Configure them
+explicitly with `catabolic consumer`; choosing a naming preset does not connect
+to a server or request scans.
+
+| Capability | Plex | Jellyfin |
+| --- | --- | --- |
+| Credentials | Browser PIN sign-in with a private local credential file, or token environment variable | Token environment variable |
+| Server/library discovery and existing-library binding | Supported | Supported |
+| Import metadata into Catabolic | File-backed movie/episode/track/photo items, with explicit source mappings and preview/apply | Not implemented |
+| Explicit library creation | Supported with server-discovered scanner/agent choices | Not implemented |
+| Durable scan delivery and retries | Supported | Supported |
+| Active-scan observation | Supported | Not implemented |
+| Bounded exact-file-path indexing checks | Supported; can be inconclusive | Not implemented |
+
+Plex uses whole-section scans. Scan acceptance does not prove indexing or playback;
+the server must read both published links and their resolved targets. Protocol
+fixtures cover these integrations; live Plex acceptance remains unverified. See
+[consumer setup](CONSUMERS.md) for browser sign-in, path mapping, creation and
+workers, and the [validation record](CONSUMER_VALIDATION.md) for evidence.
+
 ## Folder targets
 
 | Target | Preset | Scope |

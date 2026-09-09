@@ -147,3 +147,31 @@ after a lost response. Unobserved external source edits are not filesystem-watch
 
 See [setup and recurring-operation examples](CONSUMERS.md) and
 [design/migration decisions](CONSUMER_DESIGN.md).
+
+## Plex metadata import validation (2026-09-09)
+
+`consumer import` adds bounded Plex-to-Catabolic metadata intake through
+`plex_import.py`, the existing consumer connection, and curation proposals and
+decisions. It requires explicit path mappings to scanned source files and a
+reviewed plan ID for apply. It adds no database migration or Plex write operations.
+
+The full local regression run executed **589 tests: 586 passed, three skipped**
+in 130.050 seconds. The final focused import run passed all **19 tests** after
+correcting the outbound sort to `id:asc` and adding per-proposal budget validation.
+Lint, formatting, bundled-doc synchronization, interchange specification and frozen
+release-artifact checks passed. Regression output is in
+`/private/tmp/catabolic-plex-import-regression.log` on the development machine;
+that temporary log is not a packaged artifact.
+
+Import fixtures check read-only preview, CLI preview/apply, mandatory plan IDs,
+local and remote plan invalidation, server/library replacement, GUID changes,
+metadata preservation, exact source mapping, unavailable/changed files, conflicting
+associations, duplicate paths, multipart files, edition separation, pagination,
+repeated imports, interrupted-batch recovery and source preservation. Every mocked
+remote request verifies that the local database writer lock is available.
+
+The fixture supplies synthetic XML at the HTTP adapter boundary; it is not live
+Plex evidence. Real account/library import, server-specific pagination behavior,
+and real Plex metadata variations remain unverified. Imported TV/music parent
+labels are metadata only: parent items and structural relationships, playlists,
+watched state, artwork and remote-only files remain outside this import scope.

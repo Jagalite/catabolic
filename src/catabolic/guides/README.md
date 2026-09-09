@@ -72,6 +72,16 @@ See [supported applications](https://github.com/Jagalite/catabolic/blob/main/doc
 integration's requirements. Folder presets and import options behave differently;
 imports copy or upload selected media.
 
+### Start from an existing Plex library
+
+[Import Plex metadata](docs/CONSUMERS.md#import-an-existing-plex-library-into-catabolic)
+to bootstrap file identification from your existing library. Connect your Plex
+server, map its media paths to scanned Catabolic sources, then preview and apply
+a bounded page. Imports preserve existing metadata, retain Plex identity and
+provenance, and report ambiguous or unavailable files for review. They do not copy
+media or change Plex. Movies, episode files, music tracks and photos are supported;
+parent relationships, playlists and watched state are outside the import scope.
+
 ### Connect published outputs to Plex or Jellyfin
 
 [Consumer bindings](docs/CONSUMERS.md) connect a projection or media subtree to an
@@ -80,8 +90,8 @@ then records durable scan generations and can automatically request library scan
 Unchanged output creates no new scan. Offline servers leave retryable delivery
 work without rerendering completed media or rewriting unchanged links.
 
-Plex supports discovery, existing-library binding, explicit library creation,
-normal section scans and bounded file-path indexing checks. Jellyfin supports
+Plex supports browser sign-in, server/library discovery, existing-library binding,
+explicit library creation, normal section scans and bounded file-path indexing checks. Jellyfin supports
 existing-library bindings and scans; legacy refresh commands remain available.
 Folder naming presets for other apps do not imply an API integration.
 
@@ -198,30 +208,53 @@ Ordinary maintenance does neither. For agents and scheduled runs, use global
 
 ### Set up delivery once
 
-For browser sign-in, run `catabolic consumer plex-login`, open its authorization
-link, then run `catabolic consumer plex-login-complete LOGIN_ID`. Use the returned
-path with `connection-put --credential-file PATH`; no token is printed. See the
-[sign-in guide](docs/CONSUMERS.md#sign-in-with-plex) for SSH and scheduled workers.
+Start with a configured projection named `cinema` that publishes movie links
+under `Movies`. Use the database/profile selected above. Sign in with Plex, open
+the returned `authorization_url`, then complete the login with its `login_id`:
 
-Alternatively, after creating a projection/output catalog named `cinema`, supply
-`PLEX_TOKEN` through protected local configuration and discover the server's libraries:
+```sh
+catabolic consumer plex-login
+catabolic consumer plex-login-complete LOGIN_ID
+```
+
+Completion returns a private `credential_file` path without printing the token.
+Replace the example endpoint with your Plex server address and `CREDENTIAL_FILE`
+with that path. Login does not discover the server address automatically.
 
 ```sh
 catabolic consumer connection-put home --application plex \
-  --endpoint https://plex.example.test:32400 --credential-env PLEX_TOKEN --apply
+  --endpoint https://plex.example.test:32400 --credential-file CREDENTIAL_FILE --apply
 catabolic consumer discover home --type movie
 ```
 
-If discovery reports library `7` rooted at `/media/Movies`, preview the binding
-below, then repeat it with `--apply` to save it:
+If discovery reports library `7` rooted at `/media/Movies`, preview and then save
+the binding. The remote root is the path **as Plex sees it**, which may differ
+from the host's output path. Plex also needs access to the symlinks' targets.
 
 ```sh
 catabolic consumer bind cinema-plex --connection home --catalog cinema \
   --subtree Movies --remote-root /media/Movies --library-id 7 --type movie \
   --automatic --initial-scan
+catabolic consumer bind cinema-plex --connection home --catalog cinema \
+  --subtree Movies --remote-root /media/Movies --library-id 7 --type movie \
+  --automatic --initial-scan --apply
 catabolic projection execute cinema
+catabolic consumer run --limit 10
 catabolic consumer bindings
+catabolic consumer verify-indexing cinema-plex --limit 100
 ```
+
+`--initial-scan` schedules existing published files; `--automatic` enables delivery
+after future publication. A saved binding alone does not start a worker. Scan
+acceptance means Plex accepted the request; `verify-indexing` separately reports
+whether expected paths were found and may be inconclusive while indexing or in a
+large library. An output catalog without a saved projection can use `sync` and
+`verify` instead; see the [consumer guide](docs/CONSUMERS.md).
+
+For SSH, open the sign-in link on another device. Scheduled workers need access
+to the same credential file. An existing token can instead be supplied through
+protected configuration with `--credential-env PLEX_TOKEN`; see
+[sign-in and credential setup](docs/CONSUMERS.md#sign-in-with-plex).
 
 Publication performs a bounded delivery drain when automatic delivery is enabled.
 Schedule `catabolic consumer run --limit 10` for delayed retries, or supervise
@@ -231,8 +264,8 @@ service. Inspect `consumer attempts` and `consumer events` for separate outcomes
 The [consumer guide](docs/CONSUMERS.md) covers explicit library creation, path
 mapping, repair and optional Apprise subscriptions. Apprise is installed separately
 with the `notifications` extra; its per-destination retries are independent of
-scan delivery. Upgrade existing databases explicitly to schema 17; upgrading does
-not enable new automatic network actions.
+scan delivery. Preview and apply any required database upgrade before setup;
+the current schema is 20. Upgrading does not enable automatic network actions.
 
 ## Learn more
 
