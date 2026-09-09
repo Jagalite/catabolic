@@ -28,7 +28,7 @@ def page(access, cursor=None, limit=100):
     retention_floor = (
         oldest - 1 if oldest is not None else (sequence[0] if sequence else 0)
     )
-    if offset and offset < retention_floor:
+    if cursor and offset < retention_floor:
         raise AccessError("resync_required", 409)
     rows = access.store.rows(
         "SELECT * FROM api_events WHERE id>? ORDER BY id LIMIT ?", (offset, limit)

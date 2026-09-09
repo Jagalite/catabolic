@@ -13,6 +13,18 @@ from pathlib import Path
 from .domain import CatabolicError
 
 
+class CatalogBusy(CatabolicError):
+    """A retryable conflict with another catalog writer."""
+
+
+def is_catalog_busy(error):
+    return isinstance(error, CatalogBusy) or (
+        isinstance(error, sqlite3.Error)
+        and (getattr(error, "sqlite_errorcode", 0) & 0xFF)
+        in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED)
+    )
+
+
 def database_path(path: str | Path) -> Path:
     requested = Path(path).absolute()
     resolved = requested.parent.resolve() / requested.name
@@ -37,7 +49,7 @@ def acquire_writer_lock(path: Path) -> int:
         return fd
     except BlockingIOError as exc:
         os.close(fd)
-        raise CatabolicError(
+        raise CatalogBusy(
             "another Catabolic writer or upgrade is using this database"
         ) from exc
     except BaseException:

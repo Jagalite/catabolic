@@ -79,8 +79,10 @@ class Catalog:
         db.execute(
             "CREATE TEMP VIEW item_relationships AS SELECT * FROM main.item_relationships WHERE source_id IN (SELECT id FROM api_visible_items) AND target_id IN (SELECT id FROM api_visible_items)"
         )
+        db.execute("CREATE TEMP TABLE api_profile(id TEXT PRIMARY KEY)")
+        db.execute("INSERT INTO api_profile VALUES (?)", (a.profile,))
         db.execute(
-            "CREATE TEMP VIEW media_outputs AS SELECT * FROM main.media_outputs WHERE file_id IN (SELECT id FROM api_visible_files)"
+            "CREATE TEMP VIEW media_outputs AS SELECT * FROM main.media_outputs WHERE profile IN (SELECT id FROM api_profile) AND file_id IN (SELECT id FROM api_visible_files)"
         )
         db.execute(
             "CREATE TEMP VIEW identities AS SELECT * FROM main.identities WHERE item_id IN (SELECT id FROM api_visible_items)"

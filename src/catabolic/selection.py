@@ -155,14 +155,14 @@ def validate_selection(selection):
     return selection
 
 
-def select_ids(store, selection):
+def select_ids(store, selection, *, _http=False):
     """Evaluate in the caller's snapshot; errors and truncation never mean empty."""
     validate_selection(selection)
     if "query_id" in selection:
         from .saved_queries import Queries
 
         return Queries(store, selection.get("profile", "default")).select(
-            selection["query_id"]
+            selection["query_id"], _http=_http
         )
     profile = selection.get("profile", "default")
     timeout_ms = selection.get("timeout_ms", 5000)
@@ -171,7 +171,7 @@ def select_ids(store, selection):
     ids, rows_count, pages = set(), 0, 1
     if selection["language"] == "sql":
         if "page_size" in selection:
-            return paged_sql_ids(store, selection)
+            return paged_sql_ids(store, selection, _http=_http)
         result = execute_sql(
             store.path,
             query,
@@ -181,6 +181,7 @@ def select_ids(store, selection):
             timeout_ms=timeout_ms,
             _store=store,
             _stable=True,
+            _http=_http,
         )
         if not result["complete"]:
             raise CatabolicError(
@@ -276,7 +277,7 @@ def select_ids(store, selection):
     )
 
 
-def paged_sql_ids(store, selection):
+def paged_sql_ids(store, selection, *, _http=False):
     """Read a stable, sorted ID set in bounded pages using the caller's snapshot."""
     query = selection["query"].strip().removesuffix(";")
     params = selection.get("params", {})
@@ -307,6 +308,7 @@ def paged_sql_ids(store, selection):
             timeout_ms=remaining,
             _store=store,
             _stable=True,
+            _http=_http,
         )
         if not result["complete"]:
             raise CatabolicError(

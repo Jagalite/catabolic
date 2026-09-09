@@ -219,7 +219,7 @@ jobs:
           "$RUNNER_TEMP/catabolic-http/bin/python" -m pip install --no-deps dist/*.whl
           "$RUNNER_TEMP/catabolic-http/bin/python" -m pip check
       - name: Authorization, streaming and local execution gates
-        run: '"$RUNNER_TEMP/catabolic-http/bin/python" -m unittest tests.test_execution_claims tests.test_http_backend tests.test_http_renditions -q'
+        run: '"$RUNNER_TEMP/catabolic-http/bin/python" -m unittest tests.test_execution_claims tests.test_http_backend tests.test_http_renditions tests.test_http_review -q'
       - name: Installed client, server and worker journey
         run: 'python scripts/http_acceptance.py --python "$RUNNER_TEMP/catabolic-http/bin/python" --root "$RUNNER_TEMP/http-acceptance"'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

@@ -137,6 +137,7 @@ to exact revision strings. Item membership does not grant original file access.
 `derivatives: true` grants derivatives of admitted items; use a separate content
 grant with derivatives and no original file IDs when originals must remain private.
 Processing permission can use an associated original without download permission.
+Revision pins also constrain processing admission, status and retry.
 
 A `query_id` pins an owner-approved saved selection revision returning complete
 item IDs. Membership is reevaluated for each request. A changed query definition
@@ -145,7 +146,8 @@ membership queries fail closed. Ordinary GraphQL sees authorized resources befor
 search, relationships, counts and pagination. Raw evidence, source paths and
 worklogs are unavailable to scoped clients. Metadata JSON is filtered to permitted
 keys (title and year by default). Report approval is an explicit disclosure grant:
-`report_ids` can authorize a saved SQL report's broad output. App-created queries
+`report_ids` approve saved documents and reports; a SQL report grant authorizes
+its broad output. Unapproved saved revisions return 404 before execution. App-created queries
 cannot create grants.
 
 Use `api tokens`, `token-rotate ID --output NEW_FILE`, `token-revoke ID`,
@@ -191,7 +193,8 @@ closed above that bound. Page size is at most 1,000.
 SQL retains its columns/rows contract and existing execution limits. It is broad
 catalog-read authority: no string-appended WHERE clause simulates row security.
 HTTP SQL denies security tables and secret-bearing worker/integration state,
-including aliases and nested reads. Large SQL integers use `{"$integer":"..."}`;
+including aliases and nested reads. The same restrictions cover saved selections
+and dynamic membership queries, including composed and paged SQL selections. Large SQL integers use `{"$integer":"..."}`;
 file byte counts and nanosecond timestamps use decimal strings. GraphQL keeps its
 existing scalar representations and error envelope.
 
@@ -208,7 +211,8 @@ content tickets for browser media elements. At most 256 unexpired active tickets
 allow reusable GET/HEAD range requests, expire after at most one hour (five minutes
 by default), and cannot outlive their parent token. Their default byte allowance
 is 1 GiB, configurable up to 100 GiB. Each admitted GET debits its requested bytes,
-including transfers later interrupted; HEAD does not debit. New requests recheck
+including transfers later interrupted; HEAD does not debit. Stream-limit rejection
+occurs before that debit and preserves the allowance. New requests recheck
 revocation. Already admitted transfers may finish after expiry or revocation.
 
 Content admission checks source exposure, trust, availability, exact revision and
@@ -246,7 +250,9 @@ Location/status URL; an eligible existing result returns 200. A changed body und
 a reused key conflicts after access validation. Replays recheck current access.
 The request record is separate from its shared existing job and artifact cache
 identity. Cancelling a request does not cancel shared work or delete artifacts.
-Retry is explicit for failed, blocked or cancelled demand. Missing worker readiness
+Retry is explicit for failed, blocked or cancelled demand. It revalidates the
+source and association, and records the current authorized token so rotation does
+not leave retried work tied to a revoked credential. Missing worker readiness
 rejects admission promptly. Unknown progress is `null`; blockers are explicit.
 
 States are queued, running, validating, ready, blocked, failed, cancelled and
@@ -266,13 +272,17 @@ Admission caps requests attached to unfinished jobs at 10 per principal and 100 
 runs at a time. Each unique job reserves its recipe's maximum output bytes on the
 actual destination device, plus the recipe's free-space reserve. Shared demand
 reserves once, terminal jobs release reservations, and retry must reserve again.
-Recipe timeout, maximum output size and normal validation remain enforced.
+Recipe timeout, maximum output size and normal validation remain enforced. The
+worker marks stale queued jobs changed and releases their reservations; they need
+a new request for the current source revision.
 
 Events retain 24 hours; worker iterations and HTTP writes perform bounded pruning. replay cursors expire after one
 hour. Polling status is authoritative. SSE emits batches with opaque replay IDs,
 reauthenticates each poll, closes after roughly one minute, and supports reconnect
 via Last-Event-ID. Expired replay history requires resync. Idle subscriptions hold
-no SQLite transaction and share stream limits. Event states describe current
+no SQLite transaction and share stream limits. Writer contention emits an SSE
+comment and retries from the last delivered cursor. The worker also retries normal
+catalog contention; its `--once` result reports a `catalog_busy` blocker. Event states describe current
 request status, not an audit history of every intermediate state.
 
 Operator definition preview runs existing validation inside a rolled-back

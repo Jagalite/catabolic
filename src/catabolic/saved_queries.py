@@ -182,7 +182,7 @@ class Queries:
                 )
         return self.get(identifier)
 
-    def select(self, identifier):
+    def select(self, identifier, *, _http=False):
         definition = self.get(identifier)["definition"]
         context = {
             "deadline": time.monotonic() + definition.get("timeout_ms", 5000) / 1000,
@@ -190,6 +190,7 @@ class Queries:
             "count": 0,
             "maximum": definition.get("max_ids", 10000),
             "cache": {},
+            "http": _http,
         }
         return self._select(identifier, context, ())
 
@@ -247,7 +248,9 @@ class Queries:
                     definition["selection"].get("timeout_ms", 5000),
                 ),
             }
-            entity, ids, report = select_ids(self.store, selection)
+            entity, ids, report = select_ids(
+                self.store, selection, _http=context["http"]
+            )
             context["count"] += len(ids)
         if context["count"] > context["maximum"] or len(ids) > definition.get(
             "max_ids", 10000

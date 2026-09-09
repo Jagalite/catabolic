@@ -95,7 +95,7 @@ def grant_put(store, principal, definition, identifier=None):
         raise AccessError("unknown_principal", 404)
     if definition.get("query_id"):
         entity, _, report = Queries(store, row[0]["profile"]).select(
-            definition["query_id"]
+            definition["query_id"], _http=True
         )
         if entity != "item_id" or not report["complete"]:
             raise AccessError("grant_requires_complete_item_selection", 400)
@@ -218,7 +218,7 @@ class Access:
             ids = set(grant.get("item_ids", []))
             if grant.get("query_id"):
                 entity, selected, report = Queries(self.store, self.profile).select(
-                    grant["query_id"]
+                    grant["query_id"], _http=True
                 )
                 if entity != "item_id" or not report["complete"]:
                     raise AccessError("incomplete_authorization_selection")
@@ -255,6 +255,22 @@ class Access:
                 if any(row["source_item_id"] in self.members(g) for row in rows):
                     return True
         return False
+
+    def processing(self, body):
+        return any(
+            (
+                g.get("operator")
+                or (
+                    body["item_id"] in self.members(g)
+                    and body["operation_id"] in g.get("operation_ids", [])
+                )
+            )
+            and g.get("revisions", {}).get(
+                body["source_file_id"], body["source_revision"]
+            )
+            == body["source_revision"]
+            for g in self.matching("processing:request")
+        )
 
     def metadata(self, identifier, value):
         keys = set()

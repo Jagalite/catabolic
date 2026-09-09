@@ -27,12 +27,7 @@ def admit(access, body, key, capabilities, *, max_requests=10, max_global=100):
         or any(not isinstance(v, str) or not 1 <= len(v) <= 256 for v in body.values())
     ):
         raise AccessError("invalid_rendition_request", 400)
-    if not any(
-        g.get("operator")
-        or body["item_id"] in access.members(g)
-        and body["operation_id"] in g.get("operation_ids", [])
-        for g in access.matching("processing:request")
-    ):
+    if not access.processing(body):
         raise AccessError()
     if not store.rows(
         "SELECT 1 FROM item_files WHERE item_id=? AND file_id=? AND active=1 AND role IN ('primary','source')",
@@ -136,12 +131,7 @@ def status(access, identifier):
         raise AccessError("not_found", 404)
     row = rows[0]
     body = json.loads(row["body"])
-    if not any(
-        g.get("operator")
-        or body["item_id"] in access.members(g)
-        and body["operation_id"] in g.get("operation_ids", [])
-        for g in access.matching("processing:request")
-    ):
+    if not access.processing(body):
         raise AccessError("not_found", 404)
     state = row["state"]
     blockers = []
@@ -199,6 +189,21 @@ def retry(access, identifier):
     if report["state"] not in ("failed", "cancelled", "blocked"):
         raise AccessError("request_not_retryable", 409)
     row = access.store.rows("SELECT * FROM api_requests WHERE id=?", (identifier,))[0]
+    body = json.loads(row["body"])
+    if (
+        revision_of(access.store, access.profile, body["source_file_id"])
+        != body["source_revision"]
+    ):
+        raise AccessError("revision_mismatch", 409)
+    if not access.store.rows(
+        "SELECT 1 FROM item_files WHERE item_id=? AND file_id=? AND active=1 AND role IN ('primary','source')",
+        (body["item_id"], body["source_file_id"]),
+    ):
+        raise AccessError("source_not_associated", 409)
+    with validated_source(
+        snapshot(access.store, access.profile, body["source_file_id"])
+    ):
+        pass
     job = access.store.rows(
         "SELECT * FROM processing_jobs WHERE id=?", (row["job_id"],)
     )[0]
@@ -247,11 +252,12 @@ def retry(access, identifier):
             Processing(app).retry(job["id"])
         state = "ready" if job["state"] == "complete" else "queued"
         db.execute(
-            "UPDATE api_requests SET state=?,reserved_bytes=?,reservation_device=? WHERE id=?",
+            "UPDATE api_requests SET state=?,reserved_bytes=?,reservation_device=?,token_id=? WHERE id=?",
             (
                 state,
                 0 if state == "ready" else recipe["max_output_bytes"],
                 device,
+                access.token["id"],
                 identifier,
             ),
         )

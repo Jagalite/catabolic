@@ -25,6 +25,7 @@ from ..access.graphql import AuthorizedContext
 from ..api_events import page as event_page
 from ..app import Application
 from ..content_access import authorize, byte_range, chunks, opened, revision_of
+from ..database_io import is_catalog_busy
 from ..domain import CatabolicError
 from ..graphql_query import execute_graphql
 from ..rendition_requests import admit, cancel, retry, status
@@ -92,10 +93,10 @@ def create_app(
     def problem(exc, request):
         code = getattr(exc, "code", "catalog_error")
         status_code = getattr(exc, "status", 409)
-        if isinstance(exc, sqlite3.Error):
+        if is_catalog_busy(exc):
             code, status_code = "catalog_busy", 503
-        elif isinstance(exc, CatabolicError) and "another Catabolic writer" in str(exc):
-            code, status_code = "catalog_busy", 503
+        elif isinstance(exc, sqlite3.Error):
+            code, status_code = "catalog_error", 500
         request_id = str(uuid4())
         headers = {
             "X-Request-ID": request_id,
@@ -263,6 +264,16 @@ def create_app(
     def saved(revision_id: str, body: Page, request: Request):
         with session(request) as access:
             access.require("metadata:read")
+            if not (
+                access.operator("metadata:read")
+                or access.operator("sql:read")
+                or any(
+                    revision_id in g.get("report_ids", [])
+                    or g.get("query_id") == revision_id
+                    for g in access.matching("metadata:read")
+                )
+            ):
+                raise AccessError("not_found", 404)
             query = Queries(access.store, access.profile).get(revision_id)
             definition = query["definition"]
             approved = access.operator("sql:read") or any(
@@ -292,22 +303,32 @@ def create_app(
                     _store=access.store,
                     _context_factory=lambda s, p, d: AuthorizedContext(s, p, d, access),
                 )
-            if not approved and not any(
-                g.get("query_id") == revision_id for g in access.grants
+            if (
+                not approved
+                and not access.operator("metadata:read")
+                and not any(g.get("query_id") == revision_id for g in access.grants)
             ):
                 raise AccessError()
             entity, ids, report = Queries(access.store, access.profile).select(
-                revision_id
+                revision_id, _http=True
             )
             if not report["complete"]:
                 raise AccessError("selection_incomplete", 422)
-            # Selection membership never grants access to IDs outside caller resources.
-            allowed = (
-                [i for i in sorted(ids) if access.item(i) if entity == "item_id"]
-                if entity == "item_id"
-                else [i for i in sorted(ids) if entity == "file_id" and access.file(i)]
-            )
             catalog = Catalog(access)
+            table = {
+                "item_id": "items",
+                "file_id": "files",
+                "association_id": "item_files",
+            }[entity]
+            allowed = [
+                row["id"]
+                for row in access.store.rows(
+                    "SELECT id FROM "
+                    + table
+                    + " WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id",
+                    (encode(sorted(ids)),),
+                )
+            ]
             after = catalog.after(["saved", revision_id], body.cursor)
             remaining = [i for i in allowed if i > after]
             selected = remaining[: body.limit]
@@ -428,8 +449,8 @@ def create_app(
                 if body.file_id and file_id != body.file_id:
                     continue
                 if body.definition_id and not access.store.rows(
-                    "SELECT 1 FROM media_outputs WHERE file_id=? AND definition_id=?",
-                    (file_id, body.definition_id),
+                    "SELECT 1 FROM media_outputs WHERE file_id=? AND definition_id=? AND profile=?",
+                    (file_id, body.definition_id, access.profile),
                 ):
                     continue
                 revision = revision_of(access.store, access.profile, file_id)
@@ -587,6 +608,9 @@ def create_app(
                 headers["Content-Range"] = (
                     f"bytes {start}-{start + length - 1}/{stat.st_size}"
                 )
+            if request.method != "HEAD":
+                limits.admit(access.principal)
+                admitted = True
             if ticket and request.method != "HEAD":
                 with store.transaction() as db:
                     changed = db.execute(
@@ -604,8 +628,6 @@ def create_app(
                     headers=headers,
                     media_type=mime,
                 )
-            limits.admit(access.principal)
-            admitted = True
 
             def cleanup():
                 try:
@@ -621,10 +643,12 @@ def create_app(
                 cleanup=cleanup,
             )
         except BaseException:
-            if owned:
-                owned.__exit__(None, None, None)
-            if admitted:
-                limits.release(access.principal)
+            try:
+                if owned:
+                    owned.__exit__(None, None, None)
+            finally:
+                if admitted:
+                    limits.release(access.principal)
             raise
         finally:
             store.close()
@@ -697,20 +721,29 @@ def create_app(
 
         def stream():
             result = initial
+            replay_cursor = initial["cursor"]
             for _ in range(60):
-                yield (
-                    "id: "
-                    + result["cursor"]
-                    + "\nevent: catalog\ndata: "
-                    + encode(result["events"])
-                    + "\n\n"
-                )
+                if result is not None:
+                    replay_cursor = result["cursor"]
+                    yield (
+                        "id: "
+                        + replay_cursor
+                        + "\nevent: catalog\ndata: "
+                        + encode(result["events"])
+                        + "\n\n"
+                    )
+                result = None
                 time.sleep(1)
                 try:
                     with Store(database, writable=True) as store:
                         current_access = authenticate(store, secret)
-                        result = event_page(current_access, result["cursor"])
-                except AccessError as exc:
+                        result = event_page(current_access, replay_cursor)
+                except (CatabolicError, sqlite3.Error) as exc:
+                    if is_catalog_busy(exc):
+                        yield ": catalog-busy\n\n"
+                        continue
+                    if not isinstance(exc, AccessError):
+                        raise
                     yield (
                         "event: resync-required\ndata: "
                         + encode({"code": exc.code})

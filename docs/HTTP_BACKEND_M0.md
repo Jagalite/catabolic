@@ -220,3 +220,36 @@ retrying the documented catalog_busy outcome, and revokes a token during an acti
 SSE transfer while proving a separate writer can open the catalog. Both tests
 passed locally in 2.328 seconds. This refinement changes tests and documentation
 only; HTTP implementation behavior remains the code qualified at `3312254`.
+
+
+## Post-implementation review
+
+The review after `7e16af9` found and fixed these concrete defects:
+
+| Finding | Correction |
+| --- | --- |
+| Processing ignored a grant's source revision pins | Admission and status share the processing authorization predicate, including revision conditions |
+| Saved GraphQL documents ran without approval | Every saved-query mode checks its disclosure grant before loading/executing the definition |
+| Saved/dynamic SQL selections bypassed HTTP security-table restrictions | The HTTP authorizer now propagates through saved, composed and paged selection execution |
+| Rendition lookup by ID could expose another profile's record for the same file | Authorized rendition views now constrain profile as well as file membership |
+| Token rotation left retry attached to a revoked credential | Explicit authorized retry records the current token and rechecks source revision/association |
+| Stale queued requests retained storage and request capacity indefinitely | Worker marks invalid queued jobs changed, using existing terminal-state reservation release |
+| Stream-limit rejection consumed ticket bytes | Admit the stream slot before debiting the ticket; cleanup releases the slot on failure |
+| Association selections silently returned a complete empty result | Saved selections filter all three typed ID contracts through the authorized catalog views |
+| A cursor at offset zero missed expired history | Replay validates retained history for every supplied cursor, including an initially empty log |
+| Ordinary writer contention terminated workers and subscriptions | Typed busy errors allow bounded supervisor retry and SSE continuation; unrelated database errors are not mislabeled busy |
+
+Six initial regression tests failed against the reviewed implementation. The final
+review module passed 12 tests locally, including real FFmpeg, separate writer
+sessions and an active SSE subscription. The HTTP CI lane includes this module so
+CLI-only installations cannot silently skip the review gates at release time.
+These fixes preserve schema 22 and the existing numbered migration checksums.
+
+The SQL/selection follow-up and existing programmable-catalog/SQL tests passed 43 tests in 13.899 seconds. Direct CLI selection semantics remain unchanged.
+
+The full local regression passed 634 tests in 426.516 seconds with three skips.
+After the final SQL restriction change and its additional regression, all 46
+HTTP/claim tests passed against the installed wheel in 9.723 seconds. The exact
+commit's CI includes that last test in the full release gate. Wheel/sdist content
+checks, strict package metadata checks, formatting and frozen interchange checks
+also passed; no migration or dependency change is required.
