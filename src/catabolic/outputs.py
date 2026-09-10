@@ -169,7 +169,13 @@ class Outputs:
             "next_after": rows[-1]["id"] if more else None,
         }
 
-    def validate_source_item(self, file_id, item_id, value):
+    def validate_source_item(self, file_id, item_id, value, *, _lineage_mode=None):
+        if _lineage_mode not in (
+            None,
+            "current_source_revision",
+            "accepted_source_revision",
+        ):
+            raise CatabolicError("invalid source lineage mode")
         if not self.store.rows(
             "SELECT 1 FROM item_files WHERE file_id=? AND item_id=? AND active=1",
             (file_id, item_id),
@@ -185,7 +191,15 @@ class Outputs:
                     "input must have an active association or a validated rendition for the requested item"
                 )
             for output in outputs:
-                ready(self.app, output)
+                if _lineage_mode:
+                    from .rendition_publication import fallback_evidence
+
+                    checks, _ = fallback_evidence(self.app, output, _lineage_mode)
+                    for snapshot in checks:
+                        with validated_source(snapshot):
+                            pass
+                else:
+                    ready(self.app, output)
         if value["mode"] == "new_item":
             kind = self.store.rows("SELECT kind FROM items WHERE id=?", (item_id,))[0][
                 "kind"

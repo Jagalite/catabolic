@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "generate": "openapi-typescript ../../src/catabolic/http/releases/1.0.0/openapi.json --default-non-nullable false -o generated/rest.d.ts && graphql-codegen --config codegen.json",
+    "generate": "openapi-typescript ../../src/catabolic/http/releases/1.1.0/openapi.json --default-non-nullable false -o generated/rest.d.ts && graphql-codegen --config codegen.json",
     "build": "tsc",
     "test": "npm run generate && npm run build"
   },

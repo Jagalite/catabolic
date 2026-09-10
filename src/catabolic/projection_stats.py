@@ -44,7 +44,7 @@ def save(app, kind, identifier, value):
 
 
 def file_totals(app, ids):
-    ids = sorted(set(ids))
+    ids = sorted({identifier for identifier in ids if identifier is not None})
     if len(ids) > MAX_RECORDS:
         raise CatabolicError("statistics exceed 100000 files")
     known_bytes, unknown_sizes, observed = 0, 0, []
@@ -114,10 +114,18 @@ def rule_evaluation(app, plan):
 
 
 def recorded(app, catalog):
-    rows = app.store.rows(
-        "SELECT file_id,item_id FROM mappings WHERE catalog=? AND active=1 LIMIT ?",
-        (catalog, MAX_RECORDS + 1),
-    )
+    from .fallback_projection import binding
+
+    if binding(app.store, app.profile, catalog):
+        rows = app.store.rows(
+            "SELECT file_id,item_id FROM fallback_entries WHERE profile=? AND catalog=? AND active=1 LIMIT ?",
+            (app.profile, catalog, MAX_RECORDS + 1),
+        )
+    else:
+        rows = app.store.rows(
+            "SELECT file_id,item_id FROM mappings WHERE catalog=? AND active=1 LIMIT ?",
+            (catalog, MAX_RECORDS + 1),
+        )
     if len(rows) > MAX_RECORDS:
         raise CatabolicError("statistics exceed 100000 mappings")
     owner = app.store.rows(

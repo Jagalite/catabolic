@@ -17,7 +17,16 @@ from .source_access import validated_source
 from .store import encode
 
 
-def admit(access, body, key, capabilities, *, max_requests=10, max_global=100):
+def admit(
+    access,
+    body,
+    key,
+    capabilities,
+    *,
+    max_requests=10,
+    max_global=100,
+    _source_lineage_mode=None,
+):
     store = access.store
     access.require("processing:request")
     if (
@@ -29,7 +38,7 @@ def admit(access, body, key, capabilities, *, max_requests=10, max_global=100):
         raise AccessError("invalid_rendition_request", 400)
     if not access.processing(body):
         raise AccessError()
-    if not store.rows(
+    if not _source_lineage_mode and not store.rows(
         "SELECT 1 FROM item_files WHERE item_id=? AND file_id=? AND active=1 AND role IN ('primary','source')",
         (body["item_id"], body["source_file_id"]),
     ):
@@ -82,6 +91,7 @@ def admit(access, body, key, capabilities, *, max_requests=10, max_global=100):
             body["item_id"],
             _capabilities=capabilities,
             _full_cache_check=False,
+            _source_lineage_mode=_source_lineage_mode,
         )
         job = db.execute(
             "SELECT state FROM processing_jobs WHERE id=?", (queued["job_id"],)
@@ -195,7 +205,12 @@ def retry(access, identifier):
         != body["source_revision"]
     ):
         raise AccessError("revision_mismatch", 409)
-    if not access.store.rows(
+    job = access.store.rows(
+        "SELECT * FROM processing_jobs WHERE id=?", (row["job_id"],)
+    )[0]
+    if not json.loads(job["options"]).get(
+        "source_lineage_mode"
+    ) and not access.store.rows(
         "SELECT 1 FROM item_files WHERE item_id=? AND file_id=? AND active=1 AND role IN ('primary','source')",
         (body["item_id"], body["source_file_id"]),
     ):
@@ -204,9 +219,6 @@ def retry(access, identifier):
         snapshot(access.store, access.profile, body["source_file_id"])
     ):
         pass
-    job = access.store.rows(
-        "SELECT * FROM processing_jobs WHERE id=?", (row["job_id"],)
-    )[0]
     approved = access.store.rows(
         "SELECT * FROM api_operations WHERE id=? AND profile=? AND enabled=1",
         (json.loads(row["body"])["operation_id"], access.profile),

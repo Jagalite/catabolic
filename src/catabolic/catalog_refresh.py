@@ -48,7 +48,13 @@ class CatalogRefresh:
             raise CatabolicError("max removals must be a nonnegative integer")
         if not self.store.rows("SELECT id FROM catalogs WHERE id=?", (catalog,)):
             raise CatabolicError("unknown catalog")
-        if enabled and not Layouts(self.app)._read("layout-catalog:" + catalog):
+        from .fallback_projection import binding as fallback_binding
+
+        if (
+            enabled
+            and not fallback_binding(self.store, self.profile, catalog)
+            and not Layouts(self.app)._read("layout-catalog:" + catalog)
+        ):
             raise CatabolicError(
                 "apply a saved layout to the catalog before enabling automatic refresh"
             )
@@ -107,30 +113,49 @@ class CatalogRefresh:
                 ):
                     reconciler.recover(selected)
                 self.app.require_recovered()
-                layouts = Layouts(self.app)
-                owner = layouts._read("layout-catalog:" + selected)
-                if not owner:
-                    raise CatabolicError("catalog no longer has a saved layout")
-                # Stage mappings and validate the entire filesystem plan together;
-                # unavailable roots, collisions and budgets roll mappings back.
-                with self.store.transaction():
-                    layout = layouts.run(
-                        owner["layout"], selected, apply=True, limit=limit
+                from .fallback_projection import FallbackProjection
+                from .fallback_projection import binding as fallback_binding
+
+                fallback = fallback_binding(self.store, self.profile, selected)
+                if fallback:
+                    result = FallbackProjection(self.app).run(
+                        selected,
+                        apply=True,
+                        automatic=True,
+                        max_changes=fallback["max_changes"],
+                        max_removals=row["max_removals"],
                     )
-                    if not layout["safe"]:
-                        raise CatabolicError(
-                            "saved layout has blockers; inspect layout preview"
+                    synced = {
+                        "safe": result["safe"],
+                        "healthy": result.get("complete", False),
+                    }
+                else:
+                    layouts = Layouts(self.app)
+                    owner = layouts._read("layout-catalog:" + selected)
+                    if not owner:
+                        raise CatabolicError("catalog no longer has a saved layout")
+                    # Stage mappings and validate the entire filesystem plan together;
+                    # unavailable roots, collisions and budgets roll mappings back.
+                    with self.store.transaction():
+                        layout = layouts.run(
+                            owner["layout"], selected, apply=True, limit=limit
                         )
-                    plan = reconciler.preview(
+                        if not layout["safe"]:
+                            raise CatabolicError(
+                                "saved layout has blockers; inspect layout preview"
+                            )
+                        plan = reconciler.preview(
+                            selected, max_removals=row["max_removals"]
+                        )
+                        if not plan["safe"] or any(
+                            a["kind"] == "blocked_source" for a in plan["actions"]
+                        ):
+                            raise CatabolicError(
+                                "link plan has unavailable sources, collisions or removal-budget blockers"
+                            )
+                    synced = reconciler.apply(
                         selected, max_removals=row["max_removals"]
                     )
-                    if not plan["safe"] or any(
-                        a["kind"] == "blocked_source" for a in plan["actions"]
-                    ):
-                        raise CatabolicError(
-                            "link plan has unavailable sources, collisions or removal-budget blockers"
-                        )
-                synced = reconciler.apply(selected, max_removals=row["max_removals"])
                 if not synced["safe"] or not synced["healthy"]:
                     raise CatabolicError(
                         "link synchronization or verification is incomplete"

@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+query Fallback($policy: ID!, $catalog: String!) {
+  fallbackPolicy(id: $policy) { id name tiers }
+  fallbackResolutions(catalog: $catalog, first: 10) {
+    nodes { id itemId fileId revision policyId state tier generation publishedGeneration }
+    pageInfo { hasNextPage endCursor }
+  }
+}

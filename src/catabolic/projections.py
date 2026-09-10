@@ -76,8 +76,20 @@ class Projections:
         allow_empty=False,
         replace_layout=False,
         limit=100,
+        expected_plan=None,
+        manual_failback=False,
     ):
         page_limit(limit)
+        from .fallback_projection import FallbackProjection, binding
+
+        if binding(self.store, self.profile, catalog):
+            return FallbackProjection(self.app).run(
+                catalog,
+                apply=apply,
+                expected_plan=expected_plan,
+                max_removals=max_removals,
+                manual_failback=manual_failback,
+            )
         if self.store.lock_fd is None or self.store.db.in_transaction:
             raise CatabolicError(
                 "projection planning requires the writer lock outside a transaction"

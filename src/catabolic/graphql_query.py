@@ -87,7 +87,12 @@ type MappingPage { nodes: [Mapping!]! pageInfo: PageInfo! }
 type CatalogPage { nodes: [Catalog!]! pageInfo: PageInfo! }
 type EvidencePage { nodes: [JSON!]! pageInfo: PageInfo! }
 input RenditionFilter { purpose: String recipe: ID definition: ID current: Boolean }
+type FallbackPolicy { id: ID! name: String! revision: Int! tiers: [String!]! }
+type FallbackResolution { id: ID! itemId: ID! fileId: ID revision: String policyId: ID! state: String! tier: Int generation: Int! publishedGeneration: Int! }
+type FallbackResolutionPage { nodes: [FallbackResolution!]! pageInfo: PageInfo! }
 type Query {
+  fallbackPolicy(id: ID!): FallbackPolicy
+  fallbackResolutions(catalog: String!, first: Int! = 100, after: String): FallbackResolutionPage
   savedQuery(id: ID!): JSON
   savedQueries(first: Int! = 100, after: String): EvidencePage
   operation(id: ID!): JSON
@@ -448,7 +453,43 @@ class QueryContext:
         self.count_field()
         field, parent = info.field_name, info.parent_type.name
         try:
+            if parent in ("FallbackPolicy", "FallbackResolution"):
+                key = {
+                    "itemId": "item_id",
+                    "fileId": "file_id",
+                    "policyId": "policy_id",
+                    "publishedGeneration": "published_generation",
+                }.get(field, field)
+                return self.charge(source.get(key))
             if parent == "Query":
+                if field == "fallbackPolicy":
+                    from .fallback_policies import Policies
+
+                    row = Policies(self.store, self.profile).get(args["id"])
+                    self.records(1)
+                    return self.charge(
+                        {
+                            "id": row["id"],
+                            "name": row["name"],
+                            "revision": row["revision"],
+                            "tiers": [
+                                t["name"] for t in row["definition"]["fallbacks"]
+                            ],
+                        }
+                    )
+                if field == "fallbackResolutions":
+                    from .fallback_records import page
+
+                    result = page(
+                        self.store,
+                        self.profile,
+                        args["catalog"],
+                        first=args.get("first", 100),
+                        after=args.get("after", ""),
+                        access=getattr(self, "access", None),
+                    )
+                    self.records(len(result["nodes"]))
+                    return self.charge(result)
                 if field in ("savedQuery", "operation", "projection"):
                     from .operations import Operations
                     from .projections import Projections

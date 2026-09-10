@@ -26,6 +26,63 @@ FIELDS = {
 }
 
 
+def rank_candidate(store, profile, file_id, definition):
+    observed = occurrence(store, profile, file_id)
+    fact = current_fact(store, profile, file_id)
+    summary = fact["data"].get("summary", {}) if fact and fact["current"] else {}
+    values = {k: observed.get(k) for k in ("size", "location", "path")}
+    values.update({k: summary.get(k) for k in ("height", "width", "hdr", "duration")})
+    values.update(
+        language=summary.get("languages"),
+        video_codec=summary.get("video_codecs"),
+        audio_codec=summary.get("audio_codecs"),
+    )
+    failed = [
+        k
+        for k, v in definition.get("require", {}).items()
+        if values.get(k) is None
+        or (v not in values[k] if isinstance(values[k], list) else values[k] != v)
+    ]
+    if definition.get("available_only", False) and observed["status"] != "present":
+        failed.append("availability")
+    score = []
+    for rule in definition.get("prefer", []):
+        value = values.get(rule["field"])
+        order = rule.get("order")
+        if "values" in rule:
+            candidates = value if isinstance(value, list) else [value]
+            score.append(
+                (
+                    0,
+                    min(
+                        (
+                            rule["values"].index(v)
+                            for v in candidates
+                            if v in rule["values"]
+                        ),
+                        default=len(rule["values"]),
+                    ),
+                )
+            )
+        elif value is None:
+            score.append((1, 0))
+        else:
+            try:
+                number = float(value)
+            except (TypeError, ValueError):
+                raise CatabolicError(
+                    "numeric ordering needs a numeric field; use values for text"
+                ) from None
+            score.append((0, -number if order == "desc" else number))
+    return {
+        "file_id": file_id,
+        "required_fields_failed": failed,
+        "unknown_fields": sorted(k for k, v in values.items() if v is None),
+        "rank": score,
+        "observed_status": observed["status"],
+    }
+
+
 class CopySelection:
     def __init__(self, app):
         self.app, self.store = app, app.store
@@ -94,74 +151,13 @@ class CopySelection:
             eligible = []
             explanations = []
             for row in rows:
-                observed = occurrence(self.store, self.app.profile, row["file_id"])
-                fact = current_fact(self.store, self.app.profile, row["file_id"])
-                summary = (
-                    fact["data"].get("summary", {}) if fact and fact["current"] else {}
+                explanation = rank_candidate(
+                    self.store, self.app.profile, row["file_id"], definition
                 )
-                values = {k: observed.get(k) for k in ("size", "location", "path")}
-                values.update(
-                    {k: summary.get(k) for k in ("height", "width", "hdr", "duration")}
-                )
-                values.update(
-                    language=summary.get("languages"),
-                    video_codec=summary.get("video_codecs"),
-                    audio_codec=summary.get("audio_codecs"),
-                )
-                failed = [
-                    k
-                    for k, v in definition.get("require", {}).items()
-                    if values.get(k) is None
-                    or (
-                        v not in values[k]
-                        if isinstance(values[k], list)
-                        else values[k] != v
-                    )
-                ]
-                if (
-                    definition.get("available_only", False)
-                    and observed["status"] != "present"
-                ):
-                    failed.append("availability")
-                score = []
-                for rule in definition.get("prefer", []):
-                    value = values.get(rule["field"])
-                    order = rule.get("order")
-                    if "values" in rule:
-                        candidates = value if isinstance(value, list) else [value]
-                        score.append(
-                            (
-                                0,
-                                min(
-                                    (
-                                        rule["values"].index(v)
-                                        for v in candidates
-                                        if v in rule["values"]
-                                    ),
-                                    default=len(rule["values"]),
-                                ),
-                            )
-                        )
-                    elif value is None:
-                        score.append((1, 0))
-                    else:
-                        try:
-                            number = float(value)
-                        except (TypeError, ValueError):
-                            raise CatabolicError(
-                                "numeric ordering needs a numeric field; use values for text"
-                            ) from None
-                        score.append((0, -number if order == "desc" else number))
-                explanations.append(
-                    {
-                        "file_id": row["file_id"],
-                        "required_fields_failed": failed,
-                        "unknown_fields": sorted(
-                            k for k, v in values.items() if v is None
-                        ),
-                        "rank": score,
-                        "observed_status": observed["status"],
-                    }
+                explanations.append(explanation)
+                failed, score = (
+                    explanation["required_fields_failed"],
+                    explanation["rank"],
                 )
                 if not failed:
                     eligible.append((score, row))

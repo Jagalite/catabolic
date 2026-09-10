@@ -21,6 +21,7 @@ from .filesystem import (
     root_handle,
     source_stat,
 )
+from .publication_lock import serialized
 
 ACTION_ORDER = {
     "hard_create": 3,
@@ -35,6 +36,10 @@ ACTION_ORDER = {
     "remove": 5,
     "forget": 6,
 }
+
+
+class StaleFallbackIntent(CatabolicError):
+    """Complete catalog evaluation proves an admitted fallback intent obsolete."""
 
 
 class Reconciler:
@@ -155,10 +160,17 @@ class Reconciler:
             return Hardlinks(self).delta(catalog)
         output = self.app.binding("output", catalog)
         actions = []
-        mappings = self.store.rows(
-            "SELECT m.*,f.location,f.path AS source_path,o.status,o.size,o.mtime_ns,o.device,o.inode FROM mappings m JOIN files f ON f.id=m.file_id LEFT JOIN observations o ON o.file_id=f.id AND o.profile=? WHERE m.catalog=? AND m.active=1 ORDER BY m.path",
+        from .fallback_projection import binding as fallback_binding
+        from .fallback_projection import effective_mappings
+
+        if fallback_binding(self.store, self.profile, catalog) and self.store.rows(
+            "SELECT 1 FROM fallback_entries WHERE profile=? AND catalog=? AND active=1 AND state IN ('blocked','unresolved') LIMIT 1",
             (self.profile, catalog),
-        )
+        ):
+            raise CatabolicError(
+                "fallback membership unresolved; owned output retained"
+            )
+        mappings = effective_mappings(self.app, catalog)
         owned = {
             row["path"]: row["target"]
             for row in self.store.rows(
@@ -216,11 +228,13 @@ class Reconciler:
             actions, key=lambda action: (ACTION_ORDER[action.kind], action.path)
         )
 
+    @serialized
     def apply(
         self,
         catalog: str | None = "global",
         *,
         after_filesystem=None,
+        max_changes=None,
         max_removals=None,
         max_removal_percent=None,
     ) -> dict:
@@ -229,6 +243,15 @@ class Reconciler:
         )
         if not preview["safe"]:
             return {**preview, "applied": [], "healthy": False}
+        if max_changes is not None:
+            if type(max_changes) is not int or max_changes < 0:
+                raise CatabolicError("max changes must be a nonnegative integer")
+            mutations = sum(
+                action["kind"] not in ("unchanged", "blocked_source", "prepare")
+                for action in preview["actions"]
+            )
+            if mutations > max_changes:
+                raise CatabolicError("fallback_change_or_removal_budget")
         from .projection_stats import begin_execution, finish_execution
 
         statistics = (
@@ -287,8 +310,10 @@ class Reconciler:
         from .consumers import published
 
         published(self.app, verified, result)
+        self._record_fallback_publication(verified)
         return result
 
+    @serialized
     def recover(
         self,
         catalog: str | None = "global",
@@ -322,8 +347,27 @@ class Reconciler:
         if self.store.schema_version >= 17:
             from .consumers import published
 
-            published(self.app, self.verify(catalog), result)
+            verified = self.verify(catalog)
+            published(self.app, verified, result)
+            self._record_fallback_publication(verified)
         return result
+
+    def _record_fallback_publication(self, verified):
+        if self.store.schema_version < 23:
+            return
+        with self.store.transaction() as db:
+            for report in verified["catalogs"]:
+                if (
+                    report["healthy"]
+                    and not db.execute(
+                        "SELECT 1 FROM journal WHERE profile=? AND catalog=?",
+                        (self.profile, report["catalog"]),
+                    ).fetchone()
+                ):
+                    db.execute(
+                        "UPDATE fallback_entries SET published_generation=generation WHERE profile=? AND catalog=? AND state NOT IN ('blocked','unresolved')",
+                        (self.profile, report["catalog"]),
+                    )
 
     def _cancel_obsolete(self, operation: dict) -> bool:
         """Cancel unapplied intent only after a successful live revalidation."""
@@ -344,7 +388,24 @@ class Reconciler:
             )
             if link_state(fd, path) != initial:
                 return False
-            current = self._catalog_delta(catalog)
+            try:
+                current = self._catalog_delta(catalog)
+            except StaleFallbackIntent:
+                # A complete selection rejected this batch. Cancel only intent
+                # whose filesystem action has not happened and remains ours.
+                if owner_state(fd, self.owner(catalog)) != "owned":
+                    raise CatabolicError(
+                        "output ownership missing during cancellation"
+                    ) from None
+                owned = self.store.rows(
+                    "SELECT target FROM owned_links WHERE profile=? AND catalog=? AND path=?",
+                    (self.profile, catalog, path),
+                )
+                if (owned[0]["target"] if owned else None) != operation["previous"]:
+                    raise CatabolicError(
+                        "recorded ownership changed during cancellation"
+                    ) from None
+                current = []
             if any(
                 action.kind == kind
                 and action.path == path
@@ -508,6 +569,111 @@ class Reconciler:
     def _source_target(
         self, mapping: dict, output: dict
     ) -> tuple[str | None, str | None]:
+        if "revision" in mapping:
+            from .content_access import revision_of
+            from .curation import occurrence
+            from .fallback_probe import probe
+            from .fallback_resolution import epoch, require_epoch
+
+            current_epoch = epoch(self.store)
+            current = self.store.rows(
+                "SELECT file_id,revision,generation,active,path FROM fallback_entries WHERE id=? AND profile=?",
+                (mapping["id"], self.profile),
+            )
+            if not current or any(
+                current[0][key] != mapping[key]
+                for key in ("file_id", "revision", "generation", "active", "path")
+            ):
+                raise CatabolicError("stale_resolution_generation")
+            if (
+                revision_of(self.store, self.profile, mapping["file_id"])
+                != mapping["revision"]
+            ):
+                return None, "fallback_revision_changed"
+            import json
+
+            from .fallback_policies import Policies
+            from .fallback_projection import binding
+            from .fallback_resolution import Resolver
+            from .saved_queries import Queries
+
+            config = binding(self.store, self.profile, mapping["catalog"])
+            if not config or config["policy_id"] != mapping["policy_id"]:
+                raise StaleFallbackIntent("stale_resolution_policy")
+            policy = Policies(self.store, self.profile).get(mapping["policy_id"])[
+                "definition"
+            ]
+            cache = getattr(self, "_fallback_queries", {})
+
+            def selection(identifier):
+                key = (current_epoch, identifier)
+                if key not in cache:
+                    cache[key] = Queries(self.store, self.profile).select(identifier)
+                entity, ids, report = cache[key]
+                if not report["complete"]:
+                    raise CatabolicError("incomplete_publication_selection")
+                return entity, ids
+
+            self._fallback_queries = cache
+            entity, members = selection(config["query_id"])
+            if entity != "item_id" or mapping["item_id"] not in members:
+                raise StaleFallbackIntent("stale_resolution_membership")
+            entity, ids = selection(policy["fallbacks"][mapping["tier"]]["query_id"])
+            associations = self.store.rows(
+                "SELECT a.*,f.location,f.path FROM item_files a JOIN files f ON f.id=a.file_id WHERE a.item_id=? AND a.file_id=? AND a.role=? AND a.part IS ?",
+                (
+                    mapping["item_id"],
+                    mapping["file_id"],
+                    mapping["role"],
+                    mapping["part"],
+                ),
+            )
+            candidate = next(
+                (
+                    a
+                    for a in associations
+                    if a[
+                        {
+                            "file_id": "file_id",
+                            "item_id": "item_id",
+                            "association_id": "id",
+                        }[entity]
+                    ]
+                    in ids
+                    and json.loads(a["metadata"]).get("variant", "")
+                    == mapping["variant"]
+                ),
+                None,
+            )
+            if not candidate:
+                raise StaleFallbackIntent("stale_resolution_candidate")
+            resolver = Resolver(self.app)
+            resolver.primary_choices = {
+                r["item_id"]: r["file_id"]
+                for r in self.store.rows(
+                    "SELECT item_id,file_id FROM fallback_entries WHERE profile=? AND catalog=? AND active=1 AND role='primary'",
+                    (self.profile, mapping["catalog"]),
+                )
+            }
+            accepted = resolver.capture(candidate, policy, mapping["catalog"])
+            if not accepted:
+                raise StaleFallbackIntent("stale_resolution_evidence")
+            snapshot = occurrence(self.store, self.profile, mapping["file_id"])
+            if not self.store.writable and self.store.db.in_transaction:
+                self.store.db.rollback()
+            with self.store.detached():
+                result = probe(
+                    self.store.path,
+                    accepted["checks"],
+                    policy["budgets"]["probe_timeout_ms"],
+                )
+            require_epoch(self.store, current_epoch)
+            if not result["usable"]:
+                return None, result["reason"]
+            return os.path.relpath(
+                Path(snapshot["root"]) / snapshot["path"],
+                (Path(output["root"]) / mapping["path"]).parent,
+            ), None
         binding = self.app.binding("source", mapping["location"])
         with root_handle(binding) as source_fd:
             if mapping["status"] is None:
@@ -550,14 +716,12 @@ class Reconciler:
         return target, None
 
     def _active_mapping(self, catalog: str, path: str) -> dict | None:
-        rows = self.store.rows(
-            """SELECT m.*,f.location,f.path AS source_path,o.status,o.size,o.mtime_ns,o.device,o.inode
-            FROM mappings m JOIN files f ON f.id=m.file_id
-            LEFT JOIN observations o ON o.file_id=f.id AND o.profile=?
-            WHERE m.catalog=? AND m.path=? AND m.active=1""",
-            (self.profile, catalog, path),
+        from .fallback_projection import effective_mappings
+
+        return next(
+            (r for r in effective_mappings(self.app, catalog) if r["path"] == path),
+            None,
         )
-        return rows[0] if rows else None
 
     def _validate_target(self, catalog: str, path: str, target: str):
         mapping = self._active_mapping(catalog, path)
@@ -612,10 +776,9 @@ class Reconciler:
                         )
                     }
                     active_paths = set()
-                    for mapping in self.store.rows(
-                        "SELECT m.*,f.location,f.path AS source_path,o.status,o.size,o.mtime_ns,o.device,o.inode FROM mappings m JOIN files f ON f.id=m.file_id LEFT JOIN observations o ON o.file_id=f.id AND o.profile=? WHERE m.catalog=? AND m.active=1",
-                        (self.profile, selected),
-                    ):
+                    from .fallback_projection import effective_mappings
+
+                    for mapping in effective_mappings(self.app, selected):
                         path = mapping["path"]
                         active_paths.add(path)
                         try:

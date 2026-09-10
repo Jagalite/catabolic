@@ -1,0 +1,40 @@
+{
+  "artifacts": {
+    "openapi.json": "a6c5aed9746d6c38d872334f8745f8a600b0a47567785434ee5a5b75c53a0e4d",
+    "schema.graphql": "ce31d9905da5d1113917689e42c77c3aa78cf8d9f9a4a355fae5eb6fb3833e48"
+  },
+  "operations": {
+    "GET /v1/capabilities": "get_capabilities",
+    "GET /v1/events": "list_events",
+    "GET /v1/fallback-policies/{identifier}": "get_fallback_policy",
+    "GET /v1/files": "list_files",
+    "GET /v1/files/{identifier}": "get_file",
+    "GET /v1/files/{identifier}/content": "get_file_content",
+    "GET /v1/items": "list_items",
+    "GET /v1/items/{identifier}": "get_item",
+    "GET /v1/me": "get_identity",
+    "GET /v1/openapi.json": "get_openapi",
+    "GET /v1/projections/{identifier}/entries": "list_projection_entries",
+    "GET /v1/projections/{identifier}/resolutions": "list_projection_resolutions",
+    "GET /v1/rendition-requests/{identifier}": "get_rendition_request",
+    "GET /v1/renditions": "list_renditions",
+    "GET /v1/renditions/{identifier}": "get_rendition",
+    "GET /v1/renditions/{identifier}/content": "get_rendition_content",
+    "GET /v1/snapshots/{identifier}": "get_snapshot_page",
+    "HEAD /v1/files/{identifier}/content": "head_file_content",
+    "HEAD /v1/renditions/{identifier}/content": "head_rendition_content",
+    "POST /v1/content-access": "create_content_ticket",
+    "POST /v1/content-access/{identifier}/revoke": "revoke_content_ticket",
+    "POST /v1/items/snapshots": "create_item_snapshot",
+    "POST /v1/items/{identifier}/resolve": "resolve_item",
+    "POST /v1/operator/{resource}/{name}": "manage_definition",
+    "POST /v1/queries/{revision_id}/runs": "run_saved_query",
+    "POST /v1/query/graphql": "execute_graphql",
+    "POST /v1/query/sql": "execute_sql",
+    "POST /v1/rendition-requests": "create_rendition_request",
+    "POST /v1/rendition-requests/logical": "create_logical_rendition_request",
+    "POST /v1/rendition-requests/{identifier}/cancel": "cancel_rendition_request",
+    "POST /v1/rendition-requests/{identifier}/retry": "retry_rendition_request"
+  },
+  "version": "1.1.0"
+}

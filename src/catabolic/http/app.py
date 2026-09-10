@@ -523,10 +523,17 @@ def create_app(
     @app.post(
         "/v1/items/{identifier}/resolve",
         operation_id="resolve_item",
-        response_model=models.ResolvedContent,
+        response_model=models.ResolvedContent | models.Decision,
         response_model_exclude_unset=True,
     )
     def resolve(identifier: str, body: Resolve, request: Request):
+        if body.fallback_policy_id:
+            from .fallback import logical_resolve
+
+            if body.file_id or body.definition_id:
+                raise AccessError("exact_and_logical_selection_conflict", 422)
+            with session(request, write=True) as access:
+                return logical_resolve(access, identifier, body)
         with session(request) as access:
             if not access.item(identifier):
                 raise AccessError("not_found", 404)
@@ -1003,6 +1010,9 @@ def create_app(
                 }
             return {"applied": True, "result": result}
 
+    from .fallback import install_routes
+
+    install_routes(app, session, mutation)
     from .contract import install_contract
 
     install_contract(app)

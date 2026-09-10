@@ -31,6 +31,8 @@ class AuthorizedContext(QueryContext):
                     "profile",
                     "schemaVersion",
                     "mediaTypes",
+                    "fallbackPolicy",
+                    "fallbackResolutions",
                 },
                 "Item": {
                     "id",
@@ -95,6 +97,17 @@ class AuthorizedContext(QueryContext):
                 raise GraphQLError(
                     "filter is not authorized", extensions={"code": "FORBIDDEN"}
                 )
+        if (
+            parent == "Query"
+            and field == "fallbackPolicy"
+            and not any(
+                g.get("operator") or args["id"] in g.get("fallback_policy_ids", [])
+                for g in self.access.matching("metadata:read")
+            )
+        ):
+            raise GraphQLError(
+                "resource is not authorized", extensions={"code": "FORBIDDEN"}
+            )
         if args.get("after"):
             args["after"] = self.catalog_access.after(
                 [parent, field, source.get("id") if source else None], args["after"]

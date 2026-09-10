@@ -427,6 +427,41 @@ def _layout_contexts(store, associations, rules):
         yield from entries
 
 
+def render_candidate(store, profile, association, selected, context, definition):
+    path = PurePosixPath(association["path"])
+    context.update(
+        {
+            "association": {
+                **association,
+                "metadata": json.loads(association["metadata"]),
+            },
+            "file": {
+                "id": association["file_id"],
+                "name": path.name,
+                "stem": path.stem,
+                "extension": path.suffix,
+                "path": str(path),
+                "location": association["location"],
+            },
+        }
+    )
+    if _RELATION_ERROR in context:
+        raise CatabolicError(context[_RELATION_ERROR])
+    if "{probe." in selected["path"] and "probe" not in context:
+        from .processing import current_fact
+
+        fact = current_fact(store, profile, association["file_id"])
+        context["probe"] = (
+            fact["data"].get("summary", {}) if fact and fact["current"] else {}
+        )
+    destination = render_path(
+        selected["path"],
+        context,
+        normalization=definition.get("normalization", "portable"),
+    )
+    return destination
+
+
 class Layouts:
     def __init__(self, app):
         self.app, self.store = app, app.store
@@ -591,40 +626,13 @@ class Layouts:
                 skipped += 1
                 continue
             try:
-                path = PurePosixPath(association["path"])
-                context.update(
-                    {
-                        "association": {
-                            **association,
-                            "metadata": json.loads(association["metadata"]),
-                        },
-                        "file": {
-                            "id": association["file_id"],
-                            "name": path.name,
-                            "stem": path.stem,
-                            "extension": path.suffix,
-                            "path": str(path),
-                            "location": association["location"],
-                        },
-                    }
-                )
-                if _RELATION_ERROR in context:
-                    raise CatabolicError(context[_RELATION_ERROR])
-                if "{probe." in selected["path"] and "probe" not in context:
-                    from .processing import current_fact
-
-                    fact = current_fact(
-                        self.store, self.app.profile, association["file_id"]
-                    )
-                    context["probe"] = (
-                        fact["data"].get("summary", {})
-                        if fact and fact["current"]
-                        else {}
-                    )
-                destination = render_path(
-                    selected["path"],
+                destination = render_candidate(
+                    self.store,
+                    self.app.profile,
+                    association,
+                    selected,
                     context,
-                    normalization=definition.get("normalization", "portable"),
+                    definition,
                 )
                 mapping_id = self.app.mapping_id(
                     catalog, association["file_id"], item["id"], destination

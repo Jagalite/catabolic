@@ -5,6 +5,8 @@ from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from ..fallback_models import Decision as Decision
+
 
 class Model(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -36,7 +38,20 @@ class Ticket(Model):
     max_bytes: int = Field(default=1073741824, ge=1, le=107374182400)
 
 
+class LogicalDemand(Model):
+    item_id: str
+    fallback_policy_id: str
+    operation_id: str
+    role: str = "primary"
+    part: int | None = None
+    variant: str = ""
+
+
 class Resolve(Model):
+    fallback_policy_id: str | None = None
+    role: str = "primary"
+    part: int | None = None
+    variant: str = ""
     file_id: str | None = None
     definition_id: str | None = None
 

@@ -189,15 +189,25 @@ class Artifacts:
         *,
         _capabilities=None,
         _full_cache_check=True,
+        _source_lineage_mode=None,
     ):
         self.app.require_recovered()
+        # Ordinary originals and strict requests retain the existing cache identity.
+        # Only explicit historical derivative admission adds a different input policy.
+        if _source_lineage_mode != "accepted_source_revision" or not self.store.rows(
+            "SELECT 1 FROM media_outputs WHERE profile=? AND file_id=?",
+            (self.profile, file_id),
+        ):
+            _source_lineage_mode = None
         recipe = self.get_recipe(recipe_id)
         output = (
             Outputs(self.app).get_definition(recipe["output_definition_id"])
             if recipe["output_definition_id"]
             else self.default_output(recipe["preset"])
         )
-        Outputs(self.app).validate_source_item(file_id, item_id, output["definition"])
+        Outputs(self.app).validate_source_item(
+            file_id, item_id, output["definition"], _lineage_mode=_source_lineage_mode
+        )
         if not self.store.rows(
             "SELECT 1 FROM generated_locations WHERE profile=? AND location=?",
             (self.profile, location),
@@ -231,6 +241,8 @@ class Artifacts:
             "item_id": item_id,
             "output_definition": output,
         }
+        if _source_lineage_mode:
+            options["source_lineage_mode"] = _source_lineage_mode
         key = hashlib.sha256(
             encode([snapshot, recipe["digest"], options]).encode()
         ).hexdigest()
@@ -373,7 +385,10 @@ class Artifacts:
             options["recipe"]["preset"]
         )
         Outputs(self.app).validate_source_item(
-            job["file_id"], options["item_id"], output["definition"]
+            job["file_id"],
+            options["item_id"],
+            output["definition"],
+            _lineage_mode=options.get("source_lineage_mode"),
         )
         identifier = str(
             uuid5(
@@ -618,6 +633,7 @@ class Artifacts:
                     job["file_id"],
                     options["item_id"],
                     options["output_definition"]["definition"],
+                    _lineage_mode=options.get("source_lineage_mode"),
                 )
             if rendering.tools() != options["tools"]:
                 raise CatabolicError(

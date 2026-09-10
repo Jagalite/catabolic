@@ -29,7 +29,7 @@ An installed distribution also supports `pip install 'catabolic[http]'` when tha
 distribution is available from your package source. CLI-only installations do not
 import FastAPI or require a server. Upgrade an existing catalog explicitly with
 `catabolic --db catalog.db db upgrade`; review and back up the catalog using the
-normal migration workflow first. Server startup only validates schema 22.
+normal migration workflow first. Server startup only validates schema 23.
 
 Create access locally using actual catalog IDs in `site-grant.json`:
 
@@ -323,14 +323,15 @@ The aggregate release-verification job also requires all existing compatibility 
 
 ## Public developer contract
 
-The first published HTTP contract is **1.0.0**, under `/v1`. This version is
+The current HTTP contract is **1.1.0**, under `/v1`; the original **1.0.0**
+artifacts remain available and unchanged. The contract version is
 independent of the package version and SQLite migration number. Every JSON route
 uses an explicit Pydantic response model; route names do not determine operation
 IDs. For example, `list_items`, `execute_graphql`, `create_rendition_request` and
 `get_file_content` are stable client identifiers.
 
 The repository and installed wheel include these public artifacts under
-`catabolic/http/releases/1.0.0/` (in a checkout, prefix with `src/`):
+`catabolic/http/releases/1.1.0/` (in a checkout, prefix with `src/`):
 
 | Artifact | Contract |
 | --- | --- |
@@ -438,3 +439,10 @@ python scripts/http_acceptance.py --python /absolute/path/to/http-env/bin/python
 The fixture directory must not exist. Both Linux and macOS HTTP CI lanes run this
 journey against the built wheel. Credentials pass to the client over stdin and
 are never printed or supplied as process arguments.
+
+## Ordered fallback resolution (API 1.1.0)
+
+An approved `fallback_policy_id` on the logical item resolver selects an existing
+usable candidate from ordered saved queries. The new logical rendition-request
+endpoint resolves before pinning a job. Content URLs and tickets remain exact.
+See [fallback configuration, permissions and release acceptance](FALLBACK.md).

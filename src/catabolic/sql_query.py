@@ -301,6 +301,24 @@ VIEWS.update(
 )
 
 
+VIEWS.update(
+    {
+        "catalog_fallback_policies": (
+            "Immutable ordered fallback query policies.",
+            "SELECT * FROM main.fallback_policies",
+        ),
+        "catalog_projection_resolution": (
+            "Profile-local desired resolution; publication generation is independent.",
+            "SELECT id,profile,catalog,item_id,file_id AS selected_file_id,revision,tier AS selected_tier,state AS resolution_state,generation,published_generation FROM main.fallback_entries WHERE active=1",
+        ),
+        "catalog_resolution_history": (
+            "Operator-only historical resolution evidence.",
+            "SELECT * FROM main.fallback_history",
+        ),
+    }
+)
+
+
 def parameters(raw: str | None) -> dict:
     try:
         result = json.loads(raw) if raw is not None else {}
@@ -466,7 +484,12 @@ def execute_sql(
                 else set()
             )
 
-            private_tables = {"execution_claims", "sqlite_master", "sqlite_schema"}
+            private_tables = {
+                "execution_claims",
+                "sqlite_master",
+                "sqlite_schema",
+                "fallback_probe_slots",
+            }
             if _http:
                 for table in http_tables:
                     columns = {

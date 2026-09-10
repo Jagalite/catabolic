@@ -15,6 +15,8 @@ from .process_runner import CommandFailure, command_output
 from .store import Store, encode
 
 EVENTS = {
+    "fallback_selected",
+    "fallback_unresolved",
     "projection_updated",
     "scan_requested",
     "scan_failed",

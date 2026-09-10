@@ -45,6 +45,7 @@ def register(commands):
     export.add_argument("--query", action="append", default=[])
     export.add_argument("--rule", action="append", default=[])
     export.add_argument("--projection", action="append", default=[])
+    export.add_argument("--fallback-policy", action="append", default=[])
     importing = programs.add_parser("import")
     importing.add_argument("--file", required=True)
     importing.add_argument(
@@ -170,7 +171,10 @@ def program(args):
         programs = Programs(Application(store, args.profile))
         if args.operation == "export":
             return programs.export(
-                queries=args.query, rules=args.rule, projections=args.projection
+                queries=args.query,
+                rules=args.rule,
+                projections=args.projection,
+                fallback_policies=args.fallback_policy,
             )
         return programs.import_bundle(
             json.loads(read_text(args.file, MAX_BYTES)),

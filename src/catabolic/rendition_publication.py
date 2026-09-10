@@ -252,3 +252,97 @@ class Publication:
             )
         report.update(admitted=len(admitted), definition=policy)
         return admitted, report
+
+
+def fallback_evidence(app, output, mode, ancestors=()):
+    """Capture bounded evidence without opening files or changing legacy readiness.
+
+    Live validation consumes the returned snapshots after the session closes.
+    Accepted lineage never implies that any ancestor was checked live.
+    """
+    if output["id"] in ancestors or len(ancestors) >= 64:
+        raise CatabolicError("rendition lineage cycle or depth limit")
+    checks = []
+    if output["artifact_id"]:
+        rows = app.store.rows(
+            "SELECT a.publication_snapshot,a.sha256,j.snapshot FROM processing_artifacts a JOIN processing_jobs j ON j.id=a.job_id WHERE a.id=? AND a.state='ready' AND j.state='complete'",
+            (output["artifact_id"],),
+        )
+        if not rows:
+            raise CatabolicError("rendition_not_ready")
+        accepted = json.loads(rows[0]["publication_snapshot"] or "{}")
+        source = json.loads(rows[0]["snapshot"])
+        digest = rows[0]["sha256"]
+    else:
+        rows = app.store.rows(
+            "SELECT r.snapshot,r.sha256,e.payload FROM receipt_outputs r JOIN external_receipts e ON e.id=r.receipt_id WHERE r.output_id=?",
+            (output["id"],),
+        )
+        if not rows:
+            raise CatabolicError("missing_output_evidence")
+        accepted, digest = json.loads(rows[0]["snapshot"]), rows[0]["sha256"]
+        receipt = json.loads(rows[0]["payload"])["source"]
+        source = {
+            **occurrence(app.store, app.profile, receipt["file_id"]),
+            **receipt["revision"],
+        }
+        expected = {
+            "transcode": "video",
+            "remux": "video",
+            "preview": "video",
+            "thumbnail": "video",
+            "audio": "audio",
+            "subtitle": "subtitle",
+        }.get(output["purpose"])
+        fact = current_fact(app.store, app.profile, output["file_id"])
+        if expected and (
+            not fact
+            or not fact["current"]
+            or not any(
+                s.get("codec_type") == expected for s in fact["data"].get("streams", [])
+            )
+        ):
+            raise CatabolicError("output_probe_required")
+    observed = occurrence(app.store, app.profile, output["file_id"])
+    keys = ("size", "mtime_ns", "device", "inode", "root", "root_device", "root_inode")
+    if not accepted or any(observed.get(k) != accepted.get(k) for k in keys):
+        verified = current_fact(app.store, app.profile, output["file_id"], "verify")
+        if (
+            not verified
+            or not verified["current"]
+            or verified["data"].get("digest") != digest
+        ):
+            raise CatabolicError("output_verification_required")
+        accepted = verified["snapshot"]
+    if "ctime_ns" not in accepted:
+        raise CatabolicError("output_revision_evidence_missing")
+    checks.append({**observed, "ctime_ns": accepted["ctime_ns"]})
+    current = occurrence(app.store, app.profile, output["source_file_id"])
+    currentness = "not_live_checked"
+    if any(current.get(k) != source.get(k) for k in keys):
+        currentness = "known_changed"
+    if mode == "current_source_revision":
+        if currentness == "known_changed" or current.get("status") != "present":
+            raise CatabolicError("source_currentness_unknown_or_changed")
+        checks.append(
+            {
+                **current,
+                **({"ctime_ns": source["ctime_ns"]} if "ctime_ns" in source else {}),
+            }
+        )
+    parents = app.store.rows(
+        f"SELECT * FROM ({RENDITIONS_SQL}) WHERE profile=? AND file_id=?",
+        (app.profile, output["source_file_id"]),
+    )
+    for parent in parents if mode == "current_source_revision" else []:
+        parent_checks, _ = fallback_evidence(
+            app, parent, mode, (*ancestors, output["id"])
+        )
+        if mode == "current_source_revision":
+            checks.extend(parent_checks)
+    return checks, {
+        "lineage_requirement": mode,
+        "source_currentness": currentness,
+        "accepted_source_revision": source,
+        "output_digest": digest,
+    }

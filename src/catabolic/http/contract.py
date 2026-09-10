@@ -5,7 +5,7 @@
 
 from .models import Problem
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 # Descriptions are part of the published artifact, alongside stable operation IDs.
 GROUPS = {
@@ -33,6 +33,9 @@ DESCRIPTIONS = {
     "resolve_item": "Resolve an eligible existing revision and authenticated content path without scheduling processing.",
     "create_content_ticket": "Issue a revocable bearer ticket for one file revision. Its URL permits repeated GET/HEAD requests until expiry or the transfer budget is exhausted. Keep this URL secret.",
     "revoke_content_ticket": "Revoke an owned ticket. Already delivered bytes cannot be recalled.",
+    "get_fallback_policy": "Inspect an approved immutable policy revision. Policy approval does not grant access to its candidates.",
+    "list_projection_resolutions": "Authorized logical membership and selected revisions, with separate admitted and verified publication generations.",
+    "create_logical_rendition_request": "Resolve an approved fallback policy before admitting a concrete source revision. Requires an idempotency key; retries retain the original chosen source.",
     "create_rendition_request": "Ensure an approved durable rendition exists. Requires an idempotency key; conflicting reuse returns 409. Returns 200 when ready, otherwise 202 with a status Location.",
     "get_rendition_request": "Current authorized caller demand, blockers and result. Unknown progress is null. Shared processing does not disclose other callers.",
     "cancel_rendition_request": "Cancel this caller's demand while preserving work still required by another request or persistent rule.",

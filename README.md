@@ -51,6 +51,10 @@ including implemented operation types, compatibility and validation limits.
   library, keep originals in another, and register results from external processors.
   [Automatic catalog updates](docs/CATALOG_REFRESH.md) can add links when new
   versions become ready, with durable retries for offline destinations.
+- **Keep projections useful during storage outages.** [Fallback policies](docs/FALLBACK.md)
+  try saved candidate queries in order: originals, backup occurrences, then existing
+  renditions. Logical membership survives outages, and an explicitly enabled worker
+  performs recoverable symlink switches with stable failback.
 - **Coordinate network processing.** Submit work through a versioned HTTP receipt
   adapter, with durable jobs and worker leases. Estimates learn from successful
   local renders, and paged rules can select up to 100,000 IDs. See

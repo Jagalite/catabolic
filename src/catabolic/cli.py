@@ -109,6 +109,9 @@ def parser() -> argparse.ArgumentParser:
     from .maintenance import register as register_maintenance
 
     register_maintenance(commands)
+    from .fallback_cli import register as register_fallback
+
+    register_fallback(commands)
     from .rule_cli import register as register_rules
 
     register_rules(commands)
@@ -785,6 +788,10 @@ def dispatch(args: argparse.Namespace) -> dict:
             max_rows=args.max_rows,
             timeout_ms=args.timeout_ms,
         )
+    if args.command == "fallback":
+        from .fallback_cli import run as fallback
+
+        return fallback(args)
     if args.command == "program":
         from .program_cli import program
 

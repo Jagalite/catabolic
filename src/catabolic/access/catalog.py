@@ -103,7 +103,7 @@ class Catalog:
             "CREATE TEMP VIEW catalogs AS SELECT * FROM main.catalogs WHERE id IN (SELECT id FROM api_visible_catalogs)"
         )
         db.execute(
-            "CREATE TEMP VIEW mappings AS SELECT * FROM main.mappings WHERE catalog IN (SELECT id FROM api_visible_catalogs) AND item_id IN (SELECT id FROM api_visible_items) AND file_id IN (SELECT id FROM api_visible_files)"
+            "CREATE TEMP VIEW mappings AS SELECT id,catalog,file_id,item_id,path,active FROM (SELECT m.* FROM main.mappings m WHERE NOT EXISTS (SELECT 1 FROM main.fallback_bindings b WHERE b.catalog=m.catalog AND b.profile IN (SELECT id FROM api_profile)) UNION ALL SELECT id,catalog,file_id,item_id,path,active FROM main.fallback_entries WHERE profile IN (SELECT id FROM api_profile) AND path IS NOT NULL) WHERE catalog IN (SELECT id FROM api_visible_catalogs) AND item_id IN (SELECT id FROM api_visible_items) AND file_id IN (SELECT id FROM api_visible_files)"
         )
 
     def cursor(self, scope, after):

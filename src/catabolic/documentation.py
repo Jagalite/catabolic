@@ -11,6 +11,12 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "fallback",
+        "FALLBACK.md",
+        "Ordered fallback resolution",
+        "Existing-file selection, retained membership, supervised failback and shared HTTP/processing resolution.",
+    ),
+    (
         "http",
         "HTTP.md",
         "HTTP catalog and content backend",

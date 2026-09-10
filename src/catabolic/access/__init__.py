@@ -57,6 +57,7 @@ def grant_put(store, principal, definition, identifier=None):
         "operation_ids",
         "projection_ids",
         "report_ids",
+        "fallback_policy_ids",
         "operator",
         "revisions",
     }
@@ -70,6 +71,7 @@ def grant_put(store, principal, definition, identifier=None):
         "operation_ids",
         "projection_ids",
         "report_ids",
+        "fallback_policy_ids",
     ):
         value = definition.get(key, [])
         if (
