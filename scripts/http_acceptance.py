@@ -57,6 +57,11 @@ def main():
     parser.add_argument(
         "--root", type=Path, required=True, help="new disposable directory"
     )
+    parser.add_argument(
+        "--generated-client",
+        type=Path,
+        help="Compiled generated-client acceptance entrypoint",
+    )
     args = parser.parse_args()
     root = args.root.resolve()
     root.mkdir(parents=True, exist_ok=False)
@@ -93,6 +98,7 @@ def main():
         capture_output=True,
     )
     state = json.loads((root / "state.json").read_text())
+    query_id = state["query_id"]
     token = json.loads((root / "credential.json").read_text())["token"]
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -209,9 +215,22 @@ def main():
         assert code == 200 and any(e["state"] == "ready" for e in events["events"]), (
             events
         )
+        if args.generated_client:
+            subprocess.run(
+                ["node", str(args.generated_client.resolve())],
+                input=json.dumps(
+                    {"base": base, "token": token, "state": state, "query_id": query_id}
+                ),
+                text=True,
+                check=True,
+                cwd=root,
+                env=env,
+                timeout=30,
+            )
         report = {
             "complete": True,
             "commands": commands,
+            "generated_client": bool(args.generated_client),
             "installed_python": interpreter,
             "checks": [
                 "authenticated_graphql",

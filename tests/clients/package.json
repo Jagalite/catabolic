@@ -1,0 +1,20 @@
+{
+  "name": "catabolic-contract-acceptance",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "openapi-typescript ../../src/catabolic/http/releases/1.0.0/openapi.json --default-non-nullable false -o generated/rest.d.ts && graphql-codegen --config codegen.json",
+    "build": "tsc",
+    "test": "npm run generate && npm run build"
+  },
+  "dependencies": {"openapi-fetch": "0.17.0"},
+  "devDependencies": {
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3",
+    "@graphql-codegen/cli": "7.4.0",
+    "@graphql-codegen/typescript": "6.1.0",
+    "@graphql-codegen/typescript-operations": "6.1.6",
+    "graphql": "16.11.0",
+    "@types/node": "22.15.30"
+  }
+}

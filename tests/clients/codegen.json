@@ -1,0 +1,10 @@
+{
+  "schema": "../../src/catabolic/http/releases/1.0.0/schema.graphql",
+  "documents": "catalog.graphql",
+  "generates": {
+    "generated/graphql.ts": {
+      "plugins": ["typescript", "typescript-operations"],
+      "config": {"strictScalars": true, "scalars": {"BigInt": "string", "JSON": "unknown"}}
+    }
+  }
+}

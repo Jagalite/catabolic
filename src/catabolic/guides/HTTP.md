@@ -320,3 +320,121 @@ Reports exclude credentials. CI contains Linux/Python 3.11 and macOS/Python 3.14
 installed lanes. Both installed HTTP lanes passed for implementation commit `3312254` in
 [release CI](https://github.com/Jagalite/catabolic/actions/runs/34409546902).
 The aggregate release-verification job also requires all existing compatibility lanes. See [implementation evidence](HTTP_BACKEND_M0.md).
+
+## Public developer contract
+
+The first published HTTP contract is **1.0.0**, under `/v1`. This version is
+independent of the package version and SQLite migration number. Every JSON route
+uses an explicit Pydantic response model; route names do not determine operation
+IDs. For example, `list_items`, `execute_graphql`, `create_rendition_request` and
+`get_file_content` are stable client identifiers.
+
+The repository and installed wheel include these public artifacts under
+`catabolic/http/releases/1.0.0/` (in a checkout, prefix with `src/`):
+
+| Artifact | Contract |
+| --- | --- |
+| `openapi.json` | OpenAPI 3.1 REST operations, input/output models, authentication, errors and byte transport |
+| `schema.graphql` | Sorted GraphQL SDL, including the `BigInt` and `JSON` scalar contracts |
+| `manifest.json` | Contract version, SHA-256 artifact hashes and method/path-to-operation-ID mapping |
+
+An authenticated `GET /v1/openapi.json` returns the same OpenAPI contract. The
+artifacts are safe to distribute: they contain no catalog records, paths, tokens
+or deployment-specific configuration. Schema availability does not grant access
+to any field or resource. GraphQL authorization still applies beneath resolvers.
+
+Published version directories are immutable. Contract changes require a new
+version directory; additive compatible changes increment the minor version,
+documentation-only corrections increment the patch version, and breaking changes
+require a new major API path. Do not rename an operation ID within a major version.
+CI compares the running schema with its committed artifact and rejects edits to
+previously published artifacts. Review schema changes alongside the implementation;
+a passing hash check alone does not prove semantic compatibility.
+
+### Generate a TypeScript client
+
+The acceptance client uses [openapi-typescript](https://openapi-ts.dev/introduction)
+and [openapi-fetch](https://openapi-ts.dev/openapi-fetch/). GraphQL Code Generator
+produces operation-specific types from the SDL and query documents. These are
+developer/test dependencies; installing Catabolic does not install Node or a client
+generator.
+
+From a checkout:
+
+```sh
+python scripts/http_contract.py --check
+npm --prefix tests/clients ci --ignore-scripts
+npm --prefix tests/clients test
+```
+
+Generation runs offline after installation, from the committed schema files.
+Exact generator versions and integrity hashes are locked in
+`tests/clients/package-lock.json`. `tests/clients/generated/rest.d.ts` exports
+`paths`, `components` and `operations`; `generated/graphql.ts` exports schema and
+query-result types. The compiler also verifies negative examples: missing content
+revisions, invalid limits, unknown operations and arbitrary encoder arguments must
+remain type errors.
+
+A backend client can use the generated REST types directly:
+
+```typescript
+import createClient from "openapi-fetch";
+import type { paths } from "./generated/rest.js";
+
+const client = createClient<paths>({
+  baseUrl: "http://127.0.0.1:8421",
+  headers: { Authorization: `Bearer ${serverSideToken}` },
+});
+const { data, error } = await client.GET("/v1/items", {
+  params: { query: { limit: 20 } },
+});
+if (error) throw new Error(`${error.code}: ${error.remediation}`);
+for (const item of data.data) console.log(item.id, item.metadata);
+```
+
+The default-valued request fields remain optional in generated types; the checked
+in command uses `--default-non-nullable false` for that behavior. Client-side types
+do not replace server authorization or runtime validation.
+
+### Response semantics
+
+- Item, file and rendition pages have distinct typed `data` elements. Optional
+  fields remain absent when unavailable or forbidden; serialization does not add
+  `path: null` to a scoped file response. Byte sizes and nanosecond timestamps are
+  decimal strings, and GraphQL `BigInt` also maps to `string`.
+- Owner-defined metadata, query variables, SQL cell values and definition payloads
+  use recursive JSON types. Their keys depend on the owner or query; the enclosing
+  transport fields are fixed. GraphQL responses preserve absent `errors`, explicit
+  null `data`, error locations and paths, and extensions. Generate query-specific
+  result types from SDL rather than assuming all GraphQL documents share a shape.
+- Saved-query runs return a selection page, SQL rows or a GraphQL document. Clients
+  narrow that union by its fields. The existing SQL `complete`/`truncated` contract
+  remains distinct from selection pagination.
+- REST failures advertise `application/problem+json`, including validation failures
+  (422), request limits (413/429), revision/precondition failures (409/412/416), and
+  retryable catalog contention (503). The documented `Problem` includes `code`,
+  `request_id`, `retryable` and `remediation`; it does not expose exception text.
+- Content GET has binary 200/206 responses, conditional 304, byte/conditional
+  request headers, and bearer-or-ticket security. The actual MIME type comes from
+  the content. HEAD and 304 have no response body. Use `parseAs: "arrayBuffer"` or
+  `parseAs: "stream"` in the fetch client for successful content responses.
+- Rendition admission documents both 200 and 202, `Location`, and `Idempotency-Key`.
+  A successful response is validated by the same model for both status codes.
+- Events default to a typed JSON page. `follow=true` selects `text/event-stream`;
+  `catalog` data contains `RequestChanged` arrays and the event ID is a replay
+  cursor. `resync-required` carries a `code`. Stream transport is not a JSON page.
+
+The generated-client acceptance entrypoint runs against the installed server and
+worker after a restart, checking typed metadata, saved queries, GraphQL, shared
+rendition demand, denied originals, tickets, revocation, HEAD and exact PNG range
+bytes. To run locally with disposable media and the HTTP test dependencies:
+
+```sh
+python scripts/http_acceptance.py --python /absolute/path/to/http-env/bin/python \
+  --root /tmp/new-catabolic-client-fixture \
+  --generated-client tests/clients/build/acceptance.js
+```
+
+The fixture directory must not exist. Both Linux and macOS HTTP CI lanes run this
+journey against the built wheel. Credentials pass to the client over stdin and
+are never printed or supplied as process arguments.

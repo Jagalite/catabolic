@@ -53,6 +53,7 @@ jobs:
           base = os.environ.get('SPEC_BASE', '')
           if base and set(base) != {'0'}:
               subprocess.run(['python', 'scripts/check_spec_releases.py', base], check=True)
+              subprocess.run(['python', 'scripts/check_http_releases.py', base], check=True)
           PY
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -219,9 +220,18 @@ jobs:
           "$RUNNER_TEMP/catabolic-http/bin/python" -m pip install --no-deps dist/*.whl
           "$RUNNER_TEMP/catabolic-http/bin/python" -m pip check
       - name: Authorization, streaming and local execution gates
-        run: '"$RUNNER_TEMP/catabolic-http/bin/python" -m unittest tests.test_execution_claims tests.test_http_backend tests.test_http_renditions tests.test_http_review -q'
+        run: '"$RUNNER_TEMP/catabolic-http/bin/python" -m unittest tests.test_execution_claims tests.test_http_backend tests.test_http_renditions tests.test_http_review tests.test_http_contract -q'
+      - name: Verify packaged public API schemas
+        run: '"$RUNNER_TEMP/catabolic-http/bin/python" scripts/http_contract.py --check'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Generate and typecheck REST and GraphQL clients
+        run: |
+          npm --prefix tests/clients ci --ignore-scripts
+          npm --prefix tests/clients test
       - name: Installed client, server and worker journey
-        run: 'python scripts/http_acceptance.py --python "$RUNNER_TEMP/catabolic-http/bin/python" --root "$RUNNER_TEMP/http-acceptance"'
+        run: 'python scripts/http_acceptance.py --python "$RUNNER_TEMP/catabolic-http/bin/python" --root "$RUNNER_TEMP/http-acceptance" --generated-client tests/clients/build/acceptance.js'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

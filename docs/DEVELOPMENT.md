@@ -159,3 +159,22 @@ then run `scripts/http_acceptance.py --python VENV/bin/python --root NEW_DIRECTO
 The script owns only disposable fixtures and foreground child processes. CI runs
 this installed journey on Linux and macOS. Never substitute a production catalog,
 media root or live account credential for these fixtures.
+
+## Public HTTP contract checks
+
+With the optional HTTP test dependencies installed, run:
+
+```sh
+python scripts/http_contract.py --check
+python -m unittest tests.test_http_contract -q
+npm --prefix tests/clients ci --ignore-scripts
+npm --prefix tests/clients test
+```
+
+`python scripts/http_contract.py` exports the current contract from an isolated
+empty catalog. The version comes from `catabolic.http.contract.VERSION`. Preserve
+existing release directories and stable operation IDs when introducing a new
+contract revision. `python scripts/check_http_releases.py <base-commit>` verifies
+that published artifacts remain unchanged. CI runs the generated TypeScript client
+against the installed wheel's server/worker journey on Linux and macOS. See the
+[HTTP developer contract](HTTP.md#public-developer-contract) for response semantics.

@@ -1,0 +1,261 @@
+enum Active {
+  ACTIVE
+  ALL
+  DISABLED
+}
+
+type Association {
+  active: Boolean!
+  file: File
+  fileId: ID!
+  id: ID!
+  item: Item
+  itemId: ID!
+  metadata: JSON!
+  origin: String!
+  part: Int
+  role: String!
+  size: BigInt
+  sourcePath: String
+  status: Availability!
+}
+
+type AssociationPage {
+  nodes: [Association!]!
+  pageInfo: PageInfo!
+}
+
+enum Availability {
+  MISSING
+  PRESENT
+  UNKNOWN
+}
+
+"""
+A decimal string, preserving integers larger than JavaScript's safe range.
+"""
+scalar BigInt
+
+type Catalog {
+  id: ID!
+  linkMode: String!
+  mappings(active: Active = ALL, after: String, first: Int! = 100): MappingPage
+  root: String
+}
+
+type CatalogPage {
+  nodes: [Catalog!]!
+  pageInfo: PageInfo!
+}
+
+enum Direction {
+  BOTH
+  INCOMING
+  OUTGOING
+}
+
+enum EntryStatus {
+  COMPLETE
+  DEFERRED
+  IGNORED
+  IN_PROGRESS
+  NEEDS_ATTENTION
+  PENDING
+}
+
+type EntryWorkflow {
+  profile: String!
+  requestedStatus: EntryStatus!
+  revision: Int!
+  status: EntryStatus!
+  updatedAt: String
+  updatedBy: String
+}
+
+type EvidencePage {
+  nodes: [JSON!]!
+  pageInfo: PageInfo!
+}
+
+type File {
+  associations(active: Active = ACTIVE, after: String, first: Int! = 100, role: String): AssociationPage
+  facts: JSON!
+  id: ID!
+  location: String!
+  mappings(active: Active = ALL, after: String, allCatalogs: Boolean! = false, catalog: String = "global", first: Int! = 100): MappingPage
+  mtimeNs: BigInt
+  observedAt: String
+  path: String!
+  scanId: ID
+  size: BigInt
+  sourcePath: String
+  status: Availability!
+  taggings(active: Active = ACTIVE, after: String, first: Int! = 100, source: String): TaggingPage
+}
+
+type FilePage {
+  nodes: [File!]!
+  pageInfo: PageInfo!
+}
+
+enum FileSort {
+  ID
+  MTIME
+  PATH
+  SIZE
+}
+
+type Identity {
+  namespace: String!
+  value: String!
+}
+
+type Item {
+  associations(active: Active = ACTIVE, after: String, first: Int! = 100, role: String): AssociationPage
+  id: ID!
+  identities: [Identity!]!
+  kind: String!
+  mappings(active: Active = ALL, after: String, allCatalogs: Boolean! = false, catalog: String = "global", first: Int! = 100): MappingPage
+  metadata: JSON!
+  relationships(active: Active = ACTIVE, after: String, direction: Direction = BOTH, first: Int! = 100, kind: String): RelationshipPage
+  taggings(active: Active = ACTIVE, after: String, first: Int! = 100, source: String): TaggingPage
+  title: String
+  workflow: EntryWorkflow!
+  workflowChecks(after: String, first: Int! = 100): EvidencePage
+  worklog(after: String, first: Int! = 100): EvidencePage
+  year: Int
+}
+
+type ItemPage {
+  nodes: [Item!]!
+  pageInfo: PageInfo!
+}
+
+enum ItemSort {
+  ID
+  TITLE
+  YEAR
+}
+
+scalar JSON
+
+type Mapping {
+  active: Boolean!
+  catalog: String!
+  file: File
+  fileId: ID!
+  id: ID!
+  item: Item
+  itemId: ID!
+  outputPath: String
+  path: String!
+}
+
+type MappingPage {
+  nodes: [Mapping!]!
+  pageInfo: PageInfo!
+}
+
+enum MappingSort {
+  CATALOG
+  ID
+  PATH
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+}
+
+type Query {
+  artifact(id: ID!): JSON
+  artifacts(after: String, file: ID, first: Int! = 100, state: String): EvidencePage
+  associations(active: Active = ACTIVE, after: String, file: ID, first: Int! = 100, item: ID, role: String): AssociationPage
+  catalogs(after: String, first: Int! = 100): CatalogPage
+  contentSearch(after: Int! = 0, first: Int! = 100, text: String!): JSON!
+  file(id: ID!): File
+  files(after: String, anyTags: [String!], catalog: String = "global", descendants: Boolean! = false, descending: Boolean! = false, first: Int! = 100, identity: String, item: ID, kind: String, location: String, notTags: [String!], search: String, sort: FileSort = ID, status: Availability, tags: [String!], unidentified: Boolean! = false, unmapped: Boolean! = false, year: Int): FilePage
+  item(id: ID, identity: String): Item
+  items(after: String, anyTags: [String!], catalog: String, curationStatus: EntryStatus, descendants: Boolean! = false, descending: Boolean! = false, first: Int! = 100, hasRendition: RenditionFilter, identity: String, kind: String, metadata: [String!], missingRendition: RenditionFilter, notTags: [String!], search: String, sort: ItemSort = ID, tags: [String!], year: Int): ItemPage
+  job(id: ID!): JSON
+  jobs(after: String, file: ID, first: Int! = 100, state: String): EvidencePage
+  mappings(active: Active = ALL, after: String, allCatalogs: Boolean! = false, catalog: String = "global", descending: Boolean! = false, file: ID, first: Int! = 100, item: ID, search: String, sort: MappingSort = PATH): MappingPage
+  mediaTypes: JSON!
+  operation(id: ID!): JSON
+  operations(after: String, first: Int! = 100): EvidencePage
+  outputDefinition(id: ID!): JSON
+  outputDefinitions(after: String, first: Int! = 100): EvidencePage
+  profile: String!
+  projection(catalog: String!): JSON
+  projections(after: String, first: Int! = 100): EvidencePage
+  proposal(id: ID!): JSON
+  proposals(after: String, file: ID, first: Int! = 100, state: String): EvidencePage
+  recipe(id: ID!): JSON
+  recipes(after: String, first: Int! = 100): EvidencePage
+  relationships(active: Active = ACTIVE, after: String, direction: Direction = BOTH, first: Int! = 100, item: ID, kind: String): RelationshipPage
+  rendition(id: ID!): JSON
+  renditions(after: String, file: ID, first: Int! = 100, matching: RenditionFilter): EvidencePage
+  savedQueries(after: String, first: Int! = 100): EvidencePage
+  savedQuery(id: ID!): JSON
+  schemaVersion: Int!
+  taggings(active: Active = ACTIVE, after: String, file: ID, first: Int! = 100, item: ID, source: String, tag: String): TaggingPage
+  tags(after: String, child: String, first: Int! = 100, namespace: String, parent: String, search: String): TagPage
+  workflowChecks(after: String, first: Int! = 100, item: ID!): EvidencePage
+  worklog(after: String, first: Int! = 100, item: ID!): EvidencePage
+}
+
+type Relationship {
+  active: Boolean!
+  id: ID!
+  kind: String!
+  metadata: JSON!
+  position: Int
+  source: Item
+  sourceId: ID!
+  target: Item
+  targetId: ID!
+}
+
+type RelationshipPage {
+  nodes: [Relationship!]!
+  pageInfo: PageInfo!
+}
+
+input RenditionFilter {
+  current: Boolean
+  definition: ID
+  purpose: String
+  recipe: ID
+}
+
+type Tag {
+  aliases: [String!]!
+  description: String!
+  id: ID!
+  name: String!
+  parentIds: [ID!]!
+}
+
+type TagPage {
+  nodes: [Tag!]!
+  pageInfo: PageInfo!
+}
+
+type Tagging {
+  active: Boolean!
+  confidence: Float
+  createdAt: String!
+  id: ID!
+  note: String!
+  source: String!
+  subjectId: ID!
+  subjectType: String!
+  tagId: ID!
+  tagName: String!
+  updatedAt: String!
+}
+
+type TaggingPage {
+  nodes: [Tagging!]!
+  pageInfo: PageInfo!
+}

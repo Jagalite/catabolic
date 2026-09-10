@@ -73,6 +73,9 @@ Install the optional HTTP dependencies and configure grants/source exposure befo
 starting `catabolic --db catalog.db api serve`. The server defaults to loopback
 and existing-content mode. Processing requires explicit enablement and a worker.
 The [HTTP guide](docs/HTTP.md) records limits and current release qualification.
+The [public developer contract](docs/HTTP.md#public-developer-contract) includes typed
+responses, stable operation IDs, versioned OpenAPI/GraphQL artifacts and generated
+TypeScript client acceptance tests.
 
 ## Works with your media apps
 

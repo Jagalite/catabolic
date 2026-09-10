@@ -10,10 +10,12 @@ import os
 import sqlite3
 import time
 from contextlib import contextmanager
+from typing import Annotated, Literal
 from uuid import uuid4
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Header, Query, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.models import OpenAPI
 from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
@@ -32,6 +34,8 @@ from ..rendition_requests import admit, cancel, retry, status
 from ..saved_queries import Queries
 from ..sql_query import execute_sql
 from ..store import Store, encode
+from . import models
+from .contract import VERSION
 from .models import (
     SQL,
     Definition,
@@ -63,7 +67,7 @@ def create_app(
         pass
     app = FastAPI(
         title="Catabolic HTTP",
-        version="1",
+        version=VERSION,
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -166,12 +170,22 @@ def create_app(
         if read_only:
             raise AccessError("read_only", 403)
 
-    @app.get("/v1/openapi.json")
+    @app.get(
+        "/v1/openapi.json",
+        operation_id="get_openapi",
+        response_model=OpenAPI,
+        response_model_exclude_unset=True,
+    )
     def openapi(request: Request):
         with session(request):
             return app.openapi()
 
-    @app.get("/v1/me")
+    @app.get(
+        "/v1/me",
+        operation_id="get_identity",
+        response_model=models.Identity,
+        response_model_exclude_unset=True,
+    )
     def me(request: Request):
         with session(request) as access:
             return {
@@ -183,7 +197,12 @@ def create_app(
                 "expires": access.token["expires"],
             }
 
-    @app.get("/v1/capabilities")
+    @app.get(
+        "/v1/capabilities",
+        operation_id="get_capabilities",
+        response_model=models.Capabilities,
+        response_model_exclude_unset=True,
+    )
     def capabilities(request: Request):
         with session(request) as access:
             workers = access.store.rows(
@@ -231,7 +250,12 @@ def create_app(
                 },
             }
 
-    @app.post("/v1/query/sql")
+    @app.post(
+        "/v1/query/sql",
+        operation_id="execute_sql",
+        response_model=models.SQLResult,
+        response_model_exclude_unset=True,
+    )
     def sql(body: SQL, request: Request):
         with session(request) as access:
             if not access.operator("sql:read"):
@@ -246,7 +270,12 @@ def create_app(
                 _http=True,
             )
 
-    @app.post("/v1/query/graphql")
+    @app.post(
+        "/v1/query/graphql",
+        operation_id="execute_graphql",
+        response_model=models.GraphQLResult,
+        response_model_exclude_unset=True,
+    )
     def graphql(body: GraphQL, request: Request):
         with session(request) as access:
             access.require("metadata:read")
@@ -260,7 +289,12 @@ def create_app(
                 _context_factory=lambda s, p, d: AuthorizedContext(s, p, d, access),
             )
 
-    @app.post("/v1/queries/{revision_id}/runs")
+    @app.post(
+        "/v1/queries/{revision_id}/runs",
+        operation_id="run_saved_query",
+        response_model=models.SelectionResult | models.SQLResult | models.GraphQLResult,
+        response_model_exclude_unset=True,
+    )
     def saved(revision_id: str, body: Page, request: Request):
         with session(request) as access:
             access.require("metadata:read")
@@ -344,12 +378,26 @@ def create_app(
                 else None,
             }
 
-    @app.get("/v1/items", response_model=MetadataPage)
-    def items(request: Request, limit: int = 100, cursor: str | None = None):
+    @app.get(
+        "/v1/items",
+        operation_id="list_items",
+        response_model=MetadataPage[models.Item],
+        response_model_exclude_unset=True,
+    )
+    def items(
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+        cursor: str | None = None,
+    ):
         with session(request) as access:
             return Catalog(access).listing("items", limit, cursor)
 
-    @app.post("/v1/items/snapshots")
+    @app.post(
+        "/v1/items/snapshots",
+        operation_id="create_item_snapshot",
+        response_model=models.Snapshot,
+        response_model_exclude_unset=True,
+    )
     def snapshot_items(request: Request):
         with session(request, write=True) as access:
             access.require("metadata:read")
@@ -375,9 +423,17 @@ def create_app(
                 "selection_complete": True,
             }
 
-    @app.get("/v1/snapshots/{identifier}")
+    @app.get(
+        "/v1/snapshots/{identifier}",
+        operation_id="get_snapshot_page",
+        response_model=MetadataPage[models.Item],
+        response_model_exclude_unset=True,
+    )
     def snapshot_page(
-        identifier: str, request: Request, limit: int = 100, cursor: str | None = None
+        identifier: str,
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+        cursor: str | None = None,
     ):
         with session(request) as access:
             if not 1 <= limit <= 1000:
@@ -406,32 +462,70 @@ def create_app(
                 else None,
             }
 
-    @app.get("/v1/items/{identifier}")
+    @app.get(
+        "/v1/items/{identifier}",
+        operation_id="get_item",
+        response_model=models.Item,
+        response_model_exclude_unset=True,
+    )
     def item(identifier: str, request: Request):
         with session(request) as access:
             return Catalog(access).get("items", identifier)
 
-    @app.get("/v1/files", response_model=MetadataPage)
-    def files(request: Request, limit: int = 100, cursor: str | None = None):
+    @app.get(
+        "/v1/files",
+        operation_id="list_files",
+        response_model=MetadataPage[models.File],
+        response_model_exclude_unset=True,
+    )
+    def files(
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+        cursor: str | None = None,
+    ):
         with session(request) as access:
             return Catalog(access).listing("files", limit, cursor)
 
-    @app.get("/v1/files/{identifier}")
+    @app.get(
+        "/v1/files/{identifier}",
+        operation_id="get_file",
+        response_model=models.File,
+        response_model_exclude_unset=True,
+    )
     def file(identifier: str, request: Request):
         with session(request) as access:
             return Catalog(access).get("files", identifier)
 
-    @app.get("/v1/renditions", response_model=MetadataPage)
-    def renditions(request: Request, limit: int = 100, cursor: str | None = None):
+    @app.get(
+        "/v1/renditions",
+        operation_id="list_renditions",
+        response_model=MetadataPage[models.Rendition],
+        response_model_exclude_unset=True,
+    )
+    def renditions(
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+        cursor: str | None = None,
+    ):
         with session(request) as access:
             return Catalog(access).listing("renditions", limit, cursor)
 
-    @app.get("/v1/renditions/{identifier}")
+    @app.get(
+        "/v1/renditions/{identifier}",
+        operation_id="get_rendition",
+        response_model=models.Rendition,
+        response_model_exclude_unset=True,
+    )
     def rendition(identifier: str, request: Request):
         with session(request) as access:
             return Catalog(access).get("renditions", identifier)
 
-    @app.post("/v1/items/{identifier}/resolve")
+    @app.post(
+        "/v1/items/{identifier}/resolve",
+        operation_id="resolve_item",
+        response_model=models.ResolvedContent,
+        response_model_exclude_unset=True,
+    )
     def resolve(identifier: str, body: Resolve, request: Request):
         with session(request) as access:
             if not access.item(identifier):
@@ -466,9 +560,17 @@ def create_app(
                 }
             raise AccessError("no_eligible_content", 409)
 
-    @app.get("/v1/projections/{identifier}/entries")
+    @app.get(
+        "/v1/projections/{identifier}/entries",
+        operation_id="list_projection_entries",
+        response_model=models.ProjectionPage,
+        response_model_exclude_unset=True,
+    )
     def entries(
-        identifier: str, request: Request, limit: int = 100, cursor: str | None = None
+        identifier: str,
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+        cursor: str | None = None,
     ):
         with session(request) as access:
             catalog = Catalog(access)
@@ -494,7 +596,12 @@ def create_app(
                 else None,
             }
 
-    @app.post("/v1/content-access")
+    @app.post(
+        "/v1/content-access",
+        operation_id="create_content_ticket",
+        response_model=models.ContentTicket,
+        response_model_exclude_unset=True,
+    )
     def ticket(body: Ticket, request: Request):
         with session(request, write=True) as access:
             authorize(access, body.file_id, body.revision)
@@ -525,7 +632,12 @@ def create_app(
                 "content_path": f"/v1/files/{body.file_id}/content?revision={body.revision}&ticket={secret}",
             }
 
-    @app.post("/v1/content-access/{identifier}/revoke")
+    @app.post(
+        "/v1/content-access/{identifier}/revoke",
+        operation_id="revoke_content_ticket",
+        response_model=models.Revocation,
+        response_model_exclude_unset=True,
+    )
     def revoke_ticket(identifier: str, request: Request):
         with session(request, write=True) as access:
             with access.store.transaction() as db:
@@ -653,16 +765,30 @@ def create_app(
         finally:
             store.close()
 
-    @app.get("/v1/files/{identifier}/content")
-    @app.head("/v1/files/{identifier}/content", operation_id="head_file_content")
+    @app.get(
+        "/v1/files/{identifier}/content",
+        operation_id="get_file_content",
+        response_class=Response,
+    )
+    @app.head(
+        "/v1/files/{identifier}/content",
+        operation_id="head_file_content",
+        response_class=Response,
+    )
     def file_content(
         identifier: str, request: Request, revision: str, ticket: str | None = None
     ):
         return content(identifier, request, revision, ticket)
 
-    @app.get("/v1/renditions/{identifier}/content")
+    @app.get(
+        "/v1/renditions/{identifier}/content",
+        operation_id="get_rendition_content",
+        response_class=Response,
+    )
     @app.head(
-        "/v1/renditions/{identifier}/content", operation_id="head_rendition_content"
+        "/v1/renditions/{identifier}/content",
+        operation_id="head_rendition_content",
+        response_class=Response,
     )
     def rendition_content(
         identifier: str, request: Request, revision: str, ticket: str | None = None
@@ -673,8 +799,20 @@ def create_app(
         "/v1/rendition-requests",
         response_model=DemandStatus,
         responses={202: {"model": DemandStatus}},
+        operation_id="create_rendition_request",
     )
-    def demand(body: Demand, request: Request):
+    def demand(
+        body: Demand,
+        request: Request,
+        response: Response,
+        idempotency_key: Annotated[
+            str | None,
+            Header(
+                alias="Idempotency-Key",
+                description="Required for processing admission; missing keys are rejected by admission.",
+            ),
+        ] = None,
+    ):
         mutation()
         with session(request, write=True) as access:
             workers = access.store.rows(
@@ -685,33 +823,48 @@ def create_app(
             result = admit(
                 access,
                 body.model_dump(),
-                request.headers.get("idempotency-key"),
+                idempotency_key,
                 json.loads(workers[0]["capabilities"]),
             )
-            return JSONResponse(
-                result,
-                status_code=200 if result["state"] == "ready" else 202,
-                headers={"Location": result["status_url"]},
-            )
+            response.status_code = 200 if result["state"] == "ready" else 202
+            response.headers["Location"] = result["status_url"]
+            return result
 
-    @app.get("/v1/rendition-requests/{identifier}", response_model=DemandStatus)
+    @app.get(
+        "/v1/rendition-requests/{identifier}",
+        response_model=DemandStatus,
+        operation_id="get_rendition_request",
+    )
     def demand_status(identifier: str, request: Request):
         with session(request) as access:
             return status(access, identifier)
 
-    @app.post("/v1/rendition-requests/{identifier}/cancel", response_model=DemandStatus)
+    @app.post(
+        "/v1/rendition-requests/{identifier}/cancel",
+        response_model=DemandStatus,
+        operation_id="cancel_rendition_request",
+    )
     def demand_cancel(identifier: str, request: Request):
         mutation()
         with session(request, write=True) as access:
             return cancel(access, identifier)
 
-    @app.post("/v1/rendition-requests/{identifier}/retry", response_model=DemandStatus)
+    @app.post(
+        "/v1/rendition-requests/{identifier}/retry",
+        response_model=DemandStatus,
+        operation_id="retry_rendition_request",
+    )
     def demand_retry(identifier: str, request: Request):
         mutation()
         with session(request, write=True) as access:
             return retry(access, identifier)
 
-    @app.get("/v1/events")
+    @app.get(
+        "/v1/events",
+        operation_id="list_events",
+        response_model=models.EventPage,
+        response_model_exclude_unset=True,
+    )
     def events(request: Request, cursor: str | None = None, follow: bool = False):
         with session(request, write=True) as access:
             initial = event_page(access, cursor or request.headers.get("last-event-id"))
@@ -760,8 +913,18 @@ def create_app(
             cleanup=lambda: limits.release(principal),
         )
 
-    @app.post("/v1/operator/{resource}/{name}")
-    def operator(resource: str, name: str, body: Definition, request: Request):
+    @app.post(
+        "/v1/operator/{resource}/{name}",
+        operation_id="manage_definition",
+        response_model=models.OperatorPreview | models.OperatorApplied,
+        response_model_exclude_unset=True,
+    )
+    def operator(
+        resource: Literal["queries", "rules", "projections"],
+        name: str,
+        body: Definition,
+        request: Request,
+    ):
         mutation()
         with session(request, write=True) as access:
             if not access.operator("operator:write"):
@@ -840,30 +1003,7 @@ def create_app(
                 }
             return {"applied": True, "result": result}
 
-    default_openapi = app.openapi
+    from .contract import install_contract
 
-    def contract():
-        schema = default_openapi()
-        schema.setdefault("components", {}).setdefault("securitySchemes", {})[
-            "BearerAuth"
-        ] = {"type": "http", "scheme": "bearer"}
-        schema["security"] = [{"BearerAuth": []}]
-        for operations in schema["paths"].values():
-            for method, operation in operations.items():
-                if method in ("get", "head", "post"):
-                    for status_code in ("401", "403", "409", "429", "503"):
-                        operation.setdefault("responses", {}).setdefault(
-                            status_code,
-                            {
-                                "description": "RFC 9457 Problem Details with stable code, request_id, retryable and remediation",
-                                "content": {
-                                    "application/problem+json": {
-                                        "schema": {"type": "object"}
-                                    }
-                                },
-                            },
-                        )
-        return schema
-
-    app.openapi = contract
+    install_contract(app)
     return app

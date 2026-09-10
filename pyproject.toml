@@ -39,7 +39,7 @@ catabolic = "catabolic.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-catabolic = ["migrations/*.sql", "migrations/*.license", "interchange/releases/*.json", "interchange/releases/*.md", "interchange/releases/*.license", "guides/*.md"]
+catabolic = ["migrations/*.sql", "migrations/*.license", "interchange/releases/*.json", "interchange/releases/*.md", "interchange/releases/*.license", "guides/*.md", "http/releases/*/*.json", "http/releases/*/*.graphql", "http/releases/*/*.license"]
 
 [tool.ruff]
 target-version = "py311"

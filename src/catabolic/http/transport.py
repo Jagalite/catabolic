@@ -74,6 +74,7 @@ class BodyLimit:
                         "type": "about:blank",
                         "title": "body_too_large",
                         "status": 413,
+                        "retryable": False,
                         "code": "body_too_large",
                         "request_id": identifier,
                         "remediation": "Reduce the request body to at most 1 MiB.",

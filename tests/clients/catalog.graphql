@@ -1,0 +1,7 @@
+query Catalog($first: Int!) {
+  items(first: $first) {
+    nodes { id title }
+    pageInfo { hasNextPage endCursor }
+  }
+  files(first: $first) { nodes { id size mtimeNs } }
+}

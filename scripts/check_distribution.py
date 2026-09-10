@@ -48,7 +48,8 @@ def check_distribution(root, dist, ref="", require_tag=False):
     package_files = [
         p
         for p in sorted(package.rglob("*"))
-        if p.is_file() and p.suffix in {".py", ".sql", ".json", ".md", ".license"}
+        if p.is_file()
+        and p.suffix in {".py", ".sql", ".json", ".md", ".license", ".graphql"}
     ]
 
     def metadata(raw):
