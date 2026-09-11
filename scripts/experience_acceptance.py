@@ -509,6 +509,10 @@ class Journey:
             str(target.relative_to(self.root))
         )
         self.cli("maintenance", "--catalog", "originals")
+        # Inventory changes conservatively enqueue enabled catalog automation.
+        # Drain the independently maintained mobile projection before asserting
+        # that the whole fixture has no pending work.
+        self.cli("catalog-refresh", "run", "--force")
         self.checkpoint("late")
         self.maintenance("late_repeat1")
         self.maintenance("late_repeat2")

@@ -55,7 +55,7 @@ with Store(database,writable=True) as store:
  save_secret(store,root/'credential.json',issue(store,'website',[grant['grant_id']]))
  with store.transaction() as db:
   for location in ('A','B','C'): db.execute("INSERT INTO api_sources VALUES ('default',?)",(location,))
- (root/'state.json').write_text(json.dumps({'item':item,'policy':policy,'files':files}))
+ (root/'state.json').write_text(json.dumps({'item':item,'policy':policy,'files':files,'paths':{r['location']:r['path'] for r in store.rows('SELECT * FROM files')}}))
 """
 
 
@@ -199,8 +199,13 @@ def main():
             code, data = request(
                 decision["content_path"], headers={"Range": "bytes=0-7"}
             )
-            physical = next((root / logical).glob("*"))
-            assert code == 206 and data == physical.read_bytes()[:8]
+            physical = root / logical / state["paths"][logical]
+            assert code == 206 and data == physical.read_bytes()[:8], (
+                code,
+                decision,
+                str(physical),
+                data,
+            )
         links = [p for p in (root / "output").rglob("*") if p.is_symlink()]
         assert len(links) == 1
         if logical != "unresolved":

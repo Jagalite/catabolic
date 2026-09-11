@@ -16,6 +16,200 @@ class RecoveryTest(unittest.TestCase):
     setUp = fixtures.WatcherTest.setUp
     definition = fixtures.WatcherTest.definition
 
+    def test_tick_recovers_dead_lease_without_restart(self):
+        from catabolic.supervisor import tick
+
+        watchers = Watchers(self.app)
+        watchers.put("audit", self.definition())
+        with patch("catabolic.plans.evaluate", side_effect=SystemExit("crash")):
+            with self.assertRaises(SystemExit):
+                watchers.run("audit")
+        with self.store.transaction() as db:
+            db.execute("UPDATE watcher_runs SET worker_pid=2147483000")
+        with self.store.detached():
+            self.assertTrue(tick(self.database)["complete"])
+        self.assertIsNone(watchers.get("audit")["active_run"])
+        self.assertEqual(
+            {r["state"] for r in watchers.history("audit")}, {"interrupted", "complete"}
+        )
+
+    def test_live_pending_lease_is_not_reported_complete(self):
+        from catabolic.supervisor import tick
+
+        watchers = Watchers(self.app)
+        watchers.put("audit", self.definition())
+        with patch("catabolic.plans.evaluate", side_effect=SystemExit("pause")):
+            with self.assertRaises(SystemExit):
+                watchers.run("audit")
+        with self.store.detached():
+            result = tick(self.database)
+        self.assertFalse(result["complete"])
+        self.assertEqual(result["pending"], 1)
+        self.assertEqual(result["runs"], [])
+
+    def test_recovery_cannot_clear_replacement_run(self):
+        from catabolic.supervisor import recover_run
+
+        watchers = Watchers(self.app)
+        watchers.put("audit", self.definition())
+        with patch("catabolic.plans.evaluate", side_effect=SystemExit("pause")):
+            with self.assertRaises(SystemExit):
+                watchers.run("audit")
+        row = watchers.get("audit")
+        self.assertFalse(recover_run(self.app, "audit", "old-run", 2147483000))
+        self.assertEqual(watchers.get("audit")["active_run"], row["active_run"])
+
+    def test_parent_retries_real_writer_contention_and_preserves_hints(self):
+        from unittest.mock import MagicMock
+
+        from catabolic import supervisor
+        from catabolic.source_events import invalidate
+        from catabolic.store import Store
+
+        source = self.store.rows("SELECT id FROM locations")[0]["id"]
+        monitor = MagicMock()
+        monitor.drain.side_effect = [[source], [], []]
+        blocker = None
+        attempts = []
+
+        def drain():
+            nonlocal blocker
+            if not attempts:
+                blocker = Store(self.database, writable=True)
+                attempts.append("blocked")
+                invalidation.reset_mock()
+                return [source]
+            return []
+
+        def sleep(seconds):
+            nonlocal blocker
+            if blocker is not None:
+                blocker.close()
+                blocker = None
+            else:
+                raise SystemExit("finished")
+
+        monitor.drain.side_effect = drain
+        with (
+            self.store.detached(),
+            patch("catabolic.native_monitor.NativeMonitor", return_value=monitor),
+            patch("catabolic.supervisor.time.sleep", side_effect=sleep),
+            patch(
+                "catabolic.source_events.invalidate", wraps=invalidate
+            ) as invalidation,
+        ):
+            with self.assertRaisesRegex(SystemExit, "finished"):
+                supervisor.run(self.database, native=True)
+            self.assertTrue(
+                any(call.args[1] == source for call in invalidation.call_args_list)
+            )
+        monitor.close.assert_called_once()
+
+    def test_parent_retries_contention_inside_tick(self):
+        from catabolic import supervisor
+        from catabolic.store import Store
+
+        original = supervisor.tick
+        calls = []
+
+        def competing_tick(*args, **kwargs):
+            calls.append(1)
+            if len(calls) == 1:
+                with Store(self.database, writable=True):
+                    return original(*args, **kwargs)
+            return original(*args, **kwargs)
+
+        def sleep(seconds):
+            if len(calls) == 2:
+                raise SystemExit("finished")
+
+        with (
+            self.store.detached(),
+            patch("catabolic.supervisor.tick", side_effect=competing_tick),
+            patch("catabolic.supervisor.time.sleep", side_effect=sleep),
+        ):
+            with self.assertRaisesRegex(SystemExit, "finished"):
+                supervisor.run(self.database)
+        self.assertEqual(len(calls), 2)
+
+    def test_parent_does_not_swallow_unrelated_database_errors(self):
+        import sqlite3
+
+        from catabolic.supervisor import run
+
+        with (
+            self.store.detached(),
+            patch(
+                "catabolic.supervisor.tick",
+                side_effect=sqlite3.OperationalError("unrelated"),
+            ),
+        ):
+            with self.assertRaisesRegex(sqlite3.OperationalError, "unrelated"):
+                run(self.database)
+
+    def test_abrupt_child_and_timeout_are_reaped(self):
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        from catabolic import supervisor
+
+        watchers = Watchers(self.app)
+        watchers.put("audit", self.definition())
+        real_popen = subprocess.Popen
+        for fault in ("exit", "timeout"):
+            watchers.admit("audit")
+            marker = self.root / (fault + ".ready")
+            script = """
+import os,sys,time
+from pathlib import Path
+from unittest.mock import patch
+from catabolic.store import Store
+from catabolic.app import Application
+from catabolic.watchers import Watchers
+def fail(*args,**kwargs):
+ Path(sys.argv[2]).touch()
+ if sys.argv[3]=='exit': os._exit(17)
+ time.sleep(60)
+with Store(sys.argv[1],writable=True) as store:
+ with patch('catabolic.plans.evaluate',side_effect=fail):
+  Watchers(Application(store)).run('audit')
+"""
+
+            def launch(args, *, script=script, marker=marker, fault=fault, **kwargs):
+                child = real_popen(
+                    [
+                        sys.executable,
+                        "-c",
+                        script,
+                        str(self.database),
+                        str(marker),
+                        fault,
+                    ],
+                    **kwargs,
+                )
+                deadline = time.monotonic() + 10
+                while (
+                    not Path(marker).exists()
+                    and child.poll() is None
+                    and time.monotonic() < deadline
+                ):
+                    time.sleep(0.01)
+                self.assertTrue(marker.exists())
+                return child
+
+            with (
+                self.store.detached(),
+                patch("catabolic.supervisor.subprocess.Popen", side_effect=launch),
+                patch("catabolic.supervisor.CHILD_TIMEOUT_SECONDS", 0),
+            ):
+                result = supervisor.tick(self.database)
+            self.assertFalse(result["complete"])
+            row = watchers.get("audit")
+            self.assertIsNone(row["active_run"])
+            self.assertEqual(row["lease_until"], 0)
+            self.assertEqual(watchers.history("audit")[0]["state"], "interrupted")
+
     def test_dead_worker_and_scan_are_recovered(self):
         from catabolic.supervisor import recover
 
