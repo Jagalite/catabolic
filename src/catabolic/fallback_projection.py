@@ -183,6 +183,10 @@ class FallbackProjection:
                 "tiers": [],
                 "checks": 0,
             }
+        if policy.get("package"):
+            from .component_packages import projection_members
+
+            projection_members(self.store, self.profile, result)
         layout = Layouts(self.app).get(config["layout"])["definition"]
         associations = [
             {**r, "metadata": encode(r["metadata"])}
@@ -248,7 +252,14 @@ class FallbackProjection:
                 - {d["entry_id"] for d in desired}
             ),
         )
-        result["safe"] = all(d["state"].startswith("resolved") for d in desired)
+        result["safe"] = all(
+            d["state"].startswith("resolved")
+            and d["evidence"]
+            .get("component_package", {})
+            .get("packaging", {})
+            .get("ready", True)
+            for d in desired
+        )
         result["plan_id"] = hashlib.sha256(
             encode(
                 {k: v for k, v in result.items() if k not in ("health", "plan_id")}
@@ -376,6 +387,7 @@ class FallbackProjection:
                     or previous.get("revision") != selected["revision"]
                     or previous.get("policy_id") != plan["policy_id"]
                     or previous.get("tier") != selected["tier"]
+                    or json.loads(previous.get("evidence", "{}")) != stored_evidence
                     or not previous.get("active")
                 ):
                     db.execute(
@@ -464,17 +476,22 @@ class FallbackProjection:
                         )
                 for decision in plan["desired"]:
                     previous = old.get(decision["entry_id"], {})
-                    changed = any(
-                        previous.get(k) != decision.get(v)
-                        for k, v in (
-                            ("file_id", "file_id"),
-                            ("revision", "revision"),
-                            ("path", "path"),
-                            ("state", "state"),
-                            ("policy_id", "policy_id"),
-                            ("tier", "selected_tier"),
+                    changed = (
+                        any(
+                            previous.get(k) != decision.get(v)
+                            for k, v in (
+                                ("file_id", "file_id"),
+                                ("revision", "revision"),
+                                ("path", "path"),
+                                ("state", "state"),
+                                ("policy_id", "policy_id"),
+                                ("tier", "selected_tier"),
+                            )
                         )
-                    ) or not previous.get("active")
+                        or not previous.get("active")
+                        or json.loads(previous.get("evidence", "{}"))
+                        != decision["evidence"]
+                    )
                     if (
                         changed
                         or not previous.get("published_generation")

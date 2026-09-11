@@ -43,6 +43,19 @@ class Budgets(Model):
     probe_timeout_ms: int = Field(default=1000, ge=10, le=10000)
 
 
+class ComponentRequirement(Model):
+    name: str = Field(min_length=1, max_length=128)
+    fallbacks: list[Tier] = Field(min_length=1, max_length=32)
+    required: bool = True
+
+
+class ComponentPackage(Model):
+    requirements: list[ComponentRequirement] = Field(min_length=1, max_length=16)
+    publication: Literal["container", "sidecars", "selected_only"] = "container"
+    operation_id: str | None = None
+    supported_codecs: list[str] | None = Field(default=None, max_length=64)
+
+
 class Policy(Model):
     version: Literal[1] = 1
     slot_roles: list[str] = Field(
@@ -56,6 +69,7 @@ class Policy(Model):
     failback: Failback = Field(default_factory=Failback)
     on_unavailable: Literal["retain"] = "retain"
     budgets: Budgets = Field(default_factory=Budgets)
+    package: ComponentPackage | None = None
 
 
 class LogicalEntry(Model):

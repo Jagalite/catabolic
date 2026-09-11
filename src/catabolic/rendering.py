@@ -14,11 +14,12 @@ from .process_runner import command_output
 from .processing import tool_signature
 from .store import encode
 
-FORMATS = "mov,matroska,webm,wav,flac,mp3,ogg,aac,ac3,eac3,aiff,ape,asf,avi,mpeg,mpegts,png_pipe,jpeg_pipe,webp_pipe,gif,bmp_pipe,tiff_pipe"
+FORMATS = "mov,matroska,webm,wav,flac,mp3,ogg,aac,ac3,eac3,aiff,ape,asf,avi,mpeg,mpegts,png_pipe,jpeg_pipe,webp_pipe,gif,bmp_pipe,tiff_pipe,srt,webvtt,ass"
 PRESETS = {
     "thumbnail": ("png", "image2", "thumbnail", "video", "png"),
     "preview": ("mp4", "mp4", "extra", "video", "libx264"),
     "remux-mkv": ("mkv", "matroska", "primary", None, None),
+    "component-mux": ("mkv", "matroska", "primary", None, None),
     "audio-flac": ("flac", "flac", "custom:audio", "audio", "flac"),
     "audio-aac": ("m4a", "mp4", "custom:audio", "audio", "aac"),
     "subtitle-srt": ("srt", "srt", "subtitle", "subtitle", "srt"),

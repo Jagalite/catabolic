@@ -11,6 +11,12 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "components",
+        "COMPONENTS.md",
+        "Unified media components",
+        "Revision-pinned tracks, compatibility, shared package selection and explicit artifact processing.",
+    ),
+    (
         "watchers",
         "WATCHERS.md",
         "Named query watchers",

@@ -128,7 +128,16 @@ class Curation:
         )
         if len(associations) > 1000:
             raise CatabolicError("proposal association snapshot exceeds 1000 records")
+        component = None
+        if "component" in payload:
+            from .component_claims import validate
+
+            _, row, pins = validate(
+                self.store, self.profile, file_id, target, payload["component"]
+            )
+            component = {"occurrence": row, "pins": pins}
         return {
+            **({"component": component} if component is not None else {}),
             "file": occurrence(self.store, self.profile, file_id),
             "associations": associations,
             "item": self.store.rows("SELECT * FROM items WHERE id=?", (target,)),
@@ -148,12 +157,17 @@ class Curation:
             "part",
             "metadata",
             "overwrite_fields",
+            "component",
         }:
             raise CatabolicError(
                 "proposal supports item or item_id, role, part, metadata, overwrite_fields"
             )
         if ("item" in payload) == ("item_id" in payload):
             raise CatabolicError("supply exactly one item or item_id")
+        if "component" in payload and set(payload) != {"item_id", "component"}:
+            raise CatabolicError(
+                "component assertions require item_id and cannot mutate associations"
+            )
         vocabulary(payload.get("role", "primary"), ROLES, "file role")
         if "metadata" in payload:
             payload_object(payload["metadata"])
@@ -268,16 +282,21 @@ class Curation:
                     result["preserved_fields"] = preserved
                 else:
                     item_id = payload["item_id"]
-                association = self.app.media.associate_in_transaction(
-                    db,
-                    proposal["file_id"],
-                    item_id,
-                    role=payload.get("role", "primary"),
-                    part=payload.get("part"),
-                    metadata=payload.get("metadata"),
-                    origin="explicit",
-                )
-                result.update(item_id=item_id, association_id=association)
+                if "component" in payload:
+                    from .component_claims import accept as accept_component
+
+                    result.update(accept_component(self.store, self.profile, proposal))
+                else:
+                    association = self.app.media.associate_in_transaction(
+                        db,
+                        proposal["file_id"],
+                        item_id,
+                        role=payload.get("role", "primary"),
+                        part=payload.get("part"),
+                        metadata=payload.get("metadata"),
+                        origin="explicit",
+                    )
+                    result.update(item_id=item_id, association_id=association)
             db.execute(
                 "UPDATE proposals SET state=?,result=? WHERE id=?",
                 (desired, encode(result), identifier),

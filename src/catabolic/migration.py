@@ -21,7 +21,7 @@ from uuid import UUID, uuid4
 from .database_io import connect_database, database_path, writer_lock
 from .domain import CatabolicError
 
-SCHEMA_VERSION = 24
+SCHEMA_VERSION = 25
 HISTORY_TABLE = "schema_migrations"
 
 
@@ -165,6 +165,10 @@ def execute_migration(db: sqlite3.Connection, step: Migration):
         if query_upgrade:
             db.create_function("catabolic_query_v1", 2, None)
             db.create_function("catabolic_sha256_v1", 1, None)
+    if step.version == 25:
+        from .components import backfill
+
+        backfill(db)
     if rebuild:
         # SQLite retains deferred DROP TABLE violations even when a replacement
         # restores every referenced row. Check the final graph before clearing

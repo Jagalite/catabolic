@@ -72,6 +72,9 @@ def connect_database(path: Path, *, writable: bool = False) -> sqlite3.Connectio
         path.as_uri() + f"?mode={mode}", uri=True, isolation_level=None
     )
     try:
+        from .component_sql import install
+
+        install(db)
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys=ON")
         db.execute("PRAGMA busy_timeout=5000")

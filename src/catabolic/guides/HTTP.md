@@ -446,3 +446,8 @@ An approved `fallback_policy_id` on the logical item resolver selects an existin
 usable candidate from ordered saved queries. The new logical rendition-request
 endpoint resolves before pinning a job. Content URLs and tickets remain exact.
 See [fallback configuration, permissions and release acceptance](FALLBACK.md).
+
+The [component model](COMPONENTS.md) adds scoped `components` and
+`componentOccurrences` GraphQL queries in contract 1.3.0. Component metadata grants
+do not grant bytes from their parent containers; packaging remains an explicit
+local operation and exact file/revision endpoints retain their existing meaning.

@@ -55,6 +55,9 @@ including implemented operation types, compatibility and validation limits.
   try saved candidate queries in order: originals, backup occurrences, then existing
   renditions. Logical membership survives outages, and an explicitly enabled worker
   performs recoverable symlink switches with stable failback.
+- **Select audio and subtitles consistently.** [Media components](docs/COMPONENTS.md)
+  make embedded streams and external files queryable together, with explicit
+  compatibility and separate extraction/mux operations.
 - **Coordinate network processing.** Submit work through a versioned HTTP receipt
   adapter, with durable jobs and worker leases. Estimates learn from successful
   local renders, and paged rules can select up to 100,000 IDs. See

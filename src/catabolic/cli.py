@@ -112,6 +112,9 @@ def parser() -> argparse.ArgumentParser:
     from .fallback_cli import register as register_fallback
 
     register_fallback(commands)
+    from .component_cli import register as register_components
+
+    register_components(commands)
     from .rule_cli import register as register_rules
 
     register_rules(commands)
@@ -795,6 +798,10 @@ def dispatch(args: argparse.Namespace) -> dict:
             max_rows=args.max_rows,
             timeout_ms=args.timeout_ms,
         )
+    if args.command == "component":
+        from .component_cli import run as component
+
+        return component(args)
     if args.command == "fallback":
         from .fallback_cli import run as fallback
 

@@ -106,6 +106,33 @@ class Catalog:
             "CREATE TEMP VIEW mappings AS SELECT id,catalog,file_id,item_id,path,active FROM (SELECT m.* FROM main.mappings m WHERE NOT EXISTS (SELECT 1 FROM main.fallback_bindings b WHERE b.catalog=m.catalog AND b.profile IN (SELECT id FROM api_profile)) UNION ALL SELECT id,catalog,file_id,item_id,path,active FROM main.fallback_entries WHERE profile IN (SELECT id FROM api_profile) AND path IS NOT NULL) WHERE catalog IN (SELECT id FROM api_visible_catalogs) AND item_id IN (SELECT id FROM api_visible_items) AND file_id IN (SELECT id FROM api_visible_files)"
         )
 
+        from ..component_sql import OCCURRENCES_SQL
+
+        ids = {
+            i for g in a.matching("component:read") for i in g.get("occurrence_ids", [])
+        }
+        if len(ids) > 100000:
+            raise AccessError("authorization_scope_too_large", 422)
+        db.execute("CREATE TEMP TABLE api_visible_components(id TEXT PRIMARY KEY)")
+        db.executemany(
+            "INSERT INTO api_visible_components VALUES (?)", [(i,) for i in ids]
+        )
+        db.execute("DROP VIEW catalog_component_occurrences")
+        db.execute(
+            "CREATE TEMP VIEW catalog_component_occurrences AS SELECT c.* FROM ("
+            + OCCURRENCES_SQL
+            + ") c WHERE c.profile IN (SELECT id FROM api_profile) AND "
+            + (
+                "1"
+                if operator
+                else "c.occurrence_id IN (SELECT id FROM api_visible_components)"
+            )
+        )
+        db.execute("DROP VIEW catalog_components")
+        db.execute(
+            "CREATE TEMP VIEW catalog_components AS SELECT component_id,kind,profile,json_group_array(DISTINCT item_id) AS item_ids FROM catalog_component_occurrences GROUP BY component_id,kind,profile"
+        )
+
     def cursor(self, scope, after):
         body = encode([self.access.fingerprint, scope, after]).encode()
         signature = hmac.new(

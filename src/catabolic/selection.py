@@ -37,7 +37,8 @@ def graphql_contract(query):
     if (
         len(roots) != 1
         or not isinstance(roots[0], FieldNode)
-        or roots[0].name.value not in ("items", "files", "associations")
+        or roots[0].name.value
+        not in ("items", "files", "associations", "components", "componentOccurrences")
     ):
         raise CatabolicError(
             "GraphQL selection must query one items, files, or associations collection"
@@ -74,9 +75,13 @@ def graphql_contract(query):
     fields = children(root, ("nodes", "pageInfo"))
     children(fields["nodes"], ("id",))
     children(fields["pageInfo"], ("hasNextPage", "endCursor"))
-    entity = {"items": "item_id", "files": "file_id", "associations": "association_id"}[
-        root.name.value
-    ]
+    entity = {
+        "items": "item_id",
+        "files": "file_id",
+        "associations": "association_id",
+        "components": "component_id",
+        "componentOccurrences": "occurrence_id",
+    }[root.name.value]
     return entity, root.alias.value if root.alias else root.name.value
 
 
@@ -198,6 +203,8 @@ def select_ids(store, selection, *, _http=False, access=None):
             )
         if len(result["columns"]) != 1 or result["columns"][0] not in (
             "association_id",
+            "component_id",
+            "occurrence_id",
             "item_id",
             "file_id",
         ):
@@ -336,6 +343,8 @@ def paged_sql_ids(store, selection, *, _http=False):
             "file_id",
             "item_id",
             "association_id",
+            "component_id",
+            "occurrence_id",
         ):
             raise CatabolicError(
                 "selection SQL must return exactly one column: association_id, item_id, or file_id"
@@ -374,6 +383,10 @@ def paged_sql_ids(store, selection, *, _http=False):
 
 def selected_associations(store, selection, *, admitted=()):
     entity, identifiers, report = select_ids(store, selection)
+    if entity in ("component_id", "occurrence_id"):
+        raise CatabolicError(
+            "component selections require package resolution; they are not file associations"
+        )
     table = {"item_id": "items", "file_id": "files", "association_id": "item_files"}[
         entity
     ]

@@ -257,7 +257,7 @@ def process(job, cancel):
                         "-protocol_whitelist",
                         "file,pipe",
                         "-format_whitelist",
-                        "mov,matroska,webm,wav,flac,mp3,ogg,aac,ac3,eac3,aiff,ape,asf,avi,mpeg,mpegts,png_pipe,jpeg_pipe,webp_pipe,gif,bmp_pipe,tiff_pipe",
+                        "mov,matroska,webm,wav,flac,mp3,ogg,aac,ac3,eac3,aiff,ape,asf,avi,mpeg,mpegts,png_pipe,jpeg_pipe,webp_pipe,gif,bmp_pipe,tiff_pipe,srt,webvtt,ass",
                         "-max_alloc",
                         "33554432",
                         "-threads",
@@ -738,6 +738,14 @@ class Processing:
                 "UPDATE processing_jobs SET state=?,result=?,error=?,finished_at=CURRENT_TIMESTAMP WHERE id=?",
                 (state, encode(data), error, job["id"]),
             )
+            if (
+                state == "complete"
+                and job["operation"] == "probe"
+                and self.store.schema_version >= 25
+            ):
+                from .components import index_file
+
+                index_file(self.store, self.profile, job["file_id"])
             attempt = db.execute(
                 "SELECT attempts FROM processing_jobs WHERE id=?", (job["id"],)
             ).fetchone()[0]

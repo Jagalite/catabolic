@@ -91,6 +91,13 @@ def describe(app, reference):
                 "fallbacks"
             ]
         )
+        package = (
+            Policies(app.store, app.profile).get(policy)["definition"].get("package")
+        )
+        if package:
+            pending.extend(
+                t["query_id"] for r in package["requirements"] for t in r["fallbacks"]
+            )
     while pending:
         ref = pending.pop()
         if ref in queries:
@@ -176,10 +183,33 @@ def evaluate(app, reference, *, session=None, previous=None, context_name=""):
     query = Queries(app.store, app.profile).get(plan.query_id)["definition"]
     if query["mode"] == "selection":
         entity, ids, report = session.select(plan.query_id)
+        component_evidence = None
+        if entity in ("component_id", "occurrence_id"):
+            from .component_sql import OCCURRENCES_SQL
+
+            component_evidence = session.rows(
+                "SELECT * FROM ("
+                + OCCURRENCES_SQL
+                + ") WHERE profile=? AND "
+                + entity
+                + " IN (SELECT value FROM json_each(?)) ORDER BY occurrence_id LIMIT 100001",
+                (app.profile, encode(sorted(ids))),
+            )
+            if len(component_evidence) > 100000:
+                raise CatabolicError("component_selection_expansion_budget")
+            session.account(component_evidence)
         return {
             "kind": "selection",
             "complete": True,
-            "value": {"entity": entity, "ids": sorted(ids)},
+            "value": {
+                "entity": entity,
+                "ids": sorted(ids),
+                **(
+                    {"component_evidence": component_evidence}
+                    if component_evidence is not None
+                    else {}
+                ),
+            },
             "description": description,
         }
     if session.access is not None:
@@ -259,6 +289,9 @@ def semantic(result):
                     "accepted_source_revision",
                     "output_digest",
                     "layout_digest",
+                    "component_package",
+                    "component_package_signature",
+                    "occurrence_id",
                 )
             }
     return {"kind": kind, "value": value}

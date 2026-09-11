@@ -12,7 +12,7 @@ from .curation import bounded_rows, page_limit
 from .domain import CatabolicError, name
 from .store import encode
 
-ENTITIES = ("item_id", "file_id", "association_id")
+ENTITIES = ("item_id", "file_id", "association_id", "component_id", "occurrence_id")
 
 
 class Queries:
@@ -74,7 +74,7 @@ class Queries:
             )
         if value.get("entity") not in (None, *ENTITIES):
             raise CatabolicError(
-                "query selection entity must be item_id, file_id or association_id"
+                "query selection entity must be item_id, file_id, association_id, component_id or occurrence_id"
             )
         inline = value.get("selection")
         if isinstance(inline, dict):

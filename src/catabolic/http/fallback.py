@@ -83,6 +83,17 @@ def logical_resolve(access, item_id, body, operation_id=None):
     # Do not expose query membership, private file IDs or rejected candidates.
     decision = result["decisions"][0]
     decision["reasons"] = [] if decision["file_id"] else ["no_eligible_content"]
+    package = decision["evidence"].get("component_package")
+    if package:
+        package.pop("queries", None)
+        for entry in package["components"]:
+            row = entry["occurrence"]
+            if not current.component(row["occurrence_id"]):
+                raise AccessError("not_found", 404)
+            for key in ("snapshot", "technical", "provenance", "asserted"):
+                row.pop(key, None)
+        for dependency in package["dependencies"]:
+            dependency.pop("snapshot", None)
     return decision
 
 
@@ -154,6 +165,10 @@ def install_routes(app, session, mutation):
             policy = require_policy(
                 access, body.fallback_policy_id, "processing:request"
             )
+            if policy["definition"].get("package"):
+                raise AccessError(
+                    "component_packaging_requires_explicit_local_admission", 409
+                )
             logical_body = encode(body.model_dump())
             old = access.store.rows(
                 "SELECT * FROM api_logical_demands WHERE principal=? AND idempotency_key=?",

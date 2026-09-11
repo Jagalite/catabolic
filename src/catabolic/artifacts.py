@@ -190,6 +190,7 @@ class Artifacts:
         _capabilities=None,
         _full_cache_check=True,
         _source_lineage_mode=None,
+        _component_package=None,
     ):
         self.app.require_recovered()
         # Ordinary originals and strict requests retain the existing cache identity.
@@ -241,6 +242,15 @@ class Artifacts:
             "item_id": item_id,
             "output_definition": output,
         }
+        if _component_package is not None:
+            from .component_packaging import validate
+
+            validate(self.store, self.profile, _component_package, recipe)
+            options["component_package"] = _component_package
+        if recipe["preset"] == "component-mux" and _component_package is None:
+            raise CatabolicError(
+                "component-mux requires an explicitly selected package"
+            )
         if _source_lineage_mode:
             options["source_lineage_mode"] = _source_lineage_mode
         key = hashlib.sha256(
@@ -283,6 +293,14 @@ class Artifacts:
                     recipe_id,
                 ),
             )
+            if _component_package is not None:
+                db.executemany(
+                    "INSERT INTO component_job_inputs VALUES (?,?,?,?)",
+                    [
+                        (identifier, n, e["occurrence"]["occurrence_id"], encode(e))
+                        for n, e in enumerate(_component_package["components"])
+                    ],
+                )
         return {"job_id": identifier, "reused": False}
 
     def _check_fd(self, artifact, root, leaf):
@@ -381,6 +399,10 @@ class Artifacts:
             "SELECT * FROM processing_jobs WHERE id=?", (artifact["job_id"],)
         )[0]
         options = json.loads(job["options"])
+        if options.get("component_package"):
+            from .component_packaging import validate
+
+            validate(self.store, self.profile, options["component_package"], live=True)
         output = options.get("output_definition") or self.default_output(
             options["recipe"]["preset"]
         )
@@ -470,7 +492,12 @@ class Artifacts:
                     identifier,
                     "probe",
                     artifact["job_id"],
-                    encode(snapshot),
+                    encode(
+                        {
+                            **occurrence(self.store, self.profile, identifier),
+                            "ctime_ns": st.st_ctime_ns,
+                        }
+                    ),
                     encode(artifact["validation"]["output"]),
                     "complete",
                 ),
@@ -487,6 +514,18 @@ class Artifacts:
                     "validation": artifact["validation"],
                 },
             )
+            if self.store.schema_version >= 25:
+                from .component_packaging import record_lineage
+                from .components import index_file
+
+                index_file(self.store, self.profile, identifier)
+                if options.get("component_package"):
+                    record_lineage(
+                        self.app,
+                        artifact,
+                        artifact["validation"],
+                        options["component_package"],
+                    )
             if self.store.schema_version >= 14:
                 from .catalog_refresh import enqueue
 
@@ -628,6 +667,10 @@ class Artifacts:
         artifact = self.get(identifier)
         claim = execution_claims.claim(self.store, job["id"])
         try:
+            if options.get("component_package"):
+                from .component_packaging import validate
+
+                validate(self.store, self.profile, options["component_package"])
             if options.get("output_definition"):
                 Outputs(self.app).validate_source_item(
                     job["file_id"],
@@ -674,9 +717,21 @@ class Artifacts:
 
                     poll()
                     with execution_claims.detached(self.store, [claim]):
-                        validation = rendering.render(
-                            input_fd, output_fd, recipe, options["tools"], poll
-                        )
+                        if options.get("component_package"):
+                            from .component_packaging import render_selected
+
+                            validation = render_selected(
+                                input_fd,
+                                output_fd,
+                                recipe,
+                                options["tools"],
+                                poll,
+                                options["component_package"],
+                            )
+                        else:
+                            validation = rendering.render(
+                                input_fd, output_fd, recipe, options["tools"], poll
+                            )
                         checksum = rendering.digest(output_fd)
                         size = os.fstat(output_fd).st_size
                     with self.store.transaction() as db:

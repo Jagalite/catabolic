@@ -39,6 +39,16 @@ type EntryWorkflow { profile: String! status: EntryStatus! requestedStatus: Entr
 enum ItemSort { ID TITLE YEAR }
 enum FileSort { ID PATH SIZE MTIME }
 enum MappingSort { ID PATH CATALOG }
+type Component { id: ID! kind: String! itemIds: [ID!]! }
+type ComponentOccurrence {
+ id: ID! componentId: ID! itemId: ID! fileId: ID! kind: String! role: String!
+ language: String title: String codec: String defaultFlag: Boolean forced: Boolean commentary: Boolean
+ hearingImpaired: Boolean visualImpaired: Boolean storage: String! locator: JSON! revision: String!
+ current: Boolean! technicallyVerified: Boolean! observed: JSON! asserted: JSON! technical: JSON!
+ compatibility: JSON dependencies: JSON! dependenciesComplete: Boolean provenance: JSON! conflicts: JSON!
+}
+type ComponentPage { nodes: [Component!]! pageInfo: PageInfo! }
+type ComponentOccurrencePage { nodes: [ComponentOccurrence!]! pageInfo: PageInfo! }
 type PageInfo { endCursor: String hasNextPage: Boolean! }
 type Identity { namespace: String! value: String! }
 type Tag { id: ID! name: String! description: String! aliases: [String!]! parentIds: [ID!]! }
@@ -112,6 +122,8 @@ type Query {
   jobs(state: String, file: ID, first: Int! = 100, after: String): EvidencePage
   proposals(state: String, file: ID, first: Int! = 100, after: String): EvidencePage
   contentSearch(text: String!, first: Int! = 100, after: Int! = 0): JSON!
+  components(item: ID, kind: String, first: Int! = 100, after: String): ComponentPage
+  componentOccurrences(item: ID, file: ID, component: ID, kind: String, language: String, forced: Boolean, commentary: Boolean, current: Boolean, technicallyVerified: Boolean, first: Int! = 100, after: String): ComponentOccurrencePage
   profile: String! schemaVersion: Int! mediaTypes: JSON!
   tags(search: String, namespace: String, parent: String, child: String, first: Int! = 100, after: String): TagPage
   taggings(tag: String, item: ID, file: ID, source: String, active: Active = ACTIVE, first: Int! = 100, after: String): TaggingPage
@@ -275,7 +287,81 @@ class QueryContext:
             raise CatabolicError("first must be between 1 and 1000")
         key = (field, encode(args))
         if key not in self.cache:
-            if field in ("savedQueries", "operations", "projections"):
+            if field in ("components", "componentOccurrences"):
+                from .component_sql import COMPONENTS_SQL, OCCURRENCES_SQL, language
+
+                column = "component_id" if field == "components" else "occurrence_id"
+                sql = COMPONENTS_SQL if field == "components" else OCCURRENCES_SQL
+                if hasattr(self, "access"):
+                    sql = "SELECT * FROM " + (
+                        "catalog_components"
+                        if field == "components"
+                        else "catalog_component_occurrences"
+                    )
+                conditions, values = ["c.profile=?"], [self.profile]
+                for argument, name in {
+                    "item": "item_id",
+                    "file": "file_id",
+                    "component": "component_id",
+                    "kind": "kind",
+                    "language": "language",
+                    "forced": "forced",
+                    "commentary": "commentary",
+                    "current": "current",
+                    "technically_verified": "technically_verified",
+                }.items():
+                    if args.get(argument) is not None:
+                        conditions.append(
+                            "EXISTS (SELECT 1 FROM json_each(c.item_ids) WHERE value=?)"
+                            if field == "components" and argument == "item"
+                            else "c." + name + "=?"
+                        )
+                        values.append(
+                            language(args[argument])
+                            if argument == "language"
+                            else args[argument]
+                        )
+                result = self.queries._page(
+                    field,
+                    "c.*,c." + column + " AS id",
+                    "(" + sql + ") c",
+                    conditions,
+                    values,
+                    {"id": "c." + column},
+                    "id",
+                    False,
+                    limit,
+                    args["cursor"],
+                    [{k: v for k, v in args.items() if k not in ("limit", "cursor")}],
+                )
+                for row in result[field]:
+                    for name in (
+                        "item_ids",
+                        "locator",
+                        "observed",
+                        "asserted",
+                        "technical",
+                        "compatibility",
+                        "dependencies",
+                        "provenance",
+                        "conflicts",
+                    ):
+                        if name in row and row[name] is not None:
+                            row[name] = json.loads(row[name])
+                    for name in (
+                        "current",
+                        "technically_verified",
+                        "dependencies_complete",
+                        "forced",
+                        "default_flag",
+                        "commentary",
+                        "hearing_impaired",
+                        "visual_impaired",
+                    ):
+                        if name in row and row[name] is not None:
+                            row[name] = bool(row[name])
+                self.charge(result)
+            elif field in ("savedQueries", "operations", "projections"):
                 table = {
                     "savedQueries": "saved_queries",
                     "operations": "processing_recipes",

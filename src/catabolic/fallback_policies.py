@@ -46,7 +46,27 @@ class Policies:
                     "preference requires a supported field and one of order or values"
                 )
         queries = Queries(self.store, self.profile)
-        for tier in value["fallbacks"]:
+        component_tiers = [
+            t
+            for r in (value.get("package") or {}).get("requirements", [])
+            for t in r["fallbacks"]
+        ]
+        if value.get("package"):
+            if value["slot_roles"] != ["primary"]:
+                raise CatabolicError(
+                    "package policies use primary slots; components are selected by their requirement queries"
+                )
+            names = [r["name"] for r in value["package"]["requirements"]]
+            if len(set(names)) != len(names) or "video" in names:
+                raise CatabolicError(
+                    "component requirement names must be unique and not video"
+                )
+            operation = value["package"].get("operation_id")
+            if operation and not self.store.rows(
+                "SELECT 1 FROM processing_recipes WHERE id=?", (operation,)
+            ):
+                raise CatabolicError("unknown approved packaging operation")
+        for tier in value["fallbacks"] + component_tiers:
             if queries.get(tier["query_id"])["definition"]["mode"] != "selection":
                 raise CatabolicError("fallback tiers require complete typed selections")
         serialized = encode(value)
@@ -73,7 +93,9 @@ class Policies:
                 "INSERT INTO fallback_dependencies VALUES (?,?)",
                 [
                     (identifier, q)
-                    for q in sorted({t["query_id"] for t in value["fallbacks"]})
+                    for q in sorted(
+                        {t["query_id"] for t in value["fallbacks"] + component_tiers}
+                    )
                 ],
             )
         return self.get(identifier)

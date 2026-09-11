@@ -75,6 +75,10 @@ class MediaCatalog:
             part=excluded.part,metadata=excluded.metadata,origin=excluded.origin,active=1""",
             (identifier, file_id, item_id, role, part, payload, origin),
         )
+        if self.store.schema_version >= 25:
+            from .components import index_file
+
+            index_file(self.store, self.app.profile, file_id)
         return identifier
 
     def associate(

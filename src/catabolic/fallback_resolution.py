@@ -8,6 +8,7 @@ import json
 import time
 from uuid import UUID, uuid5
 
+from .component_packages import PackageBlocked
 from .content_access import authorize, revision_of
 from .copy_selection import rank_candidate
 from .curation import bounded_rows, occurrence
@@ -75,6 +76,7 @@ class Resolver:
                 self.store,
                 self.profile,
                 http=self.access is not None,
+                access=self.access if policy.get("package") else None,
                 timeout_ms=limits["query_timeout_ms"],
                 max_ids=limits["max_candidates"],
             )
@@ -102,6 +104,34 @@ class Resolver:
                 if not report["complete"]:
                     raise CatabolicError("incomplete_candidate_query")
                 tiers[index].update(state="complete", selected_ids=len(identifiers))
+                component_selection = None
+                if entity in ("component_id", "occurrence_id"):
+                    if not policy.get("package"):
+                        raise CatabolicError(
+                            "component candidates require a package policy"
+                        )
+                    from .component_sql import OCCURRENCES_SQL
+
+                    component_rows = self.session.rows(
+                        "SELECT occurrence_id,association_id FROM ("
+                        + OCCURRENCES_SQL
+                        + ") WHERE profile=? AND kind='video' AND current=1 AND "
+                        + entity
+                        + " IN (SELECT value FROM json_each(?)) LIMIT ?",
+                        (
+                            self.profile,
+                            encode(sorted(identifiers)),
+                            limits["max_candidates"] + 1,
+                        ),
+                    )
+                    if len(component_rows) > limits["max_candidates"]:
+                        raise CatabolicError("resolution_candidate_budget")
+                    component_selection = {}
+                    for c in component_rows:
+                        component_selection.setdefault(c["association_id"], []).append(
+                            c["occurrence_id"]
+                        )
+                    entity, identifiers = "association_id", set(component_selection)
                 rows, truncated = bounded_rows(
                     self.store,
                     "SELECT a.*,f.path,f.location FROM item_files a JOIN files f ON f.id=a.file_id WHERE (a.active=1 OR EXISTS (SELECT 1 FROM media_outputs mo JOIN output_definitions od ON od.id=mo.definition_id WHERE mo.file_id=a.file_id AND mo.item_id=a.item_id AND mo.profile=? AND a.role=json_extract(od.definition,'$.role'))) AND a.item_id IN (SELECT value FROM json_each(?)) AND "
@@ -121,6 +151,12 @@ class Resolver:
                 )
                 if truncated:
                     raise CatabolicError("resolution_candidate_budget")
+                if component_selection is not None:
+                    expanded = []
+                    for r in rows:
+                        for identifier in component_selection[r["id"]]:
+                            expanded.append({**r, "video_occurrence_id": identifier})
+                    rows = expanded
                 candidate_count += len(rows)
                 if candidate_count > limits["max_candidates"]:
                     raise CatabolicError("resolution_candidate_budget")
@@ -149,14 +185,27 @@ class Resolver:
                 )
                 candidates = {}
                 for row in indexed.get(signature, []):
-                    if row["file_id"] in candidates:
+                    candidate_key = (row["file_id"], row.get("video_occurrence_id"))
+                    if candidate_key in candidates:
                         continue
                     try:
                         captured = self.capture(row, policy, catalog)
                         if captured is not None:
-                            candidates[row["file_id"]] = captured
+                            candidates[candidate_key] = captured
+                    except PackageBlocked as exc:
+                        decision.update(
+                            state="blocked",
+                            reasons=[
+                                str(exc)
+                                if not self.access
+                                else "component_package_blocked"
+                            ],
+                        )
+                        break
                     except CatabolicError:
                         decision["reasons"].append("candidate_evidence_unavailable")
+                if decision["state"] == "blocked":
+                    continue
                 ranked = sorted(
                     candidates.values(), key=lambda c: (c["rank"], c["file_id"])
                 )
@@ -164,7 +213,7 @@ class Resolver:
                 for candidate in ranked:
                     if usable and candidate["rank"] != usable[0]["rank"]:
                         break
-                    key = candidate["revision"]
+                    key = encode(candidate["checks"])
                     location = candidate["location"]
                     if key not in checks:
                         if checked >= check_limit:
@@ -189,10 +238,19 @@ class Resolver:
                             suppressed.add(location)
                     if checks.get(key):
                         usable.append(candidate)
-                        if policy["within_tier"].get("tie_break") == "file_id":
+                        if policy["within_tier"].get(
+                            "tie_break"
+                        ) == "file_id" and not policy.get("package"):
                             break
                 if decision["state"] == "blocked":
                     continue
+                if (
+                    policy.get("package")
+                    and policy["within_tier"].get("tie_break") == "file_id"
+                    and usable
+                ):
+                    first_file = min(c["file_id"] for c in usable)
+                    usable = [c for c in usable if c["file_id"] == first_file]
                 if len(usable) > 1:
                     decision.update(state="blocked", reasons=["ambiguous_tier"])
                     continue
@@ -221,10 +279,33 @@ class Resolver:
                         old_entity, old_ids, old_report = queries.select(
                             old_tier["query_id"], session=self.session
                         )
+                        prior_evidence = prior.get("evidence", {})
+                        if isinstance(prior_evidence, str):
+                            prior_evidence = json.loads(prior_evidence)
+                        old_package = prior_evidence.get("component_package", {})
+                        old_file = old_package.get("video", {}).get(
+                            "file_id", prior["file_id"]
+                        )
+                        old_video = old_package.get("video", {}).get("occurrence_id")
+                        if old_entity in ("component_id", "occurrence_id"):
+                            from .component_sql import OCCURRENCES_SQL
+
+                            matches = self.store.rows(
+                                "SELECT association_id FROM ("
+                                + OCCURRENCES_SQL
+                                + ") WHERE profile=? AND occurrence_id=? AND "
+                                + old_entity
+                                + " IN (SELECT value FROM json_each(?)) AND current=1",
+                                (self.profile, old_video, encode(sorted(old_ids))),
+                            )
+                            old_entity, old_ids = (
+                                "association_id",
+                                {r["association_id"] for r in matches},
+                            )
                         old_rows = self.store.rows(
                             "SELECT a.*,f.path,f.location FROM item_files a JOIN files f ON f.id=a.file_id WHERE a.file_id=? AND a.item_id=? AND a.role=? AND a.part IS ?",
                             (
-                                prior["file_id"],
+                                old_file,
                                 decision["item_id"],
                                 decision["role"],
                                 decision["part"],
@@ -254,7 +335,20 @@ class Resolver:
                         )
                         try:
                             old_capture = (
-                                self.capture(old, policy, catalog) if old else None
+                                self.capture(
+                                    {
+                                        **old,
+                                        **(
+                                            {"video_occurrence_id": old_video}
+                                            if old_video
+                                            else {}
+                                        ),
+                                    },
+                                    policy,
+                                    catalog,
+                                )
+                                if old
+                                else None
                             )
                         except CatabolicError:
                             old_capture = None
@@ -323,6 +417,9 @@ class Resolver:
                     content_path=f"/v1/files/{chosen['file_id']}/content?revision={chosen['revision']}",
                     evidence=chosen["evidence"],
                 )
+                package = chosen["evidence"].get("component_package")
+                if package and not package["packaging"]["ready"]:
+                    decision["content_path"] = None
                 captures[decision["entry_id"]] = chosen
         for decision in decisions.values():
             if decision["state"] == "unresolved":
@@ -348,6 +445,21 @@ class Resolver:
                         content_path=None,
                         reasons=["multipart_coverage_ambiguous"],
                     )
+        if policy.get("package"):
+            for decision in decisions.values():
+                if not decision["state"].startswith("resolved"):
+                    package = decision["evidence"].setdefault(
+                        "component_package",
+                        {"version": 1, "components": [], "dependencies": []},
+                    )
+                    package["packaging"] = {
+                        "action": "block",
+                        "ready": False,
+                        "reason": decision["reasons"][-1]
+                        if decision["reasons"]
+                        else "no_coherent_component_package",
+                        "exposes_unselected_components": False,
+                    }
         require_epoch(self.store, captured_epoch)
         self.total_checks += checked
         result = {
@@ -464,7 +576,7 @@ class Resolver:
                         "size": str(checks[0]["size"]),
                     }
                     break
-        return {
+        captured = {
             **row,
             "metadata": metadata,
             "revision": revision,
@@ -473,3 +585,12 @@ class Resolver:
             "evidence": evidence,
             "rendition_id": rendition_id,
         }
+
+        if policy.get("package"):
+            from .component_packages import capture
+
+            try:
+                return capture(self, captured, policy)
+            except CatabolicError as exc:
+                raise PackageBlocked(str(exc)) from exc
+        return captured

@@ -51,6 +51,7 @@ def grant_put(store, principal, definition, identifier=None):
         "actions",
         "item_ids",
         "file_ids",
+        "occurrence_ids",
         "query_id",
         "metadata_fields",
         "derivatives",
@@ -67,6 +68,7 @@ def grant_put(store, principal, definition, identifier=None):
         "actions",
         "item_ids",
         "file_ids",
+        "occurrence_ids",
         "metadata_fields",
         "operation_ids",
         "projection_ids",
@@ -232,6 +234,12 @@ class Access:
         return any(
             g.get("operator") or identifier in self.members(g)
             for g in self.matching(action)
+        )
+
+    def component(self, identifier):
+        return self.operator("metadata:read") or any(
+            identifier in g.get("occurrence_ids", [])
+            for g in self.matching("component:read")
         )
 
     def file(self, identifier, action="metadata:read", revision=None):

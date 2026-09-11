@@ -621,43 +621,48 @@ class Reconciler:
             if entity != "item_id" or mapping["item_id"] not in members:
                 raise StaleFallbackIntent("stale_resolution_membership")
             entity, ids = selection(policy["fallbacks"][mapping["tier"]]["query_id"])
-            associations = self.store.rows(
-                "SELECT a.*,f.location,f.path FROM item_files a JOIN files f ON f.id=a.file_id WHERE a.item_id=? AND a.file_id=? AND a.role=? AND a.part IS ?",
-                (
-                    mapping["item_id"],
-                    mapping["file_id"],
-                    mapping["role"],
-                    mapping["part"],
-                ),
-            )
-            candidate = next(
-                (
-                    a
-                    for a in associations
-                    if a[
-                        {
-                            "file_id": "file_id",
-                            "item_id": "item_id",
-                            "association_id": "id",
-                        }[entity]
-                    ]
-                    in ids
-                    and json.loads(a["metadata"]).get("variant", "")
-                    == mapping["variant"]
-                ),
-                None,
-            )
-            if not candidate:
-                raise StaleFallbackIntent("stale_resolution_candidate")
-            resolver = Resolver(self.app)
-            resolver.primary_choices = {
-                r["item_id"]: r["file_id"]
-                for r in self.store.rows(
-                    "SELECT item_id,file_id FROM fallback_entries WHERE profile=? AND catalog=? AND active=1 AND role='primary'",
-                    (self.profile, mapping["catalog"]),
+            if policy.get("package"):
+                from .component_packages import publication_capture
+
+                accepted = publication_capture(self, mapping, policy, entity, ids)
+            else:
+                associations = self.store.rows(
+                    "SELECT a.*,f.location,f.path FROM item_files a JOIN files f ON f.id=a.file_id WHERE a.item_id=? AND a.file_id=? AND a.role=? AND a.part IS ?",
+                    (
+                        mapping["item_id"],
+                        mapping["file_id"],
+                        mapping["role"],
+                        mapping["part"],
+                    ),
                 )
-            }
-            accepted = resolver.capture(candidate, policy, mapping["catalog"])
+                candidate = next(
+                    (
+                        a
+                        for a in associations
+                        if a[
+                            {
+                                "file_id": "file_id",
+                                "item_id": "item_id",
+                                "association_id": "id",
+                            }[entity]
+                        ]
+                        in ids
+                        and json.loads(a["metadata"]).get("variant", "")
+                        == mapping["variant"]
+                    ),
+                    None,
+                )
+                if not candidate:
+                    raise StaleFallbackIntent("stale_resolution_candidate")
+                resolver = Resolver(self.app)
+                resolver.primary_choices = {
+                    r["item_id"]: r["file_id"]
+                    for r in self.store.rows(
+                        "SELECT item_id,file_id FROM fallback_entries WHERE profile=? AND catalog=? AND active=1 AND role='primary'",
+                        (self.profile, mapping["catalog"]),
+                    )
+                }
+                accepted = resolver.capture(candidate, policy, mapping["catalog"])
             if not accepted:
                 raise StaleFallbackIntent("stale_resolution_evidence")
             snapshot = occurrence(self.store, self.profile, mapping["file_id"])

@@ -13,6 +13,7 @@ import time
 from contextlib import nullcontext
 
 from .catalog_state import RENDITION_STATE_SQL
+from .component_sql import VIEWS as COMPONENT_VIEWS
 from .domain import CatabolicError
 from .item_workflow import CHECKS_SQL, SUMMARY_SQL
 from .outputs import RENDITIONS_SQL
@@ -344,12 +345,19 @@ def parameters(raw: str | None) -> dict:
         ) from exc
 
 
+VIEWS.update(COMPONENT_VIEWS)
+FUNCTIONS = FUNCTIONS | {"component_normalize"}
+
+
 def _field(raw, key, expected):
     value = json.loads(raw).get(key)
     return value if type(value) is expected else None
 
 
 def _setup(db):
+    from .component_sql import install
+
+    install(db)
     # Repeated selections reuse temporary views. Changing temp_store after
     # those views exist is unsafe inside a transaction; set it only once.
     if db.execute("PRAGMA temp_store").fetchone()[0] != 2:
