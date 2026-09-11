@@ -306,3 +306,5 @@ Documentation is also available offline: run `catabolic docs` after installation
 [MIT](https://github.com/Jagalite/catabolic/blob/main/LICENSE). Copyright 2026 Jaga Tranvo and The Catabolic Contributors.
 
 Owner-controlled source identity settings and their evidence are described in [Trust policies](docs/TRUST_POLICIES.md), also available with `catabolic docs trust`.
+
+Named query watchers share source observations while maintaining independent schedules and projection ownership. See [the watcher guide](docs/WATCHERS.md).

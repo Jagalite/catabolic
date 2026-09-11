@@ -21,7 +21,7 @@ from uuid import UUID, uuid4
 from .database_io import connect_database, database_path, writer_lock
 from .domain import CatabolicError
 
-SCHEMA_VERSION = 23
+SCHEMA_VERSION = 24
 HISTORY_TABLE = "schema_migrations"
 
 

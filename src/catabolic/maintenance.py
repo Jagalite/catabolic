@@ -14,6 +14,7 @@ from .layouts import Layouts
 from .manifest import Manifest
 from .processing import OPERATIONS, Processing
 from .reconcile import Reconciler
+from .store import encode
 from .watching import stable_batches
 
 
@@ -377,6 +378,14 @@ def run(
     exclude = [relative_path(path) for path in (exclude or [])]
     reconciler = Reconciler(app)
     catalogs = [] if inventory_only else reconciler.catalogs(catalog)
+    owned = app.store.rows(
+        "SELECT catalog,watcher FROM watcher_owners WHERE profile=? AND catalog IN (SELECT value FROM json_each(?))",
+        (app.profile, encode(catalogs)),
+    )
+    if owned:
+        raise CatabolicError(
+            "watcher_owned_projection: use watcher run or maintenance --inventory-only"
+        )
     report = {
         "report_version": 1,
         "database": str(app.store.path),

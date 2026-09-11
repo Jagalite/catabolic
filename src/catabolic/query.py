@@ -44,7 +44,11 @@ class CatalogQuery:
     def __init__(self, store: Store, profile: str):
         self.store = store
         self.profile = profile
-        db = store.db
+        store.after_reconnect["catalog_query_functions"] = self._register_functions
+        self._register_functions()
+
+    def _register_functions(self):
+        db = self.store.db
         db.create_function(
             "contains_text",
             2,

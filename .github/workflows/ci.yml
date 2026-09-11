@@ -234,6 +234,8 @@ jobs:
         run: 'python scripts/http_acceptance.py --python "$RUNNER_TEMP/catabolic-http/bin/python" --root "$RUNNER_TEMP/http-acceptance" --generated-client tests/clients/build/acceptance.js'
       - name: Installed fallback, projection and generated-client journey
         run: 'python scripts/fallback_acceptance.py --python "$RUNNER_TEMP/catabolic-http/bin/python" --root "$RUNNER_TEMP/fallback-acceptance" --generated-client tests/clients/build/fallback.js'
+      - name: Installed named watcher acceptance
+        run: 'python scripts/watcher_acceptance.py --python "$RUNNER_TEMP/catabolic-http/bin/python" --root "$RUNNER_TEMP/watcher-acceptance" --generated-client tests/clients/build/fallback.js'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

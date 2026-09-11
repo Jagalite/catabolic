@@ -155,14 +155,23 @@ def validate_selection(selection):
     return selection
 
 
-def select_ids(store, selection, *, _http=False):
+def select_ids(store, selection, *, _http=False, access=None):
     """Evaluate in the caller's snapshot; errors and truncation never mean empty."""
     validate_selection(selection)
+    if (
+        access is not None
+        and selection.get("language") == "sql"
+        and not access.operator("sql:read")
+    ):
+        raise CatabolicError("SQL selection requires operator query authority")
     if "query_id" in selection:
+        from .evaluation import EvaluationSession
         from .saved_queries import Queries
 
-        return Queries(store, selection.get("profile", "default")).select(
-            selection["query_id"], _http=_http
+        profile = selection.get("profile", "default")
+        return Queries(store, profile).select(
+            selection["query_id"],
+            session=EvaluationSession(store, profile, http=_http, access=access),
         )
     profile = selection.get("profile", "default")
     timeout_ms = selection.get("timeout_ms", 5000)
@@ -218,6 +227,15 @@ def select_ids(store, selection, *, _http=False):
                 variables={**selection.get("variables", {}), "after": cursor},
                 timeout_ms=remaining,
                 _store=store,
+                _context_factory=(
+                    (
+                        lambda st, pr, deadline: __import__(
+                            "catabolic.access.graphql", fromlist=["AuthorizedContext"]
+                        ).AuthorizedContext(st, pr, deadline, access)
+                    )
+                    if access
+                    else None
+                ),
             )
             if result.get("errors"):
                 raise CatabolicError(

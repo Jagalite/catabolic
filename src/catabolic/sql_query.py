@@ -25,6 +25,10 @@ MAX_RESULT_BYTES = 8 * 1024 * 1024
 # Connection-local views are an API independent of the stored schema. Qualifying
 # all base tables prevents accidental name resolution through a temporary object.
 VIEWS = {
+    "catalog_source_observations": (
+        "Historical full-source observation intervals, coverage, health and dirty watermarks. Inventory failure preserves older files; completion time alone does not establish freshness.",
+        "SELECT id,profile,source,compatibility,exclusions,dirty_generation,generation,state,started_at,completed_at,scan_id FROM main.observation_jobs WHERE state IN ('complete','unavailable','failed','stale')",
+    ),
     "catalog_scan_validation": (
         "Historical scan checks and local policy revision. NULL means unrecorded evidence; inventory completion is independent of identity verification.",
         """SELECT s.id AS scan_id,s.profile,s.location,s.complete,
@@ -489,6 +493,12 @@ def execute_sql(
                 "sqlite_master",
                 "sqlite_schema",
                 "fallback_probe_slots",
+                "watchers",
+                "watcher_definitions",
+                "watcher_runs",
+                "watcher_owners",
+                "observation_jobs",
+                "observation_sources",
             }
             if _http:
                 for table in http_tables:

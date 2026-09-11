@@ -43,8 +43,14 @@ class Programs:
     def __init__(self, app):
         self.app, self.store, self.profile = app, app.store, app.profile
 
-    def export(self, *, queries=(), rules=(), projections=(), fallback_policies=()):
-        kinds = (*KINDS, "fallback_policies") if fallback_policies else KINDS
+    def export(
+        self, *, queries=(), rules=(), projections=(), fallback_policies=(), watchers=()
+    ):
+        kinds = (
+            (*KINDS, "fallback_policies", "watchers")
+            if watchers
+            else ((*KINDS, "fallback_policies") if fallback_policies else KINDS)
+        )
         records = {kind: {} for kind in kinds}
         visiting = set()
 
@@ -57,7 +63,21 @@ class Programs:
             if sum(map(len, records.values())) + len(visiting) >= MAX_RECORDS:
                 raise CatabolicError("program exceeds 256 definitions")
             visiting.add(key)
-            if kind == "fallback_policies":
+            if kind == "watchers":
+                from .watchers import Watchers
+
+                row = Watchers(self.app).get(identifier)
+                value = copy.deepcopy(row["definition"])
+                if value.get("operation_id"):
+                    add("operations", value["operation_id"])
+                plan = value["plan"]
+                if plan["kind"] == "query":
+                    add("queries", plan["query_id"])
+                elif plan["kind"] == "fallback":
+                    add("queries", plan["membership_query_id"])
+                    add("fallback_policies", plan["policy_id"])
+                record = {"name": row["name"], "definition": value}
+            elif kind == "fallback_policies":
                 from .fallback_policies import Policies
 
                 row = Policies(self.store, self.profile).get(identifier)
@@ -151,32 +171,41 @@ class Programs:
             ("rules", rules),
             ("projections", projections),
             ("fallback_policies", fallback_policies),
+            ("watchers", watchers),
         ):
             for identifier in roots:
                 add(kind, identifier)
-        bundle = {"format": FORMAT, "version": 2 if fallback_policies else 1, **records}
+        bundle = {
+            "format": FORMAT,
+            "version": 3 if watchers else (2 if fallback_policies else 1),
+            **records,
+        }
         self.validate(bundle)
         return bundle
 
     @staticmethod
     def validate(bundle):
+        version = bundle.get("version") if isinstance(bundle, dict) else None
         kinds = (
-            (*KINDS, "fallback_policies")
-            if isinstance(bundle, dict) and bundle.get("version") == 2
-            else KINDS
+            (*KINDS, "fallback_policies", "watchers")
+            if version == 3
+            else ((*KINDS, "fallback_policies") if version == 2 else KINDS)
         )
         if (
             not isinstance(bundle, dict)
             or set(bundle) != {"format", "version", *kinds}
             or bundle["format"] != FORMAT
             or type(bundle["version"]) is not int
-            or bundle["version"] not in (1, 2)
+            or bundle["version"] not in (1, 2, 3)
         ):
-            raise CatabolicError("expected a version 1 or 2 catabolic.program bundle")
+            raise CatabolicError(
+                "expected a version 1, 2 or 3 catabolic.program bundle"
+            )
         if len(encode(bundle).encode()) > MAX_BYTES:
             raise CatabolicError("program bundle exceeds 4 MiB")
         fields = {
             "queries": {"name", "definition"},
+            "watchers": {"name", "definition"},
             "fallback_policies": {"name", "definition"},
             "outputs": {"name", "definition"},
             "operations": {"name", "definition"},
@@ -248,7 +277,11 @@ class Programs:
                 name(key)
                 name(value)
         app = Application(_ImportStore(self.store), self.profile)
-        kinds = (*KINDS, "fallback_policies") if bundle["version"] == 2 else KINDS
+        kinds = (
+            (*KINDS, "fallback_policies", "watchers")
+            if bundle["version"] == 3
+            else ((*KINDS, "fallback_policies") if bundle["version"] == 2 else KINDS)
+        )
         result = {kind: {} for kind in kinds}
         visiting = set()
         destination_catalogs = set()
@@ -280,7 +313,28 @@ class Programs:
             visiting.add(key)
             row = copy.deepcopy(bundle[kind][identifier])
             local_name = prefix + "." + row["name"] if "name" in row else None
-            if kind == "fallback_policies":
+            if kind == "watchers":
+                from .plans import projection_digest
+                from .watchers import Watchers
+
+                value = row["definition"]
+                if value.get("operation_id"):
+                    value["operation_id"] = put("operations", value["operation_id"])
+                if value.get("destination"):
+                    value["destination"] = bound("locations", value["destination"])
+                plan = value["plan"]
+                if plan["kind"] == "query":
+                    plan["query_id"] = put("queries", plan["query_id"])
+                elif plan["kind"] == "fallback":
+                    plan["membership_query_id"] = put(
+                        "queries", plan["membership_query_id"]
+                    )
+                    plan["policy_id"] = put("fallback_policies", plan["policy_id"])
+                elif plan["kind"] == "projection":
+                    plan["catalog"] = bound("catalogs", plan["catalog"])
+                    plan["binding_digest"] = projection_digest(app, plan["catalog"])
+                local = Watchers(app).put(local_name, value)["definition_id"]
+            elif kind == "fallback_policies":
                 from .fallback_policies import Policies
 
                 value = row["definition"]

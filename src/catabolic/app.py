@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
+import json
 import os
+import time
 from pathlib import Path
 from uuid import UUID, uuid4, uuid5
 
@@ -329,7 +331,11 @@ class Application:
         )
 
     def scan(
-        self, location: str | None = None, *, exclude: list[str] | None = None
+        self,
+        location: str | None = None,
+        *,
+        exclude: list[str] | None = None,
+        _observation=None,
     ) -> dict:
         excluded = tuple(sorted({relative_path(path) for path in (exclude or [])}))
         locations = (
@@ -342,60 +348,96 @@ class Application:
         )
         reports = []
         for source in locations:
+            from . import observations
             from .scan_staging import ScanStaging
 
+            if _observation and json.loads(_observation["exclusions"]) != list(
+                excluded
+            ):
+                raise CatabolicError("observation_scope_mismatch")
+            if _observation and _observation["state"] == "running":
+                if _observation["worker_pid"] != os.getpid():
+                    raise CatabolicError("foreign_observation_claim")
+                observations.validate(self, _observation)
+                job = _observation
+            else:
+                job = observations.claim(
+                    self,
+                    _observation
+                    or observations.request(
+                        self,
+                        source,
+                        after=time.time(),
+                        exclusions=excluded,
+                        reuse_completed=False,
+                    ),
+                )
             with ScanStaging() as staged:
-                binding = None
+                binding = self.binding("source", source)
                 observed: list[dict] = []
                 errors: list[str] = []
-                try:
-                    binding = self.binding("source", source)
-                    with root_handle(binding) as fd:
-                        if self.store.rows(
-                            "SELECT 1 FROM generated_locations WHERE profile=? AND location=?",
-                            (self.profile, source),
-                        ):
-                            from .filesystem import source_stat
-
-                            # Private staging files and foreign files are never inventoried.
-                            for row in self.store.db.execute(
+                generated = self.store.rows(
+                    "SELECT 1 FROM generated_locations WHERE profile=? AND location=?",
+                    (self.profile, source),
+                )
+                staged.db.execute("CREATE TABLE paths(path TEXT)")
+                if generated:
+                    staged.db.executemany(
+                        "INSERT INTO paths VALUES (?)",
+                        (
+                            (r["path"],)
+                            for r in self.store.db.execute(
                                 "SELECT path FROM processing_artifacts WHERE profile=? AND location=? AND state='ready'",
                                 (self.profile, source),
-                            ):
-                                path = row["path"]
-                                if any(
-                                    path == part or path.startswith(part + "/")
-                                    for part in excluded
-                                ):
-                                    continue
-                                try:
-                                    st = source_stat(fd, path)
-                                except FileNotFoundError:
-                                    continue
-                                staged.append(
-                                    {
-                                        "path": path,
-                                        "size": st.st_size,
-                                        "mtime_ns": st.st_mtime_ns,
-                                        "device": st.st_dev,
-                                        "inode": st.st_ino,
-                                    }
-                                )
-                        else:
-                            observed, errors = walk_files(
-                                fd, exclude=excluded, sink=staged.append
                             )
-                        for entry in observed:
-                            staged.append(entry)
-                        # Reopen by name to detect a mount or root replaced during traversal.
-                        with root_handle(binding) as current_fd:
-                            if (os.fstat(fd).st_dev, os.fstat(fd).st_ino) != (
-                                os.fstat(current_fd).st_dev,
-                                os.fstat(current_fd).st_ino,
-                            ):
-                                raise CatabolicError("source root changed during scan")
-                except (OSError, CatabolicError) as exc:
-                    errors.append(str(exc))
+                        ),
+                    )
+                    staged.db.commit()
+                with self.store.detached():
+                    try:
+                        with root_handle(binding) as fd:
+                            if generated:
+                                from .filesystem import source_stat
+
+                                # Private staging files and foreign files are never inventoried.
+                                for row in staged.db.execute("SELECT path FROM paths"):
+                                    path = row["path"]
+                                    if any(
+                                        path == part or path.startswith(part + "/")
+                                        for part in excluded
+                                    ):
+                                        continue
+                                    try:
+                                        st = source_stat(fd, path)
+                                    except FileNotFoundError:
+                                        continue
+                                    staged.append(
+                                        {
+                                            "path": path,
+                                            "size": st.st_size,
+                                            "mtime_ns": st.st_mtime_ns,
+                                            "device": st.st_dev,
+                                            "inode": st.st_ino,
+                                        }
+                                    )
+                            else:
+                                observed, errors = walk_files(
+                                    fd, exclude=excluded, sink=staged.append
+                                )
+                            for entry in observed:
+                                staged.append(entry)
+                            # Reopen by name to detect a mount or root replaced during traversal.
+                            with root_handle(binding) as current_fd:
+                                if (os.fstat(fd).st_dev, os.fstat(fd).st_ino) != (
+                                    os.fstat(current_fd).st_dev,
+                                    os.fstat(current_fd).st_ino,
+                                ):
+                                    raise CatabolicError(
+                                        "source root changed during scan"
+                                    )
+                    except (OSError, CatabolicError) as exc:
+                        errors.append(str(exc))
+                observations.validate(self, job)
                 observed = staged
                 scan_id = str(uuid4())
                 complete = not errors
@@ -426,6 +468,11 @@ class Application:
                             f"scan:{scan_id}:validation",
                             encode(getattr(binding, "evidence", {})),
                         ),
+                    )
+                    before_inventory = (
+                        observations.inventory_signature(self, source)
+                        if complete
+                        else None
                     )
                     if complete:
                         scope_sql = "".join(
@@ -466,8 +513,7 @@ class Application:
                                     scan_id,
                                 ),
                             )
-                reports.append(
-                    {
+                    report = {
                         "validation": dict(getattr(binding, "evidence", {})),
                         "scan_id": scan_id,
                         "location": source,
@@ -477,7 +523,16 @@ class Application:
                         "errors": errors,
                         "excluded": list(excluded),
                     }
-                )
+                    observations.finish(db, job, report)
+                    if (
+                        complete
+                        and observations.inventory_signature(self, source)
+                        != before_inventory
+                    ):
+                        from .catalog_refresh import enqueue
+
+                        enqueue(db, self.profile)
+                reports.append(report)
         return {
             "complete": all(report["complete"] for report in reports),
             "scans": reports,

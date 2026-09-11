@@ -46,6 +46,11 @@ def tick(database, profile="default", *, limit=10):
         )
         for config in rows:
             catalog = config["catalog"]
+            if store.rows(
+                "SELECT 1 FROM watcher_owners WHERE profile=? AND catalog=?",
+                (profile, catalog),
+            ):
+                continue
             try:
                 if store.rows(
                     "SELECT 1 FROM journal WHERE profile=? AND catalog=?",
@@ -75,10 +80,7 @@ def tick(database, profile="default", *, limit=10):
                     "UPDATE fallback_bindings SET next_attempt=? WHERE profile=? AND catalog=?",
                     (time.time() + config["interval_seconds"], profile, catalog),
                 )
-                db.execute(
-                    "DELETE FROM fallback_history WHERE id IN (SELECT id FROM fallback_history WHERE profile=? AND catalog=? ORDER BY id DESC LIMIT -1 OFFSET 10000)",
-                    (profile, catalog),
-                )
+
     return {
         "processed": len(results),
         "complete": all(r["complete"] for r in results),

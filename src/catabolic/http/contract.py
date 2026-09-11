@@ -5,7 +5,7 @@
 
 from .models import Problem
 
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 # Descriptions are part of the published artifact, alongside stable operation IDs.
 GROUPS = {

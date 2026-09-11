@@ -28,6 +28,7 @@ Repository = "https://github.com/Jagalite/catabolic"
 Issues = "https://github.com/Jagalite/catabolic/issues"
 
 [project.optional-dependencies]
+watch = ["watchdog==6.0.0"]
 http = ["fastapi==0.141.1", "uvicorn==0.52.4"]
 notifications = ["apprise==1.13.1"]
 dev = ["ruff==0.16.6", "jsonschema==4.26.0"]

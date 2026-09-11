@@ -46,6 +46,7 @@ def register(commands):
     export.add_argument("--rule", action="append", default=[])
     export.add_argument("--projection", action="append", default=[])
     export.add_argument("--fallback-policy", action="append", default=[])
+    export.add_argument("--watcher", action="append", default=[])
     importing = programs.add_parser("import")
     importing.add_argument("--file", required=True)
     importing.add_argument(
@@ -175,6 +176,7 @@ def program(args):
                 rules=args.rule,
                 projections=args.projection,
                 fallback_policies=args.fallback_policy,
+                watchers=args.watcher,
             )
         return programs.import_bundle(
             json.loads(read_text(args.file, MAX_BYTES)),

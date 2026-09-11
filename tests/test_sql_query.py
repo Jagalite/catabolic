@@ -57,6 +57,7 @@ class SQLQueryTest(unittest.TestCase):
             set(views),
             {
                 "catalog_scan_validation",
+                "catalog_source_observations",
                 "catalog_queries",
                 "catalog_query_dependencies",
                 "catalog_projections",

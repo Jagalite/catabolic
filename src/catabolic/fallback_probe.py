@@ -7,6 +7,8 @@ import json
 import os
 import subprocess
 import sys
+import time
+from contextlib import contextmanager
 from uuid import uuid4
 
 from .domain import CatabolicError
@@ -30,12 +32,29 @@ def alive(pid):
         return True
 
 
+@contextmanager
+def _writer(database):
+    from .database_io import is_catalog_busy
+
+    deadline = time.monotonic() + 1
+    while True:
+        try:
+            store = Store(database, writable=True)
+            break
+        except CatabolicError as exc:
+            if not is_catalog_busy(exc) or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.01)
+    with store:
+        yield store
+
+
 def probe(database, snapshots, timeout_ms):
     for child in list(_PENDING):
         if child.poll() is not None:
             _PENDING.remove(child)
     token = str(uuid4())
-    with Store(database, writable=True) as store:
+    with _writer(database) as store:
         slot = next(
             (
                 r
@@ -59,7 +78,7 @@ def probe(database, snapshots, timeout_ms):
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
         )
-        with Store(database, writable=True) as store:
+        with _writer(database) as store:
             with store.transaction() as db:
                 db.execute(
                     "UPDATE fallback_probe_slots SET pid=? WHERE id=? AND owner=?",
@@ -91,7 +110,7 @@ def probe(database, snapshots, timeout_ms):
             except subprocess.TimeoutExpired:
                 _PENDING.append(child)
         if child is None or child.poll() is not None:
-            with Store(database, writable=True) as store:
+            with _writer(database) as store:
                 with store.transaction() as db:
                     db.execute(
                         "UPDATE fallback_probe_slots SET owner=NULL,pid=NULL WHERE id=? AND owner=?",

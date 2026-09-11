@@ -39,11 +39,11 @@ def require_epoch(store, expected):
 
 
 class Resolver:
-    def __init__(self, app, access=None, operation_id=None):
+    def __init__(self, app, access=None, operation_id=None, session=None):
         self.app, self.store, self.profile = app, app.store, app.profile
         self.access = access
         self.operation_id = operation_id
-        self.query_context = None
+        self.session = session
         self.primary_choices = {}
         self.total_checks = 0
 
@@ -68,19 +68,18 @@ class Resolver:
             {"name": t["name"], "query_id": t["query_id"], "state": "not_evaluated"}
             for t in policy["fallbacks"]
         ]
-        context = {
-            "deadline": time.monotonic() + limits["query_timeout_ms"] / 1000,
-            "nodes": 0,
-            "count": 0,
-            "maximum": limits["max_candidates"],
-            "cache": {},
-            "http": self.access is not None,
-        }
-        if self.query_context is not None:
-            context["cache"] = self.query_context["cache"]
-            context["count"] = self.query_context["count"]
-            context["nodes"] = self.query_context["nodes"]
-        self.query_context = context
+        from .evaluation import EvaluationSession
+
+        if self.session is None:
+            self.session = EvaluationSession(
+                self.store,
+                self.profile,
+                http=self.access is not None,
+                timeout_ms=limits["query_timeout_ms"],
+                max_ids=limits["max_candidates"],
+            )
+        self.session.check(self.store, self.profile)
+        context = self.session.context
         checks = {}
         suppressed = set()
         checked = 0
@@ -97,8 +96,8 @@ class Resolver:
             if not pending:
                 break
             try:
-                entity, identifiers, report = queries._select(
-                    tier["query_id"], context, ()
+                entity, identifiers, report = queries.select(
+                    tier["query_id"], session=self.session
                 )
                 if not report["complete"]:
                     raise CatabolicError("incomplete_candidate_query")
@@ -219,8 +218,8 @@ class Resolver:
                         and policy["failback"]["mode"] != "immediate"
                         and not manual_failback
                     ):
-                        old_entity, old_ids, old_report = queries._select(
-                            old_tier["query_id"], context, ()
+                        old_entity, old_ids, old_report = queries.select(
+                            old_tier["query_id"], session=self.session
                         )
                         old_rows = self.store.rows(
                             "SELECT a.*,f.path,f.location FROM item_files a JOIN files f ON f.id=a.file_id WHERE a.file_id=? AND a.item_id=? AND a.role=? AND a.part IS ?",

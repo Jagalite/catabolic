@@ -76,15 +76,26 @@ class FallbackProjection:
             )
         return binding(self.store, self.profile, catalog)
 
-    def plan(self, catalog, *, manual_failback=False):
+    def plan(self, catalog, *, manual_failback=False, session=None):
         config = binding(self.store, self.profile, catalog)
         if not config:
             raise CatabolicError("projection has no fallback binding")
         self.app.require_recovered()
         if self.app.link_mode(catalog) != "symlink":
             raise CatabolicError("fallback publication supports symlinks only")
+        from .evaluation import EvaluationSession
+
+        limits = Policies(self.store, self.profile).get(config["policy_id"])[
+            "definition"
+        ]["budgets"]
+        session = session or EvaluationSession(
+            self.store,
+            self.profile,
+            timeout_ms=limits["query_timeout_ms"],
+            max_ids=limits["max_candidates"],
+        )
         entity, ids, report = Queries(self.store, self.profile).select(
-            config["query_id"]
+            config["query_id"], session=session
         )
         if entity != "item_id" or not report["complete"]:
             raise CatabolicError("incomplete_logical_membership")
@@ -126,7 +137,7 @@ class FallbackProjection:
             )
         }
         if entries:
-            resolver = Resolver(self.app)
+            resolver = Resolver(self.app, session=session)
             primary = [e for e in entries if e["role"] == "primary"]
             sidecars = [e for e in entries if e["role"] != "primary"]
             result = resolver.resolve(
@@ -257,13 +268,21 @@ class FallbackProjection:
         manual_failback=False,
         automatic=False,
     ):
-        from .reconcile import Reconciler
-
         plan = self.plan(catalog, manual_failback=manual_failback)
         if apply and not automatic and expected_plan != plan["plan_id"]:
             raise CatabolicError("stale_or_missing_resolution_plan")
         if not apply:
             return self.present(plan)
+        return self.apply_prepared(
+            plan, max_removals=max_removals, max_changes=max_changes
+        )
+
+    @serialized
+    def apply_prepared(self, plan, *, max_removals=0, max_changes=100):
+        """Publish one evaluated plan, retaining epoch and journal admission fences."""
+        from .reconcile import Reconciler
+
+        catalog = plan["catalog"]
         require_epoch(self.store, plan["epoch"])
         config = binding(self.store, self.profile, catalog)
         if config["generation"] != plan["generation"]:
@@ -353,6 +372,11 @@ class FallbackProjection:
                 if (
                     previous.get("file_id") != selected["file_id"]
                     or previous.get("state") != stored_state
+                    or previous.get("path") != selected["path"]
+                    or previous.get("revision") != selected["revision"]
+                    or previous.get("policy_id") != plan["policy_id"]
+                    or previous.get("tier") != selected["tier"]
+                    or not previous.get("active")
                 ):
                     db.execute(
                         "INSERT INTO fallback_history(profile,catalog,entry_id,generation,decision,created_at) VALUES (?,?,?,?,?,?)",
@@ -361,11 +385,35 @@ class FallbackProjection:
                             catalog,
                             decision["entry_id"],
                             generation,
-                            encode(decision),
+                            encode(
+                                {
+                                    **decision,
+                                    "phase": "planned" if plan["safe"] else "retained",
+                                }
+                            ),
                             time.time(),
                         ),
                     )
             if plan["safe"]:
+                for removed in plan["removed"]:
+                    db.execute(
+                        "INSERT INTO fallback_history(profile,catalog,entry_id,generation,decision,created_at) VALUES (?,?,?,?,?,?)",
+                        (
+                            self.profile,
+                            catalog,
+                            removed,
+                            generation,
+                            encode(
+                                {
+                                    "entry_id": removed,
+                                    "state": "removed",
+                                    "phase": "planned",
+                                    "policy_id": plan["policy_id"],
+                                }
+                            ),
+                            time.time(),
+                        ),
+                    )
                 db.executemany(
                     "UPDATE fallback_entries SET active=0,generation=? WHERE id=?",
                     [(generation, key) for key in plan["removed"]],
@@ -414,10 +462,40 @@ class FallbackProjection:
                             catalog,
                             [decision["entry_id"], generation],
                         )
-                db.execute(
-                    "UPDATE fallback_entries SET published_generation=generation WHERE profile=? AND catalog=?",
-                    (self.profile, catalog),
-                )
+                for decision in plan["desired"]:
+                    previous = old.get(decision["entry_id"], {})
+                    changed = any(
+                        previous.get(k) != decision.get(v)
+                        for k, v in (
+                            ("file_id", "file_id"),
+                            ("revision", "revision"),
+                            ("path", "path"),
+                            ("state", "state"),
+                            ("policy_id", "policy_id"),
+                            ("tier", "selected_tier"),
+                        )
+                    ) or not previous.get("active")
+                    if (
+                        changed
+                        or not previous.get("published_generation")
+                        or result.get("applied", 0)
+                    ):
+                        db.execute(
+                            "UPDATE fallback_entries SET published_generation=generation WHERE id=?",
+                            (decision["entry_id"],),
+                        )
+                    if changed:
+                        db.execute(
+                            "INSERT INTO fallback_history(profile,catalog,entry_id,generation,decision,created_at) VALUES (?,?,?,?,?,?)",
+                            (
+                                self.profile,
+                                catalog,
+                                decision["entry_id"],
+                                generation,
+                                encode({**decision, "phase": "verified"}),
+                                time.time(),
+                            ),
+                        )
         return {
             **self.present(plan),
             "applied": True,

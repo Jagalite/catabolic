@@ -182,17 +182,23 @@ class Queries:
                 )
         return self.get(identifier)
 
-    def select(self, identifier, *, _http=False):
+    def select(self, identifier, *, _http=False, session=None):
+        from .evaluation import EvaluationSession
+
         definition = self.get(identifier)["definition"]
-        context = {
-            "deadline": time.monotonic() + definition.get("timeout_ms", 5000) / 1000,
-            "nodes": 0,
-            "count": 0,
-            "maximum": definition.get("max_ids", 10000),
-            "cache": {},
-            "http": _http,
-        }
-        return self._select(identifier, context, ())
+        session = session or EvaluationSession(
+            self.store,
+            self.profile,
+            http=_http,
+            timeout_ms=definition.get("timeout_ms", 5000),
+            max_ids=definition.get("max_ids", 10000),
+        )
+        session.check(self.store, self.profile)
+        cached = identifier in session.context["cache"]
+        result = self._select(identifier, session.context, ())
+        if not cached:
+            session.account([result[0], sorted(result[1]), result[2]])
+        return result
 
     def _select(self, identifier, context, ancestors):
         from .selection import select_ids
@@ -249,7 +255,10 @@ class Queries:
                 ),
             }
             entity, ids, report = select_ids(
-                self.store, selection, _http=context["http"]
+                self.store,
+                selection,
+                _http=context["http"],
+                access=context.get("access"),
             )
             context["count"] += len(ids)
         if context["count"] > context["maximum"] or len(ids) > definition.get(
@@ -266,12 +275,19 @@ class Queries:
         context["cache"][identifier] = result
         return result
 
-    def run(self, identifier, limit=1000):
+    def run(self, identifier, limit=1000, *, session=None):
         page_limit(limit)
         query = self.get(identifier)
         value = query["definition"]
+        timeout = value.get("timeout_ms", 5000)
+        if session is not None:
+            session.check(self.store, self.profile)
+            timeout = min(
+                timeout,
+                max(1, int((session.context["deadline"] - time.monotonic()) * 1000)),
+            )
         if value["mode"] == "selection":
-            entity, ids, report = self.select(identifier)
+            entity, ids, report = self.select(identifier, session=session)
             return {
                 **report,
                 "ids": sorted(ids)[:limit],
@@ -280,25 +296,56 @@ class Queries:
                 "selection_complete": True,
             }
         selection = value["selection"]
+        access = session.access if session is not None else None
+        http = session.context["http"] if session is not None else False
         if value["mode"] == "rows":
             from .sql_query import execute_sql
 
-            return execute_sql(
+            if access is not None and not (
+                access.operator("sql:read")
+                or any(
+                    identifier in grant.get("report_ids", [])
+                    for grant in access.matching("metadata:read")
+                )
+            ):
+                raise CatabolicError(
+                    "SQL report requires operator or approved report authority"
+                )
+            result = execute_sql(
                 self.store.path,
                 selection["query"],
                 profile=self.profile,
                 params=encode(selection.get("params", {})),
                 max_rows=limit,
-                timeout_ms=value.get("timeout_ms", 5000),
+                timeout_ms=timeout,
                 _store=self.store,
+                _http=http,
             )
-        from .graphql_query import execute_graphql
+        else:
+            from .graphql_query import execute_graphql
 
-        return execute_graphql(
-            self.store.path,
-            selection["query"],
-            profile=self.profile,
-            variables=selection.get("variables", {}),
-            timeout_ms=value.get("timeout_ms", 5000),
-            _store=self.store,
-        )
+            factory = None
+            if access is not None:
+                from .access.graphql import AuthorizedContext
+
+                access.require("metadata:read")
+
+                def factory(st, pr, deadline):
+                    return AuthorizedContext(st, pr, deadline, access)
+            elif http:
+                raise CatabolicError(
+                    "GraphQL HTTP evaluation requires authorization context"
+                )
+            result = execute_graphql(
+                self.store.path,
+                selection["query"],
+                profile=self.profile,
+                variables=selection.get("variables", {}),
+                timeout_ms=timeout,
+                _store=self.store,
+                _context_factory=factory,
+            )
+        if session is not None:
+            session.check(self.store, self.profile)
+            session.account(result)
+        return result

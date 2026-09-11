@@ -35,6 +35,7 @@ class Store:
         self.lock_fd = None
         self.db = None
         self.after_close = {}
+        self.after_reconnect = {}
         try:
             if writable:
                 self.lock_fd = acquire_writer_lock(self.path)
@@ -86,6 +87,8 @@ class Store:
             try:
                 self.db = connect_database(self.path, writable=self.writable)
                 info = validate_database(self.db, load_migrations())
+                for callback in tuple(self.after_reconnect.values()):
+                    callback()
                 if info["database_id"] != self.database_id:
                     raise CatabolicError("catalog replaced during detached execution")
             except BaseException:

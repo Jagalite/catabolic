@@ -310,7 +310,8 @@ class Reconciler:
         from .consumers import published
 
         published(self.app, verified, result)
-        self._record_fallback_publication(verified)
+        if applied:
+            self._record_fallback_publication(verified)
         return result
 
     @serialized
@@ -349,7 +350,8 @@ class Reconciler:
 
             verified = self.verify(catalog)
             published(self.app, verified, result)
-            self._record_fallback_publication(verified)
+            if recovered:
+                self._record_fallback_publication(verified)
         return result
 
     def _record_fallback_publication(self, verified):

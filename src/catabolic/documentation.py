@@ -11,6 +11,12 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "watchers",
+        "WATCHERS.md",
+        "Named query watchers",
+        "Independent schedules, shared observations, durable reactions and projection ownership.",
+    ),
+    (
         "fallback",
         "FALLBACK.md",
         "Ordered fallback resolution",

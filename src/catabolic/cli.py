@@ -603,6 +603,9 @@ def parser() -> argparse.ArgumentParser:
     from . import program_cli
 
     program_cli.register(commands)
+    from .watcher_cli import register as register_watchers
+
+    register_watchers(commands)
     from .api_cli import register as register_api
 
     register_api(commands)
@@ -613,6 +616,10 @@ def parser() -> argparse.ArgumentParser:
 
 
 def dispatch(args: argparse.Namespace) -> dict:
+    if args.command in ("watcher", "supervise"):
+        from .watcher_cli import run
+
+        return run(args)
     if args.command == "api":
         from .api_cli import dispatch as dispatch_api
 

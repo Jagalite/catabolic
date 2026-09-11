@@ -13,9 +13,12 @@ from .reconcile import Reconciler
 
 def enqueue(db, profile):
     """Called in the rendition/evidence transaction so a crash cannot lose intent."""
+    from .watchers import dirty
+
+    dirty(db, profile)
     db.execute(
         """INSERT INTO catalog_refresh_queue(profile,catalog)
-        SELECT profile,catalog FROM catalog_refresh_settings WHERE profile=? AND enabled=1
+        SELECT profile,catalog FROM catalog_refresh_settings WHERE profile=? AND enabled=1 AND NOT EXISTS (SELECT 1 FROM watcher_owners w WHERE w.profile=catalog_refresh_settings.profile AND w.catalog=catalog_refresh_settings.catalog)
         ON CONFLICT(profile,catalog) DO UPDATE SET
         generation=generation+1,next_attempt=0,error=NULL,updated_at=CURRENT_TIMESTAMP""",
         (profile,),
@@ -103,6 +106,11 @@ class CatalogRefresh:
         refreshed, errors = [], []
         for row in rows:
             selected = row["catalog"]
+            if self.store.rows(
+                "SELECT 1 FROM watcher_owners WHERE profile=? AND catalog=?",
+                (self.profile, selected),
+            ):
+                continue
             try:
                 reconciler = Reconciler(self.app, notify_consumers=False)
                 # Recover any previously journaled writes to this opted-in catalog

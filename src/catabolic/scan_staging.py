@@ -32,6 +32,17 @@ class ScanStaging:
             self.db.executemany("INSERT INTO staged VALUES (?,?,?,?,?)", self.buffer)
             self.db.commit()
             self.buffer.clear()
+            if (
+                self.count > 10000000
+                or self.db.execute("PRAGMA page_count").fetchone()[0]
+                * self.db.execute("PRAGMA page_size").fetchone()[0]
+                > 1024 * 1024 * 1024
+            ):
+                from .domain import CatabolicError
+
+                raise CatabolicError(
+                    "scan staging exceeds 1 GiB or ten million entries"
+                )
 
     def __len__(self):
         return self.count

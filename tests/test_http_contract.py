@@ -41,6 +41,7 @@ class ContractTest(unittest.TestCase):
                 self.assertTrue(
                     definition.get("type")
                     or definition.get("anyOf")
+                    or definition.get("oneOf")
                     or definition.get("$ref")
                     or definition.get("allOf"),
                     (name, field),

@@ -1010,6 +1010,9 @@ def create_app(
                 }
             return {"applied": True, "result": result}
 
+    from .watchers import install_routes as install_watchers
+
+    install_watchers(app, session, mutation)
     from .fallback import install_routes
 
     install_routes(app, session, mutation)
