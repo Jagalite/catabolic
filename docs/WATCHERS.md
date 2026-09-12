@@ -3,6 +3,8 @@
 A watcher maintains a query-defined result or projection on its own schedule,
 using sufficiently fresh shared observations. It does not introduce a selector,
 fallback engine, projection writer, or implicit processing rule.
+Report/event watchers can monitor saved [work inbox](INBOX.md) queries without
+authorizing the actions described by their rows.
 
 ## Configure and run
 

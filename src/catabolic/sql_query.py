@@ -18,6 +18,7 @@ from .domain import CatabolicError
 from .item_workflow import CHECKS_SQL, SUMMARY_SQL
 from .outputs import RENDITIONS_SQL
 from .store import Store
+from .work_inbox import SQL as WORK_INBOX_SQL
 
 INTERFACE_VERSION = 1
 MAX_SQL_BYTES = 1024 * 1024
@@ -346,6 +347,11 @@ def parameters(raw: str | None) -> dict:
 
 
 VIEWS.update(COMPONENT_VIEWS)
+
+VIEWS["catalog_work_inbox"] = (
+    "Recorded work discovery; filter profile and actionability. Count countable rows, not summaries and linked owner rows. No mutation or claim authority.",
+    WORK_INBOX_SQL,
+)
 FUNCTIONS = FUNCTIONS | {"component_normalize"}
 
 

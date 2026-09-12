@@ -34,8 +34,10 @@ including implemented operation types, compatibility and validation limits.
   mounted storage locations, and search the recorded catalog while they're offline.
 - **Organize it your way.** Add titles, identities, tags, and relationships to
   movies, TV, music, books, audiobooks, comics, photos, documents, and more.
-- **Track your cataloging work.** Keep an entry worklog, defer unresolved items,
-  and check required work before marking an entry complete.
+- **Track your cataloging work.** Use the [work inbox](docs/INBOX.md) to find
+  unidentified files, pending reviews, and processing or projection failures.
+  Keep an entry worklog, defer unresolved items, and check required work before
+  marking an entry complete.
 - **Make collections from searches.** Save a selection, such as favorite films or
   books by an author, and refresh it into a symlink folder when you choose.
 - **Build symlink libraries for your apps.** Generate popular folder formats or
@@ -150,10 +152,28 @@ Catabolic is a command-line application and is currently **alpha**. Keep backups
 and start with a small collection. Generated folders need access to their source
 files; they are not independent backups.
 
-## Operator guide
+## Agentic Operator guide
 
-The recommended cycle is **scan → review and catalog → preview outputs → sync
-and verify → repeat maintenance**. Start with the
+People and agents use the same five workflows:
+
+- **Discover and identify:** bind sources → scan → inspect the inbox → propose
+  identities and associations → review and accept proposals.
+- **Curate and complete:** inspect requirements → resolve reviews through their
+  owning services → check readiness → mark curation complete. Missing required
+  evidence can bring an item back into needs_attention. See [worklogs and
+  requirements](docs/WORKLOG.md).
+- **Publish libraries:** save queries and output layouts → preview → publish →
+  verify. Curation readiness and projection health are separate. See the
+  [query → rule → projection guide](docs/PROGRAMMABLE_CATALOG.md).
+- **Process media:** choose an approved operation → admit jobs → run workers →
+  inspect generated artifacts and lineage → recover failures. See
+  [processing rules](docs/RULES.md) and [artifacts](docs/ARTIFACTS.md).
+- **Maintain continuously:** configure and enable watchers → run the supervisor →
+  inspect reports, history and the inbox → address outstanding work. See
+  [watchers](docs/WATCHERS.md).
+
+The daily loop is **scan or supervise → inbox summary → inbox list → inbox show
+→ existing operation → check again**. Start with the
 [setup walkthrough](https://github.com/Jagalite/catabolic/wiki/Getting-Started)
 to register sources and configure output catalogs and layouts. Then select your
 database and profile for the commands below:
@@ -168,21 +188,96 @@ If an upgrade is required, follow the
 [migration guide](https://github.com/Jagalite/catabolic/wiki/Database-Migrations)
 before continuing.
 
-### Discover and review
+### 1. Refresh evidence: manually or with watchers
+
+Choose either entry path using the database/profile selected above.
+
+For a manual refresh:
 
 ```sh
 catabolic scan
-catabolic files --unidentified
-catabolic item list --curation-status pending
-catabolic item list --curation-status deferred
-catabolic item list --curation-status needs_attention
 ```
 
-Review identities, associations and tags, and record decisions in each entry's
-worklog. Follow pagination to see the full backlog. The
+For scheduled refreshes, [configure a watcher once](#configure-a-watcher-once),
+then keep its supervisor running:
+
+```sh
+catabolic supervise
+```
+
+`supervise` runs continuously in the foreground; `supervise --once` handles one
+pass. Watchers may refresh source observations when their plans require it.
+Check scan or watcher results for incomplete evidence. Both paths lead to the
+same inbox steps below; with a foreground supervisor, use another terminal with
+the same database/profile.
+
+### 2. Inspect the inbox
+
+```sh
+catabolic --json inbox summary
+catabolic --json inbox list --limit 100
+catabolic --json inbox show WORK_KEY
+```
+
+Replace `WORK_KEY` with a key returned by `list`. Detail explains why the work
+appears, which record owns it, and which existing operation addresses it. Follow
+`next_cursor` with `inbox list --after CURSOR`; `--include-inactive` includes
+waiting, deferred and historical entries. Reads use recorded evidence and do not
+scan or complete work. An empty actionable inbox does not prove curation finished.
+See the [inbox guide](docs/INBOX.md) for query examples and completion reporting.
+
+### 3. Act through the owning service, then check again
+
+Use the entry's suggested operation after reloading its owner and checking current
+eligibility and preconditions. Suggestions describe work; they do not authorize it.
+Review identities, associations and tags through the proposal workflow, resolve
+explicit reviews through requirement operations, and record decisions in each
+entry's worklog. The
 [recommended workflow](https://github.com/Jagalite/catabolic/wiki/Recommended-Workflow)
 covers curation, completion checks, and the first preview/apply/sync/verify cycle
 for your symlink folders.
+
+After acting, return to **step 2** to check recorded results. Return to **step 1**
+when evidence needs refreshing. Keep checking even without new notifications:
+previously outstanding work remains discoverable until its owner resolves it.
+
+### Configure a watcher once
+
+Save an inbox query using the [inbox query examples](docs/INBOX.md#queries-and-watchers),
+then put its immutable query revision ID in `inbox-watcher.json`:
+
+```json
+{
+  "version": 1,
+  "authority": "local_owner",
+  "plan": {"kind": "query", "query_id": "IMMUTABLE_QUERY_REVISION"},
+  "schedule": {"kind": "interval", "seconds": 3600},
+  "max_age_seconds": 300,
+  "reaction": "report"
+}
+```
+
+Using the database/profile selected above:
+
+```sh
+catabolic watcher put inbox-audit --file inbox-watcher.json
+catabolic watcher preview inbox-audit
+catabolic watcher enable inbox-audit
+catabolic watcher run inbox-audit
+```
+
+Continue with the supervisor entry path in **step 1**, then use the shared inbox
+flow in **steps 2–3**. This report watcher does not perform suggested inbox actions
+or launch an agent. To inspect watcher scheduling and failures:
+
+```sh
+catabolic watcher pending
+catabolic watcher history inbox-audit
+```
+
+The [watcher guide](docs/WATCHERS.md) covers schedules,
+events and recovery. For watcher-owned projections, use `watcher run` for repair
+or inventory-only maintenance; legacy maintenance does not reconcile those outputs.
 
 ### Run routine maintenance
 

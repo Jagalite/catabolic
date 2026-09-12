@@ -115,6 +115,9 @@ def parser() -> argparse.ArgumentParser:
     from .component_cli import register as register_components
 
     register_components(commands)
+    from .inbox_cli import register as register_inbox
+
+    register_inbox(commands)
     from .rule_cli import register as register_rules
 
     register_rules(commands)
@@ -798,6 +801,10 @@ def dispatch(args: argparse.Namespace) -> dict:
             max_rows=args.max_rows,
             timeout_ms=args.timeout_ms,
         )
+    if args.command == "inbox":
+        from .inbox_cli import run as inbox
+
+        return inbox(args)
     if args.command == "component":
         from .component_cli import run as component
 

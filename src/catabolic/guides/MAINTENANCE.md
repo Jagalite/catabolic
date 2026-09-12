@@ -9,6 +9,8 @@ Run `catabolic maintenance` when you want one maintenance cycle and a report of
 what remains to be cataloged. It exits when the cycle finishes; it does not
 install a background service. Read this guide offline with
 `catabolic docs maintenance`.
+For read-only discovery across those backlogs, use `inbox list`, `inbox show`,
+and `inbox summary`; see the [work inbox](INBOX.md).
 
 ## Recommended invocation
 

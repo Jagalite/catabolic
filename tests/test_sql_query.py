@@ -71,6 +71,7 @@ class SQLQueryTest(unittest.TestCase):
                 "catalog_projection_resolution",
                 "catalog_resolution_history",
                 "catalog_item_workflow",
+                "catalog_work_inbox",
                 "catalog_workflow_checks",
                 "catalog_item_requirements",
                 "catalog_item_worklog",

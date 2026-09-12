@@ -141,10 +141,22 @@ type Query {
 '''
 
 
+# Local operator extension. Published HTTP schemas remain frozen; inbox includes
+# watcher internals that are deliberately unavailable to HTTP query callers.
+LOCAL_SDL = (
+    SDL
+    + """
+extend type Query {
+  workInbox(first: Int! = 100, after: String, includeInactive: Boolean! = false): EvidencePage
+}
+"""
+)
+
+
 def schema_description():
     return {
         "interface_version": 1,
-        "schema": SDL,
+        "schema": LOCAL_SDL,
         "limits": {
             "document_bytes": MAX_DOCUMENT_BYTES,
             "page_size": 1000,
@@ -287,7 +299,33 @@ class QueryContext:
             raise CatabolicError("first must be between 1 and 1000")
         key = (field, encode(args))
         if key not in self.cache:
-            if field in ("components", "componentOccurrences"):
+            if field == "workInbox":
+                from .work_inbox import ACTIONABLE, decode, install
+
+                if hasattr(self, "access"):
+                    raise CatabolicError("work inbox is currently local-owner only")
+                install(self.store.db)
+                inactive = args.get("include_inactive", False)
+                conditions = ["w.profile=?"]
+                if not inactive:
+                    conditions.append("w.actionability IN " + ACTIONABLE)
+                result = self.queries._page(
+                    field,
+                    "w.work_key AS id,w.*",
+                    "catalog_work_inbox w",
+                    conditions,
+                    [self.profile],
+                    {"id": "w.work_key"},
+                    "id",
+                    False,
+                    limit,
+                    args["cursor"],
+                    [inactive],
+                )
+                for row in result[field]:
+                    decode(row)
+                self.charge(result)
+            elif field in ("components", "componentOccurrences"):
                 from .component_sql import COMPONENTS_SQL, OCCURRENCES_SQL, language
 
                 column = "component_id" if field == "components" else "occurrence_id"
@@ -741,7 +779,7 @@ def execute_graphql(
     try:
         ast = parse(document, max_tokens=4000)
         check_document(ast)
-        schema = build_schema(SDL)
+        schema = build_schema(SDL if _context_factory is not None else LOCAL_SDL)
         schema.type_map["JSON"].serialize = lambda value: value
         schema.type_map["BigInt"].serialize = lambda value: str(value)
         errors = validate(schema, ast, max_errors=20)

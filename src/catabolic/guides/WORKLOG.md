@@ -6,6 +6,8 @@ SPDX-License-Identifier: MIT
 -->
 
 Each catalog item has an overall curation status and an append-only worklog.
+Use the [work inbox](INBOX.md) to discover outstanding checks alongside unidentified
+files, proposal decisions, processing recovery and watcher/projection work.
 Use the worklog for notes, decisions, progress, and reasons for deferring work.
 It applies to the whole item, across its associated files and renditions, and
 supports every built-in and custom media kind. These CLI commands require schema 16.

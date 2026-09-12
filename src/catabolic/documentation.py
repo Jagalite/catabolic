@@ -11,6 +11,12 @@ from .domain import CatabolicError
 # into package data; tests reject drift between a guide and its bundled copy.
 TOPICS = (
     (
+        "inbox",
+        "INBOX.md",
+        "Work inbox",
+        "Discover recorded catalog work, evidence and owner operations.",
+    ),
+    (
         "components",
         "COMPONENTS.md",
         "Unified media components",
