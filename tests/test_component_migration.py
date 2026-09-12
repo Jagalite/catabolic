@@ -80,3 +80,102 @@ class MigrationTest(unittest.TestCase):
             )
             self.assertEqual(len(current), 3)
             self.assertEqual(sum(r["technically_verified"] for r in current), 2)
+
+    def test_schema_24_pending_journal_recovers_before_upgrade(self):
+        import json
+        import subprocess
+        import sys
+
+        from catabolic.domain import CatabolicError
+        from catabolic.reconcile import Reconciler
+
+        for applied in (False, True):
+            with self.subTest(filesystem_applied=applied):
+                path = self.root / f"pending-{applied}.db"
+                output = self.root / f"output-{applied}"
+                output.mkdir()
+                migrations = load_migrations()
+                with (
+                    patch(
+                        "catabolic.migration.load_migrations",
+                        return_value=migrations[:24],
+                    ),
+                    patch("catabolic.store.SCHEMA_VERSION", 24),
+                ):
+                    Store.initialize(path)
+                    with Store(path, writable=True) as old:
+                        app = Application(old)
+                        (self.source / "legacy.mkv").write_bytes(b"legacy fixture")
+                        app.bind("source", "media", str(self.source))
+                        app.bind("output", "global", str(output))
+                        app.scan()
+                        item = app.put_item(
+                            "movie", {"legacy": "yes"}, {"title": "Legacy"}
+                        )["id"]
+                        file = old.rows("SELECT id FROM files WHERE path='legacy.mkv'")[
+                            0
+                        ]["id"]
+                        app.put_mapping("global", file, item, "Legacy.mkv")
+                        original = Reconciler._execute
+
+                        def interrupt(
+                            reconciler,
+                            operation,
+                            applied=applied,
+                            original=original,
+                            **kwargs,
+                        ):
+                            if operation["kind"] == "create":
+                                if applied:
+
+                                    def after_filesystem(_):
+                                        raise KeyboardInterrupt
+
+                                    return original(
+                                        reconciler,
+                                        operation,
+                                        after_filesystem=after_filesystem,
+                                    )
+                                raise KeyboardInterrupt
+                            return original(reconciler, operation, **kwargs)
+
+                        with (
+                            patch.object(Reconciler, "_execute", interrupt),
+                            self.assertRaises(KeyboardInterrupt),
+                        ):
+                            Reconciler(app).apply()
+                        pending = old.rows("SELECT id FROM journal")
+                        self.assertTrue(pending)
+                with self.assertRaisesRegex(CatabolicError, "recover pending"):
+                    upgrade_database(path)
+                command = [
+                    sys.executable,
+                    "-m",
+                    "catabolic",
+                    "--json",
+                    "--db",
+                    str(path),
+                    "recover",
+                ]
+                result = subprocess.run(
+                    command, capture_output=True, text=True, timeout=30
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(
+                    set(json.loads(result.stdout)["recovered"]),
+                    {r["id"] for r in pending},
+                )
+                self.assertTrue((output / "Legacy.mkv").is_symlink())
+                inode = (output / "Legacy.mkv").lstat().st_ino
+                result = subprocess.run(
+                    command, capture_output=True, text=True, timeout=30
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout)["recovered"], [])
+                self.assertEqual((output / "Legacy.mkv").lstat().st_ino, inode)
+                self.assertEqual(upgrade_database(path)["schema"], 25)
+                with Store(path) as upgraded:
+                    self.assertFalse(upgraded.rows("SELECT * FROM journal"))
+                    self.assertTrue(
+                        Reconciler(Application(upgraded)).verify()["healthy"]
+                    )

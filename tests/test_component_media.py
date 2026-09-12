@@ -369,8 +369,14 @@ class MediaTest(unittest.TestCase):
             ],
         )
         recipe = self.a.recipe("font-mux", "component-mux")
-        policy = self.policy("selected_only", recipe["id"])
+        policy = self.policy("container", recipe["id"])
         plan = Resolver(self.app).resolve([{"item_id": self.item}], policy)
+        self.assertEqual(
+            plan["decisions"][0]["evidence"]["component_package"]["packaging"][
+                "action"
+            ],
+            "mux",
+        )
         enqueue(self.app, policy, self.item, "generated", plan["plan_id"])
         artifact = self.artifact(self.a.run())
         self.assertEqual(
@@ -450,3 +456,41 @@ class MediaTest(unittest.TestCase):
             )
         self.assertTrue(json.loads(admitted.stdout)["job_id"])
         self.artifact(json.loads(executed.stdout))
+
+    def test_full_reprobe_after_partial_inventory_still_requires_mux(self):
+        # Use actual probe streams from disposable media, initially indexing only
+        # the selected video, English audio and English subtitle.
+        with patch("catabolic.components.index_file"):
+            self.prepare()
+        data = json.loads(
+            self.store.rows(
+                "SELECT data FROM file_facts WHERE file_id=? AND operation='probe'",
+                (self.file_id,),
+            )[0]["data"]
+        )
+        partial = [s for s in data["streams"] if s["index"] in (0, 1, 3)]
+        fixtures.PackageTest.probe(self, self.file_id, partial)
+        processor = Processing(self.app)
+        processor.enqueue("probe", file_ids=[self.file_id], refresh=True)
+        self.assertTrue(processor.run()["complete"])
+        self.assertEqual({r["stream_count"] for r in self.rows("current=1")}, {5})
+        recipe = self.a.recipe("reprobe-mux", "component-mux")
+        policy = self.policy("selected_only", recipe["id"])
+        plan = Resolver(self.app).resolve([{"item_id": self.item}], policy)
+        decision = plan["decisions"][0]
+        self.assertIsNone(decision["content_path"])
+        self.assertEqual(
+            decision["evidence"]["component_package"]["packaging"]["action"], "mux"
+        )
+        enqueue(self.app, policy, self.item, "generated", plan["plan_id"])
+        artifact = self.artifact(self.a.run())
+        self.assertEqual(len(artifact["validation"]["output"]["streams"]), 3)
+        self.assertEqual(
+            len(
+                self.store.rows(
+                    "SELECT * FROM component_output_lineage WHERE artifact_id=?",
+                    (artifact["id"],),
+                )
+            ),
+            3,
+        )

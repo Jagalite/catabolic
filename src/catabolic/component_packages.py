@@ -57,7 +57,7 @@ def compatible(component, video, primary):
     return {"basis": "accepted_compatibility", **claim}
 
 
-def capture(resolver, primary, policy):
+def capture(resolver, primary, policy, check=None):
     store, profile, session = resolver.store, resolver.profile, resolver.session
     config = policy["package"]
     from .component_sql import OCCURRENCES_SQL
@@ -92,8 +92,30 @@ def capture(resolver, primary, policy):
             "compatibility": compatible(video, video, primary),
         }
     ]
+    # Publication revalidates the admitted occurrence in its saved query tiers;
+    # the journal performs the final live group check before touching outputs.
+    pinned = primary.pop("component_choices", None)
     total = 0
     query_reports = []
+
+    def supporting(value):
+        dependencies = []
+        for dep in value["dependencies"]:
+            snap = occurrence(store, profile, dep["file_id"])
+            if (
+                components.revision(snap) != dep["revision"]
+                or snap["status"] != "present"
+            ):
+                return None
+            if resolver.access:
+                from .content_access import authorize
+
+                authorize(resolver.access, dep["file_id"], dep["revision"])
+            dependencies.append(
+                {**dep, "snapshot": snap, "for_occurrence_id": value["occurrence_id"]}
+            )
+        return dependencies
+
     for requirement in config["requirements"]:
         chosen = None
         for tier in requirement["fallbacks"]:
@@ -152,9 +174,26 @@ def capture(resolver, primary, policy):
                 raise PackageBlocked(
                     "ambiguous_component_requirement:" + requirement["name"]
                 )
-            if usable:
-                # Accepted equivalent occurrences can use a deterministic locator.
-                chosen = usable[0]
+            for candidate in usable:
+                value = candidate["occurrence"]
+                if (
+                    pinned is not None
+                    and pinned.get(requirement["name"]) != value["occurrence_id"]
+                ):
+                    continue
+                dependencies = supporting(value)
+                if dependencies is None:
+                    continue
+                snapshots = [value["snapshot"]] + [d["snapshot"] for d in dependencies]
+                if len(snapshots) > policy["budgets"]["max_checks"]:
+                    raise PackageBlocked("component_dependency_budget")
+                if check is not None and not check(
+                    snapshots, value["snapshot"]["location"]
+                ):
+                    continue
+                chosen = candidate
+                break
+            if chosen:
                 break
         if chosen:
             selected.append(chosen)
@@ -165,21 +204,11 @@ def capture(resolver, primary, policy):
     for entry in selected:
         value = entry["occurrence"]
         checks.append(value["snapshot"])
-        for dep in value["dependencies"]:
-            snap = occurrence(store, profile, dep["file_id"])
-            if (
-                components.revision(snap) != dep["revision"]
-                or snap["status"] != "present"
-            ):
-                return None
-            if resolver.access:
-                from .content_access import authorize
-
-                authorize(resolver.access, dep["file_id"], dep["revision"])
-            checks.append(snap)
-            dependencies.append(
-                {**dep, "snapshot": snap, "for_occurrence_id": value["occurrence_id"]}
-            )
+        supporting_assets = supporting(value)
+        if supporting_assets is None:
+            return None
+        checks.extend(d["snapshot"] for d in supporting_assets)
+        dependencies.extend(supporting_assets)
     checks = list({encode(c): c for c in checks}.values())
     if len(checks) > policy["budgets"]["max_checks"]:
         raise PackageBlocked("component_dependency_budget")
@@ -241,7 +270,12 @@ def decision(config, selected, dependencies):
             "ready": True,
             "exposes_unselected_components": False,
         }
-    if config["publication"] == "selected_only" or offsets:
+    embedded_dependencies = any(
+        d["for_occurrence_id"]
+        in {v["occurrence_id"] for v in occurrences if v["file_id"] == video["file_id"]}
+        for d in dependencies
+    )
+    if config["publication"] == "selected_only" or offsets or embedded_dependencies:
         action = "mux"
     elif external:
         action = "publish_sidecars"
@@ -425,7 +459,14 @@ def publication_capture(reconciler, mapping, policy, entity, ids):
         max_ids=limits["max_candidates"],
     )
     accepted = Resolver(reconciler.app, session=session).capture(
-        {**rows[0], "video_occurrence_id": video["occurrence_id"]},
+        {
+            **rows[0],
+            "video_occurrence_id": video["occurrence_id"],
+            "component_choices": {
+                entry["requirement"]: entry["occurrence"]["occurrence_id"]
+                for entry in package["components"]
+            },
+        },
         policy,
         mapping["catalog"],
     )

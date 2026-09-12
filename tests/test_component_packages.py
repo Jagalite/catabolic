@@ -187,3 +187,129 @@ class PackageTest(unittest.TestCase):
         self.assertFalse(
             self.store.rows("SELECT 1 FROM processing_jobs WHERE operation='render'")
         )
+
+    def test_refreshed_probe_uses_current_container_inventory(self):
+        file = self.video("a.mkv", True)
+        original = self.rows("file_id=? AND current=1", (file,))
+        import json
+
+        streams = [json.loads(r["technical"]) for r in original]
+        streams.sort(key=lambda s: s["index"])
+        streams.append(
+            {
+                "index": 3,
+                "codec_type": "audio",
+                "codec_name": "aac",
+                "tags": {"language": "fra"},
+            }
+        )
+        self.probe(file, streams)
+        current = self.rows("file_id=? AND current=1", (file,))
+        self.assertEqual({r["stream_count"] for r in current}, {4})
+        self.assertTrue(
+            {r["occurrence_id"] for r in original}
+            <= {r["occurrence_id"] for r in current}
+        )
+        result = self.resolve(self.policy("selected_only"))
+        self.assertIsNone(result["content_path"])
+        self.assertEqual(
+            result["evidence"]["component_package"]["packaging"]["action"], "mux"
+        )
+        # Historical occurrences retain their original probe's container evidence.
+        (self.source / "a.mkv").write_bytes(b"new file revision")
+        self.app.scan()
+        self.assertFalse(self.rows("current=1"))
+        self.assertEqual({r["stream_count"] for r in self.rows("kind='video'")}, {3})
+
+    def subtitle_fallbacks(self, dependency=False):
+        from catabolic.curation import occurrence
+
+        video = self.video("a.mkv")
+        rev = components.revision(occurrence(self.store, "default", video))
+        tiers = []
+        files = []
+        for name in ("preferred.srt", "backup.srt"):
+            file = self.file(name, "subtitle", {"language": "en", "forced": True})
+            files.append(file)
+            row = self.rows("file_id=?", (file,))[0]
+            claims = {}
+            if dependency and name == "preferred.srt":
+                dep = self.file("required.sub", "custom:support")
+                claims = {
+                    "dependencies_complete": True,
+                    "dependencies": [
+                        {
+                            "file_id": dep,
+                            "revision": components.revision(
+                                occurrence(self.store, "default", dep)
+                            ),
+                            "purpose": "subtitle_data",
+                        }
+                    ],
+                }
+            self.claim(
+                row,
+                compatibility={
+                    "edition_id": self.item,
+                    "video_file_id": video,
+                    "video_revision": rev,
+                    "part": None,
+                    "timeline_id": "container:" + rev,
+                    "coverage": "full",
+                    "offset_seconds": 0.0,
+                    "synchronization": "declared",
+                },
+                **claims,
+            )
+            tiers.append(
+                {
+                    "name": name,
+                    "query_id": self.query(
+                        name,
+                        "SELECT occurrence_id FROM catalog_component_occurrences WHERE file_id='"
+                        + file
+                        + "' AND current=1",
+                    ),
+                }
+            )
+        definition = Policies(self.store).get(self.policy("sidecars"))["definition"]
+        definition["package"]["requirements"][1]["fallbacks"] = tiers
+        return Policies(self.store).put("subtitle-tiers", definition)["id"], files
+
+    def test_offline_component_tries_next_saved_query(self):
+        policy, files = self.subtitle_fallbacks()
+        (self.source / "preferred.srt").unlink()
+        result = self.resolve(policy)
+        self.assertEqual(result["state"], "resolved_preferred")
+        package = result["evidence"]["component_package"]
+        self.assertEqual(package["components"][-1]["occurrence"]["file_id"], files[1])
+
+    def test_offline_dependency_tries_next_saved_query(self):
+        policy, files = self.subtitle_fallbacks(dependency=True)
+        (self.source / "required.sub").unlink()
+        result = self.resolve(policy)
+        self.assertEqual(result["state"], "resolved_preferred")
+        self.assertEqual(
+            result["evidence"]["component_package"]["components"][-1]["occurrence"][
+                "file_id"
+            ],
+            files[1],
+        )
+        # The same fallback applies once a scan records the missing dependency.
+        self.app.scan()
+        self.assertEqual(self.resolve(policy)["state"], "resolved_preferred")
+
+    def test_component_live_checks_share_resolution_budget(self):
+        from unittest.mock import patch
+
+        from catabolic.fallback_probe import probe
+
+        policy, _ = self.subtitle_fallbacks()
+        definition = Policies(self.store).get(policy)["definition"]
+        definition["budgets"]["max_checks"] = 1
+        policy = Policies(self.store).put("bounded", definition)["id"]
+        with patch("catabolic.fallback_resolution.probe", wraps=probe) as checked:
+            result = self.resolve(policy)
+        self.assertEqual(checked.call_count, 1)
+        self.assertEqual(result["state"], "blocked")
+        self.assertIn("resolution_probe_budget", result["reasons"])

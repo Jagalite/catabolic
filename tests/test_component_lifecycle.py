@@ -207,3 +207,58 @@ class LifecycleTest(unittest.TestCase):
         new = plans.evaluate(self.app, reference)
         self.assertTrue(plans.compare(old, new)["changed"])
         self.assertEqual(old["value"]["ids"], new["value"]["ids"])
+
+    def test_component_fallback_publication_and_noop(self):
+        policy, files = fixtures.PackageTest.subtitle_fallbacks(self)
+        (self.source / "preferred.srt").unlink()
+        projection = self.bind(policy)
+        first = self.apply(projection)
+        self.assertTrue(first["complete"], first)
+        self.assertIn(files[1], {r["file_id"] for r in first["desired"]})
+        self.assertNotIn(files[0], {r["file_id"] for r in first["desired"]})
+        links = {
+            str(p): p.lstat().st_ino for p in self.output.rglob("*") if p.is_symlink()
+        }
+        second = self.apply(projection)
+        self.assertTrue(second["complete"], second)
+        self.assertEqual(second["publication"]["applied"], [])
+        self.assertEqual(
+            links,
+            {
+                str(p): p.lstat().st_ino
+                for p in self.output.rglob("*")
+                if p.is_symlink()
+            },
+        )
+
+    def test_embedded_subtitle_external_font_requires_packaging(self):
+        self.video("a.mkv", True)
+        font = self.file("required.ttf", "custom:support")
+        subtitle = self.rows("kind='subtitle' AND current=1")[0]
+        self.claim(
+            subtitle,
+            dependencies_complete=True,
+            dependencies=[
+                {
+                    "file_id": font,
+                    "revision": components.revision(
+                        occurrence(self.store, "default", font)
+                    ),
+                    "purpose": "font",
+                }
+            ],
+        )
+        for mode in ("container", "sidecars"):
+            with self.subTest(mode=mode):
+                result = self.resolve(self.policy(mode))
+                packaging = result["evidence"]["component_package"]["packaging"]
+                self.assertEqual(packaging["action"], "mux")
+                self.assertFalse(packaging["ready"])
+                self.assertIsNone(result["content_path"])
+        projection = self.bind(self.policy())
+        result = self.apply(projection)
+        self.assertFalse(result["applied"], result)
+        self.assertFalse([p for p in self.output.rglob("*") if p.is_symlink()])
+        self.assertFalse(
+            self.store.rows("SELECT 1 FROM processing_jobs WHERE operation='render'")
+        )

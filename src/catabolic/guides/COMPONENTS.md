@@ -35,6 +35,9 @@ are new occurrences; only verified lineage or accepted evidence carries logical
 identity across the change. Historical occurrences remain queryable with their
 old probe evidence and assertions. `current` means current catalog evidence;
 resolution additionally performs the existing bounded live source checks.
+For current occurrences, container format and stream count come from the latest
+probe fact, even when unchanged streams retain their occurrence IDs and original
+stream evidence. Historical occurrences retain their original container evidence.
 
 `observed` contains meaningful container attributes; `asserted` contains accepted
 association, curation, or generated-lineage attributes. `technical` preserves the
@@ -148,7 +151,10 @@ and have no component-specific filters:
 }
 ```
 
-Missing required components disqualify that video and permit another video/tier.
+An unavailable component or supporting file permits the next saved-query tier
+for that requirement. These live checks share the resolver's probe budget,
+timeouts and epoch validation. Missing required components after exhausting those
+tiers disqualify that video and permit another video/tier.
 Multiple eligible logical translations in one requirement tier block as ambiguous;
 a file-ID tie break cannot silently pick a translation. Equivalent occurrences can
 be chosen deterministically. Partial coverage, wrong editions/parts/timelines,
@@ -241,7 +247,9 @@ Other intentional limits:
   text/audio formats. Components in another multi-stream container first require
   explicit extraction and accepted compatibility for the result.
 - Paired subtitle files can be published as revision-pinned sidecar groups;
-  their muxing is blocked. Standalone font files can be attached during muxing;
+  their muxing is blocked. Required dependencies of embedded components also
+  require packaging; publishing the original container cannot deliver those files.
+  Standalone font files can be attached during muxing;
   font sidecar layouts and extraction of embedded font dependencies are unsupported.
   Byte preservation does not certify font validity or renderer behavior.
 - No automatic translation matching, attachment dependency discovery, or

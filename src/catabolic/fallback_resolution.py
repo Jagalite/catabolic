@@ -87,6 +87,28 @@ class Resolver:
         checked = 0
         candidate_count = 0
         health = []
+
+        def check(snapshots, location):
+            nonlocal checked
+            key = encode(snapshots)
+            if key not in checks:
+                if checked >= check_limit:
+                    raise PackageBlocked("resolution_probe_budget")
+                if location in suppressed:
+                    return False
+                checked += 1
+                before = time.monotonic()
+                with self.store.detached():
+                    result = probe(
+                        self.store.path, snapshots, limits["probe_timeout_ms"]
+                    )
+                context["deadline"] += time.monotonic() - before
+                require_epoch(self.store, captured_epoch)
+                checks[key] = result["usable"]
+                if result["reason"] in ("probe_timeout", "probe_capacity"):
+                    suppressed.add(location)
+            return checks[key]
+
         for entry in entries:
             key = entry_id(self.store, self.profile, catalog, entry)
             decisions[key] = Decision(
@@ -189,7 +211,7 @@ class Resolver:
                     if candidate_key in candidates:
                         continue
                     try:
-                        captured = self.capture(row, policy, catalog)
+                        captured = self.capture(row, policy, catalog, check=check)
                         if captured is not None:
                             candidates[candidate_key] = captured
                     except PackageBlocked as exc:
@@ -213,30 +235,12 @@ class Resolver:
                 for candidate in ranked:
                     if usable and candidate["rank"] != usable[0]["rank"]:
                         break
-                    key = encode(candidate["checks"])
-                    location = candidate["location"]
-                    if key not in checks:
-                        if checked >= check_limit:
-                            decision.update(
-                                state="blocked", reasons=["resolution_probe_budget"]
-                            )
-                            break
-                        if location in suppressed:
-                            continue
-                        checked += 1
-                        before = time.monotonic()
-                        with self.store.detached():
-                            result = probe(
-                                self.store.path,
-                                candidate["checks"],
-                                limits["probe_timeout_ms"],
-                            )
-                        context["deadline"] += time.monotonic() - before
-                        require_epoch(self.store, captured_epoch)
-                        checks[key] = result["usable"]
-                        if result["reason"] in ("probe_timeout", "probe_capacity"):
-                            suppressed.add(location)
-                    if checks.get(key):
+                    try:
+                        live = check(candidate["checks"], candidate["location"])
+                    except PackageBlocked as exc:
+                        decision.update(state="blocked", reasons=[str(exc)])
+                        break
+                    if live:
                         usable.append(candidate)
                         if policy["within_tier"].get(
                             "tie_break"
@@ -346,29 +350,25 @@ class Resolver:
                                     },
                                     policy,
                                     catalog,
+                                    check=check,
                                 )
                                 if old
                                 else None
                             )
+                        except PackageBlocked as exc:
+                            decision.update(state="blocked", reasons=[str(exc)])
+                            continue
                         except CatabolicError:
                             old_capture = None
                         if old_capture:
-                            if checked >= check_limit:
-                                decision.update(
-                                    state="blocked", reasons=["resolution_probe_budget"]
+                            try:
+                                old_live = check(
+                                    old_capture["checks"], old_capture["location"]
                                 )
+                            except PackageBlocked as exc:
+                                decision.update(state="blocked", reasons=[str(exc)])
                                 continue
-                            checked += 1
-                            before = time.monotonic()
-                            with self.store.detached():
-                                old_live = probe(
-                                    self.store.path,
-                                    old_capture["checks"],
-                                    limits["probe_timeout_ms"],
-                                )
-                            context["deadline"] += time.monotonic() - before
-                            require_epoch(self.store, captured_epoch)
-                            if old_live["usable"]:
+                            if old_live:
                                 observation = self.health(
                                     decision["entry_id"], chosen, catalog
                                 )
@@ -494,7 +494,7 @@ class Resolver:
             "last_check": now,
         }
 
-    def capture(self, row, policy, catalog):
+    def capture(self, row, policy, catalog, check=None):
         revision = revision_of(self.store, self.profile, row["file_id"])
         if self.access:
             if self.operation_id:
@@ -590,7 +590,7 @@ class Resolver:
             from .component_packages import capture
 
             try:
-                return capture(self, captured, policy)
+                return capture(self, captured, policy, check=check)
             except CatabolicError as exc:
                 raise PackageBlocked(str(exc)) from exc
         return captured

@@ -153,8 +153,7 @@ def install(db):
 OCCURRENCES_SQL = (
     """WITH evidence AS (
  SELECT c.*, m.kind, a.role AS association_role,
- json_extract(j.result,'$.' || CASE WHEN c.probe_path='' THEN '' ELSE c.probe_path || '.' END || 'format.format_name') AS format_name,
- json_array_length(json_extract(j.result,'$.' || CASE WHEN c.probe_path='' THEN '' ELSE c.probe_path || '.' END || 'streams')) AS stream_count,
+ CASE WHEN c.probe_path='' THEN j.result ELSE json_extract(j.result,'$.' || c.probe_path) END AS retained_container,
  (SELECT json_extract(ji.evidence,'$.occurrence') FROM main.component_output_lineage ln JOIN main.processing_artifacts ar ON ar.id=ln.artifact_id JOIN main.component_job_inputs ji ON ji.job_id=ar.job_id AND ji.ordinal=ln.ordinal WHERE ar.file_id=c.file_id AND ar.profile=c.profile AND ar.job_id=c.probe_job_id AND ln.output_stream_index=json_extract(c.locator,'$.index') LIMIT 1) AS inherited,
  json_extract(j.result,'$.' || CASE WHEN c.probe_path='' THEN '' ELSE c.probe_path || '.' END || 'streams[' || c.stream_key || ']') AS technical,
  (SELECT json_group_array(json_object('id',x.id,'component_id',x.component_id,'payload',json(x.payload)))
@@ -167,7 +166,7 @@ OCCURRENCES_SQL = (
     + """
  AND coalesce(json_extract(c.snapshot,'$.source_policy.revision'),0)=coalesce(p.revision,0)
  AND json_extract(c.snapshot,'$.volume_uuid') IS v.volume_uuid
- AND (c.probe_job_id IS NULL OR EXISTS (SELECT 1 FROM main.file_facts ff WHERE ff.profile=c.profile AND ff.file_id=c.file_id AND ff.operation='probe' AND ff.status='complete' AND json_extract(ff.data,'$.streams[' || c.stream_key || ']') IS json_extract(j.result,'$.' || CASE WHEN c.probe_path='' THEN '' ELSE c.probe_path || '.' END || 'streams[' || c.stream_key || ']')))
+ AND (c.probe_job_id IS NULL OR EXISTS (SELECT 1 FROM main.file_facts ff, json_each(ff.data,'$.streams') stream WHERE ff.profile=c.profile AND ff.file_id=c.file_id AND ff.operation='probe' AND ff.status='complete' AND json_extract(stream.value,'$.index')=json_extract(c.locator,'$.index') AND stream.value IS json_extract(j.result,'$.' || CASE WHEN c.probe_path='' THEN '' ELSE c.probe_path || '.' END || 'streams[' || c.stream_key || ']')))
  AND (c.probe_job_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM main.component_occurrences newer
  WHERE newer.association_id=c.association_id AND newer.profile=c.profile AND newer.revision=c.revision AND newer.probe_job_id IS NOT NULL)),0) AS current
  FROM main.component_occurrences c JOIN main.media_components m ON m.id=c.component_id
@@ -178,8 +177,14 @@ OCCURRENCES_SQL = (
  LEFT JOIN main.bindings b ON b.profile=c.profile AND b.kind='source' AND b.owner=f.location
  LEFT JOIN main.source_identity_policies p ON p.profile=c.profile AND p.location=f.location
  LEFT JOIN main.binding_volumes v ON v.profile=c.profile AND v.kind='source' AND v.owner=f.location
+), containers AS (
+ SELECT *,CASE WHEN current=1 AND probe_job_id IS NOT NULL THEN
+ (SELECT ff.data FROM main.file_facts ff WHERE ff.profile=evidence.profile AND ff.file_id=evidence.file_id AND ff.operation='probe' AND ff.status='complete')
+ ELSE retained_container END AS container FROM evidence
 ), normalized AS (
- SELECT *,component_normalize(technical,json_extract(association_evidence,'$.metadata'),assertions,format_name,inherited) AS n FROM evidence
+ SELECT *,json_extract(container,'$.format.format_name') AS format_name,
+ json_array_length(json_extract(container,'$.streams')) AS stream_count,
+ component_normalize(technical,json_extract(association_evidence,'$.metadata'),assertions,json_extract(container,'$.format.format_name'),inherited) AS n FROM containers
 )
 SELECT id AS occurrence_id,logical_id AS component_id,profile,item_id,file_id,association_id,kind,
  CASE WHEN json_extract(n,'$.effective.commentary')=1 THEN 'commentary' ELSE kind END AS role,
