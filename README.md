@@ -5,6 +5,8 @@ SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 SPDX-License-Identifier: MIT
 -->
 
+![Catabolic — a glowing blue cube dissolving into colorful film frames](https://raw.githubusercontent.com/Jagalite/catabolic/main/docs/assets/catabolic-banner.png)
+
 **A programmable media catalog.**
 
 People and agents decide what belongs. Queries select catalog state. Rules
