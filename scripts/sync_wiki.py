@@ -39,6 +39,16 @@ GROUPS = {
     ),
     "Catalog and curate": (
         (
+            "INBOX.md",
+            "Work-Inbox",
+            "Outstanding work, evidence and existing owner operations",
+        ),
+        (
+            "COMPONENTS.md",
+            "Media-Components",
+            "Embedded and external tracks, compatibility and packaging",
+        ),
+        (
             "WORKLOG.md",
             "Entry-Worklog",
             "Entry status, completion checks and append-only worklogs",
@@ -53,6 +63,22 @@ GROUPS = {
         ("ENRICHMENT.md", "Enrichment", "Probes, hashes, jobs, proposals and refresh"),
     ),
     "Query and automate": (
+        (
+            "OBSERVATIONS.md",
+            "Source-Observations",
+            "Guarded scanning, exclusions, batches and continuation",
+        ),
+        (
+            "WATCHERS.md",
+            "Watchers",
+            "Observation and query schedules with explicit reactions",
+        ),
+        (
+            "FALLBACK.md",
+            "Fallback",
+            "Ordered queries, compatible packages and failback",
+        ),
+        ("HTTP.md", "HTTP", "Authorized catalog queries and content delivery"),
         ("QUERYING.md", "SQL-Queries", "Views, joins, grouping, parameters and limits"),
         ("GRAPHQL.md", "GraphQL", "Nested queries, variables and pagination"),
         ("QUERY_FOLDERS.md", "Query-Folders", "Saved selections as generated folders"),
@@ -110,6 +136,11 @@ GROUPS = {
         ),
     ),
     "Operate and contribute": (
+        (
+            "TRUST_POLICIES.md",
+            "Trust-Policies",
+            "Source identity, evidence and owner configuration",
+        ),
         (
             "CONSUMER_DESIGN.md",
             "Consumer-Architecture",
@@ -192,7 +223,7 @@ def wiki_links(markdown, source="README.md"):
             return match.group(0)
         return f"[{label}]({destination})"
 
-    output = []
+    output, prose = [], []
     fence = None
     for line in markdown.splitlines(keepends=True):
         stripped = line.lstrip()
@@ -201,10 +232,13 @@ def wiki_links(markdown, source="README.md"):
             if stripped.startswith(fence):
                 fence = None
         elif stripped.startswith(("```", "~~~")):
+            output.append(LINK.sub(replace, "".join(prose)))
+            prose.clear()
             fence = stripped[:3]
             output.append(line)
         else:
-            output.append(LINK.sub(replace, line))
+            prose.append(line)
+    output.append(LINK.sub(replace, "".join(prose)))
     return "".join(output)
 
 

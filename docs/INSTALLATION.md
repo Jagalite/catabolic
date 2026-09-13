@@ -13,12 +13,12 @@ for actual platform results. A configured platform lane is not evidence of a pas
 ## Install with pip
 
 A virtual environment keeps Catabolic's dependencies separate from other Python
-applications. These commands require Git and an available Python interpreter:
+applications. These commands require an available Python interpreter:
 
 ```sh
 python3 -m venv ~/.venvs/catabolic
 . ~/.venvs/catabolic/bin/activate
-python -m pip install 'git+https://github.com/Jagalite/catabolic.git'
+python -m pip install catabolic
 python -m pip check
 catabolic --version
 catabolic docs
@@ -29,23 +29,25 @@ Activate the environment in a new terminal before using `catabolic`, or run
 catalog, scan your drives, or create output libraries. Start with
 [Getting started](GETTING_STARTED.md) after installing.
 
-The URL installs the current default branch. To select a reviewed revision,
-replace `COMMIT_SHA` with its full Git commit hash:
+Catabolic [0.1.0 is published on PyPI](https://pypi.org/project/catabolic/0.1.0/).
+Use `python -m pip install catabolic==0.1.0` to pin that release.
+
+To install a specific repository revision instead, install Git and replace
+`COMMIT_SHA` with its full Git commit hash:
 
 ```sh
 python -m pip install 'git+https://github.com/Jagalite/catabolic.git@COMMIT_SHA'
 ```
 
-These instructions deliberately identify this repository as the source. They do
-not assume a `catabolic` release is available on PyPI. Installing an unrelated
-package with the same name is not equivalent.
+Release versions come from PyPI; a Git installation selects repository code
+which may include changes after the latest release.
 
 ## Install with pipx
 
 If pipx is already installed and its application directory is on PATH:
 
 ```sh
-pipx install 'git+https://github.com/Jagalite/catabolic.git'
+pipx install catabolic
 catabolic --help
 ```
 
@@ -111,6 +113,11 @@ machines; they do not provide remote database replication or concurrent NAS
 SQLite access. See [operations](OPERATIONS.md).
 
 ## Upgrade the application, then inspect the database
+
+For a PyPI installation, run `python -m pip install --upgrade catabolic` inside
+your virtual environment, or `pipx upgrade catabolic` for a pipx installation.
+Then run `catabolic db status` and `catabolic db upgrade --dry-run` before applying
+any required database migration. Application installation does not migrate catalogs.
 
 For a Git installation whose project version has not changed, explicitly
 reinstall the selected revision so pip does not retain an earlier build:

@@ -396,7 +396,7 @@ The [consumer guide](docs/CONSUMERS.md) covers explicit library creation, path
 mapping, repair and optional Apprise subscriptions. Apprise is installed separately
 with the `notifications` extra; its per-destination retries are independent of
 scan delivery. Preview and apply any required database upgrade before setup;
-the current schema is 20. Upgrading does not enable automatic network actions.
+the current schema is 27. Upgrading does not enable automatic network actions.
 
 ## Publishing a release
 

@@ -24,7 +24,7 @@ catabolic --db catalog.db db upgrade --dry-run
 catabolic --db catalog.db db upgrade
 ```
 
-The current schema is 20. Consumer delivery was introduced in schema 17;
+The current schema is 27. Consumer delivery was introduced in schema 17;
 schemas 18–20 add volume identity, source trust policies and validation evidence.
 See [database migrations](MIGRATIONS.md) for backup and repair behavior. Existing
 catalog IDs, profiles, projections, jobs, ownership, Jellyfin targets, dirty work
