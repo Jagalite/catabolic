@@ -445,6 +445,16 @@ def run(
         sources = app.store.rows("SELECT id FROM locations ORDER BY id")
         if not sources:
             raise CatabolicError("no source locations configured")
+        if not inventory_only:
+            from .remount import recover_device_numbers
+
+            recovery = recover_device_numbers(
+                app,
+                required_bindings={("source", row["id"]) for row in sources}
+                | {("output", name) for name in catalogs},
+            )
+            if recovery is not None:
+                record("remount", recovery)
         for kind, owners in (
             ("source", [row["id"] for row in sources]),
             ("output", catalogs),

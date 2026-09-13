@@ -173,3 +173,23 @@ does not relax output ownership or removal budgets.
 All scan callers inherit the shared source observation policy. Guarded scans may
 publish discoveries while incomplete; maintenance still stops before operations
 requiring complete membership. See [guarded observations](OBSERVATIONS.md).
+
+### Verified remount recovery
+
+Before a normal maintenance cycle scans or synchronizes, Catabolic detects
+changed device numbers on the required bindings and automatically previews and
+applies its existing verified remount repair. Matching recorded volume UUIDs,
+root inodes, linked-source metadata, symlink targets, and output ownership are
+required. The exact preview is revalidated before the database-only repair;
+the maintenance report includes a `remount` stage and the repair remains audited.
+No-op cycles create no repair history. Source media and existing links are not
+modified by recovery. Sources configured to skip the device identity check do
+not trigger automatic recovery on device-number differences alone.
+
+Missing UUIDs, replacement roots or volumes, changed published files, and
+unsupported hardlink ownership still block recovery. No trust override or legacy
+adoption is enabled automatically. Repair currently verifies the whole profile,
+so an unavailable binding elsewhere in that profile can block a needed repair.
+Inventory-only maintenance retains its source-only preflight and does not run
+this profile-wide output-verifying repair. Standalone read-only commands retain
+their existing behavior; the explicit `remount` command remains available.

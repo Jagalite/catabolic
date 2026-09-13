@@ -280,3 +280,34 @@ def repair(
                 (str(uuid4()), profile, encode(plan)),
             )
         return {**result, "applied": True, "verification": verification}
+
+
+def recover_device_numbers(app, *, required_bindings=None):
+    """Reverify mount renumbering through the normal audited repair service."""
+    changed = False
+    for binding in app.store.rows(
+        "SELECT * FROM bindings WHERE profile=? ORDER BY kind,owner", (app.profile,)
+    ):
+        if (
+            required_bindings is not None
+            and (binding["kind"], binding["owner"]) not in required_bindings
+        ):
+            continue
+        if binding["kind"] == "source":
+            from .source_trust import effective
+
+            if effective(app, binding["owner"])["settings"]["device"] == "skip":
+                continue
+        fd = open_directory(binding["root"])
+        try:
+            if os.fstat(fd).st_dev != binding["device"]:
+                changed = True
+        finally:
+            os.close(fd)
+    if not changed:
+        return None
+    # No legacy adoption or trust override: both passes require stable identity,
+    # unchanged selected sources, ownership, and the same exact repair plan.
+    preview = repair(app)
+    result = repair(app, apply=True, expected_plan=preview["plan_id"])
+    return {**result, "automatic": True}

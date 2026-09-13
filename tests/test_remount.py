@@ -72,6 +72,73 @@ class RemountTest(unittest.TestCase):
         preview = repair(self.app, **kwargs)
         return repair(self.app, apply=True, expected_plan=preview["plan_id"], **kwargs)
 
+    def test_maintenance_automatically_reverifies_renumbered_mounts(self):
+        from catabolic.maintenance import run
+
+        self.renumber()
+        result = run(self.app)
+        self.assertTrue(result["complete"], result)
+        repairs = [row for row in result["stages"] if row["stage"] == "remount"]
+        self.assertEqual(len(repairs), 1)
+        self.assertTrue(repairs[0]["automatic"])
+        self.assertTrue(repairs[0]["applied"])
+        self.assertEqual(repairs[0]["verified_sources"], 1)
+        self.assertEqual((self.root / "output/Movie.mkv").lstat(), self.before_link)
+        self.assertEqual(len(self.store.rows("SELECT * FROM remount_repairs")), 1)
+        again = run(self.app)
+        self.assertTrue(again["complete"], again)
+        self.assertFalse(any(row["stage"] == "remount" for row in again["stages"]))
+        self.assertEqual(len(self.store.rows("SELECT * FROM remount_repairs")), 1)
+
+    def test_automatic_recovery_does_not_adopt_unverified_sources(self):
+        from catabolic.maintenance import run
+
+        self.renumber()
+        before = self.store.rows("SELECT * FROM bindings ORDER BY kind,owner")
+        for replacement in (None, "replacement-volume"):
+            with patch("catabolic.remount.volume_uuid", return_value=replacement):
+                result = run(self.app)
+            self.assertFalse(result["complete"])
+            self.assertFalse(any(row["stage"] == "scan" for row in result["stages"]))
+            self.assertEqual(
+                before, self.store.rows("SELECT * FROM bindings ORDER BY kind,owner")
+            )
+        (self.root / "source/movie.mkv").write_bytes(b"changed source")
+        self.assertFalse(run(self.app)["complete"])
+        self.assertEqual(self.store.rows("SELECT * FROM remount_repairs"), [])
+
+    def test_automatic_recovery_honors_skipped_source_device_check(self):
+        from catabolic.remount import recover_device_numbers
+        from catabolic.source_trust import configure
+
+        configure(self.app, "source", apply=True, overrides={"device": "skip"})
+        with self.store.transaction() as db:
+            db.execute("UPDATE bindings SET device=device+100 WHERE kind='source'")
+        with patch("catabolic.remount.repair") as repair_mock:
+            self.assertIsNone(recover_device_numbers(self.app))
+        repair_mock.assert_not_called()
+        self.assertEqual(self.store.rows("SELECT * FROM remount_repairs"), [])
+
+    def test_automatic_recovery_rejects_changed_preview(self):
+        from catabolic.remount import recover_device_numbers
+
+        self.renumber()
+        before = self.store.rows("SELECT * FROM bindings ORDER BY kind,owner")
+
+        def changed(*args, **kwargs):
+            result = repair(*args, **kwargs)
+            if not kwargs.get("apply"):
+                (self.root / "source/movie.mkv").write_bytes(b"modified after preview")
+            return result
+
+        with patch("catabolic.remount.repair", side_effect=changed):
+            with self.assertRaisesRegex(CatabolicError, "metadata changed"):
+                recover_device_numbers(self.app)
+        self.assertEqual(
+            before, self.store.rows("SELECT * FROM bindings ORDER BY kind,owner")
+        )
+        self.assertEqual(self.store.rows("SELECT * FROM remount_repairs"), [])
+
     def test_remount_preserves_links_pending_generations_and_observations(self):
         self.renumber()
         before = generations(self.app)
