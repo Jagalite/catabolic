@@ -31,9 +31,9 @@ is replaced, scanning or synchronization stops until the binding is deliberately
 updated. Bind source roots at the actual mounted media filesystem. Nested
 filesystem boundaries make a scan incomplete; register each mount separately.
 
-Only a complete scan publishes observations or marks unseen occurrences missing.
+Scans publish validated discoveries in batches. Only completed, validated directory coverage can establish missing occurrences.
 Errors, detected directory changes, and inaccessible roots leave the previous
-inventory intact. Source symlinks are never followed. A scan is not a filesystem
+unvisited inventory intact. Source symlinks are never followed. A scan is not a filesystem
 snapshot: avoid modifying directory structure while it runs.
 
 For source volumes containing protected operating-system directories, exclude

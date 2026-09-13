@@ -14,7 +14,11 @@ from .source_trust import source_policy
 from .store import encode
 
 
-def compatibility(app, source, exclusions=(), require_complete=False):
+def compatibility(app, source, exclusions=(), require_complete=False, execution=None):
+    from .scan_policy import effective
+    from .scan_policy import execution as defaults
+
+    execution = execution or defaults(app, source)
     return hashlib.sha256(
         encode(
             {
@@ -28,7 +32,9 @@ def compatibility(app, source, exclusions=(), require_complete=False):
                 ),
                 "policy": source_policy(app.store, app.profile, source),
                 "exclusions": list(exclusions),
-                "method": "full-inventory-v1",
+                "method": "guarded-inventory-v2",
+                "observation_policy": effective(app, source),
+                "execution": execution,
                 "require_complete": require_complete,
             }
         ).encode()
@@ -53,9 +59,14 @@ def _request_job(
     require_complete=False,
     reuse_unavailable=True,
     completed_after=0,
+    execution=None,
+    parent_job=None,
 ):
+    from .scan_policy import execution as defaults
+
+    execution = execution or defaults(app, source)
     now = time.time()
-    key = compatibility(app, source, exclusions, require_complete)
+    key = compatibility(app, source, exclusions, require_complete, execution)
     with app.store.transaction() as db:
         db.execute(
             "INSERT OR IGNORE INTO observation_sources VALUES (?,?,0)",
@@ -71,10 +82,27 @@ def _request_job(
         ).fetchall()
         for raw in rows:
             row = dict(raw)
+            if row["state"] == "failed" and json.loads(row["report"] or "{}").get(
+                "deferred"
+            ):
+                # Successful continuation resolves the blocker, but does not
+                # turn this historical interval into fresh completed evidence.
+                resolved = db.execute(
+                    "WITH RECURSIVE descendants(id) AS (SELECT id FROM observation_jobs WHERE parent_job=? UNION ALL SELECT j.id FROM observation_jobs j JOIN descendants d ON j.parent_job=d.id) SELECT 1 FROM descendants d JOIN observation_jobs j ON j.id=d.id WHERE j.state='complete' LIMIT 1",
+                    (row["id"],),
+                ).fetchone()
+                if not resolved:
+                    return {
+                        **row,
+                        "reuse": "deferred",
+                        "blocker": "explicit_continuation_required",
+                    }
             if (
                 reuse_completed
                 and row["state"] in ("complete", "unavailable")
                 and row["started_at"] >= max(minimum_start, completed_after)
+                and row["parent_job"] is None
+                and json.loads(row["execution"]).get("scopes", [""]) == [""]
                 and (
                     row["state"] == "complete"
                     or (reuse_unavailable and not require_complete)
@@ -92,7 +120,7 @@ def _request_job(
         ).fetchone()[0]
         identifier = str(uuid4())
         db.execute(
-            "INSERT INTO observation_jobs(id,profile,source,compatibility,exclusions,dirty_generation,generation,state,requested_at) VALUES (?,?,?,?,?,?,?,'queued',?)",
+            "INSERT INTO observation_jobs(id,profile,source,compatibility,exclusions,dirty_generation,generation,state,requested_at,execution,parent_job) VALUES (?,?,?,?,?,?,?,'queued',?,?,?)",
             (
                 identifier,
                 app.profile,
@@ -102,6 +130,8 @@ def _request_job(
                 watermark,
                 generation,
                 now,
+                encode(execution),
+                parent_job,
             ),
         )
     return {
@@ -120,13 +150,30 @@ def request(
     reuse_completed=True,
     require_complete=False,
     requester=None,
+    extended=False,
+    budgets=None,
+    scopes=None,
+    parent_job=None,
+    continuation_scopes=None,
 ):
     """Admit immutable guarantees once; an idempotency key resumes the same demand."""
     if max_age < 0 or after < 0:
         raise CatabolicError("invalid_observation_freshness")
     if not app.store.rows("SELECT id FROM locations WHERE id=?", (source,)):
         raise CatabolicError(f"unknown location: {source}")
-    exclusions = sorted({relative_path(p) for p in exclusions})
+    from .scan_policy import effective
+    from .scan_policy import execution as execution_policy
+
+    exclusions = sorted(
+        {relative_path(p) for p in exclusions}
+        | set(effective(app, source)["exclusions"])
+    )
+    execution = execution_policy(
+        app, source, extended=extended, budgets=budgets, scopes=scopes
+    )
+    if parent_job:
+        execution["continuation_of"] = parent_job
+        execution["continuation_scopes"] = continuation_scopes
     if requester is not None:
         existing = app.store.rows(
             "SELECT id FROM observation_requests WHERE profile=? AND source=? AND requester=?",
@@ -139,6 +186,7 @@ def request(
                 for key, value in (
                     ("exclusions", exclusions),
                     ("require_complete", require_complete),
+                    ("execution", execution),
                     ("max_age", max_age),
                     ("reuse_completed", reuse_completed),
                 )
@@ -154,12 +202,16 @@ def request(
         reuse_completed=reuse_completed,
         require_complete=require_complete,
         coverage="full_source",
-        method="full-inventory-v1",
+        method="guarded-inventory-v2",
+        execution=execution,
+        parent_job=parent_job,
     )
     recover(app)
     job = _request_job(
         app,
         source,
+        execution=execution,
+        parent_job=parent_job,
         **{
             k: guarantees[k]
             for k in (
@@ -202,6 +254,13 @@ def resume(app, request_id):
     )[0]
     if demand["state"] == "cancelled":
         return _result(app, {**job, "request_id": request_id, "guarantees": guarantees})
+    from .scan_policy import effective
+
+    if (
+        guarantees.get("execution", {}).get("policy_revision", 0)
+        != effective(app, demand["source"])["revision"]
+    ):
+        raise CatabolicError("observation policy changed; request a new scan")
     watermark = app.store.rows(
         "SELECT dirty_generation FROM observation_sources WHERE profile=? AND source=?",
         (app.profile, demand["source"]),
@@ -213,13 +272,37 @@ def resume(app, request_id):
             demand["source"],
             guarantees["exclusions"],
             guarantees["require_complete"],
+            guarantees.get("execution"),
         )
         and job["dirty_generation"] >= watermark
     )
-    if not compatible or job["state"] in ("failed", "stale", "unavailable"):
+    if (
+        compatible
+        and (
+            job["state"] == "stale"
+            or (
+                job["state"] == "failed"
+                and json.loads(job["report"] or "{}").get("resume_progress")
+            )
+        )
+        and job["scan_id"]
+        and not json.loads(job["report"] or "{}").get("deferred")
+    ):
+        with app.store.transaction() as db:
+            db.execute(
+                "UPDATE observation_jobs SET state='queued',lease_until=0 WHERE id=? AND state IN ('stale','failed')",
+                (job["id"],),
+            )
+        job["state"] = "queued"
+    deferred = bool(json.loads(job["report"] or "{}").get("deferred"))
+    if not compatible or (
+        job["state"] in ("failed", "stale", "unavailable") and not deferred
+    ):
         job = _request_job(
             app,
             demand["source"],
+            execution=guarantees.get("execution"),
+            parent_job=guarantees.get("parent_job"),
             reuse_unavailable=False,
             completed_after=job["started_at"] or job["requested_at"],
             **{
@@ -332,8 +415,8 @@ def claim(app, job):
             app.store.after_close["observation:" + job["id"]] = close
             acquired = True
             changed = db.execute(
-                "UPDATE observation_jobs SET state='running',guarded=1,started_at=?,lease_until=?,worker_pid=? WHERE id=? AND state='queued'",
-                (now, now + 3600, os.getpid(), job["id"]),
+                "UPDATE observation_jobs SET state='running',guarded=1,started_at=CASE WHEN scan_id IS NULL THEN ? ELSE started_at END,lease_until=?,worker_pid=?,claim_token=? WHERE id=? AND state='queued'",
+                (now, now + 3600, os.getpid(), str(uuid4()), job["id"]),
             ).rowcount
             if not changed:
                 _release_guard(app, job)
@@ -365,15 +448,123 @@ def validate(app, job):
                 "generation",
                 "worker_pid",
                 "started_at",
+                "claim_token",
             )
         )
         or not any(
-            compatibility(app, job["source"], json.loads(job["exclusions"]), strict)
+            compatibility(
+                app,
+                job["source"],
+                json.loads(job["exclusions"]),
+                strict,
+                json.loads(job["execution"]),
+            )
             == job["compatibility"]
             for strict in (False, True)
         )
     ):
         raise CatabolicError("stale_observation_claim")
+
+
+def renew(app, job):
+    """Renew only the exact live owner and fence; an expired lease is not authority."""
+    validate(app, job)
+    with app.store.transaction() as db:
+        changed = db.execute(
+            "UPDATE observation_jobs SET lease_until=? WHERE id=? AND state='running' AND claim_token=? AND worker_pid=?",
+            (time.time() + 3600, job["id"], job["claim_token"], job["worker_pid"]),
+        ).rowcount
+        if changed != 1:
+            raise CatabolicError("stale_observation_claim")
+
+
+def continue_request(app, request_id, *, scopes=None, extended=False, budgets=None):
+    """An explicit amended request; committed scope history stays inspectable."""
+    with app.store.transaction():
+        return _continue_request(
+            app, request_id, scopes=scopes, extended=extended, budgets=budgets
+        )
+
+
+def _continue_request(app, request_id, *, scopes, extended, budgets):
+    rows = app.store.rows(
+        "SELECT r.*,j.state AS job_state,j.execution,j.compatibility,j.exclusions,j.dirty_generation FROM observation_requests r JOIN observation_jobs j ON j.id=r.job_id WHERE r.id=? AND r.profile=?",
+        (request_id, app.profile),
+    )
+    if not rows:
+        raise CatabolicError("unknown_observation_request")
+    old = rows[0]
+    if old["job_state"] in ("queued", "running"):
+        raise CatabolicError("observation still active; resume the existing request")
+    guarantees = json.loads(old["guarantees"])
+    execution = json.loads(old["execution"])
+    if (
+        compatibility(
+            app,
+            old["source"],
+            json.loads(old["exclusions"]),
+            guarantees["require_complete"],
+            execution,
+        )
+        != old["compatibility"]
+    ):
+        raise CatabolicError(
+            "observation policy or binding changed; request a new scan"
+        )
+    watermark = app.store.rows(
+        "SELECT dirty_generation FROM observation_sources WHERE profile=? AND source=?",
+        (app.profile, old["source"]),
+    )
+    if watermark and watermark[0]["dirty_generation"] > old["dirty_generation"]:
+        raise CatabolicError("source changed since observation; request a new scan")
+    # Continue all outstanding scopes by default, retaining completed coverage.
+    chosen = None if scopes is None else {relative_path(p) if p else "" for p in scopes}
+    if chosen is not None:
+        for path in chosen:
+            if not app.store.rows(
+                "SELECT 1 FROM observation_scopes WHERE job_id=? AND path=? AND state NOT IN ('complete','excluded')",
+                (old["job_id"], path),
+            ):
+                raise CatabolicError("scope is not outstanding")
+    result = request(
+        app,
+        old["source"],
+        after=guarantees["minimum_start"],
+        reuse_completed=False,
+        exclusions=guarantees["exclusions"],
+        require_complete=guarantees["require_complete"],
+        extended=extended,
+        budgets=budgets,
+        scopes=execution["scopes"],
+        parent_job=old["job_id"],
+        continuation_scopes=sorted(chosen) if chosen is not None else None,
+    )
+    with app.store.transaction() as db:
+        db.execute(
+            "INSERT OR IGNORE INTO meta SELECT ?,value FROM meta WHERE key=?",
+            (f"observation:{result['id']}:root", f"observation:{old['job_id']}:root"),
+        )
+        db.execute(
+            "INSERT OR IGNORE INTO observation_scopes SELECT ?,path,CASE WHEN state NOT IN ('complete','excluded') THEN 'pending' ELSE state END,detail,updated_at FROM observation_scopes WHERE job_id=?",
+            (result["id"], old["job_id"]),
+        )
+        if chosen is not None:
+            for row in db.execute(
+                "SELECT path FROM observation_scopes WHERE job_id=? AND state='pending'",
+                (result["id"],),
+            ).fetchall():
+                if not any(
+                    row["path"] == p or row["path"].startswith(p + "/") for p in chosen
+                ):
+                    db.execute(
+                        "UPDATE observation_scopes SET state='deferred',detail=? WHERE job_id=? AND path=?",
+                        (
+                            encode({"reason": "not_selected_for_continuation"}),
+                            result["id"],
+                            row["path"],
+                        ),
+                    )
+    return result
 
 
 def finish(db, job, report):
@@ -421,12 +612,33 @@ def _result(app, job):
         "coverage": {
             "source": current["source"],
             "exclusions": json.loads(current["exclusions"]),
-            "method": "full-inventory-v1",
+            "method": "guarded-inventory-v2"
+            if json.loads(current["execution"] or "{}")
+            else "full-inventory-v1",
+            "execution": json.loads(current["execution"] or "{}"),
             "dirty_generation": current["dirty_generation"],
         },
     }
     if result["report"] is None:
         result["report"] = scan_report(result)
+        if current["scan_id"]:
+            result["report"].update(
+                app.store.rows(
+                    "SELECT id AS scan_id,observed,observed AS published FROM scans WHERE id=?",
+                    (current["scan_id"],),
+                )[0]
+            )
+            result["report"]["progress"] = app.store.rows(
+                "SELECT count(*) AS batches,coalesce(sum(bytes),0) AS committed_bytes,max(committed_at) AS last_progress_at FROM observation_batches WHERE job_id=?",
+                (current["id"],),
+            )[0]
+            result["report"]["coverage"] = {
+                r["state"]: r["n"]
+                for r in app.store.rows(
+                    "SELECT state,count(*) AS n FROM observation_scopes WHERE job_id=? GROUP BY state",
+                    (current["id"],),
+                )
+            }
     result["job_state"] = current["state"]
     result["retry_state"] = (
         "pending"
@@ -435,6 +647,8 @@ def _result(app, job):
         if current["state"] in ("stale", "failed", "unavailable")
         else None
     )
+    if result["report"].get("deferred"):
+        result["retry_state"] = "explicit_continuation_required"
     if job.get("request_id"):
         result["request_state"] = app.store.rows(
             "SELECT state FROM observation_requests WHERE id=? AND profile=?",
@@ -500,6 +714,7 @@ def _execute_claimed(app, claimed, *, isolate, timeout):
                                 "availability": "unknown",
                                 "inventory_retained": True,
                                 "errors": [str(exc)],
+                                "resume_progress": True,
                             }
                         ),
                         job["id"],
@@ -596,6 +811,9 @@ def observe(
     isolate=False,
     timeout=30,
     wait=False,
+    extended=False,
+    budgets=None,
+    scopes=None,
 ):
     """One-shot service: admit/resume, reuse/join, execute, optionally wait."""
     _children[:] = [child for child in _children if child.poll() is None]
@@ -611,6 +829,9 @@ def observe(
             reuse_completed=reuse_completed,
             require_complete=require_complete,
             requester=requester,
+            extended=extended,
+            budgets=budgets,
+            scopes=scopes,
         )
     )
     if job["source"] != source:

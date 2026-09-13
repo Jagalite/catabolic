@@ -11,11 +11,11 @@ from .layouts import Layouts
 from .reconcile import Reconciler
 
 
-def enqueue(db, profile):
+def enqueue(db, profile, *, observation_job=None):
     """Called in the rendition/evidence transaction so a crash cannot lose intent."""
     from .watchers import dirty
 
-    dirty(db, profile)
+    dirty(db, profile, observation_job=observation_job)
     db.execute(
         """INSERT INTO catalog_refresh_queue(profile,catalog)
         SELECT profile,catalog FROM catalog_refresh_settings WHERE profile=? AND enabled=1 AND NOT EXISTS (SELECT 1 FROM watcher_owners w WHERE w.profile=catalog_refresh_settings.profile AND w.catalog=catalog_refresh_settings.catalog)

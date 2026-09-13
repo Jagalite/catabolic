@@ -10,6 +10,7 @@ import json
 import os
 import sqlite3
 import sys
+from pathlib import Path
 
 from . import __version__
 from .app import Application
@@ -341,6 +342,12 @@ def parser() -> argparse.ArgumentParser:
         )
         sub.add_parser("list")
         if entity == "location":
+            policy = sub.add_parser(
+                "scan-policy", help="preview or apply source observation policy"
+            )
+            policy.add_argument("name")
+            policy.add_argument("--file", help="JSON exclusions and budgets")
+            policy.add_argument("--apply", action="store_true")
             trust = sub.add_parser(
                 "trust", help="per-source filesystem identity policy"
             )
@@ -389,9 +396,26 @@ def parser() -> argparse.ArgumentParser:
         help="explicitly adopt replacement media at this source path; repeat per source",
     )
     scan = commands.add_parser(
-        "scan", help="publish inventory only after complete source traversal"
+        "scan", help="publish guarded discoveries and report unfinished coverage"
     )
     scan.add_argument("location", nargs="?")
+    scan.add_argument(
+        "--extended",
+        "--full",
+        action="store_true",
+        help="request full permitted coverage with larger bounded allowances",
+    )
+    scan.add_argument(
+        "--budgets", help="JSON file containing execution budget overrides"
+    )
+    scan.add_argument(
+        "--continue-request", help="create an amended request for outstanding coverage"
+    )
+    scan.add_argument(
+        "--scope",
+        action="append",
+        help="outstanding source-relative directory to continue",
+    )
     scan.add_argument(
         "--request-id",
         help="resume an admitted observation with its original guarantees",
@@ -835,7 +859,7 @@ def dispatch(args: argparse.Namespace) -> dict:
         args.command == "remount"
         and args.apply
         or args.command == "location"
-        and args.operation == "trust"
+        and args.operation in ("trust", "scan-policy")
         and args.apply
         or (
             (
@@ -1120,6 +1144,15 @@ def dispatch(args: argparse.Namespace) -> dict:
             )
         if command in ("location", "catalog"):
             kind = "source" if command == "location" else "output"
+            if args.operation == "scan-policy":
+                from .scan_policy import configure
+
+                return configure(
+                    app,
+                    args.name,
+                    json.loads(Path(args.file).read_text()) if args.file else None,
+                    apply=args.apply,
+                )
             if args.operation == "trust":
                 from .source_trust import configure
 
@@ -1183,7 +1216,15 @@ def dispatch(args: argparse.Namespace) -> dict:
             return {"bindings": rows}
         if command == "scan":
             return app.scan(
-                args.location, exclude=args.exclude, request_id=args.request_id
+                args.location,
+                exclude=args.exclude,
+                request_id=args.request_id,
+                extended=args.extended,
+                budgets=json.loads(Path(args.budgets).read_text())
+                if args.budgets
+                else None,
+                scopes=args.scope,
+                continue_id=args.continue_request,
             )
         if command == "files":
             return app.files(

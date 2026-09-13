@@ -38,9 +38,9 @@ class ScanStaging:
                 * self.db.execute("PRAGMA page_size").fetchone()[0]
                 > 1024 * 1024 * 1024
             ):
-                from .domain import CatabolicError
+                from .scan_traversal import ScanResourceStop
 
-                raise CatabolicError(
+                raise ScanResourceStop(
                     "scan staging exceeds 1 GiB or ten million entries"
                 )
 

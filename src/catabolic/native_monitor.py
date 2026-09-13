@@ -21,7 +21,7 @@ class NativeMonitor:
         self.lock = Lock()
         self.observer = Observer()
         self.observer.event_queue.maxsize = 4096
-        excluded = tuple(Path(p) for p in excluded)
+        self.excluded = tuple(Path(p) for p in excluded)
         owner = self
 
         class Handler(FileSystemEventHandler):
@@ -42,7 +42,8 @@ class NativeMonitor:
                         if any(
                             path.is_relative_to(Path(root))
                             and not any(
-                                path.is_relative_to(exclusion) for exclusion in excluded
+                                path.is_relative_to(exclusion)
+                                for exclusion in owner.excluded
                             )
                             for path in paths
                         ):
@@ -55,6 +56,10 @@ class NativeMonitor:
             except OSError:
                 # Unavailable sources remain dirty and are polled by the scheduler.
                 pass
+
+    def set_exclusions(self, paths):
+        with self.lock:
+            self.excluded = tuple(Path(p) for p in paths)
 
     def start(self):
         self.observer.start()

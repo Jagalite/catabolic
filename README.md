@@ -198,6 +198,10 @@ For a manual refresh:
 catabolic scan
 ```
 
+Scans publish discoveries in guarded batches and report unfinished directories.
+Use `scan --continue-request REQUEST_ID --extended` to continue outstanding work;
+see [guarded observation policies and coverage](docs/OBSERVATIONS.md#guarded-discovery-and-continuation-schema-27).
+
 For scheduled refreshes, [configure a watcher once](#configure-a-watcher-once),
 then keep its supervisor running:
 

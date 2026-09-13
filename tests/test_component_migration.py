@@ -114,7 +114,14 @@ class MigrationTest(unittest.TestCase):
         from catabolic.domain import CatabolicError
         from catabolic.reconcile import Reconciler
 
-        for schema, applied in ((24, False), (24, True), (25, False), (25, True)):
+        for schema, applied in (
+            (24, False),
+            (24, True),
+            (25, False),
+            (25, True),
+            (26, False),
+            (26, True),
+        ):
             with self.subTest(schema=schema, filesystem_applied=applied):
                 path = self.root / f"pending-{schema}-{applied}.db"
                 output = self.root / f"output-{schema}-{applied}"

@@ -27,6 +27,18 @@ MAX_RESULT_BYTES = 8 * 1024 * 1024
 # Connection-local views are an API independent of the stored schema. Qualifying
 # all base tables prevents accidental name resolution through a temporary object.
 VIEWS = {
+    "catalog_observation_progress": (
+        "Current and historical observation jobs including unfinished physical coverage; query completeness is independent.",
+        "SELECT id,profile,source,generation,state,started_at,completed_at,scan_id,execution,parent_job,report FROM main.observation_jobs",
+    ),
+    "catalog_observation_scopes": (
+        "Directory enumeration coverage; parent completion never implies descendant completion.",
+        "SELECT s.*,j.profile,j.source,j.generation FROM main.observation_scopes s JOIN main.observation_jobs j ON j.id=s.job_id",
+    ),
+    "catalog_observation_batches": (
+        "Committed positive observation batches, independently of physical coverage completion.",
+        "SELECT b.*,j.profile,j.source,j.scan_id FROM main.observation_batches b JOIN main.observation_jobs j ON j.id=b.job_id",
+    ),
     "catalog_source_observations": (
         "Historical full-source observation intervals, coverage, health and dirty watermarks. Inventory failure preserves older files; completion time alone does not establish freshness.",
         "SELECT id,profile,source,compatibility,exclusions,dirty_generation,generation,state,started_at,completed_at,scan_id FROM main.observation_jobs WHERE state IN ('complete','unavailable','failed','stale')",
@@ -514,6 +526,11 @@ def execute_sql(
                 "observation_jobs",
                 "observation_sources",
                 "observation_requests",
+                "source_observation_policies",
+                "source_observation_policy_history",
+                "observation_scopes",
+                "observation_batches",
+                "observation_seen",
             }
             if _http:
                 for table in http_tables:

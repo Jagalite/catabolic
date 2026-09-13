@@ -203,3 +203,8 @@ Invalidating a required original returns the same requirement and item reference
 restored evidence clears attention without new worklog events. It also exercises
 mixed pagination/counts, unknown evidence, profiles, stale preconditions, owner
 concurrency, saved queries, report/event retries and a 12,000-file backlog.
+
+Guarded scans contribute one source-level observation blocker backed by the latest
+observation job. Confirmed discoveries may appear while that job remains
+incomplete. Consult its directory coverage before inferring absence; see
+[guarded observations](OBSERVATIONS.md).

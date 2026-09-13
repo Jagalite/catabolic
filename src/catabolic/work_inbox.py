@@ -92,6 +92,30 @@ SUCCESSOR = (
 SQL = " UNION ALL ".join(
     [
         branch(
+            """main.observation_jobs j WHERE j.generation=(SELECT max(n.generation) FROM main.observation_jobs n WHERE n.profile=j.profile AND n.source=j.source) AND (j.state IN ('failed','unavailable','stale') OR EXISTS(SELECT 1 FROM main.observation_scopes s WHERE s.job_id=j.id AND s.state IN ('failed','deferred')))""",
+            work_key="'scan:'||hex(j.source)",
+            profile="j.profile",
+            evidence_profile="j.profile",
+            subject_kind="'job'",
+            subject_id="j.id",
+            source_kind="'observation_jobs'",
+            source_id="j.id",
+            category="'observation'",
+            label="j.source",
+            reason="coalesce(json_extract(j.report,'$.blocker'),'unfinished_scan_coverage')",
+            source_status="j.state",
+            actionability="'blocked'",
+            current="1",
+            evidence_complete="0",
+            evidence_at="j.completed_at",
+            evidence="coalesce(j.report,'{}')",
+            preconditions="json_object('job_id',j.id,'generation',j.generation,'compatibility',j.compatibility)",
+            suggested_actions=action(
+                "scan",
+                "json_object('continue_request',(SELECT id FROM main.observation_requests r WHERE r.job_id=j.id AND r.state='active' ORDER BY created_at LIMIT 1))",
+            ),
+        ),
+        branch(
             """catalog_files f WHERE NOT EXISTS
         (SELECT 1 FROM main.item_files a WHERE a.file_id=f.file_id AND a.active=1)""",
             work_key="'file:'||hex(f.file_id)",

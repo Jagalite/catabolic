@@ -523,9 +523,11 @@ with Store(sys.argv[1],writable=True) as store:
         for index in range(1100):
             (self.source / str(index)).touch()
         real_stat = os.stat
+        attempts = []
 
         def failing(path, *args, **kwargs):
             if kwargs.get("dir_fd") is not None:
+                attempts.append(path)
                 raise PermissionError("fixture denied")
             return real_stat(path, *args, **kwargs)
 
@@ -535,8 +537,9 @@ with Store(sys.argv[1],writable=True) as store:
         ):
             observed, errors = walk_files(fd)
         self.assertEqual(observed, [])
-        self.assertEqual(len(errors), 1001)
-        self.assertIn("omitted", errors[-1])
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(len(attempts), 16)
+        self.assertIn("fixture denied", errors[0])
 
     def test_sql_processing_selection_and_probe_template(self):
         selection = self.root / "selection.json"

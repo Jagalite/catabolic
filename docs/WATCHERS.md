@@ -157,3 +157,9 @@ policy and operation dependencies. Import creates disabled local definitions and
 never carries credentials, leases, winners or health. Projection references require
 an explicit local catalog mapping and validate/pin that existing local binding.
 Old version 1/2 bundles and published HTTP artifacts remain unchanged.
+
+Source observation exclusions and budgets apply to every plan, including query
+and fallback plans. A budget-deferred observation remains outstanding until an
+explicit continuation or policy change. Batches notify catalog changes without
+advancing filesystem dirty generations or running reactions. See
+[guarded observations](OBSERVATIONS.md).

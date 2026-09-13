@@ -164,7 +164,19 @@ def run(path, profile="default", *, once=False, native=False):
                     monitor = NativeMonitor(roots, excluded)
                     monitor.start()
                 if monitor:
+                    from pathlib import Path
+
+                    from .scan_policy import effective
                     from .source_events import invalidate
+
+                    with Store(path) as policy_store:
+                        policy_app = Application(policy_store, profile)
+                        policy_exclusions = [
+                            str(Path(root) / relative)
+                            for source, root in monitor.roots.items()
+                            for relative in effective(policy_app, source)["exclusions"]
+                        ]
+                    monitor.set_exclusions([*excluded, *policy_exclusions])
 
                     pending.update(monitor.drain())
                     if pending:

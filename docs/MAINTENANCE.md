@@ -169,3 +169,7 @@ use `watch`; for the broader human or agent curation cycle, read the
 Inventory uses the shared [one-shot observation service](OBSERVATIONS.md). Maintenance
 retains its strict source validation and incomplete-scan gates; sharing admission
 does not relax output ownership or removal budgets.
+
+All scan callers inherit the shared source observation policy. Guarded scans may
+publish discoveries while incomplete; maintenance still stops before operations
+requiring complete membership. See [guarded observations](OBSERVATIONS.md).

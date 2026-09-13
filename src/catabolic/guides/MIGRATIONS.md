@@ -341,3 +341,9 @@ Schema 26 adds durable observation requests referencing existing scan jobs.
 It preserves freshness barriers across retries and cancellation per requester.
 See [one-shot observations](OBSERVATIONS.md). Existing schema-25 publication work
 can be recovered before upgrading through the normal recovery commands.
+
+Schema 27 adds revisioned source observation policies and their history, durable
+directory coverage, committed batches, enumeration evidence, and execution fences
+on existing observation jobs. Existing scans and observations retain their IDs.
+Schema 26 journals remain recoverable before upgrade. Use normal backup/upgrade
+commands; listing or scanning never silently migrates a catalog.

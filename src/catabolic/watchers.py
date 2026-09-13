@@ -431,9 +431,9 @@ class Watchers:
         return report
 
 
-def dirty(db, profile):
+def dirty(db, profile, *, observation_job=None):
     # Conservative catalog event invalidation; schedule admission remains separate.
     db.execute(
-        "UPDATE watchers SET pending_generation=pending_generation+1,event_first=coalesce(event_first,unixepoch('now')),event_last=unixepoch('now') WHERE profile=? AND enabled=1 AND definition_id IN (SELECT id FROM watcher_definitions WHERE json_extract(definition,'$.events')=1)",
-        (profile,),
+        "UPDATE watchers SET pending_generation=pending_generation+1,event_first=coalesce(event_first,unixepoch('now')),event_last=unixepoch('now') WHERE profile=? AND enabled=1 AND definition_id IN (SELECT id FROM watcher_definitions WHERE json_extract(definition,'$.events')=1) AND NOT EXISTS (SELECT 1 FROM watcher_runs r JOIN observation_requests q ON q.requester='watcher:'||r.definition_id||':'||r.generation WHERE r.id=watchers.active_run AND r.state='observing' AND q.job_id=?)",
+        (profile, observation_job),
     )

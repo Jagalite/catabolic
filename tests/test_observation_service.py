@@ -419,7 +419,7 @@ class ObservationServiceTest(unittest.TestCase):
                 Application(store), "media", request_id=request["request_id"]
             )
             self.assertEqual(result["state"], "complete")
-            self.assertNotEqual(result["id"], request["id"])
+            self.assertEqual(result["id"], request["id"])
             self.assertEqual(result["guarantees"], request["guarantees"])
 
     def test_retry_reuses_compatible_success_but_not_unavailable_evidence(self):
