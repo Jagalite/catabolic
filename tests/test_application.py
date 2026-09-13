@@ -485,7 +485,16 @@ class CatalogTest(unittest.TestCase):
         with patch("catabolic.filesystem.os.scandir", side_effect=changing_listdir):
             result = self.app.scan()
         self.assertFalse(result["complete"])
-        self.assertEqual(len(self.app.files()["files"]), 1)
+        # scandir may expose the newly created entry on some filesystems.
+        # Incremental positives are valid, but churn must not prove absence.
+        files = {row["path"] for row in self.app.files()["files"]}
+        self.assertIn("example.mkv", files)
+        self.assertLessEqual(files, {"example.mkv", "new.mkv"})
+        observation = self.store.rows(
+            "SELECT status FROM observations WHERE file_id=? AND profile=?",
+            (self.file_id, self.app.profile),
+        )[0]
+        self.assertEqual(observation["status"], "present")
         self.assertIn("directory changed", str(result))
 
     def test_readers_do_not_create_writer_lock(self):
