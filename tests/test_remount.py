@@ -104,8 +104,16 @@ class RemountTest(unittest.TestCase):
                 before, self.store.rows("SELECT * FROM bindings ORDER BY kind,owner")
             )
         (self.root / "source/movie.mkv").write_bytes(b"changed source")
-        self.assertFalse(run(self.app)["complete"])
-        self.assertEqual(self.store.rows("SELECT * FROM remount_repairs"), [])
+        result = run(self.app)
+        self.assertTrue(result["complete"], result)
+        recovery = next(row for row in result["stages"] if row["stage"] == "remount")
+        self.assertFalse(recovery["verification"]["healthy"])
+        self.assertEqual(len(recovery["sources_needing_observation"]), 1)
+        self.assertEqual(len(self.store.rows("SELECT * FROM remount_repairs")), 1)
+        self.assertEqual(
+            self.store.rows("SELECT size FROM observations")[0]["size"],
+            len(b"changed source"),
+        )
 
     def test_automatic_recovery_honors_skipped_source_device_check(self):
         from catabolic.remount import recover_device_numbers
@@ -119,11 +127,11 @@ class RemountTest(unittest.TestCase):
         repair_mock.assert_not_called()
         self.assertEqual(self.store.rows("SELECT * FROM remount_repairs"), [])
 
-    def test_automatic_recovery_rejects_changed_preview(self):
+    def test_automatic_recovery_reclassifies_files_changed_after_preview(self):
         from catabolic.remount import recover_device_numbers
 
         self.renumber()
-        before = self.store.rows("SELECT * FROM bindings ORDER BY kind,owner")
+        before = self.store.rows("SELECT * FROM observations")
 
         def changed(*args, **kwargs):
             result = repair(*args, **kwargs)
@@ -132,8 +140,129 @@ class RemountTest(unittest.TestCase):
             return result
 
         with patch("catabolic.remount.repair", side_effect=changed):
-            with self.assertRaisesRegex(CatabolicError, "metadata changed"):
+            result = recover_device_numbers(self.app)
+        self.assertTrue(result["applied"])
+        self.assertEqual(result["verified_sources"], 0)
+        self.assertEqual(len(result["sources_needing_observation"]), 1)
+        self.assertEqual(before, self.store.rows("SELECT * FROM observations"))
+        self.assertTrue(self.app.scan()["complete"])
+        self.assertEqual(
+            self.store.rows("SELECT size FROM observations")[0]["size"],
+            len(b"modified after preview"),
+        )
+
+    def test_automatic_recovery_rejects_root_replaced_during_final_verification(self):
+        from catabolic.remount import recover_device_numbers
+        from catabolic.source_trust import configure
+
+        configure(self.app, "source", "path", apply=True)
+        self.renumber()
+        before = self.store.rows("SELECT * FROM bindings ORDER BY kind,owner")
+        facts = self.store.rows("SELECT * FROM observations")
+        original = Reconciler.verify
+
+        def replaced(reconciler, catalog="global"):
+            (self.root / "source").rename(self.root / "old-source")
+            (self.root / "source").mkdir()
+            return original(reconciler, catalog)
+
+        with patch.object(Reconciler, "verify", replaced):
+            with self.assertRaisesRegex(CatabolicError, "root changed during repair"):
                 recover_device_numbers(self.app)
+        self.assertEqual(
+            before, self.store.rows("SELECT * FROM bindings ORDER BY kind,owner")
+        )
+        self.assertEqual(facts, self.store.rows("SELECT * FROM observations"))
+        self.assertEqual(self.store.rows("SELECT * FROM remount_repairs"), [])
+        self.assertEqual(self.store.rows("SELECT * FROM remount_guard"), [])
+
+    def test_automatic_recovery_still_fences_changed_binding_after_preview(self):
+        from catabolic.remount import recover_device_numbers
+
+        self.renumber()
+
+        def changed(*args, **kwargs):
+            result = repair(*args, **kwargs)
+            if not kwargs.get("apply"):
+                with self.store.transaction() as db:
+                    db.execute(
+                        "UPDATE bindings SET device=device+1 WHERE kind='source'"
+                    )
+            return result
+
+        with patch("catabolic.remount.repair", side_effect=changed):
+            with self.assertRaisesRegex(CatabolicError, "preview changed"):
+                recover_device_numbers(self.app)
+        self.assertEqual(self.store.rows("SELECT * FROM remount_repairs"), [])
+
+    def test_repair_verifies_bound_outputs_not_unused_catalog_definitions(self):
+        from catabolic.maintenance import run
+
+        with self.store.transaction() as db:
+            db.execute("INSERT INTO catalogs VALUES ('unused')")
+        self.renumber()
+        result = run(self.app)
+        self.assertTrue(result["complete"], result)
+        recovery = next(row for row in result["stages"] if row["stage"] == "remount")
+        self.assertEqual(
+            [row["catalog"] for row in recovery["verification"]["catalogs"]],
+            ["global"],
+        )
+        self.assertEqual((self.root / "output/Movie.mkv").lstat(), self.before_link)
+
+    def test_final_verification_failure_explains_reason_and_rolls_back(self):
+        self.renumber()
+        preview = repair(self.app)
+        before = self.store.rows("SELECT * FROM bindings ORDER BY kind,owner")
+        failed = {
+            "healthy": False,
+            "catalogs": [
+                {
+                    "catalog": "global",
+                    "healthy": False,
+                    "issues": [
+                        {"path": "Movie.mkv", "reason": "source changed since scan"}
+                    ],
+                }
+            ],
+        }
+        with patch.object(Reconciler, "verify", return_value=failed):
+            with self.assertRaisesRegex(CatabolicError, "source changed since scan"):
+                repair(self.app, apply=True, expected_plan=preview["plan_id"])
+        self.assertEqual(
+            before, self.store.rows("SELECT * FROM bindings ORDER BY kind,owner")
+        )
+        self.assertEqual(self.store.rows("SELECT * FROM remount_repairs"), [])
+        self.assertEqual(self.store.rows("SELECT * FROM remount_guard"), [])
+
+    def test_missing_file_does_not_block_identity_recovery_or_claim_freshness(self):
+        from catabolic.remount import recover_device_numbers
+
+        self.renumber()
+        before = self.store.rows("SELECT * FROM observations")
+        (self.root / "source/movie.mkv").unlink()
+        result = recover_device_numbers(self.app)
+        self.assertTrue(result["applied"])
+        self.assertFalse(result["verification"]["healthy"])
+        self.assertEqual(len(result["sources_needing_observation"]), 1)
+        self.assertEqual(before, self.store.rows("SELECT * FROM observations"))
+        self.assertEqual((self.root / "output/Movie.mkv").lstat(), self.before_link)
+        scan = self.app.scan()
+        self.assertTrue(scan["complete"])
+        self.assertEqual(
+            self.store.rows("SELECT status FROM observations")[0]["status"], "missing"
+        )
+
+    def test_automatic_recovery_still_rejects_changed_output_link(self):
+        from catabolic.remount import recover_device_numbers
+
+        self.renumber()
+        link = self.root / "output/Movie.mkv"
+        link.unlink()
+        link.symlink_to("../unrelated")
+        before = self.store.rows("SELECT * FROM bindings ORDER BY kind,owner")
+        with self.assertRaisesRegex(CatabolicError, "symlink or target changed"):
+            recover_device_numbers(self.app)
         self.assertEqual(
             before, self.store.rows("SELECT * FROM bindings ORDER BY kind,owner")
         )

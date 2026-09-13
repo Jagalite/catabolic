@@ -12,15 +12,29 @@ from pathlib import Path
 from uuid import uuid4
 
 from .domain import CatabolicError, source_health
-from .filesystem import link_state, open_directory, owner_state, source_stat
+from .filesystem import (
+    link_state,
+    open_directory,
+    owner_state,
+    root_handle,
+    source_stat,
+)
 from .reconcile import Reconciler
 from .store import encode
 from .volume_identity import volume_uuid
 
 
 def repair(
-    app, *, apply=False, adopt_existing=False, expected_plan=None, trust_sources=()
+    app,
+    *,
+    apply=False,
+    adopt_existing=False,
+    expected_plan=None,
+    trust_sources=(),
+    inventory_recovery=False,
 ):
+    if inventory_recovery and (adopt_existing or trust_sources):
+        raise CatabolicError("inventory recovery cannot adopt replacement storage")
     app.require_recovered()
     store, profile = app.store, app.profile
     if store.rows(
@@ -57,6 +71,7 @@ def repair(
             "generated artifact locations cannot be adopted with --trust-source"
         )
     rows, candidates, handles, observations = [], {}, {}, {}
+    pending_sources, output_links, selections = [], {}, []
     with ExitStack() as stack:
         for old in bindings:
             key = old["kind"], old["owner"]
@@ -127,37 +142,18 @@ def repair(
                     "owned links differ from selected mappings; repair refused"
                 )
             for mapping in mappings:
+                selections.append(
+                    {
+                        "catalog": catalog,
+                        **{
+                            key: mapping[key]
+                            for key in ("path", "file_id", "location", "source_path")
+                        },
+                    }
+                )
                 key = "source", mapping["location"]
                 if key not in candidates:
                     raise CatabolicError("published source is unbound")
-                current = source_stat(handles[key], mapping["source_path"])
-                trust = mapping["location"] in trusted
-                if source_health(current.st_size, mapping["source_path"]):
-                    raise CatabolicError(
-                        "published source is unhealthy; repair refused"
-                    )
-                if mapping["status"] is None:
-                    raise CatabolicError(
-                        "published source has no observation; scan first"
-                    )
-                if not trust and (
-                    mapping["status"] != "present"
-                    or (
-                        current.st_size,
-                        current.st_mtime_ns,
-                        current.st_ino,
-                        current.st_dev,
-                    )
-                    != (
-                        mapping["size"],
-                        mapping["mtime_ns"],
-                        mapping["inode"],
-                        candidates[key]["device"],
-                    )
-                ):
-                    raise CatabolicError(
-                        "published source metadata changed; repair refused"
-                    )
                 expected = os.path.relpath(
                     Path(candidates[key]["root"]) / mapping["source_path"],
                     (Path(old["root"]) / mapping["path"]).parent,
@@ -168,6 +164,49 @@ def repair(
                     raise CatabolicError(
                         "published symlink or target changed; repair refused"
                     )
+                output_links.setdefault(catalog, {})[mapping["path"]] = expected
+                count += 1
+                try:
+                    current = source_stat(handles[key], mapping["source_path"])
+                    trust = mapping["location"] in trusted
+                    if source_health(current.st_size, mapping["source_path"]):
+                        raise CatabolicError(
+                            "published source is unhealthy; repair refused"
+                        )
+                    if mapping["status"] is None:
+                        raise CatabolicError(
+                            "published source has no observation; scan first"
+                        )
+                    if not trust and (
+                        mapping["status"] != "present"
+                        or (
+                            current.st_size,
+                            current.st_mtime_ns,
+                            current.st_ino,
+                            current.st_dev,
+                        )
+                        != (
+                            mapping["size"],
+                            mapping["mtime_ns"],
+                            mapping["inode"],
+                            candidates[key]["device"],
+                        )
+                    ):
+                        raise CatabolicError(
+                            "published source metadata changed; repair refused"
+                        )
+                except (OSError, CatabolicError) as exc:
+                    if not inventory_recovery:
+                        raise
+                    pending_sources.append(
+                        {
+                            "file_id": mapping["file_id"],
+                            "source": mapping["location"],
+                            "path": mapping["source_path"],
+                            "reason": str(exc),
+                        }
+                    )
+                    continue
                 observations[mapping["file_id"]] = {
                     "device": current.st_dev,
                     "inode": current.st_ino,
@@ -176,14 +215,34 @@ def repair(
                     "old_device": mapping["device"],
                     "trusted_replacement": trust,
                 }
-                count += 1
-        plan = {"bindings": rows, "verified_links": count, "observations": observations}
-        digest = hashlib.sha256(encode(plan).encode()).hexdigest()
+        plan = {
+            "bindings": rows,
+            "verified_links": count,
+            "observations": observations,
+            "inventory_recovery": inventory_recovery,
+            "pending_sources": pending_sources,
+        }
+        # Automatic repair authorizes storage renumbering, not a frozen file
+        # inventory. The apply pass independently classifies current file facts.
+        # Keep the strict explicit-remount contract over the full evidence plan.
+        preconditions = (
+            {
+                "bindings": rows,
+                "output_links": output_links,
+                "selections": selections,
+                "inventory_recovery": True,
+            }
+            if inventory_recovery
+            else plan
+        )
+        digest = hashlib.sha256(encode(preconditions).encode()).hexdigest()
         result = {
             "plan_id": digest,
             "bindings": rows,
             "verified_links": count,
             "verified_sources": len(observations),
+            "sources_needing_observation": pending_sources,
+            "inventory_recovery": inventory_recovery,
             "applied": False,
             "complete": True,
         }
@@ -269,10 +328,55 @@ def repair(
                             file_id,
                         ),
                     )
-            verification = Reconciler(app).verify(None)
-            if not verification["healthy"]:
+            # Catalog definitions are global, but output bindings and this repair
+            # are profile-local. Verify exactly the outputs pinned in the plan.
+            reports = []
+            for row in rows:
+                if row["before"]["kind"] == "output":
+                    reports.extend(
+                        Reconciler(app).verify(row["before"]["owner"])["catalogs"]
+                    )
+            verification = {
+                "healthy": all(report["healthy"] for report in reports),
+                "catalogs": reports,
+            }
+            if inventory_recovery:
+                # File health belongs to observation and synchronization. Root
+                # identity and output ownership remain mandatory at commit.
+                for row in rows:
+                    bound = app.binding(row["before"]["kind"], row["before"]["owner"])
+                    with root_handle(bound) as fd:
+                        current = os.fstat(fd)
+                        expected = row["after"]
+                        if (current.st_dev, current.st_ino, volume_uuid(fd)) != (
+                            expected["device"],
+                            expected["inode"],
+                            row["volume_uuid"],
+                        ):
+                            raise CatabolicError("root changed during repair")
+                        if row["before"]["kind"] == "output":
+                            catalog = row["before"]["owner"]
+                            if (
+                                owner_state(fd, Reconciler(app).owner(catalog))
+                                != "owned"
+                            ):
+                                raise CatabolicError(
+                                    "output ownership changed during repair"
+                                )
+                            for path, target in output_links.get(catalog, {}).items():
+                                if link_state(fd, path) != ("link", target):
+                                    raise CatabolicError(
+                                        "published symlink changed during repair"
+                                    )
+            if not verification["healthy"] and not inventory_recovery:
+                reasons = [
+                    {"catalog": report["catalog"], **issue}
+                    for report in reports
+                    for issue in report["issues"]
+                ]
                 raise CatabolicError(
-                    "final publication verification failed; repair rolled back"
+                    "final publication verification failed; repair rolled back: "
+                    + encode(reasons[:10])
                 )
             db.execute("DELETE FROM remount_guard WHERE profile=?", (profile,))
             db.execute(
@@ -307,7 +411,9 @@ def recover_device_numbers(app, *, required_bindings=None):
     if not changed:
         return None
     # No legacy adoption or trust override: both passes require stable identity,
-    # unchanged selected sources, ownership, and the same exact repair plan.
-    preview = repair(app)
-    result = repair(app, apply=True, expected_plan=preview["plan_id"])
+    # ownership, and the same exact repair plan. Changed files await observation.
+    preview = repair(app, inventory_recovery=True)
+    result = repair(
+        app, apply=True, expected_plan=preview["plan_id"], inventory_recovery=True
+    )
     return {**result, "automatic": True}

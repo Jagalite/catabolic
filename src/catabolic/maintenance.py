@@ -295,8 +295,28 @@ def render_report(report):
                 )
         if stage["stage"] == "scan":
             for scan in stage["scans"]:
+                exclusions = scan.get("excluded")
+                lines.append(
+                    f"Scan exclusions for {scan['location']} (source-relative): "
+                    + (
+                        "unknown"
+                        if exclusions is None
+                        else encode(exclusions)
+                        if exclusions
+                        else "none"
+                    )
+                )
                 lines.extend(
                     f"  {scan['location']}: {error}" for error in scan["errors"]
+                )
+            if stage["scans"]:
+                lines.extend(
+                    [
+                        "Exclusions combine persistent source policy with this run's --exclude paths; each directory excludes its subtree.",
+                        "For one run, use --exclude PATH. For persistent changes, preview: catabolic location scan-policy SOURCE --file POLICY.json; add --apply to save.",
+                        "The policy file's exclusions list replaces the saved list; retain existing exclusions. Rerun maintenance after changes to create a new scan request.",
+                        "Exclusions do not delete files. Use --json for the effective exclusions and coverage recorded in each scan request.",
+                    ]
                 )
         if stage["stage"] == "planning":
             for layout in stage["layouts"]:

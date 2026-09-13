@@ -135,7 +135,10 @@ remain visible in the report. Item completion continues to use the normal
 
 Exit 3 with `complete:false` means a blocked/failed stage or unfinished requested
 analysis. The report includes statistics even when a cycle stops early. Check
-the scan-stage reports for partial inventory updates; summary counts always
+the scan-stage reports for partial inventory updates. The terminal summary lists
+effective source-relative exclusions per scanned source and explains one-run
+and persistent changes. Exclusions are pinned to each request; changing them
+requires a new scan request. Summary counts always
 describe recorded state. Output health is unknown when verification did not run.
 Invalid options or an unreadable/incompatible database return exit 2; statistics
 cannot be produced if the database cannot be opened. Interruption returns 130.
@@ -179,17 +182,31 @@ requiring complete membership. See [guarded observations](OBSERVATIONS.md).
 Before a normal maintenance cycle scans or synchronizes, Catabolic detects
 changed device numbers on the required bindings and automatically previews and
 applies its existing verified remount repair. Matching recorded volume UUIDs,
-root inodes, linked-source metadata, symlink targets, and output ownership are
-required. The exact preview is revalidated before the database-only repair;
-the maintenance report includes a `remount` stage and the repair remains audited.
+root inodes, symlink targets, and output ownership are required.
+Unchanged linked files retain verified evidence. Changed, missing, or inaccessible
+files are reported in `sources_needing_observation`; their existing observations
+are left unchanged until scanning establishes current facts. Projection health
+is reported separately and does not block verified volume renumbering.
+The storage bindings, selected paths, and output targets from the preview are
+revalidated before the database-only repair. File facts are checked again during
+apply; intervening file changes become pending observation rather than blocking
+identity recovery. Final root identity checks remain strict even when a source
+trust policy skips identity checks.
+The maintenance report includes a `remount` stage and the repair remains audited.
 No-op cycles create no repair history. Source media and existing links are not
 modified by recovery. Sources configured to skip the device identity check do
 not trigger automatic recovery on device-number differences alone.
 
-Missing UUIDs, replacement roots or volumes, changed published files, and
+Missing UUIDs, replacement roots or volumes, changed output links, and
 unsupported hardlink ownership still block recovery. No trust override or legacy
 adoption is enabled automatically. Repair currently verifies the whole profile,
 so an unavailable binding elsewhere in that profile can block a needed repair.
+Final verification covers the output bindings in the repair plan; unused or
+other-profile catalog definitions are not treated as failed publications.
+Verification failures include catalog, path where available, and reason.
+Automatic recovery may finish with an unhealthy projection; maintenance then
+scans and applies its existing synchronization and removal gates. The explicit
+`remount` command retains its strict all-linked-files verification contract.
 Inventory-only maintenance retains its source-only preflight and does not run
 this profile-wide output-verifying repair. Standalone read-only commands retain
 their existing behavior; the explicit `remount` command remains available.
