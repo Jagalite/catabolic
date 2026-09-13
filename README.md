@@ -132,7 +132,7 @@ Requires **Python 3.11+** on **macOS or Linux**.
 ```sh
 python3 -m venv ~/.venvs/catabolic
 . ~/.venvs/catabolic/bin/activate
-python -m pip install 'git+https://github.com/Jagalite/catabolic.git'
+python -m pip install catabolic
 catabolic --help
 ```
 
@@ -395,6 +395,27 @@ mapping, repair and optional Apprise subscriptions. Apprise is installed separat
 with the `notifications` extra; its per-destination retries are independent of
 scan delivery. Preview and apply any required database upgrade before setup;
 the current schema is 20. Upgrading does not enable automatic network actions.
+
+## Publishing a release
+
+Keep the version in `pyproject.toml` and `src/catabolic/__init__.py` identical,
+then create and push a matching `vVERSION` tag on the release commit. Pushing a
+version tag runs the release validation workflow; publication requires a separate
+manual request after configuring PyPI Trusted Publishing.
+
+For example, to publish version `0.1.0` from its matching tag:
+
+```sh
+gh workflow run release.yml --ref v0.1.0 -f publish=true
+```
+
+The workflow runs all CI checks before uploading the tested wheel and source
+archive to PyPI. It uses the `pypi` GitHub environment and Trusted Publishing;
+no stored API token is required. Configure the PyPI publisher for `Jagalite`,
+repository `catabolic`, workflow `release.yml`, and environment `pypi`.
+Any configured environment approval is still required. Ordinary branch pushes
+never publish. See [release setup and validation](docs/RELEASE_TESTING.md#pypi-trusted-publishing)
+for first-publication setup and recovery after an interrupted upload.
 
 ## Learn more
 

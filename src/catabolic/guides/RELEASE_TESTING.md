@@ -186,18 +186,23 @@ Use a new output directory for another version; stale distributions fail the
 check rather than being mixed into a release. The release tools are build-time
 requirements and do not become Catabolic runtime dependencies.
 
-## Enable PyPI publication later
+## PyPI Trusted Publishing
 
-Add a PyPI API token as `PYPI_API_TOKEN`, either in repository Actions secrets or
-in the `pypi` GitHub environment. Use a token authorized for the intended PyPI
-project. Name availability and project ownership must be established separately.
-The workflow reports a missing token only when publication is explicitly requested.
-No credential is required by its build or test jobs.
+Configure a GitHub Trusted Publisher on PyPI with owner `Jagalite`, repository
+`catabolic`, workflow filename `release.yml`, and environment `pypi`. For a new
+project, configure a pending publisher for `catabolic`; its name must still be
+available when the first upload occurs. Existing projects require publisher
+configuration by an authorized project owner.
+
+Only the publication job receives `id-token: write`. The PyPA publishing action
+exchanges GitHub's workflow identity for a short-lived PyPI credential; no stored
+`PYPI_API_TOKEN` is used. Build and test jobs do not receive publishing permission.
+See [PyPI's setup instructions](https://docs.pypi.org/trusted-publishers/using-a-publisher/).
 
 To publish, select an existing matching version tag and set `publish=true`:
 
 ```sh
-# Publishes to real PyPI after all validation passes; configure the token first.
+# Publishes to real PyPI after all validation passes; configure the Trusted Publisher first.
 gh workflow run release.yml --ref v0.1.0 -f publish=true
 ```
 
@@ -208,6 +213,5 @@ partially failed upload before deciding how to recover.
 
 The publishing job uses the `pypi` environment. Environment protection rules can
 restrict who may publish and which tags are allowed. This workflow does not create
-PyPI accounts, configure protection rules, or upload on an ordinary push. Its API
-token mode does not produce OIDC publish attestations. A future switch to PyPI
-Trusted Publishing can remove the stored token and enable those attestations.
+PyPI accounts, configure protection rules, or upload on an ordinary push. Publish attestations remain explicitly disabled; this change only switches
+authentication to Trusted Publishing.
