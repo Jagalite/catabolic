@@ -220,22 +220,16 @@ def recover(app):
         except PermissionError:
             return True
 
-    with app.store.transaction() as db:
+    with app.store.transaction():
         for row in app.store.rows(
             "SELECT w.name,w.active_run,r.worker_pid FROM watchers w JOIN watcher_runs r ON r.id=w.active_run WHERE w.profile=?",
             (app.profile,),
         ):
             if not alive(row["worker_pid"]):
                 recover_run(app, row["name"], row["active_run"], row["worker_pid"])
-        for row in app.store.rows(
-            "SELECT id,worker_pid FROM observation_jobs WHERE profile=? AND state='running'",
-            (app.profile,),
-        ):
-            if not alive(row["worker_pid"]):
-                db.execute(
-                    "UPDATE observation_jobs SET state='stale',lease_until=0,completed_at=? WHERE id=? AND state='running' AND worker_pid=?",
-                    (time.time(), row["id"], row["worker_pid"]),
-                )
+        from .observations import recover as recover_observations
+
+        recover_observations(app)
 
 
 if __name__ == "__main__":

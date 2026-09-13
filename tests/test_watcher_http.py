@@ -93,3 +93,34 @@ class WatcherHTTPTest(unittest.TestCase):
         history = self.client.get(path + "/history", headers=headers)
         self.assertEqual(history.status_code, 200, history.text)
         self.assertEqual(len(history.json()["runs"]), 1)
+
+    def test_observation_only_http_admission_does_not_execute_inline(self):
+        with Store(self.database) as store:
+            source = store.rows(
+                "SELECT owner FROM bindings WHERE kind='source' LIMIT 1"
+            )[0]["owner"]
+            scans = store.rows("SELECT count(*) AS n FROM scans")[0]["n"]
+        body = {"plan": {"kind": "observation", "sources": [source]}}
+        path = "/v1/operator/watchers/inventory"
+        self.assertEqual(
+            self.client.put(path, json=body, headers=self.headers).status_code, 403
+        )
+        headers = {"Authorization": "Bearer " + self.operator}
+        created = self.client.put(path, json=body, headers=headers)
+        self.assertEqual(created.status_code, 200, created.text)
+        self.assertIsNone(created.json()["definition"]["reaction"])
+        self.assertEqual(
+            self.client.post(path + "/runs", headers=headers).status_code, 202
+        )
+        with Store(self.database) as store:
+            self.assertEqual(
+                store.rows("SELECT count(*) AS n FROM scans")[0]["n"], scans
+            )
+            self.assertEqual(store.rows("SELECT * FROM watcher_runs"), [])
+        from catabolic.supervisor import tick
+
+        report = tick(self.database)
+        self.assertTrue(report["complete"], report)
+        history = self.client.get(path + "/history", headers=headers).json()["runs"]
+        self.assertEqual(len(history), 1)
+        self.assertIsNone(history[0]["result"]["reaction"])

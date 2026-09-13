@@ -172,6 +172,7 @@ class WatcherTest(unittest.TestCase):
                 "UPDATE observation_jobs SET worker_pid=2147483000 WHERE id=?",
                 (first["id"],),
             )
+        observations._release_guard(self.app, first)  # Simulate OS cleanup on death.
         observations.claim(self.app, observations.request(self.app, source))
         with self.assertRaisesRegex(CatabolicError, "stale_observation"):
             observations.validate(self.app, first)

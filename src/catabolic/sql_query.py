@@ -513,6 +513,7 @@ def execute_sql(
                 "watcher_owners",
                 "observation_jobs",
                 "observation_sources",
+                "observation_requests",
             }
             if _http:
                 for table in http_tables:

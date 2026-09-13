@@ -226,6 +226,10 @@ with Store(sys.argv[1],writable=True) as store:
             db.execute(
                 "UPDATE observation_jobs SET worker_pid=2147483000 WHERE state='running'"
             )
+        for job in self.store.rows(
+            "SELECT id FROM observation_jobs WHERE state='running'"
+        ):
+            observations._release_guard(self.app, job)  # Simulate process exit.
         recover(self.app)
         self.assertIsNone(watchers.get("audit")["active_run"])
         self.assertEqual(
@@ -250,7 +254,7 @@ with Store(sys.argv[1],writable=True) as store:
         )
         self.assertNotEqual(first["id"], forced["id"])
         with self.assertRaisesRegex(CatabolicError, "scope"):
-            self.app.scan(source, _observation=narrow)
+            self.app.scan(source, request_id=narrow["request_id"])
 
     def test_incomplete_query_retains_baseline(self):
         watchers = Watchers(self.app)

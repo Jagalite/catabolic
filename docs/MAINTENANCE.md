@@ -165,3 +165,7 @@ Run the same command again after resolving blockers or to finish the next batch.
 Correct existing links are preserved. For continuous inventory/analysis only,
 use `watch`; for the broader human or agent curation cycle, read the
 [recommended workflow](WORKFLOW.md) and [automation guide](AUTOMATION.md).
+
+Inventory uses the shared [one-shot observation service](OBSERVATIONS.md). Maintenance
+retains its strict source validation and incomplete-scan gates; sharing admission
+does not relax output ownership or removal budgets.

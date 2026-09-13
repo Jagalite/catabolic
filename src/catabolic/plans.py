@@ -6,7 +6,7 @@
 import hashlib
 from typing import Annotated, Literal
 
-from pydantic import Field, TypeAdapter
+from pydantic import Field, TypeAdapter, field_validator
 
 from .domain import CatabolicError
 from .evaluation import EvaluationSession
@@ -39,7 +39,32 @@ class ProjectionPlan(Model):
     binding_digest: str
 
 
-Plan = Annotated[QueryPlan | FallbackPlan | ProjectionPlan, Field(discriminator="kind")]
+class ObservationPlan(Model):
+    kind: Literal["observation"]
+    sources: list[str] = Field(min_length=1, max_length=1000)
+    exclusions: list[str] = Field(default_factory=list, max_length=1000)
+
+    @field_validator("exclusions")
+    @classmethod
+    def valid_exclusions(cls, value):
+        from .domain import relative_path
+
+        return sorted({relative_path(p) for p in value})
+
+    @field_validator("sources")
+    @classmethod
+    def valid_sources(cls, value):
+        from .domain import name
+
+        for source in value:
+            name(source)
+        return sorted(set(value))
+
+
+Plan = Annotated[
+    QueryPlan | FallbackPlan | ProjectionPlan | ObservationPlan,
+    Field(discriminator="kind"),
+]
 PLAN = TypeAdapter(Plan)
 
 
@@ -66,6 +91,18 @@ def projection_digest(app, catalog):
 
 def describe(app, reference):
     plan = PLAN.validate_python(reference)
+    if isinstance(plan, ObservationPlan):
+        for source in plan.sources:
+            app.binding("source", source)
+        return {
+            "plan": plan.model_dump(),
+            "queries": [],
+            "policies": [],
+            "coverage": "exact_full_sources",
+            "sources": plan.sources,
+            "exclusions": plan.exclusions,
+            "dependency_precision": "exact",
+        }
     queries, policies = set(), set()
     pending = []
     if isinstance(plan, QueryPlan):
@@ -120,7 +157,17 @@ def describe(app, reference):
 
 
 def observation_requirements(app, reference):
-    describe(app, reference)
+    description = describe(app, reference)
+    if reference["kind"] == "observation":
+        return [
+            {
+                "source": source,
+                "kind": "full_inventory",
+                "scope": "",
+                "exclusions": description["exclusions"],
+            }
+            for source in description["sources"]
+        ]
     return [
         {"source": r["owner"], "kind": "full_inventory", "scope": "", "exclusions": []}
         for r in app.store.rows(
@@ -134,6 +181,10 @@ def evaluate(app, reference, *, session=None, previous=None, context_name=""):
     if session is not None and session.access is not None:
         raise CatabolicError(
             "plan orchestration currently requires local-owner authority"
+        )
+    if reference["kind"] == "observation":
+        raise CatabolicError(
+            "observation plans execute through the observation service"
         )
     description = describe(app, reference)
     plan = PLAN.validate_python(reference)

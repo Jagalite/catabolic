@@ -335,7 +335,7 @@ class Application:
         location: str | None = None,
         *,
         exclude: list[str] | None = None,
-        _observation=None,
+        request_id: str | None = None,
     ) -> dict:
         excluded = tuple(sorted({relative_path(path) for path in (exclude or [])}))
         locations = (
@@ -346,197 +346,214 @@ class Application:
                 for row in self.store.rows("SELECT id FROM locations ORDER BY id")
             ]
         )
-        reports = []
-        for source in locations:
-            from . import observations
-            from .scan_staging import ScanStaging
+        from . import observations
 
-            if _observation and json.loads(_observation["exclusions"]) != list(
-                excluded
-            ):
-                raise CatabolicError("observation_scope_mismatch")
-            if _observation and _observation["state"] == "running":
-                if _observation["worker_pid"] != os.getpid():
-                    raise CatabolicError("foreign_observation_claim")
-                observations.validate(self, _observation)
-                job = _observation
-            else:
-                job = observations.claim(
-                    self,
-                    _observation
-                    or observations.request(
-                        self,
-                        source,
-                        after=time.time(),
-                        exclusions=excluded,
-                        reuse_completed=False,
+        if request_id is not None:
+            if location is not None or excluded:
+                raise CatabolicError(
+                    "resuming a scan uses its recorded scope (source and exclusions)"
+                )
+            demand = observations.resume(self, request_id)
+            result = observations.observe(
+                self, demand["source"], request_id=request_id, wait=True
+            )
+            return {
+                "complete": result["state"] == "complete",
+                "scans": [observations.scan_report(result)],
+                "observations": [result],
+            }
+        barrier = time.time()
+        evidence = [
+            observations.observe(
+                self,
+                source,
+                max_age=0,
+                after=barrier,
+                exclusions=excluded,
+                reuse_completed=False,
+                wait=True,
+            )
+            for source in locations
+        ]
+        return {
+            "complete": all(e["state"] == "complete" for e in evidence),
+            "scans": [observations.scan_report(e) for e in evidence],
+            "observations": evidence,
+        }
+
+    def _execute_observation(self, job):
+        """Traverse and publish one claimed job; admission belongs to observations."""
+        from . import observations
+        from .scan_staging import ScanStaging
+
+        if job["worker_pid"] != os.getpid():
+            raise CatabolicError("foreign_observation_claim")
+        observations.validate(self, job)
+        source = job["source"]
+        excluded = tuple(json.loads(job["exclusions"]))
+        with ScanStaging() as staged:
+            binding = self.binding("source", source)
+            observed: list[dict] = []
+            errors: list[str] = []
+            generated = self.store.rows(
+                "SELECT 1 FROM generated_locations WHERE profile=? AND location=?",
+                (self.profile, source),
+            )
+            staged.db.execute("CREATE TABLE paths(path TEXT)")
+            if generated:
+                staged.db.executemany(
+                    "INSERT INTO paths VALUES (?)",
+                    (
+                        (r["path"],)
+                        for r in self.store.db.execute(
+                            "SELECT path FROM processing_artifacts WHERE profile=? AND location=? AND state='ready'",
+                            (self.profile, source),
+                        )
                     ),
                 )
-            with ScanStaging() as staged:
-                binding = self.binding("source", source)
-                observed: list[dict] = []
-                errors: list[str] = []
-                generated = self.store.rows(
-                    "SELECT 1 FROM generated_locations WHERE profile=? AND location=?",
-                    (self.profile, source),
-                )
-                staged.db.execute("CREATE TABLE paths(path TEXT)")
-                if generated:
-                    staged.db.executemany(
-                        "INSERT INTO paths VALUES (?)",
-                        (
-                            (r["path"],)
-                            for r in self.store.db.execute(
-                                "SELECT path FROM processing_artifacts WHERE profile=? AND location=? AND state='ready'",
-                                (self.profile, source),
-                            )
-                        ),
-                    )
-                    staged.db.commit()
-                with self.store.detached():
-                    try:
-                        with root_handle(binding) as fd:
-                            if generated:
-                                from .filesystem import source_stat
+                staged.db.commit()
+            with self.store.detached():
+                try:
+                    with root_handle(binding) as fd:
+                        if generated:
+                            from .filesystem import source_stat
 
-                                # Private staging files and foreign files are never inventoried.
-                                for row in staged.db.execute("SELECT path FROM paths"):
-                                    path = row["path"]
-                                    if any(
-                                        path == part or path.startswith(part + "/")
-                                        for part in excluded
-                                    ):
-                                        continue
-                                    try:
-                                        st = source_stat(fd, path)
-                                    except FileNotFoundError:
-                                        continue
-                                    staged.append(
-                                        {
-                                            "path": path,
-                                            "size": st.st_size,
-                                            "mtime_ns": st.st_mtime_ns,
-                                            "device": st.st_dev,
-                                            "inode": st.st_ino,
-                                        }
-                                    )
-                            else:
-                                observed, errors = walk_files(
-                                    fd, exclude=excluded, sink=staged.append
-                                )
-                            for entry in observed:
-                                staged.append(entry)
-                            # Reopen by name to detect a mount or root replaced during traversal.
-                            with root_handle(binding) as current_fd:
-                                if (os.fstat(fd).st_dev, os.fstat(fd).st_ino) != (
-                                    os.fstat(current_fd).st_dev,
-                                    os.fstat(current_fd).st_ino,
+                            # Private staging files and foreign files are never inventoried.
+                            for row in staged.db.execute("SELECT path FROM paths"):
+                                path = row["path"]
+                                if any(
+                                    path == part or path.startswith(part + "/")
+                                    for part in excluded
                                 ):
-                                    raise CatabolicError(
-                                        "source root changed during scan"
-                                    )
-                    except (OSError, CatabolicError) as exc:
-                        errors.append(str(exc))
-                observations.validate(self, job)
-                observed = staged
-                scan_id = str(uuid4())
-                complete = not errors
-                with self.store.transaction() as db:
-                    # Unknown IDs are input errors, not failed scan records.
-                    if not db.execute(
-                        "SELECT id FROM locations WHERE id=?", (source,)
-                    ).fetchone():
-                        raise CatabolicError(f"unknown location: {source}")
-                    db.execute(
-                        "INSERT INTO scans(id,profile,location,complete,observed,errors) VALUES (?,?,?,?,?,?)",
-                        (
-                            scan_id,
-                            self.profile,
-                            source,
-                            int(complete),
-                            len(observed),
-                            encode(errors),
-                        ),
+                                    continue
+                                try:
+                                    st = source_stat(fd, path)
+                                except FileNotFoundError:
+                                    continue
+                                staged.append(
+                                    {
+                                        "path": path,
+                                        "size": st.st_size,
+                                        "mtime_ns": st.st_mtime_ns,
+                                        "device": st.st_dev,
+                                        "inode": st.st_ino,
+                                    }
+                                )
+                        else:
+                            observed, errors = walk_files(
+                                fd, exclude=excluded, sink=staged.append
+                            )
+                        for entry in observed:
+                            staged.append(entry)
+                        # Reopen by name to detect a mount or root replaced during traversal.
+                        with root_handle(binding) as current_fd:
+                            if (os.fstat(fd).st_dev, os.fstat(fd).st_ino) != (
+                                os.fstat(current_fd).st_dev,
+                                os.fstat(current_fd).st_ino,
+                            ):
+                                raise CatabolicError("source root changed during scan")
+                except (OSError, CatabolicError) as exc:
+                    errors.append(str(exc))
+            observations.validate(self, job)
+            observed = staged
+            scan_id = str(uuid4())
+            complete = not errors
+            with self.store.transaction() as db:
+                # Unknown IDs are input errors, not failed scan records.
+                if not db.execute(
+                    "SELECT id FROM locations WHERE id=?", (source,)
+                ).fetchone():
+                    raise CatabolicError(f"unknown location: {source}")
+                db.execute(
+                    "INSERT INTO scans(id,profile,location,complete,observed,errors) VALUES (?,?,?,?,?,?)",
+                    (
+                        scan_id,
+                        self.profile,
+                        source,
+                        int(complete),
+                        len(observed),
+                        encode(errors),
+                    ),
+                )
+                db.execute(
+                    "INSERT INTO meta(key,value) VALUES (?,?)",
+                    (f"scan:{scan_id}:scope", encode({"exclude": excluded})),
+                )
+                db.execute(
+                    "INSERT INTO meta(key,value) VALUES (?,?)",
+                    (
+                        f"scan:{scan_id}:validation",
+                        encode(getattr(binding, "evidence", {})),
+                    ),
+                )
+                before_inventory = (
+                    observations.inventory_signature(self, source) if complete else None
+                )
+                if complete:
+                    scope_sql = "".join(
+                        " AND NOT (path=? OR substr(path,1,length(?)+1)=? || '/')"
+                        for _ in excluded
+                    )
+                    scope_args = tuple(
+                        value for path in excluded for value in (path, path, path)
                     )
                     db.execute(
-                        "INSERT INTO meta(key,value) VALUES (?,?)",
-                        (f"scan:{scan_id}:scope", encode({"exclude": excluded})),
+                        """INSERT INTO observations(profile,file_id,size,mtime_ns,device,inode,status,scan_id)
+                        SELECT ?,id,0,0,0,0,'missing',? FROM files WHERE location=?"""
+                        + scope_sql
+                        + " ON CONFLICT(profile,file_id) DO UPDATE SET status='missing',scan_id=excluded.scan_id",
+                        (self.profile, scan_id, source, *scope_args),
                     )
-                    db.execute(
-                        "INSERT INTO meta(key,value) VALUES (?,?)",
-                        (
-                            f"scan:{scan_id}:validation",
-                            encode(getattr(binding, "evidence", {})),
-                        ),
-                    )
-                    before_inventory = (
-                        observations.inventory_signature(self, source)
-                        if complete
-                        else None
-                    )
-                    if complete:
-                        scope_sql = "".join(
-                            " AND NOT (path=? OR substr(path,1,length(?)+1)=? || '/')"
-                            for _ in excluded
-                        )
-                        scope_args = tuple(
-                            value for path in excluded for value in (path, path, path)
+                    for entry in observed:
+                        file_id = str(
+                            uuid5(
+                                UUID(self.store.database_id),
+                                encode([source, entry["path"]]),
+                            )
                         )
                         db.execute(
-                            """INSERT INTO observations(profile,file_id,size,mtime_ns,device,inode,status,scan_id)
-                            SELECT ?,id,0,0,0,0,'missing',? FROM files WHERE location=?"""
-                            + scope_sql
-                            + " ON CONFLICT(profile,file_id) DO UPDATE SET status='missing',scan_id=excluded.scan_id",
-                            (self.profile, scan_id, source, *scope_args),
+                            "INSERT INTO files VALUES (?,?,?) ON CONFLICT(location,path) DO NOTHING",
+                            (file_id, source, entry["path"]),
                         )
-                        for entry in observed:
-                            file_id = str(
-                                uuid5(
-                                    UUID(self.store.database_id),
-                                    encode([source, entry["path"]]),
-                                )
-                            )
-                            db.execute(
-                                "INSERT INTO files VALUES (?,?,?) ON CONFLICT(location,path) DO NOTHING",
-                                (file_id, source, entry["path"]),
-                            )
-                            db.execute(
-                                "INSERT INTO observations VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(profile,file_id) DO UPDATE SET size=excluded.size,mtime_ns=excluded.mtime_ns,device=excluded.device,inode=excluded.inode,status=excluded.status,scan_id=excluded.scan_id",
-                                (
-                                    self.profile,
-                                    file_id,
-                                    entry["size"],
-                                    entry["mtime_ns"],
-                                    entry["device"],
-                                    entry["inode"],
-                                    "present",
-                                    scan_id,
-                                ),
-                            )
-                    report = {
-                        "validation": dict(getattr(binding, "evidence", {})),
-                        "scan_id": scan_id,
-                        "location": source,
-                        "complete": complete,
-                        "observed": len(observed),
-                        "published": len(observed) if complete else 0,
-                        "errors": errors,
-                        "excluded": list(excluded),
-                    }
-                    observations.finish(db, job, report)
-                    if (
-                        complete
-                        and observations.inventory_signature(self, source)
-                        != before_inventory
-                    ):
-                        from .catalog_refresh import enqueue
+                        db.execute(
+                            "INSERT INTO observations VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(profile,file_id) DO UPDATE SET size=excluded.size,mtime_ns=excluded.mtime_ns,device=excluded.device,inode=excluded.inode,status=excluded.status,scan_id=excluded.scan_id",
+                            (
+                                self.profile,
+                                file_id,
+                                entry["size"],
+                                entry["mtime_ns"],
+                                entry["device"],
+                                entry["inode"],
+                                "present",
+                                scan_id,
+                            ),
+                        )
+                report = {
+                    "availability": "available"
+                    if complete
+                    else getattr(binding, "evidence", {}).get(
+                        "availability", "unknown"
+                    ),
+                    "inventory_retained": not complete,
+                    "validation": dict(getattr(binding, "evidence", {})),
+                    "scan_id": scan_id,
+                    "location": source,
+                    "complete": complete,
+                    "observed": len(observed),
+                    "published": len(observed) if complete else 0,
+                    "errors": errors,
+                    "excluded": list(excluded),
+                }
+                observations.finish(db, job, report)
+                if (
+                    complete
+                    and observations.inventory_signature(self, source)
+                    != before_inventory
+                ):
+                    from .catalog_refresh import enqueue
 
-                        enqueue(db, self.profile)
-                reports.append(report)
-        return {
-            "complete": all(report["complete"] for report in reports),
-            "scans": reports,
-        }
+                    enqueue(db, self.profile)
+        return report
 
     def files(self, **filters) -> dict:
         return self.queries.files(**filters)

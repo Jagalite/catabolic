@@ -15,8 +15,8 @@ def invalidate(app, source, *, reason="event"):
         (app.profile, source),
     ):
         return {"ignored": "generated_source_uses_completion_events"}
-    dirty(app, source)
     with app.store.transaction() as db:
+        dirty(app, source)
         dirty_watchers(db, app.profile)
     return {"source": source, "reason": reason, "coverage": "full_source"}
 

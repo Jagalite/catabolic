@@ -451,3 +451,8 @@ The [component model](COMPONENTS.md) adds scoped `components` and
 `componentOccurrences` GraphQL queries in contract 1.3.0. Component metadata grants
 do not grant bytes from their parent containers; packaging remains an explicit
 local operation and exact file/revision endpoints retain their existing meaning.
+
+Contract 1.4.0 adds the observation-only watcher plan and its null reaction to
+existing operator watcher endpoints. Existing routes, grants and operation IDs
+are unchanged; run admission still requires the supervised worker. See
+[one-shot observations](OBSERVATIONS.md). Published 1.0–1.3 artifacts are preserved.

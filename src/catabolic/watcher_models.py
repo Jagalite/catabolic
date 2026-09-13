@@ -36,7 +36,7 @@ class WatcherDefinition(Model):
     max_age_seconds: int = Field(default=60, ge=0, le=86400)
     require_complete_inventory: bool = False
     observe_after_request: bool = False
-    reaction: Literal["report", "event", "projection", "processing"] = "report"
+    reaction: Literal["report", "event", "projection", "processing"] | None = "report"
     operation_id: str | None = None
     destination: str | None = None
     max_jobs: int = Field(default=10, ge=1, le=100)
@@ -46,6 +46,14 @@ class WatcherDefinition(Model):
 
     @model_validator(mode="after")
     def reaction_contract(self):
+        if self.plan.kind == "observation":
+            if "reaction" in self.model_fields_set and self.reaction is not None:
+                raise ValueError("observation plans have no reaction")
+            if self.operation_id or self.destination:
+                raise ValueError("observation plans do not process media")
+            self.reaction = None
+        elif self.reaction is None:
+            raise ValueError("query/fallback/projection plans require a reaction")
         if self.reaction == "projection" and self.plan.kind != "projection":
             raise ValueError("projection reaction requires a pinned projection plan")
         if self.reaction == "processing" and (

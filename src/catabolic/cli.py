@@ -393,6 +393,10 @@ def parser() -> argparse.ArgumentParser:
     )
     scan.add_argument("location", nargs="?")
     scan.add_argument(
+        "--request-id",
+        help="resume an admitted observation with its original guarantees",
+    )
+    scan.add_argument(
         "--exclude",
         action="append",
         default=[],
@@ -1178,7 +1182,9 @@ def dispatch(args: argparse.Namespace) -> dict:
                 ]
             return {"bindings": rows}
         if command == "scan":
-            return app.scan(args.location, exclude=args.exclude)
+            return app.scan(
+                args.location, exclude=args.exclude, request_id=args.request_id
+            )
         if command == "files":
             return app.files(
                 **options(

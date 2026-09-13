@@ -10,7 +10,7 @@ from .watchers import Watchers
 
 def register(commands):
     sub = commands.add_parser(
-        "watcher", help="independent named query watchers"
+        "watcher", help="independent named observation and query watchers"
     ).add_subparsers(dest="operation", required=True)
     put = sub.add_parser("put")
     put.add_argument("name")

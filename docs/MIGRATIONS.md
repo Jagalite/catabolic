@@ -336,3 +336,8 @@ content tickets, caller requests, storage reservations, cursors and audit record
 Existing media, recipes, jobs, artifacts and frozen interchange contracts remain
 owned by their existing tables. Upgrade does not expose a source or enable a
 server/worker. Server startup never migrates. See [HTTP deployment](HTTP.md).
+
+Schema 26 adds durable observation requests referencing existing scan jobs.
+It preserves freshness barriers across retries and cancellation per requester.
+See [one-shot observations](OBSERVATIONS.md). Existing schema-25 publication work
+can be recovered before upgrading through the normal recovery commands.

@@ -1,10 +1,14 @@
-# Named query watchers
+# Named observation and query watchers
 
 A watcher maintains a query-defined result or projection on its own schedule,
 using sufficiently fresh shared observations. It does not introduce a selector,
 fallback engine, projection writer, or implicit processing rule.
 Report/event watchers can monitor saved [work inbox](INBOX.md) queries without
 authorizing the actions described by their rows.
+
+For inventory without a query or reaction, use the observation-only plan in the
+[one-shot observation guide](OBSERVATIONS.md). Manual scans, scan-only watchers,
+legacy watch and maintenance all use the same observation service.
 
 ## Configure and run
 
@@ -96,7 +100,8 @@ trust policy identity. Compatible completed and in-flight jobs are reused. Broad
 to narrower coverage reuse and targeted scans are not implemented. Inventory,
 availability, hashes, verification and fallback live probes remain distinct.
 Freshness is measured from traversal start, not its completion. Set
-`observe_after_request: true` for a new observation barrier;
+`observe_after_request: true` for a new observation barrier captured once per
+admitted generation and preserved across retries;
 `require_complete_inventory: true` blocks reports when any inventory is incomplete.
 Otherwise unknown/unavailable sources are reported honestly and fallback can use
 available alternatives while retaining historical inventory.
@@ -107,7 +112,8 @@ Failed scans never mark the library missing. Events acknowledge only their captu
 dirty generation. Scanner processes have bounded waits and at most four live claims;
 a still-live uninterruptible process retains capacity. A supervisor runs at most
 four watcher children and terminates attempts exceeding 120 seconds. Isolated scan
-waits are 30 seconds. Direct CLI scans release the writer but have no automatic wall
+waits are 30 seconds; a timeout returns pending shared work without killing a
+worker still needed by other requesters. Direct CLI scans release the writer but have no automatic wall
 timeout. Staging is capped at 1 GiB/ten million entries with a 2 MiB SQLite cache.
 
 There are at most 1,000 definitions per profile, 100 admitted runs per supervisor

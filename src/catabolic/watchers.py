@@ -228,6 +228,7 @@ class Watchers:
             )
         try:
             required = plans.observation_requirements(self.app, value["plan"])
+            # Retries of this generation reuse immutable observation demands.
             evidence = [
                 observations.observe(
                     self.app,
@@ -235,6 +236,9 @@ class Watchers:
                     max_age=value["max_age_seconds"],
                     after=now if value["observe_after_request"] else 0,
                     isolate=True,
+                    exclusions=r.get("exclusions", []),
+                    require_complete=value["require_complete_inventory"],
+                    requester=f"watcher:{row['definition_id']}:{generation}",
                 )
                 for r in required
             ]
@@ -258,6 +262,20 @@ class Watchers:
                 e["state"] != "complete" for e in evidence
             ):
                 raise CatabolicError("complete_inventory_required")
+            if value["plan"]["kind"] == "observation":
+                if any(e["state"] != "complete" for e in evidence):
+                    raise CatabolicError("observation_incomplete")
+                report = {
+                    "run_id": identifier,
+                    "definition_id": row["definition_id"],
+                    "observations": evidence,
+                    "reaction": None,
+                    "complete": True,
+                }
+                self.require_run(watcher, identifier, row["definition_id"])
+                return self._finish_run(
+                    watcher, row, value, identifier, generation, now, report
+                )
             execute = (
                 self._evaluate_owned
                 if value["plan"]["kind"] in ("projection", "fallback")
@@ -387,6 +405,11 @@ class Watchers:
             "reaction": reaction,
             "complete": True,
         }
+        return self._finish_run(
+            watcher, row, value, identifier, generation, now, report
+        )
+
+    def _finish_run(self, watcher, row, value, identifier, generation, now, report):
         with self.store.transaction() as db:
             db.execute(
                 "UPDATE watcher_runs SET state='complete',completed_at=?,result=? WHERE id=?",

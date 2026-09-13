@@ -243,6 +243,13 @@ previously outstanding work remains discoverable until its owner resolves it.
 
 ### Configure a watcher once
 
+For scanning alone, use an [observation-only watcher](docs/OBSERVATIONS.md):
+`{"plan":{"kind":"observation","sources":["media"]},"schedule":{"kind":"interval","seconds":3600}}`.
+It schedules the same one-shot operation as `scan`, with no query or reaction.
+`supervise --once` processes eligible watcher work; it does not mean “scan all sources once.”
+
+For a query report as well as observation, use the configuration below.
+
 Save an inbox query using the [inbox query examples](docs/INBOX.md#queries-and-watchers),
 then put its immutable query revision ID in `inbox-watcher.json`:
 
