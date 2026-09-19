@@ -7,129 +7,39 @@ SPDX-License-Identifier: MIT
 
 ![Catabolic — a glowing blue cube dissolving into colorful film frames](https://raw.githubusercontent.com/Jagalite/catabolic/main/docs/assets/catabolic-banner.png)
 
-**A programmable media catalog.**
+**One media collection. Many libraries. Keep your originals where they are.**
 
-People and agents decide what belongs. Queries select catalog state. Rules
-perform explicit processing and record results. Projections publish selected media
-into maintained output structures. Consumer integrations connect those outputs
-to applications; optional notifications tell people what happened.
+Catabolic is a command-line media catalog for files spread across drives and
+mounted storage. Identify and tag your media, search it with SQL or GraphQL, and
+publish selected files into folders your apps understand. Generated symlink
+libraries point back to your existing files, so the same collection can have
+several layouts without duplicating the media.
 
-Inventory media across drives and mounted storage, identify logical items, and
-inspect their metadata, relationships, technical facts and processing evidence
-with SQL or GraphQL. Save a reusable query, attach an operation rule or an output
-projection, preview, execute a bounded batch, and verify the resulting state.
+For example, a film on your NAS can appear in both a Plex library and a favorites
+folder, each with its own naming scheme. An optional processing rule can create
+a smaller version in separate storage and publish it to another library.
+Catabolic records which original each generated version came from.
 
-Completed processing becomes catalog evidence. A query for media missing a
-rendition stops matching once that result is recorded. Different projections can
-select different versions of the same item and maintain independent Plex,
-Jellyfin, music or document layouts without changing original files. Durable jobs,
-receipts and filesystem journals preserve recovery when work is interrupted.
+[Get started](docs/GETTING_STARTED.md) · [Documentation](https://github.com/Jagalite/catabolic/wiki) · [FAQ](docs/FAQ.md)
 
-Start with the [query → rule → projection guide](docs/PROGRAMMABLE_CATALOG.md),
-including implemented operation types, compatibility and validation limits.
+## What you can do
 
-[Get started](https://github.com/Jagalite/catabolic/blob/main/docs/GETTING_STARTED.md) · [Documentation](https://github.com/Jagalite/catabolic/wiki) · [FAQ](https://github.com/Jagalite/catabolic/blob/main/docs/FAQ.md)
-
-## What can you do with it?
-
-- **Bring your collection together.** Catalog media across several drives and
-  mounted storage locations, and search the recorded catalog while they're offline.
-- **Organize it your way.** Add titles, identities, tags, and relationships to
-  movies, TV, music, books, audiobooks, comics, photos, documents, and more.
-- **Track your cataloging work.** Use the [work inbox](docs/INBOX.md) to find
-  unidentified files, pending reviews, and processing or projection failures.
-  Keep an entry worklog, defer unresolved items, and check required work before
-  marking an entry complete.
-- **Make collections from searches.** Save a selection, such as favorite films or
-  books by an author, and refresh it into a symlink folder when you choose.
-- **Build symlink libraries for your apps.** Generate popular folder formats or
-  custom layouts from the same catalog, with links back to your source files.
-- **Keep useful metadata alongside your media.** Export catalog details,
-  playlists, and metadata files for other tools.
-- **Keep track of custom versions.** Catalog your own remuxes and edits, or use
-  optional FFmpeg recipes to generate separate files with recorded source relationships.
-- **Generate previews and smaller versions with rules.** Apply a recipe to a
-  saved selection, backfill existing media, and include new matches during
-  maintenance. Preview the estimated additional storage before queuing work.
-- **Give each library the versions it needs.** Publish a separate transcode
-  library, keep originals in another, and register results from external processors.
-  [Automatic catalog updates](docs/CATALOG_REFRESH.md) can add links when new
-  versions become ready, with durable retries for offline destinations.
-- **Keep projections useful during storage outages.** [Fallback policies](docs/FALLBACK.md)
-  try saved candidate queries in order: originals, backup occurrences, then existing
-  renditions. Logical membership survives outages, and an explicitly enabled worker
-  performs recoverable symlink switches with stable failback.
-- **Select audio and subtitles consistently.** [Media components](docs/COMPONENTS.md)
-  make embedded streams and external files queryable together, with explicit
-  compatibility and separate extraction/mux operations.
-- **Coordinate network processing.** Submit work through a versioned HTTP receipt
-  adapter, with durable jobs and worker leases. Estimates learn from successful
-  local renders, and paged rules can select up to 100,000 IDs. See
-  [processor workflows](docs/PROCESSORS.md).
-
-For example, the same film can appear in your Plex library and a favorites folder
-without storing another copy of the movie. Each symlink points to the existing
-file while giving it a name and location suited to that library. You can preview
-the changes before applying them.
-
-## Build an application on the catalog
-
-The optional [HTTP backend](docs/HTTP.md) exposes authorized GraphQL, operator SQL,
-saved queries, metadata, revision-pinned content and durable rendition requests.
-Scoped tokens can permit browser derivatives while denying originals. A separate
-foreground worker prepares approved recipes; reusable short-lived tickets support
-browser range requests. CLI and HTTP share jobs, artifacts and recovery.
-
-Install the optional HTTP dependencies and configure grants/source exposure before
-starting `catabolic --db catalog.db api serve`. The server defaults to loopback
-and existing-content mode. Processing requires explicit enablement and a worker.
-The [HTTP guide](docs/HTTP.md) records limits and current release qualification.
-The [public developer contract](docs/HTTP.md#public-developer-contract) includes typed
-responses, stable operation IDs, versioned OpenAPI/GraphQL artifacts and generated
-TypeScript client acceptance tests.
-
-## Works with your media apps
-
-Folder presets cover **Plex, Jellyfin, Emby, Kodi, Infuse, Navidrome,
-Audiobookshelf, Komga, Kavita**, and other applications. Custom naming rules let
-you build a different structure. There are also explicit import options for
-calibre, Calibre-Web, and Immich.
-
-See [supported applications](https://github.com/Jagalite/catabolic/blob/main/docs/COMPATIBILITY.md) for the full list and each
-integration's requirements. Folder presets and import options behave differently;
-imports copy or upload selected media.
-
-### Start from an existing Plex library
-
-[Import Plex metadata](docs/CONSUMERS.md#import-an-existing-plex-library-into-catabolic)
-to bootstrap file identification from your existing library. Connect your Plex
-server, map its media paths to scanned Catabolic sources, then preview and apply
-a bounded page. Imports preserve existing metadata, retain Plex identity and
-provenance, and report ambiguous or unavailable files for review. They do not copy
-media or change Plex. Movies, episode files, music tracks and photos are supported;
-parent relationships, playlists and watched state are outside the import scope.
-
-### Connect published outputs to Plex or Jellyfin
-
-[Consumer bindings](docs/CONSUMERS.md) connect a projection or media subtree to an
-exact server and library identity. Configure a binding once: verified publication
-then records durable scan generations and can automatically request library scans.
-Unchanged output creates no new scan. Offline servers leave retryable delivery
-work without rerendering completed media or rewriting unchanged links.
-
-Plex supports browser sign-in, server/library discovery, existing-library binding,
-explicit library creation, normal section scans and bounded file-path indexing checks. Jellyfin supports
-existing-library bindings and scans; legacy refresh commands remain available.
-Folder naming presets for other apps do not imply an API integration.
-
-Scan acceptance and verified indexing are separate outcomes. Plex must be able
-to read both published symlinks and their resolved targets. Protocol and recovery
-fixtures are tested; live Plex acceptance remains unverified. See the
-[validation record](docs/CONSUMER_VALIDATION.md) for evidence and limitations.
+- **Bring scattered media into one catalog.** Inventory movies, TV, music, books,
+  photos, documents, and more. Search recorded metadata even when a drive is offline.
+- **Curate once, publish in several places.** Add identities, tags, and relationships;
+  save selections and generate app-specific or custom folder layouts.
+- **See what needs attention.** The [work inbox](docs/INBOX.md) brings together
+  unidentified files, pending reviews, failed processing, and publication work.
+- **Make and track additional versions.** Use optional FFmpeg recipes for previews,
+  remuxes, and transcodes, or register results from external processors. Review
+  storage estimates before queuing work.
+- **Keep libraries up to date.** Opt into [watchers](docs/WATCHERS.md) for scheduled
+  scans and query-driven work, and connect published outputs to Plex or Jellyfin
+  for library refreshes.
 
 ## Install
 
-Requires **Python 3.11+** on **macOS or Linux**.
+Requires **Python 3.11+** on **macOS or Linux**. Catabolic is currently **alpha**.
 
 ```sh
 python3 -m venv ~/.venvs/catabolic
@@ -138,305 +48,108 @@ python -m pip install catabolic
 catabolic --help
 ```
 
-Prefer pipx or want to install a specific version? See the
-[installation guide](https://github.com/Jagalite/catabolic/blob/main/docs/INSTALLATION.md).
+See [installation](docs/INSTALLATION.md) for pipx, checkout installs, and upgrades.
+Repository documentation may describe changes beyond the installed release;
+`catabolic docs` opens the guides bundled with your version.
 
-## Try it without touching your library
+## Try it
 
-The [getting started walkthrough](https://github.com/Jagalite/catabolic/blob/main/docs/GETTING_STARTED.md) creates a small sample
-collection and walks through cataloging, tagging, and generating your first
-folders. No media server, API key, or FFmpeg installation is needed.
+The [first-catalog walkthrough](docs/GETTING_STARTED.md) takes a disposable sample
+file from inventory to identification to a verified symlink library. It needs no
+media server, API key, or FFmpeg installation.
 
-Then add your own source locations, identify the files you want to organize,
-choose an output format, and preview the result.
-
-Catabolic is a command-line application and is currently **alpha**. Keep backups
-and start with a small collection. Generated folders need access to their source
-files; they are not independent backups.
-
-## Agentic Operator guide
-
-People and agents use the same five workflows:
-
-- **Discover and identify:** bind sources → scan → inspect the inbox → propose
-  identities and associations → review and accept proposals.
-- **Curate and complete:** inspect requirements → resolve reviews through their
-  owning services → check readiness → mark curation complete. Missing required
-  evidence can bring an item back into needs_attention. See [worklogs and
-  requirements](docs/WORKLOG.md).
-- **Publish libraries:** save queries and output layouts → preview → publish →
-  verify. Curation readiness and projection health are separate. See the
-  [query → rule → projection guide](docs/PROGRAMMABLE_CATALOG.md).
-- **Process media:** choose an approved operation → admit jobs → run workers →
-  inspect generated artifacts and lineage → recover failures. See
-  [processing rules](docs/RULES.md) and [artifacts](docs/ARTIFACTS.md).
-- **Maintain continuously:** configure and enable watchers → run the supervisor →
-  inspect reports, history and the inbox → address outstanding work. See
-  [watchers](docs/WATCHERS.md).
-
-The daily loop is **scan or supervise → inbox summary → inbox list → inbox show
-→ existing operation → check again**. Start with the
-[setup walkthrough](https://github.com/Jagalite/catabolic/wiki/Getting-Started)
-to register sources and configure output catalogs and layouts. Then select your
-database and profile for the commands below:
+To start inventorying your own media, create a workspace on a local disk, outside
+your source folders. Replace `/path/to/your/media` before running:
 
 ```sh
-export CATABOLIC_DB=/absolute/path/catalog.sqlite3
+mkdir -p ~/catabolic-workspace/state
+cd ~/catabolic-workspace
+export CATABOLIC_DB="$PWD/state/catalog.sqlite3"
 export CATABOLIC_PROFILE=default
-catabolic db status
-```
 
-If an upgrade is required, follow the
-[migration guide](https://github.com/Jagalite/catabolic/wiki/Database-Migrations)
-before continuing.
-
-### 1. Refresh evidence: manually or with watchers
-
-Choose either entry path using the database/profile selected above.
-
-For a manual refresh:
-
-```sh
+catabolic init
+catabolic location bind media --root /path/to/your/media
 catabolic scan
+catabolic --json files --unidentified --limit 20
 ```
 
-Scans publish discoveries in guarded batches and report unfinished directories.
-Use `scan --continue-request REQUEST_ID --extended` to continue outstanding work;
-see [guarded observation policies and coverage](docs/OBSERVATIONS.md#guarded-discovery-and-continuation-schema-27).
+This records files in the catalog. Identifying them and publishing a library are
+separate steps; continue with the [recommended workflow](docs/WORKFLOW.md).
+Keep `CATABOLIC_DB` and `CATABOLIC_PROFILE` set when returning in another terminal.
 
-For scheduled refreshes, [configure a watcher once](#configure-a-watcher-once),
-then keep its supervisor running:
+Scans default to common media extensions. [Scan policies](docs/OBSERVATIONS.md#file-types-and-regex-filters)
+let you add file types, scan all files, or use include/exclude patterns. Filtering
+retains recorded history and does not establish that a file is missing. Scans
+also report unfinished work; see [coverage and continuation](docs/OBSERVATIONS.md#guarded-discovery-and-continuation-schema-27).
 
-```sh
-catabolic supervise
-```
+## From a search to a library
 
-`supervise` runs continuously in the foreground; `supervise --once` handles one
-pass. Watchers may refresh source observations when their plans require it.
-Check scan or watcher results for incomplete evidence. Both paths lead to the
-same inbox steps below; with a foreground supervisor, use another terminal with
-the same database/profile.
+Catabolic stores media identities, file locations, relationships, and processing
+results in SQLite. Three reusable definitions turn that catalog into workflows:
 
-### 2. Inspect the inbox
+| Definition | What it does | Example |
+| --- | --- | --- |
+| **Query** | Selects catalog records using SQL or GraphQL | Movies without a recorded transcode |
+| **Rule** | Applies an explicit processing or analysis operation to a selection | Generate a smaller version of each selected movie |
+| **Projection** | Publishes a selection into an output layout | Build a movie library using the generated versions |
 
-```sh
-catabolic --json inbox summary
-catabolic --json inbox list --limit 100
-catabolic --json inbox show WORK_KEY
-```
+Processing results become catalog evidence. On the next evaluation, a query for
+missing versions stops selecting items whose results have been recorded.
+Queries can also feed projections directly when no processing is needed.
 
-Replace `WORK_KEY` with a key returned by `list`. Detail explains why the work
-appears, which record owns it, and which existing operation addresses it. Follow
-`next_cursor` with `inbox list --after CURSOR`; `--include-inactive` includes
-waiting, deferred and historical entries. Reads use recorded evidence and do not
-scan or complete work. An empty actionable inbox does not prove curation finished.
-See the [inbox guide](docs/INBOX.md) for query examples and completion reporting.
+Preview the selection and planned changes, execute a bounded batch, then verify
+the result. Jobs and filesystem journals support recovery after interruptions.
+Start with the [query, rule, and projection guide](docs/PROGRAMMABLE_CATALOG.md).
 
-### 3. Act through the owning service, then check again
+## Use it with your apps
 
-Use the entry's suggested operation after reloading its owner and checking current
-eligibility and preconditions. Suggestions describe work; they do not authorize it.
-Review identities, associations and tags through the proposal workflow, resolve
-explicit reviews through requirement operations, and record decisions in each
-entry's worklog. The
-[recommended workflow](https://github.com/Jagalite/catabolic/wiki/Recommended-Workflow)
-covers curation, completion checks, and the first preview/apply/sync/verify cycle
-for your symlink folders.
+Folder presets include **Plex, Jellyfin, Emby, Kodi, Infuse, Navidrome,
+Audiobookshelf, Komga, and Kavita**. A preset controls folder naming; API integration
+is a separate capability. See [application compatibility](docs/COMPATIBILITY.md)
+for requirements and the full list.
 
-After acting, return to **step 2** to check recorded results. Return to **step 1**
-when evidence needs refreshing. Keep checking even without new notifications:
-previously outstanding work remains discoverable until its owner resolves it.
+For **Plex and Jellyfin**, [consumer bindings](docs/CONSUMERS.md) connect published
+outputs to an existing server library and can request scans after publication.
+Plex also supports browser sign-in, explicit library creation, and
+[metadata import from an existing library](docs/CONSUMERS.md#import-an-existing-plex-library-into-catabolic)
+to help identify files you have already scanned.
 
-### Configure a watcher once
+A media server must be able to read both the symlinks and their source targets.
+An accepted scan request does not prove indexing completed; see the
+[consumer validation record](docs/CONSUMER_VALIDATION.md) for tested behavior and
+live-service qualification limits.
 
-For scanning alone, use an [observation-only watcher](docs/OBSERVATIONS.md):
-`{"plan":{"kind":"observation","sources":["media"]},"schedule":{"kind":"interval","seconds":3600}}`.
-It schedules the same one-shot operation as `scan`, with no query or reaction.
-`supervise --once` processes eligible watcher work; it does not mean “scan all sources once.”
+## Automate or build on it
 
-For a query report as well as observation, use the configuration below.
+Use the CLI's global `--json` option and exit codes in scripts and agent workflows.
+Saved queries, explicit previews, and the work inbox provide a shared workflow
+for people and automation. See [automation](docs/AUTOMATION.md),
+[SQL queries](docs/QUERYING.md), and [GraphQL](docs/GRAPHQL.md).
 
-Save an inbox query using the [inbox query examples](docs/INBOX.md#queries-and-watchers),
-then put its immutable query revision ID in `inbox-watcher.json`:
+The optional [HTTP backend](docs/HTTP.md) exposes authorized queries, metadata,
+media content, and durable rendition requests. It includes scoped tokens,
+OpenAPI and GraphQL contracts, and a TypeScript client contract. Serving content
+and enabling processing require explicit configuration.
 
-```json
-{
-  "version": 1,
-  "authority": "local_owner",
-  "plan": {"kind": "query", "query_id": "IMMUTABLE_QUERY_REVISION"},
-  "schedule": {"kind": "interval", "seconds": 3600},
-  "max_age_seconds": 300,
-  "reaction": "report"
-}
-```
+## Working with your collection
 
-Using the database/profile selected above:
+Catabolic preserves source media. Symlink publication creates managed output
+folders; processing creates separate files. Explicit application imports, such
+as calibre or Immich imports, copy or upload selected media.
 
-```sh
-catabolic watcher put inbox-audit --file inbox-watcher.json
-catabolic watcher preview inbox-audit
-catabolic watcher enable inbox-audit
-catabolic watcher run inbox-audit
-```
+Generated libraries depend on their sources and are not backups. Start with a
+small collection, keep backups, and preview changes before applying them.
 
-Continue with the supervisor entry path in **step 1**, then use the shared inbox
-flow in **steps 2–3**. This report watcher does not perform suggested inbox actions
-or launch an agent. To inspect watcher scheduling and failures:
+| Next step | Guide |
+| --- | --- |
+| Identify, curate, and publish your first collection | [Recommended workflow](docs/WORKFLOW.md) |
+| Review outstanding work and completion requirements | [Work inbox](docs/INBOX.md) · [Worklogs](docs/WORKLOG.md) |
+| Schedule scans and maintain outputs | [Watchers](docs/WATCHERS.md) · [Maintenance](docs/MAINTENANCE.md) |
+| Generate previews, remuxes, or transcodes | [Processing rules](docs/RULES.md) · [External processors](docs/PROCESSORS.md) |
+| Handle offline sources and choose fallback versions | [Fallback policies](docs/FALLBACK.md) · [Source trust](docs/TRUST_POLICIES.md) |
+| Upgrade or diagnose a problem | [Database migrations](docs/MIGRATIONS.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) |
+| Contribute or publish a release | [Development](docs/DEVELOPMENT.md) · [Release testing](docs/RELEASE_TESTING.md) |
 
-```sh
-catabolic watcher pending
-catabolic watcher history inbox-audit
-```
+All guides are also available offline with `catabolic docs`.
 
-The [watcher guide](docs/WATCHERS.md) covers schedules,
-events and recovery. For watcher-owned projections, use `watcher run` for repair
-or inventory-only maintenance; legacy maintenance does not reconcile those outputs.
-
-### Run routine maintenance
-
-Once your output layouts are configured:
-
-```sh
-# Scan sources, refresh output links, verify them, and update metadata manifests.
-catabolic maintenance --all-catalogs --manifest
-
-# Or scan and report the backlog without updating output folders.
-catabolic --json maintenance --inventory-only
-```
-
-The report includes new files, uncataloged files, entry statuses and unfinished
-jobs. Maintenance defaults to zero output removals; it does not identify media
-or mark entries complete. See the
-[maintenance guide](https://github.com/Jagalite/catabolic/wiki/Maintenance)
-for scan exclusions, budgets, optional analysis and handling incomplete cycles.
-
-### Backfill previews or transcodes
-
-Follow the [processing rules guide](https://github.com/Jagalite/catabolic/wiki/Processing-Rules)
-to collect probe metadata and save a recipe, selection and generated destination.
-Replace `RULE_ID` with the saved rule's ID, then review its full storage estimate:
-
-```sh
-catabolic rule preview RULE_ID
-# Queue up to 10 outputs with a 10 GiB estimated planning budget.
-catabolic rule apply RULE_ID --batch 10 --max-new-bytes 10737418240
-catabolic rule run RULE_ID --batch 1
-```
-
-Estimates show additional space, a likely range and any unknown sizes; they are
-not guaranteed output sizes. Rendering requires an external FFmpeg installation
-and creates separate files, preserving originals. After reviewing a rule, opt it
-into future maintenance cycles:
-
-```sh
-catabolic rule enable RULE_ID
-catabolic maintenance --all-catalogs --rules --rule-batch 10 --render-rules 1
-```
-
-`--rules` queues enabled rules; `--render-rules 1` also renders at most one job.
-Ordinary maintenance does neither. For agents and scheduled runs, use global
-`--json` and check exit codes; see [automation](https://github.com/Jagalite/catabolic/wiki/Automation).
-
-### Set up delivery once
-
-Start with a configured projection named `cinema` that publishes movie links
-under `Movies`. Use the database/profile selected above. Sign in with Plex, open
-the returned `authorization_url`, then complete the login with its `login_id`:
-
-```sh
-catabolic consumer plex-login
-catabolic consumer plex-login-complete LOGIN_ID
-```
-
-Completion returns a private `credential_file` path without printing the token.
-Replace the example endpoint with your Plex server address and `CREDENTIAL_FILE`
-with that path. Login does not discover the server address automatically.
-
-```sh
-catabolic consumer connection-put home --application plex \
-  --endpoint https://plex.example.test:32400 --credential-file CREDENTIAL_FILE --apply
-catabolic consumer discover home --type movie
-```
-
-If discovery reports library `7` rooted at `/media/Movies`, preview and then save
-the binding. The remote root is the path **as Plex sees it**, which may differ
-from the host's output path. Plex also needs access to the symlinks' targets.
-
-```sh
-catabolic consumer bind cinema-plex --connection home --catalog cinema \
-  --subtree Movies --remote-root /media/Movies --library-id 7 --type movie \
-  --automatic --initial-scan
-catabolic consumer bind cinema-plex --connection home --catalog cinema \
-  --subtree Movies --remote-root /media/Movies --library-id 7 --type movie \
-  --automatic --initial-scan --apply
-catabolic projection execute cinema
-catabolic consumer run --limit 10
-catabolic consumer bindings
-catabolic consumer verify-indexing cinema-plex --limit 100
-```
-
-`--initial-scan` schedules existing published files; `--automatic` enables delivery
-after future publication. A saved binding alone does not start a worker. Scan
-acceptance means Plex accepted the request; `verify-indexing` separately reports
-whether expected paths were found and may be inconclusive while indexing or in a
-large library. An output catalog without a saved projection can use `sync` and
-`verify` instead; see the [consumer guide](docs/CONSUMERS.md).
-
-For SSH, open the sign-in link on another device. Scheduled workers need access
-to the same credential file. An existing token can instead be supplied through
-protected configuration with `--credential-env PLEX_TOKEN`; see
-[sign-in and credential setup](docs/CONSUMERS.md#sign-in-with-plex).
-
-Publication performs a bounded delivery drain when automatic delivery is enabled.
-Schedule `catabolic consumer run --limit 10` for delayed retries, or supervise
-`catabolic consumer watch --interval 30`. The CLI does not start a background
-service. Inspect `consumer attempts` and `consumer events` for separate outcomes.
-
-The [consumer guide](docs/CONSUMERS.md) covers explicit library creation, path
-mapping, repair and optional Apprise subscriptions. Apprise is installed separately
-with the `notifications` extra; its per-destination retries are independent of
-scan delivery. Preview and apply any required database upgrade before setup;
-the current schema is 27. Upgrading does not enable automatic network actions.
-
-## Publishing a release
-
-Keep the version in `pyproject.toml` and `src/catabolic/__init__.py` identical,
-then create and push a matching `vVERSION` tag on the release commit. Pushing a
-version tag runs the release validation workflow; publication requires a separate
-manual request after configuring PyPI Trusted Publishing.
-
-For example, to publish version `0.1.0` from its matching tag:
-
-```sh
-gh workflow run release.yml --ref v0.1.0 -f publish=true
-```
-
-The workflow runs all CI checks before uploading the tested wheel and source
-archive to PyPI. It uses the `pypi` GitHub environment and Trusted Publishing;
-no stored API token is required. Configure the PyPI publisher for `Jagalite`,
-repository `catabolic`, workflow `release.yml`, and environment `pypi`.
-Any configured environment approval is still required. Ordinary branch pushes
-never publish. See [release setup and validation](docs/RELEASE_TESTING.md#pypi-trusted-publishing)
-for first-publication setup and recovery after an interrupted upload.
-
-## Learn more
-
-- [Wiki](https://github.com/Jagalite/catabolic/wiki) — walkthroughs and detailed guides.
-- [Recommended workflow](https://github.com/Jagalite/catabolic/blob/main/docs/WORKFLOW.md) — the everyday cataloging cycle; also `catabolic docs workflow`.
-- [Processing rules](https://github.com/Jagalite/catabolic/wiki/Processing-Rules) — recipes, retroactive storage estimates and maintenance; also `catabolic docs rules`.
-- [Output consumers](docs/CONSUMERS.md) — Plex/Jellyfin setup, durable scan delivery and optional notifications; also `catabolic docs consumers`.
-- [Rendition workflows](https://github.com/Jagalite/catabolic/wiki/Rendition-Workflows) — transcode libraries, external result receipts and completion requirements.
-- [Using Catabolic with agents](https://github.com/Jagalite/catabolic/blob/main/docs/AUTOMATION.md) — automation and structured output.
-- [SQL queries](https://github.com/Jagalite/catabolic/blob/main/docs/QUERYING.md) and [GraphQL](https://github.com/Jagalite/catabolic/blob/main/docs/GRAPHQL.md) — explore the catalog.
-- [Troubleshooting](https://github.com/Jagalite/catabolic/blob/main/docs/TROUBLESHOOTING.md) — common questions and recovery steps.
-- [Development](https://github.com/Jagalite/catabolic/blob/main/docs/DEVELOPMENT.md) — contribute, run tests, and maintain the docs.
-
-Documentation is also available offline: run `catabolic docs` after installation.
-
-## License
-
-[MIT](https://github.com/Jagalite/catabolic/blob/main/LICENSE). Copyright 2026 Jaga Tranvo and The Catabolic Contributors.
-
-Owner-controlled source identity settings and their evidence are described in [Trust policies](docs/TRUST_POLICIES.md), also available with `catabolic docs trust`.
-
-Named query watchers share source observations while maintaining independent schedules and projection ownership. See [the watcher guide](docs/WATCHERS.md).
+[MIT License](LICENSE). Copyright 2026 Jaga Tranvo and The Catabolic Contributors.
