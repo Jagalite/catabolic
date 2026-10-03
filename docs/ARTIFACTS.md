@@ -45,8 +45,9 @@ SRT extraction is conversion of an existing subtitle stream, not OCR of bitmap
 subtitles or speech transcription. Unsupported conversions fail explicitly.
 Analysis operations (`probe`, `decode`, `hash`, `verify`, `text`, `sniff`) keep
 using `process enqueue` and `process run`; see [Enrichment](ENRICHMENT.md).
-Live streaming, HLS/DASH packages, multi-input edits, automatic cleanup and
+Persistent HLS/DASH rendition packages, multi-input edits, automatic cleanup and
 additional analysis filters are outside this first version.
+For temporary HLS playback while encoding, see [HTTP playback sessions](HTTP.md#playback-while-transcoding-api-150-schema-28).
 
 `artifact capabilities` checks encoders, muxers and filters and lists missing
 requirements per preset. AV1 uses `libsvtav1` and `libopus`; tone mapping also needs

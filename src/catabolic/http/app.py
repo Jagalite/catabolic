@@ -93,6 +93,9 @@ def create_app(
         )
     limits = Limits(streams, per_principal, rate)
     app.state.limits = limits
+    from .playback import install_routes as install_playback
+
+    # Installation is below, once the shared authentication/mutation functions exist.
 
     def problem(exc, request):
         code = getattr(exc, "code", "catalog_error")
@@ -170,6 +173,8 @@ def create_app(
         if read_only:
             raise AccessError("read_only", 403)
 
+    install_playback(app, session, mutation, limits)
+
     @app.get(
         "/v1/openapi.json",
         operation_id="get_openapi",
@@ -206,14 +211,14 @@ def create_app(
     def capabilities(request: Request):
         with session(request) as access:
             workers = access.store.rows(
-                "SELECT worker_pid FROM api_worker_status WHERE profile=?",
+                "SELECT worker_pid,updated_at,capabilities FROM api_worker_status WHERE profile=?",
                 (access.profile,),
             )
             ready = False
             if workers:
                 try:
                     os.kill(workers[0]["worker_pid"], 0)
-                    ready = True
+                    ready = time.time() - workers[0]["updated_at"] <= 30
                 except OSError:
                     pass
             operations = [
@@ -236,6 +241,25 @@ def create_app(
                 and bool(access.matching("processing:request")),
                 "worker_ready": ready,
                 "operations": operations,
+                "playback": {
+                    "admission": not read_only
+                    and ready
+                    and bool(
+                        workers
+                        and json.loads(workers[0]["capabilities"]).get("playback_hls")
+                    )
+                    and bool(access.matching("processing:request")),
+                    "profiles": [
+                        r["id"]
+                        for r in access.store.rows(
+                            "SELECT o.id FROM api_operations o JOIN processing_recipes r ON r.id=o.recipe_id WHERE o.profile=? AND o.enabled=1 AND json_extract(r.definition,'$.preset') IN ('h264-720p','h264-1080p')",
+                            (access.profile,),
+                        )
+                        if r["id"] in operations
+                    ],
+                    "segment_seconds": 2,
+                    "seeking": "produced_segments",
+                },
                 "limits": {
                     "page_size": 1000,
                     "streams": streams,

@@ -103,10 +103,9 @@ def admit(
                 "SELECT 1 FROM api_reservations WHERE job_id=?", (queued["job_id"],)
             ).fetchone()
         ):
-            reserved = db.execute(
-                "SELECT coalesce(sum(bytes),0) FROM api_reservations WHERE device=?",
-                (device,),
-            ).fetchone()[0]
+            from .playback_cache import reserved_bytes
+
+            reserved = reserved_bytes(store, device)
             if available - reserved - budget < recipe["reserve_bytes"]:
                 raise AccessError("storage_reservation_unavailable", 409)
             db.execute(
@@ -247,10 +246,9 @@ def retry(access, identifier):
                 "SELECT 1 FROM api_reservations WHERE job_id=?", (job["id"],)
             ).fetchone()
         ):
-            reserved = db.execute(
-                "SELECT coalesce(sum(bytes),0) FROM api_reservations WHERE device=?",
-                (device,),
-            ).fetchone()[0]
+            from .playback_cache import reserved_bytes
+
+            reserved = reserved_bytes(access.store, device)
             if (
                 fs.f_bavail * fs.f_frsize - reserved - recipe["max_output_bytes"]
                 < recipe["reserve_bytes"]

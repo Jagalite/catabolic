@@ -5,7 +5,7 @@
 
 from .models import Problem
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 
 # Descriptions are part of the published artifact, alongside stable operation IDs.
 GROUPS = {
@@ -19,9 +19,25 @@ GROUPS = {
     },
     "Content": {"create_content_ticket", "revoke_content_ticket", "resolve_item"},
     "Events": {"list_events"},
+    "Playback": {
+        "create_playback_session",
+        "get_playback_session",
+        "cancel_playback_session",
+        "get_playback_playlist",
+        "head_playback_playlist",
+        "get_playback_segment",
+        "head_playback_segment",
+    },
     "Operator": {"manage_definition"},
 }
 DESCRIPTIONS = {
+    "create_playback_session": "Request an approved H.264 playback profile. Reuse a current completed rendition or shared HLS encode. Requires an idempotency key; pending sessions return 202 with Location. Encoding runs in the supervised API worker.",
+    "get_playback_session": "Principal-bound playback status, expiry and available segment duration. Clients poll during startup and play the growing playlist once available. Seeking is limited to produced segments.",
+    "cancel_playback_session": "Cancel this caller's playback session. The worker retires encoding when no authorized unexpired sessions remain.",
+    "get_playback_playlist": "Authenticated growing HLS EVENT playlist. References only completed segments; returns 409 before the first segment. Each referenced request requires Bearer authentication.",
+    "head_playback_playlist": "Headers for the current authorized HLS playlist, without its body.",
+    "get_playback_segment": "Retrieve one closed MPEG-TS segment named by this session's playlist. Temporary and unlisted files are never served. Whole-segment delivery only; ranges return 416.",
+    "head_playback_segment": "Headers for one current authorized completed HLS segment, without its body.",
     "get_identity": "Effective principal, profile, permitted actions and credential expiry in Unix seconds.",
     "get_capabilities": "Caller-visible operations, configured limits and local worker readiness. Readiness is advisory; admission rechecks prerequisites.",
     "get_openapi": "Versioned OpenAPI contract. Contains no deployment-specific catalog data; authentication is required on this endpoint.",
@@ -62,6 +78,7 @@ def install_contract(app):
                 "Catalog",
                 "Content",
                 "Rendition requests",
+                "Playback",
                 "Events",
                 "Operator",
             )
@@ -96,6 +113,7 @@ def install_contract(app):
                     403,
                     404,
                     409,
+                    410,
                     412,
                     413,
                     416,
@@ -190,7 +208,47 @@ def install_contract(app):
                                 "schema": {"type": "string"},
                             }
                         )
-                if path == "/v1/rendition-requests":
+                if "/playback-sessions/" in path and path.endswith("/content"):
+                    # HLS segments are whole-file delivery, not range content or ticket URLs.
+                    responses.pop("206", None)
+                    responses.pop("304", None)
+                    responses["200"]["content"] = (
+                        {
+                            "video/mp2t": {
+                                "schema": {"type": "string", "format": "binary"}
+                            }
+                        }
+                        if method == "get"
+                        else {}
+                    )
+                    operation["security"] = [{"BearerAuth": []}]
+                    operation["description"] = DESCRIPTIONS[identifier]
+                    operation["tags"] = ["Playback"]
+                    responses["200"]["description"] = (
+                        "Completed HLS segment bytes (HEAD: headers only)."
+                    )
+                    responses["200"]["headers"] = {
+                        name: {"schema": {"type": "string"}}
+                        for name in ("Content-Length", "Content-Type", "Cache-Control")
+                    }
+                    operation["parameters"] = [
+                        p
+                        for p in operation.get("parameters", [])
+                        if p["name"]
+                        not in ("Range", "If-Match", "If-None-Match", "If-Range")
+                    ]
+                    if method == "head":
+                        responses["200"].pop("content", None)
+                if path.endswith("/index.m3u8"):
+                    if method == "get":
+                        responses["200"]["content"] = {
+                            "application/vnd.apple.mpegurl": {
+                                "schema": {"type": "string"}
+                            }
+                        }
+                    else:
+                        responses["200"].pop("content", None)
+                if path in ("/v1/rendition-requests", "/v1/playback-sessions"):
                     for code in ("200", "202"):
                         responses[code]["headers"] = {
                             "Location": {"schema": {"type": "string"}}

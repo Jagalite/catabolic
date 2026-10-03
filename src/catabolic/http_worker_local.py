@@ -7,7 +7,7 @@ import os
 import sqlite3
 import time
 
-from . import rendering
+from . import playback_worker, rendering
 from .access import AccessError, authenticate
 from .api_events import prune
 from .app import Application
@@ -24,8 +24,14 @@ def run(database, profile="default", *, once=False, interval=2):
     lock = acquire_writer_lock(path.with_name(path.name + ".api-worker"))
     try:
         capabilities = rendering.capabilities()
+        capabilities["playback_hls"] = hls_available(capabilities)
+        recovered = False
         while True:
             try:
+                if not recovered:
+                    with Store(path, writable=True) as store:
+                        playback_worker.recover(store, profile)
+                    recovered = True
                 result = tick(path, profile, capabilities)
             except (CatabolicError, sqlite3.Error) as exc:
                 if not is_catalog_busy(exc):
@@ -53,6 +59,21 @@ def run(database, profile="default", *, once=False, interval=2):
             os.close(lock)
 
 
+def hls_available(capabilities):
+    if not any(
+        p["name"] == "h264-720p" and p["available"] for p in capabilities["presets"]
+    ):
+        return False
+    from .process_runner import command_output
+
+    raw = command_output(
+        [capabilities["tools"]["ffmpeg"]["tool"], "-hide_banner", "-muxers"]
+    )
+    return any(line.split()[-1:] == [b"hls"] for line in raw.splitlines()) or any(
+        b" hls " in line for line in raw.splitlines()
+    )
+
+
 def tick(path, profile, capabilities):
     with Store(path, writable=True) as store:
         with store.transaction() as db:
@@ -61,6 +82,9 @@ def tick(path, profile, capabilities):
                 (profile, os.getpid(), encode(capabilities), time.time()),
             )
         prune(store)
+        playback_result = playback_worker.tick(store, profile, capabilities)
+        if playback_result is not None:
+            return playback_result
         rows = store.rows(
             "SELECT r.* FROM api_requests r JOIN processing_jobs j ON j.id=r.job_id WHERE r.profile=? AND r.state IN ('queued','running','validating','blocked','cancelled') AND j.state IN ('queued','running') ORDER BY r.created_at,r.id LIMIT 100",
             (profile,),

@@ -31,6 +31,24 @@ class Demand(Model):
     operation_id: str
 
 
+class PlaybackDemand(Demand):
+    ttl: int = Field(default=3600, ge=60, le=21600)
+
+
+class PlaybackStatus(Model):
+    session_id: str
+    state: Literal[
+        "queued", "running", "playing", "ready", "failed", "cancelled", "stale"
+    ]
+    status_url: str
+    playlist_path: str | None
+    content_path: str | None
+    segment_count: int
+    available_seconds: float
+    expires: float
+    blockers: list[str]
+
+
 class Ticket(Model):
     file_id: str
     revision: str
@@ -168,6 +186,14 @@ class Capabilities(Model):
     operations: list[str]
     limits: CapabilityLimits
     content: ContentCapabilities
+    playback: "PlaybackCapabilities"
+
+
+class PlaybackCapabilities(Model):
+    admission: bool
+    profiles: list[str]
+    segment_seconds: int
+    seeking: Literal["produced_segments"]
 
 
 class SQLResult(Model):

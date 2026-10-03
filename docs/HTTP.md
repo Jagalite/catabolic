@@ -12,9 +12,11 @@ and retrieve its completed bytes. A request does not create a permanent rule,
 change source trust, or configure Plex. Plex credentials and API credentials are
 independent.
 
-This interface does not implement uploads, remote URL ingestion, arbitrary encoder
-commands, playback transcoding, HLS, browser accounts, sessions or OIDC. An encode
-finishes and validates before its content becomes available.
+The durable rendition interface makes content available after encoding and
+validation. API 1.5.0 also provides explicit H.264/AAC HLS playback sessions that
+serve closed segments while encoding continues; see below. Uploads, remote URL
+ingestion, arbitrary encoder commands, browser accounts and OIDC remain outside
+this interface.
 
 ## Install and start
 
@@ -235,6 +237,97 @@ retracted. This release provides no managed immutable-copy API. Applications
 requiring repeatable bytes should use separately managed immutable storage.
 
 ## Demand, execution and recovery
+
+### Playback while transcoding (API 1.5.0, schema 28)
+
+`POST /v1/playback-sessions` requests a source revision and an approved
+`h264-720p` or `h264-1080p` operation, using the same body as rendition demand
+below and a required `Idempotency-Key`. Optional `ttl` is 60..21600 seconds
+(default 3600); it is a fixed session lifetime, not an idle timeout. Configure
+processing and the supervised worker as above. The grant must permit
+`processing:request` for the item/operation and `content:read` with `derivatives`
+for that item (or operator content access). The generated destination must be
+exposed with `api source-expose`; original content access is not required.
+
+- A current completed catalog rendition from that recipe/destination returns
+  **200** with `content_path`, even when the worker is stopped.
+- Otherwise, matching sessions share a temporary HLS encode. Admission returns
+  **202** with `Location` and `status_url` while waiting for the first segment.
+- Poll `GET /v1/playback-sessions/SESSION_ID`. `playlist_path` becomes available
+  when at least one segment is closed. `state:playing` means encoding continues;
+  `state:ready` means the full playlist is complete. `available_seconds` reports
+  the produced timeline; `blockers` reports terminal failures.
+- Play the growing HLS EVENT playlist at `playlist_path`. It contains H.264
+  video and optional stereo AAC audio in approximately two-second MPEG-TS segments.
+  The selected recipe's stream choices, CRF, speed and resolution limit apply.
+  The encoder uses a low-latency tune for incremental delivery, so its output is
+  distinct from the recipe's durable MP4 rendition. HDR inputs detected by the
+  SDR recipe are rejected.
+- `POST /v1/playback-sessions/SESSION_ID/cancel` retires that caller's session.
+  Encoding stops when no authorized unexpired sessions remain. Closing a player
+  alone does not cancel the session; clients should call cancel explicitly.
+
+Every status, playlist and segment request requires a Bearer credential and
+rechecks current item/operation/content permissions, source revision and destination
+ownership. Session IDs belong to a principal. HLS clients must send Authorization
+on all playlist and segment requests, for example using hls.js `xhrSetup`; these
+playback URLs do not accept file-content tickets or put credentials in the URL.
+Native HTML video clients that cannot attach headers need a separate client
+integration. GET/HEAD for closed segments supports whole-segment delivery;
+Range requests return 416. Playlists return 409 before the first segment and are
+never cached. Cancelled/expired sessions return 410 for playback content.
+After credential rotation, an authorized replay of the original session POST
+refreshes the worker credential without extending the session expiry. Direct-file
+sessions pin the source snapshot and return 404 for HLS playlist/segment paths.
+
+`GET /v1/capabilities` exposes `playback.profiles` (approved operation IDs),
+`playback.admission`, `playback.segment_seconds` and `playback.seeking`.
+An ordinary file GET/resolve does not schedule encoding. A player must create
+this playback session when it needs on-demand conversion.
+
+The first version has one encoding worker shared with durable API rendering;
+playback jobs are selected before queued durable API jobs. It has one quality
+level and sequential production. Seeking is limited to already-produced segments;
+there is no restart at an arbitrary unencoded position or adaptive bitrate ladder.
+Startup and uninterrupted playback depend on encoder speed relative to the source.
+
+Temporary outputs live in private, descriptor-pinned `.playback-UUID` directories
+inside the approved generated location. They are not catalog renditions and are
+never inventoried or published as validated artifacts. FFmpeg atomically closes
+segments before listing them, using its [HLS temporary-file publication](https://ffmpeg.org/ffmpeg-formats.html#hls-2).
+Incremental delivery does not certify later segments
+or the full source; encoding errors can interrupt playback after some bytes have
+already been delivered. The worker checks complete playlist/duration evidence at
+completion, rather than independently decoding each generated segment.
+
+Admission permits at most 10 unexpired active sessions per principal and 100
+globally. Unique encodes reserve the recipe's maximum bytes on the destination
+device, sharing accounting with durable API renders. Timeout, free-space reserve,
+total cache-byte cap and optional size-ratio/duration constraints apply. Byte
+monitoring is a polling budget, not a strict filesystem quota; it may overshoot
+between polls. Ready cache entries can be reused without a worker. The worker
+cleans failed/cancelled caches after their sessions end, and completed caches
+after all sessions end and at least one hour has elapsed since completion.
+Unexpected entries or changed ownership prevent automatic cleanup.
+
+The encoder process group is retired on cancellation, timeout or worker loss.
+On supervised restart, interrupted jobs become failed and release reservations;
+a new idempotency key creates fresh work. Existing failed-session replays report
+the failure and do not silently restart. Long-running clients should monitor
+status alongside HLS playback and present `blockers` when encoding fails.
+
+The initial slice was checked with FFmpeg 8.1.2 and disposable MPEG-4/AAC inputs:
+all 16 playback tests passed, covering early delivery, shared demand, cancellation,
+revocation, expiry/cleanup, storage/time limits, worker loss, cache reuse and full
+five-segment decoding/seeking, source edits and credential rotation. The broader
+HTTP/migration lane passed 94 tests.
+A local hls.js 1.6.13 browser fixture decoded frames while its encoder was still
+running and later buffered the completed 10-second timeline; this is bounded
+fixture evidence, not a device/library compatibility or performance guarantee.
+The full repository run had four scan failures that also reproduced with the
+playback changes removed, plus three optional-tool skips.
+
+### Durable rendition demand
 
 ```json
 {

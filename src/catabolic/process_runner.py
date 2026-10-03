@@ -29,6 +29,7 @@ def command_output(
     on_start=None,
     on_poll=None,
     include_stderr=False,
+    umask=-1,
 ):
     """Own the whole process group, including descendants after the leader exits.
 
@@ -45,6 +46,7 @@ def command_output(
         pass_fds=pass_fds,
         start_new_session=True,
         env=env,
+        umask=umask,
     )
     buffers = {"stdout": bytearray(), "stderr": bytearray()}
     try:
