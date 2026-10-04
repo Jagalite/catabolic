@@ -51,7 +51,7 @@ A large summary may time out; it must not be treated as a zero count.
 Coverage includes unidentified occurrences without placeholder items, curation
 summaries, explicit and automatic workflow checks, proposals, native and external
 jobs, artifact recovery, watcher attempts/reactions, fallback projection entries,
-link journals and the legacy catalog-refresh queue. Owners retain all decisions
+link journals, consumer delivery groups, and the legacy catalog-refresh queue. Owners retain all decisions
 and histories. SQL includes every profile: always filter `profile=:profile`.
 Item status is shared, readiness is profile-dependent, and explicit requirements
 retain their evidence profile.
@@ -208,3 +208,18 @@ Guarded scans contribute one source-level observation blocker backed by the late
 observation job. Confirmed discoveries may appear while that job remains
 incomplete. Consult its directory coverage before inferring absence; see
 [guarded observations](OBSERVATIONS.md).
+
+Consumer refresh work uses one `consumer:` key per delivery group and profile,
+including when several bindings share a remote library. Pending delivery, busy
+servers, and scheduled retries are `waiting`; repair, exhausted retries, and
+publication validation errors are `blocked`. Disabled pending groups are
+`deferred`. Once all binding generations are acknowledged, old errors are
+historical and no longer actionable. Acknowledgement means a scan request was
+accepted, not that downstream indexing finished. Optional indexing verification
+remains a separate consumer operation.
+
+Suggested actions use `consumer run`, `consumer retry`, or `consumer bindings`
+for repair inspection. They do not send network requests during inbox reads.
+Preconditions include delivery state and claim, binding revisions and generation
+counters, and connection revisions. Evidence tokens detect changes when planning;
+the consumer service remains responsible for authoritative execution fencing.

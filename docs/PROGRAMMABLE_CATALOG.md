@@ -30,8 +30,10 @@ them; use job inspection, retry, cancellation and recovery commands for that wor
 A saved query is an immutable, named revision with one of three contracts:
 
 - `selection`: a **complete** set of `item_id`, `file_id` or `association_id` values.
-  Rules and projections accept this contract.
+  Rules, filesystem projections, and version 2 folder/export/import mappings accept this contract.
 - `rows`: arbitrary read-only SQL results, retaining row caps and explicit truncation.
+  [Destination mappings](CONSUMERS.md#query-driven-destination-mappings) consume
+  complete rows to publish metadata, tags and collection memberships.
 - `document`: an arbitrary bounded GraphQL document, retaining connection pagination.
 
 The language implementations retain their existing capabilities. SQL can join

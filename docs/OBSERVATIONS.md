@@ -312,3 +312,61 @@ Continuations retain parent job references, and their inherited directory
 intervals may be older than the new job's start. Such jobs are not reused as new
 strict-fresh whole-source evidence. Generated artifact sources still inventory
 only their registered ready artifacts, never private staging files.
+
+### File types and regex filters
+
+New scan demands default to a broad, case-insensitive media-extension list:
+video, audio, subtitles, artwork and camera raw formats, ebooks/comics, disc
+images, and common supporting files such as NFO, CUE, playlists and fonts.
+Text, XML and archive formats are included deliberately; an extension is an
+inventory hint, not technical verification. Extensionless and other unmatched
+new files receive no `files` or `observations` records. Scans still enumerate
+directories to discover eligible descendants, so this reduces catalog growth,
+not necessarily directory traversal cost.
+
+Inspect the complete effective list with:
+
+```sh
+catabolic location scan-policy media
+```
+
+The existing source policy accepts `extensions` (a replacement list, or `null`
+for all regular files), `include_regex`, and `exclude_regex`. Example policy:
+
+```json
+{
+  "include_regex": ["(?i)^(movies|tv)/"],
+  "exclude_regex": ["(?i)(^|/)(sample|trailer)[^/]*\\.mkv$"]
+}
+```
+
+```sh
+catabolic location scan-policy media --file scan-policy.json
+catabolic location scan-policy media --file scan-policy.json --apply
+catabolic scan media
+```
+
+Regexes search the POSIX source-relative file path, case-sensitively unless the
+pattern uses `(?i)`. At least one include must match when includes are present;
+any exclude vetoes the file. Extension matching also must pass. Regex file
+filters do not prune directories; use the existing exact `exclusions` for that.
+Each list is limited to 32 patterns of 1,024 characters each. Matching uses a
+bounded timeout; timeout stops work rather than being treated as a non-match.
+
+For an unrestricted file-type scan, apply this policy then scan normally:
+
+```json
+{"extensions": null, "include_regex": [], "exclude_regex": []}
+```
+
+This keeps existing path exclusions and budgets. `--full` / `--extended` increases
+execution allowances; it does not broaden file types or remove exclusions.
+Policy changes create new observation compatibility and revision evidence and
+apply to manual, maintenance, and watcher observations. Already admitted demands
+are never silently widened. Scan reports pin these filters: `complete` means
+complete requested coverage under those filters, not inventory of every file.
+
+Changing filters does not erase older catalog history. Previously inventoried
+files outside the new filter retain their old observations and cannot be marked
+missing by the narrowed scan. A later all-files scan can refresh them. There is
+no per-skipped-file catalog record; coverage may retain aggregate filtered counts.

@@ -221,6 +221,47 @@ class Curation:
             row[key] = json.loads(row[key]) if row[key] is not None else None
         return row
 
+    def accept_existing_association_evidence(self, identifier, *, actor):
+        """Accept reviewed evidence without rewriting an existing association."""
+        self.app.require_recovered()
+        proposal = self.get(identifier)
+        payload = proposal["payload"]
+        if set(payload) != {"item_id", "role", "part"}:
+            raise CatabolicError("existing-association evidence cannot modify metadata")
+        if proposal["state"] == "accepted":
+            return proposal
+        if proposal["state"] != "pending":
+            raise CatabolicError("proposal already decided")
+        before = self.snapshot(proposal["file_id"], payload)
+        if before != proposal["snapshot"]:
+            raise CatabolicError("proposal is stale")
+        matches = [
+            a
+            for a in before["associations"]
+            if a["active"]
+            and a["item_id"] == payload["item_id"]
+            and a["role"] == payload["role"]
+            and a["part"] == payload["part"]
+        ]
+        if len(matches) != 1:
+            raise CatabolicError("evidence requires exactly one existing association")
+        from .source_access import validated_source
+
+        with validated_source(before["file"]):
+            pass
+        bounded_text(actor, "decision actor")
+        result = {"item_id": payload["item_id"], "association_id": matches[0]["id"]}
+        with self.store.transaction() as db:
+            db.execute(
+                "UPDATE proposals SET state='accepted',result=? WHERE id=?",
+                (encode(result), identifier),
+            )
+            db.execute(
+                "INSERT INTO decision_events(proposal_id,action,actor,before_value,after_value) VALUES (?,?,?,?,?)",
+                (identifier, "accepted", actor, encode(before), encode(before)),
+            )
+        return self.get(identifier)
+
     def list(self, *, state=None, limit=100, after=""):
         page_limit(limit)
         if state is not None and state not in ("pending", "accepted", "rejected"):

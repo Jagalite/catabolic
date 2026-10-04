@@ -776,3 +776,97 @@ class ExternalInboxTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ConsumerInboxTest(unittest.TestCase):
+    rows = InboxTest.rows
+
+    def setUp(self):
+        fixtures.ItemWorkflowTest.setUp(self)
+        with self.store.transaction() as db:
+            db.execute(
+                "INSERT INTO consumer_connections VALUES ('default','plex','plex','http://example.invalid','TEST_TOKEN','server','{}',1)"
+            )
+            db.execute("""INSERT INTO consumer_bindings
+                (profile,id,connection_id,catalog,subtree,remote_root,local_binding,library,group_id,origin,generation)
+                VALUES ('default','cinema','plex','global','','/media','{}','{}','library','test',1)""")
+            db.execute(
+                "INSERT INTO consumer_deliveries(profile,id) VALUES ('default','library')"
+            )
+
+    def consumer(self):
+        return next(
+            r for r in self.rows(inactive=True) if r["category"] == "consumer_refresh"
+        )
+
+    def test_consumer_lifecycle_and_stale_evidence(self):
+        initial = self.consumer()
+        self.assertEqual(initial["actionability"], "waiting")
+        self.assertFalse(any(r["category"] == "consumer_refresh" for r in self.rows()))
+        token = evidence_token(initial)
+        with self.store.transaction() as db:
+            db.execute(
+                "UPDATE consumer_deliveries SET state='repair',error='server_identity_changed'"
+            )
+        blocked = self.consumer()
+        self.assertEqual(blocked["work_key"], initial["work_key"])
+        self.assertEqual(blocked["actionability"], "blocked")
+        self.assertEqual(blocked["reason"], "server_identity_changed")
+        with self.assertRaises(CatabolicError):
+            validate_evidence(blocked, token)
+        with self.store.transaction() as db:
+            db.execute("UPDATE consumer_bindings SET acknowledged=generation")
+        self.assertEqual(self.consumer()["actionability"], "historical")
+        self.assertFalse(any(r["category"] == "consumer_refresh" for r in self.rows()))
+
+    def test_consumer_retry_disabled_and_group_deduplication(self):
+        with self.store.transaction() as db:
+            db.execute("""INSERT INTO consumer_bindings
+                (profile,id,connection_id,catalog,subtree,remote_root,local_binding,library,group_id,origin,generation)
+                VALUES ('default','cinema-two','plex','global','Movies','/media/Movies','{}','{}','library','test',2)""")
+            db.execute(
+                "UPDATE consumer_deliveries SET state='retry',error='network_error'"
+            )
+        self.assertEqual(self.consumer()["actionability"], "waiting")
+        self.assertEqual(
+            len(
+                [
+                    r
+                    for r in self.rows(inactive=True)
+                    if r["category"] == "consumer_refresh"
+                ]
+            ),
+            1,
+        )
+        with self.store.transaction() as db:
+            db.execute("UPDATE consumer_deliveries SET state='exhausted'")
+        self.assertEqual(self.consumer()["actionability"], "blocked")
+        self.assertEqual(
+            self.consumer()["suggested_actions"][0]["operation"], "consumer retry"
+        )
+        with self.store.transaction() as db:
+            db.execute("UPDATE consumer_bindings SET enabled=0")
+        self.assertEqual(self.consumer()["actionability"], "deferred")
+
+    def test_consumer_read_only_graphql_and_connection_preconditions(self):
+        initial = self.consumer()
+        changes = self.store.db.total_changes
+        result = execute_graphql(
+            self.path,
+            "{ workInbox(includeInactive: true) { nodes } }",
+            _store=self.store,
+        )
+        self.assertNotIn("errors", result)
+        self.consumer()
+        self.assertEqual(self.store.db.total_changes, changes)
+        with self.store.transaction() as db:
+            db.execute("UPDATE consumer_connections SET revision=revision+1")
+            db.execute("INSERT INTO profiles(id) VALUES ('offline')")
+        with self.assertRaises(CatabolicError):
+            validate_evidence(self.consumer(), evidence_token(initial))
+        self.assertFalse(
+            any(
+                r["category"] == "consumer_refresh"
+                for r in self.rows(profile="offline", inactive=True)
+            )
+        )

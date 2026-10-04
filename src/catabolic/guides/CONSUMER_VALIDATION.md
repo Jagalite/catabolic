@@ -175,3 +175,137 @@ Plex evidence. Real account/library import, server-specific pagination behavior,
 and real Plex metadata variations remain unverified. Imported TV/music parent
 labels are metadata only: parent items and structural relationships, playlists,
 watched state, artwork and remote-only files remain outside this import scope.
+
+## Metadata publication
+
+`consumer metadata` supports both imported item identities and reviewed matches
+from existing published files. `consumer metadata-match` pins the consumer
+binding, active mapping, association, source revision, GUID and remote paths.
+Matches use accepted association-evidence proposals without rewriting item or
+association records. `--metadata-source association` supports grouped series
+items whose individual files appear as movies in a generic Plex library;
+item-sourced fields require matching kinds. No schema migration is added.
+
+The focused metadata and matching suites cover read-only previews; exact
+field/lock parameters; ambiguous, incomplete and over-budget searches; stale
+local/remote identities and publication; metadata source selection; unchanged
+repeats; field clearing and lock restoration; partial batches; interrupted
+intent and uncertain writes; concurrent Catabolic writers; CLI behavior; and
+source preservation. HTTP fixture callbacks acquire the database writer lock
+to verify that network operations hold no Store writer lifetime.
+
+**Live acceptance passed against Plex Media Server 1.41.9.9961-46083195d using
+an existing active-catalog association.** Exact publication-path matching
+connected a series-associated episode file to its movie record in the generic
+Plex library without importing or replacing its catalog identity. The CLI
+published a temporary title, summary, release date and year, locked the four
+fields, independently verified the result, confirmed a no-op repeat, and rejected
+a stale plan. The CLI then restored the original values, explicitly cleared the
+originally absent date/year, and unlocked the fields. Original association
+metadata, item metadata, identities, and source device/inode/size/mtime/ctime
+were verified unchanged after restoration. The accepted match remains available.
+
+The active catalog first required a verified remount repair: the same volume
+UUIDs and root inodes had new device numbers. A full database backup preceded
+the repair, and 310 published links and source files were verified. No persistent
+trust overrides were enabled. Local recovery and test evidence is retained in
+`.local-tests/plex-metadata-live/active-7vqle4_n/`, including the database backup,
+remount plan/result, saved match, before/edited/restored XML, CLI outputs, and
+`active-report.json`. An earlier isolated import-and-summary round trip is in
+`.local-tests/plex-metadata-live/run-bcksl4ip/`. Private local evidence is not
+packaged or published.
+
+Live acceptance covers those four scalar fields and locking on a movie-type
+Plex record. Other fields, actual TV/music/photo libraries, entitlements, and
+live transport/failure cases remain fixture-qualified only. Plex has no remote
+compare-and-set in this integration, so independent editors can still race with
+an update. Same-database Catabolic writers are serialized; batches are not
+atomic. See the [publishing guide](CONSUMERS.md#publish-catalog-metadata-to-plex)
+for limits, conflict behavior and recovery.
+
+## Query-driven destination mappings
+
+`tests/test_destination_mappings.py` exercises the shared saved-query mapping
+engine against Plex XML and Jellyfin JSON protocol fixtures. Coverage includes
+scalar edits, row grouping and lookup transforms, JSON sets, preserving manual
+members, removal budgets, duplicate targets, conflicting scalars, truncated and
+empty results, changed identities, competing mapping ownership, stale plans,
+interrupted/lost responses, recovery fences, and CLI incomplete exit codes.
+Jellyfin tests check complete metadata payload preservation and authenticated JSON
+request bodies. Collection tests use explicit IDs, preserve other memberships,
+and reject Plex smart collections, truncated membership lists and changed
+collection identities.
+
+On 2026-09-19, the new engine was exercised against the current Plex library `2`,
+item `1266`, using a SQLite backup of the active catalog. It added a unique temporary
+genre, verified it, then removed only that owned genre with a removal budget of
+one. Before/after XML matched apart from the permitted update timestamp; source
+file device/inode/size/mtime/ctime matched. The active catalog was not edited.
+Private artifacts are under `.local-tests/destination-mappings/plex-8imyxxn3/`,
+including before/changed/after XML, previews, apply reports and `report.json`.
+
+This qualifies live Plex genre addition/removal for that item and server. It does
+not qualify live collection operations or Jellyfin behavior. Those paths have
+fixture coverage only. Remote concurrent-edit races remain possible because the
+APIs lack conditional metadata writes. Collection creation/deletion, automatic
+scheduling, remote playlists, and portable program-bundle integration are outside
+this implementation.
+
+### Folder, import and export mapping integration
+
+Version 2 mapping validation in `tests/test_publication_mappings.py` covers all
+17 folder presets through preview, actual temporary-filesystem publication,
+verification and a no-change repeat. It also covers NFO, OPDS and XSPF bundles
+with query filtering and exact readback, and calibre, Calibre-Web and Immich
+through intercepted CLI calls that inspect the private staged source copies.
+These tests do not launch or qualify the external applications.
+
+Failure tests cover stale source/metadata plans, competing folder ownership,
+removal budgets and preservation of manual files, interrupted filesystem
+journals, partial export resumption, export tampering, uncertain import fencing,
+reviewed operator resolutions, skipping already submitted groups after a partial
+batch, replaced import destination directories, and missing executables.
+An unchanged source rescan or local metadata that is not transmitted does not
+cause another import. Submitted group payloads retain valid manifest references.
+Tests also check the version 2 CLI, capability registry and unchanged source bytes.
+
+The integration regression run passed 148 tests across mapping, target, manifest,
+interchange, layout, query, programmable catalog, statistics, program-bundle and
+documentation suites. The expanded publication-mapping suite passed 17 tests.
+No live calibre, Calibre-Web, Immich, or other application scanner acceptance was
+performed. Import completion means the external CLI returned successfully; it
+is not remote readback or certification of duplicate handling inside that app.
+
+
+## Live Plex verification (2026-10-03)
+
+Plex Media Server 1.41.9.9961-46083195d passed a disposable generic-video library
+journey: creation, two symlink-backed media publications, scan delivery, exact
+indexing and unchanged-repeat behavior. Both files were fetched through Plex's
+authenticated media endpoints, matched byte-for-byte to their sources and fully
+decoded with FFmpeg. This is media-delivery evidence, not Plex Web player evidence.
+
+Published-file matching, import of both items, nine movie metadata fields
+(title, sort/original title, summary, year/date, tagline, studio and content rating),
+locks/unlocks, restoration, no-op replay and stale-plan rejection passed live.
+Genre/label addition and removal also passed. Collection membership initially
+failed because writes used `/library/metadata/{id}/items`; correcting that route
+to `/library/collections/{id}/items` passed add/remove with the preexisting member
+preserved. The uncertain failed attempt was reconciled as not applied before
+retry. All 24 destination-mapping regression tests passed with explicit route
+assertions. Collection creation was test setup, not a new mapping capability.
+
+A backup of the current catalog was upgraded and reconciled against unchanged
+volume UUIDs/root inodes after the internal-volume device number changed. All
+310 local links/sources verified. Live Plex evidence matched all 303 video paths
+and all seven subtitle sidecars; each subtitle fetched from Plex matched its
+source bytes. The built-in indexing check still reports 303/310 inconclusive
+because it inspects `Part.file`, while external subtitles appear in per-item
+`Stream.file`. The production database was not upgraded or rebound by this test.
+
+Evidence is retained privately under `.local-tests/plex-live-20261003/`, with
+`summary.json`, detailed command receipts, initial failure/recovery evidence and
+the mapping regression log. Test library 3 and its two media fixtures remain for
+inspection. Plex Web sign-in prevented player-UI verification. Actual TV/music/
+photo libraries, edition entitlement and playback of every production file remain
+unqualified by this run.

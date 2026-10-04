@@ -346,7 +346,10 @@ def parser() -> argparse.ArgumentParser:
                 "scan-policy", help="preview or apply source observation policy"
             )
             policy.add_argument("name")
-            policy.add_argument("--file", help="JSON exclusions and budgets")
+            policy.add_argument(
+                "--file",
+                help="JSON path exclusions, extensions (null for all), include_regex/exclude_regex, and budgets",
+            )
             policy.add_argument("--apply", action="store_true")
             trust = sub.add_parser(
                 "trust", help="per-source filesystem identity policy"

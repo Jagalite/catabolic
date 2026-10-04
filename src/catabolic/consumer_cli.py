@@ -43,6 +43,58 @@ def register(commands):
     p.add_argument("--limit", type=int, default=100)
     p.add_argument("--expected-plan", help="plan_id from a reviewed preview")
     p.add_argument("--apply", action="store_true")
+    from .plex_metadata import FIELDS
+
+    p = sub.add_parser(
+        "metadata", help="preview/apply catalog metadata to imported Plex items"
+    )
+    p.add_argument("connection")
+    p.add_argument("--library-id", required=True)
+    selection = p.add_mutually_exclusive_group(required=True)
+    selection.add_argument(
+        "--match",
+        action="append",
+        help="accepted metadata-match ID; repeat for up to 100 files",
+    )
+    selection.add_argument(
+        "--item",
+        action="append",
+        help="Catabolic item ID; repeat for up to 100 imported items",
+    )
+    p.add_argument("--field", action="append", required=True, choices=sorted(FIELDS))
+    locks = p.add_mutually_exclusive_group()
+    locks.add_argument(
+        "--unlock-fields", action="store_true", help="explicitly unlock selected fields"
+    )
+    p.add_argument(
+        "--clear-field",
+        action="append",
+        default=[],
+        choices=sorted(set(FIELDS) - {"title"}),
+        help="explicitly clear a selected field",
+    )
+    locks.add_argument(
+        "--lock-fields",
+        action="store_true",
+        help="lock selected fields in Plex; otherwise preserve locks",
+    )
+    p.add_argument("--expected-plan", help="plan_id from a reviewed metadata preview")
+    p.add_argument("--apply", action="store_true")
+    p = sub.add_parser(
+        "metadata-match", help="preview/save an existing published file's Plex identity"
+    )
+    p.add_argument("binding")
+    p.add_argument("--mapping", required=True)
+    p.add_argument(
+        "--metadata-source", choices=("association", "item"), default="association"
+    )
+    p.add_argument("--max-items", type=int, default=10000)
+    p.add_argument("--apply", action="store_true")
+    p.add_argument("--expected-plan")
+    p = sub.add_parser("metadata-matches", help="list saved file-level Plex matches")
+    p.add_argument("--binding")
+    p.add_argument("--limit", type=int, default=100)
+    p.add_argument("--after", default="")
     p = sub.add_parser("connection-put")
     p.add_argument("id")
     p.add_argument("--application", choices=("plex", "jellyfin"), required=True)
@@ -213,6 +265,53 @@ def dispatch(args):
             json.loads(read_text(args.map, 65536)),
             offset=args.offset,
             limit=args.limit,
+            apply=args.apply,
+            expected_plan=args.expected_plan,
+        )
+    if op == "metadata-matches":
+        with Store(database) as store:
+            rows = store.rows(
+                "SELECT id,file_id,json_extract(evidence,'$.binding_id') binding_id,"
+                "json_extract(evidence,'$.mapping_id') mapping_id,"
+                "json_extract(evidence,'$.rating_key') rating_key,"
+                "json_extract(evidence,'$.metadata_source') metadata_source "
+                "FROM proposals WHERE profile=? AND source='plex-match' AND state='accepted' "
+                "AND id>? AND (? IS NULL OR json_extract(evidence,'$.binding_id')=?) ORDER BY id LIMIT ?",
+                (profile, args.after, args.binding, args.binding, args.limit + 1),
+            )
+        return {
+            "matches": rows[: args.limit],
+            "next_after": rows[args.limit - 1]["id"]
+            if len(rows) > args.limit
+            else None,
+        }
+    if op == "metadata-match":
+        from .plex_matching import match
+
+        return match(
+            database,
+            profile,
+            args.binding,
+            args.mapping,
+            metadata_source=args.metadata_source,
+            max_items=args.max_items,
+            apply=args.apply,
+            expected_plan=args.expected_plan,
+        )
+    if op == "metadata":
+        from .plex_metadata import run
+
+        return run(
+            database,
+            profile,
+            args.connection,
+            args.library_id,
+            args.item,
+            args.field,
+            lock_fields=args.lock_fields,
+            unlock_fields=args.unlock_fields,
+            clear_fields=args.clear_field,
+            match_ids=args.match,
             apply=args.apply,
             expected_plan=args.expected_plan,
         )

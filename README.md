@@ -91,11 +91,15 @@ results in SQLite. Three reusable definitions turn that catalog into workflows:
 | --- | --- | --- |
 | **Query** | Selects catalog records using SQL or GraphQL | Movies without a recorded transcode |
 | **Rule** | Applies an explicit processing or analysis operation to a selection | Generate a smaller version of each selected movie |
-| **Projection** | Publishes a selection into an output layout | Build a movie library using the generated versions |
+| **Projection** | Maps query results to an output layout or destination metadata | Build a library or curate genres and collection membership |
 
 Processing results become catalog evidence. On the next evaluation, a query for
 missing versions stops selecting items whose results have been recorded.
 Queries can also feed projections directly when no processing is needed.
+[Destination mappings](docs/CONSUMERS.md#query-driven-destination-mappings) apply
+query results to Plex/Jellyfin metadata and collections, all folder presets,
+calibre/Immich imports, and NFO/OPDS/XSPF exports. Each operation declares its
+verification and recovery capabilities and requires a reviewed plan.
 
 Preview the selection and planned changes, execute a bounded batch, then verify
 the result. Jobs and filesystem journals support recovery after interruptions.
@@ -112,7 +116,10 @@ For **Plex and Jellyfin**, [consumer bindings](docs/CONSUMERS.md) connect publis
 outputs to an existing server library and can request scans after publication.
 Plex also supports browser sign-in, explicit library creation, and
 [metadata import from an existing library](docs/CONSUMERS.md#import-an-existing-plex-library-into-catabolic)
-to help identify files you have already scanned.
+to help identify files you have already scanned. You can also
+[match existing published files](docs/CONSUMERS.md#match-existing-published-files-to-plex) and
+[publish curated metadata to Plex](docs/CONSUMERS.md#publish-catalog-metadata-to-plex),
+with a field-by-field preview and verification.
 
 A media server must be able to read both the symlinks and their source targets.
 An accepted scan request does not prove indexing completed; see the

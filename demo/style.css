@@ -1,0 +1,129 @@
+/* SPDX-FileCopyrightText: 2026 The Catabolic Contributors */
+/* SPDX-License-Identifier: MIT */
+:root {
+  color-scheme: dark;
+  --bg: #101014;
+  --panel: #18181f;
+  --line: #34343f;
+  --text: #d0cedb;
+  --muted: #a5a2b5;
+  --accent: #82b5ff;
+  --heading: #f0edf8;
+  --selection: #34343f;
+  --green: #92dbad;
+  --yellow: #f1cf83;
+  --pink: #ee94bc;
+  --orange: #efa778;
+  --violet: #baa0f5;
+  --cyan: #83d2dc;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif; }
+a { color: var(--accent); text-underline-offset: 4px; }
+header { border-top: 2px solid; border-image: linear-gradient(90deg, var(--pink), var(--orange), var(--yellow), var(--green), var(--cyan), var(--violet)) 1; height: 72px; padding: 0 30px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { font-size: 22px; font-weight: 700; color: var(--heading); text-decoration: none; }
+.brand span { font-size: 14px; font-weight: 400; color: var(--muted); }
+header nav { display: flex; gap: 24px; }
+main { min-height: calc(100vh - 126px); max-width: 1500px; margin: auto; }
+.content { padding: 36px 32px; min-width: 0; }
+.eyebrow { color: var(--muted); font-size: 11px; letter-spacing: 1.4px; font-weight: 650; margin: 0 0 14px; }
+.title-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.title-row .eyebrow { margin-bottom: 8px; }
+h1 { color: var(--heading); font-size: 28px; font-weight: 600; letter-spacing: -.7px; margin: 0; }
+h2 { color: var(--heading); font-size: 16px; font-weight: 600; margin: 0; }
+#description { color: var(--muted); margin: 14px 0 28px; }
+.controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; margin: 24px 0 20px; }
+.controls h2 { font-size: 12px; color: var(--muted); font-weight: 500; }
+#queries, #projections { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; }
+button { font: inherit; font-size: 13px; color: var(--text); cursor: pointer; background: var(--panel); border: 1px solid var(--line); text-align: left; border-radius: 5px; padding: 8px 12px; }
+button:hover { background: var(--selection); }
+#queries button:nth-child(6n+1), #projections button:nth-child(3n+1) { --tone: var(--pink); }
+#queries button:nth-child(6n+2), #projections button:nth-child(3n+2) { --tone: var(--orange); }
+#queries button:nth-child(6n+3) { --tone: var(--yellow); }
+#queries button:nth-child(6n+4) { --tone: var(--green); }
+#queries button:nth-child(6n+5) { --tone: var(--cyan); }
+#queries button:nth-child(6n), #projections button:nth-child(3n) { --tone: var(--violet); }
+.controls button { border-top: 2px solid var(--tone, var(--accent)); }
+button[aria-pressed=true] { background: var(--selection); color: var(--tone, var(--heading)); border-color: var(--tone, var(--accent)); }
+.badge { border: 1px solid var(--line); padding: 5px 12px; border-radius: 20px; white-space: nowrap; color: var(--muted); }
+.trees { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 24px; }
+.tree-panel { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); min-height: 480px; max-height: 650px; padding: 22px; overflow: auto; }
+.tree-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 18px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+.trees ul { list-style: none; padding-left: 23px; margin: 0; }
+.trees > section > div > ul { padding-left: 0; }
+.trees li > ul { border-left: 1px solid var(--line); margin-left: 7px; }
+.tree-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; flex-wrap: wrap; font: 13px/1.5 ui-monospace, monospace; }
+.folder { color: var(--heading); font-weight: 600; }
+.trees li:nth-child(6n+1) { --branch: var(--pink); }
+.trees li:nth-child(6n+2) { --branch: var(--orange); }
+.trees li:nth-child(6n+3) { --branch: var(--yellow); }
+.trees li:nth-child(6n+4) { --branch: var(--green); }
+.trees li:nth-child(6n+5) { --branch: var(--cyan); }
+.trees li:nth-child(6n) { --branch: var(--violet); }
+.folder-icon, .trees .file-icon { color: var(--branch, var(--accent)); }
+.file-icon { color: var(--accent); }
+.target { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.change { font: 10px system-ui, sans-serif; color: var(--green); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; }
+#status { font-size: 12px; color: var(--muted); margin: 14px 0 24px; }
+.sql-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 18px; margin-bottom: 24px; }
+.sql-panel .eyebrow { font-size: 10px; }
+.sql-panel pre { margin: 8px 0 0; font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
+footer { border-top: 1px solid var(--line); padding: 16px 30px; display: flex; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 12px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.skip { position: absolute; top: -100px; }
+.skip:focus { top: 10px; background: var(--bg); padding: 10px; z-index: 10; }
+@media (max-width: 900px) {
+  .controls, .trees { grid-template-columns: 1fr; }
+  .tree-panel { min-height: 220px; max-height: 450px; }
+  .content { padding: 24px 18px; }
+}
+@media (max-width: 760px) {
+  header { padding: 0 18px; }
+  .brand span { display: none; }
+  footer { padding: 16px 18px; flex-wrap: wrap; }
+  h1 { font-size: 23px; }
+}
+
+.format-note { color: var(--muted); font-size: 12px; margin: -10px 0 24px; }
+
+.trees { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+.source-panel { min-height: 220px; max-height: 340px; }
+#source-tree > ul { padding-left: 0; }
+.query-panel { min-width: 0; }
+.query-panel .sql-panel { margin: 16px 0 0; }
+.language-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+#queries button, #projections button { border-top: 2px solid var(--tone, var(--accent)); }
+@media (max-width: 760px) { #source-tree > ul { grid-template-columns: 1fr; } }
+
+.input-column, .output-column { min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+.input-column .source-panel { height: 340px; flex: none; }
+.query-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; flex: 1; }
+.output-column { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 22px; }
+.output-column .output-panel { padding: 0; border: 0; border-radius: 0; min-height: 0; max-height: 700px; flex: 1; }
+#output-tree > ul { padding-left: 0; }
+@media (max-width: 760px) { .trees { grid-template-columns: minmax(0, 1fr); } }
+
+/* Keep the desktop workspace within the window; panels own their scrolling. */
+body { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+header { height: 60px; flex: 0 0 60px; }
+main { width: 100%; min-height: 0; flex: 1; overflow: hidden; }
+.content { height: 100%; padding: 20px 24px; }
+#view { height: 100%; }
+.trees { height: 100%; min-height: 0; }
+.input-column { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); min-height: 0; gap: 16px; }
+.input-column .source-panel { height: auto; min-height: 0; max-height: none; display: flex; flex-direction: column; overflow: hidden; }
+#source-tree { min-height: 0; overflow: auto; }
+.query-panel { min-height: 0; overflow: auto; }
+.output-column { min-height: 0; overflow: hidden; gap: 16px; }
+.output-controls { flex: none; }
+.output-column .output-panel { min-height: 0; max-height: none; display: flex; flex-direction: column; overflow: hidden; }
+#output-tree { min-height: 0; overflow: auto; }
+.tree-header { flex: none; }
+footer { flex: none; padding: 10px 24px; }
+@media (max-width: 760px) {
+  body { height: auto; min-height: 100dvh; overflow: auto; }
+  main { overflow: visible; }
+  .content, #view, .trees { height: auto; }
+  .input-column { grid-template-rows: 280px auto; }
+  .output-column .output-panel { max-height: 440px; flex: auto; }
+}

@@ -23,6 +23,14 @@ mechanism, preset name, supported kinds and roles, exact rules (including file
 extensions and required template fields), upstream documentation and validation
 status. The target interface and each naming profile currently have version 1.
 
+All targets also declare a mapping operation. Use
+`catabolic projection mapping-capabilities` for the complete capability registry,
+including NFO, OPDS and XSPF export adapters. The shared
+[mapping commands](CONSUMERS.md#folder-export-and-import-mappings) provide query
+selection, reviewed plans, durable attempts and destination-specific verification
+and recovery. Naming support does not imply remote metadata editing.
+
+
 ## Server integrations
 
 Consumer bindings add server operations to published folders. Configure them
@@ -41,7 +49,9 @@ to a server or request scans.
 
 Plex uses whole-section scans. Scan acceptance does not prove indexing or playback;
 the server must read both published links and their resolved targets. Protocol
-fixtures cover these integrations; live Plex acceptance remains unverified. See
+fixtures cover these integrations. Live Plex verification covers a generic-video
+library, media delivery, selected metadata fields, genres/labels and collection
+membership; other library types and player compatibility remain unqualified. See
 [consumer setup](CONSUMERS.md) for browser sign-in, path mapping, creation and
 workers, and the [validation record](CONSUMER_VALIDATION.md) for evidence.
 

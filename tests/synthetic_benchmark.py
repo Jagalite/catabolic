@@ -20,6 +20,7 @@ from uuid import uuid4
 
 from catabolic.app import Application
 from catabolic.reconcile import Reconciler
+from catabolic.scan_policy import configure
 from catabolic.store import Store
 from tests.synthetic_library import EXCLUSIONS, MARKER, SyntheticLibrary
 
@@ -79,6 +80,10 @@ def run_fixture(root: Path, count: int, progress=None) -> dict:
     with Store(library.database, writable=True) as store:
         app = Application(store)
         reconciler = Reconciler(app)
+        # This lifecycle deliberately inventories incomplete downloads to check
+        # that reconciliation rejects them, including under an all-files policy.
+        for location in library.sources:
+            configure(app, location, {"extensions": None}, apply=True)
         scan = measured("scan", lambda: app.scan(exclude=EXCLUSIONS))
         require(scan["complete"], "initial scan must complete")
         files = library.inventory(app)

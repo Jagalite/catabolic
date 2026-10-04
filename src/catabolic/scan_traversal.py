@@ -54,7 +54,12 @@ def reopen(root_fd, path, expected=None):
 
 
 def walk(root_fd, *, exclude=(), sink=None):
+    from .scan_policy import included
+
     limits = getattr(sink, "budgets", DEFAULTS)
+    allowed = getattr(sink, "extensions", None)
+    include_regex = getattr(sink, "include_regex", ())
+    exclude_regex = getattr(sink, "exclude_regex", ())
     observed, errors = [], []
     started = time.monotonic()
     total = 0
@@ -216,13 +221,19 @@ def walk(root_fd, *, exclude=(), sink=None):
                                         if inserted:
                                             directory_count += 1
                                             notify(child_path, "pending", child_detail)
-                                elif stat.S_ISREG(st.st_mode):
+                                elif stat.S_ISREG(st.st_mode) and included(
+                                    child_path, allowed, include_regex, exclude_regex
+                                ):
                                     observation = dict(
                                         path=child_path,
                                         size=st.st_size,
                                         mtime_ns=st.st_mtime_ns,
                                         device=st.st_dev,
                                         inode=st.st_ino,
+                                    )
+                                elif stat.S_ISREG(st.st_mode):
+                                    detail["files_filtered"] = (
+                                        detail.get("files_filtered", 0) + 1
                                     )
                             except (OSError, CatabolicError) as exc:
                                 latency = time.monotonic() - tick

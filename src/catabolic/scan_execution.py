@@ -13,7 +13,7 @@ from uuid import UUID, uuid4, uuid5
 
 from .domain import CatabolicError
 from .filesystem import root_handle
-from .scan_traversal import reopen, storage_exhausted
+from .scan_traversal import ScanResourceStop, reopen, storage_exhausted
 from .store import Store, encode
 
 
@@ -38,6 +38,9 @@ class Publisher:
     def __init__(self, app, job, binding):
         self.app, self.job, self.binding = app, job, binding
         self.budgets = json.loads(job["execution"])["budgets"]
+        self.extensions = json.loads(job["execution"]).get("extensions")
+        self.include_regex = json.loads(job["execution"]).get("include_regex", [])
+        self.exclude_regex = json.loads(job["execution"]).get("exclude_regex", [])
         self.entries, self.scopes, self.bytes = [], {}, 0
         self.last = time.monotonic()
         self.blocker = None
@@ -65,6 +68,12 @@ class Publisher:
             yield {**dict(row), "detail": json.loads(row["detail"])}
 
     def __call__(self, entry):
+        from .scan_policy import included
+
+        if not included(
+            entry["path"], self.extensions, self.include_regex, self.exclude_regex
+        ):
+            return
         self.entries.append(entry)
         self.bytes += len(encode(entry).encode())
         self.checkpoint()
@@ -151,6 +160,20 @@ class Publisher:
                                     "failed",
                                     {**detail, "reason": str(exc)},
                                 )
+            from .scan_policy import included
+
+            filter_deadline = time.monotonic() + 1
+
+            def file_in_scope(path):
+                if (
+                    self.include_regex or self.exclude_regex
+                ) and time.monotonic() > filter_deadline:
+                    raise ScanResourceStop("regex_finalization_budget")
+                return included(
+                    path, self.extensions, self.include_regex, self.exclude_regex
+                )
+
+            store.db.create_function("scan_file_in_scope", 1, file_in_scope)
             with store.transaction() as db:
                 observations.renew(app, self.job)
                 next_sequence = self.sequence + 1
@@ -231,7 +254,7 @@ class Publisher:
                         )
                         args = [v for p in exclusions for v in (p, p, p)]
                         removed = db.execute(
-                            "INSERT INTO observations(profile,file_id,size,mtime_ns,device,inode,status,scan_id) SELECT ?,f.id,0,0,0,0,'missing',? FROM files f WHERE f.location=? AND f.path>=? AND f.path<? AND (instr(substr(f.path,?),'/')=0 OR NOT EXISTS(SELECT 1 FROM observation_scopes child WHERE child.job_id=? AND child.path=substr(f.path,1,?+instr(substr(f.path,?),'/')-1))) AND NOT EXISTS(SELECT 1 FROM observation_seen s WHERE s.job_id=? AND s.file_id=f.id)"
+                            "INSERT INTO observations(profile,file_id,size,mtime_ns,device,inode,status,scan_id) SELECT ?,f.id,0,0,0,0,'missing',? FROM files f WHERE scan_file_in_scope(f.path) AND f.location=? AND f.path>=? AND f.path<? AND (instr(substr(f.path,?),'/')=0 OR NOT EXISTS(SELECT 1 FROM observation_scopes child WHERE child.job_id=? AND child.path=substr(f.path,1,?+instr(substr(f.path,?),'/')-1))) AND NOT EXISTS(SELECT 1 FROM observation_seen s WHERE s.job_id=? AND s.file_id=f.id)"
                             + sql
                             + " ON CONFLICT(profile,file_id) DO UPDATE SET status='missing',scan_id=excluded.scan_id WHERE observations.status!='missing'",
                             (
@@ -294,7 +317,14 @@ def execute(app, job, walker):
                 "INSERT INTO meta VALUES (?,?)",
                 (
                     f"scan:{job['scan_id']}:scope",
-                    encode({"exclude": excluded}),
+                    encode(
+                        {
+                            "exclude": excluded,
+                            "extensions": execution.get("extensions"),
+                            "include_regex": execution.get("include_regex", []),
+                            "exclude_regex": execution.get("exclude_regex", []),
+                        }
+                    ),
                 ),
             )
             for path in execution["scopes"]:
@@ -468,6 +498,14 @@ def execute(app, job, walker):
         else getattr(binding, "evidence", {}).get("availability", "unknown"),
         inventory_retained=not complete,
         excluded=excluded,
+        extensions=publisher.extensions,
+        include_regex=publisher.include_regex,
+        exclude_regex=publisher.exclude_regex,
+        coverage_kind="all_files"
+        if publisher.extensions is None
+        and not publisher.include_regex
+        and not publisher.exclude_regex
+        else "filtered_files",
         errors=errors,
         coverage=counts,
         outstanding=outstanding[:100],

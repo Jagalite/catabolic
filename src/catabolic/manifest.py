@@ -55,7 +55,7 @@ class Manifest:
     def __init__(self, app):
         self.app, self.store = app, app.store
 
-    def build(self, catalog="global", *, extra=None):
+    def build(self, catalog="global", *, extra=None, selection=None):
         """Call inside a Store read snapshot or its writer transaction."""
         if not self.store.db.in_transaction:
             raise CatabolicError("manifest export requires a database snapshot")
@@ -77,6 +77,21 @@ class Manifest:
             ),
             "entries",
         )
+        selected = None
+        if selection is not None:
+            from .selection import selected_associations
+
+            selected_rows, _ = selected_associations(self.store, selection)
+            selected = {row["id"] for row in selected_rows}
+            pairs = {(row["item_id"], row["file_id"]) for row in selected_rows}
+            available = {(row["item_id"], row["file_id"]) for row in mappings}
+            if pairs - available:
+                raise CatabolicError(
+                    "mapping selection includes associations outside the source catalog"
+                )
+            mappings = [
+                row for row in mappings if (row["item_id"], row["file_id"]) in pairs
+            ]
         bindings = self.store.rows(
             "SELECT kind,owner,root FROM bindings WHERE profile=?", (self.app.profile,)
         )
@@ -89,6 +104,9 @@ class Manifest:
             ),
             "recorded links",
         )
+        if selected is not None:
+            included_paths = {row["path"] for row in mappings}
+            records = [row for row in records if row["path"] in included_paths]
         recorded = {row["path"]: row["target"] for row in records}
         files = {}
         for batch in batches({row["file_id"] for row in mappings}):
@@ -126,7 +144,10 @@ class Manifest:
             else set()
         )
         associations = [
-            row for row in associations if row["active"] or row["id"] in admitted
+            row
+            for row in associations
+            if (row["active"] or row["id"] in admitted)
+            and (selected is None or row["id"] in selected)
         ]
         for row in associations:
             row["metadata"] = json.loads(row["metadata"])
@@ -291,6 +312,8 @@ class Manifest:
             )
             content[key] = []
             for record in records:
+                if selected is not None and record["path"] not in included_paths:
+                    continue
                 target = json.loads(record["target"])
                 entry = {
                     "path": record["path"],

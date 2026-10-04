@@ -15,6 +15,7 @@ from catabolic.app import Application
 from catabolic.domain import CatabolicError
 from catabolic.filesystem import MARKER
 from catabolic.reconcile import Reconciler
+from catabolic.scan_policy import MEDIA_EXTENSIONS, configure
 from catabolic.store import Store
 
 
@@ -155,7 +156,15 @@ class CatalogTest(unittest.TestCase):
             "SELECT value FROM meta WHERE key=?",
             (f"scan:{result['scans'][0]['scan_id']}:scope",),
         )[0]["value"]
-        self.assertEqual(json.loads(scope), {"exclude": ["excluded"]})
+        self.assertEqual(
+            json.loads(scope),
+            {
+                "exclude": ["excluded"],
+                "extensions": MEDIA_EXTENSIONS,
+                "include_regex": [],
+                "exclude_regex": [],
+            },
+        )
         self.app.scan()
         file = next(
             row
@@ -518,6 +527,9 @@ class CatalogTest(unittest.TestCase):
     def test_incomplete_download_suffix_is_never_projected(self):
         download = self.source / "download.mkv.PART"
         download.write_bytes(b"still downloading")
+        self.app.scan()
+        self.assertNotIn(download.name, {r["path"] for r in self.app.files()["files"]})
+        configure(self.app, "media", {"extensions": None}, apply=True)
         self.app.scan()
         file_id = next(
             row["id"]

@@ -162,7 +162,7 @@ class HTTPAdapter:
         self.connection = connection
         self.base = endpoint(connection["endpoint"])
 
-    def call(self, route, method="GET", params=None):
+    def call(self, route, method="GET", params=None, *, body=None):
         try:
             reference = self.connection["credential_env"]
             client_id = None
@@ -185,6 +185,10 @@ class HTTPAdapter:
         if client_id:
             headers["X-Plex-Client-Identifier"] = client_id
             headers["X-Plex-Product"] = "Catabolic"
+        options = {}
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+            options["body"] = body
         try:
             return request(
                 self.base + route + ("?" + urlencode(params) if params else ""),
@@ -193,6 +197,7 @@ class HTTPAdapter:
                 maximum=8 * 1024 * 1024,
                 timeout=15,
                 structured_errors=True,
+                **options,
             )
         except ConsumerError:
             raise

@@ -225,8 +225,8 @@ def build_export(document, format, base_url=None):
     }
 
 
-def publish_bundle(app, document, export, output):
-    """Create a fresh detached snapshot. Never replace or adopt an existing path."""
+def validate_bundle(app, document, export, output):
+    """Validate all bundle paths and sources before any filesystem mutation."""
     if app.store.lock_fd is None:
         raise CatabolicError("bundle publication requires the catalog writer lock")
     destination = Path(output).absolute()
@@ -235,7 +235,10 @@ def publish_bundle(app, document, export, output):
     artifacts = export["files"] + [
         {
             "path": "catalog-manifest.json",
-            "content": json.dumps(document, ensure_ascii=False, allow_nan=False) + "\n",
+            "content": json.dumps(
+                document, ensure_ascii=False, allow_nan=False, sort_keys=True
+            )
+            + "\n",
         }
     ]
     paths = [entry["path"] for entry in entries] + [
@@ -268,12 +271,27 @@ def publish_bundle(app, document, export, output):
     parent = open_directory(destination.parent)
     try:
         app._guard_default_parent(parent)
+    finally:
+        os.close(parent)
+    return entries, artifacts, sources
+
+
+def publish_bundle(app, document, export, output, *, on_created=None):
+    """Create a fresh detached snapshot. Never replace or adopt an existing path."""
+    entries, artifacts, sources = validate_bundle(app, document, export, output)
+    destination = Path(output).absolute()
+    parent = open_directory(destination.parent)
+    try:
+        app._guard_default_parent(parent)
         os.mkdir(destination.name, mode=0o755, dir_fd=parent)
         os.fsync(parent)
         from .filesystem import DIRECTORY_FLAGS
 
         root = os.open(destination.name, DIRECTORY_FLAGS, dir_fd=parent)
         try:
+            if on_created is not None:
+                identity = os.fstat(root)
+                on_created({"device": identity.st_dev, "inode": identity.st_ino})
             for entry in entries:
                 source = sources[entry["file_id"]]
                 with parent_handle(root, entry["path"], create=True) as (fd, leaf):

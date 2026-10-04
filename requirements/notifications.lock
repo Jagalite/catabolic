@@ -192,8 +192,8 @@ idna==3.19 \
 markdown==3.10.3 \
     --hash=sha256:fa6c92a00a4a3c98b22728c64a935ae1928250ae65058a6ded814d2cc29a4cea
 
-oauthlib==3.3.1 \
-    --hash=sha256:88119c938d2b8fb88561af5f6ee0eec8cc8d552b7bb1f712743136eb7523b7a1
+oauthlib==4.0.0 \
+    --hash=sha256:624c28c13a0a59cabf9747dfa52af63be3e512a7f2714df16e91b5b3a145e6cd
 
 pyyaml==6.0.3 \
     --hash=sha256:00c4bdeba853cc34e7dd471f16b4114f4162dc03e6b7afcc2128711f0eca823c \
@@ -275,5 +275,5 @@ requests==2.34.2 \
 requests-oauthlib==2.0.0 \
     --hash=sha256:7dd8a5c40426b779b0868c404bdef9768deccf22749cde15852df527e6269b36
 
-urllib3==2.7.0 \
-    --hash=sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897
+urllib3==2.8.0 \
+    --hash=sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3

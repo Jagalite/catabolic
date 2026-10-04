@@ -89,6 +89,9 @@ Repeat explicit scan exclusions on every invocation:
 catabolic maintenance --catalog plex --exclude .Trashes --exclude .Spotlight-V100
 ```
 
+Maintenance also honors the source policy’s extension and regex file filters
+(default: broad media extensions). See [file type and regex filters](OBSERVATIONS.md#file-types-and-regex-filters) for all-files configuration.
+
 Exclusions are exact source-relative paths or subtrees, not globs. Excluded files
 keep their prior observations and are excluded from this cycle's analysis work.
 See [operations](OPERATIONS.md) for scan and binding semantics.

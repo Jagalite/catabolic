@@ -327,6 +327,12 @@ def describe(target=None):
                 )
                 if definition
                 else ["primary"],
+                "mapping": {
+                    "definition_version": 2,
+                    "operation": "folder" if definition else "import",
+                    "query": "selection",
+                    "command": "projection mapping-preview / mapping-apply",
+                },
                 "consumer_api": {
                     "available": identifier in ("plex", "jellyfin"),
                     "command": "consumer"

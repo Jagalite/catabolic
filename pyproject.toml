@@ -7,10 +7,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "catabolic"
-version = "0.1.0"
+version = "0.2.0"
 description = "Programmable media catalog with query-driven rules and safe output projections"
 requires-python = ">=3.11"
-dependencies = ["graphql-core==3.2.12", "pydantic==2.13.5"]
+dependencies = ["graphql-core==3.2.12", "pydantic==2.13.5", "regex==2026.9.10"]
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

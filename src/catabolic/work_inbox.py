@@ -389,6 +389,41 @@ SQL = " UNION ALL ".join(
             suggested_actions=action("recover", "json_object('catalog',j.catalog)"),
         ),
         branch(
+            """main.consumer_deliveries d""",
+            work_key="'consumer:'||hex(d.id)",
+            profile="d.profile",
+            evidence_profile="d.profile",
+            subject_kind="'consumer'",
+            subject_id="d.id",
+            source_kind="'consumer_deliveries'",
+            source_id="d.id",
+            category="'consumer_refresh'",
+            label="coalesce((SELECT group_concat(b.id, ', ') FROM main.consumer_bindings b WHERE b.profile=d.profile AND b.group_id=d.id),d.id)",
+            reason="CASE WHEN d.error IS NOT NULL THEN d.error WHEN EXISTS(SELECT 1 FROM main.consumer_bindings b WHERE b.profile=d.profile AND b.group_id=d.id AND b.generation>b.acknowledged) THEN 'consumer_refresh_pending' ELSE 'consumer_refresh_acknowledged' END",
+            source_status="d.state",
+            actionability="""CASE
+              WHEN NOT EXISTS(SELECT 1 FROM main.consumer_bindings b WHERE b.profile=d.profile AND b.group_id=d.id AND b.generation>b.acknowledged) THEN 'historical'
+              WHEN NOT EXISTS(SELECT 1 FROM main.consumer_bindings b WHERE b.profile=d.profile AND b.group_id=d.id AND b.enabled=1 AND b.generation>b.acknowledged) THEN 'deferred'
+              WHEN d.state IN ('repair','exhausted') OR (d.error IS NOT NULL AND d.state NOT IN ('retry','busy','leased')) THEN 'blocked'
+              ELSE 'waiting' END""",
+            evidence_at="coalesce((SELECT coalesce(a.finished_at,a.started_at) FROM main.consumer_attempts a WHERE a.profile=d.profile AND a.group_id=d.id ORDER BY a.id DESC LIMIT 1),d.accepted_at)",
+            evidence="json_object('error',d.error,'attempts',d.attempts,'due_at',d.due_at,'accepted_at',d.accepted_at,'indexing',json((SELECT json_group_array(json_object('binding_id',b.id,'evidence',b.indexing)) FROM main.consumer_bindings b WHERE b.profile=d.profile AND b.group_id=d.id)))",
+            preconditions="""json_object('state',d.state,'attempts',d.attempts,'error',d.error,'due_at',d.due_at,'lease_token',d.lease_token,'lease_until',d.lease_until,
+              'bindings',json((SELECT json_group_array(json_object('id',b.id,'revision',b.revision,'enabled',b.enabled,'generation',b.generation,'verified',b.verified,'acknowledged',b.acknowledged,'connection_revision',c.revision))
+                FROM (SELECT * FROM main.consumer_bindings ORDER BY id) b JOIN main.consumer_connections c ON c.profile=b.profile AND c.id=b.connection_id
+                WHERE b.profile=d.profile AND b.group_id=d.id)))""",
+            suggested_actions="CASE WHEN d.state='exhausted' THEN "
+            + action(
+                "consumer retry",
+                "json_object('id',(SELECT b.id FROM main.consumer_bindings b WHERE b.profile=d.profile AND b.group_id=d.id AND b.enabled=1 ORDER BY b.id LIMIT 1))",
+            )
+            + " WHEN d.state='repair' THEN "
+            + action("consumer bindings")
+            + " ELSE "
+            + action("consumer run", "json_object('limit',10)")
+            + " END",
+        ),
+        branch(
             "main.catalog_refresh_queue q",
             work_key="'refresh:'||hex(q.catalog)",
             profile="q.profile",

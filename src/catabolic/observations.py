@@ -595,6 +595,7 @@ def scan_report(evidence):
         "observed": 0,
         "published": 0,
         "excluded": json.loads(evidence["exclusions"]),
+        "extensions": json.loads(evidence.get("execution") or "{}").get("extensions"),
         "availability": "unknown",
         "inventory_retained": True,
         "errors": [evidence.get("blocker", "observation_" + evidence["state"])],

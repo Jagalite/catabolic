@@ -72,6 +72,22 @@ def register(commands):
         "projection", help="query, copy policy, layout and safe output reconciliation"
     ).add_subparsers(dest="operation", required=True)
     sub.add_parser("schema")
+    sub.add_parser("mapping-capabilities")
+    command = sub.add_parser("mapping-events")
+    command.add_argument(
+        "--event", help="show one complete attempt, including before/after snapshots"
+    )
+    for op in ("mapping-preview", "mapping-apply"):
+        command = sub.add_parser(op)
+        command.add_argument("--definition", required=True)
+        if op == "mapping-apply":
+            command.add_argument("--expected-plan", required=True)
+            command.add_argument("--max-removals", type=int, default=0)
+    command = sub.add_parser("mapping-recover")
+    command.add_argument("event_id")
+    command.add_argument("--apply", action="store_true")
+    command.add_argument("--resolution", choices=("submitted", "not_applied"))
+    command.add_argument("--expected-plan")
     put = sub.add_parser("put")
     put.add_argument("catalog")
     put.add_argument("--query", required=True)
@@ -101,6 +117,49 @@ def projection(args):
     from .catalog_refresh import CatalogRefresh
     from .cli import read_text
     from .reconcile import Reconciler
+
+    if args.operation == "mapping-events":
+        from .destination_mappings import events
+
+        history = events(args.db, args.profile)
+        if args.event:
+            found = [event for event in history if event["id"] == args.event]
+            if not found:
+                raise CatabolicError("unknown mapping event")
+            return found[0]
+        return {
+            "events": [
+                {k: e[k] for k in ("id", "owner", "key", "state", "plan_id")}
+                for e in history[-100:]
+            ],
+            "truncated": len(history) > 100,
+        }
+    if args.operation == "mapping-capabilities":
+        from .mapping_adapters import capabilities
+
+        return capabilities()
+    if args.operation == "mapping-recover":
+        from .destination_mappings import recover
+
+        return recover(
+            args.db,
+            args.profile,
+            args.event_id,
+            apply=args.apply,
+            resolution=args.resolution,
+            expected_plan=args.expected_plan,
+        )
+    if args.operation in ("mapping-preview", "mapping-apply"):
+        from .destination_mappings import run
+
+        return run(
+            args.db,
+            args.profile,
+            json.loads(read_text(args.definition, 1024 * 1024)),
+            apply=args.operation == "mapping-apply",
+            expected_plan=getattr(args, "expected_plan", None),
+            max_removals=getattr(args, "max_removals", 0),
+        )
 
     with Store(
         args.db,
