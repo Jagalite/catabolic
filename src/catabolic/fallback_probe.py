@@ -20,6 +20,12 @@ from .store import Store, encode
 _PENDING = []
 
 
+def close_pipes(child):
+    for stream in (child.stdin, child.stdout, child.stderr):
+        if stream is not None:
+            stream.close()
+
+
 def alive(pid):
     if pid is None:
         return False
@@ -52,6 +58,7 @@ def _writer(database):
 def probe(database, snapshots, timeout_ms):
     for child in list(_PENDING):
         if child.poll() is not None:
+            close_pipes(child)
             _PENDING.remove(child)
     token = str(uuid4())
     with _writer(database) as store:
@@ -110,6 +117,8 @@ def probe(database, snapshots, timeout_ms):
             except subprocess.TimeoutExpired:
                 _PENDING.append(child)
         if child is None or child.poll() is not None:
+            if child is not None:
+                close_pipes(child)
             with _writer(database) as store:
                 with store.transaction() as db:
                     db.execute(

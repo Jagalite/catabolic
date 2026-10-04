@@ -130,6 +130,35 @@ class IdentityTest(unittest.TestCase):
             self.assertEqual(probe(self.database, [{}], 10)["reason"], "probe_capacity")
         child.assert_not_called()
 
+    def test_reaped_helpers_close_pipes_while_live_helpers_remain_owned(self):
+        import io
+        import os
+        from unittest.mock import Mock
+
+        from catabolic import fallback_probe
+
+        dead = Mock(stdin=io.BytesIO(), stdout=io.BytesIO(), stderr=None)
+        dead.poll.return_value = 0
+        live = Mock(stdin=io.BytesIO(), stdout=io.BytesIO(), stderr=None)
+        live.poll.return_value = None
+        with self.store.transaction() as db:
+            db.execute("UPDATE fallback_probe_slots SET pid=?", (os.getpid(),))
+        with (
+            self.store.detached(),
+            patch.object(fallback_probe, "_PENDING", [dead, live]),
+            patch.object(fallback_probe.subprocess, "Popen") as spawn,
+        ):
+            result = fallback_probe.probe(self.database, [{}], 10)
+            self.assertEqual(result["reason"], "probe_capacity")
+            self.assertEqual(fallback_probe._PENDING, [live])
+            self.assertTrue(dead.stdin.closed)
+            self.assertTrue(dead.stdout.closed)
+            self.assertFalse(live.stdin.closed)
+            self.assertFalse(live.stdout.closed)
+            spawn.assert_not_called()
+        live.stdin.close()
+        live.stdout.close()
+
     def test_profiles_choose_independent_winners(self):
         import copy
 
