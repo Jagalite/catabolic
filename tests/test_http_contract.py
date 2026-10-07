@@ -260,3 +260,27 @@ class ContractTest(unittest.TestCase):
             )
             self.assertEqual(applied.status_code, 200, applied.text)
             OperatorApplied.model_validate(applied.json())
+
+    def test_outbound_webhooks_and_callbacks_have_receiver_contracts(self):
+        schema = self.client.app.openapi()
+        catalog = schema["webhooks"]["catalogEvent"]["post"]
+        callback = schema["paths"]["/v1/rendition-requests"]["post"]["callbacks"][
+            "renditionState"
+        ]["{$request.body#/callback_url}"]["post"]
+        for operation, model in (
+            (catalog, "WebhookEvent"),
+            (callback, "RequestCallbackEvent"),
+        ):
+            self.assertEqual(operation["security"], [])
+            self.assertEqual(
+                operation["requestBody"]["content"]["application/json"]["schema"][
+                    "$ref"
+                ],
+                "#/components/schemas/" + model,
+            )
+            self.assertIn("2XX", operation["responses"])
+            self.assertEqual(operation["parameters"][0]["name"], "Idempotency-Key")
+            self.assertIn("id", schema["components"]["schemas"][model]["required"])
+        from fastapi.openapi.models import OpenAPI
+
+        OpenAPI.model_validate(schema)

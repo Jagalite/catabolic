@@ -157,7 +157,7 @@ def register(commands):
             p.add_argument("--interval", type=int, default=30)
 
     sub = commands.add_parser(
-        "notify", help="optional per-destination Apprise summaries"
+        "notify", help="durable HTTP webhooks and optional Apprise summaries"
     ).add_subparsers(dest="operation", required=True)
     p = sub.add_parser("put")
     p.add_argument("id")
@@ -249,10 +249,7 @@ def dispatch(args):
                         (profile, args.id),
                     )
                 else:
-                    db.execute(
-                        "UPDATE notification_deliveries SET state='pending',attempts=0,due_at=0,error=NULL,lease_token=NULL,lease_until=NULL WHERE profile=? AND destination_id=? AND state NOT IN ('complete','cancelled')",
-                        (profile, args.id),
-                    )
+                    notifications.retry_delivery(db, profile, args.id)
             return {"id": args.id, "operation": op, "complete": True}
     if op == "import":
         from .plex_import import run

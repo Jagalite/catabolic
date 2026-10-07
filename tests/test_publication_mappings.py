@@ -110,7 +110,10 @@ class PublicationMappingsTest(unittest.TestCase):
 
     def test_all_targets_have_truthful_operations(self):
         all_caps = capabilities()
-        self.assertEqual(len(all_caps), 23)
+        self.assertEqual(len(all_caps), 24)
+        self.assertEqual(
+            all_caps["http"]["operations"]["openapi"]["definition_version"], 3
+        )
         for adapter in definitions():
             self.assertIn("folder", all_caps[adapter]["operations"])
         for adapter in ("calibre", "calibre-web", "immich"):

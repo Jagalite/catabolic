@@ -489,7 +489,45 @@ finish or inspect old work separately. Upgrade does not reinterpret historical
 HTTP success as indexed-media evidence. Avoid enabling both paths for the same
 publication if redundant scans are unwanted.
 
-## Optional human notifications
+## Webhooks and optional human notifications
+
+HTTP webhooks use the standard library and require no Apprise. Configure a
+trusted receiver URL in the worker environment, then subscribe a destination:
+
+```sh
+export CAT_WEBHOOK_URL='https://your-service.example/catabolic-hook'
+catabolic --db catalog.db notify put backend --credential-env CAT_WEBHOOK_URL \
+  --event job_completed --event job_failed --apply
+catabolic --db catalog.db notify run --limit 100
+```
+
+Existing databases need `catabolic --db catalog.db db upgrade` to install
+job-event triggers (introduced in schema 30).
+
+Run `notify run` periodically to drain committed events and due retries, or run
+the supervised `api worker`, which also drains this queue. Job
+transitions enqueue deliveries transactionally; they do not start a background
+notification worker. Subscriptions apply to future events in the selected profile.
+`job_completed` and `job_failed` (including timeouts) cover analysis and rendition
+processing jobs, with a `job_id` for correlation. Cancellation is not a failure event.
+
+HTTP/HTTPS destinations receive a JSON POST with `version: 1`, `id`, `event`,
+`profile`, `severity`, `created_at` (UTC database timestamp), and, for job events,
+`job_id`. Media paths, titles, results and errors are omitted. `Idempotency-Key`
+contains the stable event ID; receivers should deduplicate it because delivery
+is at least once. Any 2xx response acknowledges delivery; other responses and
+network errors use the existing five-attempt retry policy. Redirects are not
+followed. Requests time out after 20 seconds, inside a 30-second worker deadline.
+Local HTTP receivers are supported. HTTPS uses normal certificate verification.
+CLI-configured URLs remain environment-only and may contain a receiver's secret
+query token;
+URL userinfo and fragments are rejected. Custom headers and signature-based
+authentication are not currently supported. Only operators should configure
+these destinations, which can reach the worker's local network.
+
+HTTP registration and per-rendition-request `callback_url` support are described
+in [HTTP.md](HTTP.md#http-webhooks-and-request-callbacks-api-160-schema-31).
+API-provided URLs are stored privately in the catalog and are not returned.
 
 Basic Catabolic and Plex require no Apprise. Install `catabolic[notifications]`,
 or use `requirements/notifications.lock` with `--require-hashes --only-binary=:all:`
@@ -507,15 +545,15 @@ catabolic --db catalog.db notify run --tag home --limit 10
 catabolic --db catalog.db notify retry home
 ```
 
-These four events are the initial supported subscriptions. `projection_updated`
+The four consumer events above, `fallback_selected`, `fallback_unresolved`,
+`job_completed`, and `job_failed` are supported subscriptions. `projection_updated`
 works without any Plex/Jellyfin connection and emits once per verified catalog
 batch, independent of how many consumers are attached. Inspect its durable
 generation with `consumer publications`; the notification worker rechecks
 publication interrupted between ownership commit and event scheduling.
 Severity filters and
 tags route generic batch summaries; messages omit media titles and paths and say
-“scan request accepted”, not “media indexed”. Rich private content, processing and
-curation events are deferred. New destinations do not replay old events.
+“scan request accepted”, not “media indexed”. Rich private content and curation events are deferred. New destinations do not replay old events.
 Notification failures have independent leases/retries, with five attempts and
 bounded backoff. Successful destinations are not resent when another fails.
 Changing/disabling a destination cancels its unfinished deliveries; already-sent
@@ -548,6 +586,9 @@ waiting work. Disabled work is deferred, and acknowledged generations are
 historical. Inbox reads neither refresh a server nor verify indexing.
 
 ## Query-driven destination mappings
+
+Version 3 [HTTP destinations](HTTP_QUERY_MAPPINGS.md) map complete SQL rows or
+GraphQL connections to pinned OpenAPI operations and the durable delivery queue.
 
 `projection mapping-*` covers remote metadata, all 17 folder targets, the three
 CLI import targets, and NFO/OPDS/XSPF export bundles. `mapping-capabilities`

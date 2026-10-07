@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 # SPDX-License-Identifier: MIT
 
-"""Optional human summaries; per-destination leases and independent retries."""
+"""Durable webhooks and human summaries; independent destination leases and retries."""
 
 import hashlib
 import json
@@ -15,6 +15,8 @@ from .process_runner import CommandFailure, command_output
 from .store import Store, encode
 
 EVENTS = {
+    "job_completed",
+    "job_failed",
     "fallback_selected",
     "fallback_unresolved",
     "projection_updated",
@@ -106,12 +108,32 @@ def emit(db, profile, event, severity, subject, identity):
             )
 
 
-def send(environment, event, severity):
-    value = os.environ.get(environment)
+def send(environment, event, severity, *, envelope=None, url=None):
+    value = url if url is not None else os.environ.get(environment)
     if not value:
         return "credential_unavailable"
-    payload = encode({"url": value, "event": event, "severity": severity}).encode()
+    payload = encode(
+        {"url": value, "event": event, "severity": severity, "envelope": envelope}
+    ).encode()
     if len(payload) > 16384:
+        return "invalid_destination"
+    try:
+        raw = command_output(
+            [sys.executable, "-m", "catabolic.notification_worker"],
+            input_bytes=payload,
+            timeout=30,
+            maximum=4096,
+        )
+        return json.loads(raw)["status"]
+    except (CommandFailure, OSError, ValueError, KeyError):
+        return "temporarily_failed"
+
+
+def send_request(request, event_id):
+    payload = encode(
+        {"url": request["url"], "request": request, "envelope": {"id": event_id}}
+    ).encode()
+    if len(payload) > 262144:
         return "invalid_destination"
     try:
         raw = command_output(
@@ -153,7 +175,7 @@ def drain(database, profile="default", limit=10, tag=None):
                     (profile, time.time()),
                 )
             rows = store.rows(
-                """SELECT n.*,d.credential_env,d.tags,d.revision AS destination_revision,e.event,e.severity FROM notification_deliveries n
+                """SELECT n.*,d.credential_env,d.tags,d.revision AS destination_revision,e.event,e.severity,e.subject,e.created_at FROM notification_deliveries n
             JOIN notification_destinations d ON d.profile=n.profile AND d.id=n.destination_id
             JOIN consumer_events e ON e.id=n.event_id WHERE n.profile=? AND d.enabled=1
             AND n.state IN ('pending','retry','leased') AND n.due_at<=? AND (n.lease_until IS NULL OR n.lease_until<=?) AND (? IS NULL OR EXISTS(SELECT 1 FROM json_each(d.tags) WHERE value=?)) ORDER BY e.created_at,n.event_id LIMIT 100""",
@@ -181,13 +203,71 @@ def drain(database, profile="default", limit=10, tag=None):
             )
         if not valid:
             continue
-        outcome = send(row["credential_env"], row["event"], row["severity"])
+        from .access import AccessError
+        from .http_mappings import delivery_request
+        from .webhooks import delivery_url
+
+        try:
+            with Store(database) as store:
+                request = delivery_request(store, profile, row["event_id"])
+                url = (
+                    None
+                    if request is not None
+                    else delivery_url(store, profile, row["destination_id"])
+                )
+            permitted = True
+        except (AccessError, ConsumerError) as exc:
+            request, url, permitted = None, None, False
+            error = (
+                exc.code
+                if isinstance(exc, ConsumerError)
+                and exc.code in ("credential_unavailable", "invalid_destination")
+                else "authorization_unavailable"
+            )
+        outcome = (
+            send_request(request, row["event_id"])
+            if permitted and request is not None
+            else send(
+                row["credential_env"],
+                row["event"],
+                row["severity"],
+                **({"url": url} if url is not None else {}),
+                envelope={
+                    "version": 1,
+                    "id": row["event_id"],
+                    "event": row["event"],
+                    "profile": profile,
+                    "severity": row["severity"],
+                    "created_at": row["created_at"],
+                    **(
+                        {"job_id": row["subject"]}
+                        if row["event"] in ("job_completed", "job_failed")
+                        else {
+                            "request_id": row["subject"],
+                            "state": row["event"].removeprefix("request_"),
+                            "status_url": f"/v1/rendition-requests/{row['subject']}",
+                        }
+                        if row["event"].startswith("request_")
+                        else {}
+                    ),
+                },
+            )
+            if permitted
+            else error
+        )
         state = (
             "complete"
             if outcome == "complete"
             else "repair"
             if outcome
-            in ("uninstalled", "credential_unavailable", "invalid_destination")
+            in (
+                "uninstalled",
+                "credential_unavailable",
+                "invalid_destination",
+                "authorization_unavailable",
+                "invalid_response",
+                "unexpected_response",
+            )
             else "exhausted"
             if row["attempts"] + 1 >= 5
             else "retry"
@@ -228,6 +308,26 @@ def drain(database, profile="default", limit=10, tag=None):
         "unverified_publications": publications,
         "complete": pending == 0 and publications == 0,
     }
+
+
+def retry_delivery(db, profile, identifier):
+    destination = db.execute(
+        "SELECT enabled FROM notification_destinations WHERE profile=? AND id=?",
+        (profile, identifier),
+    ).fetchone()
+    if not destination:
+        raise ConsumerError("unknown_destination")
+    if not destination["enabled"]:
+        raise ConsumerError("webhook_disabled")
+    if db.execute(
+        "SELECT 1 FROM notification_deliveries WHERE profile=? AND destination_id=? AND state='leased' AND lease_until>?",
+        (profile, identifier, time.time()),
+    ).fetchone():
+        raise ConsumerError("delivery_in_progress")
+    db.execute(
+        "UPDATE notification_deliveries SET state='pending',attempts=0,due_at=0,error=NULL,lease_token=NULL,lease_until=NULL WHERE profile=? AND destination_id=? AND state NOT IN ('complete','cancelled')",
+        (profile, identifier),
+    )
 
 
 def defer_drain(app, result):

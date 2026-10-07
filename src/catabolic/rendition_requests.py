@@ -27,17 +27,30 @@ def admit(
     max_global=100,
     _source_lineage_mode=None,
 ):
+    body = dict(body)
+    callback_url = body.get("callback_url")
+    if callback_url is None:
+        body.pop("callback_url", None)
     store = access.store
     access.require("processing:request")
     if (
         not isinstance(key, str)
         or not 1 <= len(key) <= 128
-        or set(body) != {"item_id", "source_file_id", "source_revision", "operation_id"}
-        or any(not isinstance(v, str) or not 1 <= len(v) <= 256 for v in body.values())
+        or set(body) - {"callback_url"}
+        != {"item_id", "source_file_id", "source_revision", "operation_id"}
+        or any(
+            not isinstance(v, str) or not 1 <= len(v) <= 256
+            for k, v in body.items()
+            if k != "callback_url"
+        )
     ):
         raise AccessError("invalid_rendition_request", 400)
     if not access.processing(body):
         raise AccessError()
+    if callback_url is not None:
+        from .webhooks import allow_callback
+
+        allow_callback(access, callback_url)
     if not _source_lineage_mode and not store.rows(
         "SELECT 1 FROM item_files WHERE item_id=? AND file_id=? AND active=1 AND role IN ('primary','source')",
         (body["item_id"], body["source_file_id"]),
@@ -128,6 +141,10 @@ def admit(
                 device,
             ),
         )
+        if callback_url is not None:
+            from .webhooks import register
+
+            register(access, callback_url, [], request_id=identifier)
     return status(access, identifier)
 
 
@@ -199,6 +216,10 @@ def retry(access, identifier):
         raise AccessError("request_not_retryable", 409)
     row = access.store.rows("SELECT * FROM api_requests WHERE id=?", (identifier,))[0]
     body = json.loads(row["body"])
+    if body.get("callback_url"):
+        from .webhooks import allow_callback
+
+        allow_callback(access, body["callback_url"])
     if (
         revision_of(access.store, access.profile, body["source_file_id"])
         != body["source_revision"]
@@ -270,5 +291,9 @@ def retry(access, identifier):
                 access.token["id"],
                 identifier,
             ),
+        )
+        db.execute(
+            "UPDATE api_webhooks SET token_id=? WHERE request_id=? AND principal=?",
+            (access.token["id"], identifier, access.principal),
         )
     return status(access, identifier)

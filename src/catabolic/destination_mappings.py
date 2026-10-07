@@ -135,13 +135,15 @@ def evaluate(database, profile, definition, adapter):
 
 def events(database, profile):
     with Store(database) as store:
+        from .http_mappings import history
+
         return [
             dict(id=r["id"], **json.loads(r["subject"]))
             for r in store.rows(
                 "SELECT id,subject FROM consumer_events WHERE profile=? AND event='mapping_publish' ORDER BY rowid",
                 (profile,),
             )
-        ]
+        ] + list(reversed(history(store, profile)))
 
 
 def save_event(database, profile, identifier, payload, *, create=False):
@@ -264,6 +266,12 @@ def prepare(database, profile, definition):
 def run(
     database, profile, definition, *, apply=False, expected_plan=None, max_removals=0
 ):
+    if isinstance(definition, dict) and definition.get("version") == 3:
+        from .http_mappings import run as send_mapping
+
+        return send_mapping(
+            database, profile, definition, apply=apply, expected_plan=expected_plan
+        )
     if isinstance(definition, dict) and definition.get("version") == 2:
         from .publication_mappings import run as publish
 
@@ -368,6 +376,15 @@ def recover(
     if len(matches) != 1:
         fail("unknown_event")
     event = matches[0]
+    if event.get("version") == 3:
+        if apply:
+            fail("http_recovery_uses_notification_queue")
+        return {
+            "event_id": identifier,
+            "state": event["state"],
+            "complete": event["state"] == "complete",
+            "delivery_acknowledged": event["state"] == "complete",
+        }
     if event.get("version") == 2:
         from .publication_mappings import recover as recover_publication
 

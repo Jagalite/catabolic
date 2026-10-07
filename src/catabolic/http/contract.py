@@ -3,9 +3,9 @@
 
 """Versioned public transport contract, including non-JSON representations."""
 
-from .models import Problem
+from .models import Problem, RequestCallbackEvent, WebhookEvent
 
-VERSION = "1.5.0"
+VERSION = "1.7.0"
 
 # Descriptions are part of the published artifact, alongside stable operation IDs.
 GROUPS = {
@@ -16,9 +16,21 @@ GROUPS = {
         "get_rendition_request",
         "cancel_rendition_request",
         "retry_rendition_request",
+        "get_request_callback",
+        "list_request_callback_deliveries",
+        "retry_request_callback",
+        "disable_request_callback",
     },
     "Content": {"create_content_ticket", "revoke_content_ticket", "resolve_item"},
-    "Events": {"list_events"},
+    "Events": {
+        "list_events",
+        "create_webhook",
+        "list_webhooks",
+        "get_webhook",
+        "list_webhook_deliveries",
+        "disable_webhook",
+        "retry_webhook",
+    },
     "Playback": {
         "create_playback_session",
         "get_playback_session",
@@ -28,9 +40,37 @@ GROUPS = {
         "get_playback_segment",
         "head_playback_segment",
     },
-    "Operator": {"manage_definition"},
+    "Operator": {
+        "manage_definition",
+        "approve_http_operation",
+        "list_http_operations",
+        "get_http_operation",
+        "disable_http_operation",
+        "retry_http_operation",
+        "list_http_mapping_deliveries",
+        "preview_http_mapping",
+        "apply_http_mapping",
+    },
 }
 DESCRIPTIONS = {
+    "approve_http_operation": "Pin a selected OpenAPI 3.1 JSON operation and explicitly chosen base URL. Requires operator webhooks:manage and sql:read. Credential references are environment names; no network requests occur during approval.",
+    "list_http_operations": "Page through visible approved HTTP operation revisions using limit and after. Operations owned by other API principals are omitted.",
+    "get_http_operation": "Inspect an approved HTTP operation revision, resolved request schemas and credential reference. Secret environment values are never returned.",
+    "disable_http_operation": "Disable an approved operation and cancel its unfinished mapped deliveries. Already dispatched requests cannot be recalled.",
+    "retry_http_operation": "Reauthorize and retry unfinished mapped deliveries with the current operator token. Live leases and disabled operations are rejected.",
+    "list_http_mapping_deliveries": "Page through the operation's mapped delivery acknowledgments, attempts and sanitized errors. A completed delivery is not proof of remote processing completion.",
+    "preview_http_mapping": "Evaluate a complete saved SQL rows query or bounded GraphQL connection and validate mapped requests without dispatch. Requires operator webhooks:manage and sql:read; normal query disclosure restrictions still apply.",
+    "apply_http_mapping": "Reevaluate and compare the reviewed plan, then atomically queue changed requests. Enforces max_changes; unchanged keys do not enqueue, missing keys do not delete remote data, and newer payloads supersede older unsent payloads.",
+    "get_request_callback": "Inspect this caller's rendition callback without disclosing its receiver URL. Requires current access to the request.",
+    "list_request_callback_deliveries": "Page through this caller's callback deliveries using limit and after. Requires current request access.",
+    "retry_request_callback": "Reauthorize the callback with the current token and retry unfinished deliveries without rerendering. Rechecks the approved receiver origin; live leases and disabled callbacks return 409.",
+    "disable_request_callback": "Disable this caller's callback and cancel unfinished deliveries without cancelling its rendition request.",
+    "create_webhook": "Register an HTTP/HTTPS destination for profile events. Requires operator webhooks:manage. URLs are stored privately and never returned. The API worker delivers queued notifications.",
+    "list_webhooks": "Page through this operator principal's webhook registrations using limit and after. Receiver URLs are omitted.",
+    "get_webhook": "Inspect an owned webhook registration without revealing its receiver URL.",
+    "list_webhook_deliveries": "Page through delivery state, attempts and sanitized errors for an owned webhook using limit and after.",
+    "disable_webhook": "Disable an owned webhook and cancel unfinished deliveries. Already dispatched requests cannot be recalled.",
+    "retry_webhook": "Retry unfinished non-cancelled deliveries and bind delivery authorization to the current operator token.",
     "create_playback_session": "Request an approved H.264 playback profile. Reuse a current completed rendition or shared HLS encode. Requires an idempotency key; pending sessions return 202 with Location. Encoding runs in the supervised API worker.",
     "get_playback_session": "Principal-bound playback status, expiry and available segment duration. Clients poll during startup and play the growing playlist once available. Seeking is limited to produced segments.",
     "cancel_playback_session": "Cancel this caller's playback session. The worker retires encoding when no authorized unexpired sessions remain.",
@@ -52,7 +92,7 @@ DESCRIPTIONS = {
     "get_fallback_policy": "Inspect an approved immutable policy revision. Policy approval does not grant access to its candidates.",
     "list_projection_resolutions": "Authorized logical membership and selected revisions, with separate admitted and verified publication generations.",
     "create_logical_rendition_request": "Resolve an approved fallback policy before admitting a concrete source revision. Requires an idempotency key; retries retain the original chosen source.",
-    "create_rendition_request": "Ensure an approved durable rendition exists. Requires an idempotency key; conflicting reuse returns 409. Returns 200 when ready, otherwise 202 with a status Location.",
+    "create_rendition_request": "Ensure an approved durable rendition exists. Requires an idempotency key; conflicting reuse returns 409. Returns 200 when ready, otherwise 202 with a status Location. Optional callback_url receives principal-bound terminal request events; its origin must be approved in the processing grant or by operator webhooks:manage.",
     "get_rendition_request": "Current authorized caller demand, blockers and result. Unknown progress is null. Shared processing does not disclose other callers.",
     "cancel_rendition_request": "Cancel this caller's demand while preserving work still required by another request or persistent rule.",
     "retry_rendition_request": "Revalidate current source, permissions and operation before retrying failed or cancelled demand.",
@@ -90,6 +130,54 @@ def install_contract(app):
             "ContentTicket": {"type": "apiKey", "in": "query", "name": "ticket"},
         }
         schema["security"] = [{"BearerAuth": []}]
+        for model in (WebhookEvent, RequestCallbackEvent):
+            schemas[model.__name__] = model.model_json_schema()
+
+        def outbound(model, operation_id):
+            return {
+                "post": {
+                    "operationId": operation_id,
+                    "description": "Catabolic sends this JSON POST. Any 2xx acknowledges receipt. Delivery is at least once; deduplicate the event id. No Catabolic bearer credential is forwarded.",
+                    "security": [],
+                    "parameters": [
+                        {
+                            "name": "Idempotency-Key",
+                            "in": "header",
+                            "required": True,
+                            "schema": {"type": "string"},
+                            "description": "Stable event id, identical to the body id.",
+                        }
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/" + model.__name__
+                                }
+                            }
+                        },
+                    },
+                    "responses": {
+                        "2XX": {"description": "Event accepted."},
+                        "default": {
+                            "description": "Delivery is retried within the bounded retry policy. Redirects are not followed."
+                        },
+                    },
+                }
+            }
+
+        schema["webhooks"] = {
+            "catalogEvent": outbound(WebhookEvent, "receive_catalog_event")
+        }
+        schema["paths"]["/v1/rendition-requests"]["post"]["callbacks"] = {
+            "renditionState": {
+                "{$request.body#/callback_url}": outbound(
+                    RequestCallbackEvent, "receive_rendition_callback"
+                )
+            }
+        }
+
         for path, methods in schema["paths"].items():
             for method, operation in methods.items():
                 if method not in ("get", "head", "post"):

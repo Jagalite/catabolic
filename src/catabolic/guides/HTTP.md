@@ -128,7 +128,7 @@ checks foreground processes, not your host's service-manager installation.
 ## Access contracts
 
 Actions are `metadata:read`, `content:read`, `processing:request`, `events:read`,
-`sql:read` and `operator:write`. An action alone grants no resource access.
+`sql:read`, `operator:write`, and `webhooks:manage`. An action alone grants no resource access.
 `operator: true` with the relevant action grants broad authority. Reserve it for
 trusted operators. `actions: ["*"]` grants all actions, still subject to the grant's
 resource policy unless it is an operator grant.
@@ -549,3 +549,109 @@ Contract 1.4.0 adds the observation-only watcher plan and its null reaction to
 existing operator watcher endpoints. Existing routes, grants and operation IDs
 are unchanged; run admission still requires the supervised worker. See
 [one-shot observations](OBSERVATIONS.md). Published 1.0–1.3 artifacts are preserved.
+
+### HTTP webhooks and request callbacks (API 1.6.0, schema 31)
+
+Upgrade existing catalogs with `catabolic --db catalog.db db upgrade`. CLI
+`notify` configuration remains supported. The supervised `api worker` now drains
+up to four notification deliveries per background batch; `notify run` can
+also drain the same queue. Merely running the HTTP server does not deliver hooks.
+Only one delivery batch runs at a time, independently of playback supervision.
+`api worker --once` waits for its batch; shutdown joins the bounded in-flight batch.
+Failed deliveries use the existing five-attempt backoff policy.
+
+An operator grant with `actions: ["webhooks:manage"]` and `operator: true` can
+register profile-wide job/consumer event subscriptions:
+
+```http
+POST /v1/webhooks
+Authorization: Bearer OPERATOR_TOKEN
+Content-Type: application/json
+
+{"url":"https://receiver.example/catabolic","events":["job_completed","job_failed"]}
+```
+
+The response is 201 and includes an `id`. Use `GET /v1/webhooks`,
+`GET /v1/webhooks/{id}`, and `GET /v1/webhooks/{id}/deliveries` to inspect owned
+registrations and their delivery state. `POST /v1/webhooks/{id}/disable` cancels
+unfinished delivery; `POST /v1/webhooks/{id}/retry` requeues non-cancelled failures
+and refreshes authorization using the current operator token. Registrations are
+private to the creating principal and profile, including between operators.
+Registration and delivery lists accept `limit` (1–1000, default 100) and `after`.
+Pass the returned `next_cursor` as `after` until it is null. Retry refuses a live
+delivery lease or a disabled destination with 409.
+To change an endpoint or subscriptions, disable it and register a replacement.
+
+A scoped processing client can instead attach a callback to a rendition request:
+
+```json
+{
+  "item_id": "ITEM_ID",
+  "source_file_id": "FILE_ID",
+  "source_revision": "REVISION",
+  "operation_id": "APPROVED_OPERATION",
+  "callback_url": "https://receiver.example/rendition-complete"
+}
+```
+
+Send this to `POST /v1/rendition-requests` with Bearer authentication and an
+`Idempotency-Key`. The processing grant must include
+`"callback_origins": ["https://receiver.example"]`; origins match exact scheme,
+host and effective port, without path or query restrictions. Grant creation is
+local operator administration. An operator with `webhooks:manage` may use any
+HTTP/HTTPS receiver. Only approve origins controlled by a trusted receiver;
+local HTTP origins are supported. Changing `callback_url` under an existing
+idempotency key is a conflict. Omitting it preserves the existing behavior.
+Playback-session and logical-rendition bodies do not accept this field.
+
+Scoped callers manage their own callback through
+`GET /v1/rendition-requests/{id}/callback` and its `/deliveries`, `/retry`, and
+`/disable` subresources (GET for deliveries, POST for retry/disable). These routes
+require current access to that request. Retry rechecks the approved origin and
+binds delivery to the current token, so an expired token can be replaced without
+rerendering. The existing event ID is retained. Disable leaves the rendition
+request running. Receiver URLs remain omitted.
+
+Request callbacks carry `request_ready`, `request_failed`, `request_cancelled`,
+`request_stale`, or `request_blocked`, plus `request_id`, `state`, and `status_url`.
+They never contain another caller's request or the shared job ID. A cached ready
+result also queues a callback. Admission and callback registration are atomic;
+repeating admission with the same key does not enqueue another callback. State
+transitions are historical events: fetch `status_url` for the authoritative
+current result. Delivery order is not guaranteed. Retrying a rendition request
+revalidates its callback origin and refreshes its delivery token.
+
+All webhook payloads contain `version: 1`, `id`, `event`, `profile`, `severity`,
+and `created_at` (UTC database timestamp). The stable `id` is also sent as the
+`Idempotency-Key` header. Receivers must tolerate duplicates. Any 2xx response
+acknowledges delivery; redirects are refused. TLS certificates are verified;
+environment proxies are not used. Delivery runs outside catalog transactions.
+
+API-provided URLs are stored in private SQLite state, unlike CLI destinations'
+environment-only URLs; treat the catalog and its backups as secrets. URLs are
+omitted from API responses, errors and delivery payloads. No authorization header
+is forwarded to receivers. Custom authentication headers and signatures are not
+implemented; a receiver may use a secret URL query token. Before each dispatch,
+the originating token, operator authority or request access, and approved origin
+are rechecked. Revoked/expired authorization puts delivery in `repair`; already
+sent requests cannot be recalled. These hooks do not grant permission to run
+arbitrary commands or recursively invoke processing rules.
+
+The OpenAPI document includes top-level `webhooks.catalogEvent` for subscription
+events and a `callbacks.renditionState` entry on rendition admission, using
+`{$request.body#/callback_url}`. Their typed payload schemas describe the JSON
+POST, stable `Idempotency-Key` header, and 2xx acknowledgment. Receiver operations
+explicitly do not inherit Catabolic Bearer authentication. This allows OpenAPI
+tooling to describe the receiver contract; it does not import another service's
+OpenAPI document or map events into arbitrary operations. Services expecting a
+different body, HTTP method, or authentication need an adapter.
+
+### Query-driven HTTP operations (API 1.7.0, schema 32)
+
+[HTTP query mappings](HTTP_QUERY_MAPPINGS.md) add approved OpenAPI 3.1 operation
+revisions, schema-checked query-to-request mappings, reviewed admission, and a
+watcher `http` reaction. `/v1/http-operations` manages receiver operations;
+`/v1/http-mappings/preview` and `/apply` use the same mapping/queue services as the
+CLI. Both `webhooks:manage` and `sql:read` operator authority are required. The
+optional `openapi` extra is needed for import and request validation. The guide
+lists supported schemas, methods, authentication, limits and recovery behavior.

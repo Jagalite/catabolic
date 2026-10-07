@@ -4,7 +4,7 @@
 from typing import Literal
 from zoneinfo import ZoneInfo
 
-from pydantic import Field, model_validator
+from pydantic import Field, JsonValue, model_validator
 
 from .fallback_models import Model
 from .plans import Plan
@@ -36,7 +36,10 @@ class WatcherDefinition(Model):
     max_age_seconds: int = Field(default=60, ge=0, le=86400)
     require_complete_inventory: bool = False
     observe_after_request: bool = False
-    reaction: Literal["report", "event", "projection", "processing"] | None = "report"
+    reaction: Literal["report", "event", "projection", "processing", "http"] | None = (
+        "report"
+    )
+    mapping: dict[str, JsonValue] | None = None
     operation_id: str | None = None
     destination: str | None = None
     max_jobs: int = Field(default=10, ge=1, le=100)
@@ -62,4 +65,15 @@ class WatcherDefinition(Model):
             raise ValueError(
                 "processing requires an approved operation and a selection/fallback plan"
             )
+        if self.reaction == "http":
+            if (
+                self.plan.kind != "query"
+                or not self.mapping
+                or self.mapping.get("query") != self.plan.query_id
+            ):
+                raise ValueError(
+                    "HTTP reaction requires a mapping for the pinned query"
+                )
+        elif self.mapping is not None:
+            raise ValueError("mapping requires an HTTP reaction")
         return self

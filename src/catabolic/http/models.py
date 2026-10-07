@@ -31,6 +31,159 @@ class Demand(Model):
     operation_id: str
 
 
+class CallbackDemand(Demand):
+    callback_url: str | None = Field(default=None, min_length=1, max_length=4096)
+
+
+class WebhookCreate(Model):
+    url: str = Field(min_length=1, max_length=4096)
+    events: list[str] = Field(min_length=1, max_length=20)
+
+
+class WebhookStatus(Model):
+    id: str
+    enabled: bool
+    events: list[str]
+    request_id: str | None
+
+
+class WebhookPage(Model):
+    webhooks: list[WebhookStatus]
+    next_cursor: str | None
+
+
+class WebhookDelivery(Model):
+    event_id: str
+    state: str
+    attempts: int
+    error: str | None
+
+
+class WebhookDeliveries(Model):
+    deliveries: list[WebhookDelivery]
+    next_cursor: str | None
+
+
+class EventEnvelope(Model):
+    version: Literal[1]
+    id: str
+    event: str
+    profile: str
+    severity: Literal["info", "warning", "error"]
+    created_at: str = Field(description="UTC SQLite timestamp: YYYY-MM-DD HH:MM:SS")
+
+
+class WebhookEvent(EventEnvelope):
+    event: Literal[
+        "job_completed",
+        "job_failed",
+        "projection_updated",
+        "scan_requested",
+        "scan_failed",
+        "consumer_needs_repair",
+        "fallback_selected",
+        "fallback_unresolved",
+    ]
+    job_id: str | None = None
+
+
+class RequestCallbackEvent(EventEnvelope):
+    event: Literal[
+        "request_ready",
+        "request_failed",
+        "request_cancelled",
+        "request_stale",
+        "request_blocked",
+    ]
+    request_id: str
+    state: Literal["ready", "failed", "cancelled", "stale", "blocked"]
+    status_url: str
+
+
+class HTTPOperationCreate(Model):
+    name: str = Field(min_length=1, max_length=255)
+    spec: dict[str, JsonValue]
+    operation_id: str = Field(min_length=1, max_length=255)
+    base_url: str = Field(min_length=1, max_length=4096)
+    credential_env: str | None = None
+
+
+class HTTPOperationStatus(Model):
+    id: str
+    name: str
+    revision: int
+    enabled: bool
+    operation_id: str
+    spec_digest: str
+    method: str
+
+
+class HTTPOperationPage(Model):
+    operations: list[HTTPOperationStatus]
+    next_cursor: str | None
+
+
+class HTTPOperationDetail(HTTPOperationStatus):
+    definition: dict[str, JsonValue]
+
+
+class HTTPOperationControl(Model):
+    id: str
+    enabled: bool | None = None
+    retry_scheduled: bool | None = None
+
+
+class HTTPMappingInput(Model):
+    definition: dict[str, JsonValue]
+    expected_plan: str | None = None
+    max_changes: int = Field(default=100, ge=0, le=100)
+
+
+class HTTPMappedRequest(Model):
+    url: str
+    method: str
+    body: JsonValue
+    has_body: bool
+
+
+class HTTPMappedRow(Model):
+    key: str
+    request: HTTPMappedRequest
+    request_digest: str
+    previous: dict[str, str] | None
+    changed: bool
+
+
+class HTTPMappingPlan(Model):
+    database_id: str
+    profile: str
+    definition: dict[str, JsonValue]
+    operation_digest: str
+    rows: list[HTTPMappedRow]
+    plan_id: str
+    mapping: str
+    complete: bool
+    applied: bool
+    queued: int
+    delivery_acknowledged: bool
+
+
+class HTTPMappingDelivery(Model):
+    id: str
+    owner: str
+    key: str
+    plan_id: str
+    state: str
+    attempts: int
+    error: str | None
+    version: Literal[3]
+
+
+class HTTPMappingHistory(Model):
+    deliveries: list[HTTPMappingDelivery]
+    next_cursor: str | None
+
+
 class PlaybackDemand(Demand):
     ttl: int = Field(default=3600, ge=60, le=21600)
 

@@ -47,6 +47,12 @@ TOPICS = (
         "Scoped tokens, queries, descriptor streaming, durable rendition requests and deployment.",
     ),
     (
+        "http-mappings",
+        "HTTP_QUERY_MAPPINGS.md",
+        "Query-driven HTTP destinations",
+        "Approved OpenAPI operations, mapped query results, watcher admission and durable delivery.",
+    ),
+    (
         "trust",
         "TRUST_POLICIES.md",
         "Owner trust policies",

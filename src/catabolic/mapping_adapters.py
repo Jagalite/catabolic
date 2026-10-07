@@ -278,6 +278,16 @@ def capabilities():
             "query": "rows",
             "definition_version": 1,
         }
+    result["http"] = {
+        "operations": {
+            "openapi": {
+                "query": ["rows", "document"],
+                "definition_version": 3,
+                "delivery": "durable_json_http",
+                "acknowledgment": "http_2xx",
+            }
+        }
+    }
     return result
 
 

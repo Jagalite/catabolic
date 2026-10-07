@@ -6,6 +6,7 @@
 import os
 import sqlite3
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 from . import playback_worker, rendering
 from .access import AccessError, authenticate
@@ -26,24 +27,38 @@ def run(database, profile="default", *, once=False, interval=2):
         capabilities = rendering.capabilities()
         capabilities["playback_hls"] = hls_available(capabilities)
         recovered = False
-        while True:
-            try:
-                if not recovered:
-                    with Store(path, writable=True) as store:
-                        playback_worker.recover(store, profile)
-                    recovered = True
-                result = tick(path, profile, capabilities)
-            except (CatabolicError, sqlite3.Error) as exc:
-                if not is_catalog_busy(exc):
-                    raise
-                result = {
-                    "processed": 0,
-                    "complete": False,
-                    "blockers": ["catalog_busy"],
-                }
-            if once:
-                return result
-            time.sleep(interval)
+        # A receiver may consume the full network deadline. Keep that I/O off
+        # the playback supervision loop, with just one bounded drain in flight.
+        with ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="catabolic-notify"
+        ) as executor:
+            notification_task = None
+            while True:
+                try:
+                    if not recovered:
+                        with Store(path, writable=True) as store:
+                            playback_worker.recover(store, profile)
+                        recovered = True
+                    result = tick(path, profile, capabilities)
+                except (CatabolicError, sqlite3.Error) as exc:
+                    if not is_catalog_busy(exc):
+                        raise
+                    result = {
+                        "processed": 0,
+                        "complete": False,
+                        "blockers": ["catalog_busy"],
+                    }
+                if notification_task is not None and notification_task.done():
+                    result["notifications"] = notification_task.result()
+                    notification_task = None
+                if notification_task is None:
+                    notification_task = executor.submit(
+                        _drain_notifications, path, profile
+                    )
+                if once:
+                    result["notifications"] = notification_task.result()
+                    return result
+                time.sleep(interval)
     finally:
         try:
             with Store(path, writable=True) as store:
@@ -57,6 +72,17 @@ def run(database, profile="default", *, once=False, interval=2):
                 raise
         finally:
             os.close(lock)
+
+
+def _drain_notifications(path, profile):
+    from .notifications import drain
+
+    try:
+        return drain(path, profile, limit=4)
+    except (CatabolicError, sqlite3.Error) as exc:
+        if not is_catalog_busy(exc):
+            raise
+        return {"complete": False, "blockers": ["catalog_busy"]}
 
 
 def hls_available(capabilities):

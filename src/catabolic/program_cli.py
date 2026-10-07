@@ -73,6 +73,17 @@ def register(commands):
     ).add_subparsers(dest="operation", required=True)
     sub.add_parser("schema")
     sub.add_parser("mapping-capabilities")
+    http_list = sub.add_parser("http-operation-list")
+    http_list.add_argument("--limit", type=int, default=100)
+    http_list.add_argument("--after", default="")
+    http_put = sub.add_parser("http-operation-put")
+    http_put.add_argument("name")
+    http_put.add_argument("--spec", required=True)
+    http_put.add_argument("--operation-id", required=True)
+    http_put.add_argument("--base-url", required=True)
+    http_put.add_argument("--credential-env")
+    for op in ("http-operation-show", "http-operation-disable", "http-operation-retry"):
+        sub.add_parser(op).add_argument("id")
     command = sub.add_parser("mapping-events")
     command.add_argument(
         "--event", help="show one complete attempt, including before/after snapshots"
@@ -118,6 +129,35 @@ def projection(args):
     from .cli import read_text
     from .reconcile import Reconciler
 
+    if args.operation.startswith("http-operation-"):
+        from . import openapi_operations as http
+
+        with Store(
+            args.db,
+            writable=args.operation
+            not in ("http-operation-show", "http-operation-list"),
+        ) as store:
+            if args.operation == "http-operation-list":
+                if not 1 <= args.limit <= 1000:
+                    raise CatabolicError("invalid_page")
+                return http.listing(
+                    store, args.profile, limit=args.limit, after=args.after
+                )
+            if args.operation == "http-operation-put":
+                return http.put(
+                    store,
+                    args.profile,
+                    args.name,
+                    json.loads(read_text(args.spec, 1024 * 1024)),
+                    args.operation_id,
+                    args.base_url,
+                    args.credential_env,
+                )
+            if args.operation == "http-operation-show":
+                return http.get(store, args.profile, args.id)
+            if args.operation == "http-operation-disable":
+                return http.disable(store, args.profile, args.id)
+            return http.retry(store, args.profile, args.id)
     if args.operation == "mapping-events":
         from .destination_mappings import events
 

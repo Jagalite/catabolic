@@ -39,7 +39,6 @@ from .contract import VERSION
 from .models import (
     SQL,
     Definition,
-    Demand,
     DemandStatus,
     GraphQL,
     MetadataPage,
@@ -174,6 +173,12 @@ def create_app(
             raise AccessError("read_only", 403)
 
     install_playback(app, session, mutation, limits)
+    from .webhooks import install_routes as install_webhooks
+
+    install_webhooks(app, session, mutation)
+    from .mappings import install_routes as install_mappings
+
+    install_mappings(app, session, mutation)
 
     @app.get(
         "/v1/openapi.json",
@@ -833,7 +838,7 @@ def create_app(
         operation_id="create_rendition_request",
     )
     def demand(
-        body: Demand,
+        body: models.CallbackDemand,
         request: Request,
         response: Response,
         idempotency_key: Annotated[
@@ -853,7 +858,7 @@ def create_app(
                 raise AccessError("worker_unavailable", 409)
             result = admit(
                 access,
-                body.model_dump(),
+                body.model_dump(exclude_none=True),
                 idempotency_key,
                 json.loads(workers[0]["capabilities"]),
             )

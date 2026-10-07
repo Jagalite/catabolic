@@ -515,6 +515,10 @@ def execute_sql(
             )
 
             private_tables = {
+                "http_operations",
+                "http_mapping_definitions",
+                "http_mapping_ledger",
+                "http_mapping_deliveries",
                 "execution_claims",
                 "sqlite_master",
                 "sqlite_schema",

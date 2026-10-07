@@ -216,11 +216,11 @@ jobs:
       - name: Install HTTP extra with locked dependencies
         run: |
           python -m venv "$RUNNER_TEMP/catabolic-http"
-          "$RUNNER_TEMP/catabolic-http/bin/python" -m pip install --require-hashes --only-binary=:all: -r requirements/http-test.lock
+          "$RUNNER_TEMP/catabolic-http/bin/python" -m pip install --require-hashes --only-binary=:all: -r requirements/http-test.lock -r requirements/openapi.lock
           "$RUNNER_TEMP/catabolic-http/bin/python" -m pip install --no-deps dist/*.whl
           "$RUNNER_TEMP/catabolic-http/bin/python" -m pip check
       - name: Authorization, streaming and local execution gates
-        run: '"$RUNNER_TEMP/catabolic-http/bin/python" -m unittest tests.test_execution_claims tests.test_http_backend tests.test_http_renditions tests.test_http_playback tests.test_http_review tests.test_http_contract -q'
+        run: '"$RUNNER_TEMP/catabolic-http/bin/python" -m unittest tests.test_execution_claims tests.test_http_backend tests.test_http_renditions tests.test_http_webhooks tests.test_http_query_mappings tests.test_http_playback tests.test_http_review tests.test_http_contract -q'
       - name: Verify packaged public API schemas
         run: '"$RUNNER_TEMP/catabolic-http/bin/python" scripts/http_contract.py --check'
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4

@@ -49,6 +49,10 @@ class Watchers:
             operation = Operations(self.app).get(value["operation_id"])
             if operation["operation_kind"] not in ("analysis", "render"):
                 raise CatabolicError("unsupported watcher operation")
+        if value["reaction"] == "http":
+            from .http_mappings import validate_definition
+
+            validate_definition(self.store, self.profile, value["mapping"])
         serialized = encode(value)
         digest = hashlib.sha256(serialized.encode()).hexdigest()
         with self.store.transaction() as db:
@@ -330,8 +334,23 @@ class Watchers:
             json.loads(row["baseline"]) if row["baseline"] else None, result
         )
         self.require_run(watcher, identifier, row["definition_id"])
+        http_plan = None
+        if value["reaction"] == "http":
+            from .http_mappings import enqueue, prepare
+
+            http_plan = prepare(
+                self.store, self.profile, value["mapping"], evaluated=result["value"]
+            )
         # Persist admitted reaction before publication. A crash leaves durable demand.
         with self.store.transaction() as db:
+            if http_plan is not None:
+                queued = enqueue(
+                    self.store,
+                    self.profile,
+                    http_plan,
+                    expected_plan=http_plan["plan_id"],
+                    max_changes=value["max_changes"],
+                )
             if result["kind"] == "fallback":
                 db.execute(
                     "DELETE FROM fallback_health WHERE profile=? AND catalog=?",
@@ -379,6 +398,17 @@ class Watchers:
             )
             if not reaction.get("complete"):
                 raise CatabolicError("projection_reaction_incomplete")
+        elif value["reaction"] == "http":
+            reaction = {
+                k: queued[k]
+                for k in (
+                    "mapping",
+                    "plan_id",
+                    "queued",
+                    "complete",
+                    "delivery_acknowledged",
+                )
+            }
         elif value["reaction"] == "processing":
             from .watcher_processing import admit
 

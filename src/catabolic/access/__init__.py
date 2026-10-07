@@ -59,6 +59,7 @@ def grant_put(store, principal, definition, identifier=None):
         "projection_ids",
         "report_ids",
         "fallback_policy_ids",
+        "callback_origins",
         "operator",
         "revisions",
     }
@@ -74,6 +75,7 @@ def grant_put(store, principal, definition, identifier=None):
         "projection_ids",
         "report_ids",
         "fallback_policy_ids",
+        "callback_origins",
     ):
         value = definition.get(key, [])
         if (
@@ -94,6 +96,16 @@ def grant_put(store, principal, definition, identifier=None):
         )
     ):
         raise AccessError("invalid_revisions", 400)
+    if definition.get("callback_origins"):
+        from urllib.parse import urlsplit
+
+        from ..webhooks import origin
+
+        for value in definition["callback_origins"]:
+            origin(value)
+            parsed = urlsplit(value)
+            if parsed.path not in ("", "/") or parsed.query:
+                raise AccessError("invalid_callback_origin", 400)
     row = store.rows("SELECT * FROM api_principals WHERE id=?", (principal,))
     if not row:
         raise AccessError("unknown_principal", 404)

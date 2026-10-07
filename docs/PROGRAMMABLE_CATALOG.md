@@ -136,6 +136,14 @@ SELECT file_id FROM catalog_rendition_state
 WHERE profile=:profile AND source_current=0;
 ```
 
+## Query-driven HTTP destinations
+
+[Version 3 destination mappings](HTTP_QUERY_MAPPINGS.md) project complete rows or
+GraphQL connections into explicitly approved OpenAPI HTTP requests. Existing
+watchers can enqueue changed requests with an `http` reaction; the notification
+queue owns retries and acknowledgments. This is a destination mapping, not a new
+media executor. Remote media production still uses external processors and receipts.
+
 ## Rules and operation definitions
 
 `rule put NAME --query QUERY_ID --operation OPERATION_ID` connects a query to an
