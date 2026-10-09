@@ -99,21 +99,21 @@ class ReviewTest(unittest.TestCase):
             tick(self.database, "default", {})
         policy = self.policy()
 
-        def heartbeat(database, snapshots, timeout):
+        def heartbeat(database, snapshots, timeout, **kwargs):
             tick(database, "default", {})
-            return probe(database, snapshots, timeout)
+            return probe(database, snapshots, timeout, **kwargs)
 
         with patch("catabolic.fallback_resolution.probe", side_effect=heartbeat):
             result = Resolver(self.app).resolve([{"item_id": self.item}], policy)
         self.assertEqual(result["decisions"][0]["file_id"], self.files["main.bin"])
 
-        def mutation(database, snapshots, timeout):
+        def mutation(database, snapshots, timeout, **kwargs):
             with Store(database, writable=True) as writer:
                 with writer.transaction() as db:
                     db.execute(
                         "UPDATE items SET metadata='{}' WHERE id=?", (self.item,)
                     )
-            return probe(database, snapshots, timeout)
+            return probe(database, snapshots, timeout, **kwargs)
 
         with patch("catabolic.fallback_resolution.probe", side_effect=mutation):
             with self.assertRaisesRegex(CatabolicError, "stale_resolution_plan"):

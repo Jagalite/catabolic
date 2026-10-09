@@ -264,8 +264,11 @@ class CatalogQuery:
         values.extend(tag_values)
         return self._page(
             "files",
-            "f.*,o.size,o.mtime_ns,coalesce(o.status,'unknown') AS status,o.scan_id,s.finished_at AS observed_at",
-            "files f LEFT JOIN observations o ON o.file_id=f.id AND o.profile=? LEFT JOIN scans s ON s.id=o.scan_id",
+            "f.*,o.size,o.mtime_ns,coalesce(o.status,'unknown') AS status,o.scan_id,s.finished_at AS observed_at,"
+            "coalesce(h.status,'unknown') AS media_header_status,h.reason AS media_header_reason",
+            "files f LEFT JOIN observations o ON o.file_id=f.id AND o.profile=? LEFT JOIN scans s ON s.id=o.scan_id "
+            "LEFT JOIN media_header_checks h ON h.profile=o.profile AND h.file_id=f.id AND h.scan_id=o.scan_id "
+            "AND o.status='present' AND h.size=o.size AND h.mtime_ns=o.mtime_ns AND h.device=o.device AND h.inode=o.inode",
             clauses,
             values,
             {

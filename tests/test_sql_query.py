@@ -80,6 +80,7 @@ class SQLQueryTest(unittest.TestCase):
                 "catalog_item_worklog",
                 "catalog_identities",
                 "catalog_files",
+                "catalog_media_headers",
                 "catalog_entries",
                 "catalog_item_files",
                 "catalog_relationships",

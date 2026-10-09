@@ -100,7 +100,10 @@ class Resolver:
                 before = time.monotonic()
                 with self.store.detached():
                     result = probe(
-                        self.store.path, snapshots, limits["probe_timeout_ms"]
+                        self.store.path,
+                        snapshots,
+                        limits["probe_timeout_ms"],
+                        profile=self.profile,
                     )
                 context["deadline"] += time.monotonic() - before
                 require_epoch(self.store, captured_epoch)

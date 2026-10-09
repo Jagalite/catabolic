@@ -27,6 +27,14 @@ MAX_RESULT_BYTES = 8 * 1024 * 1024
 # Connection-local views are an API independent of the stored schema. Qualifying
 # all base tables prevents accidental name resolution through a temporary object.
 VIEWS = {
+    "catalog_media_headers": (
+        "Recorded zero-filled container header screen, not playback validation. Current means the scan and file metadata still match; it is not a live assertion.",
+        """SELECT h.*,f.path AS source_relative_path,
+        coalesce(o.status='present' AND h.scan_id=o.scan_id AND h.size=o.size
+        AND h.mtime_ns=o.mtime_ns AND h.device=o.device AND h.inode=o.inode,0) AS current
+        FROM main.media_header_checks h JOIN main.files f ON f.id=h.file_id
+        LEFT JOIN main.observations o ON o.profile=h.profile AND o.file_id=h.file_id""",
+    ),
     "catalog_observation_progress": (
         "Current and historical observation jobs including unfinished physical coverage; query completeness is independent.",
         "SELECT id,profile,source,generation,state,started_at,completed_at,scan_id,execution,parent_job,report FROM main.observation_jobs",

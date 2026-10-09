@@ -19,6 +19,8 @@ PRESET_PURPOSE = {
     "h264-1080p": "transcode",
     "preview": "preview",
     "thumbnail": "thumbnail",
+    "image-jpeg": "thumbnail",
+    "image-webp": "thumbnail",
     "remux-mkv": "remux",
     "component-mux": "remux",
     "audio-aac": "audio",
@@ -30,6 +32,7 @@ PRESET_PURPOSE = {
 RENDITIONS_SQL = """SELECT m.*,coalesce(json_extract(d.definition,'$.purpose'),
  CASE r.preset WHEN 'h264-720p' THEN 'transcode' WHEN 'h264-1080p' THEN 'transcode'
  WHEN 'preview' THEN 'preview' WHEN 'thumbnail' THEN 'thumbnail'
+ WHEN 'image-jpeg' THEN 'thumbnail' WHEN 'image-webp' THEN 'thumbnail'
  WHEN 'remux-mkv' THEN 'remux' WHEN 'component-mux' THEN 'remux' WHEN 'audio-aac' THEN 'audio'
  WHEN 'audio-flac' THEN 'audio' WHEN 'subtitle-srt' THEN 'subtitle' END,'unknown') AS purpose,
  j.recipe_id, e.producer, e.instance AS producer_instance

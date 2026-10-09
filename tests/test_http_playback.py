@@ -11,6 +11,7 @@ import subprocess
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
 from catabolic import playback_cache, playback_worker, rendering
 from catabolic.access import authenticate, issue, revoke
@@ -66,6 +67,54 @@ class PlaybackTest(unittest.TestCase):
                 "SELECT j.* FROM api_playback_jobs j JOIN api_playback_sessions s ON s.job_id=j.id WHERE s.id=?",
                 (identifier,),
             )[0]
+
+    def cancel_session(self, identifier, index=0):
+        deadline = time.monotonic() + 5
+        while True:
+            response = self.client.post(
+                f"/v1/playback-sessions/{identifier}/cancel",
+                headers=self.headers[index],
+            )
+            if (
+                response.status_code != 503
+                or response.json().get("code") != "catalog_busy"
+                or time.monotonic() >= deadline
+            ):
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(response.json()["state"], "cancelled")
+                return
+            # The worker briefly owns the writer lock while publishing its
+            # progress. A rejected request has not cancelled the session.
+            time.sleep(float(response.headers["Retry-After"]))
+
+    def test_cancellation_retries_catalog_busy_before_claiming_success(self):
+        response = self.create()
+        self.assertEqual(response.status_code, 202, response.text)
+        identifier = response.json()["session_id"]
+        post = self.client.post
+        attempts = []
+
+        def contend(*args, **kwargs):
+            if not attempts:
+                with Store(self.database, writable=True) as writer:
+                    result = post(*args, **kwargs)
+                    self.assertEqual(result.status_code, 503, result.text)
+                    self.assertEqual(result.json()["code"], "catalog_busy")
+                    self.assertEqual(
+                        writer.rows(
+                            "SELECT cancelled FROM api_playback_sessions WHERE id=?",
+                            (identifier,),
+                        )[0]["cancelled"],
+                        0,
+                    )
+            else:
+                result = post(*args, **kwargs)
+            attempts.append(result.status_code)
+            return result
+
+        with patch.object(self.client, "post", side_effect=contend):
+            self.cancel_session(identifier)
+        self.assertEqual(attempts, [503, 200])
 
     def long_source(self):
         source = self.root / "source/sample.mkv"
@@ -205,9 +254,7 @@ class PlaybackTest(unittest.TestCase):
             check=True,
             capture_output=True,
         )
-        self.client.post(
-            f"/v1/playback-sessions/{identifier}/cancel", headers=self.headers[0]
-        )
+        self.cancel_session(identifier)
         self.assertEqual(
             self.client.get(
                 report["playlist_path"], headers=self.headers[0]
@@ -218,9 +265,7 @@ class PlaybackTest(unittest.TestCase):
         self.assertEqual(
             self.client.get(other_playlist, headers=self.headers[1]).status_code, 200
         )
-        self.client.post(
-            f"/v1/playback-sessions/{other}/cancel", headers=self.headers[1]
-        )
+        self.cancel_session(other, 1)
         thread.join(5)
         self.assertFalse(thread.is_alive())
         self.assertEqual(self.job(identifier)["state"], "cancelled")
@@ -417,7 +462,13 @@ class PlaybackTest(unittest.TestCase):
                 with Store(self.database, writable=True) as store:
                     artifacts = Artifacts(Application(store))
                     recipe = artifacts.recipe(
-                        "limited", "h264-720p", {"reserve_bytes": 0, **option}
+                        "limited",
+                        "h264-720p",
+                        {
+                            "reserve_bytes": 0,
+                            "max_output_bytes": 64 * 1024**2,
+                            **option,
+                        },
                     )
                     with store.transaction() as db:
                         db.execute(

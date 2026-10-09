@@ -12,7 +12,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from .app import Application
-from .domain import Action, CatabolicError, source_health
+from .domain import Action, CatabolicError
 from .filesystem import (
     claim_output,
     link_state,
@@ -21,6 +21,7 @@ from .filesystem import (
     root_handle,
     source_stat,
 )
+from .media_health import live_reason, recorded_reason
 from .publication_lock import serialized
 
 ACTION_ORDER = {
@@ -673,9 +674,21 @@ class Reconciler:
                     self.store.path,
                     accepted["checks"],
                     policy["budgets"]["probe_timeout_ms"],
+                    profile=self.profile,
                 )
             require_epoch(self.store, current_epoch)
             if not result["usable"]:
+                if result["reason"] in (
+                    "probe_timeout",
+                    "probe_capacity",
+                    "probe_failed",
+                ):
+                    # No source verdict was obtained. In particular, do not
+                    # turn a busy or timed-out helper into removal permission
+                    # or cancellation of a recoverable journal operation.
+                    raise CatabolicError(
+                        f"fallback probe incomplete: {result['reason']}"
+                    )
                 return None, result["reason"]
             return os.path.relpath(
                 Path(snapshot["root"]) / snapshot["path"],
@@ -713,7 +726,9 @@ class Reconciler:
                 raise CatabolicError(
                     f"source changed; scan before synchronization: {mapping['source_path']}"
                 )
-            reason = source_health(current.st_size, mapping["source_path"])
+            reason = live_reason(
+                source_fd, mapping["source_path"], current
+            ) or recorded_reason(self.store, self.profile, mapping["file_id"], current)
             if reason:
                 return None, reason
         target = os.path.relpath(
@@ -792,24 +807,29 @@ class Reconciler:
                             source = self.app.binding("source", mapping["location"])
                             source_evidence[mapping["location"]] = source.evidence
                             with root_handle(source) as source_fd:
+                                if mapping["status"] != "present":
+                                    raise CatabolicError("source needs a complete scan")
                                 current = source_stat(source_fd, mapping["source_path"])
-                            if mapping["status"] != "present":
-                                raise CatabolicError("source needs a complete scan")
-                            if (
-                                current.st_size,
-                                current.st_mtime_ns,
-                                current.st_dev,
-                                current.st_ino,
-                            ) != (
-                                mapping["size"],
-                                mapping["mtime_ns"],
-                                mapping["device"],
-                                mapping["inode"],
-                            ):
-                                raise CatabolicError("source changed since scan")
-                            reason = source_health(
-                                current.st_size, mapping["source_path"]
-                            )
+                                if (
+                                    current.st_size,
+                                    current.st_mtime_ns,
+                                    current.st_dev,
+                                    current.st_ino,
+                                ) != (
+                                    mapping["size"],
+                                    mapping["mtime_ns"],
+                                    mapping["device"],
+                                    mapping["inode"],
+                                ):
+                                    raise CatabolicError("source changed since scan")
+                                reason = live_reason(
+                                    source_fd, mapping["source_path"], current
+                                ) or recorded_reason(
+                                    self.store,
+                                    self.profile,
+                                    mapping["file_id"],
+                                    current,
+                                )
                             if reason:
                                 raise CatabolicError(reason)
                             expected = os.path.relpath(

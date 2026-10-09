@@ -11,7 +11,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from uuid import uuid4
 
-from .domain import CatabolicError, source_health
+from .domain import CatabolicError
 from .filesystem import (
     link_state,
     open_directory,
@@ -19,6 +19,7 @@ from .filesystem import (
     root_handle,
     source_stat,
 )
+from .media_health import live_reason, recorded_reason
 from .reconcile import Reconciler
 from .store import encode
 from .volume_identity import volume_uuid
@@ -169,10 +170,6 @@ def repair(
                 try:
                     current = source_stat(handles[key], mapping["source_path"])
                     trust = mapping["location"] in trusted
-                    if source_health(current.st_size, mapping["source_path"]):
-                        raise CatabolicError(
-                            "published source is unhealthy; repair refused"
-                        )
                     if mapping["status"] is None:
                         raise CatabolicError(
                             "published source has no observation; scan first"
@@ -194,6 +191,12 @@ def repair(
                     ):
                         raise CatabolicError(
                             "published source metadata changed; repair refused"
+                        )
+                    if live_reason(
+                        handles[key], mapping["source_path"], current
+                    ) or recorded_reason(store, profile, mapping["file_id"], current):
+                        raise CatabolicError(
+                            "published source is unhealthy; repair refused"
                         )
                 except (OSError, CatabolicError) as exc:
                     if not inventory_recovery:

@@ -13,6 +13,7 @@ import tempfile
 import time
 
 from .domain import CatabolicError, relative_path
+from .media_health import check_at
 from .scan_policy import DEFAULTS
 
 
@@ -231,6 +232,10 @@ def walk(root_fd, *, exclude=(), sink=None):
                                         device=st.st_dev,
                                         inode=st.st_ino,
                                     )
+                                    observation["media_header"] = check_at(
+                                        fd, entry.name, child_path, st
+                                    )
+                                    latency = time.monotonic() - tick
                                 elif stat.S_ISREG(st.st_mode):
                                     detail["files_filtered"] = (
                                         detail.get("files_filtered", 0) + 1

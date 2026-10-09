@@ -18,11 +18,25 @@ from importlib.resources import files
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from .database_io import connect_database, database_path, writer_lock
+from .database_io import connect_database as _connect_database
+from .database_io import database_path, writer_lock
 from .domain import CatabolicError
 
 SCHEMA_VERSION = 32
 HISTORY_TABLE = "schema_migrations"
+
+
+def connect_database(path, *, writable=False):
+    """Use bounded mapped reads for repeated full-catalog verification."""
+    db = _connect_database(path, writable=writable)
+    try:
+        # SQLite may use less (or disable mapping) on unsupported platforms.
+        # This is a connection-local read setting, not a durability setting.
+        db.execute("PRAGMA mmap_size=1073741824")
+        return db
+    except BaseException:
+        db.close()
+        raise
 
 
 @dataclass(frozen=True)
@@ -273,8 +287,11 @@ def _digest_table(db: sqlite3.Connection, table: str, columns: list[str]) -> dic
     selected = ",".join(_identifier(column) for column in columns)
     digest = hashlib.sha256()
     count = 0
+    # Reading UUID-keyed rows through an index causes random table lookups for
+    # every record. Scan once and sort the same values instead; the canonical
+    # ordering and preservation digest remain unchanged.
     for row in db.execute(
-        f"SELECT {selected} FROM {_identifier(table)} ORDER BY {selected}"
+        f"SELECT {selected} FROM {_identifier(table)} NOT INDEXED ORDER BY {selected}"
     ):
         typed = [
             [type(value).__name__, value.hex() if isinstance(value, bytes) else value]

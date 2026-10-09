@@ -33,6 +33,9 @@ class ResolverTest(unittest.TestCase):
                 "fallbacks": refs,
                 "within_tier": {"tie_break": tie},
                 "failback": {"mode": "immediate"},
+                # These integration fixtures test selection, not interpreter
+                # startup speed under the full suite's machine load.
+                "budgets": {"probe_timeout_ms": 5000},
             },
         )["id"]
 
@@ -89,7 +92,7 @@ class ResolverTest(unittest.TestCase):
 
         policy = self.policy()
 
-        def mutate(database, snapshots, timeout):
+        def mutate(database, snapshots, timeout, **kwargs):
             self.assertIsNone(self.store.db)
             with Store(database, writable=True) as writer:
                 with writer.transaction() as db:

@@ -20,6 +20,8 @@ FFmpeg and ffprobe are optional external executables, never bundled dependencies
 | Preset | Output | Association role |
 | --- | --- | --- |
 | `thumbnail` | PNG, at most 640 pixels wide | `thumbnail` |
+| `image-jpeg` | Static JPEG fitted within a configured pixel box | `thumbnail` |
+| `image-webp` | Static WebP fitted within a configured pixel box | `thumbnail` |
 | `preview` | Short SDR H.264/AAC MP4, at most 720 pixels high | `extra` |
 | `remux-mkv` | Matroska with all input streams copied; incompatible streams fail | `primary` |
 | `audio-flac` | One selected audio stream encoded as FLAC | `custom:audio` |
@@ -48,6 +50,39 @@ using `process enqueue` and `process run`; see [Enrichment](ENRICHMENT.md).
 Persistent HLS/DASH rendition packages, multi-input edits, automatic cleanup and
 additional analysis filters are outside this first version.
 For temporary HLS playback while encoding, see [HTTP playback sessions](HTTP.md#playback-while-transcoding-api-150-schema-28).
+
+### Static image renditions
+
+`image-jpeg` and `image-webp` accept static PNG, JPEG and WebP inputs. `width` and
+`height` specify a bounding box (each 1..4096, default 1280); resizing preserves
+aspect ratio and does not upscale. `quality` is an integer 1..100, default 85.
+JPEG maps this value to FFmpeg's quantizer range; it is not interchangeable with
+another encoder's JPEG quality scale. JPEG drops transparency; WebP supports it.
+Source container metadata is not copied into the derivative. ICC color management,
+complete EXIF orientation handling, HDR, HEIC/RAW and animated images are outside
+this slice. FFmpeg's supported default autorotation remains enabled.
+
+```sh
+catabolic --db catalog.db artifact recipe photo-preview --preset image-jpeg \
+  --options '{"width":1600,"height":1200,"quality":85}'
+catabolic --db catalog.db artifact recipe photo-thumb --preset image-webp \
+  --options '{"width":320,"height":320,"quality":80}'
+```
+
+Default image budgets are 20 million input pixels, 64 MiB input, 16 MiB output,
+and 60 seconds. Owners can configure `max_input_pixels` up to 40 million,
+`max_input_bytes` up to 256 MiB, `max_output_bytes` up to 64 MiB, and `timeout`
+up to 300 seconds. Admission validates probed dimensions before rendering; the
+worker checks the input byte budget before probing, rejects image sequences with
+a bounded two-packet check, and verifies output codec,
+dimensions and byte budget before publication. These limits and FFmpeg's allocation
+limit are not a hard cap on total process memory. WebP requires FFmpeg's `libwebp`
+encoder; `artifact capabilities` reports its absence explicitly.
+
+The existing artifact cache includes the source snapshot, recipe options and tool
+identity. Different size/quality/format recipes create distinct variants; repeated
+requests reuse eligible work. Originals remain read-only, and derivatives retain
+their own immutable revisions.
 
 `artifact capabilities` checks encoders, muxers and filters and lists missing
 requirements per preset. AV1 uses `libsvtav1` and `libopus`; tone mapping also needs

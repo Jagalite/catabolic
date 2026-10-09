@@ -614,7 +614,12 @@ migration.upgrade_database(sys.argv[1], migrations=steps)
             ["initialized"] * SCHEMA_VERSION,
         )
 
-    def test_cli_upgrade_and_legacy_recovery(self):
+    def test_previous_schema_recovery_before_header_migration(self):
+        self.test_cli_upgrade_and_legacy_recovery(version=28)
+
+    def test_cli_upgrade_and_legacy_recovery(self, version=1):
+        if version != 1:
+            upgrade_database(self.path, migrations=load_migrations()[:version])
         target = os.path.relpath(
             self.root / "media/movie.mkv", self.root / "plex/Recovery"
         )
@@ -648,7 +653,7 @@ migration.upgrade_database(sys.argv[1], migrations=steps)
             return json.loads(result.stdout if expected in (0, 3) else result.stderr)
 
         run("status", expected=2)
-        self.assertEqual(run("db", "status", expected=3)["schema"], 1)
+        self.assertEqual(run("db", "status", expected=3)["schema"], version)
         run("db", "upgrade", "--dry-run", expected=3)
         run("db", "upgrade", expected=2)
         self.assertEqual(run("recover")["recovered"], ["pending"])

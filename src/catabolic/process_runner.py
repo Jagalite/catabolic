@@ -11,8 +11,9 @@ import time
 
 
 class CommandFailure(Exception):
-    def __init__(self, state, message):
+    def __init__(self, state, message, *, stderr=b"", stdout=b"", returncode=None):
         self.state = state
+        self.stderr, self.stdout, self.returncode = stderr, stdout, returncode
         super().__init__(message)
 
 
@@ -29,6 +30,7 @@ def command_output(
     on_start=None,
     on_poll=None,
     include_stderr=False,
+    diagnostics=False,
     umask=-1,
 ):
     """Own the whole process group, including descendants after the leader exits.
@@ -97,8 +99,14 @@ def command_output(
             if code:
                 detail = buffers["stderr"].decode("utf-8", "replace")[:1000]
                 raise CommandFailure(
-                    "failed", f"command exit {code}" + (f": {detail}" if detail else "")
+                    "failed",
+                    f"command exit {code}" + (f": {detail}" if detail else ""),
+                    stderr=bytes(buffers["stderr"]),
+                    stdout=bytes(buffers["stdout"]),
+                    returncode=code,
                 )
+            if diagnostics:
+                return {key: bytes(value) for key, value in buffers.items()}
             return bytes(buffers["stdout"]) + (
                 bytes(buffers["stderr"]) if include_stderr else b""
             )

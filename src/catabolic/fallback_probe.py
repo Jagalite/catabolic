@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from uuid import uuid4
 
 from .domain import CatabolicError
+from .media_health import inspect_header, recorded_reason
 from .source_access import validated_source
 from .store import Store, encode
 
@@ -55,7 +56,7 @@ def _writer(database):
         yield store
 
 
-def probe(database, snapshots, timeout_ms):
+def probe(database, snapshots, timeout_ms, *, profile="default"):
     for child in list(_PENDING):
         if child.poll() is not None:
             close_pipes(child)
@@ -93,7 +94,14 @@ def probe(database, snapshots, timeout_ms):
                 )
         try:
             stdout, _ = child.communicate(
-                encode(snapshots).encode(), timeout=timeout_ms / 1000
+                encode(
+                    {
+                        "database": str(database),
+                        "profile": profile,
+                        "snapshots": snapshots,
+                    }
+                ).encode(),
+                timeout=timeout_ms / 1000,
             )
         except subprocess.TimeoutExpired:
             child.kill()
@@ -127,7 +135,7 @@ def probe(database, snapshots, timeout_ms):
                     )
 
 
-def check(snapshots):
+def check(snapshots, store=None, profile="default"):
     try:
         if not isinstance(snapshots, list) or not 1 <= len(snapshots) <= 65:
             raise CatabolicError("probe_snapshot_limit")
@@ -135,10 +143,21 @@ def check(snapshots):
             with validated_source(snapshot) as fd:
                 if os.pread(fd, 16, 0) == b"SQLite format 3\x00":
                     raise CatabolicError("private_content")
+                header = inspect_header(fd, snapshot["path"], snapshot["size"])
+                if header["status"] == "invalid":
+                    return {"usable": False, "reason": header["reason"]}
+                if store is not None:
+                    reason = recorded_reason(
+                        store, profile, snapshot["id"], os.fstat(fd)
+                    )
+                    if reason:
+                        return {"usable": False, "reason": reason}
         return {"usable": True, "reason": None}
     except (CatabolicError, OSError):
         return {"usable": False, "reason": "source_unavailable_or_changed"}
 
 
 if __name__ == "__main__":
-    print(encode(check(json.loads(sys.stdin.buffer.read(1024 * 1024)))))
+    payload = json.loads(sys.stdin.buffer.read(1024 * 1024))
+    with Store(payload["database"]) as store:
+        print(encode(check(payload["snapshots"], store, payload["profile"])))

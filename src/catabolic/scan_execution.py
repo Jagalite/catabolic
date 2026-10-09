@@ -234,6 +234,43 @@ class Publisher:
                         ),
                     )
                     if status == "present":
+                        check = entry.get("media_header") or {
+                            "status": "unknown",
+                            "reason": "header_not_checked",
+                            "bytes_read": 0,
+                        }
+                        prior = db.execute(
+                            "SELECT status,reason FROM media_header_checks WHERE profile=? AND file_id=?",
+                            (app.profile, identifier),
+                        ).fetchone()
+                        changed |= prior is None or tuple(prior) != (
+                            check["status"],
+                            check["reason"],
+                        )
+                        if check["status"] == "invalid":
+                            db.execute(
+                                "UPDATE file_facts SET status='invalidated' WHERE profile=? AND file_id=?",
+                                (app.profile, identifier),
+                            )
+                        db.execute(
+                            "INSERT INTO media_header_checks VALUES (?,?,?,?,?,?,?,?,?,?) "
+                            "ON CONFLICT(profile,file_id) DO UPDATE SET "
+                            "scan_id=excluded.scan_id,size=excluded.size,mtime_ns=excluded.mtime_ns,"
+                            "device=excluded.device,inode=excluded.inode,status=excluded.status,"
+                            "reason=excluded.reason,bytes_read=excluded.bytes_read",
+                            (
+                                app.profile,
+                                identifier,
+                                self.job["scan_id"],
+                                entry["size"],
+                                entry["mtime_ns"],
+                                entry["device"],
+                                entry["inode"],
+                                check["status"],
+                                check["reason"],
+                                check["bytes_read"],
+                            ),
+                        )
                         db.execute(
                             "INSERT OR IGNORE INTO observation_seen VALUES (?,?)",
                             (self.job["id"], identifier),
@@ -519,6 +556,26 @@ def execute(app, job, walker):
         validation=dict(getattr(binding, "evidence", {})),
     )
     report["published"] = report["observed"]
+    from .media_health import COVERAGE
+
+    report["media_headers"] = {
+        "coverage": COVERAGE,
+        "counts": {
+            row["status"]: row["n"]
+            for row in app.store.rows(
+                "SELECT status,count(*) AS n FROM media_header_checks WHERE scan_id=? GROUP BY status",
+                (job["scan_id"],),
+            )
+        },
+    }
+    report["media_headers"]["invalid"] = app.store.rows(
+        "SELECT h.file_id,f.path,h.reason FROM media_header_checks h JOIN files f ON f.id=h.file_id "
+        "WHERE h.scan_id=? AND h.status='invalid' ORDER BY f.path LIMIT 100",
+        (job["scan_id"],),
+    )
+    report["media_headers"]["invalid_truncated"] = (
+        report["media_headers"]["counts"].get("invalid", 0) > 100
+    )
     report["progress"] = app.store.rows(
         "SELECT count(*) AS batches,sum(bytes) AS committed_bytes,max(committed_at) AS last_progress_at FROM observation_batches WHERE job_id=?",
         (job["id"],),

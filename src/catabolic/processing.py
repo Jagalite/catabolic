@@ -22,6 +22,9 @@ from uuid import uuid4
 from . import execution_claims
 from .curation import bounded_rows, occurrence, page_limit, payload_object
 from .domain import CatabolicError
+from .media_health import COVERAGE as HEADER_COVERAGE
+from .media_health import inspect_header
+from .probe_health import failure_health, probe_health
 from .process_runner import CommandFailure as ProcessingFailure
 from .process_runner import command_output as command_output
 from .source_access import validated_source as validated_source
@@ -67,6 +70,9 @@ def tool_version(path, size, modified, version_arg="-version"):
 
 
 def tool_signature(operation, backend=None):
+    adapter = operation + (
+        "-v3" if operation == "probe" else "-v2" if operation == "decode" else "-v1"
+    )
     if operation == "text" and backend in ("pdf", "ocr"):
         from .document_text import tool_identity
 
@@ -82,11 +88,11 @@ def tool_signature(operation, backend=None):
         return {"adapter": operation + "-v1"}
     path = shutil.which(executable)
     if not path:
-        return {"adapter": operation + "-v1", "tool": executable, "available": False}
+        return {"adapter": adapter, "tool": executable, "available": False}
     path = str(Path(path).resolve())
     s = os.stat(path)
     return {
-        "adapter": operation + "-v1",
+        "adapter": adapter,
         "tool": path,
         "available": True,
         "version": tool_version(path, s.st_size, s.st_mtime_ns),
@@ -161,6 +167,21 @@ def process(job, cancel):
     started = time.monotonic()
     try:
         with validated_source(snapshot) as fd:
+            if operation in ("probe", "decode"):
+                header = inspect_header(fd, snapshot["path"], snapshot["size"])
+                if header["status"] == "invalid":
+                    return {
+                        "state": "failed",
+                        "data": {
+                            "media_health": {
+                                "status": "invalid",
+                                "reason": header["reason"],
+                                "warnings": [],
+                                "coverage": HEADER_COVERAGE,
+                            }
+                        },
+                        "error": header["reason"],
+                    }
             if operation == "sniff":
                 raw = os.read(fd, min(options["max_bytes"], 4096))
                 signatures = (
@@ -253,7 +274,7 @@ def process(job, cancel):
                     argv = [
                         tool["tool"],
                         "-v",
-                        "error",
+                        "warning",
                         "-protocol_whitelist",
                         "file,pipe",
                         "-format_whitelist",
@@ -269,21 +290,33 @@ def process(job, cancel):
                         "-show_format",
                         "-show_streams",
                         "-show_chapters",
+                        "-show_error",
                         "-of",
                         "json",
                         path,
                     ]
-                    data = json.loads(
-                        command_output(
-                            argv,
-                            pass_fds=(fd,),
-                            timeout=options["timeout"],
-                            maximum=options["max_bytes"],
-                            cancel=cancel,
-                        )
+                    output = command_output(
+                        argv,
+                        pass_fds=(fd,),
+                        timeout=options["timeout"],
+                        maximum=options["max_bytes"],
+                        cancel=cancel,
+                        diagnostics=True,
                     )
+                    data = json.loads(output["stdout"])
+                    if not isinstance(data, dict) or not isinstance(
+                        data.get("format", {}), dict
+                    ):
+                        raise ProcessingFailure("failed", "malformed probe result")
                     streams = data.get("streams", [])
-                    if not isinstance(streams, list) or len(streams) > 256:
+                    if not isinstance(streams, list) or any(
+                        not isinstance(s, dict)
+                        or not isinstance(s.get("disposition", {}), dict)
+                        or not isinstance(s.get("tags", {}), dict)
+                        for s in streams
+                    ):
+                        raise ProcessingFailure("failed", "malformed probe streams")
+                    if len(streams) > 256:
                         raise ProcessingFailure("partial", "probe exceeds 256 streams")
                     video = [
                         s
@@ -326,6 +359,20 @@ def process(job, cancel):
                         "microseconds": options["analysis_us"],
                         "coverage": "bounded stream analysis; not a full decode",
                     }
+                    data["media_health"] = probe_health(
+                        data, options.get("required_streams", [])
+                    )
+                    diagnostic = output["stderr"].decode("utf-8", "replace")
+                    if diagnostic:
+                        detected = failure_health(operation, "failed", diagnostic)
+                        if (
+                            detected["status"] in ("invalid", "unsupported")
+                            or detected["reason"] == "io_error"
+                        ):
+                            data["media_health"] = detected
+                        else:
+                            data["media_health"]["warnings"].append("probe_diagnostics")
+                        data["diagnostic"] = diagnostic[:1000]
                 else:
                     command_output(
                         [
@@ -358,17 +405,30 @@ def process(job, cancel):
                         cancel=cancel,
                     )
                     data = {"decoded": True, "coverage": "complete audio/video decode"}
+                    data["media_health"] = {
+                        "status": "not_detected",
+                        "reason": None,
+                        "warnings": [],
+                        "coverage": data["coverage"],
+                    }
         encode(data)  # Reject nonfinite or otherwise unrepresentable extractor data.
+        invalid = data.get("media_health", {}).get("status") == "invalid"
         return {
-            "state": "complete",
+            "state": "failed" if invalid else "complete",
             "data": data,
-            "error": None,
+            "error": data["media_health"]["reason"] if invalid else None,
             "elapsed_seconds": time.monotonic() - started,
         }
     except ProcessingFailure as exc:
         return {
             "state": exc.state,
-            "data": {},
+            "data": {
+                "media_health": failure_health(
+                    operation, exc.state, exc.stderr.decode("utf-8", "replace")
+                )
+            }
+            if operation in ("probe", "decode")
+            else {},
             "error": str(exc),
             "retryable": exc.state == "timeout",
         }
@@ -388,12 +448,22 @@ def process(job, cancel):
         }
         return {
             "state": "failed",
-            "data": {},
+            "data": {"media_health": failure_health(operation, "io_error", str(exc))}
+            if operation in ("probe", "decode")
+            else {},
             "error": str(exc)[:1000],
             "retryable": exc.errno in transient,
         }
     except (ValueError, TypeError, KeyError, RecursionError) as exc:
-        return {"state": "failed", "data": {}, "error": str(exc)[:1000]}
+        return {
+            "state": "failed",
+            "data": {
+                "media_health": failure_health(operation, "extractor_output_error", "")
+            }
+            if operation in ("probe", "decode")
+            else {},
+            "error": str(exc)[:1000],
+        }
 
 
 def operation_config(operation, options=None):
@@ -401,6 +471,18 @@ def operation_config(operation, options=None):
         raise CatabolicError("unsupported processing operation")
     options = dict(payload_object(options or {}))
     allowed = {"timeout", "max_bytes", "analysis_bytes", "analysis_us"}
+    if operation == "probe":
+        allowed.add("required_streams")
+        required = options.get("required_streams", [])
+        if (
+            not isinstance(required, list)
+            or len(required) > 2
+            or any(value not in ("audio", "video") for value in required)
+        ):
+            raise CatabolicError(
+                "required_streams must be a list of audio/video stream types"
+            )
+        options["required_streams"] = sorted(set(required))
     if operation == "text":
         allowed.add("backend")
         backend = options.get("backend", "utf8")
@@ -511,12 +593,18 @@ class Processing:
                 encode([snapshot, operation, config]).encode()
             ).hexdigest()
             old = self.store.rows(
-                """SELECT id,state FROM processing_jobs WHERE profile=? AND file_id=? AND operation=?
-                AND cache_key=? AND state NOT IN ('cancelled') ORDER BY created_at DESC,id DESC LIMIT 1""",
+                """SELECT j.id,j.state,EXISTS(
+                  SELECT 1 FROM file_facts f WHERE f.profile=j.profile AND f.file_id=j.file_id
+                  AND f.operation=j.operation AND f.job_id=j.id AND f.status='complete'
+                ) AS fact_current FROM processing_jobs j
+                WHERE j.profile=? AND j.file_id=? AND j.operation=?
+                AND j.cache_key=? AND j.state NOT IN ('cancelled')
+                ORDER BY j.created_at DESC,j.id DESC LIMIT 1""",
                 (self.profile, file_id, operation, key),
             )
             if (
                 old
+                and (old[0]["state"] != "complete" or old[0]["fact_current"])
                 and (not refresh or old[0]["state"] in ("queued", "running"))
                 and (operation != "verify" or recipe_id is not None)
             ):
@@ -645,7 +733,8 @@ class Processing:
         state = result["state"]
         data = result["data"]
         error = result["error"]
-        if state == "complete":
+        health = data.get("media_health", {})
+        if state == "complete" or health.get("status") == "invalid":
             now = occurrence(self.store, self.profile, job["file_id"])
             if any(
                 now.get(k) != v for k, v in job["snapshot"].items() if k != "ctime_ns"
@@ -658,6 +747,15 @@ class Processing:
                 except (CatabolicError, OSError) as exc:
                     state, error = "changed", str(exc)
         with self.store.transaction() as db:
+            if state != "changed" and health.get("status") == "invalid":
+                db.execute(
+                    "UPDATE file_facts SET status='invalidated' WHERE profile=? AND file_id=?",
+                    (self.profile, job["file_id"]),
+                )
+                if self.store.schema_version >= 14:
+                    from .catalog_refresh import enqueue
+
+                    enqueue(db, self.profile)
             if state == "complete" and job["operation"] in ("hash", "verify"):
                 baseline = db.execute(
                     "SELECT * FROM content_baselines WHERE profile=? AND file_id=? AND algorithm=?",

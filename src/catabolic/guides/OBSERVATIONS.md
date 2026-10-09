@@ -29,6 +29,32 @@ exclusions. A later plain `scan` is a new demand. Scan JSON retains `complete` a
 `scans` and adds `observations` containing request/job references. Pending work is
 incomplete, with a null scan ID and an explicit blocker, not an offline source.
 
+Scans also screen the first 64 bytes of MKV/MKA/WebM, AVI, WAV/WAVE,
+FLAC and Ogg-family containers for a zero-filled header. Such a header records
+`media_header_status=invalid` and `media_header_reason=zero_filled_header` in
+`files`; the file remains `present`. Empty files and incomplete-download names
+are also invalid based on metadata, without requiring read permission. The
+scan's `media_headers` report includes counts and up to
+100 invalid paths. `complete` still describes inventory coverage, not playback.
+
+`not_detected` means this narrow check found no defect; it is not a valid-media
+verdict. Other formats are `unknown`, and read failures leave unknown evidence
+and incomplete traversal. Checks use no-follow descriptors and reject file
+replacement during the read. Reads are limited to 64 bytes; slow filesystem I/O
+remains subject to the scan's existing cooperative latency budgets.
+
+Header evidence is available through `catalog_media_headers`; filter `current=1`
+for evidence matching the recorded observation. Every fresh scan repeats the
+check, even when size and modification time are unchanged. Invalid results
+invalidate cached processing facts. A repaired file clears the header defect
+on rescan but does not restore invalidated processing facts. Enqueuing an
+analysis again reruns completed jobs whose facts were invalidated, while failed
+jobs still require explicit retry or refresh. Sync and link
+verification recheck the header before accepting a source, including fallback
+source probes. No scan deletes or repairs media. Use `process enqueue probe`
+or `process enqueue decode`, followed by `process run`, for deeper inspection;
+this screen does not detect corruption later in a video.
+
 `watcher run NAME` executes that watcher's configured plan. `supervise --once`
 processes eligible watcher work; it does not scan every source once. A continuous
 supervisor runs in the foreground. Nothing here automatically enables a watcher.

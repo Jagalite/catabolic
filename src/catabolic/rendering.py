@@ -17,6 +17,8 @@ from .store import encode
 FORMATS = "mov,matroska,webm,wav,flac,mp3,ogg,aac,ac3,eac3,aiff,ape,asf,avi,mpeg,mpegts,png_pipe,jpeg_pipe,webp_pipe,gif,bmp_pipe,tiff_pipe,srt,webvtt,ass"
 PRESETS = {
     "thumbnail": ("png", "image2", "thumbnail", "video", "png"),
+    "image-jpeg": ("jpg", "image2", "thumbnail", "video", "mjpeg"),
+    "image-webp": ("webp", "image2", "thumbnail", "video", "libwebp"),
     "preview": ("mp4", "mp4", "extra", "video", "libx264"),
     "remux-mkv": ("mkv", "matroska", "primary", None, None),
     "component-mux": ("mkv", "matroska", "primary", None, None),
@@ -33,7 +35,8 @@ PRESETS = {
 }
 VIDEO_TRANSCODES = ("preview", "h264-720p", "h264-1080p", "av1-720p", "hdr-sdr-1080p")
 AUDIO_PRESETS = ("audio-flac", "audio-aac", "audio-opus", "audio-normalize")
-IMAGE_PRESETS = ("thumbnail", "waveform")
+PHOTO_PRESETS = ("image-jpeg", "image-webp")
+IMAGE_PRESETS = ("thumbnail", "waveform", *PHOTO_PRESETS)
 
 
 def definition(preset, options):
@@ -66,6 +69,10 @@ def definition(preset, options):
         allowed.update(("integrated_lufs", "true_peak_db", "loudness_range"))
     if preset == "hdr-sdr-1080p":
         allowed.add("peak_nits")
+    if preset in PHOTO_PRESETS:
+        allowed.update(
+            ("width", "height", "quality", "max_input_pixels", "max_input_bytes")
+        )
     if set(options) - allowed:
         raise CatabolicError("unsupported recipe option")
     value = {
@@ -87,6 +94,16 @@ def definition(preset, options):
         value.update(integrated_lufs=-16, true_peak_db=-2, loudness_range=7)
     if preset == "hdr-sdr-1080p":
         value["peak_nits"] = 1000
+    if preset in PHOTO_PRESETS:
+        value.update(
+            width=1280,
+            height=1280,
+            quality=85,
+            max_input_pixels=20000000,
+            max_input_bytes=64 * 1024**2,
+            max_output_bytes=16 * 1024**2,
+            timeout=60,
+        )
     # Keep omitted settings omitted so old recipe definitions retain their digest.
     value.update(options)
     if "require_duration" in value and type(value["require_duration"]) is not bool:
@@ -107,8 +124,15 @@ def definition(preset, options):
         ("video_stream", 0, 255),
         ("crf", 0, 63 if preset == "av1-720p" else 51),
         ("audio_bitrate_kbps", 8, 512),
-        ("width", 64, 4096),
-        ("height", 32, 2048),
+        ("width", 1 if preset in PHOTO_PRESETS else 64, 4096),
+        (
+            "height",
+            1 if preset in PHOTO_PRESETS else 32,
+            4096 if preset in PHOTO_PRESETS else 2048,
+        ),
+        ("quality", 1, 100),
+        ("max_input_pixels", 1, 40000000),
+        ("max_input_bytes", 1024, 256 * 1024**2),
         ("integrated_lufs", -70, -5),
         ("true_peak_db", -9, 0),
         ("loudness_range", 1, 50),
@@ -118,6 +142,12 @@ def definition(preset, options):
             type(value[key]) is not int or not lower <= value[key] <= upper
         ):
             raise CatabolicError(f"invalid recipe {key}")
+    if preset in PHOTO_PRESETS and (
+        value["timeout"] > 300 or value["max_output_bytes"] > 64 * 1024**2
+    ):
+        raise CatabolicError(
+            "image recipes allow at most 300 seconds and 64 MiB output"
+        )
     if (
         "audio_stream" in value
         and value["audio_stream"] is not None
@@ -181,7 +211,7 @@ def capabilities():
             "encoders": {spec[4]} if spec[4] else set(),
             "filters": set(),
         }
-        if key in ("thumbnail", *VIDEO_TRANSCODES):
+        if key in ("thumbnail", *PHOTO_PRESETS, *VIDEO_TRANSCODES):
             needed["filters"].add("scale")
         if key in VIDEO_TRANSCODES:
             needed["encoders"].add("libopus" if key == "av1-720p" else "aac")
@@ -211,7 +241,7 @@ def capabilities():
     }
 
 
-def probe(fd, identity, timeout=20):
+def probe(fd, identity, timeout=20, *, static_image=False):
     os.lseek(fd, 0, os.SEEK_SET)
     raw = command_output(
         [
@@ -228,6 +258,9 @@ def probe(fd, identity, timeout=20):
             "1048576",
             "-analyzeduration",
             "1000000",
+            # Two packets suffice to reject image sequences without scanning
+            # or decoding every frame in an untrusted source.
+            *(["-count_packets", "-read_intervals", "%+#2"] if static_image else []),
             "-show_format",
             "-show_streams",
             "-show_chapters",
@@ -301,6 +334,28 @@ def input_error(recipe, data):
     )
     if len(candidates) <= index:
         return "input lacks the requested stream"
+    if preset in PHOTO_PRESETS:
+        video = candidates[0]
+        if (
+            len(data["streams"]) != 1
+            or data.get("format", {}).get("format_name")
+            not in ("png_pipe", "jpeg_pipe", "webp_pipe")
+            or video.get("codec_name") not in ("png", "mjpeg", "webp")
+            or video.get("nb_frames") not in (None, "1", 1)
+            or video.get("nb_read_packets") not in (None, "1", 1)
+        ):
+            return "image recipes require a single static PNG, JPEG or WebP image"
+        width, height = video.get("width"), video.get("height")
+        if (
+            type(width) is not int
+            or type(height) is not int
+            or width <= 0
+            or height <= 0
+            or width * height > recipe["max_input_pixels"]
+        ):
+            return "image dimensions are unknown or exceed the input pixel budget"
+        if video.get("color_transfer") in ("smpte2084", "arib-std-b67"):
+            return "image recipes support SDR input only"
     if preset in VIDEO_TRANSCODES:
         video = candidates[index]
         if preset == "hdr-sdr-1080p":
@@ -321,9 +376,28 @@ def input_error(recipe, data):
 
 def render(input_fd, output_fd, recipe, identity, poll):
     preset = recipe["preset"]
-    before = probe(input_fd, identity)
+    if (
+        preset in PHOTO_PRESETS
+        and os.fstat(input_fd).st_size > recipe["max_input_bytes"]
+    ):
+        raise CatabolicError("image input exceeds its byte budget")
+    if preset in PHOTO_PRESETS:
+        header = os.pread(input_fd, 30, 0)
+        if (
+            header[:4] == b"RIFF"
+            and header[8:16] == b"WEBPVP8X"
+            and len(header) > 20
+            and header[20] & 2
+        ):
+            raise CatabolicError("animated WebP is not supported by image recipes")
+    before = probe(input_fd, identity, static_image=preset in PHOTO_PRESETS)
     if error := input_error(recipe, before):
         raise CatabolicError(error)
+    if preset in PHOTO_PRESETS and before["streams"][0].get("nb_read_packets") not in (
+        "1",
+        1,
+    ):
+        raise CatabolicError("image input lacks evidence of a single static frame")
     expected = PRESETS[preset][3]
     selected = streams(before, expected) if expected else before["streams"]
     if not selected or recipe.get("stream", 0) >= len(selected):
@@ -363,6 +437,33 @@ def render(input_fd, output_fd, recipe, identity, poll):
         for stream in selected:
             command += ["-map", f"0:{stream['index']}"]
         command += ["-c", "copy"]
+    elif preset in PHOTO_PRESETS:
+        command += [
+            "-map",
+            f"0:{selected[0]['index']}",
+            "-frames:v",
+            "1",
+            "-an",
+            "-map_metadata",
+            "-1",
+            "-map_chapters",
+            "-1",
+            "-vf",
+            f"scale=w='min(iw,{recipe['width']})':h='min(ih,{recipe['height']})':force_original_aspect_ratio=decrease,setsar=1",
+            "-c:v",
+            PRESETS[preset][4],
+            "-update",
+            "1",
+        ]
+        if preset == "image-jpeg":
+            command += [
+                "-q:v",
+                str(2 + round((100 - recipe["quality"]) * 29 / 99)),
+                "-pix_fmt",
+                "yuvj444p",
+            ]
+        else:
+            command += ["-quality", str(recipe["quality"]), "-compression_level", "4"]
     elif preset == "thumbnail":
         command += [
             "-ss",
@@ -569,10 +670,24 @@ def render(input_fd, output_fd, recipe, identity, poll):
         ):
             raise CatabolicError("extracted stream codec does not match the recipe")
     if (
-        preset in IMAGE_PRESETS
+        preset in ("thumbnail", "waveform")
         and streams(after, "video")[0].get("codec_name") != "png"
     ):
         raise CatabolicError("output is not a PNG image")
+    if preset in PHOTO_PRESETS:
+        image = streams(after, "video")[0]
+        if (
+            len(after["streams"]) != 1
+            or image.get("codec_name")
+            != ("mjpeg" if preset == "image-jpeg" else "webp")
+            or not 0 < image.get("width", 0) <= recipe["width"]
+            or not 0 < image.get("height", 0) <= recipe["height"]
+            or image["width"] * image["height"]
+            > selected[0]["width"] * selected[0]["height"]
+        ):
+            raise CatabolicError(
+                "image output codec or dimensions do not match the recipe"
+            )
     if preset == "waveform" and any(
         streams(after, "video")[0].get(k) != recipe[k] for k in ("width", "height")
     ):

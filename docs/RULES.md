@@ -57,6 +57,60 @@ and worklogs are preserved. Recipe changes never silently alter a saved rule.
 
 ## Selection and backlog
 
+### Image variants and the HTTP cache
+
+Image recipes use the same rule queue as video recipes. Define one recipe and
+rule per desired variant (for example, a 160-pixel WebP thumbnail and a
+1600-pixel JPEG preview). First scan and collect current probe facts, bind the
+generated destination, and associate each photo with an item. Use the catalog's
+actual item kind in the selection; this example assumes `photo`:
+
+```sh
+catabolic --db catalog.db --json artifact recipe photo-thumb --preset image-webp \
+  --options '{"width":160,"height":160,"quality":80}'
+cat > photos.json <<'JSON'
+{
+  "language": "sql",
+  "query": "SELECT item_id FROM catalog_items WHERE kind='photo'"
+}
+JSON
+catabolic --db catalog.db --json rule put photo-thumb --recipe RECIPE_ID \
+  --location generated --selection photos.json
+catabolic --db catalog.db rule preview RULE_ID
+catabolic --db catalog.db --json rule apply RULE_ID --batch 100
+catabolic --db catalog.db --json rule run RULE_ID --batch 1
+```
+
+Repeat for other size, quality or format recipes. Enable the rules and use the
+following command from cron or launchd to refresh analysis and maintain variants
+as sources change, without synchronizing link catalogs:
+
+```sh
+catabolic --db catalog.db rule enable RULE_ID
+catabolic --db catalog.db --json maintenance --inventory-only \
+  --process probe --rules --rule-batch 100 --render-rules 10
+```
+
+The command runs one bounded cycle; enabling a rule does not start a daemon or
+install a schedule. The probe stage is necessary for new or changed inputs;
+otherwise their rules remain deferred until current facts are collected.
+Files must pass the maintenance stability interval before analysis. Pending
+work beyond the analysis/enqueue/render budgets resumes on later scheduled
+cycles; `complete:false` and exit code 3 report that backlog. Failed renders
+require explicit retry, as described below. Image
+compressed-size estimates currently remain unknown; planning conservatively uses
+each recipe's maximum output bytes rather than treating thumbnails as free.
+
+Approve the **same recipe revision and generated destination** as an HTTP
+operation to expose the variant through
+[`POST /v1/rendition-requests`](HTTP.md#durable-rendition-demand). A rule-generated
+eligible artifact returns as ready without another render. Conversely, applying
+a rule adopts matching queued or completed HTTP jobs instead of duplicating work.
+Source/item identity, source snapshot, recipe options, destination and tool
+identity determine reuse. Merely matching a filename or pixel size is insufficient.
+HTTP operation approval and caller grants are still required; a rule does not grant
+network clients access. GET serves the immutable derivative bytes once ready.
+
 Use the shared [SQL/GraphQL selection contract](QUERY_FOLDERS.md). SQL returns one
 column named `item_id`, `file_id` or `association_id`. Rules select active primary
 associations and deduplicate file/item pairs. By default, generated locations and registered/generated renditions are excluded

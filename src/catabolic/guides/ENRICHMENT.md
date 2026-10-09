@@ -52,6 +52,36 @@ normalized summary fields. This first adapter does not promise complete EXIF,
 book metadata, OCR, or transcription. Automatic playlist processing is outside
 the probe's supported formats.
 
+Probe/decode job results include `media_health`. Recognized container parse
+errors, missing MP4 indices, corrupt packets and decode errors are `invalid`;
+generic tool failures remain `unknown`. Timeouts, byte-budget limits and I/O
+failures do not prove corruption. Restricted formats and missing codecs/tools
+are `unsupported`. Successful checks report `not_detected`, never certification
+of playback outside their recorded coverage. Probe diagnostics, missing or
+nonpositive duration and unidentified codecs are warnings unless they contain
+specific corruption evidence.
+
+For an explicit stream requirement, enqueue a probe with
+`--options '{"required_streams":["video"]}'` (or `audio`, or both). Missing
+required streams produces `content_mismatch`, not corruption. Cover art does
+not satisfy a video requirement. Audio-only media has no implicit video
+requirement. Stream evidence is limited by the configured probe budgets.
+
+Confirmed defects invalidate cached facts and block sync, verification, remount
+repair and fallback selection for the exact tested revision, including its live
+change time. Unknown attempts do not clear a prior confirmed defect. A new
+successful attempt of the same operation supersedes that operation's defect
+only when its analysis-byte and analysis-time budgets are at least as large as
+the failed attempt's. Probe adapter v3 requalifies earlier cached successes with
+the corrected diagnostic classification; earlier probe successes do not clear
+confirmed defects. Unsupported diagnostics remain unsupported even with a
+successful process exit. Malformed extractor JSON is an unknown failure.
+In particular,
+probe success cannot clear a failed full decode. Changed bytes need a rescan
+and fresh work. Results remain available through `process show` and
+`catalog_jobs`/`catalog_job_attempts`; scans still perform only the small
+header screen and do not launch FFmpeg automatically.
+
 Configure work budgets explicitly:
 
 ```sh

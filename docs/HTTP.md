@@ -329,6 +329,52 @@ playback changes removed, plus three optional-tool skips.
 
 ### Durable rendition demand
 
+Static photo resizing uses this same demand route. Create an `image-jpeg` or
+`image-webp` recipe with the desired width, height and quality, bind a generated
+destination, and approve that immutable recipe revision:
+
+```sh
+catabolic --db catalog.db api operation-approve RECIPE_REVISION \
+  --location generated --id photo-thumb-webp
+```
+
+Grant the operation ID and `processing:request` for the source photo, plus a
+separate `content:read` grant with `derivatives: true` for the item. Submit the
+body below with `operation_id: "photo-thumb-webp"`. The active worker generates
+the image once; concurrent callers share the job, and an eligible cached result
+returns immediately. Poll the status URL and use the returned authenticated
+content path or a content-access ticket. Output MIME types are `image/jpeg` and
+`image/webp`. Clients select approved variants; they cannot supply arbitrary
+encoder arguments or destination paths. GET requests serve bytes without starting
+work. See [image options and limits](ARTIFACTS.md#static-image-renditions).
+
+A changed source revision makes demand stale and requires a fresh request. An
+already generated derivative URL stays pinned to its original bytes rather than
+silently changing to a new image. Worker readiness is required for new admission,
+including a new request that may reuse the artifact cache.
+
+For example, after approving `photo-thumb-webp`, submit demand to the running
+processing-enabled server (replace IDs, revision and token):
+
+```sh
+curl -i -X POST http://127.0.0.1:8421/v1/rendition-requests \
+  -H "Authorization: Bearer $CATABOLIC_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: photo-thumb-001' \
+  --data '{"item_id":"ITEM_ID","source_file_id":"FILE_ID","source_revision":"SOURCE_REVISION","operation_id":"photo-thumb-webp"}'
+```
+
+This is the image cache admission route: 200 with a ready result for an eligible
+cache hit, or 202 with a status URL while the normal worker job produces it.
+Poll the status URL, then GET `result.content_path` with authorization to receive
+the image. Each approved size/format variant has its own operation ID. Run the
+API worker alongside the server as described in the processing setup above.
+
+[Image rules](RULES.md#image-variants-and-the-http-cache) can prewarm these same
+variants. Use the same immutable recipe revision and generated destination for
+the rule and HTTP operation so both entry points share jobs and cached artifacts.
+There is no separate untracked image cache or hidden processing on GET.
+
 ```json
 {
   "item_id": "item-id",

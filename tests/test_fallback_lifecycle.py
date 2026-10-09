@@ -46,6 +46,51 @@ class LifecycleTest(unittest.TestCase):
         plan = projection.run("global")
         return projection.run("global", apply=True, expected_plan=plan["plan_id"])
 
+    def test_inconclusive_probe_retains_published_link(self):
+        projection, _ = self.bind("immediate")
+        self.assertTrue(self.apply(projection)["complete"])
+        link = next(p for p in self.output.rglob("*") if p.is_symlink())
+        target = link.readlink()
+        for reason in ("probe_timeout", "probe_capacity", "probe_failed"):
+            with (
+                self.subTest(reason=reason),
+                patch(
+                    "catabolic.fallback_probe.probe",
+                    return_value={"usable": False, "reason": reason},
+                ),
+            ):
+                result = Reconciler(self.app).apply()
+                self.assertFalse(result["safe"], result)
+                self.assertIn(reason, str(result["blockers"]))
+                self.assertEqual(result["applied"], [])
+                self.assertEqual(link.readlink(), target)
+                self.assertFalse(self.store.rows("SELECT * FROM journal"))
+
+    def test_inconclusive_probe_preserves_pending_retarget_for_recovery(self):
+        projection, _ = self.bind("immediate")
+        self.assertTrue(self.apply(projection)["complete"])
+        link = next(p for p in self.output.rglob("*") if p.is_symlink())
+        target = link.readlink()
+        (self.source / "main.bin").unlink()
+        with patch.object(Reconciler, "_execute", side_effect=RuntimeError("stop")):
+            with self.assertRaisesRegex(RuntimeError, "stop"):
+                self.apply(projection)
+        pending = self.store.rows("SELECT * FROM journal")
+        self.assertEqual(len(pending), 1)
+        with patch(
+            "catabolic.fallback_probe.probe",
+            return_value={"usable": False, "reason": "probe_timeout"},
+        ):
+            with self.assertRaisesRegex(CatabolicError, "probe_timeout"):
+                Reconciler(self.app).recover()
+        self.assertEqual(self.store.rows("SELECT * FROM journal"), pending)
+        self.assertEqual(link.readlink(), target)
+        result = Reconciler(self.app).recover()
+        self.assertEqual(result["recovered"], [pending[0]["id"]])
+        self.assertFalse(result["cancelled"])
+        self.assertNotEqual(link.readlink(), target)
+        self.assertTrue(Reconciler(self.app).verify()["healthy"])
+
     def test_stability_restart_preview_and_flapping(self):
         projection, policy = self.bind()
         self.assertTrue(self.apply(projection)["complete"])

@@ -475,7 +475,7 @@ class GuardedScanTest(unittest.TestCase):
 
         def counted(path, *args, **kwargs):
             if kwargs.get("dir_fd") is not None:
-                calls.append(path)
+                calls.append((kwargs["dir_fd"], path))
             return original(path, *args, **kwargs)
 
         with patch("catabolic.scan_traversal.os.stat", new=counted):
@@ -484,7 +484,10 @@ class GuardedScanTest(unittest.TestCase):
             )
         self.assertFalse(report["complete"])
         self.assertEqual(report["scans"][0]["blocker"], "total_entry_budget")
-        self.assertLessEqual(len(calls), 20)
+        # Header screening revalidates the same named file after reading it;
+        # the traversal budget counts entries, not those repeat stat calls.
+        self.assertLessEqual(len(set(calls)), 20)
+        self.assertTrue(all(calls.count(entry) <= 2 for entry in set(calls)))
         self.assertGreater(report["scans"][0]["published"], 0)
 
     def test_query_watchers_honor_policy_and_own_batches_do_not_rescan(self):

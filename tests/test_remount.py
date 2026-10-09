@@ -72,6 +72,13 @@ class RemountTest(unittest.TestCase):
         preview = repair(self.app, **kwargs)
         return repair(self.app, apply=True, expected_plan=preview["plan_id"], **kwargs)
 
+    def test_changed_source_is_rejected_before_reading_media_header(self):
+        (self.root / "source/movie.mkv").write_bytes(b"changed source revision")
+        with patch("catabolic.media_health.os.pread") as read:
+            with self.assertRaisesRegex(CatabolicError, "metadata changed"):
+                repair(self.app)
+        read.assert_not_called()
+
     def test_maintenance_automatically_reverifies_renumbered_mounts(self):
         from catabolic.maintenance import run
 
