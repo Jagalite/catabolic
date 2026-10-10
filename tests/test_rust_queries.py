@@ -196,3 +196,23 @@ class NativeQueryTest(unittest.TestCase):
                                 ),
                                 getattr(query, entity)(**options),
                             )
+
+    def test_sql_error_messages_match_reference(self):
+        from catabolic.domain import CatabolicError
+
+        for sql in (
+            "SELECT FROM",
+            "SELECT 1; SELECT 2",
+            "SELECT nonexistent FROM items",
+            "SELECT\x001",
+            "-- comment",
+            "SELECT :x",
+            "SELECT ?",
+        ):
+            with self.subTest(sql=sql):
+                with self.assertRaises(CatabolicError) as error:
+                    execute_sql(self.path, sql)
+                actual = self.native("query", sql, ok=False)
+                self.assertEqual(
+                    actual.removeprefix("catabolic: "), str(error.exception)
+                )

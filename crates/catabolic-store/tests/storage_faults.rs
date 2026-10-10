@@ -170,3 +170,32 @@ fn process_exit_is_atomic_before_and_after_commit() {
         }
     }
 }
+
+#[test]
+fn post_commit_observer_failure_reports_committed_with_warning() {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().join("catalog.sqlite3");
+    fs::copy(fixture(31), &path).unwrap();
+    let result = migration::upgrade(&path, false, None, &|stage, _, _| {
+        if stage == "upgrade:after_commit" {
+            Err(Error("observer unavailable".into()))
+        } else {
+            Ok(())
+        }
+    })
+    .unwrap();
+    assert_eq!(result["upgraded"], true);
+    assert!(
+        result["warnings"][0]
+            .as_str()
+            .unwrap()
+            .contains("committed")
+    );
+    assert_eq!(migration::inspect(&path, true).unwrap()["schema"], 32);
+    let directory = std::path::Path::new(result["backup"].as_str().unwrap())
+        .parent()
+        .unwrap();
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(directory.join("manifest.json")).unwrap()).unwrap();
+    assert_eq!(manifest["status"], "committed");
+}

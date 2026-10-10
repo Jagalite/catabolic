@@ -356,12 +356,24 @@ pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) ->
             }
         }))?;
         db.progress_handler(1000, Some(move || Instant::now() >= deadline))?;
-        let mut statement = db.prepare(sql.unwrap())?;
+        let sql = sql.unwrap();
+        if sql.contains('\0') {
+            return Err(Error(
+                "SQL query failed: the query contains a null character".into(),
+            ));
+        }
+        let mut statement = db.prepare(sql).map_err(|error| match error {
+            rusqlite::Error::SqlInputError { msg, .. } => Error(msg),
+            rusqlite::Error::MultipleStatement => {
+                Error("You can only execute one statement at a time.".into())
+            }
+            other => Error::from(other),
+        })?;
         if statement.column_count() == 0 {
             return Err(Error("SQL must return a result set".into()));
         }
         for i in 1..=statement.parameter_count() {
-            let name=statement.parameter_name(i).and_then(|n| n.strip_prefix(':').or_else(|| n.strip_prefix('$')).or_else(|| n.strip_prefix('@'))).ok_or_else(|| Error("SQL query failed: Binding has no name, but you supplied a dictionary (which has only names).".into()))?;
+            let name=statement.parameter_name(i).and_then(|n| n.strip_prefix(':').or_else(|| n.strip_prefix('$')).or_else(|| n.strip_prefix('@'))).ok_or_else(|| Error(format!("SQL query failed: Binding {i} has no name, but you supplied a dictionary (which has only names).")))?;
             let value = bound.iter().find(|(k, _)| k == name).ok_or_else(|| {
                 Error(format!(
                     "SQL query failed: You did not supply a value for binding parameter :{name}."

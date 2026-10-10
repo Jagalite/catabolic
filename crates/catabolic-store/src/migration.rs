@@ -326,7 +326,12 @@ fn record_history(db: &Connection, version: u32, initializing: bool) -> Result<(
     Ok(())
 }
 pub type Checkpoint<'a> = dyn Fn(&str, &Connection, u32) -> Result<()> + 'a;
-fn apply(db: &Connection, current: u32, role: &str, checkpoint: &Checkpoint<'_>) -> Result<()> {
+fn apply(
+    db: &Connection,
+    current: u32,
+    role: &str,
+    checkpoint: &Checkpoint<'_>,
+) -> Result<Vec<String>> {
     if db.is_autocommit() {
         return Err(Error(
             "migration runner requires an explicit transaction".into(),
@@ -345,8 +350,14 @@ fn apply(db: &Connection, current: u32, role: &str, checkpoint: &Checkpoint<'_>)
         }
         checkpoint(&format!("{role}:before_commit"), db, SCHEMA_VERSION)?;
         db.execute_batch("COMMIT")?;
-        checkpoint(&format!("{role}:after_commit"), db, SCHEMA_VERSION)?;
-        Ok(())
+        // COMMIT is durable: a later observer error cannot be called rollback.
+        Ok(
+            checkpoint(&format!("{role}:after_commit"), db, SCHEMA_VERSION)
+                .err()
+                .map(|error| format!("{role} committed, but post-commit observer failed: {error}"))
+                .into_iter()
+                .collect(),
+        )
     })();
     if result.is_err() && !db.is_autocommit() {
         db.execute_batch("ROLLBACK")?;
@@ -561,14 +572,13 @@ pub fn upgrade(
                 "database changed after backup; upgrade cancelled, rerun db upgrade".into(),
             ));
         }
-        apply(&db, current, "upgrade", checkpoint)?;
+        let mut warnings = apply(&db, current, "upgrade", checkpoint)?;
         receipt["status"] = json!("committed");
-        let warnings = match manifest(directory, receipt) {
-            Ok(()) => vec![],
-            Err(e) => vec![format!(
+        if let Err(e) = manifest(directory, receipt) {
+            warnings.push(format!(
                 "upgrade committed, but backup manifest could not be updated: {e}"
-            )],
-        };
+            ));
+        }
         Ok(
             json!({"database":path,"database_id":info["database_id"],"from_schema":current,"schema":SCHEMA_VERSION,"upgraded":true,"backup":receipt["backup"],"applied":info["pending_migrations"],"warnings":warnings}),
         )

@@ -387,6 +387,9 @@ impl Context {
                             _ => "projection_bindings",
                         }
                     );
+                    if field == "operations" {
+                        columns = "a.*,a.id AS id".into();
+                    }
                     if field != "operations" {
                         clauses.push("a.profile=?".into());
                         values.push(SqlValue::Text(self.profile.clone()));
@@ -1128,9 +1131,13 @@ fn check_document(document: &async_graphql_parser::types::ExecutableDocument) ->
 fn scalar_variable_errors(
     ast: &async_graphql_parser::types::ExecutableDocument,
     variables: &Value,
+    selected: Option<&str>,
 ) -> Vec<Value> {
     let mut errors = vec![];
-    for (_, operation) in ast.operations.iter() {
+    for (name, operation) in ast.operations.iter() {
+        if selected.is_some_and(|selected| name.is_some_and(|name| name.as_str() != selected)) {
+            continue;
+        }
         for definition in &operation.node.variable_definitions {
             let name = definition.node.name.node.as_str();
             let ty = &definition.node.var_type.node;
@@ -1277,6 +1284,10 @@ pub fn execute_store(
             json!({"data":null,"errors":[{"message":error.to_string()}]}),
         ));
     }
+    let query_only: bool = store
+        .db
+        .pragma_query_value(None, "query_only", |row| row.get(0))?;
+    store.db.pragma_update(None, "query_only", true)?;
     store
         .db
         .progress_handler(1000, Some(move || Instant::now() >= deadline))?;
@@ -1297,21 +1308,20 @@ pub fn execute_store(
                 && let Some(value) = variables[key]
                     .as_f64()
                     .filter(|v| v.is_finite() && v.fract() == 0.0)
-                {
-                    if name == "Int" && (f64::from(i32::MIN)..=f64::from(i32::MAX)).contains(&value)
-                    {
-                        coerced_variables[key] = json!(value as i32);
-                    }
-                    if name == "ID" && variables[key].is_number() {
-                        coerced_variables[key] = json!(
-                            variables[key]
-                                .as_i64()
-                                .map(|v| v.to_string())
-                                .or_else(|| variables[key].as_u64().map(|v| v.to_string()))
-                                .unwrap_or_else(|| format!("{value:.0}"))
-                        );
-                    }
+            {
+                if name == "Int" && (f64::from(i32::MIN)..=f64::from(i32::MAX)).contains(&value) {
+                    coerced_variables[key] = json!(value as i32);
                 }
+                if name == "ID" && variables[key].is_number() {
+                    coerced_variables[key] = json!(
+                        variables[key]
+                            .as_i64()
+                            .map(|v| v.to_string())
+                            .or_else(|| variables[key].as_u64().map(|v| v.to_string()))
+                            .unwrap_or_else(|| format!("{value:.0}"))
+                    );
+                }
+            }
         }
     }
     let mut request = Request::new(document)
@@ -1330,7 +1340,7 @@ pub fn execute_store(
                 .is_some_and(|message| message.starts_with("Invalid value for argument "))
         })
     }) {
-        let errors = scalar_variable_errors(&ast, &variables);
+        let errors = scalar_variable_errors(&ast, &variables, operation);
         if !errors.is_empty() {
             result["errors"] = json!(errors);
             coercion_error = true;
@@ -1342,10 +1352,12 @@ pub fn execute_store(
             let message = error["message"].as_str().unwrap_or("").to_owned();
             if message.starts_with("Unknown field ") {
                 let words = message.split('"').collect::<Vec<_>>();
-                if words.len() == 5 {
+                if words.len() >= 5 {
                     error["message"] = json!(format!(
-                        "Cannot query field '{}' on type '{}'.",
-                        words[1], words[3]
+                        "Cannot query field '{}' on type '{}'.{}",
+                        words[1],
+                        words[3],
+                        crate::introspection::field_suggestions(words[3], words[1])
                     ));
                 }
             }
@@ -1422,6 +1434,10 @@ pub fn execute_store(
         Ok(result)
     })();
     state.store.db.progress_handler(0, None::<fn() -> bool>)?;
+    state
+        .store
+        .db
+        .pragma_update(None, "query_only", query_only)?;
     drop(state);
     let context = Arc::try_unwrap(state_handle)
         .map_err(|_| Error("query context retained after execution".into()))?

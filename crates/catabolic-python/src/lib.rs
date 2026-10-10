@@ -17,28 +17,36 @@ fn encode_json(raw: &str) -> PyResult<String> {
     Ok(catabolic_core::encode(&value))
 }
 #[pyfunction]
-fn initialize_database(path: &str) -> PyResult<String> {
-    result(catabolic_store::migration::initialize(Path::new(path)))
+fn initialize_database(py: Python<'_>, path: &str) -> PyResult<String> {
+    result(py.detach(|| catabolic_store::migration::initialize(Path::new(path))))
 }
 #[pyfunction]
 #[pyo3(signature=(path, full=false))]
-fn inspect_database(path: &str, full: bool) -> PyResult<String> {
-    result(catabolic_store::migration::inspect(Path::new(path), full))
+fn inspect_database(py: Python<'_>, path: &str, full: bool) -> PyResult<String> {
+    result(py.detach(|| catabolic_store::migration::inspect(Path::new(path), full)))
 }
 #[pyfunction]
 #[pyo3(signature=(path, dry_run=false, backup_dir=None))]
-fn upgrade_database(path: &str, dry_run: bool, backup_dir: Option<&str>) -> PyResult<String> {
-    result(catabolic_store::migration::upgrade(
-        Path::new(path),
-        dry_run,
-        backup_dir.map(Path::new),
-        &|_, _, _| Ok(()),
-    ))
+fn upgrade_database(
+    py: Python<'_>,
+    path: &str,
+    dry_run: bool,
+    backup_dir: Option<&str>,
+) -> PyResult<String> {
+    result(py.detach(|| {
+        catabolic_store::migration::upgrade(
+            Path::new(path),
+            dry_run,
+            backup_dir.map(Path::new),
+            &|_, _, _| Ok(()),
+        )
+    }))
 }
 #[pyfunction]
 #[pyo3(signature=(path, sql=None, profile="default", params=None, describe=false, max_rows=1000, timeout_ms=5000, stable=false, http=false))]
 #[allow(clippy::too_many_arguments)]
 fn execute_sql(
+    py: Python<'_>,
     path: &str,
     sql: Option<&str>,
     profile: &str,
@@ -49,19 +57,21 @@ fn execute_sql(
     stable: bool,
     http: bool,
 ) -> PyResult<String> {
-    result(catabolic_store::sql::execute(
-        Path::new(path),
-        sql,
-        &catabolic_store::sql::Options {
-            profile,
-            params,
-            describe,
-            max_rows,
-            timeout_ms,
-            stable,
-            http,
-        },
-    ))
+    result(py.detach(|| {
+        catabolic_store::sql::execute(
+            Path::new(path),
+            sql,
+            &catabolic_store::sql::Options {
+                profile,
+                params,
+                describe,
+                max_rows,
+                timeout_ms,
+                stable,
+                http,
+            },
+        )
+    }))
 }
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -78,17 +88,24 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 #[pyfunction]
 #[pyo3(signature=(path, entity, options="{}", profile="default"))]
-fn catalog_query(path: &str, entity: &str, options: &str, profile: &str) -> PyResult<String> {
+fn catalog_query(
+    py: Python<'_>,
+    path: &str,
+    entity: &str,
+    options: &str,
+    profile: &str,
+) -> PyResult<String> {
     let request =
         serde_json::from_str(options).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-    result((|| {
+    result(py.detach(|| {
         let store = catabolic_store::Store::open(Path::new(path), false, false)?;
         catabolic_store::query::CatalogQuery::new(&store, profile)?.execute(entity, &request)
-    })())
+    }))
 }
 #[pyfunction]
 #[pyo3(signature=(path,document,profile="default",variables="{}",operation_name=None,timeout_ms=5000))]
 fn execute_graphql(
+    py: Python<'_>,
     path: &str,
     document: &str,
     profile: &str,
@@ -98,14 +115,16 @@ fn execute_graphql(
 ) -> PyResult<String> {
     let variables =
         serde_json::from_str(variables).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-    result(catabolic_store::graphql::execute(
-        Path::new(path),
-        document,
-        profile,
-        variables,
-        operation_name,
-        timeout_ms,
-    ))
+    result(py.detach(|| {
+        catabolic_store::graphql::execute(
+            Path::new(path),
+            document,
+            profile,
+            variables,
+            operation_name,
+            timeout_ms,
+        )
+    }))
 }
 
 #[pyfunction]

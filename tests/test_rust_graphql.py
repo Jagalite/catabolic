@@ -188,3 +188,74 @@ class NativeGraphQLTest(unittest.TestCase):
             "{profile} fragment A on Query {...A}",
         ):
             self.assertEqual(self.query(document), reference_query(self.path, document))
+
+    def test_populated_definitions_jobs_and_projection_pages(self):
+        from catabolic.app import Application
+        from catabolic.layouts import PRESETS, Layouts
+        from catabolic.operations import Operations
+        from catabolic.processing import Processing
+        from catabolic.projections import Projections
+        from catabolic.saved_queries import Queries
+        from catabolic.store import Store
+
+        with Store(self.path, writable=True) as store:
+            app = Application(store)
+            queries = Queries(store)
+            saved = queries.put(
+                "album-query",
+                {
+                    "selection": {
+                        "language": "sql",
+                        "query": "SELECT id AS item_id FROM items",
+                    }
+                },
+            )
+            queries.put(
+                "large-query",
+                {
+                    "selection": {
+                        "language": "sql",
+                        "query": "SELECT id AS item_id FROM items /*"
+                        + "x" * 9000
+                        + "*/",
+                    }
+                },
+            )
+            Layouts(app).put("flat", PRESETS["flat"])
+            Projections(app).put("global", saved["id"], "flat")
+            operation = Operations(app).put(
+                "probe-test", {"kind": "analysis", "operation": "probe"}
+            )
+            file_id = store.rows("SELECT id FROM files ORDER BY id LIMIT 1")[0]["id"]
+            queued = Processing(app).enqueue(
+                "probe", file_ids=[file_id], recipe_id=operation["id"]
+            )
+            self.assertFalse(queued["errors"])
+        document = """{ savedQueries(first:1){nodes pageInfo{hasNextPage endCursor}}
+            operations{nodes pageInfo{hasNextPage endCursor}} recipes{nodes pageInfo{hasNextPage endCursor}}
+            jobs{nodes pageInfo{hasNextPage endCursor}} projections{nodes pageInfo{hasNextPage endCursor}}
+            projection(catalog:"global") }"""
+        expected = reference_query(self.path, document)
+        self.maxDiff = None
+        self.assertEqual(self.query(document), expected)
+        cursor = expected["data"]["savedQueries"]["pageInfo"]["endCursor"]
+        document = "query($after:String){savedQueries(first:1,after:$after){nodes pageInfo{hasNextPage endCursor}}}"
+        self.assertEqual(
+            self.query(document, variables={"after": cursor}),
+            reference_query(self.path, document, variables={"after": cursor}),
+        )
+
+    def test_typo_suggestions_and_selected_operation_variables(self):
+        for document, options in [
+            ("{taggings{nodes{tag}}}", {}),
+            ("{items{nodes{titel}}}", {}),
+            (
+                "query A($n:Int!){items(first:$n){nodes{id}}} query B{profile}",
+                {"variables": {"n": "bad"}, "operation_name": "B"},
+            ),
+            ("query($n:Int!){items(first:$n){nodes{id}}}", {"variables": {"n": 1.0}}),
+        ]:
+            self.assertEqual(
+                self.query(document, **options),
+                reference_query(self.path, document, **options),
+            )

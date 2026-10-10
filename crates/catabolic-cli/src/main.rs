@@ -108,6 +108,9 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         [command, value] if command == "encode" => {
             Ok(json!({"encoded":catabolic_core::encode(&serde_json::from_str::<Value>(value)?)}))
         }
+        [command, _entity] if command == "catalog" && http => Err(Error(
+            "catalog HTTP evaluation requires authorization context".into(),
+        )),
         [command, entity] if command == "catalog" => {
             let store = catabolic_store::Store::open(&path, false, false)?;
             catabolic_store::query::CatalogQuery::new(&store, &profile)?
