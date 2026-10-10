@@ -6,6 +6,7 @@
 import argparse
 import json
 import sys
+import unicodedata
 from pathlib import Path
 
 if __package__ in (None, ""):
@@ -60,6 +61,19 @@ def main():
             },
             ensure_ascii=False,
             indent=2,
+        )
+        + "\n"
+    ).encode()
+    ranges = []
+    for code in range(0x110000):
+        if unicodedata.category(chr(code)).startswith("C"):
+            if ranges and ranges[-1][1] + 1 == code:
+                ranges[-1][1] = code
+            else:
+                ranges.append([code, code])
+    generated["unicode-other.json"] = (
+        json.dumps(
+            {"unicode_version": unicodedata.unidata_version, "ranges": ranges}, indent=2
         )
         + "\n"
     ).encode()

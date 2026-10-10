@@ -205,10 +205,7 @@ impl<'a> CatalogQuery<'a> {
         let name = value.as_str().ok_or_else(|| {
             Error("tag name must be text without control characters, at most 255 characters".into())
         })?;
-        if name.trim().is_empty()
-            || name.chars().count() > 255
-            || name.chars().any(char::is_control)
-        {
+        if name.trim().is_empty() || name.chars().count() > 255 || name.chars().any(unicode_other) {
             return Err(Error(
                 "tag name must be text without control characters, at most 255 characters".into(),
             ));
@@ -226,6 +223,11 @@ impl<'a> CatalogQuery<'a> {
                 return Err(Error("namespaced tags require namespace:value; namespace uses letters, digits, dots, underscores or hyphens".into()));
             }
             normalized = format!("{namespace}:{label}");
+        }
+        if normalized.chars().count() > 255 || normalized.chars().any(unicode_other) {
+            return Err(Error(
+                "tag name must be text without control characters, at most 255 characters".into(),
+            ));
         }
         let id = self
             .store
@@ -913,4 +915,16 @@ pub fn name(value: &str) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+fn unicode_other(character: char) -> bool {
+    static RANGES: std::sync::OnceLock<Vec<[u32; 2]>> = std::sync::OnceLock::new();
+    let ranges = RANGES.get_or_init(|| {
+        let value: Value = serde_json::from_str(include_str!("../resources/unicode-other.json"))
+            .expect("frozen Unicode categories");
+        serde_json::from_value(value["ranges"].clone()).expect("ordered Unicode ranges")
+    });
+    let code = u32::from(character);
+    let index = ranges.partition_point(|range| range[1] < code);
+    ranges.get(index).is_some_and(|range| range[0] <= code)
 }

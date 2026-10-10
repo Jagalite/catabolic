@@ -65,3 +65,20 @@ class NativeTagQueryTest(unittest.TestCase):
         document = '{ tags(first:2) { nodes { id name aliases description parentIds } pageInfo { hasNextPage endCursor } } taggings { nodes { id subjectType subjectId active confidence source note tagId tagName } } item(id:"movie") { id taggings { nodes { id tagId tagName } } } }'
         expected = json.loads(json.dumps(execute_graphql(self.path, document)))
         self.assertEqual(self.native("graphql", document), expected)
+
+    def test_tag_filter_rejects_unicode_other_and_expanded_names(self):
+        from catabolic.domain import CatabolicError
+
+        for tag in ("zero\u200bwidth", "private\ue000", "unassigned\u0378", "ß" * 255):
+            with Store(self.path) as store, self.assertRaises(CatabolicError) as error:
+                Application(store).queries.items(tags=[tag])
+            self.assertEqual(
+                self.native(
+                    "catalog",
+                    "items",
+                    "--options",
+                    json.dumps({"tags": [tag]}),
+                    ok=False,
+                ),
+                "catabolic: " + str(error.exception),
+            )
