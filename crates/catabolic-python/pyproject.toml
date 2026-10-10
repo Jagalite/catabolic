@@ -1,0 +1,14 @@
+[build-system]
+requires = ["maturin==1.13.1"]
+build-backend = "maturin"
+
+[project]
+name = "catabolic-native"
+version = "0.2.0"
+requires-python = ">=3.11"
+description = "Opt-in native storage and query engine for Catabolic's Rust migration"
+
+[tool.maturin]
+python-source = "python"
+module-name = "catabolic_native._native"
+features = ["pyo3/extension-module"]

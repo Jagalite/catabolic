@@ -9,7 +9,7 @@
 
 All new crate names, harness commands, budgets, milestones, and architecture below are proposed. Existing paths are identified separately. A current-source reference identifies observed behavior, not proof that the behavior is correct under every environment.
 
-**Implementation status:** M0 is in progress. See [the reference-freeze work log](RUST_MIGRATION_M0.md) for the reference receipts, reviewed scope ledger, fixture captures, and remaining acceptance gates. M1 has not started.
+**Implementation status:** M0 is in progress. See [the reference-freeze work log](RUST_MIGRATION_M0.md) for the reference receipts, reviewed scope ledger, fixture captures, and remaining acceptance gates. M1–M3 implementation is in progress; see [the native implementation checkpoints](RUST_MIGRATION_NATIVE.md). No milestone exit gate is yet declared complete.
 
 ## 1. Executive decision
 

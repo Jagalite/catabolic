@@ -1,0 +1,33 @@
+[workspace]
+members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli", "crates/catabolic-python"]
+default-members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli"]
+resolver = "3"
+
+[workspace.package]
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.99"
+license = "MIT"
+
+[workspace.dependencies]
+catabolic-core = { path = "crates/catabolic-core" }
+catabolic-store = { path = "crates/catabolic-store" }
+serde_json = { version = "=1.0.151", features = ["float_roundtrip"] }
+rusqlite = { version = "=0.40.2", features = ["bundled", "backup", "functions", "hooks", "limits"] }
+sha2 = "=0.10.9"
+uuid = { version = "=1.27.0", features = ["v4", "v5"] }
+tempfile = "=3.27.0"
+libc = "=0.2.183"
+pyo3 = { version = "=0.29.3", features = ["abi3-py311", "extension-module"] }
+base64 = "=0.22.1"
+unicode-normalization = "=0.1.25"
+async-graphql = { version = "=7.2.1", default-features = false, features = ["dynamic-schema"] }
+async-graphql-parser = "=7.2.1"
+futures = "=0.3.34"
+async-trait = "=0.1.92"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+undocumented_unsafe_blocks = "deny"
