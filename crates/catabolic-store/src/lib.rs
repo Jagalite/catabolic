@@ -1,6 +1,8 @@
 //! Owns Catabolic's SQLite lifecycle. Opening never creates or upgrades a catalog.
 mod components;
+mod document;
 pub mod graphql;
+mod introspection;
 pub mod layout;
 pub mod migration;
 mod publication;

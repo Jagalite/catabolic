@@ -113,6 +113,9 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             catabolic_store::query::CatalogQuery::new(&store, &profile)?
                 .execute(entity, &serde_json::from_str(&options)?)
         }
+        [command, _document] if command == "graphql" && http => Err(Error(
+            "GraphQL HTTP evaluation requires authorization context".into(),
+        )),
         [command, document] if command == "graphql" => catabolic_store::graphql::execute(
             &path,
             document,
@@ -150,10 +153,19 @@ fn main() {
     if args == ["--stdio"] {
         use std::io::{BufRead, Write};
         for line in std::io::stdin().lock().lines() {
+            use catabolic_core::lifecycle::{Effect, Input, State, reduce};
+            let (request, _) = reduce(&State::default(), &Input::Attach(0));
             let result = line
                 .map_err(Error::from)
                 .and_then(|line| serde_json::from_str::<Vec<String>>(&line).map_err(Error::from))
                 .and_then(run);
+            let (_, effects) = reduce(&request, &Input::Complete(request.generation));
+            if !effects.contains(&Effect::Deliver {
+                caller: 0,
+                generation: request.generation,
+            }) {
+                break;
+            }
             let reply = match result {
                 Ok(value) => json!({"status":0,"result":value}),
                 Err(error) => json!({"status":2,"error":format!("catabolic: {error}")}),

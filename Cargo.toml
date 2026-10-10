@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli", "crates/catabolic-python"]
+members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli", "crates/catabolic-python", "crates/catabolic-verification"]
 default-members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli"]
 resolver = "3"
 
@@ -12,6 +12,7 @@ license = "MIT"
 [workspace.dependencies]
 catabolic-core = { path = "crates/catabolic-core" }
 catabolic-store = { path = "crates/catabolic-store" }
+serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["float_roundtrip"] }
 rusqlite = { version = "=0.40.2", features = ["bundled", "backup", "functions", "hooks", "limits"] }
 sha2 = "=0.10.9"

@@ -35,6 +35,9 @@ impl async_graphql::extensions::Extension for Budget {
         info: async_graphql::extensions::ResolveInfo<'_>,
         next: async_graphql::extensions::NextResolve<'_>,
     ) -> async_graphql::ServerResult<Option<GValue>> {
+        if info.parent_type.starts_with("__") || ["__schema", "__type"].contains(&info.name) {
+            return next.run(ctx, info).await;
+        }
         let state = ctx
             .data::<Arc<Mutex<Context>>>()
             .map_err(|e| e.into_server_error(async_graphql::Pos::default()))?;
@@ -506,7 +509,11 @@ impl Context {
                             } else {
                                 format!("a.{column}=?")
                             });
-                            values.push(scalar(&args[key])?);
+                            values.push(scalar(&if key == "language" {
+                                crate::components::language(&args[key])
+                            } else {
+                                args[key].clone()
+                            })?);
                         }
                     }
                     let mut filtered = args.clone();
@@ -993,20 +1000,35 @@ fn build_schema() -> Result<Schema> {
                     for (key, v) in ctx.args.iter() {
                         args.insert(key.to_string(), serde_json::to_value(v.as_value())?);
                     }
-                    let result = state
-                        .resolve(&parent, &name, &source, &Value::Object(args))
-                        .map_err(|e| {
-                            async_graphql::Error::new(e.to_string()).extend_with(|_, extensions| {
-                                extensions.set(
-                                    "code",
-                                    if state.aborted.is_some() || Instant::now() > state.deadline {
-                                        "LIMIT_EXCEEDED"
-                                    } else {
-                                        "QUERY_ERROR"
-                                    },
+                    let result =
+                        match state.resolve(&parent, &name, &source, &Value::Object(args)) {
+                            Ok(result) => result,
+                            Err(error) => {
+                                let error = async_graphql::Error::new(error.to_string())
+                                    .extend_with(|_, extensions| {
+                                        extensions.set(
+                                            "code",
+                                            if state.aborted.is_some()
+                                                || Instant::now() > state.deadline
+                                            {
+                                                "LIMIT_EXCEEDED"
+                                            } else {
+                                                "QUERY_ERROR"
+                                            },
+                                        )
+                                    });
+                                if !ty.nullable {
+                                    return Err(error);
+                                }
+                                ctx.add_error(
+                                    ctx.set_error_path(error.into_server_error(ctx.item.pos)),
                                 );
-                            })
-                        })?;
+                                return Ok(None);
+                            }
+                        };
+                    if result.is_null() {
+                        return Ok(None);
+                    }
                     Ok(Some(output(result, &ty, &enums, &objects)?))
                 })
             });
@@ -1103,6 +1125,99 @@ fn check_document(document: &async_graphql_parser::types::ExecutableDocument) ->
     }
     Ok(())
 }
+fn scalar_variable_errors(
+    ast: &async_graphql_parser::types::ExecutableDocument,
+    variables: &Value,
+) -> Vec<Value> {
+    let mut errors = vec![];
+    for (_, operation) in ast.operations.iter() {
+        for definition in &operation.node.variable_definitions {
+            let name = definition.node.name.node.as_str();
+            let ty = &definition.node.var_type.node;
+            let Some(value) = variables.get(name) else {
+                continue;
+            };
+            let prefix = format!(
+                "Variable '${name}' got invalid value {}",
+                python_value(value)
+            );
+            let reason = if value.is_null() && !ty.nullable {
+                Some(format!(
+                    "Variable '${name}' of non-null type '{ty}' must not be null."
+                ))
+            } else if value.is_null() {
+                None
+            } else if let BaseType::Named(type_name) = &ty.base {
+                let invalid = match type_name.as_str() {
+                    "Int" if value.as_i64().is_none() => Some(format!(
+                        "Int cannot represent non-integer value: {}",
+                        python_value(value)
+                    )),
+                    "Int" if value.as_i64().is_some_and(|v| i32::try_from(v).is_err()) => {
+                        Some(format!(
+                            "Int cannot represent non 32-bit signed integer value: {}",
+                            python_value(value)
+                        ))
+                    }
+                    "String" if !value.is_string() => Some(format!(
+                        "String cannot represent a non string value: {}",
+                        python_value(value)
+                    )),
+                    "Boolean" if !value.is_boolean() => Some(format!(
+                        "Boolean cannot represent a non boolean value: {}",
+                        python_value(value)
+                    )),
+                    "Float" if !value.is_number() => Some(format!(
+                        "Float cannot represent non numeric value: {}",
+                        python_value(value)
+                    )),
+                    "ID" if !value.is_string() && !value.is_i64() && !value.is_u64() => Some(
+                        format!("ID cannot represent value: {}", python_value(value)),
+                    ),
+                    _ => None,
+                };
+                invalid.map(|reason| format!("{prefix}; {reason}"))
+            } else {
+                None
+            };
+            if let Some(message) = reason {
+                errors.push(json!({"message":message,"locations":[{"line":definition.pos.line,"column":definition.pos.column}]}));
+            }
+        }
+    }
+    errors
+}
+fn python_value(value: &Value) -> String {
+    match value {
+        Value::String(text) => {
+            let quote = if text.contains('\'') && !text.contains('"') {
+                '"'
+            } else {
+                '\''
+            };
+            let mut out = quote.to_string();
+            for c in text.chars() {
+                match c {
+                    '\\' => out.push_str("\\\\"),
+                    '\n' => out.push_str("\\n"),
+                    '\r' => out.push_str("\\r"),
+                    '\t' => out.push_str("\\t"),
+                    c if c == quote => {
+                        out.push('\\');
+                        out.push(c);
+                    }
+                    c => out.push(c),
+                }
+            }
+            out.push(quote);
+            out
+        }
+        Value::Null => "None".into(),
+        Value::Bool(true) => "True".into(),
+        Value::Bool(false) => "False".into(),
+        _ => encode(value),
+    }
+}
 pub fn execute(
     path: &Path,
     document: &str,
@@ -1144,6 +1259,9 @@ pub fn execute_store(
         return Err(Error("variables exceed input budget".into()));
     }
     CatalogQuery::new(&store, profile)?;
+    if let Some(error) = crate::document::token_limit(document, 4000) {
+        return Ok((store, error));
+    }
     let ast = match parse_query(document) {
         Ok(ast) => ast,
         Err(error) => {
@@ -1171,25 +1289,122 @@ pub fn execute_store(
         bytes: 0,
         aborted: None,
     }));
+    let mut coerced_variables = variables.clone();
+    for (_, op) in ast.operations.iter() {
+        for definition in &op.node.variable_definitions {
+            let key = definition.node.name.node.as_str();
+            if let BaseType::Named(name) = &definition.node.var_type.node.base
+                && let Some(value) = variables[key]
+                    .as_f64()
+                    .filter(|v| v.is_finite() && v.fract() == 0.0)
+                {
+                    if name == "Int" && (f64::from(i32::MIN)..=f64::from(i32::MAX)).contains(&value)
+                    {
+                        coerced_variables[key] = json!(value as i32);
+                    }
+                    if name == "ID" && variables[key].is_number() {
+                        coerced_variables[key] = json!(
+                            variables[key]
+                                .as_i64()
+                                .map(|v| v.to_string())
+                                .or_else(|| variables[key].as_u64().map(|v| v.to_string()))
+                                .unwrap_or_else(|| format!("{value:.0}"))
+                        );
+                    }
+                }
+        }
+    }
     let mut request = Request::new(document)
-        .variables(Variables::from_json(variables))
+        .variables(Variables::from_json(coerced_variables))
         .data(state.clone());
     if let Some(operation) = operation {
         request = request.operation_name(operation);
     }
     let response = futures::executor::block_on(schema()?.execute(request));
     let mut result = serde_json::to_value(response)?;
+    let mut coercion_error = false;
+    if result["errors"].as_array().is_some_and(|errors| {
+        errors.iter().all(|error| {
+            error["message"]
+                .as_str()
+                .is_some_and(|message| message.starts_with("Invalid value for argument "))
+        })
+    }) {
+        let errors = scalar_variable_errors(&ast, &variables);
+        if !errors.is_empty() {
+            result["errors"] = json!(errors);
+            coercion_error = true;
+        }
+    }
+
+    if let Some(errors) = result.get_mut("errors").and_then(Value::as_array_mut) {
+        for error in errors {
+            let message = error["message"].as_str().unwrap_or("").to_owned();
+            if message.starts_with("Unknown field ") {
+                let words = message.split('"').collect::<Vec<_>>();
+                if words.len() == 5 {
+                    error["message"] = json!(format!(
+                        "Cannot query field '{}' on type '{}'.",
+                        words[1], words[3]
+                    ));
+                }
+            }
+            if let Some(name) = message
+                .strip_prefix("Variable ")
+                .and_then(|m| m.strip_suffix(" is not defined."))
+            {
+                for (_, operation) in ast.operations.iter() {
+                    if let Some(definition) = operation
+                        .node
+                        .variable_definitions
+                        .iter()
+                        .find(|v| v.node.name.node.as_str() == name)
+                    {
+                        error["message"] = json!(format!(
+                            "Variable '${name}' of required type '{}' was not provided.",
+                            definition.node.var_type.node
+                        ));
+                        error["locations"] =
+                            json!([{"line":definition.pos.line,"column":definition.pos.column}]);
+                        coercion_error = true;
+                    }
+                }
+            }
+        }
+    }
+
     let state_handle = state;
-    let state = state_handle
+    let mut state = state_handle
         .lock()
         .map_err(|_| Error("query context poisoned".into()))?;
     let result = (|| -> Result<Value> {
+        let introspection =
+            crate::introspection::apply(&ast, operation, &variables, &mut result, &mut |value| {
+                state.fields += 1;
+                if state.fields > 20000 {
+                    state.aborted = Some("query field budget exceeded".into());
+                }
+                if let Some(list) = value.as_array() {
+                    state.records(list.len())?;
+                } else if value.is_string() {
+                    state.charge(value)?;
+                } else {
+                    state.check()?;
+                }
+                Ok(())
+            });
+        if let Err(error) = introspection
+            && state.aborted.is_none()
+        {
+            return Err(error);
+        }
+
         if state.aborted.is_some() || Instant::now() > state.deadline {
             return Ok(
                 json!({"data":null,"errors":[{"message":state.aborted.as_deref().unwrap_or("query execution deadline exceeded"),"extensions":{"code":"LIMIT_EXCEEDED"}}]}),
             );
         }
-        if state.fields > 0 {
+        if state.fields > 0 || coercion_error {
             result["extensions"] =
                 json!({"interfaceVersion":1,"profile":profile,"records":state.nodes});
         }

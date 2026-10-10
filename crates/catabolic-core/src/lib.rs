@@ -1,4 +1,5 @@
 //! Values and deterministic codecs shared by every Catabolic interface.
+pub mod lifecycle;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 

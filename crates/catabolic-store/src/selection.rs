@@ -32,6 +32,7 @@ pub struct Evaluation {
     maximum: usize,
     count: usize,
     nodes: usize,
+    result_bytes: usize,
     cache: BTreeMap<String, Selected>,
 }
 impl Evaluation {
@@ -51,6 +52,7 @@ impl Evaluation {
             maximum,
             count: 0,
             nodes: 0,
+            result_bytes: 0,
             cache: BTreeMap::new(),
         })
     }
@@ -93,7 +95,23 @@ impl Evaluation {
     pub fn select(&mut self, selection: &Value) -> Result<Selected> {
         validate(selection)?;
         if let Some(id) = selection["query_id"].as_str() {
-            return self.saved_select(id, &[]);
+            let profile = selection["profile"]
+                .as_str()
+                .unwrap_or("default")
+                .to_owned();
+            let previous = std::mem::replace(&mut self.profile, profile);
+            let result = (|| {
+                let definition = self.get(id)?["definition"].clone();
+                self.root_budget(&definition);
+                let cached = self.cache.contains_key(id);
+                let selected = self.saved_select(id, &[])?;
+                if !cached {
+                    self.account(&selected)?;
+                }
+                Ok(selected)
+            })();
+            self.profile = previous;
+            return result;
         }
         let profile = selection["profile"].as_str().unwrap_or("default");
         let language = selection["language"].as_str().unwrap();
@@ -384,17 +402,38 @@ impl Evaluation {
         self.cache.insert(id.into(), result.clone());
         Ok(result)
     }
+    fn account(&mut self, result: &Selected) -> Result<()> {
+        self.result_bytes += encode(&json!([result.entity, result.ids, result.report])).len();
+        if self.result_bytes > 4 * 1024 * 1024 {
+            return Err(Error("evaluation_result_byte_budget".into()));
+        }
+        Ok(())
+    }
+    fn root_budget(&mut self, definition: &Value) {
+        self.deadline = self.deadline.min(
+            Instant::now()
+                + Duration::from_millis(definition["timeout_ms"].as_u64().unwrap_or(5000)),
+        );
+        self.maximum = self
+            .maximum
+            .min(definition["max_ids"].as_u64().unwrap_or(10000) as usize);
+    }
     pub fn run(&mut self, id: &str, limit: usize) -> Result<Value> {
         if !(1..=1000).contains(&limit) {
             return Err(Error("limit must be between 1 and 1000".into()));
         }
         let definition = self.get(id)?["definition"].clone();
+        self.root_budget(&definition);
         let timeout = definition["timeout_ms"]
             .as_u64()
             .unwrap_or(5000)
             .min(self.remaining("query composition timed out")?);
         if definition["mode"] == "selection" {
+            let cached = self.cache.contains_key(id);
             let result = self.saved_select(id, &[])?;
+            if !cached {
+                self.account(&result)?;
+            }
             let mut report = result.report;
             report["ids"] = json!(result.ids.iter().take(limit).collect::<Vec<_>>());
             report["details_truncated"] = json!(result.ids.len() > limit);

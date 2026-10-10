@@ -152,8 +152,56 @@ class NativeSelectionTest(runner.NativeQueryTest):
                 actual = self.native("select", json.dumps(selection), ok=False)
                 self.assertEqual(actual, "catabolic: " + str(error.exception))
 
+    def test_saved_selection_total_leaf_budget_and_bytes(self):
+        from catabolic.domain import CatabolicError
 
-# Only the four selection tests belong to this module's qualification.
+        with Store(self.path, writable=True) as store:
+            queries = Queries(store)
+            first = queries.put(
+                "leaf",
+                {
+                    "selection": {
+                        "language": "sql",
+                        "query": "SELECT id AS item_id FROM items LIMIT 2",
+                    }
+                },
+            )["id"]
+            second = queries.put(
+                "other",
+                {
+                    "selection": {
+                        "language": "sql",
+                        "query": "SELECT id AS item_id FROM items LIMIT 2",
+                    }
+                },
+            )["id"]
+            combined = queries.put(
+                "bounded",
+                {"combine": "union", "queries": [first, second], "max_ids": 3},
+            )["id"]
+            huge = queries.put(
+                "bytes",
+                {
+                    "selection": {
+                        "language": "sql",
+                        "query": "WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<1024) SELECT printf('%05000d',x) AS item_id FROM n",
+                    }
+                },
+            )["id"]
+        with Store(self.path) as store:
+            for identifier in (combined, huge):
+                with (
+                    self.subTest(identifier=identifier),
+                    self.assertRaises(CatabolicError) as error,
+                ):
+                    Queries(store).run(identifier, limit=1)
+                self.assertEqual(
+                    self.native("saved-query", identifier, "--max-rows", 1, ok=False),
+                    "catabolic: " + str(error.exception),
+                )
+
+
+# Only the selection tests belong to this module's qualification.
 for _name in list(vars(runner.NativeQueryTest)):
     if _name.startswith("test_"):
         setattr(NativeSelectionTest, _name, None)

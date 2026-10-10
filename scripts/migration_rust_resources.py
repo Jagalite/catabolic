@@ -24,6 +24,8 @@ def main():
     inventory = json.loads((root / "tests/parity/inventory.json").read_text())
     verify_source(source, inventory)
     sys.path[:0] = [str(source / "src")]
+    from graphql import build_schema, get_introspection_query, graphql_sync
+
     from catabolic.graphql_query import LOCAL_SDL
     from catabolic.layouts import PRESETS
     from catabolic.media import describe_types
@@ -62,6 +64,24 @@ def main():
         + "\n"
     ).encode()
     generated["schema.graphql"] = LOCAL_SDL.encode()
+    introspection = graphql_sync(
+        build_schema(LOCAL_SDL),
+        get_introspection_query(
+            specified_by_url=True,
+            directive_is_repeatable=True,
+            schema_description=True,
+            input_value_deprecation=True,
+            experimental_directive_deprecation=True,
+            input_object_one_of=True,
+            type_depth=20,
+        ),
+    )
+    if introspection.errors:
+        raise ValueError("failed to capture frozen introspection metadata")
+    generated["introspection.json"] = (
+        json.dumps(introspection.data["__schema"], ensure_ascii=False, indent=2) + "\n"
+    ).encode()
+
     generated["layouts.json"] = (
         json.dumps(PRESETS, ensure_ascii=False, indent=2) + "\n"
     ).encode()

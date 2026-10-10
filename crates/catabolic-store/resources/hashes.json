@@ -33,5 +33,6 @@
   "migrations/032_http_query_mappings.sql": "aa924880dcb4b3ca49c23b1694bd1400025837a0acdfe87abffbdbc9c7736238",
   "reference.json": "ec5dca7ac638dfa603e4baabe4db6f5dbe7199e1d90839c50f87dac1aa32e998",
   "schema.graphql": "327de5b35a6aaa087f1956ba4a8fe5eb5f03d0f0797b143c85a0e9cc04b8df89",
+  "introspection.json": "58a9b5274687db95f1aa1709d9f4f103acd4e82dca0df5f6c62efb339aaa32ee",
   "layouts.json": "b1947b95a1831cc8459ef2596ba3e292d4764f1c58b6bab7dca6bc4ab90822f7"
 }

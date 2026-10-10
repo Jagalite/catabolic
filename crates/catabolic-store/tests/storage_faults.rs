@@ -94,3 +94,79 @@ fn committed_wal_is_in_backup_and_edits_after_backup_cancel_upgrade() {
     );
     assert_eq!(migration::validate(&db, true).unwrap()["schema"], 14);
 }
+
+#[test]
+fn sqlite_full_at_actual_upgrade_rolls_back() {
+    let temporary = tempfile::tempdir().unwrap();
+    let path = temporary.path().join("catalog.sqlite3");
+    fs::copy(fixture(14), &path).unwrap();
+    let before = fs::read(&path).unwrap();
+    let result = migration::upgrade(&path, false, None, &|stage, db, _| {
+        if stage == "upgrade:after_rehearsal" {
+            let pages: i64 = db.pragma_query_value(None, "page_count", |r| r.get(0))?;
+            db.pragma_update(None, "max_page_count", pages)?;
+        }
+        Ok(())
+    });
+    assert!(result.unwrap_err().0.contains("full"));
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert_eq!(migration::inspect(&path, true).unwrap()["schema"], 14);
+}
+
+#[test]
+fn migration_crash_worker() {
+    let Ok(path) = std::env::var("CATABOLIC_TEST_CRASH_DATABASE") else {
+        return;
+    };
+    let target = std::env::var("CATABOLIC_TEST_CRASH_STAGE").unwrap();
+    let version: u32 = std::env::var("CATABOLIC_TEST_CRASH_VERSION")
+        .unwrap()
+        .parse()
+        .unwrap();
+    migration::upgrade(std::path::Path::new(&path), false, None, &|stage, _, at| {
+        if stage == target && at == version {
+            std::process::exit(86);
+        }
+        Ok(())
+    })
+    .unwrap();
+    panic!("crash checkpoint was not reached");
+}
+
+#[test]
+fn process_exit_is_atomic_before_and_after_commit() {
+    for role in ["rehearsal", "upgrade"] {
+        for (stage, version) in [
+            ("after_migration", 2),
+            ("after_migration", 16),
+            ("after_migration", 32),
+            ("before_commit", 32),
+            ("after_commit", 32),
+        ] {
+            let temporary = tempfile::tempdir().unwrap();
+            let path = temporary.path().join("catalog.sqlite3");
+            fs::copy(fixture(1), &path).unwrap();
+            let before = migration::snapshot(&connect(&path, false).unwrap()).unwrap();
+            let status = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "migration_crash_worker", "--nocapture"])
+                .env("CATABOLIC_TEST_CRASH_DATABASE", &path)
+                .env("CATABOLIC_TEST_CRASH_STAGE", format!("{role}:{stage}"))
+                .env("CATABOLIC_TEST_CRASH_VERSION", version.to_string())
+                .status()
+                .unwrap();
+            assert_eq!(status.code(), Some(86), "{role}:{stage}:{version}");
+            let db = connect(&path, true).unwrap(); // writable SQLite recovers the hot rollback journal
+            let info = migration::validate(&db, true).unwrap();
+            let expected = if role == "upgrade" && stage == "after_commit" {
+                32
+            } else {
+                1
+            };
+            assert_eq!(info["schema"], expected);
+            migration::preservation(&db, &before).unwrap();
+            drop(db);
+            migration::upgrade(&path, false, None, &|_, _, _| Ok(())).unwrap();
+            assert_eq!(migration::inspect(&path, true).unwrap()["schema"], 32);
+        }
+    }
+}

@@ -133,3 +133,58 @@ class NativeGraphQLTest(unittest.TestCase):
         )
         document = "{ __schema { mutationType { name } subscriptionType { name } queryType { name } } }"
         self.assertEqual(self.query(document), reference_query(self.path, document))
+
+    def test_full_introspection_contract(self):
+        from graphql import get_introspection_query
+
+        document = get_introspection_query()
+        expected = reference_query(self.path, document)
+        actual = self.query(document)
+        # Retain the first differences as a qualification artifact for diagnosis.
+        from pathlib import Path
+
+        output = (
+            Path(__file__).resolve().parents[1] / ".local-tests/rust-migration/m2-m3"
+        )
+        (output / "introspection-python.json").write_text(
+            json.dumps(expected, indent=2)
+        )
+        (output / "introspection-native.json").write_text(json.dumps(actual, indent=2))
+        self.assertEqual(actual, expected)
+
+    def test_selected_error_contracts(self):
+        cases = [
+            ("{ unknownField }", {}),
+            ("{ items(first:0){nodes{id}} }", {}),
+            ("query($id: ID!) {item(id:$id){id}}", {}),
+            ("{item(id:42){id}}", {}),
+            ("mutation { noop }", {}),
+            (
+                "query($n: Int!) { items(first: $n) { nodes { id } } }",
+                {"variables": {"n": "5"}},
+            ),
+            ('{ files(after: "bogus") { nodes { id } } }', {}),
+            ("{ item { id } }", {}),
+            ('{ item(id: "movie", identity: "x=y") { id } }', {}),
+        ]
+        results = []
+        for document, options in cases:
+            expected = reference_query(self.path, document, **options)
+            actual = self.query(document, **options)
+            results.append({"query": document, "python": expected, "native": actual})
+        from pathlib import Path
+
+        output = (
+            Path(__file__).resolve().parents[1]
+            / ".local-tests/rust-migration/m2-m3/graphql-errors.json"
+        )
+        output.write_text(json.dumps(results, indent=2))
+        for result in results:
+            self.assertEqual(result["native"], result["python"], result["query"])
+
+    def test_token_limit_and_unused_fragment_cycle(self):
+        for document in (
+            "{ " + " ".join(f"a{i}:profile" for i in range(1400)) + " }",
+            "{profile} fragment A on Query {...A}",
+        ):
+            self.assertEqual(self.query(document), reference_query(self.path, document))

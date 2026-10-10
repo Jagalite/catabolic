@@ -1,14 +1,15 @@
 [package]
-name = "catabolic-core"
+name = "catabolic-verification"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
-serde_json.workspace = true
+catabolic-core.workspace = true
 serde.workspace = true
-sha2.workspace = true
+serde_json.workspace = true
+statelessness = "=0.2.0"
 
 [lints]
 workspace = true

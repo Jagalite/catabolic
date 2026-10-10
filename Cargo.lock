@@ -182,6 +182,7 @@ dependencies = [
 name = "catabolic-core"
 version = "0.2.0"
 dependencies = [
+ "serde",
  "serde_json",
  "sha2",
 ]
@@ -214,6 +215,16 @@ dependencies = [
  "tempfile",
  "unicode-normalization",
  "uuid",
+]
+
+[[package]]
+name = "catabolic-verification"
+version = "0.2.0"
+dependencies = [
+ "catabolic-core",
+ "serde",
+ "serde_json",
+ "statelessness",
 ]
 
 [[package]]
@@ -1039,6 +1050,12 @@ dependencies = [
  "psm",
  "windows-sys",
 ]
+
+[[package]]
+name = "statelessness"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a16408c5801d09925958067be17ba149acf0467efcab9285bedb2e59235320f8"
 
 [[package]]
 name = "static_assertions_next"

@@ -4,7 +4,7 @@ use rusqlite::{Connection, functions::FunctionFlags, params, types::Value as Sql
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-fn language(value: &Value) -> Value {
+pub(crate) fn language(value: &Value) -> Value {
     let Some(value) = value.as_str() else {
         return Value::Null;
     };
