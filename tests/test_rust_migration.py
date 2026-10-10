@@ -16,7 +16,11 @@ from catabolic.migration import data_snapshot, inspect_database, upgrade_databas
 from catabolic.store import Store, encode
 
 ROOT = Path(__file__).resolve().parents[1]
-BINARY = ROOT / "target/debug/catabolic-native"
+BINARY = Path(
+    os.environ.get(
+        "CATABOLIC_NATIVE_BINARY", str(ROOT / "target/debug/catabolic-native")
+    )
+)
 FIXTURES = ROOT / ".local-tests/rust-migration/m0-completion/legacy-fixtures"
 
 

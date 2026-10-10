@@ -12,6 +12,8 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from pathlib import Path
 
 import catabolic_native as native
@@ -68,6 +70,32 @@ def main():
             "profile": "default",
             "schemaVersion": 32,
         }
+        ticks = []
+        stop = threading.Event()
+
+        def tick():
+            while not stop.wait(0.001):
+                ticks.append(time.monotonic())
+
+        thread = threading.Thread(target=tick)
+        thread.start()
+        start = time.monotonic()
+        try:
+            native.execute_sql(
+                path,
+                "WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n) SELECT sum(x) FROM n",
+                timeout_ms=100,
+            )
+            raise AssertionError("deadline did not stop recursive query")
+        except RuntimeError as error:
+            assert "timed out" in str(error)
+        finally:
+            end = time.monotonic()
+            stop.set()
+            thread.join()
+        assert any(start + 0.02 < tick < end - 0.02 for tick in ticks), (
+            "native SQL held Python's GIL"
+        )
         assert path.read_bytes() == before
     randomizer = random.Random(453)
     values = [0.0, -0.0, 1.0, 1e-5, 1e-4, 1e16, 5e-324, 1.7976931348623157e308]
