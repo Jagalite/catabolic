@@ -259,3 +259,24 @@ class NativeGraphQLTest(unittest.TestCase):
                 self.query(document, **options),
                 reference_query(self.path, document, **options),
             )
+
+    def test_syntax_literals_and_field_validation_contracts(self):
+        for document in (
+            "{",
+            "query { }",
+            "{profile",
+            '{items(first:"bad"){nodes{id}}}',
+            "{items(sort:BAD){nodes{id}}}",
+            "{profile{id}}",
+            "{items}",
+            "{profile(unknown:1)}",
+            "{items(frst:1){nodes{id}}}",
+            "{items(first:2147483648){nodes{id}}}",
+            "query A{profile} query B{profile}",
+            "{...Nope}",
+            "query($n:Int){items(first:$n){nodes{id}}}",
+        ):
+            with self.subTest(document=document):
+                self.assertEqual(
+                    self.query(document), reference_query(self.path, document)
+                )

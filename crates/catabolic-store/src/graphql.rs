@@ -81,6 +81,7 @@ struct Context {
     fields: usize,
     bytes: usize,
     aborted: Option<String>,
+    undefined: Vec<String>,
 }
 impl Context {
     fn one(
@@ -983,12 +984,25 @@ fn build_schema() -> Result<Schema> {
             let ty = field.ty.node.clone();
             let captured_enums = enums.clone();
             let captured_objects = objects.clone();
+            let captured_defaults: serde_json::Map<String, Value> = field
+                .arguments
+                .iter()
+                .filter_map(|argument| {
+                    argument.node.default_value.as_ref().map(|value| {
+                        (
+                            argument.node.name.node.to_string(),
+                            serde_json::to_value(&value.node).expect("constant input"),
+                        )
+                    })
+                })
+                .collect();
             let mut dynamic = Field::new(name, type_ref(&ty), move |ctx| {
                 let parent = parent.clone();
                 let name = field_name.clone();
                 let ty = ty.clone();
                 let enums = captured_enums.clone();
                 let objects = captured_objects.clone();
+                let defaults = captured_defaults.clone();
                 FieldFuture::new(async move {
                     let state = ctx.data::<Arc<Mutex<Context>>>()?;
                     let mut state = state
@@ -1001,6 +1015,15 @@ fn build_schema() -> Result<Schema> {
                         .unwrap_or(Value::Null);
                     let mut args = serde_json::Map::new();
                     for (key, v) in ctx.args.iter() {
+                        if let Some(argument) = ctx.item.node.get_argument(key.as_str())
+                            && let async_graphql_value::Value::Variable(variable) = &argument.node
+                            && state.undefined.iter().any(|name| name == variable.as_str())
+                        {
+                            if let Some(default) = defaults.get(key.as_str()) {
+                                args.insert(key.to_string(), default.clone());
+                            }
+                            continue;
+                        }
                         args.insert(key.to_string(), serde_json::to_value(v.as_value())?);
                     }
                     let result =
@@ -1272,10 +1295,7 @@ pub fn execute_store(
     let ast = match parse_query(document) {
         Ok(ast) => ast,
         Err(error) => {
-            return Ok((
-                store,
-                json!({"data":null,"errors":[{"message":error.to_string()}]}),
-            ));
+            return Ok((store, crate::validation::parse_error(document, &error)));
         }
     };
     if let Err(error) = check_document(&ast) {
@@ -1283,6 +1303,9 @@ pub fn execute_store(
             store,
             json!({"data":null,"errors":[{"message":error.to_string()}]}),
         ));
+    }
+    if let Some(error) = crate::validation::validate(&ast) {
+        return Ok((store, error));
     }
     let query_only: bool = store
         .db
@@ -1299,6 +1322,20 @@ pub fn execute_store(
         fields: 0,
         bytes: 0,
         aborted: None,
+        undefined: ast
+            .operations
+            .iter()
+            .filter(|(name, _)| {
+                operation.is_none_or(|selected| name.is_none_or(|name| name.as_str() == selected))
+            })
+            .flat_map(|(_, op)| op.node.variable_definitions.iter())
+            .filter(|v| {
+                v.node.var_type.node.nullable
+                    && v.node.default_value.is_none()
+                    && variables.get(v.node.name.node.as_str()).is_none()
+            })
+            .map(|v| v.node.name.node.to_string())
+            .collect(),
     }));
     let mut coerced_variables = variables.clone();
     for (_, op) in ast.operations.iter() {
@@ -1330,9 +1367,15 @@ pub fn execute_store(
     if let Some(operation) = operation {
         request = request.operation_name(operation);
     }
+    request.set_parsed_query(ast.clone());
     let response = futures::executor::block_on(schema()?.execute(request));
     let mut result = serde_json::to_value(response)?;
     let mut coercion_error = false;
+    if result["errors"][0]["message"] == "Operation name required in request." {
+        result["errors"][0]["message"] =
+            json!("Must provide operation name if query contains multiple operations.");
+        coercion_error = true;
+    }
     if result["errors"].as_array().is_some_and(|errors| {
         errors.iter().all(|error| {
             error["message"]

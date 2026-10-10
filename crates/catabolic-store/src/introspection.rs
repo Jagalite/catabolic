@@ -5,7 +5,7 @@ use async_graphql_parser::types::{ExecutableDocument, Field, Selection, Selectio
 use async_graphql_value::Value as Input;
 use serde_json::{Value, json};
 use std::sync::OnceLock;
-fn schema() -> &'static Value {
+pub(crate) fn schema() -> &'static Value {
     static SCHEMA: OnceLock<Value> = OnceLock::new();
     SCHEMA.get_or_init(|| {
         serde_json::from_str(include_str!("../resources/introspection.json"))
@@ -262,16 +262,28 @@ pub fn apply(
 
 /// graphql-core's bounded lexical suggestions, independent of framework wording.
 pub(crate) fn field_suggestions(typename: &str, input: &str) -> String {
+    suggestions(
+        schema()["types"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|ty| ty["name"] == typename)
+            .and_then(|ty| {
+                ty["fields"]
+                    .as_array()
+                    .or_else(|| ty["enumValues"].as_array())
+            }),
+        input,
+    )
+}
+pub(crate) fn argument_suggestions(arguments: &Value, input: &str) -> String {
+    suggestions(arguments.as_array(), input)
+}
+fn suggestions(fields: Option<&Vec<Value>>, input: &str) -> String {
     let threshold = input.chars().count() * 2 / 5 + 1;
     let lower: Vec<char> = input.to_lowercase().chars().collect();
     let mut candidates = vec![];
-    if let Some(fields) = schema()["types"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|ty| ty["name"] == typename)
-        .and_then(|ty| ty["fields"].as_array())
-    {
+    if let Some(fields) = fields {
         for field in fields {
             let name = field["name"].as_str().unwrap();
             let other: Vec<char> = name.to_lowercase().chars().collect();

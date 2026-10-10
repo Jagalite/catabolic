@@ -10,6 +10,7 @@ pub mod query;
 pub mod selection;
 mod source;
 pub mod sql;
+mod validation;
 
 use rusqlite::{Connection, OpenFlags};
 use std::fs::{File, OpenOptions};

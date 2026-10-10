@@ -36,7 +36,8 @@ impl Model for Adapter {
                 sha256(
                     [
                         include_bytes!("../../catabolic-core/src/lifecycle.rs").as_slice(),
-                        include_bytes!("main.rs").as_slice()
+                        include_bytes!("main.rs").as_slice(),
+                        include_bytes!("../../../Cargo.lock").as_slice()
                     ]
                     .concat()
                 ),
