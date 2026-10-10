@@ -119,6 +119,7 @@ def main():
         "canonical_float_samples": len(values),
         "same_use_case": "read-only SQL profile discovery",
         "immutable_database": True,
+        "gil_released": True,
         "passed": True,
     }
     args.receipt.write_text(json.dumps(receipt, indent=2) + "\n")

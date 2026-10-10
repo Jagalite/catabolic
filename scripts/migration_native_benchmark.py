@@ -61,6 +61,12 @@ def main():
                 ),
             ]:
                 expected = json.loads(json.dumps(oracle(path, document)))
+                worker.stdin.write(
+                    json.dumps(["--db", str(path), kind, document]) + "\n"
+                )
+                worker.stdin.flush()
+                warmup = json.loads(worker.stdout.readline())
+                assert warmup["status"] == 0 and warmup["result"] == expected, warmup
                 samples = {"python": [], "native": []}
                 for _ in range(7):
                     start = time.perf_counter()
@@ -83,7 +89,9 @@ def main():
                         "operation": kind,
                         "seconds": samples,
                         "median_seconds": medians,
-                    "p95_seconds": {key: max(values) for key, values in samples.items()},
+                        "p95_seconds": {
+                            key: max(values) for key, values in samples.items()
+                        },
                         "native_over_python": medians["native"] / medians["python"],
                     }
                 )
@@ -100,6 +108,10 @@ def main():
                 "python": platform.python_version(),
                 "binary_sha256": hashlib.sha256(args.binary.read_bytes()).hexdigest(),
                 "items": 10000,
+                "warmup": "One untimed oracle and native request for each operation; OS caches uncontrolled",
+                "benchmark_script_sha256": hashlib.sha256(
+                    Path(__file__).read_bytes()
+                ).hexdigest(),
                 "samples": 7,
                 "database_unchanged": True,
                 "results": reports,

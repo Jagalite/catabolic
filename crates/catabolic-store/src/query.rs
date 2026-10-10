@@ -293,26 +293,44 @@ impl<'a> CatalogQuery<'a> {
     }
     pub fn decorate_items(&self, records: &mut [Value]) -> Result<()> {
         let summary = view_sql("catalog_item_workflow");
-        for row in records {
-            decode(row, &["metadata"])?;
-            let id = scalar(&row["id"])?;
-            row["identities"] = json!(rows(
+        for batch in records.chunks_mut(400) {
+            let ids: Vec<SqlValue> = batch
+                .iter()
+                .map(|row| scalar(&row["id"]))
+                .collect::<Result<_>>()?;
+            let placeholders = vec!["?"; ids.len()].join(",");
+            let mut identities = std::collections::BTreeMap::<String, Vec<Value>>::new();
+            for mut identity in rows(
                 &self.store.db,
-                "SELECT namespace,value FROM identities WHERE item_id=? ORDER BY namespace,value",
-                std::slice::from_ref(&id)
-            )?);
-            let mut workflow = rows(
-                &self.store.db,
-                &format!("SELECT * FROM ({summary}) WHERE profile=? AND item_id=?"),
-                &[SqlValue::Text(self.profile.into()), id],
-            )?
-            .into_iter()
-            .next()
-            .unwrap_or(Value::Null);
-            if let Some(o) = workflow.as_object_mut() {
-                o.remove("item_id");
+                &format!(
+                    "SELECT item_id,namespace,value FROM identities WHERE item_id IN ({placeholders}) ORDER BY item_id,namespace,value"
+                ),
+                &ids,
+            )? {
+                let key = identity["item_id"].as_str().unwrap().to_string();
+                identity.as_object_mut().unwrap().remove("item_id");
+                identities.entry(key).or_default().push(identity);
             }
-            row["workflow"] = workflow;
+            let mut parameters = vec![SqlValue::Text(self.profile.into())];
+            parameters.extend(ids);
+            let mut workflows = std::collections::BTreeMap::new();
+            for mut workflow in rows(
+                &self.store.db,
+                &format!(
+                    "SELECT * FROM ({summary}) WHERE profile=? AND item_id IN ({placeholders})"
+                ),
+                &parameters,
+            )? {
+                let key = workflow["item_id"].as_str().unwrap().to_string();
+                workflow.as_object_mut().unwrap().remove("item_id");
+                workflows.insert(key, workflow);
+            }
+            for row in batch {
+                decode(row, &["metadata"])?;
+                let key = row["id"].as_str().unwrap().to_string();
+                row["identities"] = json!(identities.remove(&key).unwrap_or_default());
+                row["workflow"] = workflows.remove(&key).unwrap_or(Value::Null);
+            }
         }
         Ok(())
     }

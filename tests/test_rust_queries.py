@@ -216,3 +216,38 @@ class NativeQueryTest(unittest.TestCase):
                 self.assertEqual(
                     actual.removeprefix("catabolic: "), str(error.exception)
                 )
+
+    def test_item_decoration_crosses_batch_boundaries(self):
+        from catabolic.store import encode
+
+        with Store(self.path, writable=True) as store, store.transaction() as db:
+            records = [
+                (
+                    f"bulk-{i:04d}",
+                    "movie",
+                    encode({"title": f"Bulk {i:04d}", "year": 2000 + i % 25}),
+                )
+                for i in range(620)
+            ]
+            db.executemany("INSERT INTO items(id,kind,metadata) VALUES(?,?,?)", records)
+            db.executemany(
+                "INSERT INTO identities(item_id,namespace,value) VALUES(?,?,?)",
+                [
+                    (identifier, namespace, identifier)
+                    for identifier, _, _ in records
+                    for namespace in ("fixture.a", "fixture.b")
+                ],
+            )
+        before = self.path.read_bytes()
+        with Store(self.path) as store:
+            expected = Application(store).queries.items(limit=1000, sort="title")
+        self.assertEqual(
+            self.native(
+                "catalog",
+                "items",
+                "--options",
+                json.dumps({"limit": 1000, "sort": "title"}),
+            ),
+            expected,
+        )
+        self.assertEqual(before, self.path.read_bytes())

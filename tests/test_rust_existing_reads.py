@@ -13,12 +13,12 @@ import unittest
 
 from catabolic.domain import CatabolicError
 from tests import test_queries, test_sql_query
+from tests import test_rust_queries as runner
 from tests.test_rust_migration import BINARY
-from tests.test_rust_queries import NativeQueryTest
 
 
 class NativeReadAssertions(unittest.TestCase):
-    close_worker = NativeQueryTest.close_worker
+    close_worker = runner.NativeQueryTest.close_worker
     ids = test_queries.QueryTest.ids
 
     def setUp(self):
