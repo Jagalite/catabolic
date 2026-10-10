@@ -214,3 +214,14 @@ scenarios must not silently normalize them away.
 See [reference.json](../tests/parity/reference.json) for the original capture and
 [local-evidence.json](../tests/parity/local-evidence.json) for the supplemental
 local receipts. Historical capture hashes remain unchanged.
+
+### Local Linux storage follow-up — 2026-10-10
+
+An isolated local Lima/Apple VZ Linux VM now supplies the missing storage capture.
+The unchanged reference acceptance harness passed actual cross-filesystem
+hardlink rejection, source-unmount output preservation and explicit rebind on
+new disposable tmpfs mounts; cleanup succeeded. The receipt is retained at
+`.local-tests/rust-migration/m2-m3/linux-receipts/m0-linux-storage.json` and the
+storage gate is now captured. No remote workflow was dispatched. The VM was
+stopped after qualification. M0 remains in progress for its budget-limited
+high-cardinality benchmarks and partial resource/performance metrics.

@@ -18,7 +18,7 @@ def main():
         assert row["rust_tests"] and row["scenario_ids"], row["id"]
         assert row["status"] == "qualified", row["id"]
     assert set(ledger["milestones"].values()) == {"qualified"}
-    for section in ("source_hashes", "evidence_hashes"):
+    for section in ("source_hashes", "evidence_hashes", "historical_fixture_hashes"):
         assert ledger[section], section
         for relative, expected in ledger[section].items():
             path = root / relative
@@ -28,7 +28,20 @@ def main():
         assert {wheel["python"] for wheel in receipt["wheels"]} == {"3.11.15", "3.14.6"}
         for wheel in receipt["wheels"]:
             value = json.loads((root / wheel["receipt"]).read_text())
-            assert value["immutable_database"] and value["canonical_float_samples"] >= 3000
+            assert (
+                value["passed"] and value["gil_released"] and value["outside_checkout"]
+            )
+            assert (
+                hashlib.sha256((root / wheel["artifact"]).read_bytes()).hexdigest()
+                == value["wheel_sha256"]
+            )
+            assert (
+                hashlib.sha256((root / receipt["binary"]).read_bytes()).hexdigest()
+                == value["binary_sha256"]
+            )
+            assert (
+                value["immutable_database"] and value["canonical_float_samples"] >= 3000
+            )
     print("Native M1/M2/M3 source and local macOS/Linux evidence verified")
 
 

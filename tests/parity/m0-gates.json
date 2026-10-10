@@ -52,11 +52,13 @@
     },
     {
       "id": "storage",
-      "status": "not-executed-linux",
-      "reason": "Local macOS real mounts passed; pinned CI skipped Linux storage. User requires all changes stay local, so standalone workflow remains unpushed.",
+      "status": "captured",
+      "reason": "Existing local macOS real-mount receipt plus isolated local Linux VM tmpfs acceptance passed: actual cross-filesystem refusal, unmount preservation and explicit rebind; cleanup succeeded. No push or remote workflow dispatch.",
       "evidence": [
         "local-evidence.json",
-        ".github/workflows/migration-reference-storage.yml"
+        ".github/workflows/migration-reference-storage.yml",
+        ".local-tests/rust-migration/m2-m3/linux-receipts/m0-linux-storage.json",
+        ".local-tests/rust-migration/m2-m3/linux-reference-storage.log"
       ]
     },
     {
