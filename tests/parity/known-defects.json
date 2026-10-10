@@ -1,0 +1,65 @@
+{
+  "format_version": 1,
+  "issues": [
+    {
+      "approved_exception": false,
+      "evidence": [
+        ".local-tests/rust-migration/m0-initial/unit.log",
+        ".local-tests/rust-migration/m0-initial/importer-sample.txt",
+        ".local-tests/rust-migration/m0-triage/baseline-failure-recheck.log"
+      ],
+      "id": "M0-STARTUP-001",
+      "observation": "The CLI import interruption test did not create its fixture startup marker within 30 seconds, both in discovery and a separate focused run. A different Python importer child in the discovery run was sampled stalled at _dyld_start before Python execution. This supports a loader/startup hypothesis, not a confirmed common cause for every failure.",
+      "reproduce": [
+        "python",
+        "-m",
+        "unittest",
+        "tests.test_audit_fixes.ImportSafetyTest.test_cli_interruption_returns_json_and_exit_130",
+        "-v"
+      ],
+      "status": "needs-environment-diagnosis"
+    },
+    {
+      "approved_exception": false,
+      "evidence": [
+        ".local-tests/rust-migration/m0-wheel/report.json"
+      ],
+      "id": "M0-ENV-001",
+      "observation": "Initial macOS arm64 Python 3.14.6 environment lacks Tesseract, Docker and Apprise; its Node is 23.5.0 rather than the CI lane's Node 22. Linux and Python 3.11 lanes have not run in this capture. Tests also report unavailable FFmpeg libwebp encoder and zscale filter.",
+      "status": "qualification-gap"
+    },
+    {
+      "approved_exception": false,
+      "evidence": [
+        ".local-tests/rust-migration/m0-initial/unit.log",
+        ".local-tests/rust-migration/m0-triage/baseline-failure-recheck.log"
+      ],
+      "id": "M0-COMPONENT-001",
+      "initial_assertion_failure": "sidecar packaging action block instead of mux",
+      "initial_errors": [
+        "fallback probe incomplete: probe_timeout",
+        "stale_or_missing_resolution_plan",
+        "KeyError: complete"
+      ],
+      "observation": "Component lifecycle produced failures/errors in the full baseline run; all seven component-lifecycle tests passed in a later focused rerun. Do not treat the rerun as proving the original failures harmless.",
+      "status": "intermittent-baseline-failure-needs-diagnosis"
+    },
+    {
+      "approved_exception": false,
+      "completed_sizes": [
+        100,
+        1000
+      ],
+      "evidence": [
+        ".local-tests/rust-migration/m0-initial/synthetic.log",
+        ".local-tests/rust-migration/synthetic-summary.json"
+      ],
+      "id": "M0-BENCH-001",
+      "incomplete_size": 5000,
+      "observation": "ENOSPC while writing the aggregate report; the preceding fixture exception was not preserved by the reference reporter. No completed 5000-file report exists.",
+      "status": "blocked-by-disk-space-and-reporting-failure"
+    }
+  ],
+  "policy": "Failures are not approved parity exceptions. Diagnose and preserve regressions before deciding whether to fix the Python oracle or qualify an environment.",
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e"
+}

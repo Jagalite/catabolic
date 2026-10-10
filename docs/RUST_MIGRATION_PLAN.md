@@ -9,6 +9,8 @@
 
 All new crate names, harness commands, budgets, milestones, and architecture below are proposed. Existing paths are identified separately. A current-source reference identifies observed behavior, not proof that the behavior is correct under every environment.
 
+**Implementation status:** M0 is in progress. See [the reference-freeze work log](RUST_MIGRATION_M0.md) for the implemented capture tooling, initial scope ledger, evidence, and remaining acceptance gates. M1 has not started.
+
 ## 1. Executive decision
 
 A Rust rewrite makes sense as an investment in a reusable native catalog engine, predictable resource ownership, native distribution, and explicitly testable lifecycle decisions. It does **not** make sense as a promise that merely changing languages will dramatically accelerate scanning or media processing.

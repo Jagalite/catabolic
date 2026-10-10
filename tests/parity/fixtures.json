@@ -1,0 +1,41 @@
+{
+  "format_version": 1,
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "status": "partial-existing-scenario-inventory",
+  "policy": "Use synthetic data and new temporary roots. No user databases or source media. Preserve raw evidence; review any nondeterminism normalization before differential use.",
+  "scenarios": [
+    {
+      "id": "legacy-v1",
+      "source": "tests/fixtures/schema_v1.sql",
+      "generator": "tests.test_migrations.create_legacy",
+      "reference_tests": ["tests.test_migrations"],
+      "command": ["python", "-m", "unittest", "tests.test_migrations", "-v"],
+      "coverage": "Synthetic populated v1 database, source file, owned symlink and ownership marker; upgrade, backup, recovery and refusal scenarios",
+      "rust_fixture": null
+    },
+    {
+      "id": "programmable-v14",
+      "source": "tests/test_programmable_migration.py",
+      "reference_tests": ["tests.test_programmable_migration"],
+      "command": ["python", "-m", "unittest", "tests.test_programmable_migration", "-v"],
+      "coverage": "Preserve original columns, IDs and foreign keys through query/rule table rebuild; failed rebuild rollback",
+      "rust_fixture": null
+    },
+    {
+      "id": "components-v24",
+      "source": "tests/test_component_migration.py",
+      "reference_tests": ["tests.test_component_migration"],
+      "command": ["python", "-m", "unittest", "tests.test_component_migration", "-v"],
+      "coverage": "Adopt synthetic probe/sidecar evidence and recover pending journal before upgrade",
+      "rust_fixture": null
+    },
+    {
+      "id": "synthetic-library",
+      "source": "tests/synthetic_library.py",
+      "reference_tests": ["tests.test_synthetic_library"],
+      "command": ["python", "-m", "tests.synthetic_benchmark", "--sizes", "100", "1000", "5000", "--root", "NEW_DISPOSABLE_ROOT"],
+      "coverage": "Synthetic filesystem workflow including source hashes and interruption recovery; not real media throughput",
+      "rust_fixture": null
+    }
+  ]
+}

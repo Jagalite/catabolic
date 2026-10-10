@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "sources": ["pyproject.toml", "docs/INSTALLATION.md", ".github/workflows/ci.yml"],
+  "documented_support": {"os_families": ["macOS", "Linux"], "python": ">=3.11"},
+  "reference_wheel_tag": "py3-none-any",
+  "minimum_unit_matrix": [
+    {"runner": "ubuntu-latest", "python": "3.11", "qualification": "not-tested-in-this-capture"},
+    {"runner": "ubuntu-latest", "python": "3.14", "qualification": "not-tested-in-this-capture"},
+    {"runner": "macos-latest", "python": "3.11", "qualification": "not-tested-in-this-capture"},
+    {"runner": "macos-latest", "python": "3.14", "qualification": "not-tested-on-ci-runner-in-this-capture"}
+  ],
+  "installed_acceptance_and_http_matrix": [
+    {"runner": "ubuntu-latest", "python": "3.11"},
+    {"runner": "macos-latest", "python": "3.14"}
+  ],
+  "build_and_jellyfin_runner": "ubuntu-latest",
+  "native_release_decisions_pending": [
+    "Explicit architecture matrix and CPU baseline",
+    "macOS deployment targets and Linux libc compatibility",
+    "CPython-specific versus abi3 wheels",
+    "Free-threaded interpreter support if promised",
+    "Source-build support and requirements"
+  ],
+  "policy": "Configured CI lanes are requirements, not passing evidence. Local macOS arm64 results do not qualify every macos-latest runner or Linux. Do not infer native portability from the pure-Python wheel tag."
+}

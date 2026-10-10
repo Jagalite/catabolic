@@ -1,0 +1,236 @@
+{
+  "archive_sha256": "ea6d64a8c274f0886da120343883a6ef761794b3b7ef55840fad93f9f402217b",
+  "available_bytes_after_cleanup": 1497567232,
+  "benchmark_status": "failed",
+  "benchmarks": [
+    {
+      "report": ".local-tests/rust-migration/m0-initial/synthetic/files-100/report.json",
+      "report_sha256": "c2dd45234f843244d20f406a876cf7fa5ba593c24edd1c93555c17bb90a48b43",
+      "size": 100,
+      "status": "passed",
+      "timings_seconds": {
+        "apply": 0.50935,
+        "collision": 0.07204,
+        "generate": 0.188822,
+        "invalid_sources": 0.145024,
+        "missing_and_restored": 2.957877,
+        "preview": 0.056603,
+        "process_crash_and_recovery": 0.584485,
+        "record_decisions": 0.105388,
+        "repeat_sync": 0.079189,
+        "scan": 1.532532,
+        "unavailable_root": 0.054235,
+        "verify": 0.040077
+      }
+    },
+    {
+      "report": ".local-tests/rust-migration/m0-initial/synthetic/files-1000/report.json",
+      "report_sha256": "757fcc8f4abc880422b12981e4d1b3983094defdb9920b5b787a9488389e6812",
+      "size": 1000,
+      "status": "passed",
+      "timings_seconds": {
+        "apply": 8.71859,
+        "collision": 0.845023,
+        "generate": 0.203622,
+        "invalid_sources": 1.335364,
+        "missing_and_restored": 31.294303,
+        "preview": 0.451085,
+        "process_crash_and_recovery": 2.735083,
+        "record_decisions": 1.981916,
+        "repeat_sync": 0.887869,
+        "scan": 14.747186,
+        "unavailable_root": 0.47419,
+        "verify": 0.496362
+      }
+    },
+    {
+      "completed_phases_from_log": [
+        {
+          "event": "generate",
+          "media_files": 5000,
+          "seconds": 1.043
+        },
+        {
+          "event": "scan",
+          "media_files": 5000,
+          "seconds": 76.48
+        },
+        {
+          "event": "record_decisions",
+          "media_files": 5000,
+          "seconds": 25.024
+        },
+        {
+          "event": "preview",
+          "media_files": 5000,
+          "seconds": 4.055
+        },
+        {
+          "event": "apply",
+          "media_files": 5000,
+          "seconds": 150.272
+        },
+        {
+          "event": "verify",
+          "media_files": 5000,
+          "seconds": 5.491
+        },
+        {
+          "event": "repeat_sync",
+          "media_files": 5000,
+          "seconds": 5.123
+        }
+      ],
+      "reason": "ENOSPC while writing the aggregate report; the preceding fixture exception was not preserved by the reference reporter. No completed 5000-file report exists.",
+      "size": 5000,
+      "status": "failed"
+    }
+  ],
+  "capture_tool_sha256": {
+    "migration_baseline.py": "bdebc48f9136f6935995af5ce5aaf7d2695189f90047c23a7324c99d6fff51e1",
+    "migration_inventory.py": "ae1453ede64050dec5acf3014bc21ac529601c33b27cf45b6b289c6a45e91ef8"
+  },
+  "environment": {
+    "machine": "arm64",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]",
+    "sqlite": "3.53.4"
+  },
+  "evidence": {
+    "benchmark_summary": ".local-tests/rust-migration/synthetic-summary.json",
+    "cleanup": ".local-tests/rust-migration/capture-cleanup.json",
+    "external_tools": ".local-tests/rust-migration/m0-tool-versions/report.json",
+    "freeze": ".local-tests/rust-migration/m0-evidence-final/report.json",
+    "full_suite_and_benchmarks": ".local-tests/rust-migration/m0-initial/report.json",
+    "installed_smoke": ".local-tests/rust-migration/m0-final-freeze/installed-smoke.json",
+    "source_checks": ".local-tests/rust-migration/m0-focused/report.json",
+    "tooling_tests": ".local-tests/rust-migration/m0-portable-freeze/tooling-tests-final.log"
+  },
+  "focused_checks": [
+    {
+      "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "name": "lint",
+      "status": "passed"
+    },
+    {
+      "log_sha256": "57aca214125845d5bc3df0265576cfb3f185a347b24dd01f64ca7819ec2b5211",
+      "name": "format",
+      "status": "passed"
+    },
+    {
+      "log_sha256": "9babdc19fd6997f20b3d8a1ec0a5ab3140b7524c035817c14bb556a1741e0aaa",
+      "name": "spec",
+      "status": "passed"
+    },
+    {
+      "log_sha256": "3ef32a233add63a0e8941d4d6a97d6db6621ef702d78548432eb74e953d4910b",
+      "name": "http-contract",
+      "status": "passed"
+    },
+    {
+      "log_sha256": "cded038284aa703460ea80dc2d293527d607e1745914ee294cd7d52a19442354",
+      "name": "docs",
+      "status": "passed"
+    },
+    {
+      "log_sha256": "b690e3cbf721f54c2aa9362481c43fa0d09183fc377a86ca4a3d9d68088aa010",
+      "name": "migration-fixtures",
+      "status": "passed"
+    }
+  ],
+  "format_version": 1,
+  "full_suite": {
+    "errors": 3,
+    "failure_headings": [
+      "ERROR: test_component_fallback_publication_and_noop (test_component_lifecycle.LifecycleTest.test_component_fallback_publication_and_noop)",
+      "ERROR: test_embedded_subtitle_external_font_requires_packaging (test_component_lifecycle.LifecycleTest.test_embedded_subtitle_external_font_requires_packaging)",
+      "ERROR: test_revision_pinned_paired_subtitle_dependencies (test_component_lifecycle.LifecycleTest.test_revision_pinned_paired_subtitle_dependencies)",
+      "FAIL: test_cli_interruption_returns_json_and_exit_130 (test_audit_fixes.ImportSafetyTest.test_cli_interruption_returns_json_and_exit_130)",
+      "FAIL: test_timeout_reports_unknown_and_preserves_source (test_audit_fixes.ImportSafetyTest.test_timeout_reports_unknown_and_preserves_source)",
+      "FAIL: test_embedded_subtitle_external_font_requires_packaging (test_component_lifecycle.LifecycleTest.test_embedded_subtitle_external_font_requires_packaging) (mode='sidecars')"
+    ],
+    "failures": 3,
+    "log_sha256": "ca451ccf013d2821454b7d8741cdf082505a2c3d628db13ec1df0adbc8d733e0",
+    "run": 1010,
+    "seconds": 1080.778,
+    "skip_headings": [
+      "test_real_ocr_image (test_document_text.DocumentTextTest.test_real_ocr_image) ... skipped 'optional tesseract required'",
+      "test_webp_variant_is_a_distinct_decodable_image (test_image_renditions.ImageHTTPTest.test_webp_variant_is_a_distinct_decodable_image) ... skipped 'FFmpeg libwebp encoder unavailable'",
+      "test_static_jpeg_and_webp_sources_are_supported (test_image_renditions.ImageRenderTest.test_static_jpeg_and_webp_sources_are_supported) ... skipped 'WebP fixture encoder unavailable'",
+      "test_webp_preserves_alpha (test_image_renditions.ImageRenderTest.test_webp_preserves_alpha) ... skipped 'encoder unavailable: image-webp'",
+      "test_actual_hdr_output (test_native_processing.NativeRenderTest.test_actual_hdr_output) ... skipped \"['filters:zscale']\""
+    ],
+    "skipped": 5
+  },
+  "full_suite_status": "failed",
+  "inventory_sha256": "81b697a595556ded943bef59c167314a6ffbbfc68706ed134cfea66afe012cc2",
+  "m0_blockers": [
+    "Operation-level semantics/proof mappings remain unreviewed",
+    "GraphQL/schema/adapter/Python hook inventory incomplete",
+    "Public Python compatibility classification incomplete",
+    "Full platform and integration acceptance incomplete",
+    "Baseline failure diagnosis and performance qualification incomplete",
+    "5000-file benchmark incomplete after ENOSPC; rerun only with sufficient disk headroom"
+  ],
+  "migration_fixture_tests": {
+    "errors": 0,
+    "failures": 0,
+    "run": 33,
+    "skipped": 0
+  },
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "scope_counts": {
+    "cli": 271,
+    "http": 62,
+    "migrations": 32,
+    "python_candidates": 143,
+    "test_methods": 1010
+  },
+  "status": "M0-in-progress",
+  "tooling_tests": {
+    "errors": 0,
+    "failures": 0,
+    "log_sha256": "3c4693af5bd30a21d3ce431a4029b4c564a2fd22e1f3aa42df12d148d593c41d",
+    "run": 12,
+    "skipped": 0
+  },
+  "triage": {
+    "errors": 0,
+    "evidence": ".local-tests/rust-migration/m0-triage/report.json",
+    "failures": 2,
+    "observation": "Seven component-lifecycle tests pass on focused rerun; both importer marker failures recur. Original full-suite failures are retained.",
+    "run": 9,
+    "skipped": 0
+  },
+  "wheel": {
+    "path": ".local-tests/rust-migration/m0-wheel/dist/catabolic-0.2.0-py3-none-any.whl",
+    "results": [
+      {
+        "name": "wheel-build",
+        "status": "passed"
+      },
+      {
+        "name": "wheel-venv",
+        "status": "passed"
+      },
+      {
+        "name": "wheel-dependencies",
+        "status": "passed"
+      },
+      {
+        "name": "wheel-install",
+        "status": "passed"
+      },
+      {
+        "name": "wheel-pip-check",
+        "status": "passed"
+      },
+      {
+        "name": "wheel-smoke",
+        "status": "passed"
+      }
+    ],
+    "scope": "installed core dependencies, import outside source via -I, pip check and spec check only",
+    "sha256": "95004bc036dfe913b6c1741f73511f3ea098ff1c258ce43fb6338598e464120b"
+  }
+}
