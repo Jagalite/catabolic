@@ -73,6 +73,7 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(execute_sql, m)?)?;
     m.add_function(wrap_pyfunction!(catalog_query, m)?)?;
     m.add_function(wrap_pyfunction!(execute_graphql, m)?)?;
+    m.add_function(wrap_pyfunction!(evaluate_read, m)?)?;
     Ok(())
 }
 #[pyfunction]
@@ -105,4 +106,27 @@ fn execute_graphql(
         operation_name,
         timeout_ms,
     ))
+}
+
+#[pyfunction]
+#[pyo3(signature=(path, operation, request="{}", profile="default"))]
+fn evaluate_read(
+    py: Python<'_>,
+    path: &str,
+    operation: &str,
+    request: &str,
+    profile: &str,
+) -> PyResult<String> {
+    let request: serde_json::Value =
+        serde_json::from_str(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    result(py.detach(|| {
+        let store = catabolic_store::Store::open(Path::new(path), false, false)?;
+        let mut evaluation=catabolic_store::selection::Evaluation::new(store,profile,60000,100000,false)?;
+        match operation {
+            "select"=>{let selected=evaluation.select(&request)?;Ok(serde_json::json!({"entity":selected.entity,"ids":selected.ids,"report":selected.report}))},
+            "query"=>evaluation.run(request["id"].as_str().ok_or_else(||catabolic_store::Error("query requires id".into()))?,request["limit"].as_u64().unwrap_or(1000) as usize),
+            "layout"=>catabolic_store::layout::plan(&mut evaluation,request["id"].as_str().ok_or_else(||catabolic_store::Error("layout requires id".into()))?,request["catalog"].as_str().unwrap_or("global"),request["replace_layout"]==true,request["allow_empty"]==true,request["limit"].as_u64().unwrap_or(100) as usize),
+            _=>Err(catabolic_store::Error("unknown read operation".into())),
+        }
+    }))
 }

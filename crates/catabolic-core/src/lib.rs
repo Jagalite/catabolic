@@ -73,13 +73,35 @@ pub fn encode_with(value: &Value, ascii: bool, compact: bool) -> String {
         }
         Value::Number(n) if n.is_f64() => {
             let s = n.to_string();
-            let number=n.as_f64().expect("JSON float");
-            if number!=0.0 && (number.abs()<1e-4 || number.abs()>=1e16) && !s.contains('e') {
-                let negative=s.starts_with('-');let unsigned=s.trim_start_matches('-');
-                let (integer,fraction)=unsigned.split_once('.').unwrap_or((unsigned,""));
-                let (digits,exponent)=if integer=="0" {let zeros=fraction.chars().take_while(|c| *c=='0').count();(fraction[zeros..].trim_end_matches('0').to_string(),-(zeros as i32)-1)} else {let digits=format!("{integer}{fraction}");(digits.trim_end_matches('0').to_string(),integer.len() as i32-1)};
-                let mantissa=if digits.len()==1 {digits} else {format!("{}.{}",&digits[..1],&digits[1..])};
-                return format!("{}{mantissa}e{}{abs:02}",if negative {"-"} else {""},if exponent<0 {"-"} else {"+"},abs=exponent.abs());
+            let number = n.as_f64().expect("JSON float");
+            if number != 0.0 && (number.abs() < 1e-4 || number.abs() >= 1e16) && !s.contains('e') {
+                let negative = s.starts_with('-');
+                let unsigned = s.trim_start_matches('-');
+                let (integer, fraction) = unsigned.split_once('.').unwrap_or((unsigned, ""));
+                let (digits, exponent) = if integer == "0" {
+                    let zeros = fraction.chars().take_while(|c| *c == '0').count();
+                    (
+                        fraction[zeros..].trim_end_matches('0').to_string(),
+                        -(zeros as i32) - 1,
+                    )
+                } else {
+                    let digits = format!("{integer}{fraction}");
+                    (
+                        digits.trim_end_matches('0').to_string(),
+                        integer.len() as i32 - 1,
+                    )
+                };
+                let mantissa = if digits.len() == 1 {
+                    digits
+                } else {
+                    format!("{}.{}", &digits[..1], &digits[1..])
+                };
+                return format!(
+                    "{}{mantissa}e{}{abs:02}",
+                    if negative { "-" } else { "" },
+                    if exponent < 0 { "-" } else { "+" },
+                    abs = exponent.abs()
+                );
             }
             if let Some((mantissa, exponent)) = s.split_once('e') {
                 let exponent: i32 = exponent.parse().expect("JSON exponent");

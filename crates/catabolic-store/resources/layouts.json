@@ -1,0 +1,2733 @@
+{
+  "catabolic": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.native",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "all",
+        "path": "{item.kind}/{item.id}/{association.role}/{file.id}/{file.name}"
+      }
+    ]
+  },
+  "flat": {
+    "version": 1,
+    "rules": [
+      {
+        "name": "all",
+        "path": "{item.kind}/{item.id}/{file.name}"
+      }
+    ]
+  },
+  "plex": {
+    "version": 1,
+    "rules": [
+      {
+        "name": "movies",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "primary"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/{item.title} ({item.year}){file.extension}"
+      },
+      {
+        "name": "subtitles",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "subtitle"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/{item.title} ({item.year}).{association.metadata.language}{file.extension}"
+      },
+      {
+        "name": "episodes",
+        "when": {
+          "kinds": [
+            "episode"
+          ],
+          "roles": [
+            "primary"
+          ]
+        },
+        "relations": [
+          {
+            "alias": "season",
+            "kind": "part_of",
+            "target_kind": "season"
+          },
+          {
+            "alias": "series",
+            "from": "season",
+            "kind": "part_of",
+            "target_kind": "series"
+          }
+        ],
+        "path": "TV/{series.title}/Season {series.position:02d}/{series.title} - S{series.position:02d}E{season.position:02d}{file.extension}"
+      },
+      {
+        "name": "tracks",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "primary"
+          ]
+        },
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album"
+          },
+          {
+            "alias": "artist",
+            "from": "album",
+            "kind": "performed_by",
+            "target_kind": "artist"
+          }
+        ],
+        "path": "Music/{artist.title}/{album.title}/{album.position:02d} - {item.title}{file.extension}"
+      },
+      {
+        "name": "covers",
+        "when": {
+          "kinds": [
+            "album"
+          ],
+          "roles": [
+            "cover"
+          ]
+        },
+        "relations": [
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist"
+          }
+        ],
+        "path": "Music/{artist.title}/{item.title}/cover{file.extension}"
+      }
+    ]
+  },
+  "plex-v1": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.plex",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "movie-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) {{edition-{item.metadata.edition}}}/{item.title} ({item.year}) {{edition-{item.metadata.edition}}}{file.extension}"
+      },
+      {
+        "name": "subtitle-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) {{edition-{item.metadata.edition}}}/{item.title} ({item.year}) {{edition-{item.metadata.edition}}}.{association.metadata.language}{file.extension}"
+      },
+      {
+        "name": "poster-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) {{edition-{item.metadata.edition}}}/poster{file.extension}"
+      },
+      {
+        "name": "extra-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "extra"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) {{edition-{item.metadata.edition}}}/Extras/{file.name}"
+      },
+      {
+        "name": "movie-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/{item.title} ({item.year}){file.extension}"
+      },
+      {
+        "name": "subtitle-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/{item.title} ({item.year}).{association.metadata.language}{file.extension}"
+      },
+      {
+        "name": "poster-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/poster{file.extension}"
+      },
+      {
+        "name": "extra-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "extra"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/Extras/{file.name}"
+      },
+      {
+        "name": "episodes",
+        "when": {
+          "kinds": [
+            "episode"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "TV/{series.title}/Season {series.position:02d}/{series.title} - S{series.position:02d}E{season.position:02d}{file.extension}",
+        "relations": [
+          {
+            "alias": "season",
+            "kind": "part_of",
+            "target_kind": "season",
+            "from": "item"
+          },
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "series",
+            "from": "season"
+          }
+        ]
+      },
+      {
+        "name": "episode-subtitles",
+        "when": {
+          "kinds": [
+            "episode"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "TV/{series.title}/Season {series.position:02d}/{series.title} - S{series.position:02d}E{season.position:02d}.{association.metadata.language}{file.extension}",
+        "relations": [
+          {
+            "alias": "season",
+            "kind": "part_of",
+            "target_kind": "season",
+            "from": "item"
+          },
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "series",
+            "from": "season"
+          }
+        ]
+      },
+      {
+        "name": "tracks",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mp3",
+            ".flac",
+            ".m4a",
+            ".m4b",
+            ".ogg",
+            ".opus",
+            ".wav",
+            ".aac"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "lyrics",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "lyrics"
+          ],
+          "extensions": [
+            ".lrc",
+            ".txt"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "covers",
+        "when": {
+          "kinds": [
+            "album"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Music/{artist.title}/{item.title}/cover{file.extension}",
+        "relations": [
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "item"
+          }
+        ]
+      }
+    ]
+  },
+  "jellyfin": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.jellyfin",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "movie-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/{item.title} ({item.year}) - {item.metadata.edition}{file.extension}"
+      },
+      {
+        "name": "subtitle-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/{item.title} ({item.year}) - {item.metadata.edition}.{association.metadata.language}{file.extension}"
+      },
+      {
+        "name": "poster-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/poster{file.extension}"
+      },
+      {
+        "name": "extra-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "extra"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/Extras/{file.name}"
+      },
+      {
+        "name": "movie-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/{item.title} ({item.year}){file.extension}"
+      },
+      {
+        "name": "subtitle-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/{item.title} ({item.year}).{association.metadata.language}{file.extension}"
+      },
+      {
+        "name": "poster-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/poster{file.extension}"
+      },
+      {
+        "name": "extra-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "extra"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/Extras/{file.name}"
+      },
+      {
+        "name": "episodes",
+        "when": {
+          "kinds": [
+            "episode"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "TV/{series.title}/Season {series.position:02d}/{series.title} - S{series.position:02d}E{season.position:02d}{file.extension}",
+        "relations": [
+          {
+            "alias": "season",
+            "kind": "part_of",
+            "target_kind": "season",
+            "from": "item"
+          },
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "series",
+            "from": "season"
+          }
+        ]
+      },
+      {
+        "name": "episode-subtitles",
+        "when": {
+          "kinds": [
+            "episode"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "TV/{series.title}/Season {series.position:02d}/{series.title} - S{series.position:02d}E{season.position:02d}.{association.metadata.language}{file.extension}",
+        "relations": [
+          {
+            "alias": "season",
+            "kind": "part_of",
+            "target_kind": "season",
+            "from": "item"
+          },
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "series",
+            "from": "season"
+          }
+        ]
+      },
+      {
+        "name": "tracks",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mp3",
+            ".flac",
+            ".m4a",
+            ".m4b",
+            ".ogg",
+            ".opus",
+            ".wav",
+            ".aac"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "lyrics",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "lyrics"
+          ],
+          "extensions": [
+            ".lrc",
+            ".txt"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "covers",
+        "when": {
+          "kinds": [
+            "album"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Music/{artist.title}/{item.title}/cover{file.extension}",
+        "relations": [
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "item"
+          }
+        ]
+      }
+    ]
+  },
+  "emby": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.emby",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "movie-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/{item.title} ({item.year}) - {item.metadata.edition}{file.extension}"
+      },
+      {
+        "name": "subtitle-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/{item.title} ({item.year}) - {item.metadata.edition}.{association.metadata.language}{file.extension}"
+      },
+      {
+        "name": "poster-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/poster{file.extension}"
+      },
+      {
+        "name": "extra-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "extra"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/Extras/{file.name}"
+      },
+      {
+        "name": "movie-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/{item.title} ({item.year}){file.extension}"
+      },
+      {
+        "name": "subtitle-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/{item.title} ({item.year}).{association.metadata.language}{file.extension}"
+      },
+      {
+        "name": "poster-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/poster{file.extension}"
+      },
+      {
+        "name": "extra-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "extra"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/Extras/{file.name}"
+      },
+      {
+        "name": "episodes",
+        "when": {
+          "kinds": [
+            "episode"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "TV/{series.title}/Season {series.position:02d}/{series.title} - S{series.position:02d}E{season.position:02d}{file.extension}",
+        "relations": [
+          {
+            "alias": "season",
+            "kind": "part_of",
+            "target_kind": "season",
+            "from": "item"
+          },
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "series",
+            "from": "season"
+          }
+        ]
+      },
+      {
+        "name": "episode-subtitles",
+        "when": {
+          "kinds": [
+            "episode"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "TV/{series.title}/Season {series.position:02d}/{series.title} - S{series.position:02d}E{season.position:02d}.{association.metadata.language}{file.extension}",
+        "relations": [
+          {
+            "alias": "season",
+            "kind": "part_of",
+            "target_kind": "season",
+            "from": "item"
+          },
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "series",
+            "from": "season"
+          }
+        ]
+      },
+      {
+        "name": "tracks",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mp3",
+            ".flac",
+            ".m4a",
+            ".m4b",
+            ".ogg",
+            ".opus",
+            ".wav",
+            ".aac"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "lyrics",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "lyrics"
+          ],
+          "extensions": [
+            ".lrc",
+            ".txt"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "covers",
+        "when": {
+          "kinds": [
+            "album"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Music/{artist.title}/{item.title}/cover{file.extension}",
+        "relations": [
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "item"
+          }
+        ]
+      }
+    ]
+  },
+  "kodi": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.kodi",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "movie-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/{item.title} ({item.year}) - {item.metadata.edition}{file.extension}"
+      },
+      {
+        "name": "subtitle-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/{item.title} ({item.year}) - {item.metadata.edition}.{association.metadata.language}{file.extension}"
+      },
+      {
+        "name": "poster-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/poster{file.extension}"
+      },
+      {
+        "name": "extra-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "extra"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/Extras/{file.name}"
+      },
+      {
+        "name": "movie-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/{item.title} ({item.year}){file.extension}"
+      },
+      {
+        "name": "subtitle-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/{item.title} ({item.year}).{association.metadata.language}{file.extension}"
+      },
+      {
+        "name": "poster-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/poster{file.extension}"
+      },
+      {
+        "name": "extra-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "extra"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/Extras/{file.name}"
+      },
+      {
+        "name": "episodes",
+        "when": {
+          "kinds": [
+            "episode"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "TV/{series.title}/Season {series.position:02d}/{series.title} - S{series.position:02d}E{season.position:02d}{file.extension}",
+        "relations": [
+          {
+            "alias": "season",
+            "kind": "part_of",
+            "target_kind": "season",
+            "from": "item"
+          },
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "series",
+            "from": "season"
+          }
+        ]
+      },
+      {
+        "name": "episode-subtitles",
+        "when": {
+          "kinds": [
+            "episode"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "TV/{series.title}/Season {series.position:02d}/{series.title} - S{series.position:02d}E{season.position:02d}.{association.metadata.language}{file.extension}",
+        "relations": [
+          {
+            "alias": "season",
+            "kind": "part_of",
+            "target_kind": "season",
+            "from": "item"
+          },
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "series",
+            "from": "season"
+          }
+        ]
+      },
+      {
+        "name": "tracks",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mp3",
+            ".flac",
+            ".m4a",
+            ".m4b",
+            ".ogg",
+            ".opus",
+            ".wav",
+            ".aac"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "lyrics",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "lyrics"
+          ],
+          "extensions": [
+            ".lrc",
+            ".txt"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "covers",
+        "when": {
+          "kinds": [
+            "album"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Music/{artist.title}/{item.title}/cover{file.extension}",
+        "relations": [
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "item"
+          }
+        ]
+      }
+    ]
+  },
+  "infuse": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.infuse",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "movie-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/{item.title} ({item.year}) - {item.metadata.edition}{file.extension}"
+      },
+      {
+        "name": "subtitle-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/{item.title} ({item.year}) - {item.metadata.edition}.{association.metadata.language}{file.extension}"
+      },
+      {
+        "name": "poster-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/poster{file.extension}"
+      },
+      {
+        "name": "extra-edition",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "extra"
+          ],
+          "has": [
+            "edition"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year}) - {item.metadata.edition}/Extras/{file.name}"
+      },
+      {
+        "name": "movie-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/{item.title} ({item.year}){file.extension}"
+      },
+      {
+        "name": "subtitle-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/{item.title} ({item.year}).{association.metadata.language}{file.extension}"
+      },
+      {
+        "name": "poster-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/poster{file.extension}"
+      },
+      {
+        "name": "extra-standard",
+        "when": {
+          "kinds": [
+            "movie"
+          ],
+          "roles": [
+            "extra"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "Movies/{item.title} ({item.year})/Extras/{file.name}"
+      },
+      {
+        "name": "episodes",
+        "when": {
+          "kinds": [
+            "episode"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mkv",
+            ".mp4",
+            ".m4v",
+            ".avi",
+            ".mov",
+            ".webm",
+            ".mpg",
+            ".mpeg",
+            ".ts"
+          ]
+        },
+        "path": "TV/{series.title}/Season {series.position:02d}/{series.title} - S{series.position:02d}E{season.position:02d}{file.extension}",
+        "relations": [
+          {
+            "alias": "season",
+            "kind": "part_of",
+            "target_kind": "season",
+            "from": "item"
+          },
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "series",
+            "from": "season"
+          }
+        ]
+      },
+      {
+        "name": "episode-subtitles",
+        "when": {
+          "kinds": [
+            "episode"
+          ],
+          "roles": [
+            "subtitle"
+          ],
+          "extensions": [
+            ".srt",
+            ".ass",
+            ".ssa",
+            ".vtt",
+            ".sub",
+            ".idx"
+          ]
+        },
+        "path": "TV/{series.title}/Season {series.position:02d}/{series.title} - S{series.position:02d}E{season.position:02d}.{association.metadata.language}{file.extension}",
+        "relations": [
+          {
+            "alias": "season",
+            "kind": "part_of",
+            "target_kind": "season",
+            "from": "item"
+          },
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "series",
+            "from": "season"
+          }
+        ]
+      }
+    ]
+  },
+  "navidrome": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.navidrome",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "tracks",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mp3",
+            ".flac",
+            ".m4a",
+            ".m4b",
+            ".ogg",
+            ".opus",
+            ".wav",
+            ".aac"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "lyrics",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "lyrics"
+          ],
+          "extensions": [
+            ".lrc",
+            ".txt"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "covers",
+        "when": {
+          "kinds": [
+            "album"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Music/{artist.title}/{item.title}/cover{file.extension}",
+        "relations": [
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "item"
+          }
+        ]
+      }
+    ]
+  },
+  "mpd": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.mpd",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "tracks",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mp3",
+            ".flac",
+            ".m4a",
+            ".m4b",
+            ".ogg",
+            ".opus",
+            ".wav",
+            ".aac"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "lyrics",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "lyrics"
+          ],
+          "extensions": [
+            ".lrc",
+            ".txt"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "covers",
+        "when": {
+          "kinds": [
+            "album"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Music/{artist.title}/{item.title}/cover{file.extension}",
+        "relations": [
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "item"
+          }
+        ]
+      }
+    ]
+  },
+  "gonic": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.gonic",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "tracks",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mp3",
+            ".flac",
+            ".m4a",
+            ".m4b",
+            ".ogg",
+            ".opus",
+            ".wav",
+            ".aac"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "lyrics",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "lyrics"
+          ],
+          "extensions": [
+            ".lrc",
+            ".txt"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "covers",
+        "when": {
+          "kinds": [
+            "album"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Music/{artist.title}/{item.title}/cover{file.extension}",
+        "relations": [
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "item"
+          }
+        ]
+      }
+    ]
+  },
+  "airsonic": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.airsonic",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "tracks",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mp3",
+            ".flac",
+            ".m4a",
+            ".m4b",
+            ".ogg",
+            ".opus",
+            ".wav",
+            ".aac"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "lyrics",
+        "when": {
+          "kinds": [
+            "track"
+          ],
+          "roles": [
+            "lyrics"
+          ],
+          "extensions": [
+            ".lrc",
+            ".txt"
+          ]
+        },
+        "path": "Music/{artist.title}/{album.title}/{album.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "album",
+            "kind": "part_of",
+            "target_kind": "album",
+            "from": "item"
+          },
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "album"
+          }
+        ]
+      },
+      {
+        "name": "covers",
+        "when": {
+          "kinds": [
+            "album"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Music/{artist.title}/{item.title}/cover{file.extension}",
+        "relations": [
+          {
+            "alias": "artist",
+            "kind": "performed_by",
+            "target_kind": "artist",
+            "from": "item"
+          }
+        ]
+      }
+    ]
+  },
+  "audiobookshelf": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.audiobookshelf",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "books",
+        "when": {
+          "kinds": [
+            "audiobook"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mp3",
+            ".flac",
+            ".m4a",
+            ".m4b",
+            ".ogg",
+            ".opus",
+            ".wav",
+            ".aac"
+          ]
+        },
+        "path": "Audiobooks/{item.metadata.author}/{item.title}/{file.name}"
+      },
+      {
+        "name": "covers",
+        "when": {
+          "kinds": [
+            "audiobook"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Audiobooks/{item.metadata.author}/{item.title}/cover{file.extension}"
+      },
+      {
+        "name": "chapters",
+        "when": {
+          "kinds": [
+            "audiobook_chapter"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mp3",
+            ".flac",
+            ".m4a",
+            ".m4b",
+            ".ogg",
+            ".opus",
+            ".wav",
+            ".aac"
+          ]
+        },
+        "path": "Audiobooks/{book.metadata.author}/{book.title}/{book.position:03d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "book",
+            "kind": "part_of",
+            "target_kind": "audiobook",
+            "from": "item"
+          }
+        ]
+      },
+      {
+        "name": "podcasts",
+        "when": {
+          "kinds": [
+            "podcast_episode"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".mp3",
+            ".flac",
+            ".m4a",
+            ".m4b",
+            ".ogg",
+            ".opus",
+            ".wav",
+            ".aac"
+          ]
+        },
+        "path": "Podcasts/{show.title}/{show.position:04d} - {item.title}{file.extension}",
+        "relations": [
+          {
+            "alias": "show",
+            "kind": "part_of",
+            "target_kind": "podcast",
+            "from": "item"
+          }
+        ]
+      }
+    ]
+  },
+  "komga": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.komga",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "books",
+        "when": {
+          "kinds": [
+            "book",
+            "book_edition"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".epub",
+            ".pdf"
+          ]
+        },
+        "path": "Books/{item.metadata.author}/{item.title}/{item.title}{file.extension}"
+      },
+      {
+        "name": "book-covers",
+        "when": {
+          "kinds": [
+            "book",
+            "book_edition"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Books/{item.metadata.author}/{item.title}/cover{file.extension}"
+      },
+      {
+        "name": "comics",
+        "when": {
+          "kinds": [
+            "comic_issue",
+            "comic_volume"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".cbz",
+            ".cbr",
+            ".pdf"
+          ]
+        },
+        "path": "Comics/{series.title}/{series.title} #{series.position:03d}{file.extension}",
+        "relations": [
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "comic_series",
+            "from": "item"
+          }
+        ]
+      }
+    ]
+  },
+  "kavita": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.kavita",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "books",
+        "when": {
+          "kinds": [
+            "book",
+            "book_edition"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".epub",
+            ".pdf"
+          ]
+        },
+        "path": "Books/{item.metadata.author}/{item.title}/{item.title}{file.extension}"
+      },
+      {
+        "name": "book-covers",
+        "when": {
+          "kinds": [
+            "book",
+            "book_edition"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Books/{item.metadata.author}/{item.title}/cover{file.extension}"
+      },
+      {
+        "name": "comics",
+        "when": {
+          "kinds": [
+            "comic_issue",
+            "comic_volume"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".cbz",
+            ".cbr",
+            ".pdf"
+          ]
+        },
+        "path": "Comics/{series.title}/{series.title} #{series.position:03d}{file.extension}",
+        "relations": [
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "comic_series",
+            "from": "item"
+          }
+        ]
+      }
+    ]
+  },
+  "ubooquity": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.ubooquity",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "books",
+        "when": {
+          "kinds": [
+            "book",
+            "book_edition"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".epub",
+            ".pdf"
+          ]
+        },
+        "path": "Books/{item.metadata.author}/{item.title}/{item.title}{file.extension}"
+      },
+      {
+        "name": "book-covers",
+        "when": {
+          "kinds": [
+            "book",
+            "book_edition"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Books/{item.metadata.author}/{item.title}/cover{file.extension}"
+      },
+      {
+        "name": "comics",
+        "when": {
+          "kinds": [
+            "comic_issue",
+            "comic_volume"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".cbz",
+            ".cbr",
+            ".pdf"
+          ]
+        },
+        "path": "Comics/{series.title}/{series.title} #{series.position:03d}{file.extension}",
+        "relations": [
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "comic_series",
+            "from": "item"
+          }
+        ]
+      }
+    ]
+  },
+  "stump": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.stump",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "books",
+        "when": {
+          "kinds": [
+            "book",
+            "book_edition"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".epub",
+            ".pdf"
+          ]
+        },
+        "path": "Books/{item.metadata.author}/{item.title}/{item.title}{file.extension}"
+      },
+      {
+        "name": "book-covers",
+        "when": {
+          "kinds": [
+            "book",
+            "book_edition"
+          ],
+          "roles": [
+            "cover"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png"
+          ]
+        },
+        "path": "Books/{item.metadata.author}/{item.title}/cover{file.extension}"
+      },
+      {
+        "name": "comics",
+        "when": {
+          "kinds": [
+            "comic_issue",
+            "comic_volume"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".cbz",
+            ".cbr",
+            ".pdf"
+          ]
+        },
+        "path": "Comics/{series.title}/{series.title} #{series.position:03d}{file.extension}",
+        "relations": [
+          {
+            "alias": "series",
+            "kind": "part_of",
+            "target_kind": "comic_series",
+            "from": "item"
+          }
+        ]
+      }
+    ]
+  },
+  "photoprism": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.photoprism",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "albums",
+        "when": {
+          "kinds": [
+            "photo",
+            "video"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "has": [
+            "album"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp",
+            ".mp4",
+            ".mov"
+          ]
+        },
+        "path": "Photos/{item.metadata.album}/{file.id}-{file.name}"
+      },
+      {
+        "name": "photos",
+        "when": {
+          "kinds": [
+            "photo",
+            "video"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp",
+            ".mp4",
+            ".mov"
+          ]
+        },
+        "path": "Photos/{item.id}/{file.name}"
+      }
+    ]
+  },
+  "photoview": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.photoview",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "albums",
+        "when": {
+          "kinds": [
+            "photo",
+            "video"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "has": [
+            "album"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp",
+            ".mp4",
+            ".mov"
+          ]
+        },
+        "path": "Photos/{item.metadata.album}/{file.id}-{file.name}"
+      },
+      {
+        "name": "photos",
+        "when": {
+          "kinds": [
+            "photo",
+            "video"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp",
+            ".mp4",
+            ".mov"
+          ]
+        },
+        "path": "Photos/{item.id}/{file.name}"
+      }
+    ]
+  },
+  "piwigo": {
+    "version": 1,
+    "profile": {
+      "id": "catabolic.target.piwigo",
+      "version": 1
+    },
+    "rules": [
+      {
+        "name": "albums",
+        "when": {
+          "kinds": [
+            "photo",
+            "video"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "has": [
+            "album"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp",
+            ".mp4",
+            ".mov"
+          ]
+        },
+        "path": "Photos/{item.metadata.album}/{file.id}-{file.name}"
+      },
+      {
+        "name": "photos",
+        "when": {
+          "kinds": [
+            "photo",
+            "video"
+          ],
+          "roles": [
+            "primary"
+          ],
+          "extensions": [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp",
+            ".mp4",
+            ".mov"
+          ]
+        },
+        "path": "Photos/{item.id}/{file.name}"
+      }
+    ],
+    "normalization": "ascii"
+  }
+}

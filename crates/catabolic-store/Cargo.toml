@@ -17,6 +17,7 @@ base64.workspace = true
 unicode-normalization.workspace = true
 async-graphql.workspace = true
 async-graphql-parser.workspace = true
+async-graphql-value.workspace = true
 futures.workspace = true
 async-trait.workspace = true
 

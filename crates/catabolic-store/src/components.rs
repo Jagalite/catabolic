@@ -224,11 +224,12 @@ pub(crate) fn occurrence(db: &Connection, profile: &str, file: &str) -> Result<V
     if let Some(raw) = row
         .and_then(|r| r["settings"].as_str())
         .filter(|s| !s.is_empty())
-        && let Some(o) = serde_json::from_str::<Value>(raw)?.as_object() {
-            for (k, v) in o {
-                settings[k] = v.clone();
-            }
+        && let Some(o) = serde_json::from_str::<Value>(raw)?.as_object()
+    {
+        for (k, v) in o {
+            settings[k] = v.clone();
         }
+    }
     snapshot["source_policy"] = json!({"preset":preset,"settings":settings,"revision":row.map(|r| &r["revision"]).cloned().unwrap_or(json!(0))});
     let volumes = rows(
         db,
@@ -397,22 +398,24 @@ pub fn backfill(db: &Connection) -> Result<()> {
                     }
                 }
             }
-            if !indexed && now["status"] == "present"
-                && let Some(kind) = role_kind {
-                    insert(
-                        db,
-                        &namespace,
-                        profile,
-                        &association,
-                        &item,
-                        &now,
-                        kind,
-                        json!({"convention":"whole_file"}),
-                        None,
-                        None,
-                        None,
-                    )?;
-                }
+            if !indexed
+                && now["status"] == "present"
+                && let Some(kind) = role_kind
+            {
+                insert(
+                    db,
+                    &namespace,
+                    profile,
+                    &association,
+                    &item,
+                    &now,
+                    kind,
+                    json!({"convention":"whole_file"}),
+                    None,
+                    None,
+                    None,
+                )?;
+            }
         }
     }
     db.execute(

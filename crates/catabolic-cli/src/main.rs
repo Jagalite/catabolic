@@ -72,6 +72,39 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             db.execute_batch("BEGIN")?;
             migration::snapshot(&db)
         }
+        [command, id, catalog] if command == "layout-plan" => {
+            let store = catabolic_store::Store::open(&path, false, false)?;
+            let request: Value = serde_json::from_str(&options)?;
+            let mut evaluation =
+                catabolic_store::selection::Evaluation::new(store, &profile, 60000, 100000, http)?;
+            catabolic_store::layout::plan(
+                &mut evaluation,
+                id,
+                catalog,
+                request["replace_layout"] == true,
+                request["allow_empty"] == true,
+                request["limit"].as_u64().unwrap_or(100) as usize,
+            )
+        }
+        [command, definition] if command == "select" => {
+            let selection: Value = serde_json::from_str(definition)?;
+            let store = catabolic_store::Store::open(&path, false, false)?;
+            let mut evaluation = catabolic_store::selection::Evaluation::new(
+                store,
+                &profile,
+                selection["timeout_ms"].as_u64().unwrap_or(5000),
+                selection["max_ids"].as_u64().unwrap_or(10000) as usize,
+                http,
+            )?;
+            let result = evaluation.select(&selection)?;
+            Ok(json!({"entity":result.entity,"ids":result.ids,"report":result.report}))
+        }
+        [command, id] if command == "saved-query" => {
+            let store = catabolic_store::Store::open(&path, false, false)?;
+            let mut evaluation =
+                catabolic_store::selection::Evaluation::new(store, &profile, 60000, 100000, http)?;
+            evaluation.run(id, max_rows)
+        }
         [command, value] if command == "encode" => {
             Ok(json!({"encoded":catabolic_core::encode(&serde_json::from_str::<Value>(value)?)}))
         }

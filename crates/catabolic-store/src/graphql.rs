@@ -52,22 +52,21 @@ impl async_graphql::extensions::Extension for Budget {
         }
         let introspection = info.is_for_introspection;
         let result = next.run(ctx, info).await?;
-        if introspection
-            && let Some(value) = &result {
-                let mut context = state.lock().expect("query context");
-                let charged = match value {
-                    GValue::List(values) => context.records(values.len()),
-                    GValue::String(_) => {
-                        context.charge(&serde_json::to_value(value).expect("GraphQL value JSON"))
-                    }
-                    _ => context.check(),
-                };
-                charged.map_err(|e| {
-                    async_graphql::Error::new(e.to_string())
-                        .extend_with(|_, extensions| extensions.set("code", "LIMIT_EXCEEDED"))
-                        .into_server_error(async_graphql::Pos::default())
-                })?;
-            }
+        if introspection && let Some(value) = &result {
+            let mut context = state.lock().expect("query context");
+            let charged = match value {
+                GValue::List(values) => context.records(values.len()),
+                GValue::String(_) => {
+                    context.charge(&serde_json::to_value(value).expect("GraphQL value JSON"))
+                }
+                _ => context.check(),
+            };
+            charged.map_err(|e| {
+                async_graphql::Error::new(e.to_string())
+                    .extend_with(|_, extensions| extensions.set("code", "LIMIT_EXCEEDED"))
+                    .into_server_error(async_graphql::Pos::default())
+            })?;
+        }
         Ok(result)
     }
 }
@@ -337,9 +336,10 @@ impl Context {
         args.insert("cursor".into(), cursor);
         for key in ["active", "direction", "sort", "status", "curation_status"] {
             if let Some(v) = args.get_mut(key)
-                && let Some(text) = v.as_str() {
-                    *v = json!(text.to_lowercase());
-                }
+                && let Some(text) = v.as_str()
+            {
+                *v = json!(text.to_lowercase());
+            }
         }
         if args.remove("all_catalogs") == Some(json!(true)) {
             args.insert("catalog".into(), Value::Null);
@@ -792,9 +792,10 @@ impl Context {
         } else {
             let mut value = source.get(field).unwrap_or(&source[snake(field)]).clone();
             if ["status", "requestedStatus"].contains(&field)
-                && let Some(s) = value.as_str() {
-                    value = json!(s.to_uppercase());
-                }
+                && let Some(s) = value.as_str()
+            {
+                value = json!(s.to_uppercase());
+            }
             if field == "active" {
                 value = json!(value.as_bool().unwrap_or_else(|| value.as_i64() != Some(0)));
             }
@@ -892,10 +893,14 @@ fn build_schema() -> Result<Schema> {
     > = BTreeMap::new();
     let mut enums = BTreeSet::new();
     let mut objects = BTreeSet::new();
+    let mut descriptions = BTreeMap::new();
     let mut definitions = vec![];
     for definition in document.definitions {
         if let TypeSystemDefinition::Type(definition) = definition {
             let definition = definition.node;
+            if let Some(description) = &definition.description {
+                descriptions.insert(definition.name.node.to_string(), description.node.clone());
+            }
             match &definition.kind {
                 TypeKind::Object(obj) => {
                     objects.insert(definition.name.node.to_string());
@@ -929,15 +934,24 @@ fn build_schema() -> Result<Schema> {
                 builder = builder.register(scalar);
             }
             TypeKind::Enum(enumeration) => {
-                let mut enumeration_type = Enum::new(name);
+                let mut enumeration_type = Enum::new(name.clone());
+                if let Some(description) = descriptions.get(&name) {
+                    enumeration_type = enumeration_type.description(description);
+                }
                 for item in enumeration.values {
-                    enumeration_type =
-                        enumeration_type.item(EnumItem::new(item.node.value.node.to_string()));
+                    let mut entry = EnumItem::new(item.node.value.node.to_string());
+                    if let Some(description) = item.node.description {
+                        entry = entry.description(description.node);
+                    }
+                    enumeration_type = enumeration_type.item(entry);
                 }
                 builder = builder.register(enumeration_type);
             }
             TypeKind::InputObject(obj) => {
-                let mut input_object = InputObject::new(name);
+                let mut input_object = InputObject::new(name.clone());
+                if let Some(description) = descriptions.get(&name) {
+                    input_object = input_object.description(description);
+                }
                 for field in obj.fields {
                     input_object = input_object.field(input(field.node));
                 }
@@ -948,6 +962,9 @@ fn build_schema() -> Result<Schema> {
     }
     for (parent, fields) in object_fields {
         let mut object = Object::new(&parent);
+        if let Some(description) = descriptions.get(&parent) {
+            object = object.description(description);
+        }
         for field in fields {
             let field = field.node;
             let name = field.name.node.to_string();
@@ -1075,6 +1092,15 @@ fn check_document(document: &async_graphql_parser::types::ExecutableDocument) ->
             &mut count,
         )?;
     }
+    for fragment in document.fragments.values() {
+        visit(
+            &fragment.node.selection_set.node,
+            document,
+            0,
+            &BTreeSet::new(),
+            &mut count,
+        )?;
+    }
     Ok(())
 }
 pub fn execute(
@@ -1085,6 +1111,26 @@ pub fn execute(
     operation: Option<&str>,
     timeout_ms: u64,
 ) -> Result<Value> {
+    execute_store(
+        Store::open(path, false, false)?,
+        document,
+        profile,
+        variables,
+        operation,
+        timeout_ms,
+    )
+    .map(|(_, result)| result)
+}
+
+pub fn execute_store(
+    store: Store,
+    document: &str,
+    profile: &str,
+    variables: Value,
+    operation: Option<&str>,
+    timeout_ms: u64,
+) -> Result<(Store, Value)> {
+    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
     if !(1..=60000).contains(&timeout_ms) {
         return Err(Error("timeout-ms must be between 1 and 60000".into()));
     }
@@ -1097,19 +1143,29 @@ pub fn execute(
     if encode(&variables).len() > 131072 {
         return Err(Error("variables exceed input budget".into()));
     }
-    let store = Store::open(path, false, false)?;
     CatalogQuery::new(&store, profile)?;
     let ast = match parse_query(document) {
         Ok(ast) => ast,
-        Err(error) => return Ok(json!({"data":null,"errors":[{"message":error.to_string()}]})),
+        Err(error) => {
+            return Ok((
+                store,
+                json!({"data":null,"errors":[{"message":error.to_string()}]}),
+            ));
+        }
     };
     if let Err(error) = check_document(&ast) {
-        return Ok(json!({"data":null,"errors":[{"message":error.to_string()}]}));
+        return Ok((
+            store,
+            json!({"data":null,"errors":[{"message":error.to_string()}]}),
+        ));
     }
+    store
+        .db
+        .progress_handler(1000, Some(move || Instant::now() >= deadline))?;
     let state = Arc::new(Mutex::new(Context {
         store,
         profile: profile.into(),
-        deadline: Instant::now() + Duration::from_millis(timeout_ms),
+        deadline,
         nodes: 0,
         fields: 0,
         bytes: 0,
@@ -1123,28 +1179,38 @@ pub fn execute(
     }
     let response = futures::executor::block_on(schema()?.execute(request));
     let mut result = serde_json::to_value(response)?;
-    let state = state
+    let state_handle = state;
+    let state = state_handle
         .lock()
         .map_err(|_| Error("query context poisoned".into()))?;
-    if state.aborted.is_some() || Instant::now() > state.deadline {
-        return Ok(
-            json!({"data":null,"errors":[{"message":state.aborted.as_deref().unwrap_or("query execution deadline exceeded"),"extensions":{"code":"LIMIT_EXCEEDED"}}]}),
-        );
-    }
-    if state.fields > 0 {
-        result["extensions"] =
-            json!({"interfaceVersion":1,"profile":profile,"records":state.nodes});
-    }
-    if encode(&result).len() > 8 * 1024 * 1024 {
-        return Ok(
-            json!({"data":null,"errors":[{"message":"query output budget exceeded","extensions":{"code":"LIMIT_EXCEEDED"}}]}),
-        );
-    }
-    if result
-        .get("errors")
-        .is_some_and(|v| v.as_array().is_some_and(Vec::is_empty))
-    {
-        result.as_object_mut().unwrap().remove("errors");
-    }
-    Ok(result)
+    let result = (|| -> Result<Value> {
+        if state.aborted.is_some() || Instant::now() > state.deadline {
+            return Ok(
+                json!({"data":null,"errors":[{"message":state.aborted.as_deref().unwrap_or("query execution deadline exceeded"),"extensions":{"code":"LIMIT_EXCEEDED"}}]}),
+            );
+        }
+        if state.fields > 0 {
+            result["extensions"] =
+                json!({"interfaceVersion":1,"profile":profile,"records":state.nodes});
+        }
+        if encode(&result).len() > 8 * 1024 * 1024 {
+            return Ok(
+                json!({"data":null,"errors":[{"message":"query output budget exceeded","extensions":{"code":"LIMIT_EXCEEDED"}}]}),
+            );
+        }
+        if result
+            .get("errors")
+            .is_some_and(|v| v.as_array().is_some_and(Vec::is_empty))
+        {
+            result.as_object_mut().unwrap().remove("errors");
+        }
+        Ok(result)
+    })();
+    state.store.db.progress_handler(0, None::<fn() -> bool>)?;
+    drop(state);
+    let context = Arc::try_unwrap(state_handle)
+        .map_err(|_| Error("query context retained after execution".into()))?
+        .into_inner()
+        .map_err(|_| Error("query context poisoned".into()))?;
+    Ok((context.store, result?))
 }

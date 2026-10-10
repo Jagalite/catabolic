@@ -25,6 +25,7 @@ def main():
     verify_source(source, inventory)
     sys.path[:0] = [str(source / "src")]
     from catabolic.graphql_query import LOCAL_SDL
+    from catabolic.layouts import PRESETS
     from catabolic.media import describe_types
     from catabolic.migration import _expected_schema, load_migrations
     from catabolic.sql_query import FUNCTIONS, VIEWS
@@ -61,6 +62,9 @@ def main():
         + "\n"
     ).encode()
     generated["schema.graphql"] = LOCAL_SDL.encode()
+    generated["layouts.json"] = (
+        json.dumps(PRESETS, ensure_ascii=False, indent=2) + "\n"
+    ).encode()
     generated["hashes.json"] = (
         json.dumps({name: sha(data) for name, data in generated.items()}, indent=2)
         + "\n"

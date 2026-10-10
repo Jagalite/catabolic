@@ -475,8 +475,10 @@ fn backup(
             "backup directory cannot contain the active database".into(),
         ));
     }
-    fs::create_dir_all(&parent)?;
-    fs::create_dir(&directory)?;
+    std::os::unix::fs::DirBuilderExt::mode(std::fs::DirBuilder::new().recursive(true), 0o700)
+        .create(&parent)?;
+    std::os::unix::fs::DirBuilderExt::mode(&mut std::fs::DirBuilder::new(), 0o700)
+        .create(&directory)?;
     fsync(&parent)?;
     let partial = directory.join("snapshot.sqlite3.partial");
     copy(db, &partial)?;

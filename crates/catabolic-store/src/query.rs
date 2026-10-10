@@ -157,11 +157,10 @@ impl<'a> CatalogQuery<'a> {
     ) -> Result<(Vec<String>, Vec<SqlValue>)> {
         let mut clauses = vec![];
         let mut values = vec![];
-        if search
-            && let Some(v) = args.get("search").filter(|v| !v.is_null()) {
-                clauses.push("contains_text(title_key(i.metadata), ?)".into());
-                values.push(scalar(v)?);
-            }
+        if search && let Some(v) = args.get("search").filter(|v| !v.is_null()) {
+            clauses.push("contains_text(title_key(i.metadata), ?)".into());
+            values.push(scalar(v)?);
+        }
         if let Some(v) = args.get("kind").filter(|v| !v.is_null()) {
             vocabulary(v, "media kind")?;
             clauses.push("i.kind=?".into());
@@ -181,26 +180,25 @@ impl<'a> CatalogQuery<'a> {
             );
             values.extend(identity(v)?);
         }
-        if metadata
-            && let Some(expressions) = args.get("metadata").filter(|v| !v.is_null()) {
-                for expression in expressions
-                    .as_array()
-                    .ok_or_else(|| Error("metadata filters must be an array".into()))?
-                {
-                    let invalid = || Error("metadata filter must be KEY=JSON_VALUE".into());
-                    let (key, raw) = expression
-                        .as_str()
-                        .and_then(|s| s.split_once('='))
-                        .filter(|(k, _)| !k.is_empty())
-                        .ok_or_else(invalid)?;
-                    let expected: Value = serde_json::from_str(raw).map_err(|_| invalid())?;
-                    clauses.push("metadata_matches(i.metadata,?,?)".into());
-                    values.extend([
-                        SqlValue::Text(key.into()),
-                        SqlValue::Text(encode(&expected)),
-                    ]);
-                }
+        if metadata && let Some(expressions) = args.get("metadata").filter(|v| !v.is_null()) {
+            for expression in expressions
+                .as_array()
+                .ok_or_else(|| Error("metadata filters must be an array".into()))?
+            {
+                let invalid = || Error("metadata filter must be KEY=JSON_VALUE".into());
+                let (key, raw) = expression
+                    .as_str()
+                    .and_then(|s| s.split_once('='))
+                    .filter(|(k, _)| !k.is_empty())
+                    .ok_or_else(invalid)?;
+                let expected: Value = serde_json::from_str(raw).map_err(|_| invalid())?;
+                clauses.push("metadata_matches(i.metadata,?,?)".into());
+                values.extend([
+                    SqlValue::Text(key.into()),
+                    SqlValue::Text(encode(&expected)),
+                ]);
             }
+        }
         Ok((clauses, values))
     }
     fn tag(&self, value: &Value) -> Result<SqlValue> {
@@ -323,6 +321,29 @@ impl<'a> CatalogQuery<'a> {
             return Err(Error("catalog query options must be an object".into()));
         }
         match key {
+            "status" => {
+                let mut counts = serde_json::Map::new();
+                for table in [
+                    "locations",
+                    "catalogs",
+                    "files",
+                    "items",
+                    "mappings",
+                    "journal",
+                ] {
+                    counts.insert(
+                        table.into(),
+                        json!(self.store.db.query_row(
+                            &format!("SELECT count(*) FROM {table}"),
+                            [],
+                            |r| r.get::<_, i64>(0)
+                        )?),
+                    );
+                }
+                Ok(
+                    json!({"database":self.store.path,"database_id":self.store.database_id,"profile":self.profile,"pending_operations":rows(&self.store.db,"SELECT * FROM journal WHERE profile=? ORDER BY rowid",&[self.profile.to_owned().into()])?,"counts":counts,"bindings":rows(&self.store.db,"SELECT * FROM bindings WHERE profile=? ORDER BY kind,owner",&[self.profile.to_owned().into()])?}),
+                )
+            }
             "items" => self.items(args),
             "files" => self.files(args),
             "mappings" | "associations" | "relationships" => self.relations(key, args),
@@ -858,4 +879,20 @@ pub fn rendition_conditions(wanted: &Value, alias: &str) -> Result<(Vec<String>,
         }
     }
     Ok((clauses, params))
+}
+
+/// ASCII public definition/profile name contract.
+pub fn name(value: &str) -> Result<()> {
+    if value.is_empty()
+        || value.len() > 64
+        || !value.as_bytes()[0].is_ascii_alphanumeric()
+        || !value
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || b"_.-".contains(&c))
+    {
+        return Err(Error(
+            "names must be 1–64 letters, digits, dots, underscores, or hyphens".into(),
+        ));
+    }
+    Ok(())
 }

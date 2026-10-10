@@ -42,3 +42,40 @@ security comparisons, and explicit parity-ledger evidence mapping.
 
 M0 platform/performance gaps remain as recorded in RUST_MIGRATION_M0.md. No remote
 workflow was dispatched and no unexecuted Linux lane is counted as passing.
+
+## Complete selection and planning checkpoint
+
+The Rust engine now evaluates complete SQL/GraphQL ID selections, bounded SQL
+keyset pages, saved selection compositions and rows/document queries in one
+caller-owned snapshot. It previews layouts (including all shipped target naming
+presets), relationships, copy preferences, rendition evidence admission, portable
+collisions, ownership changes, and the empty-selection removal guard. Both the
+native executable and Python companion expose these read-only operations.
+
+Additional local verification:
+
+- 18 read-surface differential scenarios passed in 34.756 seconds.
+- Two populated historical scenarios (schema 14 recipes/rules/layout selections
+  and schema 24 probe/sidecar components) and five layout scenarios passed in
+  31.521 seconds. Only newly generated `created_at` values in newly created
+  tables are compared by format and execution window, per plan section 9.1;
+  every other value and all historical timestamps compare exactly.
+- Real SQLite rollback passed at all 124 before/after-migration boundaries across
+  rehearsal and live upgrade; the same run checked exact recovery eligibility,
+  committed WAL backup data and cancellation after concurrent edits (114.59s).
+- Native unit checks passed for nested savepoint rollback, stable read snapshots,
+  read-only transaction refusal, detach/reconnect locking and replacement identity.
+- The rebuilt abi3 wheel imports and runs outside the checkout on Python 3.11.15;
+  CLI and extension return the same SQL result without changing database bytes.
+  3,006 finite float samples encode byte for byte like Python JSON.
+- Rust Clippy and Python Ruff checks pass. Frozen resource regeneration verifies
+  all 36 resource files, including naming presets captured from the pinned source.
+
+New reproducible checks: `tests.test_rust_selection`, `tests.test_rust_layouts`,
+`tests.test_rust_populated_migration`, `cargo test -p catabolic-store --test
+storage_faults`, and `scripts/qualify_native_wheel.py` (outside-checkout cwd).
+
+The complete HTTP server/authentication adapter remains M10 work. The read-only
+GraphQL selection evaluator refuses HTTP execution without authorization context;
+SQL's HTTP mode applies the frozen private-table/field disclosure restrictions.
+No platform result is inferred from a macOS-only execution.

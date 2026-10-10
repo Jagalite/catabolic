@@ -81,3 +81,47 @@ def execute_graphql(
             timeout_ms,
         )
     )
+
+
+def select_ids(path, selection, *, profile="default"):
+    return json.loads(
+        _native.evaluate_read(
+            str(path), "select", json.dumps(selection, allow_nan=False), profile
+        )
+    )
+
+
+def run_query(path, identifier, *, profile="default", limit=1000):
+    return json.loads(
+        _native.evaluate_read(
+            str(path), "query", json.dumps({"id": identifier, "limit": limit}), profile
+        )
+    )
+
+
+def plan_layout(
+    path,
+    identifier,
+    catalog="global",
+    *,
+    profile="default",
+    replace_layout=False,
+    allow_empty=False,
+    limit=100,
+):
+    return json.loads(
+        _native.evaluate_read(
+            str(path),
+            "layout",
+            json.dumps(
+                {
+                    "id": identifier,
+                    "catalog": catalog,
+                    "replace_layout": replace_layout,
+                    "allow_empty": allow_empty,
+                    "limit": limit,
+                }
+            ),
+            profile,
+        )
+    )

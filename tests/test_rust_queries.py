@@ -51,7 +51,11 @@ class NativeQueryTest(unittest.TestCase):
             "native request timed out",
         )
         line = self.worker.stdout.readline()
-        self.assertTrue(line, "native worker terminated")
+        self.assertTrue(
+            line,
+            "native worker terminated: "
+            + (self.worker.stderr.read() if self.worker.poll() is not None else ""),
+        )
         reply = json.loads(line)
         self.assertEqual(reply["status"], 0 if ok else 2, reply)
         return reply["result"] if ok else reply["error"]

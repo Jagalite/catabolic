@@ -1,8 +1,12 @@
 //! Owns Catabolic's SQLite lifecycle. Opening never creates or upgrades a catalog.
 mod components;
 pub mod graphql;
+pub mod layout;
 pub mod migration;
+mod publication;
 pub mod query;
+pub mod selection;
+mod source;
 pub mod sql;
 
 use rusqlite::{Connection, OpenFlags};
@@ -206,7 +210,186 @@ impl Store {
             }
         }
     }
+    /// Release the connection and writer lock around slow external work, then
+    /// validate the reopened catalog identity before allowing further work.
+    pub fn detached<T>(&mut self, operation: impl FnOnce() -> Result<T>) -> Result<T> {
+        if !self.db.is_autocommit() {
+            return Err(Error("cannot detach an active transaction".into()));
+        }
+        let placeholder = Connection::open_in_memory()?;
+        drop(std::mem::replace(&mut self.db, placeholder));
+        self.lock.take();
+        let outcome = operation();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        if self.writable {
+            loop {
+                match writer_lock(&self.path) {
+                    Ok(lock) => {
+                        self.lock = Some(lock);
+                        break;
+                    }
+                    Err(error)
+                        if error.0.contains("another Catabolic writer")
+                            && std::time::Instant::now() < deadline =>
+                    {
+                        std::thread::sleep(Duration::from_millis(20))
+                    }
+                    Err(error) => return Err(error),
+                }
+            }
+        }
+        let reopened = (|| {
+            let path = database_path(&self.path)?;
+            let db = connect(&path, self.writable)?;
+            let info = migration::validate(&db, false)?;
+            if info["database_id"] != self.database_id {
+                return Err(Error("catalog replaced during detached execution".into()));
+            }
+            Ok(db)
+        })();
+        match reopened {
+            Ok(db) => {
+                self.db = db;
+                outcome
+            }
+            Err(error) => {
+                self.lock.take();
+                Err(error)
+            }
+        }
+    }
     pub fn owns_writer_lock(&self) -> bool {
         self.lock.is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn catalog() -> (tempfile::TempDir, PathBuf) {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("catalog.sqlite3");
+        migration::initialize(&path).unwrap();
+        (root, path)
+    }
+    #[test]
+    fn nested_savepoints_rollback_only_the_failed_scope() {
+        let (_root, path) = catalog();
+        let store = Store::open(&path, true, false).unwrap();
+        store
+            .transaction(|db| {
+                db.execute("INSERT INTO catalogs(id) VALUES('outer')", [])?;
+                let failed = store.transaction(|db| -> Result<()> {
+                    db.execute("INSERT INTO catalogs(id) VALUES('inner')", [])?;
+                    Err(Error("injected nested failure".into()))
+                });
+                assert!(failed.is_err());
+                assert_eq!(
+                    db.query_row("SELECT count(*) FROM catalogs WHERE id='inner'", [], |r| {
+                        r.get::<_, i64>(0)
+                    })?,
+                    0
+                );
+                Ok(())
+            })
+            .unwrap();
+        assert!(store.db.is_autocommit());
+        assert_eq!(
+            store
+                .db
+                .query_row("SELECT count(*) FROM catalogs WHERE id='outer'", [], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap(),
+            1
+        );
+        let failed = store.transaction(|db| -> Result<()> {
+            db.execute("DELETE FROM catalogs WHERE id='outer'", [])?;
+            Err(Error("outer failure".into()))
+        });
+        assert!(failed.is_err());
+        assert_eq!(
+            store
+                .db
+                .query_row("SELECT count(*) FROM catalogs WHERE id='outer'", [], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap(),
+            1
+        );
+    }
+    #[test]
+    fn readonly_snapshot_is_stable_and_refuses_transactions() {
+        let (_root, path) = catalog();
+        let writer = Store::open(&path, true, false).unwrap();
+        writer
+            .db
+            .pragma_update(None, "journal_mode", "WAL")
+            .unwrap();
+        let reader = Store::open(&path, false, false).unwrap();
+        writer
+            .transaction(|db| {
+                db.execute("INSERT INTO catalogs(id) VALUES('later')", [])?;
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(
+            reader
+                .db
+                .query_row("SELECT count(*) FROM catalogs WHERE id='later'", [], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap(),
+            0
+        );
+        assert!(reader.transaction(|_| Ok(())).is_err());
+        drop(reader);
+        assert_eq!(
+            Store::open(&path, false, false)
+                .unwrap()
+                .db
+                .query_row("SELECT count(*) FROM catalogs WHERE id='later'", [], |r| {
+                    r.get::<_, i64>(0)
+                })
+                .unwrap(),
+            1
+        );
+    }
+    #[test]
+    fn detach_releases_writer_and_refuses_replaced_identity() {
+        let (root, path) = catalog();
+        let mut writer = Store::open(&path, true, false).unwrap();
+        writer
+            .detached(|| {
+                let other = Store::open(&path, true, false)?;
+                other.transaction(|db| {
+                    db.execute("INSERT INTO catalogs(id) VALUES('detached')", [])?;
+                    Ok(())
+                })
+            })
+            .unwrap();
+        assert!(writer.owns_writer_lock());
+        writer.db.execute_batch("BEGIN").unwrap();
+        assert!(
+            writer
+                .detached(|| Ok(()))
+                .unwrap_err()
+                .0
+                .contains("active transaction")
+        );
+        writer.db.execute_batch("ROLLBACK").unwrap();
+        let replacement = root.path().join("replacement.sqlite3");
+        migration::initialize(&replacement).unwrap();
+        assert!(
+            writer
+                .detached(|| {
+                    std::fs::rename(&replacement, &path)?;
+                    Ok(())
+                })
+                .unwrap_err()
+                .0
+                .contains("catalog replaced")
+        );
+        assert!(!writer.owns_writer_lock());
     }
 }
