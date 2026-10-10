@@ -83,6 +83,7 @@ def main():
                         "operation": kind,
                         "seconds": samples,
                         "median_seconds": medians,
+                    "p95_seconds": {key: max(values) for key, values in samples.items()},
                         "native_over_python": medians["native"] / medians["python"],
                     }
                 )

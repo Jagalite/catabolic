@@ -568,6 +568,17 @@ impl Context {
                         "conflicts",
                     ],
                 )?;
+                if field == "workInbox" {
+                    decode(
+                        row,
+                        &[
+                            "related_work",
+                            "preconditions",
+                            "suggested_actions",
+                            "evidence",
+                        ],
+                    )?;
+                }
                 if field == "components" || field == "componentOccurrences" {
                     for key in [
                         "current",
@@ -1310,6 +1321,7 @@ pub fn execute_store(
     let query_only: bool = store
         .db
         .pragma_query_value(None, "query_only", |row| row.get(0))?;
+    crate::sql::setup(&store.db)?;
     store.db.pragma_update(None, "query_only", true)?;
     store
         .db

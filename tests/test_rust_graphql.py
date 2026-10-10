@@ -280,3 +280,25 @@ class NativeGraphQLTest(unittest.TestCase):
                 self.assertEqual(
                     self.query(document), reference_query(self.path, document)
                 )
+
+    def test_populated_workflow_checks_worklog_and_work_inbox(self):
+        from catabolic.app import Application
+        from catabolic.item_workflow import ItemWorkflow
+        from catabolic.store import Store
+
+        with Store(self.path, writable=True) as store:
+            workflow = ItemWorkflow(Application(store))
+            workflow.note("book", "First")
+            workflow.note("book", "Second")
+            workflow.set_status("book", "complete")
+            workflow.require("book", "review", "Review again")
+        for document in (
+            "{items(curationStatus:NEEDS_ATTENTION){nodes{id workflow{status requestedStatus revision}workflowChecks{nodes}worklog(first:1){nodes pageInfo{hasNextPage endCursor}}}}}",
+            "{workInbox(first:1){nodes pageInfo{hasNextPage endCursor}}}",
+            "{workInbox(includeInactive:true){nodes pageInfo{hasNextPage endCursor}}}",
+        ):
+            with self.subTest(document=document):
+                self.maxDiff = None
+                self.assertEqual(
+                    self.query(document), reference_query(self.path, document)
+                )

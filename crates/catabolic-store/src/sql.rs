@@ -81,6 +81,8 @@ pub fn install_functions(db: &Connection) -> Result<()> {
     Ok(())
 }
 pub fn setup(db: &Connection) -> Result<()> {
+    // Only frozen temporary views are created before enabling the query guard.
+    db.pragma_update(None, "query_only", false)?;
     install_functions(db)?;
     let temp: i32 = db.pragma_query_value(None, "temp_store", |r| r.get(0))?;
     if temp != 2 {
