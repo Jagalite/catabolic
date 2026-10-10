@@ -5,6 +5,7 @@
 """Initialize or validate the review ledger against a frozen reference inventory."""
 
 import argparse
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -27,7 +28,7 @@ CLI_OWNERS = {
 }
 
 
-def surfaces(inventory):
+def surfaces(inventory, contracts=None):
     result = {}
     roots = {
         root: owner for owner, names in CLI_OWNERS.items() for root in names.split()
@@ -45,6 +46,10 @@ def surfaces(inventory):
             else:
                 owner = "E" if kind == "http" else "A"
             result[identifier] = owner
+    for row in (contracts or {}).get("rows", []):
+        if row["id"] in result:
+            raise ValueError(f"duplicate inventory ID: {row['id']}")
+        result[row["id"]] = row["owner"]
     return result
 
 
@@ -76,10 +81,86 @@ def initialize(inventory, inventory_hash, reference):
     )
 
 
-def validate(ledger, inventory, inventory_hash):
+def extend(ledger, contracts, contracts_hash):
+    """Add newly inventoried surfaces without resetting any existing review."""
+    if "contracts_sha256" in ledger:
+        raise ValueError(
+            "ledger already has supplemental contracts; review updates explicitly"
+        )
+    if (
+        contracts["inventory_sha256"] != ledger["inventory_sha256"]
+        or contracts["reference_commit"] != ledger["reference_commit"]
+    ):
+        raise ValueError("contracts reference a different oracle")
+    result = copy.deepcopy(ledger)
+    existing = {row["id"] for row in result["rows"]}
+    for row in contracts["rows"]:
+        if row["id"] in existing:
+            raise ValueError(f"duplicate supplemental ID: {row['id']}")
+        existing.add(row["id"])
+        proof = row["proof_group"]
+        command = (
+            [
+                "python",
+                "scripts/migration_proofs.py",
+                "--source",
+                "REFERENCE_SOURCE",
+                "--output",
+                "NEW_EVIDENCE_ROOT",
+                "--proof",
+                proof,
+            ]
+            if proof
+            else [
+                "python",
+                "scripts/migration_contracts.py",
+                "--source",
+                "REFERENCE_SOURCE",
+                "--check",
+            ]
+        )
+        result["rows"].append(
+            dict(
+                id=row["id"],
+                owner=row["owner"],
+                status=row["status"],
+                contract_reference=f"contracts.json#{row['id']}",
+                public_inputs_outputs=row.get(
+                    "public_inputs_outputs",
+                    "see supplemental contract; behavioral review pending",
+                ),
+                mutations=row.get("mutations"),
+                failure_behavior=row.get("failure_behavior"),
+                reference_tests=row["reference_tests"],
+                rust_tests=[],
+                differential_fixtures=[],
+                proof_plan=dict(
+                    command=command,
+                    scope=row["proof_scope"],
+                    remaining_scenarios=row.get(
+                        "remaining_scenarios", ["Operation-specific behavioral mapping"]
+                    ),
+                ),
+            )
+        )
+    result["contracts_sha256"] = contracts_hash
+    result["scope_note"] = (
+        "Includes CLI, HTTP, SQL migrations, GraphQL types/fields, HTTP component schemas, released artifacts and reviewed Python migration hooks. Adapter enumeration, Python API classification and behavioral proof coverage remain incomplete."
+    )
+    return result
+
+
+def validate(ledger, inventory, inventory_hash, contracts=None, contracts_hash=None):
     if ledger["inventory_sha256"] != inventory_hash:
         raise ValueError("ledger references different inventory bytes")
-    expected = surfaces(inventory)
+    if ledger.get("contracts_sha256") != contracts_hash:
+        raise ValueError("missing or different supplemental contracts")
+    if contracts is not None and (
+        contracts["inventory_sha256"] != inventory_hash
+        or contracts["reference_commit"] != ledger["reference_commit"]
+    ):
+        raise ValueError("supplemental contracts reference a different oracle")
+    expected = surfaces(inventory, contracts)
     rows = ledger["rows"]
     ids = [row["id"] for row in rows]
     if len(ids) != len(set(ids)):
@@ -133,6 +214,7 @@ def main():
     parser.add_argument("--inventory", type=Path, required=True)
     parser.add_argument("--ledger", type=Path, required=True)
     parser.add_argument("--initialize", action="store_true")
+    parser.add_argument("--contracts", type=Path)
     parser.add_argument(
         "--reference", default="453fca983222c6665a48775eef67c489c96b527e"
     )
@@ -140,14 +222,22 @@ def main():
     raw = args.inventory.read_bytes()
     inventory = json.loads(raw)
     inventory_hash = hashlib.sha256(raw).hexdigest()
+    contracts = None
+    contracts_hash = None
+    if args.contracts:
+        contract_bytes = args.contracts.read_bytes()
+        contracts = json.loads(contract_bytes)
+        contracts_hash = hashlib.sha256(contract_bytes).hexdigest()
     if args.initialize:
         ledger = initialize(inventory, inventory_hash, args.reference)
-        validate(ledger, inventory, inventory_hash)
+        if contracts is not None:
+            ledger = extend(ledger, contracts, contracts_hash)
+        validate(ledger, inventory, inventory_hash, contracts, contracts_hash)
         with args.ledger.open("x") as handle:
             handle.write(json.dumps(ledger, indent=2, sort_keys=True) + "\n")
     else:
         ledger = json.loads(args.ledger.read_text())
-        validate(ledger, inventory, inventory_hash)
+        validate(ledger, inventory, inventory_hash, contracts, contracts_hash)
     print(f"{len(ledger['rows'])} enumerated surfaces; M0 remains in progress")
 
 

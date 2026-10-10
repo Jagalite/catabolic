@@ -1,0 +1,42 @@
+{
+  "format_version": 1,
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "review_threshold_percent": 10,
+  "meaning": "Repeated deterioration greater than 10 percent in a critical path requires investigation and an explicit reviewed tradeoff; not an automatic safety waiver.",
+  "comparison_protocol": "Same machine, filesystem, dataset, SQLite/tool versions, concurrency and observers; at least three interleaved reference/candidate release runs. Report all samples and median/p95. Do not select the fastest run.",
+  "safety": "No reduction in validation, boundedness, source preservation, ownership or recovery to meet timing targets.",
+  "current_capture": "Reference-only discovery measurements. Synthetic, scan and high-cardinality runners overlapped; timings are contended and cannot serve as isolated release-comparison thresholds.",
+  "required_metrics": [
+    "cold CLI start",
+    "idle RSS",
+    "scan throughput",
+    "peak RSS",
+    "temporary disk use",
+    "descriptors",
+    "bytes read",
+    "query p50/p95",
+    "plan/apply time",
+    "writer-lock hold time",
+    "job admission",
+    "HTTP latency",
+    "cancellation delay",
+    "verification overhead"
+  ],
+  "not_yet_measured": [
+    "cold filesystem cache",
+    "application bytes read (block counters are not bytes)",
+    "temporary disk and descriptor high-water marks",
+    "full active-worker/encoder cancellation latency",
+    "isolated observer overhead comparison"
+  ],
+  "measured_runtime_scope": {
+    "fresh_process_cli_start": "10 new processes; OS caches uncontrolled",
+    "idle_rss": "loopback HTTP server after readiness",
+    "query_latency": "30 authorized catalog-view count queries",
+    "http_latency": "30 authenticated /v1/me requests over loopback TCP",
+    "writer_lock_hold": "instrumented Store lock acquire-to-close intervals in a 100-file fixture",
+    "job_admission": "10 distinct sniff jobs",
+    "cancellation": "10 queued jobs and 5 running subprocess groups; not complete active-encoder cancellation",
+    "resources": "harness peak RSS, one FD snapshot, retained fixture size and OS block counters; not disk/FD high-water or logical bytes read"
+  }
+}

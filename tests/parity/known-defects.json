@@ -26,7 +26,8 @@
       ],
       "id": "M0-ENV-001",
       "observation": "Initial macOS arm64 Python 3.14.6 environment lacks Tesseract, Docker and Apprise; its Node is 23.5.0 rather than the CI lane's Node 22. Linux and Python 3.11 lanes have not run in this capture. Tests also report unavailable FFmpeg libwebp encoder and zscale filter.",
-      "status": "qualification-gap"
+      "status": "qualification-gap",
+      "additional_evidence": "ci-evidence.json closes Python 3.11/Linux/media/Apprise/Node/Jellyfin CI availability gaps; original local environment limitations remain accurate."
     },
     {
       "approved_exception": false,
@@ -57,7 +58,51 @@
       "id": "M0-BENCH-001",
       "incomplete_size": 5000,
       "observation": "ENOSPC while writing the aggregate report; the preceding fixture exception was not preserved by the reference reporter. No completed 5000-file report exists.",
-      "status": "blocked-by-disk-space-and-reporting-failure"
+      "status": "original-failure-retained; local-volume-rerun-passed",
+      "additional_evidence": [
+        ".local-tests/rust-migration/m0-completion/benchmarks-local/fixtures/report.json"
+      ],
+      "resolution": "A fresh local-volume run completed 100/1000/5000 including crash recovery. The original ENOSPC capture remains failed; the lost original exception cannot be reconstructed."
+    },
+    {
+      "id": "M0-EXPERIENCE-001",
+      "status": "reproduced-on-linux-and-macos",
+      "approved_exception": false,
+      "evidence": [
+        "ci-evidence.json"
+      ],
+      "observation": "Both pinned CI journey reports fail only repeat_stable. Checkpoint initial -> repeat1 changes refresh queue count 0 -> 1; all other fields are identical. repeat1 -> repeat2 and late repeats are stable. Publication, recovery and source preservation pass. This identifies the observable discrepancy, not its underlying producer cause.",
+      "local_reproduction": [
+        ".local-tests/rust-migration/m0-completion/experience/fixture/report.json",
+        ".local-tests/rust-migration/m0-completion/experience/report.json"
+      ]
+    },
+    {
+      "id": "M0-FILESYSTEM-001",
+      "status": "baseline-fixture-filesystem-incompatibility",
+      "approved_exception": false,
+      "evidence": [
+        ".local-tests/rust-migration/m0-completion/benchmarks/report.json",
+        "/Volumes/seed2/Projects/catabolic-m0-evidence/synthetic-20261009/report.json"
+      ],
+      "observation": "External-volume synthetic run fails after its first 100-file scan with KeyError for a composed-Unicode Cafe filename. No completed timing scenario. Retained for normalization diagnosis; local-volume rerun is separate evidence.",
+      "diagnosis": "The retained database contains the filename in NFD (Cafe + combining accent); the fixture lookup uses NFC (Caf\u00e9). This establishes a fixture lookup normalization mismatch on that volume. It does not authorize normalization of arbitrary source paths in product code."
+    },
+    {
+      "id": "M0-SCALE-001",
+      "status": "budget-limited-reference-publication",
+      "approved_exception": false,
+      "observation": "Database-only profiles through one million records produced 60 successful measurements and three explicit configured size-limit refusals. Initial filesystem sync at both 10,000 and 100,000 files exceeded the 600-second worker budget. The reference CLI still exited zero. Supplemental interpretation reports budget-limited; follow-on rescan/repeat/change/crash/recovery phases were not reached.",
+      "evidence": [
+        ".local-tests/rust-migration/m0-completion/scale/fixtures/report.json",
+        "scripts/migration_m0_audit.py:scale_status"
+      ],
+      "guarded_database_outcomes": [
+        "100k manifest related-item closure exceeds limit",
+        "1m layout planning exceeds 100k active identifications",
+        "1m manifest exceeds 100k entries"
+      ],
+      "guard_policy": "These explicit configured limits are retained as guarded outcomes, not errors to bypass and not unqualified successful measurements."
     }
   ],
   "policy": "Failures are not approved parity exceptions. Diagnose and preserve regressions before deciding whether to fix the Python oracle or qualify an environment.",

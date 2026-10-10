@@ -60,7 +60,14 @@ class MigrationInventoryTest(unittest.TestCase):
         raw = (ROOT / "tests/parity/inventory.json").read_bytes()
         inventory = json.loads(raw)
         ledger = json.loads((ROOT / "tests/parity/ledger.json").read_text())
-        validate(ledger, inventory, hashlib.sha256(raw).hexdigest())
+        contracts_raw = (ROOT / "tests/parity/contracts.json").read_bytes()
+        validate(
+            ledger,
+            inventory,
+            hashlib.sha256(raw).hexdigest(),
+            json.loads(contracts_raw),
+            hashlib.sha256(contracts_raw).hexdigest(),
+        )
         self.assertEqual(ledger["reference_commit"], REFERENCE)
         reference = json.loads((ROOT / "tests/parity/reference.json").read_text())
         self.assertEqual(reference["reference_commit"], REFERENCE)
@@ -182,6 +189,20 @@ class BaselineRunnerTest(unittest.TestCase):
                 result["test_result"]["skipped"][0]["reason"],
                 "requires unavailable platform",
             )
+
+    def test_zero_exit_without_final_unit_receipt_is_incomplete(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result = run_check(
+                "unit",
+                [sys.executable, "-c", "import os; os._exit(0)"],
+                root,
+                root,
+                os.environ.copy(),
+                5,
+            )
+            self.assertEqual(result["exit_code"], 0)
+            self.assertEqual(result["status"], "incomplete")
 
     def test_existing_capture_cannot_be_overwritten(self):
         with tempfile.TemporaryDirectory() as directory:

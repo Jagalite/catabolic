@@ -40,7 +40,8 @@ class Result(unittest.TextTestResult):
     def stopTest(self, test):
         super().stopTest(test)
         save(self)
-suite = unittest.defaultTestLoader.discover('tests')
+suite = (unittest.defaultTestLoader.loadTestsFromNames(sys.argv[2:])
+         if len(sys.argv) > 2 else unittest.defaultTestLoader.discover('tests'))
 result = unittest.TextTestRunner(verbosity=2, resultclass=Result).run(suite)
 save(result, complete=True)
 sys.exit(0 if result.wasSuccessful() else 1)
@@ -80,12 +81,25 @@ def run_check(name, command, source, output, env, timeout):
             stream.write(str(error) + "\n")
             status, code = "blocked", None
     details = {}
-    if name == "unit" and (output / "unit-result.json").exists():
-        details = json.loads((output / "unit-result.json").read_text())
-        if status == "passed" and details["skipped"]:
-            status = "passed-with-skips"
-        elif status == "passed" and details["expected_failures"]:
-            status = "passed-with-expected-failures"
+    if name == "unit":
+        result_path = output / "unit-result.json"
+        if result_path.exists():
+            try:
+                details = json.loads(result_path.read_text())
+            except (ValueError, OSError) as error:
+                details = {"complete": False, "report_error": str(error)}
+        if status == "passed":
+            if not details.get("complete"):
+                status = "incomplete"
+            elif any(
+                details.get(key)
+                for key in ("failures", "errors", "unexpected_successes")
+            ):
+                status = "failed"
+            elif details.get("skipped"):
+                status = "passed-with-skips"
+            elif details.get("expected_failures"):
+                status = "passed-with-expected-failures"
     return dict(
         test_result=details,
         name=name,

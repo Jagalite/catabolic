@@ -1,0 +1,582 @@
+{
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "scope": "Supplemental local captures; source/CI failures and benchmark worker timeouts remain visible.",
+  "records": [
+    {
+      "id": "macos-storage",
+      "report": ".local-tests/rust-migration/m0-completion/storage/report.json",
+      "sha256": "c6cc29b24c54d6e0bee5fdafe36c72c3eb758f4dfec083f44fd739ea0612fec7",
+      "result": {
+        "command": [
+          "/Users/jagatranvo/Projects/Catabolic/.venv/bin/python",
+          "scripts/storage_acceptance.py",
+          "--cli",
+          "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-wheel/installed/bin/catabolic",
+          "--report",
+          "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-completion/storage/storage.json"
+        ],
+        "elapsed_seconds": 73.409,
+        "exit_code": 0,
+        "log": "storage.log",
+        "log_sha256": "14fddfd7db9d4e1ac91ca56b294ceaf1aa0bc74d3939e0dfd42c42085d1ab7e2",
+        "name": "storage",
+        "status": "passed",
+        "test_result": {}
+      }
+    },
+    {
+      "id": "synthetic-local",
+      "report": ".local-tests/rust-migration/m0-completion/benchmarks-local/report.json",
+      "sha256": "abd837dff16391da93a5cb62a2d91653329d4b781eedd98d5129c40aba92a8a7",
+      "result": {
+        "command": [
+          "/Users/jagatranvo/Projects/Catabolic/.venv/bin/python",
+          "-m",
+          "tests.synthetic_benchmark",
+          "--sizes",
+          "100",
+          "1000",
+          "5000",
+          "--root",
+          "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-completion/benchmarks-local/fixtures"
+        ],
+        "elapsed_seconds": 883.208,
+        "exit_code": 0,
+        "log": "synthetic.log",
+        "log_sha256": "55412afd2702a7b3031b15dbffc6c24f808ad37adf0bf09aedfd7548b22a562c",
+        "name": "synthetic",
+        "status": "passed",
+        "test_result": {}
+      }
+    },
+    {
+      "id": "synthetic-external",
+      "report": ".local-tests/rust-migration/m0-completion/benchmarks/report.json",
+      "sha256": "984cd299283dedb92dfca24d2bc50440964fbd4d5bc56d3afca5ed4f7d2c97e6",
+      "result": {
+        "command": [
+          "/Users/jagatranvo/Projects/Catabolic/.venv/bin/python",
+          "-m",
+          "tests.synthetic_benchmark",
+          "--sizes",
+          "100",
+          "1000",
+          "5000",
+          "--root",
+          "/Volumes/seed2/Projects/catabolic-m0-evidence/synthetic-20261009"
+        ],
+        "elapsed_seconds": 68.844,
+        "exit_code": 1,
+        "log": "synthetic.log",
+        "log_sha256": "8bc5d1400082d3ba944ac630ef2df3ad4b59a897457eb601ba2078c07fa06371",
+        "name": "synthetic",
+        "status": "failed",
+        "test_result": {}
+      }
+    },
+    {
+      "id": "scan-profiles",
+      "report": ".local-tests/rust-migration/m0-completion/scans/report.json",
+      "sha256": "dbcefc653e77ee005ce484bf28c287e6cabb9c87543d6b69f5f6d97d6e677529",
+      "result": {
+        "command": [
+          "/Users/jagatranvo/Projects/Catabolic/.venv/bin/python",
+          "scripts/benchmark_scans.py"
+        ],
+        "elapsed_seconds": 77.241,
+        "exit_code": 0,
+        "log": "scans.log",
+        "log_sha256": "6f30a431cf3401fd0a9ce718f54f612fe7523d89e3167cd0817dd9fb17f21a83",
+        "name": "scans",
+        "status": "passed",
+        "test_result": {}
+      }
+    },
+    {
+      "id": "high-cardinality",
+      "report": ".local-tests/rust-migration/m0-completion/scale/report.json",
+      "sha256": "d5cd0fee9c750c62cb08430e6756edd4975c86448569acb5d23e98a2478d62ab",
+      "result": {
+        "command": [
+          "/Users/jagatranvo/Projects/Catabolic/.venv/bin/python",
+          "-m",
+          "tests.scale_benchmark",
+          "--root",
+          "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-completion/scale/fixtures"
+        ],
+        "elapsed_seconds": 1799.922,
+        "exit_code": 0,
+        "log": "scale.log",
+        "log_sha256": "5967473c7a694d8d03d52615ae7c4d2142ce419107c116c5ccc2bb1b430b45b7",
+        "name": "scale",
+        "status": "passed",
+        "test_result": {}
+      },
+      "interpreted_status": "budget-limited"
+    },
+    {
+      "id": "runtime-metrics",
+      "report": ".local-tests/rust-migration/m0-completion/runtime-metrics-v2/report.json",
+      "sha256": "b27eb1ef635fbca732b5354737e8d8eff837a8637f7efe60d7c27e381c341ddd",
+      "result": {
+        "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+        "inventory_sha256": "81b697a595556ded943bef59c167314a6ffbbfc68706ed134cfea66afe012cc2",
+        "tool_sha256": "ac880c8f833d23027ccf60d66a2d08d5b5e5605924128dbe910396b8c57a58fc",
+        "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]",
+        "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+        "sqlite_version": "3.53.4",
+        "scope": "100 tiny synthetic files; fresh CLI processes with uncontrolled OS caches; loopback HTTP; queued-job and bounded subprocess cancellation. Other discovery benchmarks may contend. Not a cold-filesystem-cache or active-encoder cancellation measurement.",
+        "measurements": {
+          "fresh_process_cli_start": {
+            "samples_seconds": [
+              0.6055072500021197,
+              0.49240129202371463,
+              0.45111220900435,
+              0.5359898749738932,
+              0.6034999580006115,
+              0.5537048749974929,
+              0.5950136669853237,
+              0.6746494580002036,
+              0.617629875021521,
+              0.5866225830104668
+            ],
+            "p50_seconds": 0.5908181249978952,
+            "p95_seconds": 0.6746494580002036
+          },
+          "scan": {
+            "files": 100,
+            "seconds": 0.20335649998742156,
+            "files_per_second": 491.7472517779634
+          },
+          "job_admission": {
+            "samples_seconds": [
+              0.0022620829986408353,
+              0.005961832997854799,
+              0.0028955420129932463,
+              0.0015767499862704426,
+              0.0015910000074654818,
+              0.0015628330002073199,
+              0.0015970410022418946,
+              0.0014352079888340086,
+              0.0014125829911790788,
+              0.0014788749977014959
+            ],
+            "p50_seconds": 0.0015838749968679622,
+            "p95_seconds": 0.005961832997854799
+          },
+          "queued_job_cancellation": {
+            "samples_seconds": [
+              0.0028813329990953207,
+              0.0014686670037917793,
+              0.0010459579934831709,
+              0.000721375021385029,
+              0.0006957079749554396,
+              0.000654040981316939,
+              0.0007872499991208315,
+              0.0006414169911295176,
+              0.0006335829966701567,
+              0.0005595000111497939
+            ],
+            "p50_seconds": 0.0007085414981702343,
+            "p95_seconds": 0.0028813329990953207
+          },
+          "open_descriptors_store_snapshot": 6,
+          "writer_lock_holds_in_instrumented_fixture": {
+            "samples_seconds": [
+              0.03776512498734519,
+              0.012540416995761916,
+              0.009948374994564801,
+              0.010998874990036711,
+              0.009937291004462168,
+              0.09559779200935736,
+              0.009614250011509284,
+              0.010182958008954301,
+              0.04818950002663769
+            ],
+            "p50_seconds": 0.010998874990036711,
+            "p95_seconds": 0.09559779200935736
+          },
+          "query": {
+            "samples_seconds": [
+              0.021178124996367842,
+              0.02168274999712594,
+              0.023800249997293577,
+              0.022258375014644116,
+              0.029612499987706542,
+              0.02258012499078177,
+              0.022517417004564777,
+              0.021191833016928285,
+              0.03465962500195019,
+              0.02863854099996388,
+              0.022721000015735626,
+              0.02158462500665337,
+              0.020756041019922122,
+              0.021404291997896507,
+              0.021723332989495248,
+              0.028415959008270875,
+              0.021395333984401077,
+              0.022823457984486595,
+              0.021400124998763204,
+              0.020716208004159853,
+              0.020880166004644707,
+              0.021542707982007414,
+              0.020543000020552427,
+              0.019743125012610108,
+              0.024222125008236617,
+              0.022117750020697713,
+              0.021867291012313217,
+              0.030931749992305413,
+              0.022599083982640877,
+              0.022309542022412643
+            ],
+            "p50_seconds": 0.021992520516505465,
+            "p95_seconds": 0.030931749992305413
+          },
+          "subprocess_cancel_to_group_reaped": {
+            "samples_seconds": [
+              0.05143708302057348,
+              0.05029308301163837,
+              0.050916042004246265,
+              0.048704791988711804,
+              0.04870316700544208
+            ],
+            "p50_seconds": 0.05029308301163837,
+            "p95_seconds": 0.05143708302057348
+          },
+          "idle_http_server_rss_kib": 80384,
+          "loopback_http_me": {
+            "samples_seconds": [
+              0.010985915985656902,
+              0.010092582990182564,
+              0.010203209007158875,
+              0.010016957996413112,
+              0.010456165997311473,
+              0.010636584018357098,
+              0.010991499992087483,
+              0.009883666003588587,
+              0.009926333004841581,
+              0.010106624977197498,
+              0.011308375018415973,
+              0.010043916990980506,
+              0.009894333023112267,
+              0.009912666020682082,
+              0.010617416992317885,
+              0.010221292002825066,
+              0.010351915989303961,
+              0.010330707998946309,
+              0.010729125002399087,
+              0.009975624998332933,
+              0.010114375007105991,
+              0.009719791007228196,
+              0.010574915999313816,
+              0.010895042010815814,
+              0.01111950000631623,
+              0.01261933398200199,
+              0.012425749999238178,
+              0.01130579097662121,
+              0.011793750018114224,
+              0.011455667001428083
+            ],
+            "p50_seconds": 0.010404040993307717,
+            "p95_seconds": 0.012425749999238178
+          },
+          "retained_fixture_bytes": 1756508,
+          "harness_peak_rss_bytes": 56901632,
+          "harness_block_io_counts": {
+            "input_blocks": 0,
+            "output_blocks": 0,
+            "note": "OS block-operation counters, not application bytes read"
+          }
+        },
+        "status": "passed",
+        "unmeasured": [
+          "cold filesystem cache",
+          "application bytes read",
+          "temporary disk and descriptor high-water marks",
+          "active-worker cancellation latency",
+          "observer overhead isolated comparison"
+        ]
+      }
+    },
+    {
+      "id": "experience",
+      "report": ".local-tests/rust-migration/m0-completion/experience/report.json",
+      "sha256": "1cf3425b17a83920b35bf769d3f0ff857deefb4f1ce8342218e64d8e918f6fd1",
+      "result": {
+        "checks": [
+          {
+            "command": [
+              "/Users/jagatranvo/Projects/Catabolic/.venv/bin/python",
+              "scripts/experience_acceptance.py",
+              "--python",
+              "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-wheel/installed/bin/python",
+              "--root",
+              "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-completion/experience/fixture"
+            ],
+            "elapsed_seconds": 47.925,
+            "exit_code": 1,
+            "log": "journey.log",
+            "log_sha256": "7921b3184d71bfb9797c25b731e5c4264ab61ea7c6e44cd81bbfcad044e113b6",
+            "name": "journey",
+            "status": "failed",
+            "test_result": {}
+          },
+          {
+            "command": [
+              "/Users/jagatranvo/Projects/Catabolic/.venv/bin/python",
+              "scripts/experience_evaluator.py",
+              "--root",
+              "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-completion/experience/fixture"
+            ],
+            "elapsed_seconds": 0.131,
+            "exit_code": 1,
+            "log": "evaluator.log",
+            "log_sha256": "55d7813e3b7837edfeb0f60cfd69736d46a72e9460caaa662ffb3252da35d15f",
+            "name": "evaluator",
+            "status": "failed",
+            "test_result": {}
+          }
+        ]
+      }
+    },
+    {
+      "id": "synthetic-results",
+      "report": ".local-tests/rust-migration/m0-completion/benchmarks-local/fixtures/report.json",
+      "sha256": "8872b9e3e2f7142b450f433c96bc4e2edc3e335b1b2643aaada983cb442886fc",
+      "scope": "See raw report; partial results do not imply completion."
+    },
+    {
+      "id": "scale-results",
+      "report": ".local-tests/rust-migration/m0-completion/scale/fixtures/report.json",
+      "sha256": "a54e4b3ce0f6c26b22d1a06ea2966b764b5db2b490058eefecdcd6f8976eb6d6",
+      "scope": "See raw report; partial results do not imply completion."
+    },
+    {
+      "id": "legacy-fixtures",
+      "report": ".local-tests/rust-migration/m0-completion/legacy-fixtures/report.json",
+      "sha256": "1256d4e9589bdf4d2459e3a4f00bd86ef1afb808b707ad907d3cd88873ba6890",
+      "scope": "See raw report; partial results do not imply completion."
+    },
+    {
+      "id": "migration-hook-proofs",
+      "report": ".local-tests/rust-migration/m0-completion/hooks-original-target.log",
+      "sha256": "65e1facfae04ec872059d7b7a23f83b1ade81fdb749f9f700715f3fd1371ed01",
+      "tool_sha256": "4257404eb9600d5e0c05705a257237ed82c4bae856947f263bd2620c232197aa",
+      "tests_run": 4,
+      "status": "passed"
+    },
+    {
+      "id": "mapped-reference-proofs-final",
+      "report": ".local-tests/rust-migration/m0-completion/contract-proofs-final/report.json",
+      "sha256": "c636441103cb639013cda6c196ea8f0d1a1880d486199a2e06405cc852fe1fb3",
+      "result": {
+        "checks": [
+          {
+            "command": [
+              "/Users/jagatranvo/Projects/Catabolic/.venv/bin/python",
+              "-c",
+              "import json, sys, unittest\nfrom pathlib import Path\noutput = Path(sys.argv[1])\ndef save(result, complete=False):\n    temporary = output.with_suffix('.tmp')\n    temporary.write_text(json.dumps(dict(\n        complete=complete, tests_run=result.testsRun,\n        skipped=[dict(test=str(test), reason=reason) for test, reason in result.skipped],\n        failures=[dict(test=str(test), traceback=trace) for test, trace in result.failures],\n        errors=[dict(test=str(test), traceback=trace) for test, trace in result.errors],\n        expected_failures=[dict(test=str(test), traceback=trace) for test, trace in result.expectedFailures],\n        unexpected_successes=[str(test) for test in result.unexpectedSuccesses],\n    ), indent=2) + '\\n')\n    temporary.replace(output)\nclass Result(unittest.TextTestResult):\n    def stopTest(self, test):\n        super().stopTest(test)\n        save(self)\nsuite = (unittest.defaultTestLoader.loadTestsFromNames(sys.argv[2:])\n         if len(sys.argv) > 2 else unittest.defaultTestLoader.discover('tests'))\nresult = unittest.TextTestRunner(verbosity=2, resultclass=Result).run(suite)\nsave(result, complete=True)\nsys.exit(0 if result.wasSuccessful() else 1)\n",
+              "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-completion/contract-proofs-final/graphql-structure/unit-result.json",
+              "tests.test_http_contract.ContractTest.test_graphql_artifact_and_runtime_have_identical_fields",
+              "tests.test_graphql_query.GraphQLTest.test_schema_introspection_and_operation_selection"
+            ],
+            "elapsed_seconds": 2.581,
+            "exit_code": 0,
+            "log": "graphql-structure/unit.log",
+            "log_sha256": "0854348c20d8b6252a20aa3fd4c693d32b7c3e64d0e5be7b693bddaba80fd09b",
+            "name": "unit",
+            "proof": "graphql-structure",
+            "reference_tests": [
+              "tests.test_http_contract.ContractTest.test_graphql_artifact_and_runtime_have_identical_fields",
+              "tests.test_graphql_query.GraphQLTest.test_schema_introspection_and_operation_selection"
+            ],
+            "status": "passed",
+            "test_result": {
+              "complete": true,
+              "errors": [],
+              "expected_failures": [],
+              "failures": [],
+              "skipped": [],
+              "tests_run": 2,
+              "unexpected_successes": []
+            }
+          },
+          {
+            "command": [
+              "/Users/jagatranvo/Projects/Catabolic/.venv/bin/python",
+              "-c",
+              "import json, sys, unittest\nfrom pathlib import Path\noutput = Path(sys.argv[1])\ndef save(result, complete=False):\n    temporary = output.with_suffix('.tmp')\n    temporary.write_text(json.dumps(dict(\n        complete=complete, tests_run=result.testsRun,\n        skipped=[dict(test=str(test), reason=reason) for test, reason in result.skipped],\n        failures=[dict(test=str(test), traceback=trace) for test, trace in result.failures],\n        errors=[dict(test=str(test), traceback=trace) for test, trace in result.errors],\n        expected_failures=[dict(test=str(test), traceback=trace) for test, trace in result.expectedFailures],\n        unexpected_successes=[str(test) for test in result.unexpectedSuccesses],\n    ), indent=2) + '\\n')\n    temporary.replace(output)\nclass Result(unittest.TextTestResult):\n    def stopTest(self, test):\n        super().stopTest(test)\n        save(self)\nsuite = (unittest.defaultTestLoader.loadTestsFromNames(sys.argv[2:])\n         if len(sys.argv) > 2 else unittest.defaultTestLoader.discover('tests'))\nresult = unittest.TextTestRunner(verbosity=2, resultclass=Result).run(suite)\nsave(result, complete=True)\nsys.exit(0 if result.wasSuccessful() else 1)\n",
+              "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-completion/contract-proofs-final/graphql-execution/unit-result.json",
+              "tests.test_graphql_query.GraphQLTest.test_nested_query_variables_fragments_aliases_and_readonly",
+              "tests.test_graphql_query.GraphQLTest.test_pages_cursors_and_filters",
+              "tests.test_graphql_query.GraphQLTest.test_profile_availability_and_catalog_projection",
+              "tests.test_graphql_query.GraphQLTest.test_rejects_writes_invalid_fields_variables_and_cursors",
+              "tests.test_graphql_query.GraphQLTest.test_query_limits",
+              "tests.test_graphql_query.GraphQLTest.test_cli_file_stdin_json_errors_and_schema_without_database"
+            ],
+            "elapsed_seconds": 4.429,
+            "exit_code": 0,
+            "log": "graphql-execution/unit.log",
+            "log_sha256": "c483fcb3f66048d7c0dddb8d4aa6646f625b0c4cf7ee5aa6b2cd576da42637e7",
+            "name": "unit",
+            "proof": "graphql-execution",
+            "reference_tests": [
+              "tests.test_graphql_query.GraphQLTest.test_nested_query_variables_fragments_aliases_and_readonly",
+              "tests.test_graphql_query.GraphQLTest.test_pages_cursors_and_filters",
+              "tests.test_graphql_query.GraphQLTest.test_profile_availability_and_catalog_projection",
+              "tests.test_graphql_query.GraphQLTest.test_rejects_writes_invalid_fields_variables_and_cursors",
+              "tests.test_graphql_query.GraphQLTest.test_query_limits",
+              "tests.test_graphql_query.GraphQLTest.test_cli_file_stdin_json_errors_and_schema_without_database"
+            ],
+            "status": "passed",
+            "test_result": {
+              "complete": true,
+              "errors": [],
+              "expected_failures": [],
+              "failures": [],
+              "skipped": [],
+              "tests_run": 6,
+              "unexpected_successes": []
+            }
+          },
+          {
+            "command": [
+              "/Users/jagatranvo/Projects/Catabolic/.venv/bin/python",
+              "-c",
+              "import json, sys, unittest\nfrom pathlib import Path\noutput = Path(sys.argv[1])\ndef save(result, complete=False):\n    temporary = output.with_suffix('.tmp')\n    temporary.write_text(json.dumps(dict(\n        complete=complete, tests_run=result.testsRun,\n        skipped=[dict(test=str(test), reason=reason) for test, reason in result.skipped],\n        failures=[dict(test=str(test), traceback=trace) for test, trace in result.failures],\n        errors=[dict(test=str(test), traceback=trace) for test, trace in result.errors],\n        expected_failures=[dict(test=str(test), traceback=trace) for test, trace in result.expectedFailures],\n        unexpected_successes=[str(test) for test in result.unexpectedSuccesses],\n    ), indent=2) + '\\n')\n    temporary.replace(output)\nclass Result(unittest.TextTestResult):\n    def stopTest(self, test):\n        super().stopTest(test)\n        save(self)\nsuite = (unittest.defaultTestLoader.loadTestsFromNames(sys.argv[2:])\n         if len(sys.argv) > 2 else unittest.defaultTestLoader.discover('tests'))\nresult = unittest.TextTestRunner(verbosity=2, resultclass=Result).run(suite)\nsave(result, complete=True)\nsys.exit(0 if result.wasSuccessful() else 1)\n",
+              "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-completion/contract-proofs-final/http-structure/unit-result.json",
+              "tests.test_http_contract.ContractTest.test_every_operation_is_typed_unique_and_frozen"
+            ],
+            "elapsed_seconds": 2.319,
+            "exit_code": 0,
+            "log": "http-structure/unit.log",
+            "log_sha256": "2957779e52356513fc5b37f4b9544a39c716c8f648cd0b3f7835ddb96a7bb940",
+            "name": "unit",
+            "proof": "http-structure",
+            "reference_tests": [
+              "tests.test_http_contract.ContractTest.test_every_operation_is_typed_unique_and_frozen"
+            ],
+            "status": "passed",
+            "test_result": {
+              "complete": true,
+              "errors": [],
+              "expected_failures": [],
+              "failures": [],
+              "skipped": [],
+              "tests_run": 1,
+              "unexpected_successes": []
+            }
+          },
+          {
+            "command": [
+              "/Users/jagatranvo/Projects/Catabolic/.venv/bin/python",
+              "-c",
+              "import json, sys, unittest\nfrom pathlib import Path\noutput = Path(sys.argv[1])\ndef save(result, complete=False):\n    temporary = output.with_suffix('.tmp')\n    temporary.write_text(json.dumps(dict(\n        complete=complete, tests_run=result.testsRun,\n        skipped=[dict(test=str(test), reason=reason) for test, reason in result.skipped],\n        failures=[dict(test=str(test), traceback=trace) for test, trace in result.failures],\n        errors=[dict(test=str(test), traceback=trace) for test, trace in result.errors],\n        expected_failures=[dict(test=str(test), traceback=trace) for test, trace in result.expectedFailures],\n        unexpected_successes=[str(test) for test in result.unexpectedSuccesses],\n    ), indent=2) + '\\n')\n    temporary.replace(output)\nclass Result(unittest.TextTestResult):\n    def stopTest(self, test):\n        super().stopTest(test)\n        save(self)\nsuite = (unittest.defaultTestLoader.loadTestsFromNames(sys.argv[2:])\n         if len(sys.argv) > 2 else unittest.defaultTestLoader.discover('tests'))\nresult = unittest.TextTestRunner(verbosity=2, resultclass=Result).run(suite)\nsave(result, complete=True)\nsys.exit(0 if result.wasSuccessful() else 1)\n",
+              "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-completion/contract-proofs-final/interchange-structure/unit-result.json",
+              "tests.test_interchange.InterchangeTest.test_frozen_schema_reference_and_independent_schema_validation",
+              "tests.test_interchange.InterchangeTest.test_schema_drift_fails_even_if_runtime_accepts_added_fields"
+            ],
+            "elapsed_seconds": 1.121,
+            "exit_code": 0,
+            "log": "interchange-structure/unit.log",
+            "log_sha256": "0d06545308df0e9b622188b56890561d6d1dac667d846bb9ff2373631356f6c7",
+            "name": "unit",
+            "proof": "interchange-structure",
+            "reference_tests": [
+              "tests.test_interchange.InterchangeTest.test_frozen_schema_reference_and_independent_schema_validation",
+              "tests.test_interchange.InterchangeTest.test_schema_drift_fails_even_if_runtime_accepts_added_fields"
+            ],
+            "status": "passed",
+            "test_result": {
+              "complete": true,
+              "errors": [],
+              "expected_failures": [],
+              "failures": [],
+              "skipped": [],
+              "tests_run": 2,
+              "unexpected_successes": []
+            }
+          },
+          {
+            "command": [
+              "/Users/jagatranvo/Projects/Catabolic/.venv/bin/python",
+              "-c",
+              "import json, sys, unittest\nfrom pathlib import Path\noutput = Path(sys.argv[1])\ndef save(result, complete=False):\n    temporary = output.with_suffix('.tmp')\n    temporary.write_text(json.dumps(dict(\n        complete=complete, tests_run=result.testsRun,\n        skipped=[dict(test=str(test), reason=reason) for test, reason in result.skipped],\n        failures=[dict(test=str(test), traceback=trace) for test, trace in result.failures],\n        errors=[dict(test=str(test), traceback=trace) for test, trace in result.errors],\n        expected_failures=[dict(test=str(test), traceback=trace) for test, trace in result.expectedFailures],\n        unexpected_successes=[str(test) for test in result.unexpectedSuccesses],\n    ), indent=2) + '\\n')\n    temporary.replace(output)\nclass Result(unittest.TextTestResult):\n    def stopTest(self, test):\n        super().stopTest(test)\n        save(self)\nsuite = (unittest.defaultTestLoader.loadTestsFromNames(sys.argv[2:])\n         if len(sys.argv) > 2 else unittest.defaultTestLoader.discover('tests'))\nresult = unittest.TextTestRunner(verbosity=2, resultclass=Result).run(suite)\nsave(result, complete=True)\nsys.exit(0 if result.wasSuccessful() else 1)\n",
+              "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-completion/contract-proofs-final/migration-query-rebuild/unit-result.json",
+              "tests.test_programmable_migration.ProgrammableMigrationTest.test_schema14_preserves_all_original_columns_ids_and_foreign_keys",
+              "tests.test_programmable_migration.ProgrammableMigrationTest.test_failed_table_rebuild_preserves_original_database"
+            ],
+            "elapsed_seconds": 4.184,
+            "exit_code": 0,
+            "log": "migration-query-rebuild/unit.log",
+            "log_sha256": "37986a711eb6acffd77a779eff7705342e0164366baa21beb591cd7da1c804b1",
+            "name": "unit",
+            "proof": "migration-query-rebuild",
+            "reference_tests": [
+              "tests.test_programmable_migration.ProgrammableMigrationTest.test_schema14_preserves_all_original_columns_ids_and_foreign_keys",
+              "tests.test_programmable_migration.ProgrammableMigrationTest.test_failed_table_rebuild_preserves_original_database"
+            ],
+            "status": "passed",
+            "test_result": {
+              "complete": true,
+              "errors": [],
+              "expected_failures": [],
+              "failures": [],
+              "skipped": [],
+              "tests_run": 2,
+              "unexpected_successes": []
+            }
+          },
+          {
+            "command": [
+              "/Users/jagatranvo/Projects/Catabolic/.venv/bin/python",
+              "-c",
+              "import json, sys, unittest\nfrom pathlib import Path\noutput = Path(sys.argv[1])\ndef save(result, complete=False):\n    temporary = output.with_suffix('.tmp')\n    temporary.write_text(json.dumps(dict(\n        complete=complete, tests_run=result.testsRun,\n        skipped=[dict(test=str(test), reason=reason) for test, reason in result.skipped],\n        failures=[dict(test=str(test), traceback=trace) for test, trace in result.failures],\n        errors=[dict(test=str(test), traceback=trace) for test, trace in result.errors],\n        expected_failures=[dict(test=str(test), traceback=trace) for test, trace in result.expectedFailures],\n        unexpected_successes=[str(test) for test in result.unexpectedSuccesses],\n    ), indent=2) + '\\n')\n    temporary.replace(output)\nclass Result(unittest.TextTestResult):\n    def stopTest(self, test):\n        super().stopTest(test)\n        save(self)\nsuite = (unittest.defaultTestLoader.loadTestsFromNames(sys.argv[2:])\n         if len(sys.argv) > 2 else unittest.defaultTestLoader.discover('tests'))\nresult = unittest.TextTestRunner(verbosity=2, resultclass=Result).run(suite)\nsave(result, complete=True)\nsys.exit(0 if result.wasSuccessful() else 1)\n",
+              "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-completion/contract-proofs-final/migration-components/unit-result.json",
+              "tests.test_component_migration.MigrationTest.test_populated_schema_24_adopts_probe_and_sidecar_without_rewriting_data",
+              "tests.test_component_migration.MigrationTest.test_schema_24_pending_journal_recovers_before_upgrade"
+            ],
+            "elapsed_seconds": 13.288,
+            "exit_code": 0,
+            "log": "migration-components/unit.log",
+            "log_sha256": "ce3aeb72f20def05f92d89ec295a4209318db142a87383e2da64650110566e72",
+            "name": "unit",
+            "proof": "migration-components",
+            "reference_tests": [
+              "tests.test_component_migration.MigrationTest.test_populated_schema_24_adopts_probe_and_sidecar_without_rewriting_data",
+              "tests.test_component_migration.MigrationTest.test_schema_24_pending_journal_recovers_before_upgrade"
+            ],
+            "status": "passed",
+            "test_result": {
+              "complete": true,
+              "errors": [],
+              "expected_failures": [],
+              "failures": [],
+              "skipped": [],
+              "tests_run": 2,
+              "unexpected_successes": []
+            }
+          }
+        ],
+        "contracts_sha256": "faa4300b1af7ffe6831949ec1da670bef853721f5b435d1834d5f2960829bcc2",
+        "inventory_sha256": "81b697a595556ded943bef59c167314a6ffbbfc68706ed134cfea66afe012cc2",
+        "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]",
+        "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+        "scope": "Mapped Python reference checks only; not Rust parity or M0 completion",
+        "source": "/Users/jagatranvo/Projects/Catabolic/.local-tests/rust-migration/m0-evidence-final/source",
+        "tool_sha256": {
+          "/Users/jagatranvo/Projects/Catabolic/scripts/migration_baseline.py": "47b13163aa0d6de0d85c61e4e3086bf59b3897d55c1422c783b78422a74b43a6",
+          "/Users/jagatranvo/Projects/Catabolic/scripts/migration_contracts.py": "f885d5cb4e44aa71335d75bbec70f29b82161c27ca63810c603311855a122b32",
+          "/Users/jagatranvo/Projects/Catabolic/scripts/migration_proofs.py": "47bbdc55832c9e06282607f091784c1cb1c458dd4e767b0517f6bcb4ba0f0160"
+        }
+      }
+    },
+    {
+      "id": "migration-tooling-tests",
+      "report": ".local-tests/rust-migration/m0-completion/tooling-tests.log",
+      "sha256": "42adbc7ba57b435ea01485d2aaf5cfbc4f0b548b3951520749110093244d7873",
+      "tests_run": 24,
+      "status": "passed"
+    }
+  ]
+}

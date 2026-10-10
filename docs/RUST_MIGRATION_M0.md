@@ -6,8 +6,8 @@ SPDX-License-Identifier: MIT
 -->
 
 M0 is **in progress**. The [migration plan](RUST_MIGRATION_PLAN.md) remains the
-acceptance contract. This first implementation freezes the Python reference and
-makes the initial scope enumerable; it does not authorize starting M1 or declare
+acceptance contract. The implementation freezes the Python reference and
+makes the migration scope enumerable; it does not authorize starting M1 or declare
 feature parity.
 
 ## Reference and scope
@@ -36,12 +36,84 @@ so qualify and retain the exact wheel that was installed.
 - 1,010 statically named test methods and acceptance script entry points.
   Runtime discovery and conditional skips can produce different execution counts.
 
-[The review ledger](../tests/parity/ledger.json) assigns the 365 enumerated
-CLI/HTTP/migration surfaces to the plan's workstreams. Rows start as
-`inventoried`, with unreviewed semantics and proof mappings explicitly absent.
-`specified` requires mutation/failure descriptions, reference tests and a proof
-plan; `qualified` additionally requires Rust and differential evidence references.
-The validator checks structure and coverage, not the truth of a test receipt.
+[The supplemental contracts](../tests/parity/contracts.json) add 388 surfaces:
+196 GraphQL fields, 38 GraphQL types, 120 HTTP component schemas, 31 released
+HTTP/interchange artifacts, and the Python migration hooks for versions 15, 16
+and 25. GraphQL signatures retain arguments, defaults and nullability. Source
+hashes are verified against the original inventory before generating contracts
+or executing mapped tests.
+
+[The review ledger](../tests/parity/ledger.json) assigns 753 surfaces to the
+plan's workstreams. Each row now has planning-level inputs/outputs, effects,
+failure behavior and an executable reference proof plan. `specified` means that
+this contract and plan are recorded; it does not mean every operation has an
+independent behavioral test, or that a Rust implementation exists. Broad
+subsystem mappings are labeled as such. `qualified` additionally requires Rust
+and differential evidence references.
+
+Additional scope indexes cover:
+
+- [12 integration families](../tests/parity/integrations.json), including
+  consumer protocols, Plex, mapping adapters, Apprise, webhooks, playback and
+  media processors.
+- [Saved-query dispatch variants](../tests/parity/dispatch-variants.json), which
+  share one argparse node but include both read-only operations and `query save`.
+- [Python imports and signatures](../tests/parity/python-api.json), including
+  embedded installed-acceptance programs, constructors and context-manager
+  protocols. Preserve embedding facades and repository consumers. Test-only or
+  unobserved symbols are not automatically public promises, and their
+  classification does not authorize removal or exclude unknown downstream users.
+
+The supplemental checkpoint passed 24 tooling tests, 15 mapped reference tests
+and four independent migration-hook checks. The latter cover Unicode/profile
+encoding, digest generation, nonfinite-value refusal and UDF cleanup, final FK
+validation, and rollback after a backfill write fails. Field-specific differential
+scenarios remain future implementation proof obligations.
+
+## Captured platform and fixture evidence
+
+[The CI receipt](../tests/parity/ci-evidence.json) retains results and artifact
+hashes from [the exact pinned commit's run](https://github.com/Jagalite/catabolic/actions/runs/37972971491).
+All four Linux/macOS Python 3.11/3.14 unit jobs, wheel/sdist validation, both HTTP
+jobs and real Jellyfin acceptance passed. Media, consumer-protocol and Apprise
+steps passed on both operating systems. The overall run failed: the messy
+collection journey failed on both systems, and subsequent storage steps were
+skipped. No cancelled or skipped lane is promoted to passing.
+
+The journey's retained checkpoints differ only in refresh-queue count between
+`initial` and `repeat1` (0 to 1); subsequent repeats are stable. This narrows the
+observed discrepancy without declaring its producer cause fixed. It remains in
+[the defect register](../tests/parity/known-defects.json).
+
+A new local macOS storage run passed real cross-filesystem rejection, unmount
+preservation and explicit remount/rebind, with no cleanup errors. Linux storage
+remains unexecuted. The standalone
+[storage workflow](../.github/workflows/migration-reference-storage.yml) passes
+`actionlint` and is retained locally: the user explicitly requested no remote
+publication. It must run before the full platform gate can close.
+
+[Historical fixture evidence](../tests/parity/legacy-fixture-evidence.json)
+retains synthetic populated databases at all 32 schema boundaries. Every one
+upgraded to schema 32 with preservation, integrity and FK checks. These are
+v1-derived states, complemented by feature-populated v14/v24 scenarios; they are
+not every possible historical feature combination. Captured database paths and
+filesystem identities are local; rerun the generator in new roots for relocation.
+No user database or source media was used.
+
+The complete local-volume 100/1,000/5,000 synthetic run passed, including crash
+recovery at each size. Deep, wide, many-small and simulated-slow scan profiles
+also passed. The high-cardinality database profiles through one million
+records produced 60 successful results and three explicit size-limit refusals; filesystem publication at both 10,000 and 100,000 files exceeded its 600-second
+worker budget, so subsequent filesystem phases did not run. The scale CLI exited
+zero despite those timeouts; the supplemental receipt reports `budget-limited`. Runtime samples now include fresh-process startup,
+query/loopback HTTP distributions, writer-lock holds, job admission, queued and
+subprocess cancellation, server RSS and bounded resource snapshots. Their exact
+scope and unmeasured quantities are retained with the receipts.
+
+The external-volume synthetic attempt exposed a fixture normalization mismatch:
+the catalog contains an NFD filename, while the fixture lookup expects NFC. The
+failure is retained separately from the local-volume benchmark. It does not
+justify changing arbitrary source-path normalization in product code.
 
 ## Initial local results
 
@@ -98,41 +170,47 @@ python scripts/migration_inventory.py \
   --source .local-tests/rust-migration/new-capture/source \
   --output tests/parity/inventory.json --check
 python scripts/migration_scope.py \
-  --inventory tests/parity/inventory.json --ledger tests/parity/ledger.json
-python -m unittest tests.test_migration_baseline -v
+  --inventory tests/parity/inventory.json --ledger tests/parity/ledger.json \
+  --contracts tests/parity/contracts.json
+python scripts/migration_contracts.py \
+  --source .local-tests/rust-migration/new-capture/source --check
+python scripts/migration_proofs.py \
+  --source .local-tests/rust-migration/new-capture/source \
+  --output .local-tests/rust-migration/new-contract-proofs
+python scripts/migration_python_api.py \
+  --source .local-tests/rust-migration/new-capture/source --check
+python scripts/migration_fixtures.py \
+  --source .local-tests/rust-migration/new-capture/source \
+  --output .local-tests/rust-migration/new-legacy-fixtures
+python scripts/migration_hook_proofs.py \
+  --source .local-tests/rust-migration/new-capture/source
+python -m unittest tests.test_migration_baseline tests.test_migration_contracts -v
+python scripts/migration_m0_audit.py
 ```
 
 `migration_scope.py --initialize` is only for creating a new ledger file. It
 refuses to overwrite the reviewed ledger. Do not regenerate away review work or
 change frozen expectations to make a candidate pass.
 
-## Remaining M0 gate
+## M0 closeout
 
-1. Review every ledger row's inputs/outputs, mutations, refusals and executable
-   proof mapping. Expand enumeration to GraphQL fields, exported schemas,
-   integration adapters and Python migration hooks. The SQL files alone do not
-   capture the Python hooks for versions 15, 16 and 25 in `migration.py`.
-2. Classify documented and de facto Python consumers, including installation,
-   `catabolic.cli:main`, `Application`, `Store`, and direct module imports. Preserve
-   public contracts without treating every test-only helper as public.
-3. Finish the fixture corpus. Existing synthetic version-1, version-14 and
-   version-24 migration scenarios are registered in
-   [fixtures.json](../tests/parity/fixtures.json); they do not yet establish all
-   supported historical states or cross-implementation recovery.
-4. Resolve baseline failures or record reviewed oracle exceptions in
-   [known-defects.json](../tests/parity/known-defects.json). Missing external tools
-   remain qualification gaps, not allowed parity losses.
-5. Run the applicable existing CI/acceptance lanes and preserve their receipts:
-   Linux/macOS on Python 3.11/3.14; exact wheel/sdist; media; storage mounts;
-   consumer protocols; optional Apprise; real Jellyfin; HTTP; TypeScript clients;
-   fallback and watchers. The existing matrix is the minimum qualification
-   target, recorded in [platforms.json](../tests/parity/platforms.json).
-   Native wheel architectures/deployment targets still require an
-   explicit inventory; `py3-none-any` does not establish native portability.
-6. Complete baseline measurements at 100/1,000/5,000 synthetic sizes plus the
-   planned resource/latency metrics, and ratify performance thresholds. A single
-   local synthetic run is not a real-library or NAS performance claim.
+The machine-readable [gate register](../tests/parity/m0-gates.json) distinguishes
+captured evidence, specified plans, running work and unexecuted requirements.
+Run `python scripts/migration_m0_audit.py` to audit coverage; it exits nonzero while
+any required gate remains open. A frozen reference may have recorded defects;
+freezing those failures is not a release approval or a parity exception.
 
-See [reference.json](../tests/parity/reference.json) for this initial capture's
-identities, results and evidence locations. No M0 completion or Rust-equivalence
-claim follows from the new tooling tests passing.
+The [performance policy](../tests/parity/performance-policy.json) adopts the
+plan's greater-than-10-percent repeatable-regression investigation threshold.
+Reference and candidate comparisons require repeated interleaved measurements
+with matching environments. The current discovery benchmarks overlapped, so
+their timing samples are contended and cannot establish isolated release
+thresholds. The additional resource/latency metrics remain explicitly listed.
+
+Do not start M1 under a claim that M0 is complete while Linux storage or any other
+required gate is unexecuted. Baseline defects remain visible; future differential
+scenarios must not silently normalize them away.
+
+See [reference.json](../tests/parity/reference.json) for the original capture and
+[local-evidence.json](../tests/parity/local-evidence.json) for the supplemental
+local receipts. Historical capture hashes remain unchanged.

@@ -1,0 +1,202 @@
+{
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "coverage": "Populated v1-derived states at every schema boundary; not every historical feature combination",
+  "normalization": "None; generated paths, filesystem identities and timestamps remain capture-specific",
+  "contains_user_data": false,
+  "fixtures": [
+    {
+      "schema": 1,
+      "database": "schema-01/before.sqlite3",
+      "sha256": "7a753e13d75a0c2bba331802b380483458a7a2ccf2bd8829d83b1b891c72663c",
+      "status": "passed"
+    },
+    {
+      "schema": 2,
+      "database": "schema-02/before.sqlite3",
+      "sha256": "34df19b2ccba058fee18ac8fcd806e1a0a8c66c04782c901909132850e1169e3",
+      "status": "passed"
+    },
+    {
+      "schema": 3,
+      "database": "schema-03/before.sqlite3",
+      "sha256": "f7fb63503af9bdbe3db381cb60f651d3fcabebea078b5a6fe43592f41bd669f0",
+      "status": "passed"
+    },
+    {
+      "schema": 4,
+      "database": "schema-04/before.sqlite3",
+      "sha256": "781d37be8c75eb36eb0d8f633bb3a73d9377c17a121742a138e7fb7456a9bb7a",
+      "status": "passed"
+    },
+    {
+      "schema": 5,
+      "database": "schema-05/before.sqlite3",
+      "sha256": "c5bafd50f6c119609b139ff2a3bdfc61ebd9b36bc09fef8c9ac459a4f6c285b9",
+      "status": "passed"
+    },
+    {
+      "schema": 6,
+      "database": "schema-06/before.sqlite3",
+      "sha256": "a5779ca854168d970de6e07fa47f8871663c74c18320d075bf20f0f4b1e3581b",
+      "status": "passed"
+    },
+    {
+      "schema": 7,
+      "database": "schema-07/before.sqlite3",
+      "sha256": "c583a011384794d69765136f21e433fa51b335291436a8c81b4946f3a347481b",
+      "status": "passed"
+    },
+    {
+      "schema": 8,
+      "database": "schema-08/before.sqlite3",
+      "sha256": "430f310020b413d6cebf42c5ce8667ca9d827e969f60808be68c82733c8f9a8a",
+      "status": "passed"
+    },
+    {
+      "schema": 9,
+      "database": "schema-09/before.sqlite3",
+      "sha256": "5a62d71d615a8cba2f3b3c612408a2f322aaf8959b106a7bb6da4b1d84befaa5",
+      "status": "passed"
+    },
+    {
+      "schema": 10,
+      "database": "schema-10/before.sqlite3",
+      "sha256": "dadf7a81a5f806aa1f2779be37e0fc23fdda4babc5b29642f19449361795f1f2",
+      "status": "passed"
+    },
+    {
+      "schema": 11,
+      "database": "schema-11/before.sqlite3",
+      "sha256": "d60fd02de975ce59bf17b8b0070400754655aeb732fc55cfc89e83d132595c31",
+      "status": "passed"
+    },
+    {
+      "schema": 12,
+      "database": "schema-12/before.sqlite3",
+      "sha256": "099cab3b032ca3598aff2a224a74af9a0caf9f929e2e78af47a5dc3a9e8e1819",
+      "status": "passed"
+    },
+    {
+      "schema": 13,
+      "database": "schema-13/before.sqlite3",
+      "sha256": "4906cc65d21d08880e87b26a2ff3f4d682b86dd50d2351bed9abd82f202799db",
+      "status": "passed"
+    },
+    {
+      "schema": 14,
+      "database": "schema-14/before.sqlite3",
+      "sha256": "0abeb9c4b3f4aeeaf252edd8aa6f569c04784a58e19946d7f9f823933ba0f03d",
+      "status": "passed"
+    },
+    {
+      "schema": 15,
+      "database": "schema-15/before.sqlite3",
+      "sha256": "d2fc11a2760043bb83860cda48d60f77bebcfef889b2b06994450cb353afa2e5",
+      "status": "passed"
+    },
+    {
+      "schema": 16,
+      "database": "schema-16/before.sqlite3",
+      "sha256": "9b916f38823f5ba05cb101ea6351829f38233d4d879d2dcb81e39bd34caf6e4f",
+      "status": "passed"
+    },
+    {
+      "schema": 17,
+      "database": "schema-17/before.sqlite3",
+      "sha256": "d1bf5b512ba7db3c13ae1d3a1911e546d69c3780c744bb6eb85ab78e1063af57",
+      "status": "passed"
+    },
+    {
+      "schema": 18,
+      "database": "schema-18/before.sqlite3",
+      "sha256": "de8a136cdd2d5bfe39625df7ca21cc8c6f84c56b8b6df1fd7c19fb6a0ffb0e78",
+      "status": "passed"
+    },
+    {
+      "schema": 19,
+      "database": "schema-19/before.sqlite3",
+      "sha256": "df1bc3e30069202c34974429092e99399c3cebbeaec2b207e03430e0719b3480",
+      "status": "passed"
+    },
+    {
+      "schema": 20,
+      "database": "schema-20/before.sqlite3",
+      "sha256": "ab5adc7178b5b0e41221fe1a69fd088140fac0cecdffadcbfec8ddc3831a2ebd",
+      "status": "passed"
+    },
+    {
+      "schema": 21,
+      "database": "schema-21/before.sqlite3",
+      "sha256": "09cfc01350b9b31326f52f6901bb446e516280c822755f769cb3e42e2161236f",
+      "status": "passed"
+    },
+    {
+      "schema": 22,
+      "database": "schema-22/before.sqlite3",
+      "sha256": "21a0019a603a9df504807b95f3559935619cdc168c8546c4d706b249007c6ced",
+      "status": "passed"
+    },
+    {
+      "schema": 23,
+      "database": "schema-23/before.sqlite3",
+      "sha256": "e73199549fcdaea04c07ed2d901d2ae80215197464d3cc43c7573960c0e58087",
+      "status": "passed"
+    },
+    {
+      "schema": 24,
+      "database": "schema-24/before.sqlite3",
+      "sha256": "b1b55f20b848a9479707c0eab3c125b2e00ad2c147a4eeccc822a0665ec59477",
+      "status": "passed"
+    },
+    {
+      "schema": 25,
+      "database": "schema-25/before.sqlite3",
+      "sha256": "df66985a8eeb6e047dce670299f135ee38ae2a1115e78b3367f81836e2d96108",
+      "status": "passed"
+    },
+    {
+      "schema": 26,
+      "database": "schema-26/before.sqlite3",
+      "sha256": "03338cba1278d5970f92416f8c63f18f19465c9c05116921bceb0187cd1a6ca5",
+      "status": "passed"
+    },
+    {
+      "schema": 27,
+      "database": "schema-27/before.sqlite3",
+      "sha256": "75c9a00c750f4fa92e95b9b6bd8e4ae906f51264cbcfb7858849696f62add8cf",
+      "status": "passed"
+    },
+    {
+      "schema": 28,
+      "database": "schema-28/before.sqlite3",
+      "sha256": "b92f2220972537c5d8141597c4b7ce894840f601478b7d8126d5477d966be9ca",
+      "status": "passed"
+    },
+    {
+      "schema": 29,
+      "database": "schema-29/before.sqlite3",
+      "sha256": "ce41eb544af2df30aa0aa5e15ae85784c24a94dca5c65f199b61e0ea972d740d",
+      "status": "passed"
+    },
+    {
+      "schema": 30,
+      "database": "schema-30/before.sqlite3",
+      "sha256": "9b8804274020a6e0c3ee5ce5fdfb4e11b0e6d18a19c8caa81db39abd4764121b",
+      "status": "passed"
+    },
+    {
+      "schema": 31,
+      "database": "schema-31/before.sqlite3",
+      "sha256": "23107a6e23642aa1a17283bbdeddd652d89acf4ccdb68c411e4a67b5dc12afb3",
+      "status": "passed"
+    },
+    {
+      "schema": 32,
+      "database": "schema-32/before.sqlite3",
+      "sha256": "a59bc0e4498367e41c45391f653102297fc81860abc13443c1c335486633cab1",
+      "status": "passed"
+    }
+  ],
+  "local_root": ".local-tests/rust-migration/m0-completion/legacy-fixtures",
+  "generator_sha256": "e40d4ae53d2390b5a355e9bb65b902e426cab42320b24113a691f3443492c522"
+}

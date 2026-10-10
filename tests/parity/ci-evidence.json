@@ -1,0 +1,1599 @@
+{
+  "artifacts": [
+    {
+      "digest": "sha256:d3e0ca44aa21160bf34d2b322dd0a7e147c6a5ee81f9fd1a61a1bca325e3cbc3",
+      "expired": false,
+      "id": 11639616896,
+      "name": "dependency-audit-ubuntu-latest-3.14",
+      "size_in_bytes": 977
+    },
+    {
+      "digest": "sha256:ad67d9ec8563697e5064662016c6d7f64b6dce3ed350c89d34cbe77f38d9eebb",
+      "expired": false,
+      "id": 11638186831,
+      "name": "acceptance-ubuntu-latest",
+      "size_in_bytes": 69495
+    },
+    {
+      "digest": "sha256:2d657b54cd21ab66bc37a04c333edb846829a0f0652bdb185e1f250911815ea9",
+      "expired": false,
+      "id": 11638043310,
+      "name": "dependency-audit-macos-latest-3.11",
+      "size_in_bytes": 978
+    },
+    {
+      "digest": "sha256:3690fa8519d455bd65116c5426e52428cf4936a1d0c34c3992894f697362c474",
+      "expired": false,
+      "id": 11637928263,
+      "name": "dependency-audit-ubuntu-latest-3.11",
+      "size_in_bytes": 976
+    },
+    {
+      "digest": "sha256:2944b8d1f5d0f5783ea568588f6328ce938bf0ec0f511a1304f3a04de27bd04d",
+      "expired": false,
+      "id": 11637843313,
+      "name": "dependency-audit-macos-latest-3.14",
+      "size_in_bytes": 977
+    },
+    {
+      "digest": "sha256:e4fc6f435ace0ab903a5363ee4d5fc30aebb49805b59613ae416941d4d66bbee",
+      "expired": false,
+      "id": 11637541857,
+      "name": "jellyfin-acceptance",
+      "size_in_bytes": 7152
+    },
+    {
+      "digest": "sha256:b09216560ffbf7c8c02abbfe2927caec73dd257d9713d798f8076087796a2918",
+      "expired": false,
+      "id": 11636782546,
+      "name": "distribution-report",
+      "size_in_bytes": 402
+    },
+    {
+      "digest": "sha256:701ec41cfb43312171dd0c5eb90a6db7f7246d28b86fbbaf355d16d0faf92e70",
+      "expired": false,
+      "id": 11636587755,
+      "name": "python-package-distributions",
+      "size_in_bytes": 2241356
+    },
+    {
+      "digest": "sha256:03c70825620fa04785a092c14948d83a28cd337015434b4e756ba12b5853b942",
+      "expired": false,
+      "id": 11636578652,
+      "name": "http-acceptance-macos-latest",
+      "size_in_bytes": 2810
+    },
+    {
+      "digest": "sha256:c331f7590f14e2c633d48a66d412fb184a1c5b1af7df248102ddd34cc04952f5",
+      "expired": false,
+      "id": 11636523618,
+      "name": "http-acceptance-ubuntu-latest",
+      "size_in_bytes": 2853
+    },
+    {
+      "digest": "sha256:6b53c8c39222604ebd69ea3e370f750acbd4c85f1b09c98a7932e40af42a1b52",
+      "expired": false,
+      "id": 11636443416,
+      "name": "acceptance-macos-latest",
+      "size_in_bytes": 69483
+    }
+  ],
+  "conclusion": "failure",
+  "headSha": "453fca983222c6665a48775eef67c489c96b527e",
+  "interpretation": "Exact pinned-reference CI results. Failed/cancelled jobs remain failed/cancelled; individual successful steps are not whole-lane success. Storage was skipped on both operating systems.",
+  "jobs": [
+    {
+      "completedAt": "2026-10-09T18:24:06Z",
+      "conclusion": "success",
+      "databaseId": 113964025021,
+      "name": "wheel",
+      "startedAt": "2026-10-09T18:23:48Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T18:23:50Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T18:23:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:23:51Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-10-09T18:23:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:23:51Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 3,
+          "startedAt": "2026-10-09T18:23:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:23:54Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock",
+          "number": 4,
+          "startedAt": "2026-10-09T18:23:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:23:59Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --require-hashes --only-binary=:all: -r requirements/release.lock",
+          "number": 5,
+          "startedAt": "2026-10-09T18:23:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:23:59Z",
+          "conclusion": "success",
+          "name": "Run python scripts/sync_docs.py --check",
+          "number": 6,
+          "startedAt": "2026-10-09T18:23:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:01Z",
+          "conclusion": "success",
+          "name": "Run python -m build --no-isolation --outdir dist",
+          "number": 7,
+          "startedAt": "2026-10-09T18:23:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:02Z",
+          "conclusion": "success",
+          "name": "Run python -m twine check --strict dist/*",
+          "number": 8,
+          "startedAt": "2026-10-09T18:24:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:02Z",
+          "conclusion": "success",
+          "name": "Validate distribution contents and versions",
+          "number": 9,
+          "startedAt": "2026-10-09T18:24:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:03Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "number": 10,
+          "startedAt": "2026-10-09T18:24:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:04Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "number": 11,
+          "startedAt": "2026-10-09T18:24:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:04Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 21,
+          "startedAt": "2026-10-09T18:24:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:04Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 22,
+          "startedAt": "2026-10-09T18:24:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:04Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 23,
+          "startedAt": "2026-10-09T18:24:04Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/Jagalite/catabolic/actions/runs/37972971491/job/113964025021"
+    },
+    {
+      "completedAt": "2026-10-09T18:34:44Z",
+      "conclusion": "success",
+      "databaseId": 113964025180,
+      "name": "test (macos-latest, 3.14)",
+      "startedAt": "2026-10-09T18:23:54Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T18:23:56Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T18:23:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:00Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-10-09T18:23:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:00Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 3,
+          "startedAt": "2026-10-09T18:24:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:18Z",
+          "conclusion": "success",
+          "name": "Require real probe/decode tools",
+          "number": 4,
+          "startedAt": "2026-10-09T18:24:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:25Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock",
+          "number": 5,
+          "startedAt": "2026-10-09T18:24:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:30Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --require-hashes --only-binary=:all: -r requirements/dev.lock",
+          "number": 6,
+          "startedAt": "2026-10-09T18:24:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:32Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --no-deps --no-build-isolation .",
+          "number": 7,
+          "startedAt": "2026-10-09T18:24:30Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:33Z",
+          "conclusion": "success",
+          "name": "Run python -m pip check",
+          "number": 8,
+          "startedAt": "2026-10-09T18:24:32Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:33Z",
+          "conclusion": "success",
+          "name": "Run python scripts/audit_dependencies.py --report dependency-audit.json",
+          "number": 9,
+          "startedAt": "2026-10-09T18:24:33Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:34:35Z",
+          "conclusion": "success",
+          "name": "Run python -m unittest discover -s tests -q",
+          "number": 10,
+          "startedAt": "2026-10-09T18:24:33Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:34:35Z",
+          "conclusion": "success",
+          "name": "Run ruff check src tests scripts",
+          "number": 11,
+          "startedAt": "2026-10-09T18:34:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:34:35Z",
+          "conclusion": "success",
+          "name": "Run ruff format --check src tests scripts",
+          "number": 12,
+          "startedAt": "2026-10-09T18:34:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:34:36Z",
+          "conclusion": "success",
+          "name": "Run catabolic spec check",
+          "number": 13,
+          "startedAt": "2026-10-09T18:34:35Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:34:37Z",
+          "conclusion": "success",
+          "name": "Preserve previously released schemas and references",
+          "number": 14,
+          "startedAt": "2026-10-09T18:34:36Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:34:39Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "number": 15,
+          "startedAt": "2026-10-09T18:34:37Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:34:39Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 29,
+          "startedAt": "2026-10-09T18:34:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:34:40Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 30,
+          "startedAt": "2026-10-09T18:34:39Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:34:42Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 31,
+          "startedAt": "2026-10-09T18:34:40Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/Jagalite/catabolic/actions/runs/37972971491/job/113964025180"
+    },
+    {
+      "completedAt": "2026-10-09T18:36:05Z",
+      "conclusion": "success",
+      "databaseId": 113964025292,
+      "name": "test (macos-latest, 3.11)",
+      "startedAt": "2026-10-09T18:23:54Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T18:23:56Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T18:23:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:23:59Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-10-09T18:23:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:00Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 3,
+          "startedAt": "2026-10-09T18:23:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:18Z",
+          "conclusion": "success",
+          "name": "Require real probe/decode tools",
+          "number": 4,
+          "startedAt": "2026-10-09T18:24:00Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:23Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock",
+          "number": 5,
+          "startedAt": "2026-10-09T18:24:18Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:27Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --require-hashes --only-binary=:all: -r requirements/dev.lock",
+          "number": 6,
+          "startedAt": "2026-10-09T18:24:23Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:29Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --no-deps --no-build-isolation .",
+          "number": 7,
+          "startedAt": "2026-10-09T18:24:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:30Z",
+          "conclusion": "success",
+          "name": "Run python -m pip check",
+          "number": 8,
+          "startedAt": "2026-10-09T18:24:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:30Z",
+          "conclusion": "success",
+          "name": "Run python scripts/audit_dependencies.py --report dependency-audit.json",
+          "number": 9,
+          "startedAt": "2026-10-09T18:24:30Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:35:57Z",
+          "conclusion": "success",
+          "name": "Run python -m unittest discover -s tests -q",
+          "number": 10,
+          "startedAt": "2026-10-09T18:24:30Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:35:58Z",
+          "conclusion": "success",
+          "name": "Run ruff check src tests scripts",
+          "number": 11,
+          "startedAt": "2026-10-09T18:35:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:35:58Z",
+          "conclusion": "success",
+          "name": "Run ruff format --check src tests scripts",
+          "number": 12,
+          "startedAt": "2026-10-09T18:35:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:35:58Z",
+          "conclusion": "success",
+          "name": "Run catabolic spec check",
+          "number": 13,
+          "startedAt": "2026-10-09T18:35:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:35:59Z",
+          "conclusion": "success",
+          "name": "Preserve previously released schemas and references",
+          "number": 14,
+          "startedAt": "2026-10-09T18:35:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:36:01Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "number": 15,
+          "startedAt": "2026-10-09T18:35:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:36:01Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 29,
+          "startedAt": "2026-10-09T18:36:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:36:01Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 30,
+          "startedAt": "2026-10-09T18:36:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:36:03Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 31,
+          "startedAt": "2026-10-09T18:36:01Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/Jagalite/catabolic/actions/runs/37972971491/job/113964025292"
+    },
+    {
+      "completedAt": "2026-10-09T18:37:01Z",
+      "conclusion": "success",
+      "databaseId": 113964025380,
+      "name": "test (ubuntu-latest, 3.11)",
+      "startedAt": "2026-10-09T18:23:48Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T18:23:50Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T18:23:49Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:23:51Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-10-09T18:23:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:23:52Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 3,
+          "startedAt": "2026-10-09T18:23:51Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:20Z",
+          "conclusion": "success",
+          "name": "Require real probe/decode tools",
+          "number": 4,
+          "startedAt": "2026-10-09T18:23:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:23Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock",
+          "number": 5,
+          "startedAt": "2026-10-09T18:24:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:27Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --require-hashes --only-binary=:all: -r requirements/dev.lock",
+          "number": 6,
+          "startedAt": "2026-10-09T18:24:23Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:28Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --no-deps --no-build-isolation .",
+          "number": 7,
+          "startedAt": "2026-10-09T18:24:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:28Z",
+          "conclusion": "success",
+          "name": "Run python -m pip check",
+          "number": 8,
+          "startedAt": "2026-10-09T18:24:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:29Z",
+          "conclusion": "success",
+          "name": "Run python scripts/audit_dependencies.py --report dependency-audit.json",
+          "number": 9,
+          "startedAt": "2026-10-09T18:24:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:36:55Z",
+          "conclusion": "success",
+          "name": "Run python -m unittest discover -s tests -q",
+          "number": 10,
+          "startedAt": "2026-10-09T18:24:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:36:55Z",
+          "conclusion": "success",
+          "name": "Run ruff check src tests scripts",
+          "number": 11,
+          "startedAt": "2026-10-09T18:36:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:36:55Z",
+          "conclusion": "success",
+          "name": "Run ruff format --check src tests scripts",
+          "number": 12,
+          "startedAt": "2026-10-09T18:36:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:36:55Z",
+          "conclusion": "success",
+          "name": "Run catabolic spec check",
+          "number": 13,
+          "startedAt": "2026-10-09T18:36:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:36:56Z",
+          "conclusion": "success",
+          "name": "Preserve previously released schemas and references",
+          "number": 14,
+          "startedAt": "2026-10-09T18:36:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:36:57Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "number": 15,
+          "startedAt": "2026-10-09T18:36:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:36:57Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 29,
+          "startedAt": "2026-10-09T18:36:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:36:57Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 30,
+          "startedAt": "2026-10-09T18:36:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:36:57Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 31,
+          "startedAt": "2026-10-09T18:36:57Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/Jagalite/catabolic/actions/runs/37972971491/job/113964025380"
+    },
+    {
+      "completedAt": "2026-10-09T19:00:26Z",
+      "conclusion": "success",
+      "databaseId": 113964025476,
+      "name": "test (ubuntu-latest, 3.14)",
+      "startedAt": "2026-10-09T18:23:48Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T18:23:50Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T18:23:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:23:52Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-10-09T18:23:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:23:52Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 3,
+          "startedAt": "2026-10-09T18:23:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:17Z",
+          "conclusion": "success",
+          "name": "Require real probe/decode tools",
+          "number": 4,
+          "startedAt": "2026-10-09T18:23:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:22Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock",
+          "number": 5,
+          "startedAt": "2026-10-09T18:24:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:27Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --require-hashes --only-binary=:all: -r requirements/dev.lock",
+          "number": 6,
+          "startedAt": "2026-10-09T18:24:22Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:29Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --no-deps --no-build-isolation .",
+          "number": 7,
+          "startedAt": "2026-10-09T18:24:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:29Z",
+          "conclusion": "success",
+          "name": "Run python -m pip check",
+          "number": 8,
+          "startedAt": "2026-10-09T18:24:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:29Z",
+          "conclusion": "success",
+          "name": "Run python scripts/audit_dependencies.py --report dependency-audit.json",
+          "number": 9,
+          "startedAt": "2026-10-09T18:24:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:59:24Z",
+          "conclusion": "success",
+          "name": "Run python -m unittest discover -s tests -q",
+          "number": 10,
+          "startedAt": "2026-10-09T18:24:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:59:24Z",
+          "conclusion": "success",
+          "name": "Run ruff check src tests scripts",
+          "number": 11,
+          "startedAt": "2026-10-09T18:59:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:59:24Z",
+          "conclusion": "success",
+          "name": "Run ruff format --check src tests scripts",
+          "number": 12,
+          "startedAt": "2026-10-09T18:59:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:59:25Z",
+          "conclusion": "success",
+          "name": "Run catabolic spec check",
+          "number": 13,
+          "startedAt": "2026-10-09T18:59:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:59:25Z",
+          "conclusion": "success",
+          "name": "Preserve previously released schemas and references",
+          "number": 14,
+          "startedAt": "2026-10-09T18:59:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:59:26Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "number": 15,
+          "startedAt": "2026-10-09T18:59:25Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:59:26Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 29,
+          "startedAt": "2026-10-09T18:59:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:59:26Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 30,
+          "startedAt": "2026-10-09T18:59:26Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:59:26Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 31,
+          "startedAt": "2026-10-09T18:59:26Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/Jagalite/catabolic/actions/runs/37972971491/job/113964025476"
+    },
+    {
+      "completedAt": "2026-10-09T18:29:34Z",
+      "conclusion": "success",
+      "databaseId": 113964157235,
+      "name": "http (ubuntu-latest, 3.11)",
+      "startedAt": "2026-10-09T18:24:08Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T18:24:10Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T18:24:09Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:11Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-10-09T18:24:10Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:11Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 3,
+          "startedAt": "2026-10-09T18:24:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:28Z",
+          "conclusion": "success",
+          "name": "Install media tools",
+          "number": 4,
+          "startedAt": "2026-10-09T18:24:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:29Z",
+          "conclusion": "success",
+          "name": "Run actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+          "number": 5,
+          "startedAt": "2026-10-09T18:24:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:40Z",
+          "conclusion": "success",
+          "name": "Install HTTP extra with locked dependencies",
+          "number": 6,
+          "startedAt": "2026-10-09T18:24:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:40Z",
+          "conclusion": "success",
+          "name": "Require JPEG and WebP image encoders on Linux",
+          "number": 7,
+          "startedAt": "2026-10-09T18:24:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:02Z",
+          "conclusion": "success",
+          "name": "Authorization, streaming and local execution gates",
+          "number": 8,
+          "startedAt": "2026-10-09T18:24:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:03Z",
+          "conclusion": "success",
+          "name": "Verify packaged public API schemas",
+          "number": 9,
+          "startedAt": "2026-10-09T18:27:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:04Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "number": 10,
+          "startedAt": "2026-10-09T18:27:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:28:10Z",
+          "conclusion": "success",
+          "name": "Generate and typecheck REST and GraphQL clients",
+          "number": 11,
+          "startedAt": "2026-10-09T18:27:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:28:15Z",
+          "conclusion": "success",
+          "name": "Installed client, server and worker journey",
+          "number": 12,
+          "startedAt": "2026-10-09T18:28:10Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:28:45Z",
+          "conclusion": "success",
+          "name": "Installed fallback, projection and generated-client journey",
+          "number": 13,
+          "startedAt": "2026-10-09T18:28:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:29:30Z",
+          "conclusion": "success",
+          "name": "Installed named watcher acceptance",
+          "number": 14,
+          "startedAt": "2026-10-09T18:28:45Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:29:31Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "number": 15,
+          "startedAt": "2026-10-09T18:29:30Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:29:31Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "number": 28,
+          "startedAt": "2026-10-09T18:29:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:29:31Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 29,
+          "startedAt": "2026-10-09T18:29:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:29:32Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 30,
+          "startedAt": "2026-10-09T18:29:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:29:32Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 31,
+          "startedAt": "2026-10-09T18:29:32Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/Jagalite/catabolic/actions/runs/37972971491/job/113964157235"
+    },
+    {
+      "completedAt": "2026-10-09T18:27:46Z",
+      "conclusion": "cancelled",
+      "databaseId": 113964157240,
+      "name": "acceptance (macos-latest, 3.14)",
+      "startedAt": "2026-10-09T18:24:12Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T18:24:14Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T18:24:12Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:16Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-10-09T18:24:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:16Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 3,
+          "startedAt": "2026-10-09T18:24:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:21Z",
+          "conclusion": "success",
+          "name": "Install required media tools",
+          "number": 4,
+          "startedAt": "2026-10-09T18:24:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:21Z",
+          "conclusion": "success",
+          "name": "Run actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+          "number": 5,
+          "startedAt": "2026-10-09T18:24:21Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:28Z",
+          "conclusion": "success",
+          "name": "Install exact wheel in a clean environment",
+          "number": 6,
+          "startedAt": "2026-10-09T18:24:21Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:25:42Z",
+          "conclusion": "success",
+          "name": "Installed CLI and representative media",
+          "number": 7,
+          "startedAt": "2026-10-09T18:24:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:26:30Z",
+          "conclusion": "success",
+          "name": "Installed consumer protocol lifecycle",
+          "number": 8,
+          "startedAt": "2026-10-09T18:25:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:14Z",
+          "conclusion": "success",
+          "name": "Optional Apprise partial delivery",
+          "number": 9,
+          "startedAt": "2026-10-09T18:26:30Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:42Z",
+          "conclusion": "failure",
+          "name": "Messy collection reference journey",
+          "number": 10,
+          "startedAt": "2026-10-09T18:27:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:42Z",
+          "conclusion": "skipped",
+          "name": "Real filesystem boundaries and unmounts",
+          "number": 11,
+          "startedAt": "2026-10-09T18:27:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:43Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "number": 12,
+          "startedAt": "2026-10-09T18:27:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:43Z",
+          "conclusion": "skipped",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 23,
+          "startedAt": "2026-10-09T18:27:43Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:44Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 24,
+          "startedAt": "2026-10-09T18:27:43Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:45Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 25,
+          "startedAt": "2026-10-09T18:27:44Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/Jagalite/catabolic/actions/runs/37972971491/job/113964157240"
+    },
+    {
+      "completedAt": "2026-10-09T18:29:54Z",
+      "conclusion": "success",
+      "databaseId": 113964157271,
+      "name": "http (macos-latest, 3.14)",
+      "startedAt": "2026-10-09T18:24:16Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T18:24:19Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T18:24:17Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:21Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-10-09T18:24:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:21Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 3,
+          "startedAt": "2026-10-09T18:24:21Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:28Z",
+          "conclusion": "success",
+          "name": "Install media tools",
+          "number": 4,
+          "startedAt": "2026-10-09T18:24:21Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:31Z",
+          "conclusion": "success",
+          "name": "Run actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+          "number": 5,
+          "startedAt": "2026-10-09T18:24:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:40Z",
+          "conclusion": "success",
+          "name": "Install HTTP extra with locked dependencies",
+          "number": 6,
+          "startedAt": "2026-10-09T18:24:31Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:40Z",
+          "conclusion": "skipped",
+          "name": "Require JPEG and WebP image encoders on Linux",
+          "number": 7,
+          "startedAt": "2026-10-09T18:24:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:26:54Z",
+          "conclusion": "success",
+          "name": "Authorization, streaming and local execution gates",
+          "number": 8,
+          "startedAt": "2026-10-09T18:24:40Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:26:55Z",
+          "conclusion": "success",
+          "name": "Verify packaged public API schemas",
+          "number": 9,
+          "startedAt": "2026-10-09T18:26:54Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:26:56Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "number": 10,
+          "startedAt": "2026-10-09T18:26:55Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:28:19Z",
+          "conclusion": "success",
+          "name": "Generate and typecheck REST and GraphQL clients",
+          "number": 11,
+          "startedAt": "2026-10-09T18:26:56Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:28:24Z",
+          "conclusion": "success",
+          "name": "Installed client, server and worker journey",
+          "number": 12,
+          "startedAt": "2026-10-09T18:28:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:28:59Z",
+          "conclusion": "success",
+          "name": "Installed fallback, projection and generated-client journey",
+          "number": 13,
+          "startedAt": "2026-10-09T18:28:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:29:48Z",
+          "conclusion": "success",
+          "name": "Installed named watcher acceptance",
+          "number": 14,
+          "startedAt": "2026-10-09T18:28:59Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:29:50Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "number": 15,
+          "startedAt": "2026-10-09T18:29:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:29:50Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+          "number": 28,
+          "startedAt": "2026-10-09T18:29:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:29:50Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 29,
+          "startedAt": "2026-10-09T18:29:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:29:51Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 30,
+          "startedAt": "2026-10-09T18:29:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:29:51Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 31,
+          "startedAt": "2026-10-09T18:29:51Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/Jagalite/catabolic/actions/runs/37972971491/job/113964157271"
+    },
+    {
+      "completedAt": "2026-10-09T18:27:23Z",
+      "conclusion": "failure",
+      "databaseId": 113964157382,
+      "name": "acceptance (ubuntu-latest, 3.11)",
+      "startedAt": "2026-10-09T18:24:08Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T18:24:10Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T18:24:09Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:12Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-10-09T18:24:10Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:12Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 3,
+          "startedAt": "2026-10-09T18:24:12Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:42Z",
+          "conclusion": "success",
+          "name": "Install required media tools",
+          "number": 4,
+          "startedAt": "2026-10-09T18:24:12Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:44Z",
+          "conclusion": "success",
+          "name": "Run actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+          "number": 5,
+          "startedAt": "2026-10-09T18:24:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:53Z",
+          "conclusion": "success",
+          "name": "Install exact wheel in a clean environment",
+          "number": 6,
+          "startedAt": "2026-10-09T18:24:44Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:26:21Z",
+          "conclusion": "success",
+          "name": "Installed CLI and representative media",
+          "number": 7,
+          "startedAt": "2026-10-09T18:24:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:26:34Z",
+          "conclusion": "success",
+          "name": "Installed consumer protocol lifecycle",
+          "number": 8,
+          "startedAt": "2026-10-09T18:26:21Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:26:44Z",
+          "conclusion": "success",
+          "name": "Optional Apprise partial delivery",
+          "number": 9,
+          "startedAt": "2026-10-09T18:26:34Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:19Z",
+          "conclusion": "failure",
+          "name": "Messy collection reference journey",
+          "number": 10,
+          "startedAt": "2026-10-09T18:26:44Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:19Z",
+          "conclusion": "skipped",
+          "name": "Real filesystem boundaries and unmounts",
+          "number": 11,
+          "startedAt": "2026-10-09T18:27:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:21Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "number": 12,
+          "startedAt": "2026-10-09T18:27:19Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:21Z",
+          "conclusion": "skipped",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 23,
+          "startedAt": "2026-10-09T18:27:21Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:21Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 24,
+          "startedAt": "2026-10-09T18:27:21Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:21Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 25,
+          "startedAt": "2026-10-09T18:27:21Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/Jagalite/catabolic/actions/runs/37972971491/job/113964157382"
+    },
+    {
+      "completedAt": "2026-10-09T18:27:05Z",
+      "conclusion": "success",
+      "databaseId": 113964157441,
+      "name": "jellyfin",
+      "startedAt": "2026-10-09T18:24:08Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T18:24:11Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T18:24:09Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:13Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 2,
+          "startedAt": "2026-10-09T18:24:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:13Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 3,
+          "startedAt": "2026-10-09T18:24:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:41Z",
+          "conclusion": "success",
+          "name": "Run sudo apt-get update && sudo apt-get install -y ffmpeg",
+          "number": 4,
+          "startedAt": "2026-10-09T18:24:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:42Z",
+          "conclusion": "success",
+          "name": "Run actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+          "number": 5,
+          "startedAt": "2026-10-09T18:24:41Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:24:52Z",
+          "conclusion": "success",
+          "name": "Run python -m venv \"$RUNNER_TEMP/catabolic-consumer\"",
+          "number": 6,
+          "startedAt": "2026-10-09T18:24:42Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:01Z",
+          "conclusion": "success",
+          "name": "Real Jellyfin scan and playback",
+          "number": 7,
+          "startedAt": "2026-10-09T18:24:52Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:02Z",
+          "conclusion": "success",
+          "name": "Run actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+          "number": 8,
+          "startedAt": "2026-10-09T18:27:01Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:02Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1",
+          "number": 15,
+          "startedAt": "2026-10-09T18:27:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:02Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "number": 16,
+          "startedAt": "2026-10-09T18:27:02Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T18:27:02Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "startedAt": "2026-10-09T18:27:02Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/Jagalite/catabolic/actions/runs/37972971491/job/113964157441"
+    },
+    {
+      "completedAt": "2026-10-09T19:00:30Z",
+      "conclusion": "failure",
+      "databaseId": 113978470994,
+      "name": "release-verification",
+      "startedAt": "2026-10-09T19:00:28Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-09T19:00:29Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-09T19:00:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T19:00:29Z",
+          "conclusion": "failure",
+          "name": "Require all validation lanes",
+          "number": 2,
+          "startedAt": "2026-10-09T19:00:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-09T19:00:29Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 3,
+          "startedAt": "2026-10-09T19:00:29Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/Jagalite/catabolic/actions/runs/37972971491/job/113978470994"
+    }
+  ],
+  "retained_files": {
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-macos-latest/consumer-acceptance/report.json": "06e14d5d3cb6aa5544a77731017c9f332b7d59739d90af6442d4fa0e274efb52",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-macos-latest/experience-acceptance/answer-key.json": "cb428dfed283cdd77084094288d73391b503b5d9bdaefeab055d6551ae4d9206",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-macos-latest/experience-acceptance/candidate.json": "0cd6eeb3d8a50ed96022041cf82695b0386b39bfdcdf1cd03233a97a755ac314",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-macos-latest/experience-acceptance/checkpoints.json": "c1c7d2749379138e32c736e7461a58fcaaed714255f1deb344e32a11ef544935",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-macos-latest/experience-acceptance/copies.json": "6dc0fdf33f8610be2bca8ea7e606f76ebdf3054f58b462f6a862160e24b24a00",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-macos-latest/experience-acceptance/evidence.json": "e1bb7cae702cc3837cb7482289d96b2a71fd78c2200b4434a1ed4ffb2dc9b891",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-macos-latest/experience-acceptance/proposal.json": "c6e265e2c20cdb1357469f9b7c37bcbb4ae8523f3eca8dee2d46e55c77c486a1",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-macos-latest/experience-acceptance/report.json": "ef83db3ca1aa22cb28d043823f9137248e01e69854176d2c5bcc7c2f041e3440",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-macos-latest/experience-acceptance/review.json": "57de4cd4c0cee9775a66457a467017e232ad8a02cb269a550c4b046634b98ebb",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-macos-latest/experience-acceptance/source-hashes.json": "de62ec3456abd8a6cd8cb230eec80c18add971978f28ab67ba79347a7b710a87",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-macos-latest/experience-acceptance/transcript.jsonl": "de1b457142351a9ea25a033d3a9a64cda449d60cb7bfed5edad8cc0fd683057a",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-macos-latest/media-acceptance/report.json": "1b72892042fea0d2c47053e40d3bd628755c46741da8cf345c42c9d924008dc5",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-macos-latest/notification-acceptance/report.json": "0ae2cd1be9cb2fffa124ecd9f1cb9bad5ba227455a2f015edfc952d7930398da",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-ubuntu-latest/consumer-acceptance/report.json": "06e14d5d3cb6aa5544a77731017c9f332b7d59739d90af6442d4fa0e274efb52",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-ubuntu-latest/experience-acceptance/answer-key.json": "d0e50d80cd7f5a6943229b5d6d393dfd6f47455e5ea87022844ea4cff56e8ca1",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-ubuntu-latest/experience-acceptance/candidate.json": "0cd6eeb3d8a50ed96022041cf82695b0386b39bfdcdf1cd03233a97a755ac314",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-ubuntu-latest/experience-acceptance/checkpoints.json": "9a0aaf75567376061e8756deb05bc5c0dcc3769c1ecb235779419fb11b1aa34a",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-ubuntu-latest/experience-acceptance/copies.json": "6dc0fdf33f8610be2bca8ea7e606f76ebdf3054f58b462f6a862160e24b24a00",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-ubuntu-latest/experience-acceptance/evidence.json": "e1bb7cae702cc3837cb7482289d96b2a71fd78c2200b4434a1ed4ffb2dc9b891",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-ubuntu-latest/experience-acceptance/proposal.json": "c6e265e2c20cdb1357469f9b7c37bcbb4ae8523f3eca8dee2d46e55c77c486a1",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-ubuntu-latest/experience-acceptance/report.json": "281f6eebe3735a4305b589314f9aaafabcd01edb4fe2b96fcdf2dce937e355e4",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-ubuntu-latest/experience-acceptance/review.json": "57de4cd4c0cee9775a66457a467017e232ad8a02cb269a550c4b046634b98ebb",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-ubuntu-latest/experience-acceptance/source-hashes.json": "f32a652fe7319afaa3d32961f67e8a326bf6630d2375028d7a62a581b1d0baa0",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-ubuntu-latest/experience-acceptance/transcript.jsonl": "7d0e6ec74555290cc7d6c36fbaa4c9c8046d7ed94bec3bef72ded8e3c2ab3b90",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-ubuntu-latest/media-acceptance/report.json": "23bcf6879b1077777c5bf8c0fbbd5f12dcb0955a93821b99bb81c4a091625549",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/acceptance-ubuntu-latest/notification-acceptance/report.json": "0ae2cd1be9cb2fffa124ecd9f1cb9bad5ba227455a2f015edfc952d7930398da",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/dependency-audit-macos-latest-3.11/dependency-audit.json": "d6ce401e11130c748bb10d563a14c6715fb3e425b08a5b23da290c3b3ed4b921",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/dependency-audit-macos-latest-3.14/dependency-audit.json": "b17802e51f4fd6c749e8b225a8b96f9806552a1bbe88dd66d0510985bfdce344",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/dependency-audit-ubuntu-latest-3.11/dependency-audit.json": "8846d478e504db9e65688c291075aae14b7bbc15e162510621172864be7f46c9",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/dependency-audit-ubuntu-latest-3.14/dependency-audit.json": "29efa5e22f1fb47448fd5818db3fe61b8dd646139b05b37b7489a39bc8e34712",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/distribution-report/distribution-report.json": "008ae21dfc4f7f819129e3f562db8988644fa668ef3a038d9bf7899bd33ef82d",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/http-acceptance-macos-latest/fallback-acceptance/report.json": "7d18210b52b148d3a02424c714280a4a0f459743107c5b480e4e9611e08ee7b8",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/http-acceptance-macos-latest/fallback-acceptance/serve.log": "549c74bf3a92799e1083cd2f81ff8c28075a214aead5c597e9d169f29d584fa4",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/http-acceptance-macos-latest/http-acceptance/report.json": "05b512315272defe9cfeeeb53a934210e1f4b53944be4f4ae8c33143483fecdd",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/http-acceptance-macos-latest/http-acceptance/serve.log": "d4a156c5997af3536e076dfbe37b209c0464bd9725c71390ab5ef8e6da68d41e",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/http-acceptance-macos-latest/http-acceptance/worker.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/http-acceptance-ubuntu-latest/fallback-acceptance/report.json": "7f4a9ec6b1215766447dc4de529bb3e74c0ce00c6f724aff80f9ea201355da64",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/http-acceptance-ubuntu-latest/fallback-acceptance/serve.log": "fff29acb60dfb4d5e6a3bc190024f1a04d35c861b4fe09dfd62d464ab1181dec",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/http-acceptance-ubuntu-latest/http-acceptance/report.json": "696c8d3cf33db777bcac152e5bae1fbe9c61f465406d9b80ff53b13dd0031db8",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/http-acceptance-ubuntu-latest/http-acceptance/serve.log": "8ca15faca04c8cc84b4f4ace936b2dd32a862c930ccd31deff3ac1e3e5b11b5b",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/http-acceptance-ubuntu-latest/http-acceptance/worker.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/jellyfin-acceptance/jellyfin.log": "b8f96f49fdbeddc91d822c942f29a1ab01ee91ecacb5fef8d9646f37c7268a4a",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/jellyfin-acceptance/report.json": "a9c3fc504ffce33fc9c0b1606b91de95c1fb0eb002361661ec6e8263bdb82104",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/python-package-distributions/catabolic-0.2.0-py3-none-any.whl": "5c113433fa7f091bb048552a7e039009c36a44b2fa5e9070d1e5b91a79fa1ade",
+    ".local-tests/rust-migration/m0-completion/ci-artifacts/python-package-distributions/catabolic-0.2.0.tar.gz": "35fd8c994441494f65a797c5b370950a1031b934500b21ee90b5d8ce5e29694b"
+  },
+  "url": "https://github.com/Jagalite/catabolic/actions/runs/37972971491"
+}

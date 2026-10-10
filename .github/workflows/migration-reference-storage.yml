@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
+name: Rust migration pinned storage reference
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  storage:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: '3.11'
+          - os: macos-latest
+            python: '3.14'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: 453fca983222c6665a48775eef67c489c96b527e
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Build and install pinned reference
+        run: |
+          python -m venv "$RUNNER_TEMP/reference"
+          "$RUNNER_TEMP/reference/bin/python" -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock -r requirements/runtime.lock
+          "$RUNNER_TEMP/reference/bin/python" -m pip wheel --no-deps --no-build-isolation . --wheel-dir "$RUNNER_TEMP/wheel"
+          "$RUNNER_TEMP/reference/bin/python" -m pip install --no-deps "$RUNNER_TEMP"/wheel/*.whl
+          "$RUNNER_TEMP/reference/bin/python" -m pip check
+          git rev-parse HEAD > "$RUNNER_TEMP/reference-commit.txt"
+          "$RUNNER_TEMP/reference/bin/python" -m pip freeze > "$RUNNER_TEMP/reference-environment.txt"
+          "$RUNNER_TEMP/reference/bin/python" - <<'PY'
+          import hashlib, json, os, pathlib
+          root = pathlib.Path(os.environ['RUNNER_TEMP'])
+          hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in (root / 'wheel').glob('*.whl')}
+          (root / 'wheel-sha256.json').write_text(json.dumps(hashes, indent=2))
+          PY
+      - name: Disposable cross-filesystem and unmount acceptance
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            sudo "$(command -v python)" scripts/storage_acceptance.py --cli "$RUNNER_TEMP/reference/bin/catabolic" --report "$RUNNER_TEMP/storage-acceptance.json"
+          else
+            python scripts/storage_acceptance.py --cli "$RUNNER_TEMP/reference/bin/catabolic" --report "$RUNNER_TEMP/storage-acceptance.json"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: migration-storage-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/storage-acceptance.json
+            ${{ runner.temp }}/reference-commit.txt
+            ${{ runner.temp }}/reference-environment.txt
+            ${{ runner.temp }}/wheel-sha256.json
+            ${{ runner.temp }}/wheel/*.whl

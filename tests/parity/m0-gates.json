@@ -1,0 +1,89 @@
+{
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "status": "in-progress",
+  "policy": "Never equate a missing, cancelled, skipped, budget-limited or partial measurement with a passing gate.",
+  "gates": [
+    {
+      "id": "reference",
+      "status": "captured",
+      "reason": "Exact commit/archive, resource hashes, installed wheel and original environment retained.",
+      "evidence": [
+        "reference.json",
+        "ci-evidence.json"
+      ]
+    },
+    {
+      "id": "ledger",
+      "status": "specified",
+      "reason": "753 surfaces, 12 adapter families and 5 additional query dispatch variants have owners and executable reference plans. Specified is not qualified.",
+      "evidence": [
+        "ledger.json",
+        "integrations.json",
+        "dispatch-variants.json"
+      ]
+    },
+    {
+      "id": "python-platforms",
+      "status": "specified",
+      "reason": "Python signatures/import bindings classified conservatively; exact existing Linux/macOS matrix captured. Native wheel promises cannot silently narrow source-install support.",
+      "evidence": [
+        "python-api.json",
+        "platforms.json",
+        "ci-evidence.json"
+      ]
+    },
+    {
+      "id": "fixtures",
+      "status": "captured",
+      "reason": "Synthetic populated schema boundaries 1-32 retained/upgraded; feature-rich v14/v24 and media/integration generators indexed.",
+      "evidence": [
+        "fixtures.json",
+        "legacy-fixture-evidence.json"
+      ]
+    },
+    {
+      "id": "ci-acceptance",
+      "status": "captured",
+      "reason": "Pinned unit/wheel/HTTP/Jellyfin jobs and media/consumer/Apprise steps passed. Experience failed on both platforms and is registered; storage tracked separately.",
+      "evidence": [
+        "ci-evidence.json",
+        "known-defects.json"
+      ]
+    },
+    {
+      "id": "storage",
+      "status": "not-executed-linux",
+      "reason": "Local macOS real mounts passed; pinned CI skipped Linux storage. User requires all changes stay local, so standalone workflow remains unpushed.",
+      "evidence": [
+        "local-evidence.json",
+        ".github/workflows/migration-reference-storage.yml"
+      ]
+    },
+    {
+      "id": "benchmarks",
+      "status": "budget-limited",
+      "reason": "100/1000/5000 local synthetic scenarios and scan profiles passed; high-cardinality capture must retain its timeouts and incomplete phases.",
+      "evidence": [
+        "local-evidence.json",
+        "performance-policy.json"
+      ]
+    },
+    {
+      "id": "performance-metrics",
+      "status": "partial",
+      "reason": "Runtime distributions captured, but cold filesystem cache, application bytes read, temporary disk and descriptor high-water marks, active-worker cancellation latency, observer overhead isolated comparison remain unmeasured.",
+      "evidence": [
+        "local-evidence.json",
+        "performance-policy.json"
+      ]
+    },
+    {
+      "id": "known-defects",
+      "status": "captured",
+      "reason": "Reference failures, skips, normalization mismatch and performance limits are recorded; no parity exceptions approved.",
+      "evidence": [
+        "known-defects.json"
+      ]
+    }
+  ]
+}

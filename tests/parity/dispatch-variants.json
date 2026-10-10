@@ -1,0 +1,131 @@
+{
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "source": "src/catabolic/program_cli.py:QUERY_COMMANDS/query",
+  "rows": [
+    {
+      "id": "cli-dispatch:query save",
+      "owner": "B",
+      "entry_point": "catabolic query save",
+      "public_inputs_outputs": "Frozen cli:query arguments; the sql positional is interpreted as this saved-query operation. save requires name/definition, show/run a revision ID, list uses bounded pagination, contract emits the schema.",
+      "mutations": "Persist a validated saved-query revision.",
+      "failure_behavior": "Reject incompatible raw-SQL file/schema/params flags and invalid name/definition combinations; enforce current saved-query limits and identity rules.",
+      "reference_tests": [
+        "tests.test_queries",
+        "tests.test_programmable_catalog",
+        "tests.test_sql_query"
+      ],
+      "proof_plan": [
+        "python",
+        "-m",
+        "unittest",
+        "tests.test_queries",
+        "tests.test_programmable_catalog",
+        "tests.test_sql_query",
+        "-v"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "status": "specified"
+    },
+    {
+      "id": "cli-dispatch:query show",
+      "owner": "B",
+      "entry_point": "catabolic query show",
+      "public_inputs_outputs": "Frozen cli:query arguments; the sql positional is interpreted as this saved-query operation. save requires name/definition, show/run a revision ID, list uses bounded pagination, contract emits the schema.",
+      "mutations": "Read-only definition/schema inspection or bounded pinned query execution.",
+      "failure_behavior": "Reject incompatible raw-SQL file/schema/params flags and invalid name/definition combinations; enforce current saved-query limits and identity rules.",
+      "reference_tests": [
+        "tests.test_queries",
+        "tests.test_programmable_catalog",
+        "tests.test_sql_query"
+      ],
+      "proof_plan": [
+        "python",
+        "-m",
+        "unittest",
+        "tests.test_queries",
+        "tests.test_programmable_catalog",
+        "tests.test_sql_query",
+        "-v"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "status": "specified"
+    },
+    {
+      "id": "cli-dispatch:query list",
+      "owner": "B",
+      "entry_point": "catabolic query list",
+      "public_inputs_outputs": "Frozen cli:query arguments; the sql positional is interpreted as this saved-query operation. save requires name/definition, show/run a revision ID, list uses bounded pagination, contract emits the schema.",
+      "mutations": "Read-only definition/schema inspection or bounded pinned query execution.",
+      "failure_behavior": "Reject incompatible raw-SQL file/schema/params flags and invalid name/definition combinations; enforce current saved-query limits and identity rules.",
+      "reference_tests": [
+        "tests.test_queries",
+        "tests.test_programmable_catalog",
+        "tests.test_sql_query"
+      ],
+      "proof_plan": [
+        "python",
+        "-m",
+        "unittest",
+        "tests.test_queries",
+        "tests.test_programmable_catalog",
+        "tests.test_sql_query",
+        "-v"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "status": "specified"
+    },
+    {
+      "id": "cli-dispatch:query run",
+      "owner": "B",
+      "entry_point": "catabolic query run",
+      "public_inputs_outputs": "Frozen cli:query arguments; the sql positional is interpreted as this saved-query operation. save requires name/definition, show/run a revision ID, list uses bounded pagination, contract emits the schema.",
+      "mutations": "Read-only definition/schema inspection or bounded pinned query execution.",
+      "failure_behavior": "Reject incompatible raw-SQL file/schema/params flags and invalid name/definition combinations; enforce current saved-query limits and identity rules.",
+      "reference_tests": [
+        "tests.test_queries",
+        "tests.test_programmable_catalog",
+        "tests.test_sql_query"
+      ],
+      "proof_plan": [
+        "python",
+        "-m",
+        "unittest",
+        "tests.test_queries",
+        "tests.test_programmable_catalog",
+        "tests.test_sql_query",
+        "-v"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "status": "specified"
+    },
+    {
+      "id": "cli-dispatch:query contract",
+      "owner": "B",
+      "entry_point": "catabolic query contract",
+      "public_inputs_outputs": "Frozen cli:query arguments; the sql positional is interpreted as this saved-query operation. save requires name/definition, show/run a revision ID, list uses bounded pagination, contract emits the schema.",
+      "mutations": "Read-only definition/schema inspection or bounded pinned query execution.",
+      "failure_behavior": "Reject incompatible raw-SQL file/schema/params flags and invalid name/definition combinations; enforce current saved-query limits and identity rules.",
+      "reference_tests": [
+        "tests.test_queries",
+        "tests.test_programmable_catalog",
+        "tests.test_sql_query"
+      ],
+      "proof_plan": [
+        "python",
+        "-m",
+        "unittest",
+        "tests.test_queries",
+        "tests.test_programmable_catalog",
+        "tests.test_sql_query",
+        "-v"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "status": "specified"
+    }
+  ]
+}

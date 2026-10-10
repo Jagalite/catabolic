@@ -1,41 +1,262 @@
 {
   "format_version": 1,
   "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
-  "status": "partial-existing-scenario-inventory",
+  "status": "synthetic-schema-and-media-integration-fixtures-indexed; historical-feature-combinations-and-differential-use-still-require-review",
   "policy": "Use synthetic data and new temporary roots. No user databases or source media. Preserve raw evidence; review any nondeterminism normalization before differential use.",
   "scenarios": [
     {
       "id": "legacy-v1",
       "source": "tests/fixtures/schema_v1.sql",
       "generator": "tests.test_migrations.create_legacy",
-      "reference_tests": ["tests.test_migrations"],
-      "command": ["python", "-m", "unittest", "tests.test_migrations", "-v"],
+      "reference_tests": [
+        "tests.test_migrations"
+      ],
+      "command": [
+        "python",
+        "-m",
+        "unittest",
+        "tests.test_migrations",
+        "-v"
+      ],
       "coverage": "Synthetic populated v1 database, source file, owned symlink and ownership marker; upgrade, backup, recovery and refusal scenarios",
       "rust_fixture": null
     },
     {
       "id": "programmable-v14",
       "source": "tests/test_programmable_migration.py",
-      "reference_tests": ["tests.test_programmable_migration"],
-      "command": ["python", "-m", "unittest", "tests.test_programmable_migration", "-v"],
+      "reference_tests": [
+        "tests.test_programmable_migration"
+      ],
+      "command": [
+        "python",
+        "-m",
+        "unittest",
+        "tests.test_programmable_migration",
+        "-v"
+      ],
       "coverage": "Preserve original columns, IDs and foreign keys through query/rule table rebuild; failed rebuild rollback",
       "rust_fixture": null
     },
     {
       "id": "components-v24",
       "source": "tests/test_component_migration.py",
-      "reference_tests": ["tests.test_component_migration"],
-      "command": ["python", "-m", "unittest", "tests.test_component_migration", "-v"],
+      "reference_tests": [
+        "tests.test_component_migration"
+      ],
+      "command": [
+        "python",
+        "-m",
+        "unittest",
+        "tests.test_component_migration",
+        "-v"
+      ],
       "coverage": "Adopt synthetic probe/sidecar evidence and recover pending journal before upgrade",
       "rust_fixture": null
     },
     {
       "id": "synthetic-library",
       "source": "tests/synthetic_library.py",
-      "reference_tests": ["tests.test_synthetic_library"],
-      "command": ["python", "-m", "tests.synthetic_benchmark", "--sizes", "100", "1000", "5000", "--root", "NEW_DISPOSABLE_ROOT"],
+      "reference_tests": [
+        "tests.test_synthetic_library"
+      ],
+      "command": [
+        "python",
+        "-m",
+        "tests.synthetic_benchmark",
+        "--sizes",
+        "100",
+        "1000",
+        "5000",
+        "--root",
+        "NEW_DISPOSABLE_ROOT"
+      ],
       "coverage": "Synthetic filesystem workflow including source hashes and interruption recovery; not real media throughput",
       "rust_fixture": null
+    },
+    {
+      "id": "every-schema-boundary",
+      "source": "scripts/migration_fixtures.py",
+      "command": [
+        "python",
+        "scripts/migration_fixtures.py",
+        "--source",
+        "REFERENCE_SOURCE",
+        "--output",
+        "NEW_FIXTURE_ROOT"
+      ],
+      "coverage": "Retained populated synthetic v1-derived databases at schema versions 1 through 32. Each upgrades to 32 with original data preservation, integrity and FK checks. Later feature-populated combinations remain covered separately by v14/v24 tests and require further corpus expansion.",
+      "evidence": "legacy-fixture-evidence.json",
+      "rust_fixture": null
+    },
+    {
+      "id": "media",
+      "source": "scripts/acceptance.py",
+      "sha256": "4144892487c43b9cf1895c0f7e62d7c5ebd33a1cd9f2174b1b60f24ab969a6ea",
+      "command": [
+        "python",
+        "scripts/acceptance.py",
+        "--cli",
+        "INSTALLED_CLI",
+        "--root",
+        "NEW_FIXTURE_ROOT"
+      ],
+      "coverage": "Generated real FFmpeg media including corrupt, multi-stream, subtitle and image inputs; source hashes and output ownership checked",
+      "evidence": "ci-evidence.json (storage additionally local macOS receipt)",
+      "rust_fixture": null
+    },
+    {
+      "id": "consumer",
+      "source": "scripts/consumer_acceptance.py",
+      "sha256": "635ebe828e326b1b739f0f7a653f105883ed06e182884810663c66463887715a",
+      "command": [
+        "python",
+        "scripts/consumer_acceptance.py",
+        "--cli",
+        "INSTALLED_CLI",
+        "--root",
+        "NEW_FIXTURE_ROOT"
+      ],
+      "coverage": "Disposable HTTP consumer services and publication lifecycle",
+      "evidence": "ci-evidence.json (storage additionally local macOS receipt)",
+      "rust_fixture": null
+    },
+    {
+      "id": "notification",
+      "source": "scripts/notification_acceptance.py",
+      "sha256": "bc65d551cfc790d1571aa56d465d9d424873d81b9cc4c6b3c67c6e69a85ec2f5",
+      "command": [
+        "python",
+        "scripts/notification_acceptance.py",
+        "--cli",
+        "INSTALLED_CLI",
+        "--root",
+        "NEW_FIXTURE_ROOT"
+      ],
+      "coverage": "Optional Apprise partial provider success and retry",
+      "evidence": "ci-evidence.json (storage additionally local macOS receipt)",
+      "rust_fixture": null
+    },
+    {
+      "id": "experience",
+      "source": "scripts/experience_acceptance.py",
+      "sha256": "af2917b282f7e9479060543f4d7c948221c335acd079598798a4a112d2fa00ee",
+      "command": [
+        "python",
+        "scripts/experience_acceptance.py",
+        "--python",
+        "INSTALLED_PYTHON",
+        "--root",
+        "NEW_FIXTURE_ROOT"
+      ],
+      "coverage": "Versioned messy-collection corpus, answer key and independent checkpoint evaluator",
+      "evidence": "ci-evidence.json (storage additionally local macOS receipt)",
+      "rust_fixture": null
+    },
+    {
+      "id": "http",
+      "source": "scripts/http_acceptance.py",
+      "sha256": "8ba0000bb803e08117f24ef9140ce526d98a8561cfdf12d00e08c426950d536b",
+      "command": [
+        "python",
+        "scripts/http_acceptance.py",
+        "--python",
+        "INSTALLED_PYTHON",
+        "--root",
+        "NEW_FIXTURE_ROOT",
+        "--generated-client",
+        "tests/clients/build/acceptance.js"
+      ],
+      "coverage": "Authenticated installed server/worker, tickets, ranges, event replay and generated client",
+      "evidence": "ci-evidence.json (storage additionally local macOS receipt)",
+      "rust_fixture": null
+    },
+    {
+      "id": "fallback",
+      "source": "scripts/fallback_acceptance.py",
+      "sha256": "512f781ac7912cf4b8fb9d94f05b67f2b98123228aa3a5833d9fb1caf574452c",
+      "command": [
+        "python",
+        "scripts/fallback_acceptance.py",
+        "--python",
+        "INSTALLED_PYTHON",
+        "--root",
+        "NEW_FIXTURE_ROOT",
+        "--generated-client",
+        "tests/clients/build/fallback.js"
+      ],
+      "coverage": "A/B/C source failover, retained revisions, exact old URLs and stable failback",
+      "evidence": "ci-evidence.json (storage additionally local macOS receipt)",
+      "rust_fixture": null
+    },
+    {
+      "id": "watcher",
+      "source": "scripts/watcher_acceptance.py",
+      "sha256": "b033fdec422b28aa0358748d0e6d1f8a7a6a32da878ca3dbc15adbcf47ae9669",
+      "command": [
+        "python",
+        "scripts/watcher_acceptance.py",
+        "--python",
+        "INSTALLED_PYTHON",
+        "--root",
+        "NEW_FIXTURE_ROOT",
+        "--generated-client",
+        "tests/clients/build/fallback.js"
+      ],
+      "coverage": "Named watcher and durable source-event lifecycle",
+      "evidence": "ci-evidence.json (storage additionally local macOS receipt)",
+      "rust_fixture": null
+    },
+    {
+      "id": "jellyfin",
+      "source": "scripts/acceptance.py",
+      "sha256": "4144892487c43b9cf1895c0f7e62d7c5ebd33a1cd9f2174b1b60f24ab969a6ea",
+      "command": [
+        "python",
+        "scripts/acceptance.py",
+        "--cli",
+        "INSTALLED_CLI",
+        "--root",
+        "NEW_FIXTURE_ROOT",
+        "--jellyfin-image",
+        "jellyfin/jellyfin:10.11.8"
+      ],
+      "coverage": "Disposable pinned Jellyfin image, real scan and playback",
+      "evidence": "ci-evidence.json (storage additionally local macOS receipt)",
+      "rust_fixture": null
+    },
+    {
+      "id": "storage",
+      "source": "scripts/storage_acceptance.py",
+      "sha256": "0f60232d660e9db7b77376b60e11d9b7e16481748a85ca8e1b60981807bd2db2",
+      "command": [
+        "python",
+        "scripts/storage_acceptance.py",
+        "--cli",
+        "INSTALLED_CLI",
+        "--report",
+        "NEW_REPORT_PATH"
+      ],
+      "coverage": "New macOS disk images or Linux tmpfs only; distinct filesystems and real unmount/remount",
+      "evidence": "ci-evidence.json (storage additionally local macOS receipt)",
+      "rust_fixture": null
     }
-  ]
+  ],
+  "resource_sha256": {
+    "tests/clients/.gitignore": "0540b6a77f6ebea5b9d86ab29f4899b5a96a0dc76fc71b6cfc0c78fcb61dfec7",
+    "tests/clients/acceptance.ts": "a8ae3bf909737b7e1734443b0549faa8c561b11724b3a3cccdd398adde2c7b16",
+    "tests/clients/catalog.graphql": "395f9d9d4d7fddb2e0dd931fc83dcb0155dc74d2c7d660e43dc6dccdf2c8fd08",
+    "tests/clients/codegen.json": "9fdbcebe0461d0dfb1a824834701fac1dfd840c4e78139c343eed67067e95460",
+    "tests/clients/fallback.graphql": "4b4041a6a26927d9140430d74114dbebea84b9c6bb2e0ca63086a8eebf2d94f4",
+    "tests/clients/fallback.ts": "bada29530f9bea2665754e69f6ee2efb42c5eb023bf5acfe769cf38dd0f360ca",
+    "tests/clients/package-lock.json": "0849f1dc2368eeb5db4494371c702ca4e1ef938c298aa6c0ffe4483c2eb8be62",
+    "tests/clients/package.json": "a5e1dffb755d45da11bebe99db70f66f0dcb0b7fcfe18ae0642bb450a2b152bb",
+    "tests/clients/tsconfig.json": "3ef41523da42a27a79bd10039988b611101442179e680da3086437d5f3283695",
+    "tests/clients/typecheck.ts": "41b0d7c0aa770e11696af714622697d59def18fa6a36eedb68546e21dbe7016a",
+    "tests/clients/watchers.ts": "d173ee673e707150a48cbb192ab3382cdd733ef91b4a095a321cdb6c1002f5f7",
+    "tests/fixtures/experience/cases.json": "6a413e8a0bac923b42d5637090b4651e0161dc632580e8619e5b4508541235d8",
+    "tests/fixtures/experience/cases.json.license": "2cfbbfea5c4c555723441080b5c1c3e4c744522388348b0db1b2210b2ab9634b",
+    "tests/fixtures/interchange/manifest-v1.json": "4221158e244a0e1bb20eca51f0f1d6fbdf00ec302465ef3f4320c3f8bdedec5e",
+    "tests/fixtures/interchange/manifest-v1.json.license": "2cfbbfea5c4c555723441080b5c1c3e4c744522388348b0db1b2210b2ab9634b",
+    "tests/fixtures/schema_v1.sql": "608c4fe18cb128782e88bf528cf3c29261b1f98ce78ad990b13c5193e2548252"
+  }
 }

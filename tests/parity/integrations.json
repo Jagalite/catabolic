@@ -1,0 +1,322 @@
+{
+  "format_version": 1,
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "rows": [
+    {
+      "id": "integration:consumer-protocol",
+      "owner": "E",
+      "status": "specified",
+      "entry_point": "catabolic.consumer_adapters",
+      "source_sha256": "0162605a4f4005153e50c41b7d7cac79e5dfee22be4e3a99e5d94c26c70fe89b",
+      "public_inputs_outputs": "Plex/Jellyfin server inspection, libraries, scans, creation choices, library creation and bounded indexed-path verification",
+      "mutations": "Explicit remote library changes and durable refresh acknowledgements",
+      "failure_behavior": "Reject invalid endpoints, credentials, paths, remote identity and stale publication claims",
+      "reference_tests": [
+        "tests.test_consumers",
+        "tests.test_consumer_publication"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "proof_plan": {
+        "command": [
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_consumers",
+          "tests.test_consumer_publication",
+          "-v"
+        ],
+        "scope": "Family-level reference behavior; CI real-service and installed-wheel receipts complement fake-service unit tests. Operation-level cases remain in referenced tests."
+      }
+    },
+    {
+      "id": "integration:plex-login",
+      "owner": "E",
+      "status": "specified",
+      "entry_point": "catabolic.plex_login",
+      "source_sha256": "f0521ee82babdb9827983a82dddf4597c377dc050bf723c414faabe329661916",
+      "public_inputs_outputs": "PIN login start/completion and private credential references",
+      "mutations": "Private credential files and login state",
+      "failure_behavior": "Expired PIN, unsafe credential permissions and unexpected service responses",
+      "reference_tests": [
+        "tests.test_plex_login"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "proof_plan": {
+        "command": [
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_plex_login",
+          "-v"
+        ],
+        "scope": "Family-level reference behavior; CI real-service and installed-wheel receipts complement fake-service unit tests. Operation-level cases remain in referenced tests."
+      }
+    },
+    {
+      "id": "integration:plex-import",
+      "owner": "E",
+      "status": "specified",
+      "entry_point": "catabolic.plex_import",
+      "source_sha256": "e9f91134da32e908413c445ad7c1f3247acf93490e4a108fecfa59cc610de619",
+      "public_inputs_outputs": "Paged Plex metadata mapped to bound local occurrences",
+      "mutations": "Imported proposals, identities and metadata",
+      "failure_behavior": "Bound pagination, path mappings, partial response and interrupted imports",
+      "reference_tests": [
+        "tests.test_plex_import"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "proof_plan": {
+        "command": [
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_plex_import",
+          "-v"
+        ],
+        "scope": "Family-level reference behavior; CI real-service and installed-wheel receipts complement fake-service unit tests. Operation-level cases remain in referenced tests."
+      }
+    },
+    {
+      "id": "integration:plex-match",
+      "owner": "E",
+      "status": "specified",
+      "entry_point": "catabolic.plex_matching",
+      "source_sha256": "32e2960431a12e07467a90133183fc68c12df1756ef77416af3ceae60b83c0b0",
+      "public_inputs_outputs": "Published-file matching and metadata plan/apply",
+      "mutations": "Remote metadata only for explicitly matched owned items",
+      "failure_behavior": "Reject stale snapshots, ambiguous matches and conflicting metadata",
+      "reference_tests": [
+        "tests.test_plex_matching",
+        "tests.test_plex_metadata"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "proof_plan": {
+        "command": [
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_plex_matching",
+          "tests.test_plex_metadata",
+          "-v"
+        ],
+        "scope": "Family-level reference behavior; CI real-service and installed-wheel receipts complement fake-service unit tests. Operation-level cases remain in referenced tests."
+      }
+    },
+    {
+      "id": "integration:destination-mapping",
+      "owner": "E",
+      "status": "specified",
+      "entry_point": "catabolic.mapping_adapters",
+      "source_sha256": "af87dfb615a60a47f206a7ae8eed4e262823da484c6c9ae59bed198fa6c5a149",
+      "public_inputs_outputs": "Plex/Jellyfin scalar, set and existing collection mappings",
+      "mutations": "Owned merge and conflict-checked scalar replacement; missing rows retained",
+      "failure_behavior": "Unsupported destination, missing IDs and ownership conflicts",
+      "reference_tests": [
+        "tests.test_destination_mappings"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "proof_plan": {
+        "command": [
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_destination_mappings",
+          "-v"
+        ],
+        "scope": "Family-level reference behavior; CI real-service and installed-wheel receipts complement fake-service unit tests. Operation-level cases remain in referenced tests."
+      }
+    },
+    {
+      "id": "integration:publication-mapping",
+      "owner": "E",
+      "status": "specified",
+      "entry_point": "catabolic.publication_mappings",
+      "source_sha256": "b3c30718ffc3d78e27f9e230a95be2c53f6db73a7efb5ba0fceb3eb58b7bdc13",
+      "public_inputs_outputs": "Query-driven consumer publication operations",
+      "mutations": "Remote collection/playlist publication with durable ownership",
+      "failure_behavior": "Superseded definitions, partial delivery and unsafe deletions",
+      "reference_tests": [
+        "tests.test_publication_mappings"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "proof_plan": {
+        "command": [
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_publication_mappings",
+          "-v"
+        ],
+        "scope": "Family-level reference behavior; CI real-service and installed-wheel receipts complement fake-service unit tests. Operation-level cases remain in referenced tests."
+      }
+    },
+    {
+      "id": "integration:openapi",
+      "owner": "E",
+      "status": "specified",
+      "entry_point": "catabolic.openapi_operations",
+      "source_sha256": "b40faf613f0d7b143991684805874b1284d17c2bf352da840ba806a23e1ea2b4",
+      "public_inputs_outputs": "Approved HTTP origin/operation request construction and response mapping",
+      "mutations": "Explicit approved outbound requests and durable delivery history",
+      "failure_behavior": "Unapproved origins, credentials, invalid schemas and bounded response errors",
+      "reference_tests": [
+        "tests.test_http_query_mappings"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "proof_plan": {
+        "command": [
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_http_query_mappings",
+          "-v"
+        ],
+        "scope": "Family-level reference behavior; CI real-service and installed-wheel receipts complement fake-service unit tests. Operation-level cases remain in referenced tests."
+      }
+    },
+    {
+      "id": "integration:webhook",
+      "owner": "E",
+      "status": "specified",
+      "entry_point": "catabolic.webhooks",
+      "source_sha256": "43c39fb0ce50248171810fa8a962086043dff16fe1eca3bdb8d829f3c5591160",
+      "public_inputs_outputs": "Authenticated durable webhook subscription and delivery",
+      "mutations": "Delivery queues, attempts and retries",
+      "failure_behavior": "Disabled/superseded subscription, transport failure and invalid callback URLs",
+      "reference_tests": [
+        "tests.test_http_webhooks"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "proof_plan": {
+        "command": [
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_http_webhooks",
+          "-v"
+        ],
+        "scope": "Family-level reference behavior; CI real-service and installed-wheel receipts complement fake-service unit tests. Operation-level cases remain in referenced tests."
+      }
+    },
+    {
+      "id": "integration:notifications",
+      "owner": "E",
+      "status": "specified",
+      "entry_point": "catabolic.notifications",
+      "source_sha256": "bc0b22dfd688d62a4aa3c2c4e062906b9dc9ec74a7f5434626d58811de770705",
+      "public_inputs_outputs": "Job events and optional Apprise provider delivery",
+      "mutations": "Per-provider delivery state and retries",
+      "failure_behavior": "Partial provider success remains partial; absent optional dependency is explicit",
+      "reference_tests": [
+        "tests.test_notifications"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "proof_plan": {
+        "command": [
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_notifications",
+          "-v"
+        ],
+        "scope": "Family-level reference behavior; CI real-service and installed-wheel receipts complement fake-service unit tests. Operation-level cases remain in referenced tests."
+      }
+    },
+    {
+      "id": "integration:playback",
+      "owner": "E",
+      "status": "specified",
+      "entry_point": "catabolic.playback",
+      "source_sha256": "3a7e1cfba7a4521658288110d3bac26f4c6c629eb97a997b016cb9740e89ca2a",
+      "public_inputs_outputs": "Shared playback sessions, manifests and bounded segment access",
+      "mutations": "Session demand, cache and worker state",
+      "failure_behavior": "Expired grants, stale execution claims, cancellation and incomplete segments",
+      "reference_tests": [
+        "tests.test_http_playback"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "proof_plan": {
+        "command": [
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_http_playback",
+          "-v"
+        ],
+        "scope": "Family-level reference behavior; CI real-service and installed-wheel receipts complement fake-service unit tests. Operation-level cases remain in referenced tests."
+      }
+    },
+    {
+      "id": "integration:watch-events",
+      "owner": "D",
+      "status": "specified",
+      "entry_point": "catabolic.watching",
+      "source_sha256": "97f56689c139ec088aabb2c7cd6d7107f07dbca7a661a695b8c9f5e0b94f6ef7",
+      "public_inputs_outputs": "Optional watchdog observations and durable watcher scheduling",
+      "mutations": "Dirty generations and bounded scan/work claims",
+      "failure_behavior": "Lost events, replaced source roots, stale leases and incomplete scan barriers",
+      "reference_tests": [
+        "tests.test_watchers",
+        "tests.test_watcher_recovery"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "proof_plan": {
+        "command": [
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_watchers",
+          "tests.test_watcher_recovery",
+          "-v"
+        ],
+        "scope": "Family-level reference behavior; CI real-service and installed-wheel receipts complement fake-service unit tests. Operation-level cases remain in referenced tests."
+      }
+    },
+    {
+      "id": "integration:media-processors",
+      "owner": "D",
+      "status": "specified",
+      "entry_point": "catabolic.processors",
+      "source_sha256": "d1e818eb15779592e3f90be1792b739e2c41e8a6e13b358d866afb34ba573568",
+      "public_inputs_outputs": "FFmpeg/FFprobe, Poppler, Tesseract and processor job boundaries",
+      "mutations": "Derived artifacts and facts; source bytes preserved",
+      "failure_behavior": "Timeout/cancel, invalid media, stale snapshots, missing tools and output validation",
+      "reference_tests": [
+        "tests.test_enrichment",
+        "tests.test_document_text",
+        "tests.test_native_processing",
+        "tests.test_probe_health"
+      ],
+      "rust_tests": [],
+      "differential_fixtures": [],
+      "proof_plan": {
+        "command": [
+          "python",
+          "-m",
+          "unittest",
+          "tests.test_enrichment",
+          "tests.test_document_text",
+          "tests.test_native_processing",
+          "tests.test_probe_health",
+          "-v"
+        ],
+        "scope": "Family-level reference behavior; CI real-service and installed-wheel receipts complement fake-service unit tests. Operation-level cases remain in referenced tests."
+      }
+    }
+  ],
+  "limitations": [
+    "Family-level adapter index complements CLI/HTTP operation inventory; this does not assert native adapter parity.",
+    "Unknown downstream consumer contracts are not excluded."
+  ]
+}
