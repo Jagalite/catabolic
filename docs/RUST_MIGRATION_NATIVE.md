@@ -2,7 +2,7 @@
 
 M2 and M3 are implemented and locally qualified. Their M1 packaging and lifecycle
 prerequisites are also qualified. The reviewed implementation snapshot is
-`f884f29`; [native-m2-m3.json](../tests/parity/native-m2-m3.json) binds the source,
+`e36a0dc`; [native-m2-m3.json](../tests/parity/native-m2-m3.json) binds the source,
 scenario IDs, installed artifacts and retained evidence by SHA-256.
 
 All commits and qualification work stayed local. The Python distribution remains
@@ -54,8 +54,8 @@ claim that the complete existing Python facade has already been replaced.
 
 | Local platform | Final native differential scenarios | Rust checks | Installed Python wheel |
 |---|---:|---|---|
-| macOS 26.5.2, arm64, APFS | 69 passed, 0 skipped; 77.514s | 6 unit checks; 7 storage-fault checks | Python 3.11.15 and 3.14.6; `cp311-abi3-macosx_11_0_arm64` |
-| Ubuntu 26.04, aarch64, ext4 | 69 passed, 0 skipped; 51.727s | 6 unit checks; 7 storage-fault checks | Python 3.11.15 and 3.14.6; `cp311-abi3-manylinux_2_39_aarch64` |
+| macOS 26.5.2, arm64, APFS | 71 passed, 0 skipped; 82.184s | 7 unit checks; 7 storage-fault checks | Python 3.11.15 and 3.14.6; `cp311-abi3-macosx_11_0_arm64` |
+| Ubuntu 26.04, aarch64, ext4 | 71 passed, 0 skipped; 79.032s | 7 unit checks; 7 storage-fault checks | Python 3.11.15 and 3.14.6; `cp311-abi3-manylinux_2_39_aarch64` |
 
 Linux ran in an isolated local Lima/Apple VZ VM with a read-only host checkout
 mount. Source and tests were copied onto its own ext4 disk. No remote workflow,
@@ -99,6 +99,13 @@ query; and 3,006 finite float samples encode byte for byte like Python JSON.
 SQLite's actual library version is reported rather than rewritten to match a
 different build. Retained logs preserve Python reference `ResourceWarning`
 messages about unclosed reference connections; the qualification checks pass.
+
+Review fixes disable a session after detached lock/reopen failures, including
+direct SQL access to its placeholder connection. GraphQL coercion uses only the
+selected operation and preserves omitted variables inside input objects without
+converting explicit nulls into omissions. Regression checks cover all three
+failures; both platforms and all four installed-wheel checks were rerun against
+the corrected source and rebuilt artifacts.
 
 Rust 1.99.0 and dependencies are pinned. The separately qualified Statelessness
 registry release is 0.2.0, with its exact checksum in Cargo.lock. Its adapter calls
@@ -153,7 +160,7 @@ with `scripts/migration_native_benchmark.py`. Lifecycle `find` requires a fresh
 trace directory; `replay` is a separate process.
 
 Evidence remains under `.local-tests/rust-migration/m2-m3/`, release wheels under
-`.local-tests/rust-migration/native-wheels-final/`, and the retained Linux binaries
-under `.local-tests/rust-migration/native-artifacts/linux-aarch64/`. The audit
+`.local-tests/rust-migration/native-wheels-review-fixes/`, and the retained Linux binaries
+under `.local-tests/rust-migration/native-artifacts/linux-aarch64-review-fixes/`. The audit
 refuses missing or changed source/evidence/artifact bytes. Rebuilding an artifact
 requires a fresh installed qualification and register update.

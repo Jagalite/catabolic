@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
-  "qualification_source_commit": "f884f29",
+  "qualification_source_commit": "e36a0dc",
   "milestones": {
     "M1": "qualified",
     "M2": "qualified",
@@ -50,12 +50,22 @@
         "migration-hook:25-component-backfill"
       ],
       "rust_tests": [
+        "crates/catabolic-store/src/lib.rs",
+        "crates/catabolic-store/tests/storage_faults.rs",
         "tests.test_rust_migration",
-        "tests.test_rust_populated_migration",
-        "crates/catabolic-store/tests/storage_faults.rs"
+        "tests.test_rust_populated_migration"
       ],
       "status": "qualified",
       "scenario_ids": [
+        "rust:storage_faults:committed_wal_is_in_backup_and_edits_after_backup_cancel_upgrade",
+        "rust:storage_faults:every_migration_boundary_rolls_back_the_whole_chain",
+        "rust:storage_faults:migration_crash_worker",
+        "rust:storage_faults:post_commit_observer_failure_reports_committed_with_warning",
+        "rust:storage_faults:process_exit_is_atomic_before_and_after_commit",
+        "rust:storage_faults:recovery_is_an_exact_reviewed_set",
+        "rust:storage_faults:sqlite_full_at_actual_upgrade_rolls_back",
+        "rust:store:detach_releases_writer_and_refuses_replaced_identity",
+        "rust:store:failed_detach_lock_or_reopen_disables_the_session",
         "tests.test_rust_migration.NativeStorageTest.test_all_32_retained_historical_fixtures",
         "tests.test_rust_migration.NativeStorageTest.test_failures_before_commit_preserve_original",
         "tests.test_rust_migration.NativeStorageTest.test_invalid_history_structure_and_identity_refuse_unchanged",
@@ -64,14 +74,7 @@
         "tests.test_rust_migration.NativeStorageTest.test_symlink_and_hardlink_database_refusal",
         "tests.test_rust_migration.NativeStorageTest.test_writer_lock_is_shared_with_python",
         "tests.test_rust_populated_migration.NativePopulatedComponentMigrationTest.test_populated_schema24_with_probe_and_sidecar",
-        "tests.test_rust_populated_migration.NativePopulatedProgrammableMigrationTest.test_populated_schema14_recipe_query_and_foreign_keys",
-        "rust:storage_faults:every_migration_boundary_rolls_back_the_whole_chain",
-        "rust:storage_faults:recovery_is_an_exact_reviewed_set",
-        "rust:storage_faults:committed_wal_is_in_backup_and_edits_after_backup_cancel_upgrade",
-        "rust:storage_faults:sqlite_full_at_actual_upgrade_rolls_back",
-        "rust:storage_faults:migration_crash_worker",
-        "rust:storage_faults:process_exit_is_atomic_before_and_after_commit",
-        "rust:storage_faults:post_commit_observer_failure_reports_committed_with_warning"
+        "tests.test_rust_populated_migration.NativePopulatedProgrammableMigrationTest.test_populated_schema14_recipe_query_and_foreign_keys"
       ]
     },
     {
@@ -405,9 +408,11 @@
         "tests.test_rust_graphql.NativeGraphQLTest.test_reject_writes_cycles_bad_variables_and_foreign_cursors",
         "tests.test_rust_graphql.NativeGraphQLTest.test_schema_and_operation_selection",
         "tests.test_rust_graphql.NativeGraphQLTest.test_selected_error_contracts",
+        "tests.test_rust_graphql.NativeGraphQLTest.test_selected_operation_owns_variable_coercion",
         "tests.test_rust_graphql.NativeGraphQLTest.test_syntax_literals_and_field_validation_contracts",
         "tests.test_rust_graphql.NativeGraphQLTest.test_token_limit_and_unused_fragment_cycle",
         "tests.test_rust_graphql.NativeGraphQLTest.test_typo_suggestions_and_selected_operation_variables",
+        "tests.test_rust_graphql.NativeGraphQLTest.test_undefined_variables_inside_input_objects",
         "tests.test_rust_tags.NativeTagQueryTest.test_catalog_tag_pages_filters_and_status",
         "tests.test_rust_tags.NativeTagQueryTest.test_graphql_nested_tags",
         "tests.test_rust_tags.NativeTagQueryTest.test_tag_filter_rejects_unicode_other_and_expanded_names"
@@ -507,9 +512,11 @@
     "tests.test_rust_graphql.NativeGraphQLTest.test_reject_writes_cycles_bad_variables_and_foreign_cursors",
     "tests.test_rust_graphql.NativeGraphQLTest.test_schema_and_operation_selection",
     "tests.test_rust_graphql.NativeGraphQLTest.test_selected_error_contracts",
+    "tests.test_rust_graphql.NativeGraphQLTest.test_selected_operation_owns_variable_coercion",
     "tests.test_rust_graphql.NativeGraphQLTest.test_syntax_literals_and_field_validation_contracts",
     "tests.test_rust_graphql.NativeGraphQLTest.test_token_limit_and_unused_fragment_cycle",
     "tests.test_rust_graphql.NativeGraphQLTest.test_typo_suggestions_and_selected_operation_variables",
+    "tests.test_rust_graphql.NativeGraphQLTest.test_undefined_variables_inside_input_objects",
     "tests.test_rust_layouts.NativeLayoutTest.test_all_presets_and_relationships",
     "tests.test_rust_layouts.NativeLayoutTest.test_collision_missing_fields_and_unicode_paths",
     "tests.test_rust_layouts.NativeLayoutTest.test_copy_policy_and_first_matching_rules",
@@ -543,44 +550,44 @@
     "macos-arm64": {
       "os": "macOS 26.5.2",
       "filesystem": "APFS",
-      "tests_passed": 69,
+      "tests_passed": 71,
       "tests_skipped": 0,
-      "test_seconds": 77.514,
+      "test_seconds": 82.184,
       "binary": "target/release/catabolic-native",
-      "unit_tests_passed": 6,
+      "unit_tests_passed": 7,
       "storage_fault_tests_passed": 7,
       "wheels": [
         {
           "python": "3.11.15",
-          "receipt": ".local-tests/rust-migration/m2-m3/mac-wheel-3.11.15-qualified.json",
-          "artifact": ".local-tests/rust-migration/native-wheels-final/catabolic_native-0.2.0-cp311-abi3-macosx_11_0_arm64.whl"
+          "receipt": ".local-tests/rust-migration/m2-m3/mac-wheel-3.11.15-review-fixes.json",
+          "artifact": ".local-tests/rust-migration/native-wheels-review-fixes/catabolic_native-0.2.0-cp311-abi3-macosx_11_0_arm64.whl"
         },
         {
           "python": "3.14.6",
-          "receipt": ".local-tests/rust-migration/m2-m3/mac-wheel-3.14.6-qualified.json",
-          "artifact": ".local-tests/rust-migration/native-wheels-final/catabolic_native-0.2.0-cp311-abi3-macosx_11_0_arm64.whl"
+          "receipt": ".local-tests/rust-migration/m2-m3/mac-wheel-3.14.6-review-fixes.json",
+          "artifact": ".local-tests/rust-migration/native-wheels-review-fixes/catabolic_native-0.2.0-cp311-abi3-macosx_11_0_arm64.whl"
         }
       ]
     },
     "linux-aarch64": {
       "os": "Ubuntu 26.04; Linux 7.0.0-34-generic",
       "filesystem": "ext4 in local Apple VZ VM",
-      "tests_passed": 69,
+      "tests_passed": 71,
       "tests_skipped": 0,
-      "test_seconds": 51.727,
-      "binary": ".local-tests/rust-migration/native-artifacts/linux-aarch64/catabolic-native",
-      "unit_tests_passed": 6,
+      "test_seconds": 79.032,
+      "binary": ".local-tests/rust-migration/native-artifacts/linux-aarch64-review-fixes/catabolic-native",
+      "unit_tests_passed": 7,
       "storage_fault_tests_passed": 7,
       "wheels": [
         {
           "python": "3.11.15",
-          "receipt": ".local-tests/rust-migration/m2-m3/linux-receipts/wheel-3.11.15-complete.json",
-          "artifact": ".local-tests/rust-migration/native-wheels-final/catabolic_native-0.2.0-cp311-abi3-manylinux_2_39_aarch64.whl"
+          "receipt": ".local-tests/rust-migration/m2-m3/linux-receipts/wheel-3.11.15-review-fixes.json",
+          "artifact": ".local-tests/rust-migration/native-wheels-review-fixes/catabolic_native-0.2.0-cp311-abi3-manylinux_2_39_aarch64.whl"
         },
         {
           "python": "3.14.6",
-          "receipt": ".local-tests/rust-migration/m2-m3/linux-receipts/wheel-3.14.6-complete.json",
-          "artifact": ".local-tests/rust-migration/native-wheels-final/catabolic_native-0.2.0-cp311-abi3-manylinux_2_39_aarch64.whl"
+          "receipt": ".local-tests/rust-migration/m2-m3/linux-receipts/wheel-3.14.6-review-fixes.json",
+          "artifact": ".local-tests/rust-migration/native-wheels-review-fixes/catabolic_native-0.2.0-cp311-abi3-manylinux_2_39_aarch64.whl"
         }
       ]
     }
@@ -640,10 +647,10 @@
     "crates/catabolic-store/resources/unicode-other.json": "eb151a7b15295334973f8b3ebb71a3e6c4173947c02800724db486af5befe4d6",
     "crates/catabolic-store/src/components.rs": "bc03576e573ab5eb9bbfa5d0f5600742a5d0261bdab6c04c047c332cfc0ce93c",
     "crates/catabolic-store/src/document.rs": "2db8ff7cbeaab0598525fa373d2a6b63244f2cab5d7e0be70748546958eafb3c",
-    "crates/catabolic-store/src/graphql.rs": "07d995d1d666c532352ce04148911c46d0918b03d9312ece4ded4c8301aec5fd",
+    "crates/catabolic-store/src/graphql.rs": "d1a857849c5ba078c9d64c34d36d8f8f81aa4b03a2b86be4da1326e470294ee5",
     "crates/catabolic-store/src/introspection.rs": "f29bdf5163ab7ee661711de64b5141a85a3ea938da0eab24cccaa707096ba3c0",
     "crates/catabolic-store/src/layout.rs": "10d0d9ef788a2286d65dfc4515c1814d3ddc19b50e5d528dd2d7fd6a8255ada4",
-    "crates/catabolic-store/src/lib.rs": "28176b9666b5ec1b04d0d0ad1763029e6aa7e6e952918142109284e78610661a",
+    "crates/catabolic-store/src/lib.rs": "5b8b6d382fd096ca74271a87c688195fb4ac27e7524950af248b2cd85ec2b64c",
     "crates/catabolic-store/src/migration.rs": "2d73d88f17fa995eb08510f9a8fffcd20471aaeb87876311bacdb8a3ae55e5d2",
     "crates/catabolic-store/src/publication.rs": "ba0d7976f40c2ccfda2c476bec256b35e224996be79a65e93e448b19fe73ceec",
     "crates/catabolic-store/src/query.rs": "9fae8680fcbc8e6c11fb1a611badc495b0b096c1cadc6a199af6ac1b642302b4",
@@ -660,7 +667,7 @@
     "scripts/migration_native_audit.py": "4a8fe9b2bbd1ea45c8dfdebc1fa8f0a7f6485c48f5fc037d8cb007d4a597375a",
     "scripts/migration_native_benchmark.py": "48b1daf72b1f91e61c0fca631ed7d29a80bd11c6effc2b5acebdea7f7b3f73fe",
     "scripts/migration_rust_resources.py": "b6f3951951258e45129a05c3872b22b6cc2ad80b84ebcc0e456ea96ae97433c5",
-    "scripts/qualify_native_wheel.py": "256ea376adac39813802953465900b3ddaccba4def7f44b44eb59d84224d7de1",
+    "scripts/qualify_native_wheel.py": "ffb1ac7bcd648daef8949e7d44a17f90d7034f3a1119b33463b9b5cc1a9fde32",
     "src/catabolic/__init__.py": "e2e5051b5e9aa0043354ed1438d9c10deeeba94e9b97264a18855289e61aa3ff",
     "src/catabolic/__main__.py": "473093261917757a0d18d7d76ab28b8fa052457a6ab5dd49724f555fe0a401f5",
     "src/catabolic/access/__init__.py": "a7af18d11b647a89cd8769680a4be22663950cb432c7200eb425a4d88e8b19ef",
@@ -995,7 +1002,7 @@
     "tests/test_rendition_workflows.py": "94197254a00dd742874752d15bc7a82414782f6c0330ab9d6cc1c5436b9a4fb2",
     "tests/test_rust_components.py": "8e2f7fc3e24ed33a372e95d105e699802fd542601c09b0c62aefa930bbbe3ba8",
     "tests/test_rust_existing_reads.py": "153feebd61c163ae2d1554e09b9c87bb4e93f844985c92964ea9c203557d6514",
-    "tests/test_rust_graphql.py": "6604976dff27ecbab09f96539523034971f407cdb5a0430a6e3f8398b10abb62",
+    "tests/test_rust_graphql.py": "636ae7f0bce60d3b8ca740a02c2e794146af0734916d2e771ab4ba36b50f4540",
     "tests/test_rust_layouts.py": "a0e6c051887b7bb28adf96d2e8a9309916f41d1686f64948f88958e0770b07b7",
     "tests/test_rust_migration.py": "b27f4c01ff068ffebf8f477010b6b693478a442ddfabde91a2294043654a7555",
     "tests/test_rust_populated_migration.py": "7f31396f1be627d16f8aba2efe63d30584534f657874b99ba6742a9d8b4b4f17",
@@ -1008,30 +1015,26 @@
   "evidence_hashes": {
     ".local-tests/rust-migration/m2-m3/lifecycle-release-traces/minimized.sttrace": "dca49f709db073ff0256b8dd587831c96b9eb77f48aca38d64db0c6f96d30c5d",
     ".local-tests/rust-migration/m2-m3/lifecycle-release-traces/original.sttrace": "b36e63121512790c61b3561652fd8a37236de0e7f38b3ff62fd8074564837dee",
-    ".local-tests/rust-migration/m2-m3/linux-installed-complete.log": "c2aaca08c54a714196bd6b6693bfeb2a090bf0e6496325c53aadcebd9309c3c4",
     ".local-tests/rust-migration/m2-m3/linux-receipts/lifecycle-qualified-traces/minimized.sttrace": "99aa01e4d88154f82d5fb937dd7ee0f51295af4ecd9f99270b70ba2935fe4b92",
     ".local-tests/rust-migration/m2-m3/linux-receipts/lifecycle-qualified-traces/original.sttrace": "34caa9b37c3c96da7a866925bd23e921f6e2115fa28d4e7dd7daf3edc75404a4",
-    ".local-tests/rust-migration/m2-m3/linux-receipts/linux-benchmark-complete.json": "ccc244f19028e14072bcc0d0128f28fc83415d1606bef329529e2ad0e03a9b6c",
-    ".local-tests/rust-migration/m2-m3/linux-receipts/linux-complete-build.log": "c3dedde5e8b9f4944caa9251d7ccfff8e77fb8435adba31e7440cc05f8edf420",
-    ".local-tests/rust-migration/m2-m3/linux-receipts/linux-complete-tests.log": "550432a6dd9f07a0f62ad4c28a8334c228b31d2e17728e22ce5eb1fc3c2583b8",
-    ".local-tests/rust-migration/m2-m3/linux-receipts/linux-complete-units.log": "9650f0b98c4e594265b3334857bc8c6eded1e8b0107f52fc0bb98f0494d865cf",
-    ".local-tests/rust-migration/m2-m3/linux-receipts/linux-complete-wheel.log": "a0b3ca4958c37d715fbed24bc0e8cf80ccb9f2a006d5bc6504e6283d18bf9707",
-    ".local-tests/rust-migration/m2-m3/linux-receipts/linux-final-check.log": "ac491b5375919320b8522342275bf33ca38ff5aaa067d6f3aebf24d925f08aff",
+    ".local-tests/rust-migration/m2-m3/linux-receipts/linux-benchmark-review-fixes.json": "9f7a7d7739b84ab5b8dcceac7d1134517a234ae5ad746b4ed2218ba3a9d262d0",
+    ".local-tests/rust-migration/m2-m3/linux-receipts/linux-review-fixes-check.log": "6636938d1cf998ee8c3b9148f31b3500638b5038bad9ebd9d78af9b592e3c307",
+    ".local-tests/rust-migration/m2-m3/linux-receipts/linux-review-fixes-wheel.log": "7d44d726ce81301e8bf907588073a1f348b1e4059dac69443acc59113eae674b",
     ".local-tests/rust-migration/m2-m3/linux-receipts/m0-linux-storage.json": "821c17fe4c7a8b80ad6ee70969fe0d95fac797f50f438ad5fa2a55a7f2c02f79",
-    ".local-tests/rust-migration/m2-m3/linux-receipts/wheel-3.11.15-complete.json": "0069821f62d17eb449e0de1c16ebe5708ec4eb1599062dea4f5f0f4f73523b08",
-    ".local-tests/rust-migration/m2-m3/linux-receipts/wheel-3.14.6-complete.json": "5afa44fbefb01cbf31cc9f575d8d8443ce293d59081f7743de93ef789e601b0b",
+    ".local-tests/rust-migration/m2-m3/linux-receipts/wheel-3.11.15-review-fixes.json": "98b440e415085435e745d91bb915b090447a3e9986f242653b6f245ad72d5885",
+    ".local-tests/rust-migration/m2-m3/linux-receipts/wheel-3.14.6-review-fixes.json": "7ae68ed20774a4f49c90b94c15a8686bef3c7a3e64306b5bc874a81953a9b8da",
     ".local-tests/rust-migration/m2-m3/linux-reference-storage.log": "821c17fe4c7a8b80ad6ee70969fe0d95fac797f50f438ad5fa2a55a7f2c02f79",
-    ".local-tests/rust-migration/m2-m3/mac-benchmark-qualified.json": "8b4ca9a11626d88a243653f13274d36ce299fdf9e8c1487231c6e2a1dcf81cf3",
-    ".local-tests/rust-migration/m2-m3/mac-complete-tests.log": "099749ef9a99e9a70125637c04616bf62766b47367b775e7b38dcc63c40b3258",
-    ".local-tests/rust-migration/m2-m3/mac-complete-units.log": "a516ebc8a3670d155776962ed8f0fcde9cf55ed27b4208340fbd012181c5f3d6",
-    ".local-tests/rust-migration/m2-m3/mac-installed-complete.log": "b38faa6b72d7cc3912274688c5d9f9a6cf8635fb805266ec3678917b3f4b8437",
-    ".local-tests/rust-migration/m2-m3/mac-reviewed-check.log": "282bbba03481191011e04084b6c8761f2a71565d259b808c8f1bce81b064d40e",
-    ".local-tests/rust-migration/m2-m3/mac-wheel-3.11.15-qualified.json": "8eca251ede02c7e50760f9b15cc357b40d9f1eb36b73a0af56c2516b994c0a3b",
-    ".local-tests/rust-migration/m2-m3/mac-wheel-3.14.6-qualified.json": "37d43d91b25e4d0c177f13da19948f29dee887962823a50872b83fc0a11a7625",
-    ".local-tests/rust-migration/native-artifacts/linux-aarch64/catabolic-native": "878b52cd02d90e56155c67ee961c14e626247d4c8f7da19cac5379638c6b211e",
-    ".local-tests/rust-migration/native-wheels-final/catabolic_native-0.2.0-cp311-abi3-macosx_11_0_arm64.whl": "cf515fd2b85635aa83e9dc5bba9f1aa482420d841b27d864936fc9c7391a1936",
-    ".local-tests/rust-migration/native-wheels-final/catabolic_native-0.2.0-cp311-abi3-manylinux_2_39_aarch64.whl": "b210b3d451d7263fb4e340d1266ee68888cb530afbb0f33a2e2ac1c2c3d4826d",
-    "target/release/catabolic-native": "cedf9d1565311031cfa359752508b3a3f352b1665da3b92ca608dcb620485f8b"
+    ".local-tests/rust-migration/m2-m3/linux-review-fixes-installed.log": "19cae488641c73bd7f68ad592763cb0a2074fdbe0adb7cb19c4e070faf772f32",
+    ".local-tests/rust-migration/m2-m3/mac-benchmark-review-fixes.json": "62a14aac33037ede90f2c5aa9d3a40a59d68a156021dcd0f13644d38f51c4960",
+    ".local-tests/rust-migration/m2-m3/mac-review-fixes-check.log": "cb80119938946aa3ea5e8f295b312f38de1dd3d3ebedc17eafbef29009242a3d",
+    ".local-tests/rust-migration/m2-m3/mac-review-fixes-installed.log": "d724850b343d06e509b7d957c55dd6e08e728c514e2598b273ca0b351d41bd18",
+    ".local-tests/rust-migration/m2-m3/mac-review-fixes-wheel.log": "206ab3d3b7861f116934640415ff038e7b095db88a898dd6c7fab60abf8ab26d",
+    ".local-tests/rust-migration/m2-m3/mac-wheel-3.11.15-review-fixes.json": "b56b222d43e1e74a5e4f4eb82bba0ffd23fb2ff51bd091f53aa4ec6cb416d831",
+    ".local-tests/rust-migration/m2-m3/mac-wheel-3.14.6-review-fixes.json": "8d398eb8402b56ec0324d9b319de19ca5098e0c9c544d56acef6ece8caa15664",
+    ".local-tests/rust-migration/native-artifacts/linux-aarch64-review-fixes/catabolic-native": "260c71b97986cb2e0d3e3f80c2729c5bb5af74f690a2577528a69afc2e733f11",
+    ".local-tests/rust-migration/native-wheels-review-fixes/catabolic_native-0.2.0-cp311-abi3-macosx_11_0_arm64.whl": "0b8f055fc09dc4ed152c7d66b58f741823c0a00b3340fc648340bebbee2624b1",
+    ".local-tests/rust-migration/native-wheels-review-fixes/catabolic_native-0.2.0-cp311-abi3-manylinux_2_39_aarch64.whl": "5b7443dae5267ffc6b113adb5c743929ba7f949b6490814b1bcd2cd3ca3d3e0d",
+    "target/release/catabolic-native": "3dec06df759e7a6e21e546247557c6c65957cddddca8305097b9457cce891a83"
   },
   "historical_fixture_hashes": {
     ".local-tests/rust-migration/m0-completion/legacy-fixtures/schema-01/before.sqlite3": "7a753e13d75a0c2bba331802b380483458a7a2ccf2bd8829d83b1b891c72663c",
@@ -1075,6 +1078,7 @@
     "Original CLI presentation and aliases, complete Python facade, HTTP server/authentication and additional release platforms remain M10.",
     "Rust 1.99.0 and Statelessness registry release 0.2.0 are pinned by Cargo.lock; the model fingerprint includes reducer, adapter and Cargo.lock.",
     "Python reference migration tests emit ResourceWarning for unclosed reference connections; retained logs preserve these warnings. Native checks pass.",
-    "Matched 10k-item warm read benchmarks include all seven interleaved samples and p50/p95; broader M0/M11 isolated performance gates remain separate."
+    "Matched 10k-item warm read benchmarks include all seven interleaved samples and p50/p95; broader M0/M11 isolated performance gates remain separate.",
+    "Review regressions cover failed-detach session invalidation, selected-operation variable coercion and omitted input-object fields. All native suites, rebuilt installed wheels and benchmarks were refreshed on both platforms at e36a0dc."
   ]
 }
