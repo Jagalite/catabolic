@@ -21,6 +21,41 @@ use std::{
 };
 
 const SDL: &str = include_str!("../resources/schema.graphql");
+// graphql-core omits undefined input-object fields. List elements instead
+// retain their position as null, and an explicitly supplied null stays null.
+fn omit_undefined(
+    input: &async_graphql_value::Value,
+    value: &mut Value,
+    undefined: &[String],
+) -> bool {
+    use async_graphql_value::Value as Input;
+    match input {
+        Input::Variable(name) => undefined.iter().any(|v| v == name.as_str()),
+        Input::Object(fields) => {
+            if let Some(object) = value.as_object_mut() {
+                for (key, input) in fields {
+                    if let Some(value) = object.get_mut(key.as_str())
+                        && omit_undefined(input, value, undefined)
+                    {
+                        object.remove(key.as_str());
+                    }
+                }
+            }
+            false
+        }
+        Input::List(inputs) => {
+            if let Some(values) = value.as_array_mut() {
+                for (input, value) in inputs.iter().zip(values) {
+                    if omit_undefined(input, value, undefined) {
+                        *value = Value::Null;
+                    }
+                }
+            }
+            false
+        }
+        _ => false,
+    }
+}
 struct Budget;
 impl async_graphql::extensions::ExtensionFactory for Budget {
     fn create(&self) -> Arc<dyn async_graphql::extensions::Extension> {
@@ -1026,16 +1061,16 @@ fn build_schema() -> Result<Schema> {
                         .unwrap_or(Value::Null);
                     let mut args = serde_json::Map::new();
                     for (key, v) in ctx.args.iter() {
+                        let mut value = serde_json::to_value(v.as_value())?;
                         if let Some(argument) = ctx.item.node.get_argument(key.as_str())
-                            && let async_graphql_value::Value::Variable(variable) = &argument.node
-                            && state.undefined.iter().any(|name| name == variable.as_str())
+                            && omit_undefined(&argument.node, &mut value, &state.undefined)
                         {
                             if let Some(default) = defaults.get(key.as_str()) {
                                 args.insert(key.to_string(), default.clone());
                             }
                             continue;
                         }
-                        args.insert(key.to_string(), serde_json::to_value(v.as_value())?);
+                        args.insert(key.to_string(), value);
                     }
                     let result =
                         match state.resolve(&parent, &name, &source, &Value::Object(args)) {
@@ -1350,7 +1385,9 @@ pub fn execute_store(
             .collect(),
     }));
     let mut coerced_variables = variables.clone();
-    for (_, op) in ast.operations.iter() {
+    for (_, op) in ast.operations.iter().filter(|(name, _)| {
+        operation.is_none_or(|selected| name.is_none_or(|name| name.as_str() == selected))
+    }) {
         for definition in &op.node.variable_definitions {
             let key = definition.node.name.node.as_str();
             if let BaseType::Named(name) = &definition.node.var_type.node.base

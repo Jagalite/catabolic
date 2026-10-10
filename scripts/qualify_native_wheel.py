@@ -70,6 +70,20 @@ def main():
             "profile": "default",
             "schemaVersion": 32,
         }
+        for document in (
+            "query($v:String){renditions(matching:{purpose:$v}){nodes}}",
+            "query($v:Boolean){items(hasRendition:{current:$v}){nodes{id}}}",
+        ):
+            assert "errors" not in native.execute_graphql(path, document)
+        document = (
+            "query A($v:Int){items(year:$v){nodes{id}}} "
+            "query B($v:ID!){item(id:$v){id}}"
+        )
+        for operation in ("A", "B"):
+            for _ in range(20):
+                assert "errors" not in native.execute_graphql(
+                    path, document, variables={"v": 2020}, operation_name=operation
+                )
         ticks = []
         stop = threading.Event()
 

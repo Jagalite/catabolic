@@ -174,6 +174,11 @@ impl Store {
         })
     }
     pub fn transaction<T>(&self, operation: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
+        if self.writable && self.lock.is_none() {
+            return Err(Error(
+                "catalog session unavailable after detached execution".into(),
+            ));
+        }
         if !self.writable {
             return Err(Error(
                 "a read-only session cannot start a write transaction".into(),
@@ -216,10 +221,20 @@ impl Store {
     /// Release the connection and writer lock around slow external work, then
     /// validate the reopened catalog identity before allowing further work.
     pub fn detached<T>(&mut self, operation: impl FnOnce() -> Result<T>) -> Result<T> {
+        if self.writable && self.lock.is_none() {
+            return Err(Error(
+                "catalog session unavailable after detached execution".into(),
+            ));
+        }
         if !self.db.is_autocommit() {
             return Err(Error("cannot detach an active transaction".into()));
         }
         let placeholder = Connection::open_in_memory()?;
+        // A failed reopen must leave an unusable connection, including for
+        // callers accessing db directly. Never acknowledge placeholder writes.
+        placeholder.authorizer(Some(|_: rusqlite::hooks::AuthContext<'_>| {
+            rusqlite::hooks::Authorization::Deny
+        }))?;
         drop(std::mem::replace(&mut self.db, placeholder));
         self.lock.take();
         let outcome = operation();
@@ -359,6 +374,36 @@ mod tests {
         );
     }
     #[test]
+    fn failed_detach_lock_or_reopen_disables_the_session() {
+        for fail_lock in [false, true] {
+            let (_root, path) = catalog();
+            let mut writer = Store::open(&path, true, false).unwrap();
+            assert!(
+                writer
+                    .detached(|| {
+                        if fail_lock {
+                            let lock_path = path.with_extension("sqlite3.lock");
+                            std::fs::remove_file(&lock_path)?;
+                            std::os::unix::fs::symlink(&path, lock_path)?;
+                        } else {
+                            std::fs::remove_file(&path)?;
+                        }
+                        Ok(())
+                    })
+                    .is_err()
+            );
+            assert!(!writer.owns_writer_lock());
+            assert!(writer.transaction(|_| Ok(())).is_err());
+            assert!(
+                writer
+                    .db
+                    .execute_batch("CREATE TABLE ghost(value TEXT)")
+                    .is_err()
+            );
+            assert!(writer.detached(|| Ok(())).is_err());
+        }
+    }
+    #[test]
     fn detach_releases_writer_and_refuses_replaced_identity() {
         let (root, path) = catalog();
         let mut writer = Store::open(&path, true, false).unwrap();
@@ -394,5 +439,34 @@ mod tests {
                 .contains("catalog replaced")
         );
         assert!(!writer.owns_writer_lock());
+        assert!(
+            writer
+                .transaction(|db| {
+                    db.execute_batch("CREATE TABLE ghost(value TEXT)")?;
+                    Ok(())
+                })
+                .unwrap_err()
+                .0
+                .contains("unavailable")
+        );
+        assert!(
+            writer
+                .db
+                .execute_batch("CREATE TABLE ghost(value TEXT)")
+                .is_err()
+        );
+        assert!(
+            writer
+                .db
+                .query_row("SELECT 1", [], |r| r.get::<_, i64>(0))
+                .is_err()
+        );
+        assert!(
+            writer
+                .detached(|| Ok(()))
+                .unwrap_err()
+                .0
+                .contains("unavailable")
+        );
     }
 }

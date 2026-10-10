@@ -260,6 +260,34 @@ class NativeGraphQLTest(unittest.TestCase):
                 reference_query(self.path, document, **options),
             )
 
+    def test_selected_operation_owns_variable_coercion(self):
+        document = (
+            "query A($v:Int){items(year:$v){nodes{id}}} "
+            "query B($v:ID!){item(id:$v){id}}"
+        )
+        for operation in ("A", "B"):
+            options = {"variables": {"v": 2020}, "operation_name": operation}
+            expected = reference_query(self.path, document, **options)
+            self.assertNotIn("errors", expected)
+            # Operation iteration is randomly ordered. Exercise both orders.
+            for _ in range(40):
+                self.assertEqual(self.query(document, **options), expected)
+
+    def test_undefined_variables_inside_input_objects(self):
+        for document in (
+            "query($v:String){renditions(matching:{purpose:$v}){nodes}}",
+            "query($v:Boolean){items(hasRendition:{current:$v}){nodes{id}}}",
+            "query($v:Boolean){items(missingRendition:{current:$v}){nodes{id}}}",
+            "query($v:String=\"thumbnail\"){renditions(matching:{purpose:$v}){nodes}}",
+        ):
+            for variables in ({}, {"v": None}):
+                with self.subTest(document=document, variables=variables):
+                    options = {"variables": variables}
+                    expected = reference_query(self.path, document, **options)
+                    if not variables:
+                        self.assertNotIn("errors", expected)
+                    self.assertEqual(self.query(document, **options), expected)
+
     def test_syntax_literals_and_field_validation_contracts(self):
         for document in (
             "{",
