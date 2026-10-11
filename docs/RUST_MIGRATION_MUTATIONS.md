@@ -116,7 +116,8 @@ Ordinary tests and partial inspection do not replace those missing reviews.
 
 [native-m4-plus.json](../tests/parity/native-m4-plus.json) records unique scenario
 identifiers, artifact/source hashes, observed outcomes, review coverage and open
-gates. Evidence logs are local checkpoint receipts, not published release assets.
+gates. Source hashes refer to recorded checkpoint commit `787b5ed`, not later
+unqualified implementation edits. Evidence logs are local checkpoint receipts, not published release assets.
 
 The 2026-10-11 Linux x86_64 checkpoint passed 286 unique native differential
 scenarios without skips and 167 unique Rust checks, including separately enabled
@@ -129,8 +130,9 @@ The original Python suite passed 1,034 tests on Python 3.12, with one
 case-insensitive-filesystem skip. Its first Python 3.14.6 rerun had three CLI
 subprocess import failures because the isolated environment lacked an installed
 Catabolic package. Installing the frozen reference resolved all three focused
-rechecks; a fresh full rerun remains pending at this checkpoint. The failed
-attempt is retained rather than rewritten as a pass. Tests do not claim a
+rechecks. The fresh full Python 3.14.6 rerun then completed 1,034 tests with
+zero failures/errors and the same one filesystem skip. The failed attempt is
+retained rather than rewritten as a pass. Tests do not claim a
 case-insensitive filesystem was exercised here.
 
 ```sh
