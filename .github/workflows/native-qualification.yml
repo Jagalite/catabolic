@@ -137,6 +137,8 @@ jobs:
             "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_plex_${surface}_embedding_tests.py" --wheel "$wheel" --report "$RUNNER_TEMP/native-plex-${surface}.json"
           done
           "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_plex_metadata_review_tests.py" --wheel "$wheel" --report "$RUNNER_TEMP/native-plex-metadata-review.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_plex_xml_embedding_tests.py" --wheel "$wheel" --report "$RUNNER_TEMP/native-plex-xml.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_plex_xml_review_tests.py" --wheel "$wheel" --report "$RUNNER_TEMP/native-plex-xml-review.json"
           "$RUNNER_TEMP/native-installed/bin/python" "$root/scripts/qualify_native_wheel.py" --binary "$root/dist/native/catabolic-native" --wheel "$wheel" --receipt "$RUNNER_TEMP/native-wheel-after.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
@@ -149,5 +151,7 @@ jobs:
             ${{ runner.temp }}/native-query-embedding.json
             ${{ runner.temp }}/native-processing-embedding.json
             ${{ runner.temp }}/native-plex-*.json
+            ${{ runner.temp }}/native-plex-xml.json
+            ${{ runner.temp }}/native-plex-xml-review.json
 # Passing this Linux fixture lane is not macOS, real-consumer, destructive-output,
 # performance, rollback, or complete M0-M11 acceptance. No release job is invoked.
