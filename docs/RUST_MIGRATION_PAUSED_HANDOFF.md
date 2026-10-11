@@ -71,11 +71,20 @@ This does not qualify later commits. See [the mutation checkpoint](RUST_MIGRATIO
   process-suite runs and one parent replay. Production process behavior did not change
 
 The phase-three aggregate's first attempt failed on that test-fixture race.
-Attempt two was still running at the stop request, at the exact source fence
+Attempt two was running at the stop request and finished before publication,
+**failed**, at the unchanged exact source fence
 `b18ae9a527af513f8ebf8be86157eaf81db76507184851f92882430723c4c884`.
-It must not be treated as passed merely because intermediate suites passed.
+The Python lane ran 844 tests and recorded four subtest failures in
+`NativeQueryTest.test_sql_attacks_and_http_private_tables`: queries against
+`api_tokens`, `execution_claims`, `watchers`, and `sqlite_schema` were refused,
+but the diagnostics said `SQL query failed: access to ... is prohibited` instead
+of the asserted `read-only SQL rejected`. This result does not indicate those
+reads succeeded, and it does not establish complete privacy qualification.
+The mismatches were not fixed after stop. Later stages of this aggregate command
+were not reached and must not be reported as passed.
 Its report is `.local-tests/rust-migration/phase3/aggregate-attempt-2.json`
 in the `catabolic-public-workflows` worktree; the log is `aggregate-2.log`.
+A small tracked stop receipt is `tests/parity/native-paused-aggregate.json`.
 
 A local paired release-profile wheel did finish successfully at the same commit:
 

@@ -1,0 +1,29 @@
+{
+  "scope": "Phase-three local source-fenced aggregate; no release or milestone completion claim",
+  "commit": "8325d6270ab947118bebc21b772656be419236ed",
+  "started": 1791761026.5188694,
+  "source_before": "b18ae9a527af513f8ebf8be86157eaf81db76507184851f92882430723c4c884",
+  "command": [
+    "scripts/check-native-mutations.sh"
+  ],
+  "state": "failed",
+  "completed": 1791762854.0759442,
+  "exit_code": 1,
+  "source_after": "b18ae9a527af513f8ebf8be86157eaf81db76507184851f92882430723c4c884",
+  "source_stable": true,
+  "python_tests_run": 844,
+  "failed_subtests": 4,
+  "failed_method": "tests.test_rust_queries.NativeQueryTest.test_sql_attacks_and_http_private_tables",
+  "failed_table_parameters": [
+    "api_tokens",
+    "execution_claims",
+    "watchers",
+    "sqlite_schema"
+  ],
+  "failure_kind": "Refusal diagnostic mismatch; actual SQL access refused",
+  "expected_diagnostic_substring": "read-only SQL rejected",
+  "actual_diagnostic_prefix": "catabolic: SQL query failed: access to ",
+  "later_aggregate_stages": "not reached",
+  "stop_instruction": "No fixes or new qualification runs after stop",
+  "milestone_gate_complete": false
+}
