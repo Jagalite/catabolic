@@ -133,7 +133,7 @@ def execute_graphql(
             str(path),
             document,
             profile,
-            json.dumps(variables or {}, allow_nan=False),
+            json.dumps({} if variables is None else variables, allow_nan=False),
             operation_name,
             timeout_ms,
         )

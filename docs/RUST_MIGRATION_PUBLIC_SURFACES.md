@@ -7,10 +7,20 @@ The original inventory and recommended dependency order are retained as historic
 planning context. No entry here closes a migration hard gate or switches defaults.
 
 This local implementation snapshot is not a qualified aggregate checkpoint.
-The new independent GraphQL review has identified remaining runtime argument-null
-bubbling/default and literal-diagnostic differences; corrections and independent
-replay are pending. Parser/static-validation residuals are also retained explicitly
-in the query checkpoint. No passing exact-wheel result is claimed for these bytes.
+Runtime GraphQL argument-null/default, root empty-selection and literal-diagnostic
+corrections passed focused tests and a fresh independent review. That review added
+313 cases, with 307 exact pairs and six confirmed pre-existing differences. Recorded
+parser, static-validation, repeated-field and nested empty-selection residuals stay
+open. The installed XML qualification drivers also passed an independent 64-test
+harness review. See the separate GraphQL and XML qualification review documents.
+The first source-fenced full aggregate on commit `20664d5` stopped at a Linux test
+fixture's copied-executable `Text file busy` failure; its failed evidence is retained.
+The fixture now re-execs its existing `/proc/self/exe` image instead of writing a
+new executable. A disposable fork experiment reproduced the retained-writer
+mechanism; 20 full parallel runtime runs and 30 process-suite runs passed with
+all worker-death/PID identity assertions unchanged, plus a parent exact-case replay.
+Production process behavior did not change. The complete aggregate is being rerun;
+no passing final aggregate or exact paired-wheel result is claimed yet.
 
 - Persistent ItemWorkflow/Curation, saved-query/SQL/GraphQL, and Artifacts/Processing
   adapters now call production native owners. Independent scoped reviews and
