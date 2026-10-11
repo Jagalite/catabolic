@@ -4,6 +4,7 @@
 
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import py_compile
@@ -13,6 +14,7 @@ import tempfile
 import types
 import unittest
 import zipfile
+from contextlib import ExitStack, redirect_stderr
 from pathlib import Path
 from unittest.mock import patch
 
@@ -101,10 +103,73 @@ class NativeArtifactBuildTest(unittest.TestCase):
         self.assertIn("requires Python assertions", result.stderr)
         self.assertEqual(result.stdout, "")
 
+    def test_query_qualification_refuses_optimized_gate_and_scenarios(self):
+        for optimize in ("-O", "-OO"):
+            for arguments in (["--help"], ["--scenario", "reference"]):
+                with self.subTest(optimize=optimize, arguments=arguments):
+                    run = subprocess.run(
+                        [
+                            sys.executable,
+                            optimize,
+                            str(ROOT / "scripts/native_query_embedding_tests.py"),
+                            *arguments,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                    )
+                    self.assertNotEqual(run.returncode, 0)
+                    self.assertIn("query qualification requires assertions", run.stderr)
+                    self.assertEqual(run.stdout, "")
+
+    def test_pyo3_interruption_requires_and_fences_explicit_extension(self):
+        scenario = "tests.test_rust_plex_login.NativePlexLoginTest.test_publication_interrupt_cleanup_cli_and_python"
+        with self.assertRaisesRegex(ValueError, "explicit --extension-binary"):
+            QUALIFIER.validate_native_scenarios([scenario], None)
+        QUALIFIER.validate_native_scenarios(
+            [scenario], None, extension_binary=self.root / "extension"
+        )
+        with self.assertRaises(SystemExit):
+            self.run_legacy_qualification_fixture(set(), scenario)
+
+        def discover(artifacts):
+            self.assertEqual(
+                os.environ["CATABOLIC_NATIVE_EXTENSION"],
+                str(artifacts["native_extension"]),
+            )
+
+        self.assertEqual(
+            self.run_legacy_qualification_fixture(
+                {"native_extension"}, scenario, discover=discover
+            ),
+            0,
+        )
+        receipt = json.loads((self.root / "receipt.json").read_text())
+        self.assertTrue(receipt["passed_without_skips"])
+        self.assertIn("native_extension", receipt["extra_artifacts_before"])
+
+        def change(artifacts):
+            artifacts["native_extension"].write_bytes(b"changed extension")
+
+        self.assertEqual(
+            self.run_legacy_qualification_fixture(
+                {"native_extension"}, scenario, action=change
+            ),
+            1,
+        )
+        receipt = json.loads((self.root / "receipt.json").read_text())
+        self.assertFalse(receipt["passed_without_skips"])
+        self.assertNotEqual(
+            receipt["extra_artifacts_before"], receipt["extra_artifacts_after"]
+        )
+
     def test_mutation_qualification_fences_implementation_and_test_sources(self):
         before = QUALIFIER.source_snapshot(self.root)
         for name in (
             "crates/example/src/lib.rs",
+            "crates/catabolic-cli/src/legacy_main.rs",
+            "crates/catabolic-cli/examples/legacy_parse.rs",
+            "crates/catabolic-cli/resources/legacy-cli.json",
             "src/catabolic/store.py",
             "tests/test_example.py",
             "tests/fixtures/catalog.json",
@@ -141,6 +206,35 @@ class NativeArtifactBuildTest(unittest.TestCase):
         self.assertIn("requires unoptimized Python tests", result.stderr)
         self.assertEqual(result.stdout, "")
 
+    def test_http_qualification_refuses_optimized_and_fences_client_artifacts(self):
+        script = ROOT / "scripts/qualify_native_http.py"
+        result = subprocess.run(
+            [sys.executable, "-O", str(script), "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("requires unoptimized Python assertions", result.stderr)
+        self.assertEqual(result.stdout, "")
+        spec = importlib.util.spec_from_file_location("http_qualifier", script)
+        qualifier = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(qualifier)
+        binary = self.root / "native"
+        binary.write_bytes(b"native fixture")
+        client = self.root / "client/acceptance.js"
+        client.parent.mkdir()
+        client.write_text("fixture client")
+        dependency = client.parent / "busy.js"
+        dependency.write_text("fixture import")
+        before = qualifier.artifact_hashes(binary, client)
+        for path in (binary, client, dependency):
+            original = path.read_bytes()
+            path.write_bytes(original + b"changed")
+            self.assertNotEqual(before, qualifier.artifact_hashes(binary, client))
+            path.write_bytes(original)
+            self.assertEqual(before, qualifier.artifact_hashes(binary, client))
+
     def test_mutation_qualification_refuses_imported_oracles_and_unbound_http(self):
         native = "tests.test_rust_example.NativeTest.test_case"
         oracle = "tests.test_example.ReferenceTest.test_case"
@@ -151,6 +245,219 @@ class NativeArtifactBuildTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "explicit --http-binary artifact"):
             QUALIFIER.validate_native_scenarios([native, http], None)
         QUALIFIER.validate_native_scenarios([native, http], self.root / "http")
+
+    def test_legacy_cli_and_parser_require_distinct_fenced_artifacts(self):
+        parser_case = "tests.test_rust_legacy_parser.NativeParserTest.test_case"
+        cli_case = "tests.test_rust_legacy_cli.NativeCLITest.test_case"
+        event_case = "tests.test_rust_native_events.NativeEventSupervisorTest.test_case"
+        with self.assertRaisesRegex(ValueError, "explicit --legacy-binary"):
+            QUALIFIER.validate_native_scenarios([event_case], None)
+        QUALIFIER.validate_native_scenarios([event_case], None, self.root / "legacy")
+        with self.assertRaisesRegex(ValueError, "explicit --parser-binary"):
+            QUALIFIER.validate_native_scenarios([parser_case], None)
+        with self.assertRaisesRegex(ValueError, "explicit --legacy-binary"):
+            QUALIFIER.validate_native_scenarios(
+                [parser_case, cli_case], None, parser_binary=self.root / "parser"
+            )
+        artifacts = {
+            "legacy_cli": self.root / "legacy",
+            "legacy_parser": self.root / "parser",
+        }
+        for name, path in artifacts.items():
+            path.write_text(name)
+        QUALIFIER.validate_native_scenarios(
+            [parser_case, cli_case],
+            None,
+            artifacts["legacy_cli"],
+            artifacts["legacy_parser"],
+        )
+        before = QUALIFIER.extra_artifact_hashes(artifacts)
+        for path in artifacts.values():
+            content = path.read_bytes()
+            path.write_bytes(content + b"changed")
+            self.assertNotEqual(before, QUALIFIER.extra_artifact_hashes(artifacts))
+            path.write_bytes(content)
+            self.assertEqual(before, QUALIFIER.extra_artifact_hashes(artifacts))
+        artifacts["legacy_parser"].unlink()
+        with self.assertRaises(FileNotFoundError):
+            QUALIFIER.extra_artifact_hashes(artifacts)
+
+    def run_legacy_qualification_fixture(
+        self, options, scenario, *, discover=None, action=None, prepare=None
+    ):
+        """Exercise receipt/binding control flow without real builds or oracles."""
+        artifacts = {
+            name: self.root / name
+            for name in ("native", "legacy_cli", "legacy_parser", "native_extension")
+        }
+        for name, path in artifacts.items():
+            path.write_text(name)
+        report = self.root / "receipt.json"
+        report.write_text(json.dumps({"passed_without_skips": True}))
+        reference = self.root / "reference"
+        reference.mkdir(exist_ok=True)
+        if prepare:
+            prepare(artifacts)
+        argv = [
+            "qualify_native_mutations.py",
+            "--binary",
+            str(artifacts["native"]),
+            "--reference-root",
+            str(reference),
+            "--report",
+            str(report),
+        ]
+        for option, name in (
+            ("--legacy-binary", "legacy_cli"),
+            ("--parser-binary", "legacy_parser"),
+            ("--extension-binary", "native_extension"),
+        ):
+            if name in options:
+                argv.extend([option, str(artifacts[name])])
+
+        class FixtureCase(unittest.TestCase):
+            def id(self):
+                return scenario
+
+            def runTest(self):
+                if action:
+                    action(artifacts)
+
+        def load(*args, **kwargs):
+            if discover:
+                discover(artifacts)
+            return unittest.TestSuite([FixtureCase()])
+
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch.object(
+                    QUALIFIER,
+                    "__file__",
+                    str(self.root / "scripts/qualify_native_mutations.py"),
+                )
+            )
+            stack.enter_context(patch.object(sys, "argv", argv))
+            stack.enter_context(patch.object(sys, "path", sys.path.copy()))
+            stack.enter_context(
+                patch.dict(
+                    os.environ,
+                    {
+                        "CATABOLIC_LEGACY_BINARY": "/ambient/unqualified-legacy",
+                        "CATABOLIC_NATIVE_PARSER_BINARY": "/ambient/unqualified-parser",
+                    },
+                )
+            )
+            stack.enter_context(patch.object(QUALIFIER.os, "chdir"))
+            stack.enter_context(
+                patch.object(
+                    QUALIFIER,
+                    "fresh_import_cache",
+                    return_value=types.SimpleNamespace(cleanup=lambda: None),
+                )
+            )
+            stack.enter_context(patch.object(QUALIFIER.atexit, "register"))
+            for name in ("oracle_snapshot", "fixture_snapshot", "oracle_imports"):
+                stack.enter_context(patch.object(QUALIFIER, name, return_value={}))
+            stack.enter_context(
+                patch.object(unittest.defaultTestLoader, "discover", side_effect=load)
+            )
+            stack.enter_context(
+                patch.object(QUALIFIER.subprocess, "check_output", return_value="{}")
+            )
+            stack.enter_context(redirect_stderr(io.StringIO()))
+            return QUALIFIER.main()
+
+    def test_legacy_artifacts_are_bound_before_discovery_and_recorded(self):
+        def discover(artifacts):
+            for name, environment in (
+                ("legacy_cli", "CATABOLIC_LEGACY_BINARY"),
+                ("legacy_parser", "CATABOLIC_NATIVE_PARSER_BINARY"),
+            ):
+                self.assertEqual(os.environ[environment], str(artifacts[name]))
+
+        self.assertEqual(
+            self.run_legacy_qualification_fixture(
+                {"legacy_cli", "legacy_parser"},
+                "tests.test_rust_legacy_parser.Fixture.test_case",
+                discover=discover,
+            ),
+            0,
+        )
+        receipt = json.loads((self.root / "receipt.json").read_text())
+        self.assertTrue(receipt["passed_without_skips"])
+        self.assertEqual(
+            receipt["extra_artifacts_before"],
+            {
+                name: {
+                    "path": str(self.root / name),
+                    "sha256": hashlib.sha256(name.encode()).hexdigest(),
+                }
+                for name in ("legacy_cli", "legacy_parser")
+            },
+        )
+        self.assertEqual(
+            receipt["extra_artifacts_before"], receipt["extra_artifacts_after"]
+        )
+
+    def test_ambient_legacy_artifacts_do_not_satisfy_explicit_requirements(self):
+        def discover(artifacts):
+            self.assertNotIn("CATABOLIC_LEGACY_BINARY", os.environ)
+            self.assertNotIn("CATABOLIC_NATIVE_PARSER_BINARY", os.environ)
+
+        for module in (
+            "legacy_cli",
+            "legacy_parser",
+            "native_events",
+            "native_events_independent",
+        ):
+            with self.subTest(module=module), self.assertRaises(SystemExit) as error:
+                self.run_legacy_qualification_fixture(
+                    set(),
+                    f"tests.test_rust_{module}.Fixture.test_case",
+                    discover=discover,
+                )
+            self.assertEqual(error.exception.code, 2)
+            receipt = json.loads((self.root / "receipt.json").read_text())
+            self.assertEqual(receipt["qualification_status"], "started")
+            self.assertFalse(receipt["passed_without_skips"])
+
+    def test_changed_legacy_artifacts_invalidate_successful_scenario_receipt(self):
+        for name in ("legacy_cli", "legacy_parser"):
+            with self.subTest(name=name):
+                self.assertEqual(
+                    self.run_legacy_qualification_fixture(
+                        {"legacy_cli", "legacy_parser"},
+                        "tests.test_rust_legacy_parser.Fixture.test_case",
+                        action=lambda artifacts, name=name: artifacts[name].write_text(
+                            "changed runtime artifact"
+                        ),
+                    ),
+                    1,
+                )
+                receipt = json.loads((self.root / "receipt.json").read_text())
+                self.assertEqual(receipt["qualification_status"], "completed")
+                self.assertTrue(receipt["outcome_coverage_complete"])
+                self.assertEqual(receipt["results"][0]["outcome"], "passed")
+                self.assertFalse(receipt["artifact_unchanged_during_qualification"])
+                self.assertFalse(receipt["passed_without_skips"])
+
+    def test_missing_legacy_artifacts_cannot_leave_old_passing_receipt(self):
+        for name in ("legacy_cli", "legacy_parser"):
+            for stage in ("prepare", "action"):
+                with self.subTest(name=name, stage=stage):
+                    with self.assertRaises(FileNotFoundError):
+                        self.run_legacy_qualification_fixture(
+                            {"legacy_cli", "legacy_parser"},
+                            "tests.test_rust_legacy_parser.Fixture.test_case",
+                            **{
+                                stage: lambda artifacts, name=name: artifacts[
+                                    name
+                                ].unlink()
+                            },
+                        )
+                    receipt = json.loads((self.root / "receipt.json").read_text())
+                    self.assertEqual(receipt["qualification_status"], "started")
+                    self.assertFalse(receipt["passed_without_skips"])
 
     def test_frozen_oracle_and_historical_fixture_bytes_are_verified(self):
         oracle = self.root / "oracle"

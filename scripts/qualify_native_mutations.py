@@ -183,7 +183,13 @@ def cases(suite):
             yield value.id()
 
 
-def validate_native_scenarios(identifiers, http_binary):
+def validate_native_scenarios(
+    identifiers,
+    http_binary,
+    legacy_binary=None,
+    parser_binary=None,
+    extension_binary=None,
+):
     foreign = [name for name in identifiers if not name.startswith("tests.test_rust_")]
     if foreign:
         raise ValueError(
@@ -195,6 +201,42 @@ def validate_native_scenarios(identifiers, http_binary):
         for name in identifiers
     ):
         raise ValueError("HTTP scenarios require an explicit --http-binary artifact")
+    if not parser_binary and any(
+        name.startswith("tests.test_rust_legacy_parser.") for name in identifiers
+    ):
+        raise ValueError(
+            "parser scenarios require an explicit --parser-binary artifact"
+        )
+    if not legacy_binary and any(
+        (
+            name.startswith("tests.test_rust_legacy_")
+            and not name.startswith("tests.test_rust_legacy_parser.")
+        )
+        or name.startswith("tests.test_rust_native_events")
+        for name in identifiers
+    ):
+        raise ValueError(
+            "legacy CLI scenarios require an explicit --legacy-binary artifact"
+        )
+
+    if not extension_binary and any(
+        name.startswith("tests.test_rust_plex_login.")
+        and name.endswith(".test_publication_interrupt_cleanup_cli_and_python")
+        for name in identifiers
+    ):
+        raise ValueError(
+            "PyO3 interruption scenarios require an explicit --extension-binary artifact"
+        )
+
+
+def extra_artifact_hashes(artifacts):
+    return {
+        name: {
+            "path": str(path),
+            "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+        for name, path in artifacts.items()
+    }
 
 
 def main():
@@ -203,6 +245,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--http-binary", type=Path)
+    parser.add_argument("--legacy-binary", type=Path)
+    parser.add_argument("--parser-binary", type=Path)
+    parser.add_argument("--extension-binary", type=Path)
     parser.add_argument("--reference-root", type=Path)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--pattern", default="test_rust_*.py")
@@ -230,6 +275,17 @@ def main():
     http_before = (
         hashlib.sha256(http_binary.read_bytes()).hexdigest() if http_binary else None
     )
+    extra_artifacts = {}
+    for name, option, environment in (
+        ("legacy_cli", args.legacy_binary, "CATABOLIC_LEGACY_BINARY"),
+        ("legacy_parser", args.parser_binary, "CATABOLIC_NATIVE_PARSER_BINARY"),
+        ("native_extension", args.extension_binary, "CATABOLIC_NATIVE_EXTENSION"),
+    ):
+        os.environ.pop(environment, None)
+        if option is not None:
+            extra_artifacts[name] = option.resolve(strict=True)
+            os.environ[environment] = str(extra_artifacts[name])
+    extra_before = extra_artifact_hashes(extra_artifacts)
     sources_before = source_snapshot(root)
     os.environ["CATABOLIC_NATIVE_BINARY"] = str(binary)
     if http_binary:
@@ -245,7 +301,13 @@ def main():
             "no scenarios match the requested pattern; no qualification was performed"
         )
     try:
-        validate_native_scenarios(identifiers, http_binary)
+        validate_native_scenarios(
+            identifiers,
+            http_binary,
+            extra_artifacts.get("legacy_cli"),
+            extra_artifacts.get("legacy_parser"),
+            extra_artifacts.get("native_extension"),
+        )
     except ValueError as error:
         parser.error(str(error))
     if args.expected_count is not None and len(identifiers) != args.expected_count:
@@ -267,12 +329,17 @@ def main():
     http_after = (
         hashlib.sha256(http_binary.read_bytes()).hexdigest() if http_binary else None
     )
+    extra_after = extra_artifact_hashes(extra_artifacts)
     source_unchanged = (
         sources_before == sources_after
         and oracle_before == oracle_after
         and fixtures_before == fixtures_after
     )
-    artifact_unchanged = binary_before == binary_after and http_before == http_after
+    artifact_unchanged = (
+        binary_before == binary_after
+        and http_before == http_after
+        and extra_before == extra_after
+    )
     complete = (
         result.testsRun == len(identifiers)
         and {item["id"] for item in result.scenarios} == set(identifiers)
@@ -289,6 +356,8 @@ def main():
         "http_binary": str(http_binary) if http_binary else None,
         "http_binary_sha256": http_before,
         "http_binary_sha256_after": http_after,
+        "extra_artifacts_before": extra_before,
+        "extra_artifacts_after": extra_after,
         "artifact_unchanged_during_qualification": artifact_unchanged,
         "source_content_before": sources_before,
         "source_content_sha256_after": sources_after["sha256"],

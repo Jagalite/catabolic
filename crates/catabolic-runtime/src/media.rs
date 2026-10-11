@@ -143,7 +143,28 @@ pub fn enqueue(
     if file_ids.len() > 1000 {
         return Err(Error("file_ids must contain at most 1000 IDs".into()));
     }
-    let mut config = operation_config(operation, options)?;
+    let config = operation_config(operation, options)?;
+    enqueue_config(
+        store, profile, operation, file_ids, options, config, refresh, recipe, None,
+    )
+}
+
+/// Admission with an identity already resolved outside the writer lock.
+#[allow(clippy::too_many_arguments)]
+pub fn enqueue_config(
+    store: &Store,
+    profile: &str,
+    operation: &str,
+    file_ids: &[String],
+    options: &Value,
+    mut config: Value,
+    refresh: bool,
+    recipe: Option<&str>,
+    cancel: Option<&AtomicBool>,
+) -> Result<Value> {
+    if file_ids.len() > 1000 {
+        return Err(Error("file_ids must contain at most 1000 IDs".into()));
+    }
     if let Some(id) = recipe {
         let recipe = storage::operation_get(store, id)?;
         if recipe["operation_kind"] != "analysis"
@@ -160,6 +181,9 @@ pub fn enqueue(
     let mut cached = vec![];
     let mut errors = vec![];
     for file in file_ids.iter().collect::<BTreeSet<_>>() {
+        if cancel.is_some_and(|c| c.load(Ordering::Relaxed)) {
+            return Err(Error("processing cancelled".into()));
+        }
         storage::snapshot(store, profile, file)?;
         match storage::enqueue(store, profile, file, operation, &config, refresh, recipe) {
             Ok(v) => {

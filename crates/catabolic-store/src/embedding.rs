@@ -24,8 +24,15 @@ pub struct Session {
     detached: bool,
     scopes: Vec<(u64, Option<String>)>,
     next_scope: u64,
+    evaluations: std::collections::BTreeMap<u64, QueryEvaluation>,
+    next_evaluation: u64,
     transaction_thread: Option<ThreadId>,
     poisoned_scopes: Cell<bool>,
+}
+struct QueryEvaluation {
+    profile: String,
+    epoch: i64,
+    evaluation: crate::selection::Evaluation,
 }
 impl Session {
     pub fn open(path: &Path, writable: bool, recovery: bool) -> Result<Self> {
@@ -40,9 +47,219 @@ impl Session {
             detached: false,
             scopes: vec![],
             next_scope: 0,
+            evaluations: Default::default(),
+            next_evaluation: 0,
             transaction_thread: None,
             poisoned_scopes: Cell::new(false),
         })
+    }
+    /// Dispatch persistent query engines using the caller's current transaction.
+    pub fn query_call(&mut self, profile: &str, operation: &str, args: &Value) -> Result<Value> {
+        self.query_call_inputs(profile, operation, args, None)
+    }
+    /// Preserve GraphQL input order from the existing bounded Python request.
+    pub fn query_call_json(&mut self, profile: &str, operation: &str, raw: &str) -> Result<Value> {
+        let args = catabolic_core::decode_json(raw)?;
+        let variables = if operation == "graphql" {
+            Some(crate::graphql::InputVariables::from_request_json(
+                raw,
+                "variables",
+            )?)
+        } else {
+            None
+        };
+        self.query_call_inputs(profile, operation, &args, variables)
+    }
+    fn query_call_inputs(
+        &mut self,
+        profile: &str,
+        operation: &str,
+        args: &Value,
+        variables: Option<crate::graphql::InputVariables>,
+    ) -> Result<Value> {
+        self.store()?;
+        match operation {
+            "graphql" => crate::graphql::execute_session(
+                &mut self.store,
+                None,
+                args["document"]
+                    .as_str()
+                    .ok_or_else(|| Error("query document must be at most 131072 bytes".into()))?,
+                profile,
+                variables.unwrap_or_else(|| {
+                    args.get("variables")
+                        .cloned()
+                        .unwrap_or_else(|| json!({}))
+                        .into()
+                }),
+                args["operation_name"].as_str(),
+                query_bound(
+                    args,
+                    "timeout_ms",
+                    5000,
+                    60000,
+                    "timeout-ms must be between 1 and 60000",
+                )? as u64,
+            ),
+            "sql" => crate::sql::execute_store(
+                self.store()?,
+                args["sql"].as_str(),
+                &crate::sql::Options {
+                    profile,
+                    params: args["params"].as_str(),
+                    describe: args["describe"].as_bool().unwrap_or(false),
+                    max_rows: query_bound(
+                        args,
+                        "max_rows",
+                        1000,
+                        10000,
+                        "max-rows must be between 1 and 10000",
+                    )?,
+                    timeout_ms: query_bound(
+                        args,
+                        "timeout_ms",
+                        5000,
+                        60000,
+                        "timeout-ms must be between 1 and 60000",
+                    )? as u64,
+                    stable: args["_stable"].as_bool().unwrap_or(false),
+                    http: args["_http"].as_bool().unwrap_or(false),
+                },
+            ),
+            "evaluation-create" => {
+                let timeout = query_bound(
+                    args,
+                    "timeout_ms",
+                    5000,
+                    60000,
+                    "timeout-ms must be between 1 and 60000",
+                )?;
+                let maximum = query_bound(args, "max_ids", 10000, 100000, "invalid query max_ids")?;
+                let max_bytes = args["max_bytes"]
+                    .as_u64()
+                    .ok_or_else(|| Error("invalid evaluation max_bytes".into()))?
+                    as usize;
+                let epoch = self.store()?.db.query_row(
+                    "SELECT generation FROM fallback_epoch WHERE id=1",
+                    [],
+                    |row| row.get(0),
+                )?;
+                let mut evaluation = crate::selection::Evaluation::unbound(
+                    profile,
+                    timeout as u64,
+                    maximum,
+                    args["http"].as_bool().unwrap_or(false),
+                );
+                evaluation.set_max_bytes(max_bytes);
+                self.next_evaluation += 1;
+                self.evaluations.insert(
+                    self.next_evaluation,
+                    QueryEvaluation {
+                        profile: profile.into(),
+                        epoch,
+                        evaluation,
+                    },
+                );
+                Ok(json!({"token":self.next_evaluation,"epoch":epoch}))
+            }
+            "evaluation-drop" => {
+                self.evaluations
+                    .remove(&args["session"].as_u64().unwrap_or(0));
+                Ok(Value::Null)
+            }
+            "evaluation-check" | "evaluation-account" | "evaluation-pause" | "select" | "run" => {
+                let session = args["session"].as_u64();
+                let epoch: i64 = self.store()?.db.query_row(
+                    "SELECT generation FROM fallback_epoch WHERE id=1",
+                    [],
+                    |row| row.get(0),
+                )?;
+                let identifier = args["id"].as_str().unwrap_or("");
+                // Frozen get precedes session.check for select/run, and run's
+                // page limit precedes get. Keep this error precedence.
+                let limit = if operation == "run" {
+                    query_bound(
+                        args,
+                        "limit",
+                        1000,
+                        1000,
+                        "limit must be between 1 and 1000",
+                    )?
+                } else {
+                    1000
+                };
+                let definition = if matches!(operation, "select" | "run") {
+                    crate::definitions::query_get(self.store()?, profile, identifier)?["definition"]
+                        .clone()
+                } else {
+                    Value::Null
+                };
+                // Token values are local to their Store. Defer the ownership
+                // check until after frozen limit/lookup validation, but never
+                // resolve a different Store's token against this token table.
+                if args["session_owner_matches"] == false {
+                    return Err(Error("evaluation_session_identity_mismatch".into()));
+                }
+                let mut temporary;
+                let evaluation = if let Some(token) = session {
+                    let entry = self
+                        .evaluations
+                        .get_mut(&token)
+                        .ok_or_else(|| Error("evaluation_session_identity_mismatch".into()))?;
+                    if entry.profile != profile {
+                        return Err(Error("evaluation_session_identity_mismatch".into()));
+                    }
+                    if entry.epoch != epoch {
+                        return Err(Error("stale_evaluation_snapshot".into()));
+                    }
+                    if args["cancelled"] == true {
+                        return Err(Error("evaluation_cancelled".into()));
+                    }
+                    if operation != "evaluation-pause" {
+                        entry.evaluation.remaining("query composition timed out")?;
+                    }
+                    &mut entry.evaluation
+                } else {
+                    temporary = crate::selection::Evaluation::unbound(
+                        profile,
+                        definition["timeout_ms"].as_u64().unwrap_or(5000),
+                        definition["max_ids"].as_u64().unwrap_or(10000) as usize,
+                        args["_http"].as_bool().unwrap_or(false),
+                    );
+                    &mut temporary
+                };
+                evaluation.with_store(&mut self.store, |evaluation| match operation {
+                    "evaluation-check" => Ok(Value::Null),
+                    "evaluation-account" => {
+                        evaluation.account_value(&args["value"])?;
+                        Ok(Value::Null)
+                    }
+                    "evaluation-pause" => {
+                        evaluation.pause(
+                            args["seconds"]
+                                .as_f64()
+                                .ok_or_else(|| Error("invalid evaluation pause duration".into()))?,
+                        )?;
+                        Ok(Value::Null)
+                    }
+                    "select" => {
+                        let selected =
+                            evaluation.select(&json!({"query_id":identifier,"profile":profile}))?;
+                        Ok(json!([selected.entity, selected.ids, selected.report]))
+                    }
+                    _ => {
+                        let result = evaluation.run(identifier, limit)?;
+                        if session.is_some() && definition["mode"] != "selection" {
+                            evaluation.account_value(&result)?;
+                        }
+                        Ok(result)
+                    }
+                })
+            }
+            _ => Err(Error(format!(
+                "unsupported native query operation: {operation}"
+            ))),
+        }
     }
     pub fn info(&self) -> Value {
         json!({"path":self.path,"writable":self.writable,"database_id":self.database_id,"schema_version":self.schema_version,"closed":self.store.is_none(),"detached":self.detached})
@@ -581,21 +798,68 @@ fn put_mapping(store: &Store, profile: &str, args: &Value) -> Result<Value> {
     Ok(rows(&store.db, "SELECT * FROM mappings WHERE id=?", &[id.into()])?.remove(0))
 }
 
+fn query_bound(
+    args: &Value,
+    key: &str,
+    default: usize,
+    maximum: usize,
+    message: &str,
+) -> Result<usize> {
+    args.get(key)
+        .map_or(Some(default as u64), Value::as_u64)
+        .filter(|n| (1..=maximum as u64).contains(n))
+        .map(|n| n as usize)
+        .ok_or_else(|| Error(message.into()))
+}
+
+thread_local! {
+    static INTERRUPT: std::cell::RefCell<Option<Box<dyn FnMut() -> bool + Send>>> =
+        std::cell::RefCell::new(None);
+}
+/// Poll the outer embedding cancellation bridge even when a bounded query owner
+/// installs its own SQLite deadline handler. This is thread-local, not global.
+pub(crate) fn poll_interrupt() -> bool {
+    // Never retain a RefCell borrow while a Python signal callback runs: that
+    // callback may legitimately use a different native Store on this thread.
+    struct Restore(Option<Box<dyn FnMut() -> bool + Send>>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            INTERRUPT.with(|slot| *slot.borrow_mut() = self.0.take());
+        }
+    }
+    let mut check = Restore(INTERRUPT.with(|slot| slot.borrow_mut().take()));
+    check.0.as_mut().is_some_and(|check| check())
+}
+pub fn with_interrupt_check<T>(
+    check: impl FnMut() -> bool + Send + 'static,
+    action: impl FnOnce() -> Result<T>,
+) -> Result<T> {
+    struct Reset(Option<Box<dyn FnMut() -> bool + Send>>);
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            INTERRUPT.with(|slot| *slot.borrow_mut() = self.0.take());
+        }
+    }
+    let _reset = Reset(INTERRUPT.with(|slot| slot.replace(Some(Box::new(check)))));
+    action()
+}
 /// SQLite cancellation checks are installed and removed on this same owner.
 pub fn interruptible<T>(
     store: &Store,
     check: impl FnMut() -> bool + Send + 'static,
     action: impl FnOnce() -> Result<T>,
 ) -> Result<T> {
-    store.db.progress_handler(1000, Some(check))?;
-    struct Reset<'a>(&'a rusqlite::Connection);
-    impl Drop for Reset<'_> {
-        fn drop(&mut self) {
-            let _ = self.0.progress_handler(0, None::<fn() -> bool>);
+    with_interrupt_check(check, || {
+        store.db.progress_handler(1000, Some(poll_interrupt))?;
+        struct Reset<'a>(&'a rusqlite::Connection);
+        impl Drop for Reset<'_> {
+            fn drop(&mut self) {
+                let _ = self.0.progress_handler(0, None::<fn() -> bool>);
+            }
         }
-    }
-    let _reset = Reset(&store.db);
-    action()
+        let _reset = Reset(&store.db);
+        action()
+    })
 }
 
 #[cfg(test)]
@@ -607,6 +871,52 @@ mod tests {
         crate::migration::initialize(&path).unwrap();
         let owner = Session::open(&path, true, false).unwrap();
         (root, owner)
+    }
+    #[test]
+    fn query_evaluation_lending_restores_error_and_unwind() {
+        let (_root, mut owner) = session();
+        let token = owner.begin().unwrap();
+        let mut evaluation = crate::selection::Evaluation::unbound("default", 5000, 10000, false);
+        let result: Result<()> = evaluation.with_store(&mut owner.store, |evaluation| {
+            evaluation
+                .store()
+                .db
+                .execute("INSERT INTO profiles VALUES ('lent')", [])?;
+            Err(Error("ordinary evaluation failure".into()))
+        });
+        assert!(result.is_err());
+        assert!(owner.store().unwrap().owns_writer_lock());
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _: Result<()> =
+                evaluation.with_store(&mut owner.store, |_| panic!("evaluation unwind"));
+        }));
+        assert!(result.is_err());
+        assert!(owner.store().unwrap().owns_writer_lock());
+        owner.unwind();
+        owner.finish(token, false).unwrap();
+        assert!(
+            !owner
+                .store()
+                .unwrap()
+                .db
+                .prepare("SELECT 1 FROM profiles WHERE id='lent'")
+                .unwrap()
+                .exists([])
+                .unwrap()
+        );
+    }
+    #[test]
+    fn query_interrupt_callback_can_reenter_independent_bridge() {
+        with_interrupt_check(
+            || with_interrupt_check(|| true, || Ok(poll_interrupt())).unwrap(),
+            || {
+                assert!(poll_interrupt());
+                assert!(poll_interrupt());
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert!(!poll_interrupt());
     }
     #[test]
     fn transaction_tokens_cannot_escape_or_exit_out_of_order() {

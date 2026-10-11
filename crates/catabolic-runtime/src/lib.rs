@@ -32,3 +32,19 @@ pub mod component_packaging;
 mod packet_verification;
 
 mod component_mux;
+
+pub mod plex_import;
+
+pub mod plex_login;
+
+pub mod plex_matching;
+
+pub mod plex_metadata;
+
+pub mod public_scan;
+
+pub mod public_processing;
+
+pub mod public_artifacts;
+
+pub mod source_events;

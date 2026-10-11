@@ -7,8 +7,13 @@ from pathlib import Path
 
 from . import _native
 from .app import Application as Application
+from .artifacts import Artifacts as Artifacts
+from .curation import Curation as Curation
+from .item_workflow import ItemWorkflow as ItemWorkflow
 from .media_catalog import MediaCatalog as MediaCatalog
+from .processing import Processing as Processing
 from .query import CatalogQuery as CatalogQuery
+from .saved_queries import Queries as Queries
 from .store import CatabolicError as CatabolicError
 from .store import NativeCommandHandle as NativeCommandHandle
 from .store import NativeResult as NativeResult

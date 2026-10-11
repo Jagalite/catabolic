@@ -189,7 +189,10 @@ pub fn execute(path: &Path, sql: Option<&str>, options: &Options<'_>) -> Result<
     let store = Store::open(path, false, false)?;
     execute_store(&store, sql, options)
 }
-pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) -> Result<Value> {
+pub fn validate_request(
+    sql: Option<&str>,
+    options: &Options<'_>,
+) -> Result<Vec<(String, SqlValue)>> {
     if !(1..=10000).contains(&options.max_rows) {
         return Err(Error("max-rows must be between 1 and 10000".into()));
     }
@@ -210,6 +213,10 @@ pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) ->
     } else if sql.unwrap().len() > MAX_SQL_BYTES {
         return Err(Error("SQL exceeds the 1 MiB input limit".into()));
     }
+    Ok(bound)
+}
+pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) -> Result<Value> {
+    let bound = validate_request(sql, options)?;
     let db = &store.db;
     if !db
         .prepare("SELECT 1 FROM profiles WHERE id=?")?
@@ -311,7 +318,15 @@ pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) ->
                                 .iter()
                                 .any(|v| v["name"] == table_name)
                                 || http && http_tables.contains(table_name) && safe);
-                    (safe && valid_database, Some(table_name.to_string()))
+                    // Frozen HTTP table denials return directly from the read
+                    // branch; preserve SQLite's access error rather than the
+                    // operation/function rejection label. Admission is unchanged.
+                    let direct_private_denial =
+                        !safe && matches!(context.database_name, Some("main" | "temp"));
+                    (
+                        safe && valid_database,
+                        (!direct_private_denial).then(|| table_name.to_string()),
+                    )
                 }
                 AuthAction::Function { function_name } => {
                     let name = function_name.to_lowercase();
@@ -357,7 +372,10 @@ pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) ->
                 Authorization::Deny
             }
         }))?;
-        db.progress_handler(1000, Some(move || Instant::now() >= deadline))?;
+        db.progress_handler(
+            1000,
+            Some(move || crate::embedding::poll_interrupt() || Instant::now() >= deadline),
+        )?;
         let sql = sql.unwrap();
         if sql.contains('\0') {
             return Err(Error(

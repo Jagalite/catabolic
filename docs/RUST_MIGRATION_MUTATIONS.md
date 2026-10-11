@@ -120,6 +120,33 @@ Ordinary tests and partial inspection do not replace those missing reviews.
 
 ## Qualification and reproducibility
 
+The second source-stable checkpoint is commit `55d5448`, recorded separately in
+[native-m4-plus-checkpoint2.json](../tests/parity/native-m4-plus-checkpoint2.json).
+On the same Linux x86_64/glibc 2.41 platform it passed 526 distinct native
+scenarios without skips, 245 distinct Rust checks, strict Clippy, both generated
+TypeScript client builds, and the real experimental HTTP/client/worker journey.
+The Rust count deduplicates eleven overlapping document checks and includes the
+two PDF/OCR and one Python-journal checks explicitly enabled after the default
+workspace run. No ignored Rust check remains unrun.
+
+The paired helper/extension wheel passed exact installed-payload and subprocess
+ownership checks on Python 3.11.15 and 3.14.6. Each interpreter also passed 13
+installed embedding tests and 33 frozen/native result groups across 47 selected
+signature rows (41 selected-contract checks and six explicit partial contracts).
+The separate Python application run completed 1,041 tests: 1,040 passed and the
+one known case-insensitive-filesystem test was skipped. Thirty release refusal cases verify the closed
+symlink, hardlink-retirement and fallback-publication gates. This is bounded
+checkpoint evidence, not full API, platform, M6 safety or release qualification.
+
+The native aggregate verifies unchanged source, both executables, the frozen
+oracle's 518 resources and 32 historical databases plus their manifest before and
+after execution. The receipt records hashes of retained failed/interrupted
+attempts as well as passing runs. In particular, review reproduced an HTTP/1.0
+connection-reuse defect; the corrected transport uses fresh connections without
+automatic request replay, and its permanent regression passes in this aggregate.
+New Plex and additional workflow-facade work in the continuation branch is not
+included in this checkpoint. No GitHub Actions run or non-Linux test is implied.
+
 [native-m4-plus.json](../tests/parity/native-m4-plus.json) records unique scenario
 identifiers, artifact/source hashes, observed outcomes, review coverage and open
 gates. Source hashes refer to recorded checkpoint commit `787b5ed`, not later
@@ -166,8 +193,9 @@ Debug fixture tests cannot qualify release destructive-output safety.
 
 ### Work after the recorded checkpoint
 
-The following later owners are implemented and have focused receipts, but are
-not covered by the `787b5ed` aggregate qualification register above:
+The following owners are covered by the selected checks in the `55d5448`
+aggregate register, with the documented acceptance gaps still open. They are not
+covered by the older `787b5ed` register:
 
 - Item workflow, rule orchestration and reviewed desired layouts:
   [workflow checkpoint](RUST_MIGRATION_WORKFLOWS.md)
@@ -193,9 +221,10 @@ enumerates remaining preserved Python entry points, legacy CLI branches and Plex
 owners. A path-based companion operation is not a persistent-facade or legacy
 parser/presentation qualification.
 
-Their reviewed fixes and focused tests require a new source-stable aggregate
-run, installed-artifact qualification and a separately identified receipt. Do not
-combine counts from overlapping suites or attach the old source hashes to them.
+The second checkpoint binds those reviewed fixes to its own source-stable
+aggregate and installed artifacts. Subsequent implementation changes require a
+fresh receipt; do not combine overlapping counts or attach old source hashes to
+new work.
 
 ### Exit conditions still open
 

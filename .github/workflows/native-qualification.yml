@@ -37,7 +37,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
-          python-version: '3.14'
+          python-version: '3.14.6'
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
@@ -101,6 +101,10 @@ jobs:
           path: .local-tests/rust-migration/reference
           persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        id: oracle-python
+        with:
+          python-version: '3.14.6'
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python }}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -109,25 +113,41 @@ jobs:
           path: dist/native
       - name: Install exact artifact in an isolated interpreter
         run: |
-          python -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock -r requirements/runtime.lock
-          python -m pip install --no-deps --no-build-isolation -e .local-tests/rust-migration/reference
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg poppler-utils tesseract-ocr
+          oracle="${{ steps.oracle-python.outputs.python-path }}"
+          "$oracle" -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock -r requirements/runtime.lock
+          "$oracle" -m pip install --no-deps --no-build-isolation -e .local-tests/rust-migration/reference
           python -m venv "$RUNNER_TEMP/native-installed"
           "$RUNNER_TEMP/native-installed/bin/python" -m pip install --no-deps dist/native/*.whl
           chmod +x dist/native/catabolic-native
       - name: Outside-checkout installed helper, cancellation and persistent facade
         run: |
           root="$PWD"
-          reference_python="$(command -v python)"
+          reference_python="${{ steps.oracle-python.outputs.python-path }}"
           wheel="$(find "$root/dist/native" -maxdepth 1 -name '*.whl' -print)"
           cd "$RUNNER_TEMP"
           "$RUNNER_TEMP/native-installed/bin/python" "$root/scripts/qualify_native_wheel.py" --binary "$root/dist/native/catabolic-native" --wheel "$wheel" --receipt "$RUNNER_TEMP/native-wheel.json"
           "$RUNNER_TEMP/native-installed/bin/python" "$root/scripts/qualify_native_embedding.py" --wheel "$wheel" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-embedding.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_query_embedding_tests.py" --wheel "$wheel" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-query-embedding.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_processing_embedding_tests.py" --wheel "$wheel" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-processing-embedding.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_query_review_tests.py"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_processing_review_tests.py"
+          for surface in import matching metadata; do
+            "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_plex_${surface}_embedding_tests.py" --wheel "$wheel" --report "$RUNNER_TEMP/native-plex-${surface}.json"
+          done
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_plex_metadata_review_tests.py" --wheel "$wheel" --report "$RUNNER_TEMP/native-plex-metadata-review.json"
+          "$RUNNER_TEMP/native-installed/bin/python" "$root/scripts/qualify_native_wheel.py" --binary "$root/dist/native/catabolic-native" --wheel "$wheel" --receipt "$RUNNER_TEMP/native-wheel-after.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: opt-in-native-installed-${{ matrix.python }}
           path: |
             ${{ runner.temp }}/native-wheel.json
+            ${{ runner.temp }}/native-wheel-after.json
             ${{ runner.temp }}/native-embedding.json
+            ${{ runner.temp }}/native-query-embedding.json
+            ${{ runner.temp }}/native-processing-embedding.json
+            ${{ runner.temp }}/native-plex-*.json
 # Passing this Linux fixture lane is not macOS, real-consumer, destructive-output,
 # performance, rollback, or complete M0-M11 acceptance. No release job is invoked.

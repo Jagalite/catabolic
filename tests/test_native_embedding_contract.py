@@ -26,23 +26,27 @@ class NativeEmbeddingInventory(unittest.TestCase):
                     "python:catabolic.query.CatalogQuery",
                     "python:catabolic.media_catalog.MediaCatalog",
                     "python:catabolic.tagging.Tagging",
+                    "python:catabolic.item_workflow.ItemWorkflow",
+                    "python:catabolic.curation.Curation",
+                    "python:catabolic.curation.occurrence",
                 )
             ):
                 continue
-            module, cls, *method = (
-                row["id"].removeprefix("python:catabolic.").split(".")
-            )
+            parts = row["id"].removeprefix("python:catabolic.").split(".")
+            module, name, *method = parts
             tree = ast.parse((FACADE / f"{module}.py").read_text())
             owner = next(
-                node
-                for node in tree.body
-                if isinstance(node, ast.ClassDef) and node.name == cls
+                node for node in tree.body if getattr(node, "name", None) == name
             )
-            if method:
-                function = next(
-                    node
-                    for node in owner.body
-                    if isinstance(node, ast.FunctionDef) and node.name == method[0]
+            if row["signature"]["kind"] != "class":
+                function = (
+                    next(
+                        node
+                        for node in owner.body
+                        if isinstance(node, ast.FunctionDef) and node.name == method[0]
+                    )
+                    if method
+                    else owner
                 )
                 expected = (
                     ast.parse(f"def f({row['signature']['arguments']}): pass")
@@ -51,7 +55,7 @@ class NativeEmbeddingInventory(unittest.TestCase):
                 )
                 self.assertEqual(ast.dump(function.args), ast.dump(expected), row["id"])
             checked += 1
-        self.assertEqual(checked, 47)
+        self.assertEqual(checked, 69)
 
     def test_facades_do_not_import_legacy_business_logic_or_sqlite(self):
         for path in FACADE.glob("*.py"):
@@ -73,11 +77,44 @@ class NativeEmbeddingInventory(unittest.TestCase):
                 )
 
     def test_thin_services_never_call_path_reopening_companion(self):
-        for name in ("store", "app", "query", "media_catalog", "tagging"):
+        for name in (
+            "store",
+            "app",
+            "query",
+            "media_catalog",
+            "tagging",
+            "item_workflow",
+            "curation",
+        ):
             source = (FACADE / f"{name}.py").read_text()
             self.assertNotIn("execute_operation(", source)
             self.assertNotIn("catalog_query(", source)
             self.assertNotIn("tag_mutation(", source)
+
+    def test_workflow_coverage_names_every_preserved_row_and_gap(self):
+        spec = importlib.util.spec_from_file_location(
+            "workflow_embedding_contracts",
+            ROOT / "scripts/native_workflow_embedding_tests.py",
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        inventory = json.loads((ROOT / "tests/parity/python-api.json").read_text())
+        expected = {
+            row["id"]
+            for row in inventory["rows"]
+            if row["id"].startswith(
+                (
+                    "python:catabolic.item_workflow.ItemWorkflow",
+                    "python:catabolic.curation.Curation",
+                    "python:catabolic.curation.occurrence",
+                )
+            )
+        }
+        self.assertEqual(len(expected), 22)
+        self.assertEqual(set(module.CONTRACTS), expected)
+        for contract in module.CONTRACTS.values():
+            self.assertTrue(contract["tested"])
+            self.assertTrue(contract["gap"])
 
 
 class NativeEmbeddingProvenance(unittest.TestCase):

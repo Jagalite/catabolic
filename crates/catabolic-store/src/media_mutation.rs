@@ -453,7 +453,7 @@ pub fn operation_put(store: &Store, name: &str, definition: &Value) -> Result<Va
     operation_get(store, &id)
 }
 
-fn words(text: &str) -> std::collections::BTreeSet<String> {
+pub(crate) fn words(text: &str) -> std::collections::BTreeSet<String> {
     static RANGES: std::sync::OnceLock<Vec<(u32, u32)>> = std::sync::OnceLock::new();
     let ranges = RANGES.get_or_init(|| {
         serde_json::from_str(include_str!("../resources/text-word-ranges.json"))
@@ -476,4 +476,60 @@ fn words(text: &str) -> std::collections::BTreeSet<String> {
 pub fn active(store: &Store, id: &str, now: f64) -> Result<bool> {
     let claim=store.db.query_row("SELECT job_id,generation,token,worker_pid,attempt,lease_until,snapshot,options FROM execution_claims WHERE job_id=?",[id],claim_row).optional()?;
     Ok(claim.as_ref().is_some_and(|claim| claim_live(claim, now)))
+}
+
+/// Claim only retries due at invocation start and normalize abandoned analysis
+/// attempts. Scope is exact, including an explicitly empty ID list. Every state
+/// change is interpreted from the shared lifecycle reducer in this transaction.
+pub fn prepare_run(
+    store: &Store,
+    profile: &str,
+    job_ids: Option<&[String]>,
+    now: f64,
+    retry_transient: u32,
+    limit: usize,
+) -> Result<usize> {
+    validate_now(now)?;
+    let scope = if job_ids.is_some() {
+        " AND j.id IN (SELECT value FROM json_each(?))"
+    } else {
+        ""
+    };
+    store.transaction(|db| {
+        let mut args = vec![SqlValue::Real(now), profile.to_owned().into(), i64::from(retry_transient).into()];
+        if let Some(ids) = job_ids { args.push(catabolic_core::encode(&json!(ids)).into()); }
+        args.push((limit.min(1000) as i64).into());
+        let due = rows(db, &format!("SELECT j.id FROM processing_retry_queue a JOIN processing_jobs j ON j.id=a.job_id WHERE a.retry_after<=? AND a.profile=? AND j.operation!='render' AND j.attempts=a.attempt AND j.attempts<=? AND j.state IN ('failed','timeout'){scope} ORDER BY a.retry_after,a.job_id LIMIT ?"), &args)?;
+        for row in &due {
+            let id = row["id"].as_str().unwrap();
+            let pending_artifact = db.query_row("SELECT EXISTS(SELECT 1 FROM processing_artifacts WHERE job_id=? AND state IN ('planned','writing','validating','publishing'))", [id], |r| r.get::<_,bool>(0))?;
+            let Effect::Requeue = decide(db, id, now, Input::Retry { pending_artifact })? else {
+                return Err(Error("invalid retry effect".into()));
+            };
+            db.execute("DELETE FROM processing_retry_queue WHERE job_id=?", [id])?;
+            db.execute("UPDATE processing_jobs SET state='queued',finished_at=NULL WHERE id=?", [id])?;
+        }
+        let mut after = String::new();
+        loop {
+            let mut args = vec![profile.to_owned().into(), after.clone().into()];
+            if let Some(ids) = job_ids { args.push(catabolic_core::encode(&json!(ids)).into()); }
+            let abandoned = rows(db, &format!("SELECT j.id FROM processing_jobs j WHERE j.profile=? AND j.id>? AND j.state='running' AND j.operation!='render'{scope} ORDER BY j.id LIMIT 1000"), &args)?;
+            for row in &abandoned {
+                let id = row["id"].as_str().unwrap();
+                let state = observation(db, id, now)?;
+                match execution::reduce(&state, &Input::Reclaim { now }) {
+                    Ok(Effect::Requeue) => {
+                        db.execute("UPDATE execution_claims SET lease_until=0 WHERE job_id=?", [id])?;
+                        db.execute("UPDATE processing_jobs SET state='queued' WHERE id=?", [id])?;
+                    }
+                    Err(Rejection::LiveOwner) => {}
+                    Err(error) => return Err(rejected(error)),
+                    _ => return Err(Error("invalid reclaim effect".into())),
+                }
+                after = id.to_owned();
+            }
+            if abandoned.len() < 1000 { break; }
+        }
+        Ok(due.len())
+    })
 }

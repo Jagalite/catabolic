@@ -1,4 +1,5 @@
 //! GraphQL transport over the same native snapshot and catalog query functions.
+pub use crate::graphql_input::InputVariables;
 use crate::{
     Error, Result, Store,
     api_catalog::Authority,
@@ -21,6 +22,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(test)]
+thread_local! {
+    static PANIC_AFTER_SETUP: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 const SDL: &str = include_str!("../resources/schema.graphql");
 // graphql-core omits undefined input-object fields. List elements instead
 // retain their position as null, and an explicitly supplied null stays null.
@@ -71,6 +76,15 @@ impl async_graphql::extensions::Extension for Budget {
         info: async_graphql::extensions::ResolveInfo<'_>,
         next: async_graphql::extensions::NextResolve<'_>,
     ) -> async_graphql::ServerResult<Option<GValue>> {
+        // Poll before taking the resolver mutex, so a Python signal handler
+        // never runs while that mutex is held. SQL leaves compose the same
+        // outer bridge with their SQLite deadline handler.
+        if crate::embedding::poll_interrupt() {
+            return Err(async_graphql::ServerError::new(
+                "query execution interrupted",
+                None,
+            ));
+        }
         if info.parent_type.starts_with("__") || ["__schema", "__type"].contains(&info.name) {
             return next.run(ctx, info).await;
         }
@@ -1414,108 +1428,23 @@ fn check_document(document: &async_graphql_parser::types::ExecutableDocument) ->
     }
     Ok(())
 }
-fn scalar_variable_errors(
-    ast: &async_graphql_parser::types::ExecutableDocument,
-    variables: &Value,
-    selected: Option<&str>,
-) -> Vec<Value> {
-    let mut errors = vec![];
-    for (name, operation) in ast.operations.iter() {
-        if selected.is_some_and(|selected| name.is_some_and(|name| name.as_str() != selected)) {
-            continue;
-        }
-        for definition in &operation.node.variable_definitions {
-            let name = definition.node.name.node.as_str();
-            let ty = &definition.node.var_type.node;
-            let Some(value) = variables.get(name) else {
-                continue;
-            };
-            let prefix = format!(
-                "Variable '${name}' got invalid value {}",
-                python_value(value)
-            );
-            let reason = if value.is_null() && !ty.nullable {
-                Some(format!(
-                    "Variable '${name}' of non-null type '{ty}' must not be null."
-                ))
-            } else if value.is_null() {
-                None
-            } else if let BaseType::Named(type_name) = &ty.base {
-                let invalid = match type_name.as_str() {
-                    "Int" if value.as_i64().is_none() => Some(format!(
-                        "Int cannot represent non-integer value: {}",
-                        python_value(value)
-                    )),
-                    "Int" if value.as_i64().is_some_and(|v| i32::try_from(v).is_err()) => {
-                        Some(format!(
-                            "Int cannot represent non 32-bit signed integer value: {}",
-                            python_value(value)
-                        ))
-                    }
-                    "String" if !value.is_string() => Some(format!(
-                        "String cannot represent a non string value: {}",
-                        python_value(value)
-                    )),
-                    "Boolean" if !value.is_boolean() => Some(format!(
-                        "Boolean cannot represent a non boolean value: {}",
-                        python_value(value)
-                    )),
-                    "Float" if !value.is_number() => Some(format!(
-                        "Float cannot represent non numeric value: {}",
-                        python_value(value)
-                    )),
-                    "ID" if !value.is_string() && !value.is_i64() && !value.is_u64() => Some(
-                        format!("ID cannot represent value: {}", python_value(value)),
-                    ),
-                    _ => None,
-                };
-                invalid.map(|reason| format!("{prefix}; {reason}"))
-            } else {
-                None
-            };
-            if let Some(message) = reason {
-                errors.push(json!({"message":message,"locations":[{"line":definition.pos.line,"column":definition.pos.column}]}));
-            }
-        }
+// Operation selection and scalar rejection can finish before a resolver exists.
+// They still participate in the same deadline and outer interruption bridge.
+fn early_query_response(result: Value, deadline: Instant) -> Value {
+    if crate::embedding::poll_interrupt() {
+        return json!({"data":null,"errors":[{"message":"query execution interrupted"}]});
     }
-    errors
-}
-fn python_value(value: &Value) -> String {
-    match value {
-        Value::String(text) => {
-            let quote = if text.contains('\'') && !text.contains('"') {
-                '"'
-            } else {
-                '\''
-            };
-            let mut out = quote.to_string();
-            for c in text.chars() {
-                match c {
-                    '\\' => out.push_str("\\\\"),
-                    '\n' => out.push_str("\\n"),
-                    '\r' => out.push_str("\\r"),
-                    '\t' => out.push_str("\\t"),
-                    c if c == quote => {
-                        out.push('\\');
-                        out.push(c);
-                    }
-                    c => out.push(c),
-                }
-            }
-            out.push(quote);
-            out
-        }
-        Value::Null => "None".into(),
-        Value::Bool(true) => "True".into(),
-        Value::Bool(false) => "False".into(),
-        _ => encode(value),
+    if Instant::now() > deadline {
+        return json!({"data":null,"errors":[{"message":"query execution deadline exceeded","extensions":{"code":"LIMIT_EXCEEDED"}}]});
     }
+    result
 }
+
 pub fn execute(
     path: &Path,
     document: &str,
     profile: &str,
-    variables: Value,
+    variables: impl Into<InputVariables>,
     operation: Option<&str>,
     timeout_ms: u64,
 ) -> Result<Value> {
@@ -1534,7 +1463,7 @@ pub fn execute_store(
     store: Store,
     document: &str,
     profile: &str,
-    variables: Value,
+    variables: impl Into<InputVariables>,
     operation: Option<&str>,
     timeout_ms: u64,
 ) -> Result<(Store, Value)> {
@@ -1549,7 +1478,7 @@ pub fn execute_authorized_store(
     store: Store,
     authority: Authority,
     document: &str,
-    variables: Value,
+    variables: impl Into<InputVariables>,
     operation: Option<&str>,
     timeout_ms: u64,
 ) -> Result<(Store, Value)> {
@@ -1569,7 +1498,7 @@ pub fn execute_authorized_store(
 
 /// Frozen GraphQL validates the document before AuthorizedContext creates TEMP
 /// scope. Package sessions must not materialize scope for invalid documents.
-pub(crate) fn validate_before_context(
+pub fn validate_before_context(
     document: &str,
     variables: &Value,
     timeout_ms: u64,
@@ -1599,7 +1528,7 @@ pub(crate) fn validate_before_context(
             json!({"data":null,"errors":[{"message":error.to_string()}]}),
         ));
     }
-    Ok(crate::validation::validate_for(&ast, http))
+    Ok(crate::validation::validate_for(&ast, document, http))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1608,27 +1537,91 @@ fn execute_context(
     authority: Option<Authority>,
     document: &str,
     profile: &str,
-    variables: Value,
+    variables: impl Into<InputVariables>,
     operation: Option<&str>,
     timeout_ms: u64,
 ) -> Result<(Store, Value)> {
+    let mut slot = Some(store);
+    let result = execute_session(
+        &mut slot, authority, document, profile, variables, operation, timeout_ms,
+    )?;
+    Ok((slot.expect("GraphQL restored its Store"), result))
+}
+
+/// Lend an existing Store to the synchronous GraphQL executor and restore that
+/// exact owner on success, error, cancellation, and unwind. No database reopens.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn execute_session(
+    slot: &mut Option<Store>,
+    authority: Option<Authority>,
+    document: &str,
+    profile: &str,
+    variables: impl Into<InputVariables>,
+    operation: Option<&str>,
+    timeout_ms: u64,
+) -> Result<Value> {
+    let input_variables = variables.into();
+    let variables = &input_variables.value;
+    let store = slot
+        .as_ref()
+        .ok_or_else(|| Error("GraphQL Store is unavailable".into()))?;
+    if let Some(authority) = &authority {
+        authority.check_store(store)?;
+        authority.require("metadata:read")?;
+        if authority.profile() != profile {
+            return Err(Error("evaluation_session_identity_mismatch".into()));
+        }
+    }
     let http = authority.is_some();
     let deadline = Instant::now() + Duration::from_millis(timeout_ms);
-    if let Some(error) = validate_before_context(document, &variables, timeout_ms, http)? {
-        return Ok((store, error));
+    if let Some(error) = validate_before_context(document, variables, timeout_ms, http)? {
+        return Ok(error);
     }
-    CatalogQuery::new(&store, profile)?;
-    let ast = parse_query(document).map_err(|error| Error(error.to_string()))?;
+    CatalogQuery::new(store, profile)?;
+    let mut ast = parse_query(document).map_err(|error| Error(error.to_string()))?;
+    // async-graphql accepts wider integer variables than graphql-core. Coerce
+    // all selected input variables before any resolver runs, preserving the frozen
+    // validation/operation-selection precedence and the caller's Store.
+    let operations = ast.operations.iter().collect::<Vec<_>>();
+    let selected_exists = match operation {
+        Some(selected) => operations
+            .iter()
+            .any(|(name, _)| name.is_some_and(|name| name.as_str() == selected)),
+        None => operations.len() == 1,
+    };
+    if operation.is_none() && operations.len() > 1 {
+        return Ok(early_query_response(
+            json!({"data":null,"errors":[{"message":"Must provide operation name if query contains multiple operations."}],"extensions":{"interfaceVersion":1,"profile":profile,"records":0}}),
+            deadline,
+        ));
+    }
+    if !selected_exists && let Some(selected) = operation {
+        return Ok(early_query_response(
+            json!({"data":null,"errors":[{"message":format!("Unknown operation named '{selected}'.")}],"extensions":{"interfaceVersion":1,"profile":profile,"records":0}}),
+            deadline,
+        ));
+    }
+    let selected_operation = operations
+        .iter()
+        .find(|(name, _)| {
+            operation.is_none_or(|selected| name.is_some_and(|name| name.as_str() == selected))
+        })
+        .expect("selected operation checked")
+        .1;
+    let (coerced_variables, errors) =
+        crate::graphql_input::variables(&selected_operation.node, &input_variables);
+    if !errors.is_empty() {
+        return Ok(early_query_response(
+            json!({"data":null,"errors":errors,"extensions":{"interfaceVersion":1,"profile":profile,"records":0}}),
+            deadline,
+        ));
+    }
+    crate::graphql_input::normalize_document_literals(&mut ast, http);
     let query_only: bool = store
         .db
         .pragma_query_value(None, "query_only", |row| row.get(0))?;
-    crate::sql::setup(&store.db)?;
-    store.db.pragma_update(None, "query_only", true)?;
-    store
-        .db
-        .progress_handler(1000, Some(move || Instant::now() >= deadline))?;
     let state = Arc::new(Mutex::new(Context {
-        store,
+        store: slot.take().expect("checked GraphQL Store"),
         profile: profile.into(),
         deadline,
         nodes: 0,
@@ -1653,172 +1646,251 @@ fn execute_context(
             .map(|v| v.node.name.node.to_string())
             .collect(),
     }));
-    let mut coerced_variables = variables.clone();
-    for (_, op) in ast.operations.iter().filter(|(name, _)| {
-        operation.is_none_or(|selected| name.is_none_or(|name| name.as_str() == selected))
-    }) {
-        for definition in &op.node.variable_definitions {
-            let key = definition.node.name.node.as_str();
-            if let BaseType::Named(name) = &definition.node.var_type.node.base
-                && let Some(value) = variables[key]
-                    .as_f64()
-                    .filter(|v| v.is_finite() && v.fract() == 0.0)
-            {
-                if name == "Int" && (f64::from(i32::MIN)..=f64::from(i32::MAX)).contains(&value) {
-                    coerced_variables[key] = json!(value as i32);
-                }
-                if name == "ID" && variables[key].is_number() {
-                    coerced_variables[key] = json!(
-                        variables[key]
-                            .as_i64()
-                            .map(|v| v.to_string())
-                            .or_else(|| variables[key].as_u64().map(|v| v.to_string()))
-                            .unwrap_or_else(|| format!("{value:.0}"))
-                    );
-                }
-            }
+    // Keep an external context reference so even a resolver panic cannot lose
+    // the caller's transaction. All executor borrows end before restoration.
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<Value> {
+        {
+            let context = state
+                .lock()
+                .map_err(|_| Error("query context poisoned".into()))?;
+            crate::sql::setup(&context.store.db)?;
+            context.store.db.pragma_update(None, "query_only", true)?;
+            context.store.db.progress_handler(
+                1000,
+                Some(move || crate::embedding::poll_interrupt() || Instant::now() >= deadline),
+            )?;
         }
-    }
-    let mut request = Request::new(document)
-        .variables(Variables::from_json(coerced_variables))
-        .data(state.clone());
-    if let Some(operation) = operation {
-        request = request.operation_name(operation);
-    }
-    request.set_parsed_query(ast.clone());
-    let response = futures::executor::block_on(schema(http)?.execute(request));
-    let mut result = serde_json::to_value(response)?;
-    let mut coercion_error = false;
-    if result["errors"][0]["message"] == "Operation name required in request." {
-        result["errors"][0]["message"] =
-            json!("Must provide operation name if query contains multiple operations.");
-        coercion_error = true;
-    }
-    if result["errors"].as_array().is_some_and(|errors| {
-        errors.iter().all(|error| {
-            error["message"]
-                .as_str()
-                .is_some_and(|message| message.starts_with("Invalid value for argument "))
-        })
-    }) {
-        let errors = scalar_variable_errors(&ast, &variables, operation);
-        if !errors.is_empty() {
-            result["errors"] = json!(errors);
+        #[cfg(test)]
+        if PANIC_AFTER_SETUP.with(|flag| flag.replace(false)) {
+            panic!("injected GraphQL executor unwind");
+        }
+        let mut request = Request::new(document)
+            .variables(Variables::from_json(coerced_variables.clone()))
+            .data(state.clone());
+        if let Some(operation) = operation {
+            request = request.operation_name(operation);
+        }
+        request.set_parsed_query(ast.clone());
+        let response = futures::executor::block_on(schema(http)?.execute(request));
+        let mut result = serde_json::to_value(response)?;
+        let mut coercion_error = false;
+        if result["errors"][0]["message"] == "Operation name required in request." {
+            result["errors"][0]["message"] =
+                json!("Must provide operation name if query contains multiple operations.");
             coercion_error = true;
         }
-    }
 
-    if let Some(errors) = result.get_mut("errors").and_then(Value::as_array_mut) {
-        for error in errors {
-            let message = error["message"].as_str().unwrap_or("").to_owned();
-            if message.starts_with("Unknown field ") {
-                let words = message.split('"').collect::<Vec<_>>();
-                if words.len() >= 5 {
-                    error["message"] = json!(format!(
-                        "Cannot query field '{}' on type '{}'.{}",
-                        words[1],
-                        words[3],
-                        crate::introspection::field_suggestions_for(words[3], words[1], http)
-                    ));
-                }
-            }
-            if let Some(name) = message
-                .strip_prefix("Variable ")
-                .and_then(|m| m.strip_suffix(" is not defined."))
-            {
-                for (_, operation) in ast.operations.iter() {
-                    if let Some(definition) = operation
-                        .node
-                        .variable_definitions
-                        .iter()
-                        .find(|v| v.node.name.node.as_str() == name)
-                    {
+        if let Some(errors) = result.get_mut("errors").and_then(Value::as_array_mut) {
+            for error in errors {
+                let message = error["message"].as_str().unwrap_or("").to_owned();
+                if message.starts_with("Unknown field ") {
+                    let words = message.split('"').collect::<Vec<_>>();
+                    if words.len() >= 5 {
                         error["message"] = json!(format!(
-                            "Variable '${name}' of required type '{}' was not provided.",
-                            definition.node.var_type.node
+                            "Cannot query field '{}' on type '{}'.{}",
+                            words[1],
+                            words[3],
+                            crate::introspection::field_suggestions_for(words[3], words[1], http)
                         ));
-                        error["locations"] =
-                            json!([{"line":definition.pos.line,"column":definition.pos.column}]);
-                        coercion_error = true;
+                    }
+                }
+                if let Some(name) = message
+                    .strip_prefix("Variable ")
+                    .and_then(|m| m.strip_suffix(" is not defined."))
+                {
+                    for (_, operation) in ast.operations.iter() {
+                        if let Some(definition) = operation
+                            .node
+                            .variable_definitions
+                            .iter()
+                            .find(|v| v.node.name.node.as_str() == name)
+                        {
+                            error["message"] = json!(format!(
+                                "Variable '${name}' of required type '{}' was not provided.",
+                                definition.node.var_type.node
+                            ));
+                            error["locations"] = json!([{"line":definition.pos.line,"column":definition.pos.column}]);
+                            coercion_error = true;
+                        }
                     }
                 }
             }
         }
-    }
 
-    let state_handle = state;
-    let mut state = state_handle
-        .lock()
-        .map_err(|_| Error("query context poisoned".into()))?;
-    let result = (|| -> Result<Value> {
-        if state.null_bubbles.iter().any(Vec::is_empty) {
-            result["data"] = Value::Null;
-        }
-        let introspection = crate::introspection::apply_for(
-            &ast,
-            operation,
-            &variables,
-            &mut result,
-            http,
-            &mut |value| {
-                state.fields += 1;
-                if state.fields > 20000 {
-                    state.aborted = Some("query field budget exceeded".into());
-                }
-                if let Some(list) = value.as_array() {
-                    state.records(list.len())?;
-                } else if value.is_string() {
-                    state.charge(value)?;
-                } else {
-                    state.check()?;
-                }
-                Ok(())
-            },
-        );
-        if let Err(error) = introspection
-            && state.aborted.is_none()
-        {
-            return Err(error);
-        }
+        let mut state = state
+            .lock()
+            .map_err(|_| Error("query context poisoned".into()))?;
+        (|| -> Result<Value> {
+            if state.null_bubbles.iter().any(Vec::is_empty) {
+                result["data"] = Value::Null;
+            }
+            let introspection = crate::introspection::apply_for(
+                &ast,
+                operation,
+                &coerced_variables,
+                &mut result,
+                http,
+                &mut |value| {
+                    state.fields += 1;
+                    if state.fields > 20000 {
+                        state.aborted = Some("query field budget exceeded".into());
+                    }
+                    if let Some(list) = value.as_array() {
+                        state.records(list.len())?;
+                    } else if value.is_string() {
+                        state.charge(value)?;
+                    } else {
+                        state.check()?;
+                    }
+                    Ok(())
+                },
+            );
+            if let Err(error) = introspection
+                && state.aborted.is_none()
+            {
+                return Err(error);
+            }
 
-        if state.aborted.is_some() || Instant::now() > state.deadline {
-            return Ok(
-                json!({"data":null,"errors":[{"message":state.aborted.as_deref().unwrap_or("query execution deadline exceeded"),"extensions":{"code":"LIMIT_EXCEEDED"}}]}),
-            );
-        }
-        if state.fields > 0 || coercion_error {
-            result["extensions"] =
-                json!({"interfaceVersion":1,"profile":profile,"records":state.nodes});
-        }
-        if encode(&result).len() > 8 * 1024 * 1024 {
-            return Ok(
-                json!({"data":null,"errors":[{"message":"query output budget exceeded","extensions":{"code":"LIMIT_EXCEEDED"}}]}),
-            );
-        }
-        if result
-            .get("errors")
-            .is_some_and(|v| v.as_array().is_some_and(Vec::is_empty))
-        {
-            result.as_object_mut().unwrap().remove("errors");
-        }
-        Ok(result)
-    })();
-    state.store.db.progress_handler(0, None::<fn() -> bool>)?;
-    state
+            if state.aborted.is_some() || Instant::now() > state.deadline {
+                return Ok(
+                    json!({"data":null,"errors":[{"message":state.aborted.as_deref().unwrap_or("query execution deadline exceeded"),"extensions":{"code":"LIMIT_EXCEEDED"}}]}),
+                );
+            }
+            if state.fields > 0 || coercion_error {
+                result["extensions"] =
+                    json!({"interfaceVersion":1,"profile":profile,"records":state.nodes});
+            }
+            if encode(&result).len() > 8 * 1024 * 1024 {
+                return Ok(
+                    json!({"data":null,"errors":[{"message":"query output budget exceeded","extensions":{"code":"LIMIT_EXCEEDED"}}]}),
+                );
+            }
+            if result
+                .get("errors")
+                .is_some_and(|v| v.as_array().is_some_and(Vec::is_empty))
+            {
+                result.as_object_mut().unwrap().remove("errors");
+            }
+            Ok(result)
+        })()
+    }));
+    let context = Arc::try_unwrap(state)
+        .map_err(|_| Error("query context retained after execution".into()))?
+        .into_inner()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    // If cleanup fails, retire the connection instead of returning an unchecked
+    // query-only/progress state to the persistent owner.
+    context.store.db.progress_handler(0, None::<fn() -> bool>)?;
+    context
         .store
         .db
         .pragma_update(None, "query_only", query_only)?;
-    drop(state);
-    let context = Arc::try_unwrap(state_handle)
-        .map_err(|_| Error("query context retained after execution".into()))?
-        .into_inner()
-        .map_err(|_| Error("query context poisoned".into()))?;
-    Ok((context.store, result?))
+    *slot = Some(context.store);
+    match outcome {
+        Ok(result) => result,
+        Err(panic) => std::panic::resume_unwind(panic),
+    }
 }
 
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    #[test]
+    fn early_query_response_honors_expired_deadline_and_outer_interrupt() {
+        let ordinary = json!({"data":null,"errors":[{"message":"early query error"}]});
+        let expired = crate::embedding::with_interrupt_check(
+            || false,
+            || {
+                Ok(early_query_response(
+                    ordinary.clone(),
+                    Instant::now() - Duration::from_secs(1),
+                ))
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            expired,
+            json!({"data":null,"errors":[{"message":"query execution deadline exceeded","extensions":{"code":"LIMIT_EXCEEDED"}}]})
+        );
+        let interrupted = crate::embedding::with_interrupt_check(
+            || true,
+            || {
+                Ok(early_query_response(
+                    ordinary.clone(),
+                    Instant::now() + Duration::from_secs(60),
+                ))
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            interrupted,
+            json!({"data":null,"errors":[{"message":"query execution interrupted"}]})
+        );
+        let result = crate::embedding::with_interrupt_check(
+            || false,
+            || {
+                Ok(early_query_response(
+                    ordinary.clone(),
+                    Instant::now() + Duration::from_secs(60),
+                ))
+            },
+        )
+        .unwrap();
+        assert_eq!(result, ordinary);
+    }
+
+    #[test]
+    fn persistent_graphql_restores_same_owner_after_executor_unwind() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("query-unwind.db");
+        crate::migration::initialize(&path).unwrap();
+        let mut slot = Some(Store::open(&path, true, false).unwrap());
+        slot.as_ref()
+            .unwrap()
+            .db
+            .execute_batch("BEGIN IMMEDIATE; INSERT INTO profiles VALUES ('lent')")
+            .unwrap();
+        PANIC_AFTER_SETUP.with(|flag| flag.set(true));
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            execute_session(
+                &mut slot,
+                None,
+                "{profile}",
+                "default",
+                json!({}),
+                None,
+                5000,
+            )
+        }));
+        assert!(result.is_err());
+        let store = slot.as_ref().expect("GraphQL restored the exact owner");
+        assert!(store.owns_writer_lock());
+        assert!(!store.db.is_autocommit());
+        assert!(
+            !store
+                .db
+                .pragma_query_value(None, "query_only", |row| row.get::<_, bool>(0))
+                .unwrap()
+        );
+        store
+            .db
+            .execute_batch("ROLLBACK; INSERT INTO profiles VALUES ('after')")
+            .unwrap();
+        assert_eq!(
+            execute_session(
+                &mut slot,
+                None,
+                "{profile}",
+                "default",
+                json!({}),
+                None,
+                5000
+            )
+            .unwrap()["data"]["profile"],
+            "default"
+        );
+    }
+
     use crate::{access::Access, selection::Evaluation};
     use rusqlite::params;
 

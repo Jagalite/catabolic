@@ -1,0 +1,6 @@
+SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+SPDX-License-Identifier: MIT
+
+Generated interface, help, documentation and schema data from Catabolic baseline
+453fca983222c6665a48775eef67c489c96b527e. See scripts/generate_legacy_cli.py and the
+embedded reference/interpreter/source_sha256 fields. Runtime is entirely native.

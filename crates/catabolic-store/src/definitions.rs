@@ -651,7 +651,7 @@ pub fn dispatch(store: &Store, profile: &str, action: &str, args: &Value) -> Res
                     "SELECT id,profile,name,revision,digest,created_at,CASE WHEN length(definition)<=8192 THEN definition END AS definition,length(definition)>8192 AS definition_omitted FROM saved_queries WHERE profile=? AND id>? ORDER BY id LIMIT ?",
                     &[
                         profile.to_owned().into(),
-                        args["after"].as_str().unwrap_or("").to_owned().into(),
+                        crate::sql::scalar(args.get("after").unwrap_or(&json!("")))?,
                         ((n + 1) as i64).into(),
                     ],
                 )?,

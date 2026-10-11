@@ -11,6 +11,8 @@ case "$python" in
 esac
 export CATABOLIC_PYTHON_REFERENCE="${CATABOLIC_PYTHON_REFERENCE:-$(pwd)/.local-tests/rust-migration/reference/src}"
 test -d "$CATABOLIC_PYTHON_REFERENCE/catabolic" || { echo "Pinned Python reference source is missing" >&2; exit 1; }
+reference_root=$(cd "$CATABOLIC_PYTHON_REFERENCE/.." && pwd)
+export CATABOLIC_PYTHON_REFERENCE="$reference_root/src"
 for tool in ffmpeg ffprobe pdftotext tesseract; do
     command -v "$tool" >/dev/null || { echo "Required acceptance tool is missing: $tool" >&2; exit 1; }
 done
@@ -19,23 +21,67 @@ if [ ! -f "$fixtures/schema-32/before.sqlite3" ]; then
     echo "Historical fixtures are missing. Generate them with scripts/migration_fixtures.py from the pinned reference before qualification." >&2
     exit 1
 fi
+# Reproduce interpreter-dependent tables without mutating qualified source bytes.
+"$python" scripts/generate_graphql_printable.py --check
+PYTHONPATH="$CATABOLIC_PYTHON_REFERENCE" "$python" scripts/generate_plex_xml_encodings.py --check
+# Cargo may use an explicit/shared target directory; bind the artifacts Cargo built.
+target_dir=$(cargo metadata --locked --format-version=1 --no-deps | "$python" -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])')
 cargo fmt --all -- --check
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo build --locked -p catabolic-cli -p catabolic-verification -p catabolic-http --bins
+cargo build --locked -p catabolic-cli --example legacy_parse
+cargo build --locked -p catabolic-python
 evidence=.local-tests/rust-migration/m4-plus
 mkdir -p "$evidence/artifacts"
-cp target/debug/catabolic-native "$evidence/artifacts/qualification-native"
-cp target/debug/catabolic-http-experimental "$evidence/artifacts/qualification-http"
+cp "$target_dir"/debug/catabolic-native "$evidence/artifacts/qualification-native"
+cp "$target_dir"/debug/catabolic-http-experimental "$evidence/artifacts/qualification-http"
+cp "$target_dir"/debug/catabolic-legacy-native "$evidence/artifacts/qualification-legacy"
+cp "$target_dir"/debug/examples/legacy_parse "$evidence/artifacts/qualification-parser"
+case "$(uname -s)" in
+    Darwin) extension="$target_dir/debug/lib_native.dylib" ;;
+    *) extension="$target_dir/debug/lib_native.so" ;;
+esac
+cp "$extension" "$evidence/artifacts/qualification-extension.so"
+export CATABOLIC_NATIVE_EXTENSION="$(pwd)/$evidence/artifacts/qualification-extension.so"
 export CATABOLIC_NATIVE_BINARY="$(pwd)/$evidence/artifacts/qualification-native"
 export CATABOLIC_HTTP_BINARY="$(pwd)/$evidence/artifacts/qualification-http"
+export CATABOLIC_LEGACY_BINARY="$(pwd)/$evidence/artifacts/qualification-legacy"
+export CATABOLIC_NATIVE_PARSER_BINARY="$(pwd)/$evidence/artifacts/qualification-parser"
 cargo test --workspace --locked
-cargo test --locked -p catabolic-runtime document::tests -- --include-ignored
-cargo test --locked -p catabolic-store python_native_publication_intents_recover_in_both_directions -- --include-ignored
-"$python" scripts/qualify_native_mutations.py --binary "$CATABOLIC_NATIVE_BINARY" --http-binary "$CATABOLIC_HTTP_BINARY" --report "$evidence/native-results.json"
-target/debug/catabolic-verification check
-target/debug/catabolic-verification check-playback
+# Cargo accepts an empty test filter. Require the exact ignored fixture to exist
+# once, and require one executed success rather than trusting exit status alone.
+required_ignored_test() {
+    scenario=$1
+    shift
+    listing=$(cargo test --locked "$@" "$scenario" -- --ignored --exact --list)
+    printf '%s\n' "$listing" | "$python" -c '
+import sys
+actual = [line.strip() for line in sys.stdin if line.rstrip().endswith(": test")]
+expected = [sys.argv[1] + ": test"]
+if actual != expected:
+    raise SystemExit(f"required ignored fixture identity mismatch: {actual!r} != {expected!r}")
+' "$scenario"
+    output=$(cargo test --locked "$@" "$scenario" -- --ignored --exact)
+    printf '%s\n' "$output"
+    printf '%s\n' "$output" | "$python" -c '
+import re, sys
+summaries = re.findall(r"^test result: .*?$", sys.stdin.read(), re.MULTILINE)
+if len(summaries) != 1 or not summaries[0].startswith("test result: ok. 1 passed; 0 failed; 0 ignored;"):
+    raise SystemExit(f"required ignored fixture did not execute exactly once: {summaries!r}")
+'
+}
+if [ "$(uname -s)" = Linux ]; then
+    required_ignored_test entry_budget_exhaustion_cannot_restart_for_later_sources -p catabolic-runtime --test source_events_independent
+fi
+# The ordinary document cases already ran in the workspace gate above.
+required_ignored_test document::tests::real_pdf_text_and_page_overflow -p catabolic-runtime --lib
+required_ignored_test document::tests::real_single_image_ocr -p catabolic-runtime --lib
+required_ignored_test artifact_mutation::tests::python_native_publication_intents_recover_in_both_directions -p catabolic-store --lib
+"$python" scripts/qualify_native_mutations.py --binary "$CATABOLIC_NATIVE_BINARY" --http-binary "$CATABOLIC_HTTP_BINARY" --legacy-binary "$CATABOLIC_LEGACY_BINARY" --parser-binary "$CATABOLIC_NATIVE_PARSER_BINARY" --extension-binary "$CATABOLIC_NATIVE_EXTENSION" --reference-root "$reference_root" --report "$evidence/native-results.json"
+"$target_dir"/debug/catabolic-verification check
+"$target_dir"/debug/catabolic-verification check-playback
 cargo build --locked --release -p catabolic-cli
-cp target/release/catabolic-native "$evidence/artifacts/qualification-native-release"
+cp "$target_dir"/release/catabolic-native "$evidence/artifacts/qualification-native-release"
 "$python" scripts/check_native_output_gate.py "$(pwd)/$evidence/artifacts/qualification-native-release" > "$evidence/release-output-gate.json"
 "$python" scripts/sync_docs.py --check
 "$python" -m catabolic spec check

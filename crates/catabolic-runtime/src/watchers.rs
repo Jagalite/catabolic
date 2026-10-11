@@ -368,10 +368,28 @@ fn launch(
 }
 fn tick(store: &mut Store, profile: &str, request: &Value) -> Result<Value> {
     if request["native"] == true {
-        return Err(Error(
-            "native filesystem event monitoring is not yet qualified".into(),
-        ));
+        let path = store.path.clone();
+        let mut options = request.clone();
+        options["once"] = json!(true);
+        return store.detached(|| {
+            crate::source_events::supervise_with_poll(
+                &path,
+                profile,
+                &options,
+                &std::sync::atomic::AtomicBool::new(false),
+                &mut || {},
+            )
+        });
     }
+    tick_with_poll(store, profile, request, &mut || Ok(()))
+}
+
+pub(crate) fn tick_with_poll(
+    store: &mut Store,
+    profile: &str,
+    request: &Value,
+    pulse: &mut dyn FnMut() -> Result<()>,
+) -> Result<Value> {
     let limit = count(request, "limit", 100, 1000)?;
     let workers = count(request, "workers", 4, 4)?;
     let timeout = count(request, "timeout_seconds", 120, 120)?;
@@ -392,6 +410,7 @@ fn tick(store: &mut Store, profile: &str, request: &Value) -> Result<Value> {
         let mut active: Vec<Worker> = vec![];
         let mut results = vec![];
         loop {
+            pulse()?;
             while active.len()<workers {
                 let Some(name)=pending.next() else {break};
                 match launch(&binary,&path,profile,&name,&options) {

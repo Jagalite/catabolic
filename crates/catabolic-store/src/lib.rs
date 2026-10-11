@@ -23,6 +23,7 @@ pub mod fallback_publication;
 pub mod fallback_resolution;
 pub mod filesystem_mutation;
 pub mod graphql;
+mod graphql_input;
 pub mod hardlink_mutation;
 pub mod http_mappings;
 pub mod http_operations;
@@ -53,12 +54,14 @@ pub mod rendition_mutation;
 pub mod rules;
 pub mod selection;
 mod source;
+pub mod source_events;
 pub mod sql;
 pub mod tagging;
 pub mod targets;
 mod validation;
 pub mod watcher;
 pub mod webhooks;
+pub mod work_inbox;
 
 use rusqlite::{Connection, OpenFlags};
 use std::fs::{File, OpenOptions};
@@ -629,3 +632,13 @@ mod tests {
         );
     }
 }
+
+pub mod plex_import;
+
+pub mod plex_matching;
+
+pub mod public_reads;
+
+pub mod plex_metadata;
+
+pub mod public_controls;

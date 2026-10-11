@@ -1,0 +1,2227 @@
+{
+  "reference": "453fca983222c6665a48775eef67c489c96b527e",
+  "parser_nodes": 271,
+  "leaf_nodes": 237,
+  "dynamic_variants": 5,
+  "python_remains_default": true,
+  "full_surface_parity": false,
+  "rows": [
+    {
+      "id": "cli:processor put",
+      "command": "processor put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::processors; catabolic_store::processor_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:processor show",
+      "command": "processor show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::processors; catabolic_store::processor_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:processor jobs",
+      "command": "processor jobs",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::processors; catabolic_store::processor_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:processor enqueue",
+      "command": "processor enqueue",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::processors; catabolic_store::processor_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:processor claim",
+      "command": "processor claim",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::processors; catabolic_store::processor_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:processor tick",
+      "command": "processor tick",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::processors; catabolic_store::processor_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:processor job",
+      "command": "processor job",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::processors; catabolic_store::processor_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:processor retry",
+      "command": "processor retry",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::processors; catabolic_store::processor_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:processor cancel",
+      "command": "processor cancel",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::processors; catabolic_store::processor_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:processor heartbeat",
+      "command": "processor heartbeat",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::processors; catabolic_store::processor_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:processor dispatch",
+      "command": "processor dispatch",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::processors; catabolic_store::processor_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:processor complete",
+      "command": "processor complete",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::processors; catabolic_store::processor_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:catalog-refresh enable",
+      "command": "catalog-refresh enable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:catalog-refresh disable",
+      "command": "catalog-refresh disable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:catalog-refresh pending",
+      "command": "catalog-refresh pending",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:catalog-refresh run",
+      "command": "catalog-refresh run",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:catalog-refresh watch",
+      "command": "catalog-refresh watch",
+      "status": "missing_adapter",
+      "native_owner": "catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Native family owner exists; this preserved command adapter is not implemented",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:artifact capabilities",
+      "command": "artifact capabilities",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::artifacts; catabolic_store::{artifact_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:artifact bind",
+      "command": "artifact bind",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::artifacts; catabolic_store::{artifact_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:artifact recipe",
+      "command": "artifact recipe",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::artifacts; catabolic_store::{artifact_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:artifact enqueue",
+      "command": "artifact enqueue",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::artifacts; catabolic_store::{artifact_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:artifact list",
+      "command": "artifact list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::public_artifacts::call -> catabolic_store::public_reads::artifact(list)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:artifact recipes",
+      "command": "artifact recipes",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::public_artifacts::call -> catabolic_store::public_reads::artifact(recipes)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:artifact run",
+      "command": "artifact run",
+      "status": "partial",
+      "native_owner": "catabolic_runtime::artifacts; catabolic_store::{artifact_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Native execution owner exists; exhaustive legacy cancellation/output behavior is not qualified",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:artifact recover",
+      "command": "artifact recover",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::artifacts; catabolic_store::{artifact_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:artifact show",
+      "command": "artifact show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::artifacts; catabolic_store::{artifact_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rendition policy",
+      "command": "rendition policy",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::definitions::dispatch(rendition-get/rendition-put)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:rendition exclude",
+      "command": "rendition exclude",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_controls::rendition_decide(excluded=true)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:rendition allow",
+      "command": "rendition allow",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_controls::rendition_decide(excluded=false)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:rendition import-receipt",
+      "command": "rendition import-receipt",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::receipts; catabolic_store::{output_mutation,definitions,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rendition receipt-source",
+      "command": "rendition receipt-source",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::receipts; catabolic_store::{output_mutation,definitions,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rendition define",
+      "command": "rendition define",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::receipts; catabolic_store::{output_mutation,definitions,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rendition register",
+      "command": "rendition register",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::receipts; catabolic_store::{output_mutation,definitions,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rendition list",
+      "command": "rendition list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_reads::output(definitions=false)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:rendition definitions",
+      "command": "rendition definitions",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_reads::output(definitions=true)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:rendition show",
+      "command": "rendition show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::receipts; catabolic_store::{output_mutation,definitions,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rendition definition",
+      "command": "rendition definition",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::receipts; catabolic_store::{output_mutation,definitions,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:watch",
+      "command": "watch",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Aggregate scan/process watch-loop facade is not implemented",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:proposal put",
+      "command": "proposal put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::curation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:proposal list",
+      "command": "proposal list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::curation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:proposal show",
+      "command": "proposal show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::curation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:proposal accept",
+      "command": "proposal accept",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::curation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:proposal reject",
+      "command": "proposal reject",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::curation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:proposal history",
+      "command": "proposal history",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::curation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:sidecar",
+      "command": "sidecar",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::curation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:expected put",
+      "command": "expected put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::curation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:expected report",
+      "command": "expected report",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::curation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:copies put",
+      "command": "copies put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{definitions,public_controls}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:copies show",
+      "command": "copies show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{definitions,public_controls}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:copies plan",
+      "command": "copies plan",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_controls::copies_plan -> layout::copy_filter",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:process enqueue",
+      "command": "process enqueue",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{public_processing,media}; catabolic_store::{media_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:process run",
+      "command": "process run",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{public_processing,media}; catabolic_store::{media_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:process list",
+      "command": "process list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_reads::processing(list)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:process facts",
+      "command": "process facts",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_reads::processing(facts)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:process show",
+      "command": "process show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{public_processing,media}; catabolic_store::{media_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:process cancel",
+      "command": "process cancel",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{public_processing,media}; catabolic_store::{media_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:process retry",
+      "command": "process retry",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{public_processing,media}; catabolic_store::{media_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:process attempts",
+      "command": "process attempts",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_reads::processing(attempts)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:content duplicates",
+      "command": "content duplicates",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_reads::processing(duplicates)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:content search",
+      "command": "content search",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_reads::processing(search)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:refresh configure",
+      "command": "refresh configure",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Preserved legacy refresh-adapter owner is not implemented",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:refresh list",
+      "command": "refresh list",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Preserved legacy refresh-adapter owner is not implemented",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:refresh run",
+      "command": "refresh run",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Preserved legacy refresh-adapter owner is not implemented",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:refresh retry",
+      "command": "refresh retry",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Preserved legacy refresh-adapter owner is not implemented",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:identify",
+      "command": "identify",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "TMDB candidate-intake business owner is not implemented",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:maintenance",
+      "command": "maintenance",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Aggregate maintenance orchestration and its report renderer are not implemented",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:fallback schema",
+      "command": "fallback schema",
+      "status": "adapted_unqualified",
+      "native_owner": "embedded frozen resource: extra_schemas.fallback",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:fallback put",
+      "command": "fallback put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::fallback; catabolic_store::{fallback_mutation,public_controls}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:fallback show",
+      "command": "fallback show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::fallback; catabolic_store::{fallback_mutation,public_controls}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:fallback list",
+      "command": "fallback list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::fallback; catabolic_store::{fallback_mutation,public_controls}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:fallback bind",
+      "command": "fallback bind",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::fallback; catabolic_store::{fallback_mutation,public_controls}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:fallback resolve",
+      "command": "fallback resolve",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::fallback; catabolic_store::{fallback_mutation,public_controls}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:fallback preview",
+      "command": "fallback preview",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::fallback; catabolic_store::{fallback_mutation,public_controls}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:fallback execute",
+      "command": "fallback execute",
+      "status": "partial",
+      "native_owner": "catabolic_runtime::fallback; catabolic_store::{fallback_mutation,public_controls}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Native fallback publication remains restricted to explicitly disposable debug fixtures; legacy flags cannot bypass it",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:fallback enable",
+      "command": "fallback enable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_controls::fallback(enable)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:fallback disable",
+      "command": "fallback disable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_controls::fallback(disable)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:fallback history",
+      "command": "fallback history",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_controls::fallback(history)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:fallback worker",
+      "command": "fallback worker",
+      "status": "missing_adapter",
+      "native_owner": "catabolic_runtime::fallback; catabolic_store::{fallback_mutation,public_controls}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Underlying native fallback owners exist; this preserved operation adapter is missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:component schema",
+      "command": "component schema",
+      "status": "adapted_unqualified",
+      "native_owner": "embedded frozen resource: extra_schemas.component",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:component show",
+      "command": "component show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::component_packaging; catabolic_store::component_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:component extract",
+      "command": "component extract",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::component_packaging; catabolic_store::component_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:component package",
+      "command": "component package",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::component_packaging; catabolic_store::component_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:inbox list",
+      "command": "inbox list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::work_inbox",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:inbox show",
+      "command": "inbox show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::work_inbox",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:inbox summary",
+      "command": "inbox summary",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::work_inbox",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rule put",
+      "command": "rule put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::rules; catabolic_store::definitions",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rule list",
+      "command": "rule list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::rules; catabolic_store::definitions",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rule show",
+      "command": "rule show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::rules; catabolic_store::definitions",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rule stats",
+      "command": "rule stats",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::rules; catabolic_store::definitions",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rule enable",
+      "command": "rule enable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::rules; catabolic_store::definitions",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rule disable",
+      "command": "rule disable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::rules; catabolic_store::definitions",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rule preview",
+      "command": "rule preview",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::rules; catabolic_store::definitions",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rule apply",
+      "command": "rule apply",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::rules; catabolic_store::definitions",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:rule run",
+      "command": "rule run",
+      "status": "partial",
+      "native_owner": "catabolic_runtime::rules; catabolic_store::definitions",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "--worker orchestration remains refused; default native rule execution is adapted",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:init",
+      "command": "init",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::migration",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:status",
+      "command": "status",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::embedding::application(status)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:target list",
+      "command": "target list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::imports; catabolic_store::targets",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:target show",
+      "command": "target show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::imports; catabolic_store::targets",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:target import",
+      "command": "target import",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::imports; catabolic_store::targets",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:export",
+      "command": "export",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{exports,export_bundle,manifest}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:docs",
+      "command": "docs",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_cli::legacy::dispatch::documentation (embedded frozen guides)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:spec schema",
+      "command": "spec schema",
+      "status": "adapted_unqualified",
+      "native_owner": "embedded frozen resource: spec[format_version].schema",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:spec docs",
+      "command": "spec docs",
+      "status": "adapted_unqualified",
+      "native_owner": "embedded frozen resource: spec[format_version].markdown",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:spec check",
+      "command": "spec check",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::interchange::dispatch(schema) + embedded frozen artifact checks",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:spec validate",
+      "command": "spec validate",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::interchange::decode",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:spec roundtrip",
+      "command": "spec roundtrip",
+      "status": "partial",
+      "native_owner": "catabolic_store::interchange::decode",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Unknown fields and large integer values are preserved; arbitrary extension insertion-order byte parity remains open",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:spec diff",
+      "command": "spec diff",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_cli::legacy::dispatch::diff + embedded frozen schema",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:manifest",
+      "command": "manifest",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::manifest",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:graphql",
+      "command": "graphql",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::graphql",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:layout presets",
+      "command": "layout presets",
+      "status": "adapted_unqualified",
+      "native_owner": "embedded frozen resource: presets",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:layout list",
+      "command": "layout list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{definitions,layout_mutation}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:layout show",
+      "command": "layout show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{definitions,layout_mutation}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:layout put",
+      "command": "layout put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{definitions,layout_mutation}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:layout preview",
+      "command": "layout preview",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{definitions,layout_mutation}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:layout apply",
+      "command": "layout apply",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{definitions,layout_mutation}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:query",
+      "command": "query",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::sql::execute",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:db status",
+      "command": "db status",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::migration",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:db upgrade",
+      "command": "db upgrade",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::migration",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:profile list",
+      "command": "profile list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::migration::rows (profile IDs)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:profile add",
+      "command": "profile add",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::embedding::application(add_profile)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:location list",
+      "command": "location list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_reads::bindings(source)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:location scan-policy",
+      "command": "location scan-policy",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{embedding,public_reads}; catabolic_runtime::observation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:location trust",
+      "command": "location trust",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{embedding,public_reads}; catabolic_runtime::observation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:location bind",
+      "command": "location bind",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{embedding,public_reads}; catabolic_runtime::observation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:catalog list",
+      "command": "catalog list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_reads::bindings(output)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:catalog bind",
+      "command": "catalog bind",
+      "status": "partial",
+      "native_owner": "catabolic_store::{embedding,public_reads,work_inbox}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Implicit creation of an omitted output root remains refused; hardlink safety restrictions remain",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:catalog retained",
+      "command": "catalog retained",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{embedding,public_reads,work_inbox}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:remount",
+      "command": "remount",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::remount",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:scan",
+      "command": "scan",
+      "status": "partial",
+      "native_owner": "catabolic_runtime::public_scan::execute -> observation::execute",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Shared existing native Application.scan owner, with known continuation/barrier/signal qualification gaps retained",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:files",
+      "command": "files",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::query",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:item status",
+      "command": "item status",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation,item_workflow}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:item note",
+      "command": "item note",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation,item_workflow}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:item worklog",
+      "command": "item worklog",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation,item_workflow}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:item require",
+      "command": "item require",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation,item_workflow}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:item requirements",
+      "command": "item requirements",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation,item_workflow}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:item resolve",
+      "command": "item resolve",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation,item_workflow}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:item types",
+      "command": "item types",
+      "status": "adapted_unqualified",
+      "native_owner": "embedded frozen resource: types",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:item list",
+      "command": "item list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation,item_workflow}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:item show",
+      "command": "item show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation,item_workflow}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:item put",
+      "command": "item put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation,item_workflow}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:tag list",
+      "command": "tag list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,tagging}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:tag put",
+      "command": "tag put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,tagging}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:tag rename",
+      "command": "tag rename",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,tagging}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:tag alias",
+      "command": "tag alias",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,tagging}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:tag parent",
+      "command": "tag parent",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,tagging}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:tag add",
+      "command": "tag add",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,tagging}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:tag remove",
+      "command": "tag remove",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,tagging}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:tag assignments",
+      "command": "tag assignments",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,tagging}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:association list",
+      "command": "association list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:association put",
+      "command": "association put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:association disable",
+      "command": "association disable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:relationship list",
+      "command": "relationship list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:relationship put",
+      "command": "relationship put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:relationship disable",
+      "command": "relationship disable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,curation}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:mapping list",
+      "command": "mapping list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,embedding}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:mapping put",
+      "command": "mapping put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,embedding}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:mapping disable",
+      "command": "mapping disable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{query,embedding}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:sync",
+      "command": "sync",
+      "status": "partial",
+      "native_owner": "catabolic_store::filesystem_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Existing native symlink/hardlink/fallback mutation qualification gates remain enforced",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:verify",
+      "command": "verify",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::filesystem_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:recover",
+      "command": "recover",
+      "status": "partial",
+      "native_owner": "catabolic_store::filesystem_mutation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Existing native symlink/hardlink/fallback recovery qualification gates remain enforced",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:program export",
+      "command": "program export",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::programs",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:program import",
+      "command": "program import",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::programs",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:operation types",
+      "command": "operation types",
+      "status": "adapted_unqualified",
+      "native_owner": "embedded frozen resource: operation_types",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:operation schema",
+      "command": "operation schema",
+      "status": "adapted_unqualified",
+      "native_owner": "embedded frozen resource: definition_schemas.operation",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:operation put",
+      "command": "operation put",
+      "status": "partial",
+      "native_owner": "catabolic_runtime::{media,artifacts}; catabolic_store::{media_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Analysis and render branches are adapted; external-definition admission remains refused",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:operation show",
+      "command": "operation show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{media,artifacts}; catabolic_store::{media_mutation,public_reads}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:operation list",
+      "command": "operation list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_reads::artifact(recipes)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:projection schema",
+      "command": "projection schema",
+      "status": "adapted_unqualified",
+      "native_owner": "embedded frozen resource: definition_schemas.projection",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:projection mapping-capabilities",
+      "command": "projection mapping-capabilities",
+      "status": "partial",
+      "native_owner": "embedded frozen resource: mapping_capabilities",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Exact values are embedded natively; frozen set-derived adapter order varies with Python hash seed, so arbitrary-seed stdout byte order remains an explicit gap",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:projection http-operation-list",
+      "command": "projection http-operation-list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_controls::http_operation(list)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:projection http-operation-put",
+      "command": "projection http-operation-put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::api::execute(http-operations, put)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:projection http-operation-show",
+      "command": "projection http-operation-show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::public_controls::http_operation(get)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:projection http-operation-disable",
+      "command": "projection http-operation-disable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::api::execute(http-operations, disable)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:projection http-operation-retry",
+      "command": "projection http-operation-retry",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::api::execute(http-operations, retry)",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:projection mapping-events",
+      "command": "projection mapping-events",
+      "status": "missing_adapter",
+      "native_owner": "catabolic_store::{definitions,filesystem_mutation,http_operations,public_controls}; catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Underlying native planning/mapping owners exist; this preserved operation adapter is missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:projection mapping-preview",
+      "command": "projection mapping-preview",
+      "status": "missing_adapter",
+      "native_owner": "catabolic_store::{definitions,filesystem_mutation,http_operations,public_controls}; catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Underlying native planning/mapping owners exist; this preserved operation adapter is missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:projection mapping-apply",
+      "command": "projection mapping-apply",
+      "status": "missing_adapter",
+      "native_owner": "catabolic_store::{definitions,filesystem_mutation,http_operations,public_controls}; catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Underlying native planning/mapping owners exist; this preserved operation adapter is missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:projection mapping-recover",
+      "command": "projection mapping-recover",
+      "status": "missing_adapter",
+      "native_owner": "catabolic_store::{definitions,filesystem_mutation,http_operations,public_controls}; catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Underlying native planning/mapping owners exist; this preserved operation adapter is missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:projection put",
+      "command": "projection put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{definitions,filesystem_mutation,http_operations,public_controls}; catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:projection show",
+      "command": "projection show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{definitions,filesystem_mutation,http_operations,public_controls}; catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:projection preview",
+      "command": "projection preview",
+      "status": "missing_adapter",
+      "native_owner": "catabolic_store::{definitions,filesystem_mutation,http_operations,public_controls}; catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Underlying native planning/mapping owners exist; this preserved operation adapter is missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:projection execute",
+      "command": "projection execute",
+      "status": "missing_adapter",
+      "native_owner": "catabolic_store::{definitions,filesystem_mutation,http_operations,public_controls}; catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Underlying native planning/mapping owners exist; this preserved operation adapter is missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:projection verify",
+      "command": "projection verify",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{definitions,filesystem_mutation,http_operations,public_controls}; catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:projection recover",
+      "command": "projection recover",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{definitions,filesystem_mutation,http_operations,public_controls}; catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:projection enable-auto",
+      "command": "projection enable-auto",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{definitions,filesystem_mutation,http_operations,public_controls}; catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:projection disable-auto",
+      "command": "projection disable-auto",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::{definitions,filesystem_mutation,http_operations,public_controls}; catabolic_runtime::catalog_refresh",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:watcher put",
+      "command": "watcher put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::watchers; catabolic_store::{watcher,plans}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:watcher show",
+      "command": "watcher show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::watchers; catabolic_store::{watcher,plans}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:watcher enable",
+      "command": "watcher enable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::watchers; catabolic_store::{watcher,plans}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:watcher disable",
+      "command": "watcher disable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::watchers; catabolic_store::{watcher,plans}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:watcher run",
+      "command": "watcher run",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::watchers; catabolic_store::{watcher,plans}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:watcher history",
+      "command": "watcher history",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::watchers; catabolic_store::{watcher,plans}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:watcher preview",
+      "command": "watcher preview",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::watchers; catabolic_store::{watcher,plans}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:watcher list",
+      "command": "watcher list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::watchers; catabolic_store::{watcher,plans}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:watcher pending",
+      "command": "watcher pending",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::watchers; catabolic_store::{watcher,plans}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:watcher schema",
+      "command": "watcher schema",
+      "status": "adapted_unqualified",
+      "native_owner": "embedded frozen resource: extra_schemas.watcher",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:supervise",
+      "command": "supervise",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::source_events -> watchers",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:api serve",
+      "command": "api serve",
+      "status": "safety_gated",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Legacy api serve refuses; companion requires --experimental-native-http and loopback",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:api worker",
+      "command": "api worker",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Administrative parser exists; native access-control CLI adapters/secret-file contracts remain missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:api principal-put",
+      "command": "api principal-put",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Administrative parser exists; native access-control CLI adapters/secret-file contracts remain missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:api grant-put",
+      "command": "api grant-put",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Administrative parser exists; native access-control CLI adapters/secret-file contracts remain missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:api token-create",
+      "command": "api token-create",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Administrative parser exists; native access-control CLI adapters/secret-file contracts remain missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:api token-rotate",
+      "command": "api token-rotate",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Administrative parser exists; native access-control CLI adapters/secret-file contracts remain missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:api token-revoke",
+      "command": "api token-revoke",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Administrative parser exists; native access-control CLI adapters/secret-file contracts remain missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:api tokens",
+      "command": "api tokens",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Administrative parser exists; native access-control CLI adapters/secret-file contracts remain missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:api principal-disable",
+      "command": "api principal-disable",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Administrative parser exists; native access-control CLI adapters/secret-file contracts remain missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:api grant-disable",
+      "command": "api grant-disable",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Administrative parser exists; native access-control CLI adapters/secret-file contracts remain missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:api operation-disable",
+      "command": "api operation-disable",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Administrative parser exists; native access-control CLI adapters/secret-file contracts remain missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:api source-expose",
+      "command": "api source-expose",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Administrative parser exists; native access-control CLI adapters/secret-file contracts remain missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:api operation-approve",
+      "command": "api operation-approve",
+      "status": "missing_adapter",
+      "native_owner": null,
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Administrative parser exists; native access-control CLI adapters/secret-file contracts remain missing",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer plex-login",
+      "command": "consumer plex-login",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer plex-login-complete",
+      "command": "consumer plex-login-complete",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer import",
+      "command": "consumer import",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer metadata",
+      "command": "consumer metadata",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer metadata-match",
+      "command": "consumer metadata-match",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer metadata-matches",
+      "command": "consumer metadata-matches",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer connection-put",
+      "command": "consumer connection-put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer discover",
+      "command": "consumer discover",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer bind",
+      "command": "consumer bind",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer create",
+      "command": "consumer create",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer bindings",
+      "command": "consumer bindings",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer connections",
+      "command": "consumer connections",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer attempts",
+      "command": "consumer attempts",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer events",
+      "command": "consumer events",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer creations",
+      "command": "consumer creations",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer publications",
+      "command": "consumer publications",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer disable",
+      "command": "consumer disable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer enable",
+      "command": "consumer enable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer retry",
+      "command": "consumer retry",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer verify-indexing",
+      "command": "consumer verify-indexing",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer run",
+      "command": "consumer run",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:consumer watch",
+      "command": "consumer watch",
+      "status": "missing_adapter",
+      "native_owner": "catabolic_runtime::{consumers,plex_login,plex_import,plex_matching,plex_metadata}",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "gap": "Native family owner exists; this preserved command adapter is not implemented",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:notify put",
+      "command": "notify put",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::notifications; catabolic_store::notifications",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:notify status",
+      "command": "notify status",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::notifications; catabolic_store::notifications",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:notify run",
+      "command": "notify run",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::notifications; catabolic_store::notifications",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:notify disable",
+      "command": "notify disable",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::notifications; catabolic_store::notifications",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:notify retry",
+      "command": "notify retry",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::notifications; catabolic_store::notifications",
+      "parser": "native_frozen_tree",
+      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
+      "owner_mapping": "family"
+    },
+    {
+      "id": "cli:query save",
+      "command": "query save",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::api::execute(definitions, query-put)",
+      "parser": "dynamic_saved_query_dispatch",
+      "qualification": "Selected dynamic-query scenarios; no full-leaf claim",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:query show",
+      "command": "query show",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::api::execute(definitions, query-get)",
+      "parser": "dynamic_saved_query_dispatch",
+      "qualification": "Selected dynamic-query scenarios; no full-leaf claim",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:query list",
+      "command": "query list",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::api::execute(definitions, query-list)",
+      "parser": "dynamic_saved_query_dispatch",
+      "qualification": "Selected dynamic-query scenarios; no full-leaf claim",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:query run",
+      "command": "query run",
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::selection::Evaluation::run",
+      "parser": "dynamic_saved_query_dispatch",
+      "qualification": "Selected dynamic-query scenarios; no full-leaf claim",
+      "owner_mapping": "entrypoint"
+    },
+    {
+      "id": "cli:query contract",
+      "command": "query contract",
+      "status": "adapted_unqualified",
+      "native_owner": "embedded frozen resource: definition_schemas.query",
+      "parser": "dynamic_saved_query_dispatch",
+      "qualification": "Selected dynamic-query scenarios; no full-leaf claim",
+      "owner_mapping": "entrypoint"
+    }
+  ]
+}

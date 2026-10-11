@@ -118,6 +118,36 @@ impl NativeStore {
             )),
         })
     }
+    #[staticmethod]
+    fn validate_query(surface: &str, request: &str, profile: &str) -> PyResult<String> {
+        let args: Value = catabolic_core::decode_json(request)
+            .map_err(|error| CatabolicError::new_err(error.to_string()))?;
+        let result = if surface == "graphql" {
+            catabolic_store::graphql::validate_before_context(
+                args["document"].as_str().unwrap_or(""),
+                &args["variables"],
+                args["timeout_ms"].as_u64().unwrap_or(0),
+                false,
+            )
+        } else {
+            catabolic_store::sql::validate_request(
+                args["sql"].as_str(),
+                &catabolic_store::sql::Options {
+                    profile,
+                    params: args["params"].as_str(),
+                    describe: args["describe"].as_bool().unwrap_or(false),
+                    max_rows: args["max_rows"].as_u64().unwrap_or(0) as usize,
+                    timeout_ms: args["timeout_ms"].as_u64().unwrap_or(0),
+                    stable: args["_stable"].as_bool().unwrap_or(false),
+                    http: args["_http"].as_bool().unwrap_or(false),
+                },
+            )
+            .map(|_| None)
+        };
+        result
+            .map(|value| value.unwrap_or(Value::Null).to_string())
+            .map_err(error)
+    }
     fn info(&self, py: Python<'_>) -> PyResult<String> {
         self.run(py, |s| Ok(s.info())).map(|v| v.to_string())
     }
@@ -185,6 +215,7 @@ impl NativeStore {
         request: &str,
         profile: &str,
     ) -> PyResult<String> {
+        let raw_request = request;
         let request: Value = catabolic_core::decode_json(request)
             .map_err(|e| CatabolicError::new_err(e.to_string()))?;
         if !request.is_object() {
@@ -192,18 +223,86 @@ impl NativeStore {
                 "native request must be a JSON object",
             ));
         }
+        if surface == "query_execution" {
+            let signal = Arc::new(Mutex::new(None));
+            let captured = signal.clone();
+            let value = self.run(py, |session| {
+                catabolic_store::embedding::with_interrupt_check(
+                    move || {
+                        // A consumed Python exception remains cancellation for
+                        // every later resolver/SQL poll in this native call.
+                        if captured.lock().unwrap().is_some() {
+                            return true;
+                        }
+                        Python::attach(|py| match py.check_signals() {
+                            Ok(()) => false,
+                            Err(error) => {
+                                *captured.lock().unwrap() = Some(error);
+                                true
+                            }
+                        })
+                    },
+                    || session.query_call_json(profile, operation, raw_request),
+                )
+            });
+            if let Some(error) = signal.lock().unwrap().take() {
+                return Err(error);
+            }
+            return value.map(|v| v.to_string());
+        }
+        if (surface == "artifacts" && ["enqueue", "run", "recover"].contains(&operation))
+            || (surface == "processing" && ["enqueue", "run"].contains(&operation))
+        {
+            let signal = Arc::new(Mutex::new(None));
+            let captured = signal.clone();
+            let value = self.run(py, |session| {
+                crate::artifacts_processing::call(
+                    session, profile, surface, operation, &request, captured,
+                )
+            });
+            if let Some(error) = signal.lock().unwrap().take() {
+                return Err(error);
+            }
+            return value.map(|value| value.to_string());
+        }
         if surface == "application" && operation == "scan" {
             return self
-                .run(py, |session| scan(session.store_mut()?, profile, &request))
+                .run(py, |session| {
+                    catabolic_runtime::public_scan::execute(session.store_mut()?, profile, &request)
+                })
                 .map(|v| v.to_string());
         }
         self.read(py, |store| match surface {
+            "artifacts" => {
+                catabolic_runtime::public_artifacts::call(store, profile, operation, &request)
+            }
+            "processing" => crate::artifacts_processing::read(store, profile, operation, &request),
             "application" => {
                 catabolic_store::embedding::application(store, profile, operation, &request)
+            }
+            "saved_queries" => {
+                catabolic_store::definitions::dispatch(store, profile, operation, &request)
             }
             "query" => catabolic_store::query::CatalogQuery::new(store, profile)?
                 .execute(operation, &request),
             "tagging" => catabolic_store::tagging::dispatch(store, profile, operation, &request),
+            "item_workflow" => {
+                catabolic_store::item_workflow::dispatch(store, profile, operation, &request)
+            }
+            "curation" => match operation {
+                "snapshot" => catabolic_store::curation::proposal_snapshot(
+                    store,
+                    profile,
+                    request["file_id"].as_str().unwrap_or(""),
+                    &request["payload"],
+                ),
+                "occurrence" => catabolic_store::curation::occurrence(
+                    store,
+                    profile,
+                    request["file_id"].as_str().unwrap_or(""),
+                ),
+                _ => catabolic_store::curation::dispatch(store, profile, operation, &request),
+            },
             "media" => {
                 catabolic_store::mutation::profile(store, profile)?;
                 if operation == "associate_in_transaction" {
@@ -229,88 +328,7 @@ impl NativeStore {
         })
     }
 }
-fn scan(store: &mut catabolic_store::Store, profile: &str, request: &Value) -> Result<Value> {
-    catabolic_store::mutation::profile(store, profile)?;
-    let mut args = request.clone();
-    if request["scopes"].as_array().is_some_and(|a| !a.is_empty())
-        && request["continue_id"].is_null()
-    {
-        return Err(Error(
-            "--scope selects outstanding work; use --continue-request".into(),
-        ));
-    }
-    let excludes = request["exclude"].as_array().cloned().unwrap_or_default();
-    let continuation = !request["continue_id"].is_null();
-    let resume = !request["request_id"].is_null();
-    if continuation && (resume || !request["location"].is_null() || !excludes.is_empty()) {
-        return Err(Error(
-            "continuation uses the original source and exclusions".into(),
-        ));
-    }
-    if resume
-        && (request["extended"] == true
-            || request["budgets"]
-                .as_object()
-                .is_some_and(|o| !o.is_empty())
-            || request["scopes"].as_array().is_some_and(|a| !a.is_empty()))
-    {
-        return Err(Error(
-            "use --continue-request to amend execution budgets".into(),
-        ));
-    }
-    if resume && (!request["location"].is_null() || !excludes.is_empty()) {
-        return Err(Error(
-            "resuming a scan uses its recorded scope (source and exclusions)".into(),
-        ));
-    }
-    args["exclude"] = json!(excludes);
-    for key in ["budgets", "scopes", "continue_id", "request_id"] {
-        if args[key].is_null()
-            || key == "scopes" && args[key].as_array().is_some_and(|a| a.is_empty())
-        {
-            args.as_object_mut().unwrap().remove(key);
-        }
-    }
-    if resume || continuation {
-        return catabolic_runtime::observation::execute(store, profile, "scan", &args);
-    }
-    let sources = if let Some(source) = request["location"].as_str() {
-        vec![source.to_owned()]
-    } else {
-        catabolic_store::migration::rows(&store.db, "SELECT id FROM locations ORDER BY id", &[])?
-            .into_iter()
-            .map(|r| r["id"].as_str().unwrap().to_owned())
-            .collect()
-    };
-    let mut scans = vec![];
-    let mut observations = vec![];
-    let mut complete = true;
-    let mut started = 0;
-    for source in &sources {
-        args["source"] = json!(source);
-        args["reuse_completed"] = json!(false);
-        let value = catabolic_runtime::observation::execute(store, profile, "scan", &args)?;
-        complete &= value["complete"] == true;
-        started += 1;
-        if let Some(v) = value["scans"].as_array() {
-            scans.extend(v.iter().cloned());
-        }
-        if let Some(v) = value["observations"].as_array() {
-            observations.extend(v.iter().cloned());
-        }
-        if observations.last().is_some_and(|r| {
-            matches!(
-                r["report"]["blocker"].as_str(),
-                Some("temporary_storage_low" | "temporary_storage_budget")
-            )
-        }) {
-            break;
-        }
-    }
-    Ok(
-        json!({"complete":complete,"scans":scans,"observations":observations,"unstarted_sources":&sources[started..]}),
-    )
-}
+
 pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<NativeStore>()?;
     module.add("CatabolicError", module.py().get_type::<CatabolicError>())?;

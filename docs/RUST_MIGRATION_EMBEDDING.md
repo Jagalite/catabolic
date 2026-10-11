@@ -3,8 +3,11 @@
 This is an **opt-in, partial M10 checkpoint**, not a replacement for the default
 `catabolic` package or a declaration that the Python API is fully migrated.
 `catabolic_native` now exposes `Store`, `Application`, `CatalogQuery`,
-`MediaCatalog`, and `Tagging`, including matching signatures for all 23
+`MediaCatalog`, `Tagging`, `ItemWorkflow`, and `Curation`, plus
+`catabolic_native.curation.occurrence`, including matching signatures for all 23
 `preserve-embedding-facade` inventory rows. The original package is unchanged.
+The selected public gate now checks 69 signatures: the previous 47 plus all 22
+preserved workflow/curation class, constructor, method and occurrence rows.
 
 ## Ownership and public boundary
 
@@ -63,6 +66,16 @@ relationship and tagging facades delegate to existing Store owners. Scanning
 uses the shared native runtime observation owner through `&mut Store`; the
 embedding does not open another Store behind an active session.
 
+ItemWorkflow delegates all seven public methods to the existing native
+`item_workflow` owner. Curation delegates its ten public methods to the existing
+native curation owner; snapshot and occurrence borrow the same session too.
+Proposal JSON fields are decoded by the native owner. Source/evidence arguments,
+string proposal cursors, integer worklog/history/member cursors, and explicit
+optimistic revisions retain their frozen signatures. Curation history keeps its
+legacy SQLite scalar cursor behavior; proposal listing and sidecar discovery also bind numeric,
+boolean and text cursors rather than treating them as an empty cursor. Both
+facades participate in their Store's outer transaction and nested savepoints.
+
 ## Explicit gaps and differences
 
 These prevent a full M10/public-Python parity claim:
@@ -91,10 +104,20 @@ These prevent a full M10/public-Python parity claim:
    `catabolic_native.CatabolicError` (a RuntimeError subclass), not classes
    imported from the separately installed legacy package. Exhaustive sqlite
    exception-category equivalence is not qualified
-7. The remaining repository-consumer service imports are still absent from the
-   persistent facade. Existing companion operations do not count as persistent
-   facade parity. Pure value/selected-contract tests do not qualify all possible
-   arguments, failure paths or methods of a service
+7. A [separate query checkpoint](RUST_MIGRATION_QUERY_EMBEDDING.md) adds persistent
+   saved-query and SQL/GraphQL module facades with ten additional selected rows;
+   this document's 69-row / 19-test / 82-group gate remains unchanged. Other
+   repository-consumer imports remain incomplete. Existing companion operations
+   do not count as persistent facade parity. Pure value/selected-contract tests
+   do not qualify all possible arguments, failure paths or methods of a service
+8. Workflow/curation selected-contract coverage is not exhaustive. The installed
+   report names the actual calls and exact remaining gap for each of the 22 new
+   rows. Not yet qualified here: component assertion/identify proposal branches,
+   every processing/rule/artifact completion combination, all byte/count budget
+   boundaries, ambiguous sidecar scopes, and source-change races. The JSON facade
+   does not accept legacy SQLite blob/memoryview pagination arguments; error
+   classes remain the explicit native exceptions described above. Existing
+   source-validation gates have not been relaxed or independently security-reviewed
 
 ## Reproducible qualification
 
@@ -126,14 +149,20 @@ module is bound to those frozen bytes. Both child runs bypass existing bytecode
 caches. An archived directory inside a different Git checkout does not qualify.
 The native scenario runs with the installed wheel and isolated
 Python import mode. Both receive copies of one initialized disposable database,
-so stable IDs/cursors can be compared exactly. Thirteen installed tests cover native
-lifecycle/SQL/signals/concurrency and a paired scenario compares 33 selected
-results across Application, Store, query, media and tagging services.
+so stable IDs/cursors can be compared exactly. Nineteen installed tests cover native
+lifecycle/SQL/signals/concurrency, including workflow/curation nested rollback,
+read snapshots, read-only/closed/detached refusal, lost-transaction blocking,
+cross-thread scope rejection, and actual service-call SIGINT rollback. A paired
+scenario compares 82 selected result groups across Application, Store, query,
+media, tagging, workflow and curation services. Generated requirement UUIDs and
+timestamps are explicitly normalized; deterministic proposal IDs and cursors
+remain exact. The report separately records calls from installed acceptance
+and from the paired frozen/native scenario.
 
 The report reuses the shared strict wheel verifier, rejects empty/incomplete
 archives, binds the exact installed payload inventory to the supplied wheel, hashes every
 installed package file, records the inventory hash and independently verified oracle commit, and emits
-one provenance row for each of the 47 exposed inventory entries. Actual facade call counts are recorded per method; uncalled rows remain
+one provenance row for each of the 69 exposed inventory entries. Actual facade call counts are recorded per method; uncalled rows remain
 untested. Executed rows are labelled selected-contract coverage, with
 method-specific gaps; it does not
 upgrade the inventory or assert all M10 rows qualified. Omitting the frozen
@@ -142,3 +171,23 @@ oracle or wheel argument produces correspondingly weaker recorded evidence.
 Dev-wheel evidence is not final platform/release evidence. Parent artifact
 qualification must repeat the installed suite against each exact final wheel
 and promised Python/platform combination.
+
+## Separate companion Plex import signal qualification
+
+The `execute_operation(..., "plex-import", "run", ...)` companion route uses the
+runtime's polling cancellation bridge. It preserves the original Python signal
+exception after the bounded remote-read worker is joined and the Store is
+released. This is separate from persistent-facade coverage and leaves the
+existing catalog-import structured cancellation result unchanged.
+
+Run the separate installed-only loopback/fake-credential suite against the final
+wheel, outside the checkout:
+
+```sh
+/path/to/clean/bin/python -I /path/to/repo/scripts/native_plex_import_embedding_tests.py \
+  --wheel /path/to/exact.whl --report /path/to/plex-import-pyo3-proof.json
+```
+
+Its two tests cover SIGINT and a custom Python signal exception during a blocked
+HTTP read, catalog byte preservation, writer availability, retry and idempotence.
+It does not qualify every page/batch cancellation schedule or live Plex service.

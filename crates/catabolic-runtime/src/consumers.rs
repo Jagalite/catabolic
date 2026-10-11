@@ -16,11 +16,14 @@ use std::{
     time::Duration,
 };
 
+mod xml;
+mod xml_encodings;
+
 type NetworkResult<T> = std::result::Result<T, Failure>;
 // Consumer administration owns this snapshot. Network reads deliberately end
 // it, detach the catalog, then establish a fresh snapshot for revision fencing.
 // Do not use this helper with an authorization Evaluation owned elsewhere.
-fn network<T>(store: &mut Store, operation: impl FnOnce() -> Result<T>) -> Result<T> {
+pub(crate) fn network<T>(store: &mut Store, operation: impl FnOnce() -> Result<T>) -> Result<T> {
     let reading = !store.writable && !store.db.is_autocommit();
     if reading {
         store.db.execute_batch("COMMIT")?;
@@ -44,7 +47,7 @@ fn text(value: Option<&str>, maximum: usize) -> NetworkResult<&str> {
         .filter(|s| !s.is_empty() && s.chars().count() <= maximum && !s.chars().any(|c| c < ' '))
         .ok_or_else(|| Failure::new("invalid_configuration"))
 }
-fn quote(value: &str) -> String {
+pub(crate) fn quote(value: &str) -> String {
     let mut result = String::new();
     for b in value.bytes() {
         if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {
@@ -55,6 +58,17 @@ fn quote(value: &str) -> String {
         }
     }
     result
+}
+// ElementTree's unqualified lookup never accepts a namespaced lookalike.
+fn xml_named(node: roxmltree::Node<'_, '_>, name: &str) -> bool {
+    node.is_element()
+        && node.tag_name().namespace().is_none_or(str::is_empty)
+        && node.tag_name().name() == name
+}
+fn xml_attribute<'a>(node: roxmltree::Node<'a, '_>, name: &str) -> Option<&'a str> {
+    node.attributes()
+        .find(|a| a.namespace().is_none() && a.name() == name)
+        .map(|a| a.value())
 }
 fn credentials(connection: &Value) -> NetworkResult<(String, Option<String>)> {
     let unauthorized = || Failure::new("unauthorized");
@@ -122,13 +136,13 @@ fn retry_after(raw: Option<&str>) -> f64 {
         .map(|d| (d.timestamp() as f64 - catabolic_store::notifications::now()).clamp(0.0, 86400.0))
         .unwrap_or(60.0)
 }
-struct Adapter {
+pub(crate) struct Adapter {
     connection: Value,
     agent: ureq::Agent,
     base: String,
 }
 impl Adapter {
-    fn new(connection: &Value) -> NetworkResult<Self> {
+    pub(crate) fn new(connection: &Value) -> NetworkResult<Self> {
         if !matches!(
             connection["application"].as_str(),
             Some("plex" | "jellyfin")
@@ -141,6 +155,10 @@ impl Adapter {
                 .map_err(|_| Failure::new("invalid_configuration"))?,
             agent: ureq::Agent::config_builder()
                 .proxy(None)
+                // The frozen urllib adapter uses one connection per request.
+                // Do not reuse a completed HTTP/1.0 connection while its FIN
+                // is still in flight; a second request can otherwise be lost.
+                .max_idle_connections(0)
                 .max_redirects(0)
                 .http_status_as_error(false)
                 .timeout_global(Some(Duration::from_secs(15)))
@@ -152,7 +170,14 @@ impl Adapter {
     fn plex(&self) -> bool {
         self.connection["application"] == "plex"
     }
-    fn call(&self, route: &str, post: bool) -> NetworkResult<Vec<u8>> {
+    pub(crate) fn call(&self, route: &str, post: bool) -> NetworkResult<Vec<u8>> {
+        self.request(route, if post { "POST" } else { "GET" })
+    }
+    /// A single fresh-connection metadata write. Never replay a lost response.
+    pub(crate) fn put(&self, route: &str) -> NetworkResult<Vec<u8>> {
+        self.request(route, "PUT")
+    }
+    fn request(&self, route: &str, method: &str) -> NetworkResult<Vec<u8>> {
         let (secret, client) = credentials(&self.connection)?;
         let header = if self.plex() {
             "X-Plex-Token"
@@ -166,12 +191,15 @@ impl Adapter {
         };
         let url = format!("{}{route}", self.base);
         // Never forward credentials through a redirect or ambient proxy.
-        let result = if post {
-            let mut request = self
-                .agent
-                .post(&url)
-                .header(header, &secret)
-                .header("Accept", accept);
+        let result = if method != "GET" {
+            let mut request = if method == "PUT" {
+                self.agent.put(&url)
+            } else {
+                self.agent.post(&url)
+            }
+            .header("Connection", "close")
+            .header(header, &secret)
+            .header("Accept", accept);
             if let Some(client) = &client {
                 request = request
                     .header("X-Plex-Client-Identifier", client)
@@ -182,6 +210,7 @@ impl Adapter {
             let mut request = self
                 .agent
                 .get(&url)
+                .header("Connection", "close")
                 .header(header, &secret)
                 .header("Accept", accept);
             if let Some(client) = &client {
@@ -231,31 +260,18 @@ impl Adapter {
         }
         Ok(bytes)
     }
-    fn xml<'a>(&self, raw: &'a [u8]) -> NetworkResult<roxmltree::Document<'a>> {
-        // Match frozen adapter's explicit DTD/entity ban, including empty DTDs.
-        let text = std::str::from_utf8(raw).map_err(|_| invalid())?;
-        let upper = text.to_ascii_uppercase();
-        if upper.contains("<!DOCTYPE") || upper.contains("<!ENTITY") {
-            return Err(invalid());
-        }
-        roxmltree::Document::parse_with_options(
-            text,
-            roxmltree::ParsingOptions {
-                allow_dtd: false,
-                nodes_limit: 200_000,
-                entity_resolver: None,
-            },
-        )
-        .map_err(|_| invalid())
+    pub(crate) fn xml<'a>(&self, raw: &'a [u8]) -> NetworkResult<xml::XmlText<'a>> {
+        xml::XmlText::decode(raw)
     }
     fn inspect(&self) -> NetworkResult<Value> {
         let capabilities = json!({"identity":true,"libraries":true,"create_library":self.plex(),"section_scan":true,"targeted_scan":false,"scan_activity":self.plex(),"indexed_paths":self.plex()});
         if self.plex() {
             let raw = self.call("/", false)?;
-            let document = self.xml(&raw)?;
+            let xml = self.xml(&raw)?;
+            let document = xml.parse()?;
             let root = document.root_element();
             Ok(
-                json!({"server_id":text(root.attribute("machineIdentifier"),4096)?,"version":text(root.attribute("version"),4096)?,"permissions":{"discovery":"authorized","mutations":"unknown; checked on request","read_only_libraries":root.attribute("readOnlyLibraries")},"capabilities":capabilities}),
+                json!({"server_id":text(xml_attribute(root, "machineIdentifier"),4096)?,"version":text(xml_attribute(root, "version"),4096)?,"permissions":{"discovery":"authorized","mutations":"unknown; checked on request","read_only_libraries":xml_attribute(root, "readOnlyLibraries")},"capabilities":capabilities}),
             )
         } else {
             let value = catabolic_core::decode_json_bytes(&self.call("/System/Info", false)?)
@@ -268,21 +284,22 @@ impl Adapter {
             )
         }
     }
-    fn libraries(&self) -> NetworkResult<Vec<Value>> {
+    pub(crate) fn libraries(&self) -> NetworkResult<Vec<Value>> {
         if self.plex() {
             let raw = self.call("/library/sections", false)?;
-            let document = self.xml(&raw)?;
+            let xml = self.xml(&raw)?;
+            let document = xml.parse()?;
             let nodes: Vec<_> = document
                 .root_element()
                 .children()
-                .filter(|n| n.has_tag_name("Directory"))
+                .filter(|n| xml_named(*n, "Directory"))
                 .collect();
             if nodes.len() > 1000 {
                 return Err(Failure::new("response_limit"));
             }
             nodes.into_iter().map(|r|{
-                let mut roots=r.children().filter(|n|n.has_tag_name("Location")).map(|n|policy::path(text(n.attribute("path"),4096)?,false).map_err(|e|Failure::new(&e.0))).collect::<NetworkResult<Vec<_>>>()?;roots.sort();
-                Ok(json!({"id":text(r.attribute("key"),128)?,"uuid":text(r.attribute("uuid"),256)?,"name":text(r.attribute("title"),4096)?,"type":text(r.attribute("type"),64)?,"roots":roots,"scanner":r.attribute("scanner"),"agent":r.attribute("agent"),"created_at":r.attribute("createdAt"),"scanning":match r.attribute("refreshing"){Some("1")=>Some(true),Some("0")=>Some(false),_=>None}}))
+                let mut roots=r.children().filter(|n|xml_named(*n, "Location")).map(|n|policy::path(text(xml_attribute(n, "path"),4096)?,false).map_err(|e|Failure::new(&e.0))).collect::<NetworkResult<Vec<_>>>()?;roots.sort();
+                Ok(json!({"id":text(xml_attribute(r, "key"),128)?,"uuid":text(xml_attribute(r, "uuid"),256)?,"name":text(xml_attribute(r, "title"),4096)?,"type":text(xml_attribute(r, "type"),64)?,"roots":roots,"scanner":xml_attribute(r, "scanner"),"agent":xml_attribute(r, "agent"),"created_at":xml_attribute(r, "createdAt"),"scanning":match xml_attribute(r, "refreshing"){Some("1")=>Some(true),Some("0")=>Some(false),_=>None}}))
             }).collect()
         } else {
             let raw = self.call("/Library/VirtualFolders", false)?;
@@ -302,7 +319,7 @@ impl Adapter {
             }).collect()
         }
     }
-    fn validate(&self, library: Option<&Value>) -> NetworkResult<Value> {
+    pub(crate) fn validate(&self, library: Option<&Value>) -> NetworkResult<Value> {
         let identity = self.inspect()?;
         if identity["server_id"] != self.connection["server_id"] {
             return Err(Failure::new("server_identity_changed"));
@@ -362,12 +379,13 @@ impl Adapter {
             _ => return Err(Failure::new("unsupported")),
         };
         let raw=self.call(&format!("/library/sections/{}/all?type={media_type}&X-Plex-Container-Start=0&X-Plex-Container-Size={limit}",quote(field(library,"id")?)),false)?;
-        let document = self.xml(&raw)?;
+        let xml = self.xml(&raw)?;
+        let document = xml.parse()?;
         let root = document.root_element();
         let found: BTreeSet<_> = root
             .descendants()
-            .filter(|n| n.has_tag_name("Part"))
-            .filter_map(|n| n.attribute("file"))
+            .filter(|n| xml_named(*n, "Part"))
+            .filter_map(|n| xml_attribute(n, "file"))
             .collect();
         let matched: Vec<_> = expected
             .iter()
@@ -376,12 +394,9 @@ impl Adapter {
             .collect();
         let mut identities = Vec::new();
         for item in root.children().filter(|n| n.is_element()) {
-            for part in item.descendants().filter(|n| n.has_tag_name("Part")) {
-                if part
-                    .attribute("file")
-                    .is_some_and(|p| matched.iter().any(|m| m == p))
-                {
-                    identities.push(json!({"path":part.attribute("file"),"rating_key":item.attribute("ratingKey"),"guid":item.attribute("guid")}));
+            for part in item.descendants().filter(|n| xml_named(*n, "Part")) {
+                if xml_attribute(part, "file").is_some_and(|p| matched.iter().any(|m| m == p)) {
+                    identities.push(json!({"path":xml_attribute(part, "file"),"rating_key":xml_attribute(item, "ratingKey"),"guid":xml_attribute(item, "guid")}));
                 }
             }
         }
@@ -402,18 +417,20 @@ impl Adapter {
             _ => return Err(Failure::new("unsupported")),
         };
         let raw = self.call(&format!("/system/scanners/{number}"), false)?;
-        let scanners = self
-            .xml(&raw)?
+        let xml = self.xml(&raw)?;
+        let scanners = xml
+            .parse()?
             .descendants()
-            .filter(|n| n.has_tag_name("Scanner"))
-            .map(|n| text(n.attribute("name"), 4096).map(str::to_owned))
+            .filter(|n| xml_named(*n, "Scanner"))
+            .map(|n| text(xml_attribute(n, "name"), 4096).map(str::to_owned))
             .collect::<NetworkResult<BTreeSet<_>>>()?;
         let raw = self.call(&format!("/system/agents?mediaType={number}"), false)?;
-        let agents = self
-            .xml(&raw)?
+        let xml = self.xml(&raw)?;
+        let agents = xml
+            .parse()?
             .descendants()
-            .filter(|n| n.has_tag_name("Agent"))
-            .map(|n| text(n.attribute("identifier"), 4096).map(str::to_owned))
+            .filter(|n| xml_named(*n, "Agent"))
+            .map(|n| text(xml_attribute(n, "identifier"), 4096).map(str::to_owned))
             .collect::<NetworkResult<BTreeSet<_>>>()?;
         Ok(json!({"type":kind,"scanners":scanners,"agents":agents}))
     }
@@ -698,10 +715,20 @@ mod tests {
             b"<!ENTITY x SYSTEM 'file:///must-not-be-read'><x/>",
             b"<x>",
         ] {
-            assert!(adapter.xml(bytes).is_err());
+            assert!(
+                adapter
+                    .xml(bytes)
+                    .and_then(|xml| xml.parse().map(|_| ()))
+                    .is_err()
+            );
         }
         assert!(adapter.xml(b"<x a='safe &amp; literal'/>").is_ok());
         let huge = format!("<x>{}</x>", "<y/>".repeat(200_000));
-        assert!(adapter.xml(huge.as_bytes()).is_err());
+        assert!(
+            adapter
+                .xml(huge.as_bytes())
+                .and_then(|xml| xml.parse().map(|_| ()))
+                .is_err()
+        );
     }
 }

@@ -282,6 +282,17 @@ async fn handle_inner(app: Arc<App>, request: Request) -> crate::problem::Result
             }
         }
     }
+    let graphql_variables = if operation == "execute_graphql" {
+        Some(
+            catabolic_store::graphql::InputVariables::from_request_json(
+                std::str::from_utf8(&raw).map_err(|_| Problem::new("invalid_request", 422))?,
+                "variables",
+            )
+            .map_err(|_| Problem::new("invalid_request", 422))?,
+        )
+    } else {
+        None
+    };
     let input = Input {
         method,
         operation,
@@ -289,6 +300,7 @@ async fn handle_inner(app: Arc<App>, request: Request) -> crate::problem::Result
         query,
         headers,
         body,
+        graphql_variables,
     };
     if input.operation.ends_with("file_content")
         || input.operation.ends_with("rendition_content")

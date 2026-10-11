@@ -19,6 +19,29 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
+thread_local! {
+    static CANCELLATION: std::cell::RefCell<Option<std::sync::Arc<AtomicBool>>> = const { std::cell::RefCell::new(None) };
+}
+/// Compose caller cancellation with explicit command tokens, including helper
+/// discovery commands. Scoped restoration also runs during unwinding.
+pub fn with_cancellation<T>(cancel: std::sync::Arc<AtomicBool>, action: impl FnOnce() -> T) -> T {
+    struct Restore(Option<std::sync::Arc<AtomicBool>>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            CANCELLATION.with(|slot| *slot.borrow_mut() = self.0.take());
+        }
+    }
+    let _restore = Restore(CANCELLATION.with(|slot| slot.replace(Some(cancel))));
+    action()
+}
+fn caller_cancelled() -> bool {
+    CANCELLATION.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .is_some_and(|cancel| cancel.load(Ordering::Acquire))
+    })
+}
+
 type Callback<'a> = &'a mut dyn FnMut() -> Result<(), CommandFailure>;
 
 /// Limits and explicit inputs for one command. Environment entries replace the
@@ -139,6 +162,13 @@ pub fn command_output<S: AsRef<OsStr>>(
     argv: &[S],
     mut options: CommandOptions<'_>,
 ) -> Result<CommandOutput, CommandFailure> {
+    if caller_cancelled()
+        || options
+            .cancel
+            .is_some_and(|cancel| cancel.load(Ordering::Acquire))
+    {
+        return Err(CommandFailure::new("cancelled", "command cancelled"));
+    }
     let deadline = Instant::now().checked_add(options.timeout).ok_or_else(|| {
         CommandFailure::new("failed", "command timeout is outside the supported range")
     })?;
@@ -320,9 +350,10 @@ fn pump(
         if let Some(callback) = options.on_poll.as_mut() {
             callback()?;
         }
-        if options
-            .cancel
-            .is_some_and(|cancel| cancel.load(Ordering::Acquire))
+        if caller_cancelled()
+            || options
+                .cancel
+                .is_some_and(|cancel| cancel.load(Ordering::Acquire))
         {
             return Err(CommandFailure::new("cancelled", "command cancelled"));
         }

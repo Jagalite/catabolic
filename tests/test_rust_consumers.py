@@ -4,6 +4,7 @@
 
 import json
 import os
+import socket
 import sqlite3
 import subprocess
 import threading
@@ -653,6 +654,114 @@ class NativeConsumerTest(unittest.TestCase):
         self.sync()
         self.assertEqual(len(self.remote.scans), 1)
         self.assertEqual(self.remote.lock_failures, [])
+
+    def test_http10_delayed_close_uses_fresh_connections_through_indexing(self):
+        # An HTTP/1.0 response without keep-alive is not persistent even when
+        # Content-Length completes before the server's FIN reaches the client.
+        reference = reference_fixture.ConsumerTest("runTest")
+        self.addCleanup(reference.doCleanups)
+        reference.setUp()
+        self.assertNotEqual(self.database, reference.database)
+
+        def observe_closing_connections(remote):
+            server = remote.server
+            handler = server.RequestHandlerClass
+            self.assertEqual(handler.protocol_version, "HTTP/1.0")
+            evidence = {
+                "requests": [],
+                "closed": [],
+                "unexpected_reuse": [],
+                "close_timeouts": [],
+                "close_errors": [],
+            }
+            changed = threading.Condition()
+            original_respond = handler.respond
+            original_shutdown = server.shutdown_request
+
+            def respond(request):
+                with changed:
+                    evidence["requests"].append(
+                        (
+                            request.client_address[1],
+                            request.path.split("?", 1)[0],
+                            request.headers.get("Connection", "").lower(),
+                        )
+                    )
+                original_respond(request)
+
+            def shutdown(connection):
+                peer = connection.getpeername()[1]
+                try:
+                    # Hold the finished connection until the client closes it
+                    # or incorrectly sends another request. The timeout bounds
+                    # fixture cleanup; it never triggers a request retry.
+                    connection.settimeout(2)
+                    if connection.recv(1, socket.MSG_PEEK):
+                        evidence["unexpected_reuse"].append(peer)
+                except TimeoutError:
+                    evidence["close_timeouts"].append(peer)
+                except OSError as exc:
+                    evidence["close_errors"].append((peer, exc.errno))
+                finally:
+                    original_shutdown(connection)
+                    with changed:
+                        evidence["closed"].append(peer)
+                        changed.notify_all()
+
+            handler.respond = respond
+            server.shutdown_request = shutdown
+            return evidence, changed
+
+        reports = {}
+        expected_paths = [
+            "/",
+            "/library/sections",
+            "/",
+            "/library/sections",
+            "/library/sections/1/all",
+        ]
+        for engine, fixture in (("python", reference), ("native", self)):
+            evidence, changed = observe_closing_connections(fixture.remote)
+            try:
+                self.assertTrue(fixture.bind()["complete"])
+                fixture.add()
+                self.assertTrue(fixture.sync()["healthy"])
+                fixture.remote.indexed = ["/plex/Movies/One.mkv"]
+                if engine == "native":
+                    reports[engine] = self.native("verify-indexing", {"id": "movies"})
+                else:
+                    reports[engine] = reference_fixture.verify_indexing(
+                        fixture.database, "default", "movies"
+                    )
+            except AssertionError as exc:
+                self.fail(f"{exc}; loopback transport evidence: {evidence}")
+            with changed:
+                self.assertTrue(
+                    changed.wait_for(
+                        lambda evidence=evidence: (
+                            len(evidence["closed"]) == len(expected_paths)
+                        ),
+                        timeout=3,
+                    ),
+                    evidence,
+                )
+            self.assertEqual([row[1] for row in evidence["requests"]], expected_paths)
+            self.assertEqual(
+                len({row[0] for row in evidence["requests"]}),
+                len(expected_paths),
+                evidence,
+            )
+            self.assertTrue(
+                all(row[2] == "close" for row in evidence["requests"]),
+                evidence,
+            )
+            self.assertEqual(evidence["unexpected_reuse"], [], evidence)
+            self.assertEqual(evidence["close_timeouts"], [], evidence)
+            self.assertEqual(evidence["close_errors"], [], evidence)
+            self.assertEqual(fixture.remote.lock_failures, [])
+            self.assertTrue(reports[engine]["complete"])
+            self.assertEqual(reports[engine]["matched_paths"], ["/plex/Movies/One.mkv"])
+        self.assertEqual(reports["native"], reports["python"])
 
     def _assert_indexing_translation_matches_python(
         self, remote_root, subtree, expected

@@ -104,6 +104,10 @@ pub enum Input {
     Retry {
         pending_artifact: bool,
     },
+    /// Normalize an abandoned analysis job without allocating an attempt.
+    Reclaim {
+        now: f64,
+    },
     Finish {
         now: f64,
         proof: Proof,
@@ -237,6 +241,16 @@ pub fn reduce(state: &State, input: &Input) -> Result<Effect, Rejection> {
                 changed: matches!(state.phase, Phase::Queued | Phase::Running),
             })
         }
+        Input::Reclaim { now } => {
+            time(*now)?;
+            if state.claim.as_ref().is_some_and(|c| live(c, *now)) {
+                return Err(Rejection::LiveOwner);
+            }
+            if state.phase != Phase::Running {
+                return Err(Rejection::NotRunnable);
+            }
+            Ok(Effect::Requeue)
+        }
         Input::Retry { pending_artifact } => {
             if *pending_artifact {
                 return Err(Rejection::PublicationPending);
@@ -351,6 +365,29 @@ mod tests {
                 }
             ),
             Err(Rejection::PublicationPending)
+        );
+    }
+    #[test]
+    fn reclaim_requires_abandonment_and_never_allocates_an_attempt() {
+        let mut observed = state();
+        assert_eq!(
+            reduce(&observed, &Input::Reclaim { now: 2.0 }),
+            Err(Rejection::LiveOwner)
+        );
+        observed.claim.as_mut().unwrap().worker_alive = false;
+        assert_eq!(
+            reduce(&observed, &Input::Reclaim { now: 2.0 }),
+            Ok(Effect::Requeue)
+        );
+        assert_eq!(observed.attempts, 2);
+        observed.phase = Phase::Complete;
+        assert_eq!(
+            reduce(&observed, &Input::Reclaim { now: 2.0 }),
+            Err(Rejection::NotRunnable)
+        );
+        assert_eq!(
+            reduce(&observed, &Input::Reclaim { now: f64::NAN }),
+            Err(Rejection::InvalidTime)
         );
     }
 }

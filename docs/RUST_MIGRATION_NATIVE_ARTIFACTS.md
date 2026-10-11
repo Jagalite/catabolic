@@ -60,8 +60,11 @@ their test modules and still runs every original Python test. Configuration is
 not evidence of a successful GitHub run. The workflow does not publish packages
 or qualify macOS, external consumer versions, or unresolved output safety.
 
-Interim Linux x86_64 `cp311-abi3-manylinux_2_39` installed checks passed on Python
-3.11.15 and 3.14.6. Ongoing source changes require a fresh paired build and exact
-artifact requalification before any readiness claim. This evidence does not
+The source-stable `55d5448` checkpoint's paired Linux x86_64
+`cp311-abi3-manylinux_2_39` wheel passed exact installed checks on Python 3.11.15
+and 3.14.6; its wheel/helper hashes and selected embedding coverage are recorded
+in [native-m4-plus-checkpoint2.json](../tests/parity/native-m4-plus-checkpoint2.json).
+Subsequent source changes require a fresh paired build and exact artifact
+requalification before any readiness claim. This evidence does not
 qualify lower glibc versions, macOS, other architectures, source distributions,
 complete public Python compatibility, or release/rollback/performance gates.

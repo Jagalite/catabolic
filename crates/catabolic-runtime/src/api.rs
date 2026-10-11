@@ -57,6 +57,71 @@ pub fn execute_import_with_poll(
     crate::imports::execute_with_poll(&mut store, profile, request, cancel, poll)
 }
 
+/// Bounded Plex intake with signal polling; no remote writes are issued.
+pub fn execute_plex_import_with_poll(
+    path: &Path,
+    profile: &str,
+    request: &Value,
+    cancel: &AtomicBool,
+    poll: &mut dyn FnMut(),
+) -> Result<Value> {
+    if !request.is_object() {
+        return Err(Error("operation request must be a JSON object".into()));
+    }
+    catabolic_core::validate_finite(request)?;
+    let mut store = Store::open(path, request["apply"] == true, false)?;
+    catabolic_store::mutation::profile(&store, profile)?;
+    crate::plex_import::execute_with_poll(&mut store, profile, request, cancel, poll)
+}
+
+/// Catalog-independent Plex login with supervisor/Python signal polling.
+pub fn execute_plex_login_with_poll(
+    operation: &str,
+    request: &Value,
+    cancel: &AtomicBool,
+    poll: &mut dyn FnMut(),
+) -> Result<Value> {
+    if !request.is_object() {
+        return Err(Error("operation request must be a JSON object".into()));
+    }
+    catabolic_core::validate_finite(request)?;
+    crate::plex_login::execute_with_poll(operation, request, cancel, poll)
+}
+
+/// Reviewed Plex matching with cancellable, detached, read-only remote intake.
+pub fn execute_plex_match_with_poll(
+    path: &Path,
+    profile: &str,
+    request: &Value,
+    cancel: &AtomicBool,
+    poll: &mut dyn FnMut(),
+) -> Result<Value> {
+    if !request.is_object() {
+        return Err(Error("operation request must be a JSON object".into()));
+    }
+    catabolic_core::validate_finite(request)?;
+    let mut store = Store::open(path, request["apply"] == true, false)?;
+    catabolic_store::mutation::profile(&store, profile)?;
+    crate::plex_matching::execute_with_poll(&mut store, profile, request, cancel, poll)
+}
+
+/// Whole-batch reviewed Plex metadata publication with cooperative cancellation.
+pub fn execute_plex_metadata_with_poll(
+    path: &Path,
+    profile: &str,
+    request: &Value,
+    cancel: &AtomicBool,
+    poll: &mut dyn FnMut(),
+) -> Result<Value> {
+    if !request.is_object() {
+        return Err(Error("operation request must be a JSON object".into()));
+    }
+    catabolic_core::validate_finite(request)?;
+    let mut store = Store::open(path, request["apply"] == true, false)?;
+    catabolic_store::mutation::profile(&store, profile)?;
+    crate::plex_metadata::execute_with_poll(&mut store, profile, request, cancel, poll)
+}
+
 pub fn execute(
     path: &Path,
     profile: &str,
@@ -68,6 +133,9 @@ pub fn execute(
         return Err(Error("operation request must be a JSON object".into()));
     }
     catabolic_core::validate_finite(request)?;
+    if surface == "plex-login" {
+        return crate::plex_login::execute(operation, request);
+    }
     if surface == "target" {
         return match operation {
             "describe" | "list" => catabolic_store::targets::describe(request["target"].as_str()),
@@ -137,7 +205,7 @@ pub fn execute(
             request["apply"] == true || request["reconcile"] == true
         }
         ("component", "extract") => request["apply"] == true,
-        ("import", _) => request["apply"] == true,
+        ("import" | "plex-import" | "plex-match" | "plex-metadata", _) => request["apply"] == true,
         _ => true,
     };
     let mut store = Store::open(path, writable, false)?;
@@ -348,6 +416,18 @@ pub fn execute(
             ),
             _ => Err(Error("unknown processor operation".into())),
         },
+        "plex-metadata" if operation == "run" => {
+            crate::plex_metadata::execute(&mut store, profile, request)
+        }
+        "plex-match" if operation == "run" => {
+            crate::plex_matching::execute(&mut store, profile, request)
+        }
+        "plex-match" if operation == "list" => {
+            catabolic_store::plex_matching::listing(&store, profile, request)
+        }
+        "plex-import" if operation == "run" => {
+            crate::plex_import::execute(&mut store, profile, request)
+        }
         "consumers" => crate::consumers::execute(&mut store, profile, operation, request),
         "manifest" if operation == "write" => store.transaction(|_| {
             catabolic_store::manifest::write(&store, profile, &request["document"], request)

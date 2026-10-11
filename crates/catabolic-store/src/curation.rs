@@ -485,6 +485,11 @@ fn item_target(store: &Store, payload_value: &Value) -> Result<Option<String>> {
         .map(str::to_owned)
         .or_else(|| matches.into_iter().next()))
 }
+/// Recorded occurrence on the borrowing Store; never opens another connection.
+pub fn occurrence(store: &Store, profile: &str, file: &str) -> Result<Value> {
+    components::occurrence(&store.db, profile, file)
+}
+
 pub fn proposal_snapshot(
     store: &Store,
     profile: &str,
@@ -527,7 +532,7 @@ pub fn proposal_snapshot(
     let arg = target
         .map(rusqlite::types::Value::Text)
         .unwrap_or(rusqlite::types::Value::Null);
-    let mut result = json!({"file":components::occurrence(&store.db,profile,file)?,"associations":associations,"item":rows(&store.db,"SELECT * FROM items WHERE id=?",std::slice::from_ref(&arg))?,"identities":rows(&store.db,"SELECT * FROM identities WHERE item_id=? ORDER BY namespace,value",&[arg])?});
+    let mut result = json!({"file":occurrence(store,profile,file)?,"associations":associations,"item":rows(&store.db,"SELECT * FROM items WHERE id=?",std::slice::from_ref(&arg))?,"identities":rows(&store.db,"SELECT * FROM identities WHERE item_id=? ORDER BY namespace,value",&[arg])?});
     if let Some(component) = component {
         result["component"] = component;
     }
@@ -737,16 +742,19 @@ fn proposal_page(store: &Store, profile: &str, args: &Value, history: bool) -> R
         {
             return fail("invalid proposal state");
         }
+        // Frozen list uses `after or ""` then binds the original SQLite scalar.
+        // Do not silently turn truthy numeric cursors into the start of a page.
+        let after = args
+            .get("after")
+            .filter(|value| truth(value))
+            .cloned()
+            .unwrap_or(json!(""));
         let mut values = rows(
             &store.db,
             "SELECT id,profile,file_id,kind,state,source,created_at FROM proposals WHERE profile=? AND id>? AND (? IS NULL OR state=?) ORDER BY id LIMIT ?",
             &[
                 profile.to_owned().into(),
-                get(args, "after", json!(""))
-                    .as_str()
-                    .unwrap_or("")
-                    .to_owned()
-                    .into(),
+                scalar(&after)?,
                 scalar(state)?,
                 scalar(state)?,
                 ((limit + 1) as i64).into(),
@@ -783,16 +791,17 @@ pub fn sidecars(store: &Store, profile: &str, args: &Value) -> Result<Value> {
         .filter(|n| (1..=1000).contains(n))
         .ok_or_else(|| Error("limit must be between 1 and 1000".into()))? as usize;
     let location = &args["location"];
+    let after = args
+        .get("after")
+        .filter(|value| truth(value))
+        .cloned()
+        .unwrap_or(json!(""));
     let mut files = rows(
         &store.db,
         "SELECT f.* FROM files f JOIN observations o ON o.file_id=f.id AND o.profile=? WHERE o.status='present' AND f.id>? AND (? IS NULL OR f.location=?) ORDER BY f.id LIMIT ?",
         &[
             profile.to_owned().into(),
-            get(args, "after", json!(""))
-                .as_str()
-                .unwrap_or("")
-                .to_owned()
-                .into(),
+            scalar(&after)?,
             scalar(location)?,
             scalar(location)?,
             ((limit + 1) as i64).into(),

@@ -1,3 +1,4 @@
+mod artifacts_processing;
 mod embedding;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
@@ -132,7 +133,7 @@ fn execute_graphql(
     operation_name: Option<&str>,
     timeout_ms: u64,
 ) -> PyResult<String> {
-    let variables = catabolic_core::decode_json(variables)
+    let variables = catabolic_store::graphql::InputVariables::from_json(variables)
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     result(py.detach(|| {
         catabolic_store::graphql::execute(
@@ -199,6 +200,59 @@ fn execute_operation(
 ) -> PyResult<String> {
     let request: serde_json::Value =
         catabolic_core::decode_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    if (matches!(surface, "plex-import" | "plex-match" | "plex-metadata") && operation == "run")
+        || surface == "plex-login"
+    {
+        py.check_signals()?;
+        let cancelled = std::sync::atomic::AtomicBool::new(false);
+        let interrupted = std::sync::Mutex::new(None);
+        let outcome = py.detach(|| {
+            let mut poll = || {
+                if let Err(error) = Python::attach(|py| py.check_signals()) {
+                    let mut first = interrupted.lock().unwrap();
+                    if first.is_none() {
+                        *first = Some(error);
+                    }
+                    cancelled.store(true, std::sync::atomic::Ordering::Release);
+                }
+            };
+            if surface == "plex-login" {
+                catabolic_runtime::api::execute_plex_login_with_poll(
+                    operation, &request, &cancelled, &mut poll,
+                )
+            } else if surface == "plex-metadata" {
+                catabolic_runtime::api::execute_plex_metadata_with_poll(
+                    Path::new(path),
+                    profile,
+                    &request,
+                    &cancelled,
+                    &mut poll,
+                )
+            } else if surface == "plex-match" {
+                catabolic_runtime::api::execute_plex_match_with_poll(
+                    Path::new(path),
+                    profile,
+                    &request,
+                    &cancelled,
+                    &mut poll,
+                )
+            } else {
+                catabolic_runtime::api::execute_plex_import_with_poll(
+                    Path::new(path),
+                    profile,
+                    &request,
+                    &cancelled,
+                    &mut poll,
+                )
+            }
+        });
+        // The runtime has joined owned work and completed cancellation cleanup
+        // before the original Python signal exception is propagated.
+        if let Some(error) = interrupted.into_inner().unwrap() {
+            return Err(error);
+        }
+        return result(outcome);
+    }
     result(py.detach(|| {
         if surface == "import" && operation == "catalog" {
             let cancelled = std::sync::atomic::AtomicBool::new(false);

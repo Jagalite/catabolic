@@ -95,20 +95,26 @@ imports cannot silently resolve to a changed Python implementation:
 
 ```python
 import importlib.util, pathlib, sys, unittest
+
 root = pathlib.Path.cwd()
 reference = root / ".local-tests/rust-migration/reference"
 sys.path[:0] = [str(reference / "src"), str(reference)]
 import catabolic
+
 assert str(reference) in catabolic.__file__
 suite = unittest.TestSuite()
 for filename, classname in [
     ("test_rust_component_selection.py", "NativeComponentSelectionTest"),
     ("test_rust_fallback_probe.py", "NativeFallbackProbeTest"),
 ]:
-    spec = importlib.util.spec_from_file_location(filename[:-3], root / "tests" / filename)
+    spec = importlib.util.spec_from_file_location(
+        filename[:-3], root / "tests" / filename
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(getattr(module, classname)))
+    suite.addTests(
+        unittest.defaultTestLoader.loadTestsFromTestCase(getattr(module, classname))
+    )
 result = unittest.TextTestRunner(verbosity=2).run(suite)
 raise SystemExit(not result.wasSuccessful())
 ```

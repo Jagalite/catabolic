@@ -9,6 +9,10 @@ license.workspace = true
 name = "catabolic-native"
 path = "src/main.rs"
 
+[[bin]]
+name = "catabolic-legacy-native"
+path = "src/legacy_main.rs"
+
 [dependencies]
 catabolic-core.workspace = true
 catabolic-store.workspace = true

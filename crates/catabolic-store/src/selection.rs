@@ -66,6 +66,8 @@ pub struct Evaluation {
     count: usize,
     nodes: usize,
     result_bytes: usize,
+    max_result_bytes: usize,
+    lending: bool,
     cache: BTreeMap<String, Selected>,
 }
 impl Evaluation {
@@ -90,8 +92,61 @@ impl Evaluation {
             count: 0,
             nodes: 0,
             result_bytes: 0,
+            max_result_bytes: 4 * 1024 * 1024,
+            lending: false,
             cache: BTreeMap::new(),
         })
+    }
+    /// Temporarily lend this evaluator a caller-owned Store. Restore on every
+    /// result and unwind, retaining consumed budgets/cache for the next call.
+    pub(crate) fn with_store<T>(
+        &mut self,
+        slot: &mut Option<Store>,
+        action: impl FnOnce(&mut Self) -> Result<T>,
+    ) -> Result<T> {
+        if self.store.is_some() || slot.is_none() {
+            return Err(Error("evaluation Store is already in use".into()));
+        }
+        self.store = slot.take();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| action(self)));
+        *slot = self.store.take();
+        match result {
+            Ok(result) => result,
+            Err(panic) => std::panic::resume_unwind(panic),
+        }
+    }
+    pub(crate) fn unbound(profile: &str, timeout: u64, maximum: usize, http: bool) -> Self {
+        Self {
+            store: None,
+            profile: profile.into(),
+            http,
+            authority: None,
+            membership: None,
+            deferred: None,
+            session_limits: true,
+            deadline: Instant::now() + Duration::from_millis(timeout),
+            maximum,
+            count: 0,
+            nodes: 0,
+            result_bytes: 0,
+            max_result_bytes: 4 * 1024 * 1024,
+            lending: true,
+            cache: BTreeMap::new(),
+        }
+    }
+    pub(crate) fn set_max_bytes(&mut self, value: usize) {
+        self.max_result_bytes = value;
+    }
+    pub(crate) fn pause(&mut self, seconds: f64) -> Result<()> {
+        let duration = Duration::try_from_secs_f64(seconds.abs())
+            .map_err(|_| Error("invalid evaluation pause duration".into()))?;
+        self.deadline = if seconds < 0.0 {
+            self.deadline.checked_sub(duration)
+        } else {
+            self.deadline.checked_add(duration)
+        }
+        .ok_or_else(|| Error("invalid evaluation pause duration".into()))?;
+        Ok(())
     }
     pub(crate) fn resume_checkpoint(&mut self, checkpoint: EvaluationCheckpoint) -> Result<()> {
         if !self.http || self.authority.is_some() || self.membership.is_some() {
@@ -342,7 +397,7 @@ impl Evaluation {
     pub fn into_store(mut self) -> Store {
         self.store.take().expect("evaluation owns snapshot")
     }
-    fn remaining(&self, message: &str) -> Result<u64> {
+    pub(crate) fn remaining(&self, message: &str) -> Result<u64> {
         let ms = self
             .deadline
             .saturating_duration_since(Instant::now())
@@ -379,6 +434,19 @@ impl Evaluation {
             proof.check(self.store())?;
             graphql_contract(query)?;
         }
+        if self.lending {
+            return graphql::execute_session(
+                &mut self.store,
+                self.authority.clone(),
+                query,
+                profile,
+                variables,
+                None,
+                timeout,
+            );
+        }
+        // Existing owned/scoped evaluators keep their retire-on-error contract.
+        // Only the embedding's explicitly lent local Store is restored on errors.
         let (store, result) = if let Some(authority) = &self.authority {
             graphql::execute_authorized_store(
                 self.store.take().unwrap(),
@@ -728,19 +796,29 @@ impl Evaluation {
         Ok(result)
     }
     fn account(&mut self, result: &Selected) -> Result<()> {
-        self.result_bytes += encode(&json!([result.entity, result.ids, result.report])).len();
-        if self.result_bytes > 4 * 1024 * 1024 {
+        let size = self
+            .result_bytes
+            .saturating_add(encode(&json!([result.entity, result.ids, result.report])).len());
+        if !self.lending {
+            self.result_bytes = size;
+        }
+        if size > self.max_result_bytes {
             return Err(Error("evaluation_result_byte_budget".into()));
         }
+        self.result_bytes = size;
         Ok(())
     }
     /// Charge owner-specific expansion evidence to the same evaluation budget.
     pub fn account_value(&mut self, value: &Value) -> Result<()> {
         self.remaining("query composition timed out")?;
-        self.result_bytes += encode(value).len();
-        if self.result_bytes > 4 * 1024 * 1024 {
+        let size = self.result_bytes.saturating_add(encode(value).len());
+        if !self.lending {
+            self.result_bytes = size;
+        }
+        if size > self.max_result_bytes {
             return Err(Error("evaluation_result_byte_budget".into()));
         }
+        self.result_bytes = size;
         Ok(())
     }
     fn root_budget(&mut self, definition: &Value) {

@@ -19,6 +19,7 @@ pub struct Input {
     pub query: BTreeMap<String, String>,
     pub headers: HeaderMap,
     pub body: Value,
+    pub graphql_variables: Option<catabolic_store::graphql::InputVariables>,
 }
 impl Input {
     pub fn id(&self) -> &str {
@@ -136,11 +137,14 @@ pub fn dispatch(app: &App, input: Input) -> Result<Response<Body>> {
                 access.into_store(),
                 authority,
                 input.body["query"].as_str().unwrap_or(""),
-                input
-                    .body
-                    .get("variables")
-                    .cloned()
-                    .unwrap_or_else(|| json!({})),
+                input.graphql_variables.clone().unwrap_or_else(|| {
+                    input
+                        .body
+                        .get("variables")
+                        .cloned()
+                        .unwrap_or_else(|| json!({}))
+                        .into()
+                }),
                 input.body["operationName"].as_str(),
                 5000,
             )?

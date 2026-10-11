@@ -1,4 +1,66 @@
-# Remaining public Python, legacy CLI, and Plex implementation inventory
+# Public Python, legacy CLI, and Plex migration inventory
+
+## Current continuation checkpoint, 2026-10-11
+
+This section supersedes the initial implementation-state descriptions below.
+The original inventory and recommended dependency order are retained as historical
+planning context. No entry here closes a migration hard gate or switches defaults.
+
+This local implementation snapshot is not a qualified aggregate checkpoint.
+The new independent GraphQL review has identified remaining runtime argument-null
+bubbling/default and literal-diagnostic differences; corrections and independent
+replay are pending. Parser/static-validation residuals are also retained explicitly
+in the query checkpoint. No passing exact-wheel result is claimed for these bytes.
+
+- Persistent ItemWorkflow/Curation, saved-query/SQL/GraphQL, and Artifacts/Processing
+  adapters now call production native owners. Independent scoped reviews and
+  disposable installed-development tests have passed; final helper-paired,
+  source-frozen aggregate qualification remains pending
+- The three separate selected gates cover **103 distinct inventory rows**:
+  baseline/workflow **69 rows, 19 installed cases, 82 paired groups**; query
+  **10 rows, 10 cases, 77 groups**; processing **24 rows, 10 cases, 74 groups**.
+  Of these selected rows, **79** carry preserve classifications and **24** are
+  additionally selected service rows. **80 of the 159 preserved rows remain
+  outside these selected gates**. Neither selection nor passing selected cases
+  proves exhaustive contract parity
+- All four Plex workflow owners now exist, with separate scoped reviews. Shared
+  XML declaration/namespace compatibility passed its independent scoped review
+  after reserved-processing-instruction and empty-namespace corrections. A separate
+  pre-existing Jellyfin JSON encoding gap remains recorded. Actual services,
+  exhaustive crash/cancellation schedules and final installed artifacts are not
+  implied by fake-loopback evidence
+- The preserved opt-in CLI now has an explicit [242-row owner ledger](../tests/parity/legacy-cli-owners.json):
+  **203 adapted but unqualified, 28 missing adapters, 10 partial, one safety-gated**.
+  The parser's **20,170** frozen comparisons cover syntax/help, not command effects.
+  See [the CLI checkpoint](RUST_MIGRATION_LEGACY_CLI.md) for selected behavior tests
+- Real Linux notification intake now reaches the durable source/watcher owners.
+  The independent bounded-entry finding was corrected and replayed. macOS kqueue
+  remains uncompiled/unrun here; mounted-filesystem and the previously blocked
+  broader safety review gates remain open
+
+Remaining preserved-gate families are catalog refresh (8), components (5),
+access/secret/content helpers (5), fallback policy/projection/resolution/worker
+(20), layouts/plans/reconciliation (17), scan publication/source events/watchers
+(18), ASGI create_app (1), and import/console bindings (6). These group counts
+include class and import-binding rows where present and total **80**; they are
+unselected-gate counts, not proof that every underlying business owner is absent.
+Use the exact row IDs in `tests/parity/python-api.json` before changing a contract.
+
+Concrete CLI implementation gaps are the aggregate watch/maintenance loops,
+legacy refresh and TMDB intake, fallback worker, remaining projection/mapping
+orchestration, local API administration/credential-file routes, and consumer watch.
+Partial rows include explicit output-safety restrictions and documented rendering
+or lifecycle gaps. New query coercion/validation and shared XML gaps discovered by
+review are being implemented separately; their failing fixtures are not counted
+as passing qualification.
+
+Existing destructive-output restrictions, unregistered private sidecar-alias
+limitations, blocked broad review scopes, M0–M3 prerequisite gates, real service /
+macOS acceptance, performance and rollback qualification remain explicit blockers.
+Python stays the installed default; no release or publication is authorized by
+this checkpoint.
+
+## Historical initial inventory and implementation order
 
 Reference: `453fca983222c6665a48775eef67c489c96b527e`. Native branch: `codex/rust-migration-m4-plus`; inspected working checkpoint on 2026-10-11. This is a static implementation plan, not executable qualification or a security review. No repository source was changed and no tests, live catalog, login, consumer call, publication, or push was performed. Existing blocked independent review lanes remain untouched.
 

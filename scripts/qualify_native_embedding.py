@@ -168,6 +168,11 @@ def scenario(root, engine, reference=None):
         with store.detached():
             assert store.db is None
         result["reconnect"] = callbacks
+        result.update(
+            sibling_module("native_workflow_embedding_tests").paired_workflows(
+                app, root, engine
+            )
+        )
         status = app.status()
         status["database"] = "DATABASE"
         result["status"] = status
@@ -390,12 +395,23 @@ def trace_native_facade():
     import catabolic_native as native
 
     calls = {}
+
+    def wrap(function, identifier):
+        @functools.wraps(function)
+        def traced(*args, **kwargs):
+            calls[identifier] = calls.get(identifier, 0) + 1
+            return function(*args, **kwargs)
+
+        return traced
+
     for module, cls in (
         ("store", native.Store),
         ("app", native.Application),
         ("query", native.CatalogQuery),
         ("media_catalog", native.MediaCatalog),
         ("tagging", native.Tagging),
+        ("item_workflow", native.ItemWorkflow),
+        ("curation", native.Curation),
     ):
         for name, descriptor in list(vars(cls).items()):
             if name.startswith("_") and name not in (
@@ -410,16 +426,13 @@ def trace_native_facade():
                 continue
             identifier = f"python:catabolic.{module}.{cls.__name__}.{name}"
 
-            def wrap(function, identifier):
-                @functools.wraps(function)
-                def traced(*args, **kwargs):
-                    calls[identifier] = calls.get(identifier, 0) + 1
-                    return function(*args, **kwargs)
-
-                return traced
-
             wrapped = wrap(function, identifier)
             setattr(cls, name, classmethod(wrapped) if classmethod_ else wrapped)
+    from catabolic_native import curation
+
+    curation.occurrence = wrap(
+        curation.occurrence, "python:catabolic.curation.occurrence"
+    )
     return calls
 
 
@@ -502,6 +515,35 @@ def reference_imports(root, tracked):
     return imported
 
 
+EXPECTED_TESTS = {
+    "InstalledFacade": (
+        "test_public_owner_transaction_and_types",
+        "test_readonly_snapshot_and_rejections",
+        "test_callbacks_detach_errors_and_identity",
+        "test_failed_callback_and_reentrant_close",
+        "test_thread_affinity_busy_signal_and_gil_release",
+        "test_native_services_scan_and_errors_restore_owner",
+    ),
+    "ReviewLifecycle": (
+        "test_write_sigint_preserves_keyboard_interrupt",
+        "test_nested_write_sigint_preserves_keyboard_interrupt",
+        "test_nested_read_sigint_rolls_back_only_inner_scope",
+        "test_caught_sqlite_rollback_retires_handle",
+        "test_caught_sqlite_rollback_blocks_service_write",
+        "test_swallowed_nested_rollback_cannot_commit_outer",
+        "test_ordinary_statement_error_does_not_retire_valid_scope",
+    ),
+    "WorkflowLifecycle": (
+        "test_transaction_rollback_and_failure_restores_owner",
+        "test_read_snapshot_and_readonly_mutations",
+        "test_closed_and_detached_services_reject",
+        "test_lost_transaction_blocks_workflow_and_curation",
+        "test_workflow_and_curation_signals_restore_same_owner",
+        "test_workflow_and_curation_reject_cross_thread_scope",
+    ),
+}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--wheel", type=Path)
@@ -571,15 +613,21 @@ def main():
             args.reference_root, inventory["reference_commit"]
         )
     calls = trace_native_facade()
-    suite = unittest.defaultTestLoader.loadTestsFromTestCase(InstalledFacade)
-    suite.addTests(
-        unittest.defaultTestLoader.loadTestsFromTestCase(
-            sibling_module("native_embedding_lifecycle_tests").ReviewLifecycle
-        )
+    classes = (
+        InstalledFacade,
+        sibling_module("native_embedding_lifecycle_tests").ReviewLifecycle,
+        sibling_module("native_workflow_embedding_tests").WorkflowLifecycle,
     )
-    result = unittest.TextTestRunner(verbosity=2).run(suite)
-    if not result.wasSuccessful():
-        raise SystemExit(1)
+    suite = unittest.TestSuite(
+        unittest.defaultTestLoader.loadTestsFromTestCase(case) for case in classes
+    )
+    result = sibling_module("native_qualification_results").run_required_suite(
+        suite,
+        {case: EXPECTED_TESTS[case.__name__] for case in classes},
+        expected_count=19,
+    )
+    installed_calls = calls.copy()
+    paired_calls = {}
     parity = None
     if args.reference_root:
         if not args.reference_python:
@@ -631,7 +679,8 @@ def main():
                     )
                     oracle["imported_modules"] = payload["oracle_imports"]
                 else:
-                    for identifier, count in payload["facade_calls"].items():
+                    paired_calls = payload["facade_calls"]
+                    for identifier, count in paired_calls.items():
                         calls[identifier] = calls.get(identifier, 0) + count
             assert outputs["reference"] == outputs["native"], json.dumps(
                 {
@@ -659,9 +708,12 @@ def main():
         "wheel_sha256": wheel_hash,
         "installed_wheel_verification": installed,
         "facade_calls": calls,
+        "installed_acceptance_calls": installed_calls,
+        "paired_scenario_calls": paired_calls,
         "installed_package": str(package),
         "python": sys.version,
         "acceptance_tests": result.testsRun,
+        "successful_scenarios": result.successful_scenarios,
         "parity": parity,
         "files": {
             str(path.relative_to(package.parent)): hashlib.sha256(
@@ -687,6 +739,9 @@ def main():
                     "python:catabolic.query.CatalogQuery",
                     "python:catabolic.media_catalog.MediaCatalog",
                     "python:catabolic.tagging.Tagging",
+                    "python:catabolic.item_workflow.ItemWorkflow",
+                    "python:catabolic.curation.Curation",
+                    "python:catabolic.curation.occurrence",
                 )
             ):
                 gap = (
@@ -704,6 +759,11 @@ def main():
                     gap = "Explicit _db accepts only a same-owner native handle; helper creates a nested native savepoint, unlike legacy _db's direct writes on caught errors"
                 elif row["id"].endswith("Store.detached"):
                     gap = "Database identity is validated before reconnect callbacks; legacy invoked callbacks before its final replacement check"
+                workflow_contract = sibling_module(
+                    "native_workflow_embedding_tests"
+                ).CONTRACTS.get(row["id"])
+                if workflow_contract:
+                    gap = workflow_contract["gap"]
                 identifier = (
                     row["id"]
                     if row["signature"]["kind"] != "class"
@@ -724,10 +784,22 @@ def main():
                         if gap
                         else "selected-contracts-tested",
                         "executed_calls": count,
+                        "installed_acceptance_calls": installed_calls.get(
+                            identifier, 0
+                        ),
+                        "paired_scenario_calls": paired_calls.get(identifier, 0),
+                        "selected_contracts": workflow_contract["tested"]
+                        if workflow_contract and paired_calls.get(identifier)
+                        else "Installed lifecycle calls only; no frozen method-value comparison"
+                        if workflow_contract and installed_calls.get(identifier)
+                        else None,
                         "evidence": "not executed"
                         if not count
                         else "installed acceptance plus frozen/native scenario"
-                        if parity
+                        if installed_calls.get(identifier)
+                        and paired_calls.get(identifier)
+                        else "frozen/native scenario only"
+                        if paired_calls.get(identifier)
                         else "installed acceptance only",
                         "gap": gap,
                     }
@@ -740,6 +812,8 @@ def main():
             "qualify_native_embedding.py",
             "qualify_native_wheel.py",
             "native_embedding_lifecycle_tests.py",
+            "native_workflow_embedding_tests.py",
+            "native_qualification_results.py",
         )
     }
     if args.report:

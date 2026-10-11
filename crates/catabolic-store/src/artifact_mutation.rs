@@ -389,6 +389,84 @@ pub fn enqueue_lineage(
     )?;
     enqueue_prepared(store, profile, prepared)
 }
+/// Persistent public facade admission. Reuses the exact durable preparation,
+/// immutable package validation, and cache publication checks used by workers.
+#[allow(clippy::too_many_arguments)]
+pub fn enqueue_facade(
+    store: &mut Store,
+    profile: &str,
+    file: &str,
+    recipe_id: &str,
+    location: &str,
+    item: &str,
+    capabilities: &Value,
+    full_cache_check: bool,
+    lineage: Option<&str>,
+    package: Option<&Value>,
+) -> Result<Value> {
+    // Frozen facade admits historical derivatives only for this explicit mode;
+    // all other values keep ordinary source admission and cache identity.
+    let lineage = lineage.filter(|mode| *mode == "accepted_source_revision");
+    let prepared = prepare_enqueue(
+        store,
+        profile,
+        file,
+        recipe_id,
+        location,
+        item,
+        &capabilities["tools"],
+        package,
+        lineage,
+    )?;
+    let capability = capabilities["presets"]
+        .as_array()
+        .and_then(|rows| {
+            rows.iter()
+                .find(|row| row["name"] == prepared.options["recipe"]["preset"])
+        })
+        .ok_or_else(|| Error("unknown render preset".into()))?;
+    if capability["available"] != true {
+        let missing = capability["missing"]
+            .as_array()
+            .map(|values| {
+                values
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .unwrap_or_default();
+        return Err(Error(format!(
+            "the installed FFmpeg build lacks required encoders, muxers or filters{}",
+            if missing.is_empty() {
+                String::new()
+            } else {
+                format!(": {missing}")
+            }
+        )));
+    }
+    if let Some((id, artifact)) = reusable_job(store, &prepared)? {
+        if let Some(artifact) = artifact {
+            let usable = if full_cache_check {
+                usable(store, profile, &artifact)?
+            } else {
+                usable_metadata(store, profile, &artifact)?
+            };
+            if crate::embedding::poll_interrupt() {
+                return Err(Error("artifact admission cancelled".into()));
+            }
+            if usable {
+                return Ok(json!({"job_id":id,"artifact_id":artifact["id"],"reused":true}));
+            }
+        } else {
+            return Ok(json!({"job_id":id,"reused":true}));
+        }
+    }
+    if crate::embedding::poll_interrupt() {
+        return Err(Error("artifact admission cancelled".into()));
+    }
+    create_job(store, prepared)
+}
 fn enqueue_prepared(store: &mut Store, profile: &str, prepared: PreparedRender) -> Result<Value> {
     if let Some((id, artifact)) = reusable_job(store, &prepared)? {
         if let Some(artifact) = artifact {
@@ -715,7 +793,7 @@ fn check(artifact: &Value, root: &File, leaf: &str, cancel: &AtomicBool) -> Resu
     let mut buffer = vec![0u8; 1024 * 1024];
     let mut offset = 0;
     while offset < before.len() {
-        if cancel.load(Ordering::Relaxed) {
+        if cancel.load(Ordering::Relaxed) || crate::embedding::poll_interrupt() {
             return Err(Error("artifact verification cancelled".into()));
         }
         let remaining = (before.len() - offset).min(buffer.len() as u64) as usize;
@@ -974,6 +1052,9 @@ pub fn recover(store: &mut Store, profile: &str, limit: usize) -> Result<Value> 
     let mut recovered = vec![];
     let mut errors = vec![];
     for row in pending {
+        if crate::embedding::poll_interrupt() {
+            return Err(Error("artifact recovery cancelled".into()));
+        }
         let id = text(&row, "id")?;
         let job_id = text(&row, "job_id")?;
         if active(store, job_id)? {

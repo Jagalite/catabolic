@@ -230,6 +230,47 @@ fn run(mut args: Vec<String>) -> Result<Value> {
                 )
             })
         }
+        [command, surface, operation]
+            if command == "operation" && surface == "plex-import" && operation == "run" =>
+        {
+            let request = catabolic_core::decode_json(&options)?;
+            catabolic_http::interruptible(move |cancel| {
+                catabolic_runtime::api::execute_plex_import_with_poll(
+                    &path,
+                    &profile,
+                    &request,
+                    &cancel,
+                    &mut || {},
+                )
+            })
+        }
+        [command, surface, operation]
+            if command == "operation" && surface == "plex-match" && operation == "run" =>
+        {
+            let request = catabolic_core::decode_json(&options)?;
+            catabolic_http::interruptible(move |cancel| {
+                catabolic_runtime::api::execute_plex_match_with_poll(
+                    &path,
+                    &profile,
+                    &request,
+                    &cancel,
+                    &mut || {},
+                )
+            })
+        }
+        [command, surface, operation]
+            if command == "operation" && surface == "plex-metadata" && operation == "run" =>
+        {
+            let request = catabolic_core::decode_json(&options)?;
+            catabolic_runtime::plex_metadata::execute_cli(&path, &profile, &request)
+        }
+        [command, surface, operation] if command == "operation" && surface == "plex-login" => {
+            catabolic_runtime::plex_login::execute_cli(
+                operation,
+                &catabolic_core::decode_json(&options)?,
+            )
+        }
+
         [command, surface, operation] if command == "operation" => catabolic_runtime::api::execute(
             &path,
             &profile,
@@ -367,7 +408,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             &path,
             document,
             &profile,
-            catabolic_core::decode_json(&variables)?,
+            catabolic_store::graphql::InputVariables::from_json(&variables)?,
             operation.as_deref(),
             timeout_ms,
         ),
@@ -435,7 +476,17 @@ fn main() {
         Ok(value) => println!("{}", serde_json::to_string(&value).expect("result JSON")),
         Err(error) => {
             eprintln!("catabolic: {error}");
-            std::process::exit(2);
+            std::process::exit(
+                if error.0 == catabolic_runtime::plex_matching::INTERRUPTED
+                    || error.0 == catabolic_runtime::plex_import::INTERRUPTED
+                    || error.0 == catabolic_runtime::plex_login::INTERRUPTED
+                    || error.0 == catabolic_runtime::plex_metadata::INTERRUPTED
+                {
+                    130
+                } else {
+                    2
+                },
+            );
         }
     }
 }
