@@ -194,7 +194,7 @@ impl Context {
         )?
         .into_iter()
         .next()
-        .map(|row| serde_json::from_str::<Value>(row["value"].as_str().unwrap()))
+        .map(|row| catabolic_core::decode_json(row["value"].as_str().unwrap()))
         .transpose()?
         .unwrap_or(Value::Null);
         let legacy = records.is_empty();
@@ -208,7 +208,7 @@ impl Context {
         )?;
         result["copy_policy"] = copy
             .first()
-            .map(|r| serde_json::from_str::<Value>(r["definition"].as_str().unwrap()))
+            .map(|r| catabolic_core::decode_json(r["definition"].as_str().unwrap()))
             .transpose()?
             .unwrap_or(Value::Null);
         let rendition = rows(
@@ -218,7 +218,7 @@ impl Context {
         )?;
         result["rendition_policy"] = rendition
             .first()
-            .map(|r| serde_json::from_str::<Value>(r["definition"].as_str().unwrap()))
+            .map(|r| catabolic_core::decode_json(r["definition"].as_str().unwrap()))
             .transpose()?
             .unwrap_or(Value::Null);
         result["refresh"] = json!(rows(

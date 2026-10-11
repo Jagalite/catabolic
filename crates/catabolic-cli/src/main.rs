@@ -50,6 +50,33 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         })
         .transpose()?
         .unwrap_or(5000);
+    if http
+        && args.first().is_some_and(|command| {
+            [
+                "operation",
+                "tag",
+                "definitions",
+                "curation",
+                "programs",
+                "plans",
+                "manifest-build",
+                "manifest-write",
+                "notify",
+                "observe",
+                "outputs",
+                "media-enqueue",
+                "media-run",
+                "media-cancel",
+                "media-retry",
+                "operation-put",
+            ]
+            .contains(&command.as_str())
+        })
+    {
+        return Err(Error(
+            "native mutation HTTP evaluation requires authorization context".into(),
+        ));
+    }
     match args.as_slice() {
         [command] if command == "--version" || command == "version" => Ok(
             json!({"version":env!("CARGO_PKG_VERSION"),"schema":migration::SCHEMA_VERSION,"reference":migration::reference()["reference_commit"]}),
@@ -72,9 +99,111 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             db.execute_batch("BEGIN")?;
             migration::snapshot(&db)
         }
+        [command] if command == "manifest-build" => {
+            let store = catabolic_store::Store::open(&path, false, false)?;
+            let request = catabolic_core::decode_json(&options)?;
+            let mut evaluation =
+                catabolic_store::selection::Evaluation::new(store, &profile, 60000, 100000, http)?;
+            catabolic_store::manifest::build(
+                &mut evaluation,
+                request["catalog"].as_str().unwrap_or("global"),
+                request.get("extra"),
+                request.get("selection"),
+            )
+        }
+        [command] if command == "manifest-write" => catabolic_runtime::api::execute(
+            &path,
+            &profile,
+            "manifest",
+            "write",
+            &catabolic_core::decode_json(&options)?,
+        ),
+        [command, surface, operation] if command == "operation" => catabolic_runtime::api::execute(
+            &path,
+            &profile,
+            surface,
+            operation,
+            &catabolic_core::decode_json(&options)?,
+        ),
+        [command, action] if command == "observe" || command == "outputs" => {
+            catabolic_runtime::api::execute(
+                &path,
+                &profile,
+                command,
+                action,
+                &catabolic_core::decode_json(&options)?,
+            )
+        }
+        [command, op, ids @ ..] if command == "media-enqueue" => {
+            let store = catabolic_store::Store::open(&path, true, false)?;
+            let request: Value = catabolic_core::decode_json(&options)?;
+            catabolic_runtime::media::enqueue(&store, &profile, op, ids, &request, false, None)
+        }
+        [command, ids @ ..] if command == "media-run" => {
+            let mut store = catabolic_store::Store::open(&path, true, false)?;
+            catabolic_runtime::media::run(
+                &mut store,
+                &profile,
+                ids,
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            )
+        }
+        [command, id] if command == "media-get" => {
+            let store = catabolic_store::Store::open(&path, false, false)?;
+            catabolic_store::media_mutation::get_job(&store, &profile, id)
+        }
+        [command, id] if command == "media-cancel" || command == "media-retry" => {
+            let store = catabolic_store::Store::open(&path, true, false)?;
+            if command == "media-cancel" {
+                catabolic_store::media_mutation::cancel(&store, &profile, id)
+            } else {
+                catabolic_store::media_mutation::retry(&store, &profile, id)
+            }
+        }
+        [command, name, definition] if command == "operation-put" => {
+            let store = catabolic_store::Store::open(&path, true, false)?;
+            catabolic_runtime::media::put_operation(
+                &store,
+                name,
+                &catabolic_core::decode_json(definition)?,
+            )
+        }
+        [command, action] if command == "notify" => catabolic_runtime::api::execute(
+            &path,
+            &profile,
+            "notify",
+            action,
+            &catabolic_core::decode_json(&options)?,
+        ),
+        [command, action, request] if command == "interchange" => {
+            catabolic_store::interchange::dispatch(action, &catabolic_core::decode_json(request)?)
+        }
+        [command, action, request]
+            if command == "definitions"
+                || command == "curation"
+                || command == "programs"
+                || command == "plans" =>
+        {
+            catabolic_runtime::api::execute(
+                &path,
+                &profile,
+                command,
+                action,
+                &catabolic_core::decode_json(request)?,
+            )
+        }
+        [command, action] if command == "tag" => {
+            let store = catabolic_store::Store::open(&path, true, false)?;
+            catabolic_store::tagging::dispatch(
+                &store,
+                &profile,
+                action,
+                &catabolic_core::decode_json(&options)?,
+            )
+        }
         [command, id, catalog] if command == "layout-plan" => {
             let store = catabolic_store::Store::open(&path, false, false)?;
-            let request: Value = serde_json::from_str(&options)?;
+            let request: Value = catabolic_core::decode_json(&options)?;
             let mut evaluation =
                 catabolic_store::selection::Evaluation::new(store, &profile, 60000, 100000, http)?;
             catabolic_store::layout::plan(
@@ -87,7 +216,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             )
         }
         [command, definition] if command == "select" => {
-            let selection: Value = serde_json::from_str(definition)?;
+            let selection: Value = catabolic_core::decode_json(definition)?;
             let store = catabolic_store::Store::open(&path, false, false)?;
             let mut evaluation = catabolic_store::selection::Evaluation::new(
                 store,
@@ -106,7 +235,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             evaluation.run(id, max_rows)
         }
         [command, value] if command == "encode" => {
-            Ok(json!({"encoded":catabolic_core::encode(&serde_json::from_str::<Value>(value)?)}))
+            Ok(json!({"encoded":catabolic_core::encode(&catabolic_core::decode_json(value)?)}))
         }
         [command, _entity] if command == "catalog" && http => Err(Error(
             "catalog HTTP evaluation requires authorization context".into(),
@@ -114,7 +243,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         [command, entity] if command == "catalog" => {
             let store = catabolic_store::Store::open(&path, false, false)?;
             catabolic_store::query::CatalogQuery::new(&store, &profile)?
-                .execute(entity, &serde_json::from_str(&options)?)
+                .execute(entity, &catabolic_core::decode_json(&options)?)
         }
         [command, _document] if command == "graphql" && http => Err(Error(
             "GraphQL HTTP evaluation requires authorization context".into(),
@@ -123,7 +252,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             &path,
             document,
             &profile,
-            serde_json::from_str(&variables)?,
+            catabolic_core::decode_json(&variables)?,
             operation.as_deref(),
             timeout_ms,
         ),

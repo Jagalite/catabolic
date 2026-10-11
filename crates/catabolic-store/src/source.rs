@@ -45,7 +45,7 @@ fn revision(file: &File) -> Result<Value> {
     )
 }
 #[cfg(target_os = "macos")]
-fn volume_uuid(file: &File) -> Option<String> {
+pub(crate) fn volume_uuid(file: &File) -> Option<String> {
     let mut attributes = libc::attrlist {
         bitmapcount: 5,
         reserved: 0,
@@ -73,7 +73,7 @@ fn volume_uuid(file: &File) -> Option<String> {
     (!id.is_nil()).then(|| id.to_string())
 }
 #[cfg(target_os = "linux")]
-fn volume_uuid(file: &File) -> Option<String> {
+pub(crate) fn volume_uuid(file: &File) -> Option<String> {
     let root = std::fs::read_link(format!("/proc/self/fd/{}", file.as_raw_fd())).ok()?;
     let mut child = std::process::Command::new("findmnt")
         .args(["--json", "--target"])
@@ -98,7 +98,7 @@ fn volume_uuid(file: &File) -> Option<String> {
     if output.stdout.len() > 65536 {
         return None;
     }
-    let value: Value = serde_json::from_slice(&output.stdout).ok()?;
+    let value: Value = catabolic_core::decode_json_bytes(&output.stdout).ok()?;
     let rows = value["filesystems"].as_array()?;
     if rows.len() != 1 {
         return None;
@@ -135,6 +135,12 @@ fn checked_root(snapshot: &Value) -> Result<File> {
     Ok(root)
 }
 pub fn validate(snapshot: &Value) -> Result<Value> {
+    with_validated_source(snapshot, |file| revision(file))
+}
+pub(crate) fn with_validated_source<T>(
+    snapshot: &Value,
+    operation: impl FnOnce(&mut File) -> Result<T>,
+) -> Result<T> {
     if snapshot["status"] != "present" || snapshot["root"].as_str().is_none_or(str::is_empty) {
         return Err(Error(
             "source is not recorded present; scan the mounted source first".into(),
@@ -150,7 +156,7 @@ pub fn validate(snapshot: &Value) -> Result<Value> {
     for part in &parts[..parts.len() - 1] {
         parent = open_at(parent.as_raw_fd(), part, true)?;
     }
-    let file = open_at(parent.as_raw_fd(), parts.last().unwrap(), false)?;
+    let mut file = open_at(parent.as_raw_fd(), parts.last().unwrap(), false)?;
     let before = revision(&file)?;
     if !file.metadata()?.is_file()
         || ["size", "mtime_ns", "device", "inode"]
@@ -166,6 +172,7 @@ pub fn validate(snapshot: &Value) -> Result<Value> {
             "source revision changed; rescan and start a new operation".into(),
         ));
     }
+    let result = operation(&mut file)?;
     let named = open_at(parent.as_raw_fd(), parts.last().unwrap(), false)?;
     if revision(&file)? != before || revision(&named)? != before {
         return Err(Error(
@@ -180,5 +187,5 @@ pub fn validate(snapshot: &Value) -> Result<Value> {
             "source root changed while reading; result discarded".into(),
         ));
     }
-    Ok(before)
+    Ok(result)
 }

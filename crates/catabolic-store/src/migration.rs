@@ -28,7 +28,7 @@ include!(concat!(env!("OUT_DIR"), "/migrations.rs"));
 pub fn reference() -> &'static Value {
     static REFERENCE: OnceLock<Value> = OnceLock::new();
     REFERENCE.get_or_init(|| {
-        serde_json::from_str(include_str!("../resources/reference.json"))
+        catabolic_core::decode_json(include_str!("../resources/reference.json"))
             .expect("frozen reference resource")
     })
 }
@@ -47,7 +47,7 @@ pub fn execute(db: &Connection, step: &Migration) -> Result<()> {
             |ctx| {
                 let raw: String = ctx.get(0)?;
                 let profile: String = ctx.get(1)?;
-                let mut value: Value = serde_json::from_str(&raw)
+                let mut value: Value = catabolic_core::decode_json(&raw)
                     .map_err(|e| rusqlite::Error::UserFunctionError(Box::new(e)))?;
                 let selection = value
                     .get_mut("selection")

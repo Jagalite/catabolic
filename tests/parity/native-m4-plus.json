@@ -1,0 +1,2608 @@
+{
+  "format_version": 1,
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "base_commit": "c6471145d615bbe5a60806f97ef5da0766b92fa8",
+  "scope": "Opt-in native mutation/workflow companion checkpoint. Not a complete milestone, default switch or release authorization.",
+  "milestones": {
+    "M4": "in-progress",
+    "M5": "in-progress",
+    "M6": "in-progress",
+    "M7": "in-progress",
+    "M8": "in-progress",
+    "M9": "in-progress",
+    "M10": "in-progress",
+    "M11": "in-progress"
+  },
+  "prerequisites": {
+    "M0": "Open gates remain in m0-gates.json",
+    "M1-M3": "Historical source/platform-bound qualification preserved in native-m2-m3.json; does not qualify all changes here"
+  },
+  "frozen_ledger_qualification_changes": [],
+  "source_sha256": {
+    "Cargo.lock": "0a5347f2871bfb85f31be49b797f9b0207977391810074806d28a611f28393ae",
+    "Cargo.toml": "1eeb8877945cac8acf85e10df2811a092de59a9dcdf13e580ab298d6f9e9edd3",
+    "crates/catabolic-cli/Cargo.toml": "e47d54b6dc0140bff430901c5434a78f8b32dac431ba979583330f61a3c6c51e",
+    "crates/catabolic-cli/src/main.rs": "95b11c14b629fafece1dbf0b4bded70a5b958bc2d332fe595a92967e8a67a055",
+    "crates/catabolic-core/Cargo.toml": "b66092697ff4c52ae9ea7c5e4c72eafefb559972eb7ac20ce7a97586280d350c",
+    "crates/catabolic-core/src/coordination.rs": "de454e4ee54e78dd634190fa1825c73e50af2ceb77b0613f0dbf801be84f86a0",
+    "crates/catabolic-core/src/execution.rs": "85c6368deac2d972e4d4dc6aab03d1768131cbe19069cfad324a05ac8687961f",
+    "crates/catabolic-core/src/fallback.rs": "16c99578bb84bdcc08cb96f1f1d4ce90edca71fa0d67d8336b7dc02b7ebd26fc",
+    "crates/catabolic-core/src/json.rs": "62d23d3638b4b13e4f53edb7d280d60397fbc723ac6fe0fd9540921a10492fc2",
+    "crates/catabolic-core/src/lib.rs": "fc59d3022483eacd10382c542fd088d6ab9be8a102b1302a23244da7a9ce1b12",
+    "crates/catabolic-core/src/lifecycle.rs": "ae1ceda8060554dff32d38ce2b8908d4ee01f93572376788733722a0e25dd5b3",
+    "crates/catabolic-core/src/media.rs": "3a11f24943325d48d4eaa6ed47ca9e76ad9b1b708ea7f3a291977971490190c4",
+    "crates/catabolic-core/src/playback.rs": "eab0cc6acd00e1edd43e4c6162df66e1234aa2642405d2e8e28f1c66a78d38a7",
+    "crates/catabolic-python/Cargo.toml": "6bb6ad01b46c9ee5741a71f807796fbfcf2d86d9b3a5a6c5a81ee3dcd65b7b94",
+    "crates/catabolic-python/pyproject.toml": "43e1c45944f5abde7093cfe5f74e7ed4878cc2583b66b2510ada89cbfd497d89",
+    "crates/catabolic-python/python/catabolic_native/__init__.py": "1c33b0421f61e4bcbb12ac91a44858cc95e1b4165622b01dbdcdbf54308de55d",
+    "crates/catabolic-python/src/lib.rs": "6b0c3978a9093fbfe1c1f7d1f6070ef5b8d82ee07d6d8a765594eba38ce942d0",
+    "crates/catabolic-runtime/Cargo.toml": "4ee66253241e76052141ef6b050c5ce1e875cc669d79fed112c3832b95184301",
+    "crates/catabolic-runtime/resources/generate_subtitle_float.py": "5458fbbd964f596178e5641cfcbb824f51e312dfdfff6da6c9937a69363973e5",
+    "crates/catabolic-runtime/resources/subtitle-float-oracle.json": "7ffd4ee682d884ebd7703d04339a37c7be8d12b9ba5bdaf00ac3c9309c36e407",
+    "crates/catabolic-runtime/resources/subtitle-float-oracle.json.license": "2cfbbfea5c4c555723441080b5c1c3e4c744522388348b0db1b2210b2ab9634b",
+    "crates/catabolic-runtime/src/api.rs": "98bf06e53067a289680fea67c9dd3f1fa561d0fce4cffa6ba03855521164dcb2",
+    "crates/catabolic-runtime/src/apprise_worker.py": "924d89c3ce8e343f234519558faf13aad089df6c8f44ed7b22bc30ec218ee796",
+    "crates/catabolic-runtime/src/artifacts.rs": "6483f1215e2ae91a8910c9833e1d99f95ba36193caf227ec14cfb9f231f912cf",
+    "crates/catabolic-runtime/src/component_mux.rs": "3d9c4030de9bd14bacaab9b5feb726d636b4df15a9f1e1bbe434b0c2e55c9fdc",
+    "crates/catabolic-runtime/src/component_packaging.rs": "eeea0b294fb08af35df49999b616325c86124fa18f270f148aba12112a0cf947",
+    "crates/catabolic-runtime/src/consumers.rs": "d2884c10eebcad30eb569e2cdf9aec27266bd3eeef23228994bd64a2754ff6ad",
+    "crates/catabolic-runtime/src/document.rs": "557667c826b3fa436f6aaa0068e4a8f0cf5794076783d5691a3a97f00d6455b8",
+    "crates/catabolic-runtime/src/lib.rs": "a1b40ca51069aff6747a681a2546931ed6e62051992bc6aa62c1fad916daa9e7",
+    "crates/catabolic-runtime/src/media.rs": "f425efd1d2b4e98ad142ed81d5342e947e6ca0c88e260743587bc18fcc104615",
+    "crates/catabolic-runtime/src/notifications.rs": "a45a8b07b683008a6a2b7bd98f60ca5b5036c460f5452d2b866b178cdf8ecc79",
+    "crates/catabolic-runtime/src/packet_verification.rs": "8fe4d5fc4cfd5f98da70c7af23deeda098627c75497084281655ea738b27530a",
+    "crates/catabolic-runtime/src/playback.rs": "d62b936def9fc31a6cd13c25448bfe0c81bcc871fe54d1f92a4b06422e4f419a",
+    "crates/catabolic-runtime/src/process.rs": "25eaaa80a2da150c10122c2b81520120517696343e3cbf9524268cb11bc5c76e",
+    "crates/catabolic-runtime/src/processors.rs": "168c327ee0c6a859d53943116d225878d0c84b3db55017b574d3ec50a6d11385",
+    "crates/catabolic-runtime/src/receipts.rs": "143710d6012a356aed7c2a444f2d70e77deaa455b34ac24cee06ad8c540c4b7a",
+    "crates/catabolic-runtime/src/rendering.rs": "37816b40d0325656e4158267cad27673fa65277f9a04d4f2e6cdd41c7c45bfcb",
+    "crates/catabolic-runtime/tests/artifact_publication.rs": "4dd8b0ab0f776640f2332a5f99bbb2b6549ee74230b45df28b14803450cbb478",
+    "crates/catabolic-runtime/tests/execution_ledger.rs": "62f816f93f5dd15926707f6f201b35562e0edf3a714d5ac7fef0bdfa675f6ade",
+    "crates/catabolic-runtime/tests/media_workflows.rs": "d61528e4f67341289e7fa8cc0f3bccac4f8ab1948ccb697b6c2f6c3fa34c9c87",
+    "crates/catabolic-runtime/tests/render_boundaries.rs": "6f2729f99dc563b18fef9fabe2b191eb32323473451b09bbc6a1ac59dd8dd08a",
+    "crates/catabolic-store/Cargo.toml": "af484072635d1abb6af2fece853ec9edda1f2316370a1311ad70f8cd7a31e631",
+    "crates/catabolic-store/build.rs": "0d0a116334f7c2d17969aeb12248cdb86833aec736692fa86198733486918c05",
+    "crates/catabolic-store/resources/hashes.json": "c5ef0a4d7150a18068691771182e08fc6babcf9f9acb556ac2a49b47b3eac273",
+    "crates/catabolic-store/resources/interchange/manifest-v1.schema.json": "3b0232a9d4b4e48ce93f15e0040ccb20b6f8aec4ad8e05f0185b38ed43d5f4ed",
+    "crates/catabolic-store/resources/interchange/manifest-v1.schema.json.license": "2cfbbfea5c4c555723441080b5c1c3e4c744522388348b0db1b2210b2ab9634b",
+    "crates/catabolic-store/resources/interchange/manifest-v2.schema.json": "edd10dc7b43ba3ce21879b539eebe76fd6f6228bd65799cf81724e884ca9ef73",
+    "crates/catabolic-store/resources/interchange/manifest-v2.schema.json.license": "2cfbbfea5c4c555723441080b5c1c3e4c744522388348b0db1b2210b2ab9634b",
+    "crates/catabolic-store/resources/interchange/manifest-v3.schema.json": "759f71eeabda0c9906275583fe20ef734b9e89da034d0e5ee04aeb650e1f976c",
+    "crates/catabolic-store/resources/interchange/manifest-v3.schema.json.license": "2cfbbfea5c4c555723441080b5c1c3e4c744522388348b0db1b2210b2ab9634b",
+    "crates/catabolic-store/resources/introspection.json": "58a9b5274687db95f1aa1709d9f4f103acd4e82dca0df5f6c62efb339aaa32ee",
+    "crates/catabolic-store/resources/layouts.json": "b1947b95a1831cc8459ef2596ba3e292d4764f1c58b6bab7dca6bc4ab90822f7",
+    "crates/catabolic-store/resources/migrations/001_initial.sql": "8a605a475c2fdb2efb88181bde37b223adf0ee2c42c32d84786c11947c400266",
+    "crates/catabolic-store/resources/migrations/002_migration_history.sql": "ecc77bbbbc6d026494081d6c5785f25164911e31e3905ba4dc88b48f6da91fb7",
+    "crates/catabolic-store/resources/migrations/003_media_model.sql": "9cb642aeb4776389f356a759a51137acc48b0578455fcf889489128162786735",
+    "crates/catabolic-store/resources/migrations/004_tags.sql": "6e7bfee0a6fafebc5740427cbfd35e1c7f71c96924d88bfc45ba15708c7c7052",
+    "crates/catabolic-store/resources/migrations/005_hardlinks.sql": "eb6b6da90504a8538cbc604a350ee25a6b87f96c24fcd25111641c7822a1d92d",
+    "crates/catabolic-store/resources/migrations/006_enrichment.sql": "7f4866d9253e75642ca448bf1a392b526084a41a8d881726ef3369dfddbfe540",
+    "crates/catabolic-store/resources/migrations/007_processing_attempts.sql": "29082e1de240f34728b086ba1788cafe4efc484a257a31bf3502081d3ad37f37",
+    "crates/catabolic-store/resources/migrations/008_processing_artifacts.sql": "5f6d649e2a4c5138c1d7bb734325a776f3812777ab51145f7c6e251f2af96390",
+    "crates/catabolic-store/resources/migrations/009_output_definitions.sql": "6a71ceba276f7637afd1eeb812d72008708b2c44903708ff64389701ec439d41",
+    "crates/catabolic-store/resources/migrations/010_item_workflow.sql": "9740cb5b7bdf8c4c95c1de9443e9dcda3ad2ddc782d6e629b64a1dfb1ee91ce2",
+    "crates/catabolic-store/resources/migrations/011_processing_rules.sql": "c18c2c4c4c0f424668a0aea43d90f7b7ec8d18e536dc85e9e6850acfaa560a1e",
+    "crates/catabolic-store/resources/migrations/012_rendition_publication.sql": "b4b069aec8f106d738a15eab67b38bb903982338ff87a9a3adb0c37d8bcc445d",
+    "crates/catabolic-store/resources/migrations/013_processor_workers.sql": "7c62b7a8a15bf152a1e2445ba82b0423b9d92e2b3ade9848eca8e4088d15afaa",
+    "crates/catabolic-store/resources/migrations/014_catalog_refresh.sql": "09c9c9197612ce488ce22a984e6411c8c6edab5baac1b440959d39f4de7a32a4",
+    "crates/catabolic-store/resources/migrations/015_queries_projections.sql": "584d4c7c366eb5ebde2fbfe6067e736a6e37cea53f61c8166506f5289d80723d",
+    "crates/catabolic-store/resources/migrations/016_operation_rules.sql": "97c379e453b3d4b89b4c86a709e0412ed9a008a473a800f0d9b6e8c8c1b23c65",
+    "crates/catabolic-store/resources/migrations/017_consumers.sql": "a3cefa0211e69fe6dcae16be7177d47f2654a8c0d4479b5c2162d083bdabf2f9",
+    "crates/catabolic-store/resources/migrations/018_volume_identity.sql": "59efe0414084aeda70ca0763b636d7df3d5c0cdd01d2f2379ca2f741caa7ac64",
+    "crates/catabolic-store/resources/migrations/019_source_trust.sql": "2f9a3b5bad08553a21122fe37a7965ba4555f649155f0b435af32155eadf17bd",
+    "crates/catabolic-store/resources/migrations/020_trust_evidence.sql": "077eec82b6a3da507e4f45d9b90ab0eb3500051c0204685f0b2d449065d721f3",
+    "crates/catabolic-store/resources/migrations/021_execution_claims.sql": "a65e9d20c4ab025cedee7a080cbfdefc80eced605baf034937e474e54c841f8f",
+    "crates/catabolic-store/resources/migrations/022_http_access.sql": "235cefec2a5d15c769b53a291fde19e845869a9fccd1f8cc5755dcc99857440e",
+    "crates/catabolic-store/resources/migrations/023_fallback_resolution.sql": "a90d08638fa9e198ac581453dbf85de94bcd14700f71d145c58d57aa357e6ac8",
+    "crates/catabolic-store/resources/migrations/024_watchers.sql": "c49a910be4ad0dd5992505131796bd22ce62f3b3d5282256519f87a0765d42de",
+    "crates/catabolic-store/resources/migrations/025_media_components.sql": "041daced8640ad14cf75d05e606a74288928a71a7630a8c75d6ea2f14ef2b548",
+    "crates/catabolic-store/resources/migrations/026_observation_requests.sql": "695bd4b4fc5cc9272154075c595b82c3b99ccb49a793bde532e29ba695198e7a",
+    "crates/catabolic-store/resources/migrations/027_guarded_observations.sql": "f5c5afad6c33564802f6afaadf34f80fac769b93077963ede138b6a0eafa38ad",
+    "crates/catabolic-store/resources/migrations/028_playback_sessions.sql": "da1f545e74e81cfa350af0a3d9df0d3c8188fd941deea561131bace7c4e166df",
+    "crates/catabolic-store/resources/migrations/029_media_header_checks.sql": "c2fdc38ebf2f93431aa084ded3b575d2593058d4d4970600b56c356c92c3d08b",
+    "crates/catabolic-store/resources/migrations/030_job_notifications.sql": "94aeaaa963cc158f4d5f638ec1158046643ba6b732aaaf03abf58536c5d940d1",
+    "crates/catabolic-store/resources/migrations/031_http_webhooks.sql": "73d66a0d806ed82e72cbea47b402136ff5a1a0c309bd44558e66d726be6406a3",
+    "crates/catabolic-store/resources/migrations/032_http_query_mappings.sql": "aa924880dcb4b3ca49c23b1694bd1400025837a0acdfe87abffbdbc9c7736238",
+    "crates/catabolic-store/resources/reference.json": "ec5dca7ac638dfa603e4baabe4db6f5dbe7199e1d90839c50f87dac1aa32e998",
+    "crates/catabolic-store/resources/schema.graphql": "327de5b35a6aaa087f1956ba4a8fe5eb5f03d0f0797b143c85a0e9cc04b8df89",
+    "crates/catabolic-store/resources/text-word-ranges.json": "cb2ba7b071880efd5d95fdb3935db4d0a893febede8b4e2ebecc0eae1289655c",
+    "crates/catabolic-store/resources/text-word-ranges.json.license": "2cfbbfea5c4c555723441080b5c1c3e4c744522388348b0db1b2210b2ab9634b",
+    "crates/catabolic-store/resources/unicode-other.json": "eb151a7b15295334973f8b3ebb71a3e6c4173947c02800724db486af5befe4d6",
+    "crates/catabolic-store/src/access.rs": "53cece4a6465e654625ecc90fe143ae6a04d8170d9077b843d87db37ef6b6efc",
+    "crates/catabolic-store/src/artifact_mutation.rs": "e68cd464636fb4d6bfb2d9570be8a2b3954a9ad9a312a2dfabc2359b48e1b3e9",
+    "crates/catabolic-store/src/component_mutation.rs": "137c51248945aaaf1884ab75bd0db924c8392fe8f380859cbe257af558356d22",
+    "crates/catabolic-store/src/components.rs": "1c39ba5a364844dc06a1ecc955b32e8b18d2d3fa5d41aa4ccb02c266b122d96b",
+    "crates/catabolic-store/src/consumers.rs": "89e733215ffddc2563a46b988591809eedac233d92a3215c17f1943822ccedab",
+    "crates/catabolic-store/src/content_access.rs": "2cbfd70d8173dca449777b15b115f64958af507392c765c4db113a6fb51c8a98",
+    "crates/catabolic-store/src/curation.rs": "0e658ce3f75f14a6a70266b44a6e97e16dd54680f738097ff78b3e2a8e481016",
+    "crates/catabolic-store/src/definitions.rs": "e83e5939a8102020c7edaaf7c57c69d66166ef1d4a6d34a4e74f13e83a788361",
+    "crates/catabolic-store/src/document.rs": "2db8ff7cbeaab0598525fa373d2a6b63244f2cab5d7e0be70748546958eafb3c",
+    "crates/catabolic-store/src/estimates.rs": "2172151ae91b69b83a79266519227f54ac6f46b3c5b44066f203854efe376934",
+    "crates/catabolic-store/src/fallback_mutation.rs": "1dc379d35fc324986bbd058e892c39103bcff483711d8e9fdac845a37fb24829",
+    "crates/catabolic-store/src/filesystem_mutation.rs": "aaeecb664482c3a36b68702f67272807c38699229581b4df9aad40f39877a604",
+    "crates/catabolic-store/src/graphql.rs": "c06983bbb22a0261d55eef61b7d291f59355c16c8445f5ea7fa32fdc902bd353",
+    "crates/catabolic-store/src/hardlink_mutation.rs": "6155d9e34af94358bbc0d4d35ef463136cc67a36c07d93b13a9a457601e63f20",
+    "crates/catabolic-store/src/http_mappings.rs": "fdede8ff6af2f608e34f63a812c955418721b5aee3e49167b8459d5183359ed0",
+    "crates/catabolic-store/src/http_operations.rs": "ab4b7c6f0575ab835590d91c0553033aba1ccccc06c1b5d5ca89a0e33bb0edcb",
+    "crates/catabolic-store/src/interchange.rs": "57dc1d47682f0b6ecf8ce3d36e6237ff3c97ca90fcc42a5eb972b390041ae279",
+    "crates/catabolic-store/src/introspection.rs": "f29bdf5163ab7ee661711de64b5141a85a3ea938da0eab24cccaa707096ba3c0",
+    "crates/catabolic-store/src/layout.rs": "9f94f0f5550378e03f459463b4329940d6e6cea9ac89007a7760a2d1bccee22a",
+    "crates/catabolic-store/src/lib.rs": "fbfa96e60027759b41fa659a707342d9841d5846540d39022fdde5f7f121d426",
+    "crates/catabolic-store/src/manifest.rs": "d67b3e4a77b49938718c4e7bc9786a0356c579432a81bc154ab5369787ab4219",
+    "crates/catabolic-store/src/media_mutation.rs": "6aaee18ca423d380160d616a8723cdb0fbadf40561990f12b77991506af8070a",
+    "crates/catabolic-store/src/migration.rs": "2c5fa61753e50a78934e854498325789b54a96332dc4a2501ca820d122651d34",
+    "crates/catabolic-store/src/mutation.rs": "350b5f28fd310b0132e7a4a7bb230f4e78277e924fb594293b7e5fabc73565a5",
+    "crates/catabolic-store/src/notifications.rs": "d6e09ab4763de25f47724167761d249b2f6275c47c0d11678f4dccaeadcebabf",
+    "crates/catabolic-store/src/observation.rs": "edbd09d1c1461a6a59d12cbbd6fc17fb3c9dbdeaba0de14348acd9be81ff9784",
+    "crates/catabolic-store/src/output_mutation.rs": "5f999ba50bf2bd48bd191d335170bac9b66b81b0ddf53062ef15bc1207c5954d",
+    "crates/catabolic-store/src/plans.rs": "8abb4b599576abbfa2502bc0eb0e1d92c2ae70878f9fc111b32bcca035b30d4c",
+    "crates/catabolic-store/src/playback.rs": "753deed8b8ec1612ec2cd16015f0f7bb1b73ebc7bc0bcd3022cd15a2973b1eb6",
+    "crates/catabolic-store/src/playback_cache.rs": "aa1828b99c5b6f69d5b8d0930b99a8e6569a2737114de1e52e0c295441681469",
+    "crates/catabolic-store/src/processor_mutation.rs": "33c1971849137dad9cc6de1814cfd52958cdc298377939b8bbedf715aa4f8a17",
+    "crates/catabolic-store/src/programs.rs": "5d6a6118c4df4ecd256ecb4f93e9eadd7f9dd599511222de04731fa226e7c92e",
+    "crates/catabolic-store/src/publication.rs": "b53609f2c6e5fda5f1020011ba0ea7ba65a8afcff7da904b46119424812bd36f",
+    "crates/catabolic-store/src/query.rs": "49501045b2f1b70edb8da5c9b5170feb9f1f0b3dc6cbb3c38917cd1f3d19874f",
+    "crates/catabolic-store/src/receipt_mutation.rs": "d8515c295ba5f8ee2cfbeadbd45014aebd5937135c86ad152d592d56eed5a5c5",
+    "crates/catabolic-store/src/remount.rs": "1d0473f45f254dd29fe642c5275e5c94684d1f6ac6ea4a339f800eb004a6debf",
+    "crates/catabolic-store/src/selection.rs": "ad436b02833f73bb251430f5dda03ee87ac699be9a4af71300646e38cb649ad8",
+    "crates/catabolic-store/src/source.rs": "cfd3be839faab4b2e0089ea2622d9670ea30d7d2a16b7ad34b0e077cf3b1e72f",
+    "crates/catabolic-store/src/sql.rs": "eb180d022b144e871cd765b9f183275c62188d48f94c6ef87530cb8da316e86d",
+    "crates/catabolic-store/src/tagging.rs": "b415a6b6f59456cdab696c179cfe12c78f6706d33d262fdb9dc26d56bebca24e",
+    "crates/catabolic-store/src/validation.rs": "896a92ce1b3c00016144d29a246cfa37e06c5ef80067c50dc439ea36b1b10fd6",
+    "crates/catabolic-store/src/watcher.rs": "da4d550867988c961f293e849f9365400fe4f957a74c142b28b3ab4668814736",
+    "crates/catabolic-store/src/webhooks.rs": "c9d35167182b285c5c13ae345c03e98d7a13ce52bb40a7e7eae4569ee31eff0f",
+    "crates/catabolic-store/tests/storage_faults.rs": "3c272c7033505cf1898b3c722b210d4711ca0e22070444e11150a8e6bec4a336",
+    "crates/catabolic-verification/Cargo.toml": "68e50a39a50462899baa763ac42564e3e8f3f3fe450b289704a47961af33a436",
+    "crates/catabolic-verification/src/main.rs": "7f741173eb183edb5bc2f377bc9ab23854207bce1f4ebbd158e612345e9129df",
+    "crates/catabolic-verification/src/playback.rs": "a61b7e7b8e4aa52b9e69d080c8d09add91eae70ba3e42367ec99ffe3b44ab1ae",
+    "docs/RUST_MIGRATION_DEFINITIONS.md": "33accddf2ed59617dd0d1eef5b5b182f00a2207ee51e417ae260b9bacb1816e7",
+    "docs/RUST_MIGRATION_INTEGRATIONS.md": "56704317a4ad4142546b100bae81717bc172c34ba19cce6f9332689193a61115",
+    "docs/RUST_MIGRATION_M0.md": "6753a2e75ad00858a1f079aef8f44b4f2d56a146aa1fd1eafc225cc1a9375153",
+    "docs/RUST_MIGRATION_MEDIA.md": "1cc194a95eed405fe536964b78564135bba5ad123d6903833a6066060c3793cc",
+    "docs/RUST_MIGRATION_MUTATIONS.md": "e7968a6bc4cdf2390dd4efb1485929008e48c6f02b7b42f4528b4a50ca9b5392",
+    "docs/RUST_MIGRATION_NATIVE.md": "268210e9fbffa3100fce3c3d9165d67bf7c9e8ac38f64851fe8231474e7b647b",
+    "docs/RUST_MIGRATION_OBSERVATION.md": "1216275622ac4d533d41d14a03701ced4e7776ff48f309debd19d75141b36a2c",
+    "docs/RUST_MIGRATION_PLAN.md": "e8ed8dbd6e5e6fb547586a056a838d8c9672e11a2bcd9f90af3a41c021d61c27",
+    "scripts/check-native-mutations.sh": "7cac855fb57dd50b24bd52f25dba014cd5abad67177fb9591c9805e092fd2a8c",
+    "scripts/check_native_output_gate.py": "ed02c3a5460f05131a032ab4e635f4974aff5970739be5ac3a5de5e99a60c4d4",
+    "scripts/migration_media_resources.py": "057b9a20cec00d9b14e4512291bab9bbd730ef33a9abb071cb20c4711856e88f",
+    "scripts/qualify_native_mutations.py": "b90db714b0805450b0e939d14db8af23e4a7278589a64c1a42832b995e5c7025",
+    "scripts/qualify_native_wheel.py": "5b7741b774c51ff21d889398009db5285270bd63f6a73d03bbe59535aaf1a9a7",
+    "tests/test_native_processing.py": "089f721e27a7c9b5a651588840cb991fd7ef7338801af4516d13188f23005998",
+    "tests/test_rust_component_media.py": "ea073a5fbbc85c27f8a161f8763acd34073755758a21c6b42d318d048ea2731d",
+    "tests/test_rust_components.py": "8e2f7fc3e24ed33a372e95d105e699802fd542601c09b0c62aefa930bbbe3ba8",
+    "tests/test_rust_consumers.py": "21236fc407f0b7e242208e8ffd9853c380b534e24a3fb7bb67465d82645addd6",
+    "tests/test_rust_content_access.py": "51e8d7acbf1ea767e8861f6deae5f4bb12c8f4101b970056f66b68e569b32123",
+    "tests/test_rust_curation.py": "712bdf1169a8878980d4c713317391699f762124f5dd47f6d7d7aece092d9675",
+    "tests/test_rust_definitions.py": "97f6603be8c9624b9e0947fc71db0fe407c482f8ccfc316539c8cc9bbd4e400f",
+    "tests/test_rust_estimates.py": "0153ee1aeca980b6f7d6e61c7f7628402963eb95811f2a14821106e9b30c1cc2",
+    "tests/test_rust_existing_reads.py": "153feebd61c163ae2d1554e09b9c87bb4e93f844985c92964ea9c203557d6514",
+    "tests/test_rust_fallback_policy.py": "61235778ef7bdd4e28432b445de933bf4530d1dbfc58bde697c15cb1c0ae09b1",
+    "tests/test_rust_graphql.py": "1b5f597906f8cbadf2bbb923ae4645a095b5e10094fa6ca319fedf3352cf3c57",
+    "tests/test_rust_hardlinks.py": "54a29b9c0eb9dfd6288d4f7d303bbc96f27633f33b2012ad91c6bc8b5f846c83",
+    "tests/test_rust_http_mappings.py": "343cf5424ce6773e64fabb76bd16f665f8a6a643bfcaf5ef5d48ba98477b09ec",
+    "tests/test_rust_interchange.py": "658c3a7e32440a17b5231bc85ae31f3a862eac2ef0ea7a6b3aa0562cd773dfba",
+    "tests/test_rust_json_boundaries.py": "b333eec9d3992e36721960e016258cea75706452a9bdfe8567d23a77c097804a",
+    "tests/test_rust_layouts.py": "a0e6c051887b7bb28adf96d2e8a9309916f41d1686f64948f88958e0770b07b7",
+    "tests/test_rust_manifest.py": "974f25a5702b2cb4838781c7084720e9d8149f4d880b35f3ddc51edb7b933521",
+    "tests/test_rust_media.py": "d665976129c4deeb7a9ed9edbf88867e7534e6709fe6c873a52c16520ae3d978",
+    "tests/test_rust_migration.py": "b27f4c01ff068ffebf8f477010b6b693478a442ddfabde91a2294043654a7555",
+    "tests/test_rust_notifications.py": "332bf2ff72b1c82897d4de20166c1e74f29c1de4775f885cc1a57889258d16ac",
+    "tests/test_rust_observation_filesystem.py": "ad901c0f8c4cf0a52855459b677537dfb1e068b5a8d99a08635d3a037609ee26",
+    "tests/test_rust_plans.py": "807c072b986abd00fcf98b6a2cd131f9aee4ffbb9b72e9d62acf94f70c6ea1d1",
+    "tests/test_rust_playback.py": "e311a706176fa4bebeede780c337034c724c4b36f9d849b62abfb1f23624fed8",
+    "tests/test_rust_populated_migration.py": "7f31396f1be627d16f8aba2efe63d30584534f657874b99ba6742a9d8b4b4f17",
+    "tests/test_rust_programs.py": "fdd5bf8c2639979c703f14fd8d1c1bfa909d33e40df787f81788f0e2a99397ba",
+    "tests/test_rust_queries.py": "8275245955039ac79eb9931138d89bd42e0434b905c5b1bd1853d066d3a76294",
+    "tests/test_rust_remount.py": "9d466598918e45e19f694796165da951042d6eb7791be65319a34e46ebdf310f",
+    "tests/test_rust_selection.py": "ec079a14c2db5067b477a7acb561d02d0be1bcb671bd926311b668de677aa15f",
+    "tests/test_rust_tag_mutations.py": "2c5832bf0ab9cb5b092da796aeb91c25e84ae4e5d86941ce5021f117386c6429",
+    "tests/test_rust_tags.py": "abcd3af903d9a0443fcb2f03cb76f05f5589886d1b36f2d2bd105515005ae064",
+    "tests/test_rust_watchers.py": "b4786f0013f87016fd722679d421362a6c2d432789d9519843769268b85a6e86"
+  },
+  "evidence_sha256": {
+    ".local-tests/rust-migration/m4-plus/final-environment.json": "ddc2672f8853b6b1308ec8a790a42290846204ff2512b44acb88b28c33b144f0",
+    ".local-tests/rust-migration/m4-plus/final-native-linkage.txt": "b9943ec58d80ab3910da9d372cef267b7ae970bd808b29082fdcb4151efb4a78",
+    ".local-tests/rust-migration/m4-plus/python314-environment-recheck.log": "a52bb0f656a6d016b9643e27ad5fc40ff41e632cc09088a23259c38113e2adb9",
+    ".local-tests/rust-migration/m4-plus/python-regression-final.json": "485b6d5d6c614ede0b1bdba1adf722372c2f2f9b24049b43c432fbf49239fa35",
+    ".local-tests/rust-migration/m4-plus/final-native-qualification.log": "89327d87691708541126d51c95ecb6691f37b6910ceed7d36064efd9b98fe326",
+    ".local-tests/rust-migration/m4-plus/final-wheel-build.log": "bb0fa78a55286e6d6842b279324e167c72592fe8a9f1eb8ed5658ce677a07124",
+    ".local-tests/rust-migration/m4-plus/final-verification.log": "5e37cc49ae2bc6e5df2231d7fc8b4ae303be9c23e7b25e0e9439c7a527102018",
+    ".local-tests/rust-migration/m4-plus/final-resource-check.log": "b38174ef8c0b88024609b967dce4903af4b62bc2ec27bb5c181d9039483331fb",
+    ".local-tests/rust-migration/m4-plus/python314-regression.log": "b8476d9ae510e77521461ceb1f8b1d705426be43f4e2892675b54113fc5125c4",
+    ".local-tests/rust-migration/m4-plus/python314-regression.json": "68add53b115d2086177aef356d6c1fa56f88e23b709c1e14073bc907453be47d",
+    ".local-tests/rust-migration/m4-plus/release-output-gate.json": "3e61b785a1c74868756272ac7214aa5b64f956a907bf238dfcd7f9a7f34c58c3",
+    ".local-tests/rust-migration/m4-plus/native-results.json": "2e33ed114d635147915e03e9f936d56727cb3638a380672e2d8f979148fe7470",
+    ".local-tests/rust-migration/m4-plus/final-wheel-3.11.15.json": "74e13a8edf56911320c07105f4828165154d0c09deb5f13e47235b60e8fd6c4c",
+    ".local-tests/rust-migration/m4-plus/final-wheel-3.14.6.json": "b1adf2196eced82ddd99412455ef2eb85a3421ae49b2a21a755165b0fe5e5018",
+    ".local-tests/rust-migration/m4-plus/final-wheel-3.11.15.log": "866a1c465fa5ccf7ecc7fea8703f93301305ef8d1be84036029a26e358de9af5",
+    ".local-tests/rust-migration/m4-plus/final-wheel-3.14.6.log": "422d19a3d3459c1e726c57bcfbee99f9a7c154c03f65e7a3e1ae9171418f4de6",
+    ".local-tests/rust-migration/m4-plus/final-playback-counterexample/minimized.sttrace": "0a0769ddf72a7ebf17ae39ab6e705473f23d642eec6d4099f857d2175ba35ec6",
+    ".local-tests/rust-migration/m4-plus/final-playback-counterexample/original.sttrace": "0a0769ddf72a7ebf17ae39ab6e705473f23d642eec6d4099f857d2175ba35ec6",
+    ".local-tests/rust-migration/m4-plus/final-request-counterexample/minimized.sttrace": "2d8e756f8c2d3f7b2225bf8aa28df99e908f63181ffe26c08941edc7b93cc11a",
+    ".local-tests/rust-migration/m4-plus/final-request-counterexample/original.sttrace": "9abf565f53fc3d4b30993e167b85d07ec6fb0bcec5aaa06377642607a47f6d40",
+    ".local-tests/rust-migration/media-review/review-fixed-parser.log": "02f6b5e3f768446ac50e671739ad9a787fd2de8e3bd8c39e75d2d8d6cecaecbf",
+    ".local-tests/rust-migration/media-review/refresh-subtitle-fixed.log": "6005e3c86f2cd76c5333d4a97abbed3d7d7165ca671137313ee4b8099aebf469",
+    ".local-tests/rust-migration/review-playback/repro_isolation-fixed.json": "688a3d7be996d873153d74643567ef75545a8c25413ec79864e55771d0dec4cb",
+    ".local-tests/rust-migration/review-playback/repro_readonly-fixed.json": "3b54a199eb1b04028ec594e5e72248cc65b0e256197dccf327cf06ac324b89d8"
+  },
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "python": "3.14.6 (main, Aug  4 2026, 18:27:20) [Clang 22.1.3 ]",
+  "native_binary_sha256": "d2d121cc0cf5be9175e749fdc7e1dea1396d79b97568110680bb9e4e12d64cae",
+  "native_scenarios": [
+    {
+      "id": "tests.test_rust_component_media.NativeComponentMediaTest.test_actual_mux_worker_death_recovers_packet_validated_intent",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_component_media.NativeComponentMediaTest.test_exact_reference_extraction_plan_and_native_publication",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_component_media.NativeComponentMediaTest.test_external_audio_subtitle_and_exact_accepted_offset",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_component_media.NativeComponentMediaTest.test_font_attachment_exact_bytes_and_lineage",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_component_media.NativeComponentMediaTest.test_selected_streams_packet_evidence_and_reference_publication",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_components.NativeComponentQueryTest.test_component_views_and_language_filter",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_automatic_native_publication_drains_after_store_release",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_bounded_lists_and_invalid_configuration",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_busy_backoff_failure_exhaustion_repair_and_redaction",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_coalescing_scope_and_overlap_rejection",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_creation_preview_commit_reconcile_idempotence_and_binding",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_disable_during_scan_fences_ack_and_enable_requeues",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_discovery_generation_change_defers_without_attempt_penalty",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_generation_changed_during_scan_not_acknowledged",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_indexing_exact_paths_bounded_evidence_and_revision_fence",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_jellyfin_exact_non_destructive_refresh",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_live_lease_contention_expiry_and_crash_recovery",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_native_process_death_leaves_expiring_uncertain_claim",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_native_publication_scan_and_idempotent_initial",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_noop_disable_preserves_delivery_and_binding_revisions",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_private_file_credentials_reject_unsafe_modes_links_and_fifo",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_retry_preserves_inflight_refresh_lease",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_server_library_and_connection_revision_fences",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_setup_discovery_parity_and_readonly_dryrun",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_uncertain_creation_never_replays_post_and_checks_immutable_intent",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_unhealthy_shared_binding_and_output_identity_hold_scan",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_consumers.NativeConsumerTest.test_xml_entities_response_size_redirect_and_missing_credentials_fail_closed",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_content_access.NativeContentAccessTest.test_auth_readonly_exact_revision_and_private_redaction",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_content_access.NativeContentAccessTest.test_expired_revoked_and_exhausted_ticket_do_not_change_ledger",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_content_access.NativeContentAccessTest.test_live_and_registered_retired_sidecar_aliases_are_refused",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_content_access.NativeContentAccessTest.test_native_ticket_python_ranges_and_native_debit_are_one_budget",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_content_access.NativeContentAccessTest.test_python_ticket_native_revalidates_grants_token_and_owner",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_content_access.NativeContentAccessTest.test_source_exposure_revision_sqlite_header_and_named_identity",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_curation.NativeCurationTest.test_active_mapping_keeps_last_identification",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_curation.NativeCurationTest.test_association_deterministic_revision_metadata_parts_and_reindex",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_curation.NativeCurationTest.test_component_claim_snapshots_assertion_supersession_and_stale_guards",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_curation.NativeCurationTest.test_existing_association_evidence_preserves_association_and_records_event",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_curation.NativeCurationTest.test_expected_set_identity_and_completeness_states_pagination",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_curation.NativeCurationTest.test_item_identity_merge_conflicts_and_metadata_replacement",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_curation.NativeCurationTest.test_proposal_validation_has_no_mutation_on_invalid_payload",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_curation.NativeCurationTest.test_relationship_ordering_cycle_and_metadata_idempotence",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_curation.NativeCurationTest.test_reviewed_proposals_preserve_metadata_and_record_decisions",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_curation.NativeCurationTest.test_sidecar_discovery_dry_run_apply_and_pagination",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_curation.NativeCurationTest.test_stale_proposal_refusal_rejection_and_live_source_admission",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_definitions.NativeDefinitionsTest.test_layout_copy_rendition_projection_atomicity",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_definitions.NativeDefinitionsTest.test_pending_journal_refuses_desired_state_and_writer_contention",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_definitions.NativeDefinitionsTest.test_query_large_definition_omission_and_read_immutability",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_definitions.NativeDefinitionsTest.test_query_modes_budgets_unknown_fields_and_validation_errors",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_definitions.NativeDefinitionsTest.test_query_revisions_composition_dependencies_and_profile_isolation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_definitions.NativeDefinitionsTest.test_rows_parameters_reject_arbitrary_precision_integer_overflow",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_definitions.NativeDefinitionsTest.test_rule_revision_digest_enable_disable_and_derived_identity",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_estimates.NativeEstimatesTest.test_all_preset_heuristics_duration_audio_and_unknowns",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_estimates.NativeEstimatesTest.test_calibration_adjustment_and_missing_sample_report",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_estimates.NativeEstimatesTest.test_extreme_finite_facts_and_arbitrary_precision_totals",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_estimates.NativeEstimatesTest.test_retained_calibration_ranks_distinct_sources_before_sampling",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_cursor_is_bound_to_filters_sort_profile_and_entity",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_detail_occurrences_are_paginated",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_file_item_filters_match_one_active_association_without_duplicates",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_file_path_location_and_observed_status_filters",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_identity_lookup_returns_all_provider_identifiers",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_item_detail_combines_files_and_destinations_without_live_probes",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_item_detail_unknown_profile_bindings_and_disabled_history",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_items_can_filter_active_catalog_membership",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_literal_unicode_search_and_combined_item_filters",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_malformed_cursors_and_invalid_filters_fail_cleanly",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_mapping_filters_and_all_catalogs",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_metadata_exact_matches_preserve_types_null_and_objects",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_pagination_every_sort_both_directions_with_ties_and_nulls",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeCatalogAssertions.test_unmapped_is_catalog_scoped_and_unidentified_is_global",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_aggregate_cte_and_joins_over_documented_views",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_count_compound_tag_view_preserves_read_only_authorization",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_engine_rejects_writes_ddl_transactions_pragmas_and_external_access",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_invalid_bindings_and_limits_are_actionable_errors",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_multiple_statements_and_invalid_sql_do_not_execute",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_named_parameters_are_values_not_sql",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_query_and_schema_leave_database_and_filesystem_unchanged",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_query_can_run_while_catabolic_holds_writer_lock",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_real_output_byte_budget",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_result_arrays_preserve_duplicate_aliases_empty_results_and_types",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_row_truncation_is_explicit_and_sql_limit_is_complete",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_runaway_recursive_query_times_out_without_partial_output",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_view_paths_are_derived_without_probing_media",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_existing_reads.NativeSQLAssertions.test_views_include_all_profiles_but_parameter_selects_current",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_fallback_policy.NativeFallbackPolicyTest.test_defaults_rankings_packages_and_immutable_dependencies",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_fallback_policy.NativeFallbackPolicyTest.test_invalid_policy_and_cross_profile_dependencies_leave_no_revisions",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_all_read_only_page_fields",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_full_introspection_contract",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_nested_aliases_fragments_variables_and_read_only",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_pages_filters_cursor_exchange_and_offline_profile",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_populated_definitions_jobs_and_projection_pages",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_populated_workflow_checks_worklog_and_work_inbox",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_reject_writes_cycles_bad_variables_and_foreign_cursors",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_schema_and_operation_selection",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_selected_error_contracts",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_selected_operation_owns_variable_coercion",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_syntax_literals_and_field_validation_contracts",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_token_limit_and_unused_fragment_cycle",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_typo_suggestions_and_selected_operation_variables",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_graphql.NativeGraphQLTest.test_undefined_variables_inside_input_objects",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_changed_source_metadata_after_effect_requires_fresh_scan",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_completed_historical_effect_does_not_verify_changed_desired_mapping",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_creation_repeat_warnings_and_readonly_preview",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_exact_preview_and_verification_reports",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_final_pointer_blocks_disabled_and_confirmed_missing_cleanup",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_link_mode_and_rebinding_guards_include_retained_data",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_manifest_records_mode_and_inode_without_symlink_claims",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_native_crash_all_ack_boundaries_keeps_exactly_one_generation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_native_created_link_survives_python_recovery",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_native_preview_read_only_and_unowned_collision",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_native_retirement_preserves_final_reference_for_python_recovery",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_owned_inode_substitution_blocks_mutation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_python_created_link_survives_native_recovery",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_python_retirement_and_stale_replacement_recover_natively",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_replacement_of_last_old_reference_is_blocked",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_replacement_retains_old_inode",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_retirement_preserves_data_and_is_reported",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_staged_intent_rechecks_final_reference_and_can_cancel",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_hardlinks.NativeHardlinkTest.test_symlink_substitution_and_retention_parent_tampering_are_blocked",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_compiler_matches_python_exactly_and_retains_credentials_as_names",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_compiler_rejects_remote_recursive_refs_security_and_path_escapes",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_complete_graphql_connection_and_unicode_wire_bytes",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_credentials_missing_bad_and_tokens_revoked_never_dispatch",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_incomplete_queries_conflicting_keys_and_late_batch_failure_are_atomic",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_native_preview_enqueue_retry_and_immutable_request",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_preview_exact_parity_and_stale_plan_rollback",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_response_contract_rejects_invalid_json_duplicates_and_overflow",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_response_precedence_no_content_and_no_cross_origin_redirects",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_supersession_cancels_pending_but_live_leases_block_and_disable",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_interchange.NativeInterchangeTest.test_all_three_frozen_schemas_and_roundtrips",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_interchange.NativeInterchangeTest.test_checksum_references_duplicate_ids_and_link_comparisons",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_interchange.NativeInterchangeTest.test_decoder_duplicate_keys_nonfinite_and_invalid_json",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_interchange.NativeInterchangeTest.test_hardlink_ownership_is_separate_from_symlink_targets",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_interchange.NativeInterchangeTest.test_required_fields_strict_types_and_bounded_collections",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_interchange.NativeInterchangeTest.test_tag_hierarchy_withdrawn_assertions_and_strict_confidence",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_interchange.NativeInterchangeTest.test_unknown_fields_everywhere_big_integers_and_float_spelling",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_json_boundaries.NativeJsonBoundaryTest.test_mutation_http_mode_requires_auth_before_open",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_json_boundaries.NativeJsonBoundaryTest.test_nonfinite_nested_tokens_reject",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_json_boundaries.NativeJsonBoundaryTest.test_tokens_and_private_sentinel_keep_python_values",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_layouts.NativeLayoutTest.test_all_presets_and_relationships",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_layouts.NativeLayoutTest.test_collision_missing_fields_and_unicode_paths",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_layouts.NativeLayoutTest.test_copy_policy_and_first_matching_rules",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_layouts.NativeLayoutTest.test_selection_owned_changes_and_empty_guard",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_layouts.NativeRenditionLayoutTest.test_receipt_admission_rejection_and_stale_evidence",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_manifest.NativeManifestTest.test_full_manifest_outgoing_closure_and_source_paths",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_manifest.NativeManifestTest.test_layout_projection_and_rule_statistics",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_manifest.NativeManifestTest.test_publication_exact_bytes_unchanged_refresh_and_permissions",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_manifest.NativeManifestTest.test_publication_faults_before_commit_preserve_owned_export",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_manifest.NativeManifestTest.test_publication_guards_all_bindings_and_renamed_ancestors",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_manifest.NativeManifestTest.test_publication_owned_catalog_and_exact_reserved_path",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_manifest.NativeManifestTest.test_publication_refuses_foreign_edited_and_hardlinked_content",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_manifest.NativeManifestTest.test_selected_catalog_and_outside_selection_refusal",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_manifest.NativeManifestTest.test_tag_closure_aliases_and_withdrawn_assertions",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_manifest.NativeManifestTest.test_unbound_and_empty_catalog_and_reserved_metadata",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_media.NativeMediaParityTest.test_actual_sniff_hash_probe_decode_and_component_inventory",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_media.NativeMediaParityTest.test_header_defect_and_required_stream_policy",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_media.NativeMediaParityTest.test_immutable_analysis_revisions_have_identical_definition_bytes_and_digest",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_media.NativeMediaParityTest.test_missing_optional_probe_is_durable_unsupported_evidence",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_media.NativeMediaParityTest.test_text_lines_subtitles_casefold_and_partial_budget",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_migration.NativeStorageTest.test_all_32_retained_historical_fixtures",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_migration.NativeStorageTest.test_failures_before_commit_preserve_original",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_migration.NativeStorageTest.test_invalid_history_structure_and_identity_refuse_unchanged",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_migration.NativeStorageTest.test_native_initialization_and_frozen_codecs",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_migration.NativeStorageTest.test_reads_and_dry_run_do_not_change_database",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_migration.NativeStorageTest.test_symlink_and_hardlink_database_refusal",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_migration.NativeStorageTest.test_writer_lock_is_shared_with_python",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_callback_is_principal_bound_and_requires_current_approved_origin",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_event_identity_routing_and_deduplication_match_python",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_http_owned_destination_never_falls_back_to_environment",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_inflight_policy_edit_cancels_and_fences_ack",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_invalid_configuration_fails_before_mutation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_loopback_envelope_matches_python",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_loopback_partial_success_retry_envelopes_and_no_proxy",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_managed_webhook_revalidates_token_principal_and_current_grants",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_missing_optional_provider_and_bad_urls_require_repair",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_native_webhook_crud_bearer_auth_and_principal_isolation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_optional_apprise_adapter_partial_success_and_redaction",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_policy_dry_run_idempotency_and_python_encoding",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_process_exit_recovers_expired_lease",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_profile_isolation_status_paging_and_unverified_publications",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_redirects_are_not_followed",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_retry_preserves_live_lease_and_disable_cancels",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_notifications.NativeNotificationsTest.test_run_alias_matches_drain",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_forged_journal_identity_cannot_escape_temporary_parent",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_native_process_exit_at_durable_boundaries_recovers_in_python",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_native_removal_journal_recovered_by_python",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_native_resumes_native_scan_with_same_scan_and_fresh_claim",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_native_resumes_python_guarded_scan_after_interruption",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_python_crashed_claim_and_create_recover_natively",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_python_replacement_temporary_is_recovered_natively",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_python_resumes_native_guarded_scan_after_process_exit",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_unqualified_destructive_symlink_paths_are_blocked_without_fixture_opt_in",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_cancelling_one_request_preserves_shared_resume_and_claim_fence",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_continuation_matches_completed_scope_retention_and_barrier",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_continuation_rejects_new_dirty_generation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_exclusions_and_extension_filters_retain_old_evidence",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_full_scan_id_and_header_state_matches_python",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_partial_directory_absence_and_removed_subtree_match_python",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_path_trust_continuation_rejects_replaced_root",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_read_preview_preserves_database_and_does_not_create_lock",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_selected_continuation_preserves_other_deferred_scopes",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_source_policy_revision_and_history_matches_python",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_temporary_storage_budget_preserves_prior_inventory",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_all_catalogs_preflight_blocks_before_any_mutation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_changed_root_blocks_scan_and_sync",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_confirmed_missing_removes_link_and_restores_mapping",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_empty_source_is_blocked",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_end_to_end_and_repeat_preserves_source_and_link",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_external_regular_file_is_not_replaced_or_removed",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_external_retargeted_symlink_is_not_removed",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_incomplete_download_suffix_is_never_projected",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_missing_root_blocks_scan_and_sync",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_missing_without_scan_blocks_all_changes",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_preview_is_read_only",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_source_changed_requires_rescan",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_source_symlink_is_not_followed",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_symlink_parent_blocks_without_touching_external_tree",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_unknown_output_is_never_claimed",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_wrong_ownership_blocks",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_plans.NativePlansTest.test_description_requirements_defaults_and_projection_staleness",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_plans.NativePlansTest.test_query_modes_and_component_evidence_share_selection_snapshot",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_plans.NativePlansTest.test_semantic_filtering_and_incomplete_baseline_refusal",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_admission_python_interop_shared_job_isolation_and_rotation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_budget_failure_and_reservation_limits",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_continuous_worker_advertises_readiness_and_shared_grants_are_current",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_direct_ready_rendition_without_worker_and_source_ctime_pin",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_distinct_operation_grants_survive_first_viewer_cancellation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_expiry_owned_cleanup_and_foreign_symlink_refusal",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_growing_whole_segments_and_independent_cancellation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_live_tool_change_is_fenced",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_python_session_native_worker_and_python_recovery",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_python_supervisor_lock_excludes_native_recovery",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_real_native_hls_python_delivery_decodes_and_ready_cache_reuse",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_reservations_limits_invalid_request_and_missing_worker",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_shared_viewer_must_still_match_pinned_job",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_source_mutation_stops_native_worker",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_stored_token_revocation_stops_running_native_encoder",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_timeout_releases_reservation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_truncated_duration_is_not_ready",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_worker_death_kills_encoder_recovery_releases_reservation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_playback.NativePlaybackTest.test_worker_tools_change_rejects_queued_job",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_populated_migration.NativePopulatedComponentMigrationTest.test_populated_schema24_with_probe_and_sidecar",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_populated_migration.NativePopulatedProgrammableMigrationTest.test_populated_schema14_recipe_query_and_foreign_keys",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_programs.NativeProgramsTest.test_analysis_import_dry_run_reference_remapping_and_idempotence",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_programs.NativeProgramsTest.test_cycles_missing_references_and_strict_bundle_shapes",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_programs.NativeProgramsTest.test_dependency_export_is_exact_and_contains_no_runtime_credentials",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_programs.NativeProgramsTest.test_missing_binding_late_policy_and_enabled_rule_conflicts_rollback",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_programs.NativeProgramsTest.test_render_recipe_and_output_policy_import",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_programs.NativeProgramsTest.test_v2_fallback_policy_dependency_roundtrip",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_programs.NativeProgramsTest.test_v3_query_watcher_definition_roundtrip_stays_disabled",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_queries.NativeQueryTest.test_all_catalog_views_and_column_contracts",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_queries.NativeQueryTest.test_catalog_filters_and_cross_runtime_cursors",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_queries.NativeQueryTest.test_item_decoration_crosses_batch_boundaries",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_queries.NativeQueryTest.test_sql_attacks_and_http_private_tables",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_queries.NativeQueryTest.test_sql_error_messages_match_reference",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_queries.NativeQueryTest.test_sql_types_aliases_parameters_and_row_budget",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_remount.NativeRemountTest.test_automatic_noop_and_skipped_device_policy_match_reference",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_remount.NativeRemountTest.test_automatic_repair_cannot_adopt_unknown_volume",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_remount.NativeRemountTest.test_invalid_trust_and_inventory_combinations_match_reference_without_mutation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_remount.NativeRemountTest.test_preview_root_replacement_invalidates_reviewed_plan",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_remount.NativeRemountTest.test_reviewed_named_replacement_has_exact_preview_digest_and_atomic_state",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_remount.NativeRemountTest.test_untrusted_replacement_is_refused_without_changing_observations",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_selection.NativeSelectionTest.test_graphql_complete_and_aliased_pages",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_selection.NativeSelectionTest.test_saved_modes_composition_and_limits",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_selection.NativeSelectionTest.test_saved_selection_total_leaf_budget_and_bytes",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_selection.NativeSelectionTest.test_selection_failures_refuse_partial_results",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_selection.NativeSelectionTest.test_sql_complete_and_paged_ids",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_tag_mutations.NativeTagMutationTest.test_alias_limits_and_full_atomic_batch",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_tag_mutations.NativeTagMutationTest.test_atomic_batches_and_invalid_inputs",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_tag_mutations.NativeTagMutationTest.test_boolean_descendant_filters_and_no_implicit_media_inheritance",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_tag_mutations.NativeTagMutationTest.test_dag_cycles_and_parent_removal",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_tag_mutations.NativeTagMutationTest.test_differential_validation_and_existing_tag_updates",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_tag_mutations.NativeTagMutationTest.test_generated_timestamp_and_noop_preservation",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_tag_mutations.NativeTagMutationTest.test_normalized_aliases_rename_and_reserved_names",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_tag_mutations.NativeTagMutationTest.test_paginated_queries_and_cursor_scope",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_tag_mutations.NativeTagMutationTest.test_provenance_withdrawal_reactivation_and_idempotence",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_tag_mutations.NativeTagMutationTest.test_sql_graphql_and_readonly",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_tags.NativeTagQueryTest.test_catalog_tag_pages_filters_and_status",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_tags.NativeTagQueryTest.test_graphql_nested_tags",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_tags.NativeTagQueryTest.test_tag_filter_rejects_unicode_other_and_expanded_names",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_watchers.NativeWatchersTest.test_cron_numeric_and_dst_fold_gap_match_python",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_watchers.NativeWatchersTest.test_dead_pid_recovery_preserves_run_fence",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_watchers.NativeWatchersTest.test_defaults_digest_idempotency_and_disabled_revision_history",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_watchers.NativeWatchersTest.test_manual_admission_debounce_retry_and_lease_schedule_match_python",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_watchers.NativeWatchersTest.test_observation_only_run_has_no_baseline_or_reaction",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_watchers.NativeWatchersTest.test_report_event_runs_share_current_inventory_and_compare_baselines",
+      "outcome": "passed"
+    },
+    {
+      "id": "tests.test_rust_watchers.NativeWatchersTest.test_schedule_rejects_unsafe_zone_paths_and_extreme_clocks",
+      "outcome": "passed"
+    }
+  ],
+  "native_unique_test_count": 286,
+  "native_no_skips": true,
+  "rust_scenarios": [
+    {
+      "id": "rust:artifact_publication:abrupt_worker_death_recovers_every_durable_publication_boundary",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:artifact_publication:artifact_crash_worker",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:artifact_publication:component_mux_requires_an_explicitly_admitted_package",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:artifact_publication:extraction_rejects_wrong_stream_and_changed_evidence_before_effects",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:artifact_publication:real_media_render_publishes_validated_bytes_lineage_and_reuses_only_intact_outputs",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:artifact_publication:reviewed_component_extraction_publishes_exact_stream_and_lineage",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:artifact_publication:source_mutation_and_pre_cancelled_run_never_publish",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:coordination::tests::bounded_production_claim_graph_rejects_late_and_cancelled_callers",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:coordination::tests::every_fence_dimension_and_clock_is_required",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:coordination::tests::resume_keeps_generation_but_replaces_fence",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:execution::tests::every_identity_dimension_is_required",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:execution::tests::publication_recovery_preserves_attempt_and_increments_generation",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:fallback::tests::defaults_optional_nulls_and_budgets",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:fallback::tests::package_dependencies_and_duplicates",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:json::tests::duplicate_policy_is_explicit",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:json::tests::private_sentinel_is_an_object_and_big_integers_are_exact",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:lifecycle::tests::cancellation_is_per_caller_and_stale_completion_is_fenced",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:media::tests::cover_art_does_not_satisfy_required_video",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:media::tests::health_preserves_environmental_precedence",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:media::tests::stdout_success_does_not_override_corruption_evidence",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:playback::tests::independent_exhaustive_fences_and_shared_cancellation",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:tests::decoded_number_tokens_have_canonical_identities",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:tests::frozen_encoding",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_core:tests::overflowing_floats_reject_without_truncating_large_integers",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:consumers::tests::retry_delays_and_path_quoting_are_bounded",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:consumers::tests::xml_never_resolves_entities_or_accepts_unbounded_trees",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:document::tests::changed_missing_removed_and_cancelled_tools_fail_closed",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:document::tests::document_limits_and_malformed_results_never_return_partial_data",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:document::tests::document_timeout_is_bounded",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:document::tests::fake_ocr_provenance_language_fd_and_line_locations",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:document::tests::fake_pdf_uses_only_a_source_fd_and_correct_options",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:document::tests::frozen_python_float_and_exact_subtitle_payload_oracle",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:document::tests::options_are_explicit_bounded_and_preserve_the_input",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:document::tests::real_pdf_text_and_page_overflow",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:document::tests::real_single_image_ocr",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:document::tests::subtitle_cues_preserve_timestamps_multiline_and_blank_text",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:document::tests::subtitle_python_float_spellings_preserve_positive_and_negative_cues",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:document::tests::utf8_file_type_byte_limit_cancellation_and_segment_limit",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:document::tests::utf8_lines_bom_and_python_line_boundaries_match",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:notifications::tests::approved_origin_identity_and_unsafe_urls",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:notifications::tests::external_effect_releases_lock_and_superseded_ack_is_fenced",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:packet_verification::tests::exact_thresholds_offsets_and_payloads",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:playback::tests::readonly_worker_has_no_filesystem_or_catalog_effects",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::callback_panic_also_kills_and_reaps",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::callbacks_can_abort_and_always_retire_the_command",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::cancellation_retires_a_running_command",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::child_closing_input_early_is_not_an_error",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::closed_output_does_not_bypass_deadline",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::combined_cap_includes_stderr_and_retains_bounded_diagnostics",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::descendants_are_retired_after_leader_exit_with_or_without_pipes",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::descriptor_working_directory_is_child_only_and_survives_rename",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::direct_tool_is_killed_when_worker_process_dies",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::discarded_output_is_still_bounded_and_never_leaks",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::empty_and_absent_stdin_both_reach_eof",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::exact_and_zero_output_budgets_are_allowed",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::explicit_fd_inheritance_keeps_parent_flags_unchanged",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::failure_exposes_exit_and_bounded_utf8_diagnostics",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::invalid_pass_fd_is_rejected_before_pipe_allocation",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::large_binary_input_uses_a_pipe_without_deadlock",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::literal_arguments_never_use_an_implicit_shell",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::missing_executable_is_an_io_error_and_never_calls_start",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::parent_death_fixture_worker",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::private_environment_and_umask_are_child_only",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::separate_output_and_combined_output",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::simultaneous_input_and_both_outputs_are_drained",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::stalled_input_and_continuous_output_cannot_starve_deadline",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::timeout_reaps_the_leader",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:process::tests::unrequested_inheritable_descriptor_is_closed",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:processors::tests::changed_source_prevents_dispatch_and_bad_responses_leave_lease_retryable",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:processors::tests::detached_network_response_is_fenced_before_any_output_write",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:processors::tests::global_timeout_bounds_slow_response_body",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:processors::tests::real_http_does_not_follow_redirects_or_accept_oversize_bodies",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:processors::tests::real_http_put_then_poll_accepts_receipt_with_writer_lock_released",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:receipts::tests::bounded_parser_rejects_nonfinite_invalid_utf8_and_private_number_tokens",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_runtime:receipts::tests::receipt_input_is_bounded_regular_nonsymlink_file",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:artifact_mutation::tests::current_source_and_ownership_are_required_at_publication_boundary",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:artifact_mutation::tests::exclusive_publication_never_overwrites_and_changed_bytes_are_not_adopted",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:artifact_mutation::tests::failed_and_cancelled_workers_keep_partial_files_without_publication",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:artifact_mutation::tests::generated_binding_is_explicit_owned_and_cannot_adopt_or_overlap",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:artifact_mutation::tests::generated_roots_require_enrolled_volume_identity",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:artifact_mutation::tests::historical_admission_and_malformed_package_jobs_are_refused_before_creating_artifacts",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:artifact_mutation::tests::publication_is_atomic_idempotently_recoverable_before_and_after_rename",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:artifact_mutation::tests::python_native_publication_intents_recover_in_both_directions",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:artifact_mutation::tests::registration_rollback_retains_recoverable_intent_without_partial_database_facts",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:artifact_mutation::tests::source_policy_and_validated_revision_changes_fence_intent",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:artifact_mutation::tests::stale_claims_cannot_commit_intent_publish_or_fail_successor",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:consumers::tests::failure_codes_expose_no_raw_diagnostics",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:consumers::tests::path_scope_and_configuration_are_not_string_prefixes",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:content_access::tests::chunk_rejects_changed_revision_without_returning_bytes",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:content_access::tests::mutation_boundaries_recheck_current_authorization",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:content_access::tests::ranges_are_bounded_and_single",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:document::tests::lexical_limit_ignores_comments_strings_and_commas",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:filesystem_mutation::tests::characterize_unresolved_external_writer_leaf_race",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:filesystem_mutation::tests::completed_effect_is_acknowledged_once_after_crash",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:filesystem_mutation::tests::crash_boundaries_are_recoverable_and_do_not_change_source_bytes",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:filesystem_mutation::tests::journal_cancels_obsolete_unapplied_intent",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:filesystem_mutation::tests::ownership_collisions_and_symlink_parents_are_refused",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:filesystem_mutation::tests::symlink_publication_and_unconfirmed_missing_preserve_output",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:hardlink_mutation::tests::exclusive_retention_never_overwrites_a_concurrent_final_reference",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:hardlink_mutation::tests::raced_foreign_retirement_preserves_bytes_without_acknowledging_ownership",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:hardlink_mutation::tests::removing_source_after_final_count_check_preserves_retained_bytes",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:hardlink_mutation::tests::swapped_source_is_preserved_for_inspection_without_false_ownership",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:http_operations::tests::local_resolution_cycles_and_exponential_expansion_are_bounded",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:http_operations::tests::validator_never_retrieves_http_or_file_resources",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:notifications::tests::disabled_and_successful_deliveries_are_not_retried",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:notifications::tests::dry_run_and_read_only_refusal_leave_policy_unchanged",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:notifications::tests::edits_cancel_inflight_work_and_old_ack_cannot_complete",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:notifications::tests::exact_identity_routing_atomicity_and_idempotent_policy",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:notifications::tests::fifth_abandoned_lease_exhausts_only_after_expiry",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:notifications::tests::five_attempts_backoff_exhaustion_and_explicit_retry",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:notifications::tests::lease_expiry_reclaim_and_single_use_ack",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:notifications::tests::producer_events_are_not_subscription_policy",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:observation::tests::exclusions_filters_removed_directories_and_headers",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:observation::tests::guarded_partial_scopes_publish_positive_and_retain_unvisited_absence",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:observation::tests::source_trust_revision_does_not_relax_file_or_output_identity",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:observation::tests::strict_unavailable_root_retains_inventory_and_symlinks_are_not_followed",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:observation::tests::unsupported_modes_refuse_before_creating_jobs",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:playback::tests::persisted_lifecycle_matches_independent_safety_expectations",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:playback_cache::tests::job_directory_is_a_generated_basename",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:playback_cache::tests::playlist_allowlist",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:playback_cache::tests::readonly_cleanup_preserves_expired_owned_cache_and_catalog",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:processor_mutation::tests::accepted_receipt_can_atomically_acknowledge_still_live_processor_job",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:processor_mutation::tests::actor_request_definition_mismatch_and_late_expiry_cannot_publish",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:processor_mutation::tests::expired_generation_fences_old_worker_and_preserves_attempts",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:processor_mutation::tests::explicit_retry_cancel_resume_and_scope_preserve_generation",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:processor_mutation::tests::immutable_definitions_validate_settings_and_enqueue_has_exact_identity",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:processor_mutation::tests::independent_writers_cannot_lease_the_same_job",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:receipt_mutation::tests::canonical_unicode_digest_matches_frozen_python_encoding",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:receipt_mutation::tests::duplicate_is_prior_acceptance_not_fresh_verification_and_conflicts_fail",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:receipt_mutation::tests::exact_schema_digest_text_and_numeric_revisions_are_enforced",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:receipt_mutation::tests::late_replacement_root_change_and_acceptance_failure_are_atomic",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:receipt_mutation::tests::late_source_or_output_mutation_rolls_back_receipt_and_acceptance",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:receipt_mutation::tests::limits_and_refresh_intent_are_atomic_and_reuse_does_not_enqueue_again",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:receipt_mutation::tests::multi_output_bad_checksum_and_cycles_roll_back_all_records",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:receipt_mutation::tests::output_validation_rejects_unsafe_duplicate_unscanned_and_owned_targets",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:receipt_mutation::tests::receipt_acceptance_keeps_lineage_and_complete_immutable_provenance",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:receipt_mutation::tests::source_ctime_and_association_are_required_and_symlinks_are_not_followed",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:remount::tests::stable_uuid_device_renumbering_is_atomic_and_source_bytes_unchanged",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:remount::tests::trust_requires_exact_reviewed_plan_and_cannot_adopt_unnamed_replacements",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:tests::detach_releases_writer_and_refuses_replaced_identity",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:tests::failed_detach_lock_or_reopen_disables_the_session",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:tests::nested_savepoints_rollback_only_the_failed_scope",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:tests::readonly_snapshot_is_stable_and_refuses_transactions",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:webhooks::tests::bearer_authentication_redacted_management_and_pagination",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:webhooks::tests::management_is_principal_scoped_and_invalid_url_is_atomic",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:catabolic_store:webhooks::tests::retry_preserves_live_token_and_disable_fences_deliveries",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:execution_ledger:all_durable_identity_dimensions_fence_real_completion",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:execution_ledger:bounded_durable_ledger_explores_production_mutations",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:execution_ledger:fresh_process_durable_replay",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:execution_ledger:stale_publication_fault_is_shrunk_and_replayed_in_fresh_process",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:media_workflows:cancellation_takeover_and_expiry_fence_all_publication",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:media_workflows:durable_hash_baseline_and_attempt_are_atomic_and_python_shaped",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:media_workflows:immutable_analysis_definition_reuses_digest_and_rejects_options",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:media_workflows:output_definitions_and_registration_preserve_curated_associations",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:media_workflows:real_wav_probe_decode_and_component_index",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:media_workflows:source_replacement_and_symlink_never_publish_facts",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:media_workflows:text_segments_terms_and_failed_refresh_preserve_existing_facts",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:media_workflows:zero_filled_header_and_bad_tool_result_never_become_success",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:render_boundaries:every_available_fixed_preset_validates_actual_output_and_preserves_source",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:render_boundaries:recipe_bounds_hdr_admission_and_output_identity_fail_closed",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:storage_faults:committed_wal_is_in_backup_and_edits_after_backup_cancel_upgrade",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:storage_faults:every_migration_boundary_rolls_back_the_whole_chain",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:storage_faults:migration_crash_worker",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:storage_faults:post_commit_observer_failure_reports_committed_with_warning",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:storage_faults:process_exit_is_atomic_before_and_after_commit",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:storage_faults:recovery_is_an_exact_reviewed_set",
+      "outcome": "passed"
+    },
+    {
+      "id": "rust:storage_faults:sqlite_full_at_actual_upgrade_rolls_back",
+      "outcome": "passed"
+    }
+  ],
+  "original_python_regression": {
+    "python312": {
+      "tests_run": 1034,
+      "failures": [],
+      "errors": [],
+      "skipped": [
+        {
+          "test": "tests.test_application.CatalogTest.test_default_output_detects_registered_source_case_alias",
+          "reason": "requires a case-insensitive filesystem"
+        }
+      ],
+      "seconds": 627.4043715000153
+    },
+    "python314_initial": {
+      "python": "3.14.6 (main, Aug  4 2026, 18:27:20) [Clang 22.1.3 ]",
+      "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+      "tests_run": 1034,
+      "skipped": [
+        {
+          "id": "tests.test_application.CatalogTest.test_default_output_detects_registered_source_case_alias",
+          "reason": "requires a case-insensitive filesystem"
+        }
+      ],
+      "seconds": 635.8871690310043,
+      "passed": false,
+      "failures": [
+        {
+          "id": "tests.test_application.CliTest.test_default_output_cli_and_custom_override",
+          "traceback": "Traceback (most recent call last):\n  File \"/workspace/scratch/9c9a5a8c3955/catabolic/tests/test_application.py\", line 706, in test_default_output_cli_and_custom_override\n    plex = run(\"catalog\", \"bind\", \"plex\")\n  File \"/workspace/scratch/9c9a5a8c3955/catabolic/tests/test_application.py\", line 703, in run\n    self.assertEqual(result.returncode, 0, result.stderr)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 1 != 0 : /workspace/scratch/9c9a5a8c3955/.local-tools/catabolic-reference-3.14.6/bin/python: No module named catabolic\n\n"
+        },
+        {
+          "id": "tests.test_documentation.DocumentationTest.test_cli_offline_topics_json_search_and_errors",
+          "traceback": "Traceback (most recent call last):\n  File \"/workspace/scratch/9c9a5a8c3955/catabolic/tests/test_documentation.py\", line 51, in test_cli_offline_topics_json_search_and_errors\n    self.assertEqual(index.returncode, 0, index.stderr)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 1 != 0 : /workspace/scratch/9c9a5a8c3955/.local-tools/catabolic-reference-3.14.6/bin/python: No module named catabolic\n\n"
+        },
+        {
+          "id": "tests.test_native_layout.NativeLayoutTest.test_public_cli_default_folder_and_query_selection",
+          "traceback": "Traceback (most recent call last):\n  File \"/workspace/scratch/9c9a5a8c3955/catabolic/tests/test_native_layout.py\", line 151, in test_public_cli_default_folder_and_query_selection\n    self.assertEqual(result.returncode, 0, (args, result.stdout, result.stderr))\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 1 != 0 : (['layout', 'presets'], '', '/workspace/scratch/9c9a5a8c3955/.local-tools/catabolic-reference-3.14.6/bin/python: No module named catabolic\\n')\n"
+        }
+      ],
+      "errors": []
+    },
+    "python314_environment_recheck": "All three subprocess import failures passed after frozen package installation; fresh full rerun pending"
+  },
+  "installed_wheels": [
+    {
+      "python": "3.11.15 (main, Aug  7 2026, 02:25:55) [Clang 22.1.3 ]",
+      "outside_checkout": true,
+      "wheel_sha256": "747242b216dccae1dddc6abf009d408d9e0c44e927a4e73c590c3e4625a87aaa",
+      "installed_payloads_sha256": {
+        "catabolic_native/__init__.py": "1c33b0421f61e4bcbb12ac91a44858cc95e1b4165622b01dbdcdbf54308de55d",
+        "catabolic_native/_native.abi3.so": "ffbc3ea2c44a093acbf6904ede7c88814d580110451398a3b9b53e1178332e8c",
+        "catabolic_native-0.2.0.dist-info/METADATA": "e59f677eddaaed7840dff70e37fe8a672dba39d6c5f2719fb64f78072c79dfc9",
+        "catabolic_native-0.2.0.dist-info/WHEEL": "0528a7142d4fa257a1dd4677e994ae005fac5bc5aa52c827b1ea7ec3976e0c35",
+        "catabolic_native-0.2.0.dist-info/sboms/catabolic-python.cyclonedx.json": "289b6883696c0e353ccacf2525c59177fa5a6685e3936cf03db2a8233cb0a9f3"
+      },
+      "imported_extension_sha256": "ffbc3ea2c44a093acbf6904ede7c88814d580110451398a3b9b53e1178332e8c",
+      "installed_payloads_match_wheel": true,
+      "binary_sha256": "7e743838f4eabe7fa91469ac89db4e263d9161eef813b3505acb972294cfc4c7",
+      "schema": 32,
+      "canonical_float_samples": 3006,
+      "same_use_case": "read-only SQL profile discovery",
+      "immutable_database": true,
+      "gil_released": true,
+      "native_mutation_and_definition_roundtrip": true,
+      "unsupported_owner_no_fallback": true,
+      "interchange_versions": [
+        1,
+        2,
+        3
+      ],
+      "passed": true
+    },
+    {
+      "python": "3.14.6 (main, Aug  4 2026, 18:27:20) [Clang 22.1.3 ]",
+      "outside_checkout": true,
+      "wheel_sha256": "747242b216dccae1dddc6abf009d408d9e0c44e927a4e73c590c3e4625a87aaa",
+      "installed_payloads_sha256": {
+        "catabolic_native/__init__.py": "1c33b0421f61e4bcbb12ac91a44858cc95e1b4165622b01dbdcdbf54308de55d",
+        "catabolic_native/_native.abi3.so": "ffbc3ea2c44a093acbf6904ede7c88814d580110451398a3b9b53e1178332e8c",
+        "catabolic_native-0.2.0.dist-info/METADATA": "e59f677eddaaed7840dff70e37fe8a672dba39d6c5f2719fb64f78072c79dfc9",
+        "catabolic_native-0.2.0.dist-info/WHEEL": "0528a7142d4fa257a1dd4677e994ae005fac5bc5aa52c827b1ea7ec3976e0c35",
+        "catabolic_native-0.2.0.dist-info/sboms/catabolic-python.cyclonedx.json": "289b6883696c0e353ccacf2525c59177fa5a6685e3936cf03db2a8233cb0a9f3"
+      },
+      "imported_extension_sha256": "ffbc3ea2c44a093acbf6904ede7c88814d580110451398a3b9b53e1178332e8c",
+      "installed_payloads_match_wheel": true,
+      "binary_sha256": "7e743838f4eabe7fa91469ac89db4e263d9161eef813b3505acb972294cfc4c7",
+      "schema": 32,
+      "canonical_float_samples": 3006,
+      "same_use_case": "read-only SQL profile discovery",
+      "immutable_database": true,
+      "gil_released": true,
+      "native_mutation_and_definition_roundtrip": true,
+      "unsupported_owner_no_fallback": true,
+      "interchange_versions": [
+        1,
+        2,
+        3
+      ],
+      "passed": true
+    }
+  ],
+  "release_output_gate": {
+    "binary": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/m4-plus/artifacts/qualification-native-release",
+    "sha256": "7e743838f4eabe7fa91469ac89db4e263d9161eef813b3505acb972294cfc4c7",
+    "checked": [
+      [
+        "replace",
+        "preview",
+        false
+      ],
+      [
+        "replace",
+        "apply",
+        false
+      ],
+      [
+        "replace",
+        "preview",
+        true
+      ],
+      [
+        "replace",
+        "apply",
+        true
+      ],
+      [
+        "replace",
+        "recover",
+        true
+      ],
+      [
+        "remove",
+        "preview",
+        false
+      ],
+      [
+        "remove",
+        "apply",
+        false
+      ],
+      [
+        "remove",
+        "preview",
+        true
+      ],
+      [
+        "remove",
+        "apply",
+        true
+      ],
+      [
+        "remove",
+        "recover",
+        true
+      ]
+    ],
+    "safe_gate": "closed",
+    "cases": 10
+  },
+  "verification": {
+    "shared_request": {
+      "scope": "Historical M1 illustrative fixture, not production M7/M8 rendition cancellation semantics",
+      "states": 52,
+      "edges": 364,
+      "skipped": 0,
+      "fault_shrunk_inputs": 3,
+      "fresh_replay": "exact-matching-build"
+    },
+    "production_playback": {
+      "states": 5,
+      "edges": 1200,
+      "skipped": 0,
+      "fault_shrunk_inputs": 2,
+      "fresh_replay": "exact-matching-build"
+    },
+    "limits": "Finite input domains; no general liveness or complete workflow composition claim. Observation/execution SQL graphs are separate bounded unit evidence."
+  },
+  "independent_review": {
+    "media": "completed; subtitle numeric-spelling defect fixed and independently replayed",
+    "outbound": "completed; live retry/noop enable lease defects and notification alias fixed and rechecked",
+    "playback_packaging": "completed; caller operation isolation, readonly cleanup, empty test discovery and mismatched wheel receipt defects fixed and rechecked",
+    "definitions": "incomplete; independent review execution blocked; established ordinary parameter-overflow finding fixed and regression tested",
+    "filesystem": "incomplete; independent review execution blocked; partial inspection and ordinary tests are not a replacement"
+  },
+  "intentional_discrepancies": [
+    "Release symlink replace/remove fail closed; debug disposable-fixture exception only",
+    "Consumer live lease retry/noop enable safety corrections",
+    "Playback per-session operation authorization isolation correction",
+    "Current content authorization and live private inode checks",
+    "Frozen Python3.14 Unicode16 subtitle numeric grammar"
+  ],
+  "rows": [
+    {
+      "id": "native:M4:definitions-and-curation",
+      "milestone": "M4",
+      "status": "partial-implementation-tested",
+      "mapped_frozen_rows": [],
+      "mapping_note": "Bounded companion operations only; no entire legacy CLI/HTTP/Python row is marked qualified.",
+      "scenario_ids": [
+        "tests.test_rust_curation.NativeCurationTest.test_active_mapping_keeps_last_identification",
+        "tests.test_rust_curation.NativeCurationTest.test_association_deterministic_revision_metadata_parts_and_reindex",
+        "tests.test_rust_curation.NativeCurationTest.test_component_claim_snapshots_assertion_supersession_and_stale_guards",
+        "tests.test_rust_curation.NativeCurationTest.test_existing_association_evidence_preserves_association_and_records_event",
+        "tests.test_rust_curation.NativeCurationTest.test_expected_set_identity_and_completeness_states_pagination",
+        "tests.test_rust_curation.NativeCurationTest.test_item_identity_merge_conflicts_and_metadata_replacement",
+        "tests.test_rust_curation.NativeCurationTest.test_proposal_validation_has_no_mutation_on_invalid_payload",
+        "tests.test_rust_curation.NativeCurationTest.test_relationship_ordering_cycle_and_metadata_idempotence",
+        "tests.test_rust_curation.NativeCurationTest.test_reviewed_proposals_preserve_metadata_and_record_decisions",
+        "tests.test_rust_curation.NativeCurationTest.test_sidecar_discovery_dry_run_apply_and_pagination",
+        "tests.test_rust_curation.NativeCurationTest.test_stale_proposal_refusal_rejection_and_live_source_admission",
+        "tests.test_rust_definitions.NativeDefinitionsTest.test_layout_copy_rendition_projection_atomicity",
+        "tests.test_rust_definitions.NativeDefinitionsTest.test_pending_journal_refuses_desired_state_and_writer_contention",
+        "tests.test_rust_definitions.NativeDefinitionsTest.test_query_large_definition_omission_and_read_immutability",
+        "tests.test_rust_definitions.NativeDefinitionsTest.test_query_modes_budgets_unknown_fields_and_validation_errors",
+        "tests.test_rust_definitions.NativeDefinitionsTest.test_query_revisions_composition_dependencies_and_profile_isolation",
+        "tests.test_rust_definitions.NativeDefinitionsTest.test_rows_parameters_reject_arbitrary_precision_integer_overflow",
+        "tests.test_rust_definitions.NativeDefinitionsTest.test_rule_revision_digest_enable_disable_and_derived_identity",
+        "tests.test_rust_estimates.NativeEstimatesTest.test_all_preset_heuristics_duration_audio_and_unknowns",
+        "tests.test_rust_estimates.NativeEstimatesTest.test_calibration_adjustment_and_missing_sample_report",
+        "tests.test_rust_estimates.NativeEstimatesTest.test_extreme_finite_facts_and_arbitrary_precision_totals",
+        "tests.test_rust_estimates.NativeEstimatesTest.test_retained_calibration_ranks_distinct_sources_before_sampling",
+        "tests.test_rust_interchange.NativeInterchangeTest.test_all_three_frozen_schemas_and_roundtrips",
+        "tests.test_rust_interchange.NativeInterchangeTest.test_checksum_references_duplicate_ids_and_link_comparisons",
+        "tests.test_rust_interchange.NativeInterchangeTest.test_decoder_duplicate_keys_nonfinite_and_invalid_json",
+        "tests.test_rust_interchange.NativeInterchangeTest.test_hardlink_ownership_is_separate_from_symlink_targets",
+        "tests.test_rust_interchange.NativeInterchangeTest.test_required_fields_strict_types_and_bounded_collections",
+        "tests.test_rust_interchange.NativeInterchangeTest.test_tag_hierarchy_withdrawn_assertions_and_strict_confidence",
+        "tests.test_rust_interchange.NativeInterchangeTest.test_unknown_fields_everywhere_big_integers_and_float_spelling",
+        "tests.test_rust_manifest.NativeManifestTest.test_full_manifest_outgoing_closure_and_source_paths",
+        "tests.test_rust_manifest.NativeManifestTest.test_layout_projection_and_rule_statistics",
+        "tests.test_rust_manifest.NativeManifestTest.test_publication_exact_bytes_unchanged_refresh_and_permissions",
+        "tests.test_rust_manifest.NativeManifestTest.test_publication_faults_before_commit_preserve_owned_export",
+        "tests.test_rust_manifest.NativeManifestTest.test_publication_guards_all_bindings_and_renamed_ancestors",
+        "tests.test_rust_manifest.NativeManifestTest.test_publication_owned_catalog_and_exact_reserved_path",
+        "tests.test_rust_manifest.NativeManifestTest.test_publication_refuses_foreign_edited_and_hardlinked_content",
+        "tests.test_rust_manifest.NativeManifestTest.test_selected_catalog_and_outside_selection_refusal",
+        "tests.test_rust_manifest.NativeManifestTest.test_tag_closure_aliases_and_withdrawn_assertions",
+        "tests.test_rust_manifest.NativeManifestTest.test_unbound_and_empty_catalog_and_reserved_metadata",
+        "tests.test_rust_plans.NativePlansTest.test_description_requirements_defaults_and_projection_staleness",
+        "tests.test_rust_plans.NativePlansTest.test_query_modes_and_component_evidence_share_selection_snapshot",
+        "tests.test_rust_plans.NativePlansTest.test_semantic_filtering_and_incomplete_baseline_refusal",
+        "tests.test_rust_programs.NativeProgramsTest.test_analysis_import_dry_run_reference_remapping_and_idempotence",
+        "tests.test_rust_programs.NativeProgramsTest.test_cycles_missing_references_and_strict_bundle_shapes",
+        "tests.test_rust_programs.NativeProgramsTest.test_dependency_export_is_exact_and_contains_no_runtime_credentials",
+        "tests.test_rust_programs.NativeProgramsTest.test_missing_binding_late_policy_and_enabled_rule_conflicts_rollback",
+        "tests.test_rust_programs.NativeProgramsTest.test_render_recipe_and_output_policy_import",
+        "tests.test_rust_programs.NativeProgramsTest.test_v2_fallback_policy_dependency_roundtrip",
+        "tests.test_rust_programs.NativeProgramsTest.test_v3_query_watcher_definition_roundtrip_stays_disabled",
+        "tests.test_rust_tag_mutations.NativeTagMutationTest.test_alias_limits_and_full_atomic_batch",
+        "tests.test_rust_tag_mutations.NativeTagMutationTest.test_atomic_batches_and_invalid_inputs",
+        "tests.test_rust_tag_mutations.NativeTagMutationTest.test_boolean_descendant_filters_and_no_implicit_media_inheritance",
+        "tests.test_rust_tag_mutations.NativeTagMutationTest.test_dag_cycles_and_parent_removal",
+        "tests.test_rust_tag_mutations.NativeTagMutationTest.test_differential_validation_and_existing_tag_updates",
+        "tests.test_rust_tag_mutations.NativeTagMutationTest.test_generated_timestamp_and_noop_preservation",
+        "tests.test_rust_tag_mutations.NativeTagMutationTest.test_normalized_aliases_rename_and_reserved_names",
+        "tests.test_rust_tag_mutations.NativeTagMutationTest.test_paginated_queries_and_cursor_scope",
+        "tests.test_rust_tag_mutations.NativeTagMutationTest.test_provenance_withdrawal_reactivation_and_idempotence",
+        "tests.test_rust_tag_mutations.NativeTagMutationTest.test_sql_graphql_and_readonly"
+      ],
+      "remaining_gates": [
+        "Full item workflow/rule execution",
+        "Complete import/export adapter and reviewed execution orchestration",
+        "Independent review unavailable"
+      ]
+    },
+    {
+      "id": "native:M5:observation-and-watchers",
+      "milestone": "M5",
+      "status": "partial-implementation-tested",
+      "mapped_frozen_rows": [],
+      "mapping_note": "Bounded companion operations only; no entire legacy CLI/HTTP/Python row is marked qualified.",
+      "scenario_ids": [
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_forged_journal_identity_cannot_escape_temporary_parent",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_native_process_exit_at_durable_boundaries_recovers_in_python",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_native_removal_journal_recovered_by_python",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_native_resumes_native_scan_with_same_scan_and_fresh_claim",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_native_resumes_python_guarded_scan_after_interruption",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_python_crashed_claim_and_create_recover_natively",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_python_replacement_temporary_is_recovered_natively",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_python_resumes_native_guarded_scan_after_process_exit",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_unqualified_destructive_symlink_paths_are_blocked_without_fixture_opt_in",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_cancelling_one_request_preserves_shared_resume_and_claim_fence",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_continuation_matches_completed_scope_retention_and_barrier",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_continuation_rejects_new_dirty_generation",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_exclusions_and_extension_filters_retain_old_evidence",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_full_scan_id_and_header_state_matches_python",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_partial_directory_absence_and_removed_subtree_match_python",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_path_trust_continuation_rejects_replaced_root",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_read_preview_preserves_database_and_does_not_create_lock",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_selected_continuation_preserves_other_deferred_scopes",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_source_policy_revision_and_history_matches_python",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_temporary_storage_budget_preserves_prior_inventory",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_all_catalogs_preflight_blocks_before_any_mutation",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_changed_root_blocks_scan_and_sync",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_confirmed_missing_removes_link_and_restores_mapping",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_empty_source_is_blocked",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_end_to_end_and_repeat_preserves_source_and_link",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_external_regular_file_is_not_replaced_or_removed",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_external_retargeted_symlink_is_not_removed",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_incomplete_download_suffix_is_never_projected",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_missing_root_blocks_scan_and_sync",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_missing_without_scan_blocks_all_changes",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_preview_is_read_only",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_source_changed_requires_rescan",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_source_symlink_is_not_followed",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_symlink_parent_blocks_without_touching_external_tree",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_unknown_output_is_never_claimed",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_wrong_ownership_blocks",
+        "tests.test_rust_remount.NativeRemountTest.test_automatic_noop_and_skipped_device_policy_match_reference",
+        "tests.test_rust_remount.NativeRemountTest.test_automatic_repair_cannot_adopt_unknown_volume",
+        "tests.test_rust_remount.NativeRemountTest.test_invalid_trust_and_inventory_combinations_match_reference_without_mutation",
+        "tests.test_rust_remount.NativeRemountTest.test_preview_root_replacement_invalidates_reviewed_plan",
+        "tests.test_rust_remount.NativeRemountTest.test_reviewed_named_replacement_has_exact_preview_digest_and_atomic_state",
+        "tests.test_rust_remount.NativeRemountTest.test_untrusted_replacement_is_refused_without_changing_observations",
+        "tests.test_rust_watchers.NativeWatchersTest.test_cron_numeric_and_dst_fold_gap_match_python",
+        "tests.test_rust_watchers.NativeWatchersTest.test_dead_pid_recovery_preserves_run_fence",
+        "tests.test_rust_watchers.NativeWatchersTest.test_defaults_digest_idempotency_and_disabled_revision_history",
+        "tests.test_rust_watchers.NativeWatchersTest.test_manual_admission_debounce_retry_and_lease_schedule_match_python",
+        "tests.test_rust_watchers.NativeWatchersTest.test_observation_only_run_has_no_baseline_or_reaction",
+        "tests.test_rust_watchers.NativeWatchersTest.test_report_event_runs_share_current_inventory_and_compare_baselines",
+        "tests.test_rust_watchers.NativeWatchersTest.test_schedule_rejects_unsafe_zone_paths_and_extreme_clocks"
+      ],
+      "remaining_gates": [
+        "Detached short-writer scheduling",
+        "Full generated inventory and watcher reaction families",
+        "Real Linux/macOS filesystem qualification",
+        "Independent filesystem review unavailable"
+      ]
+    },
+    {
+      "id": "native:M6:output-journal",
+      "milestone": "M6",
+      "status": "partial-implementation-tested",
+      "mapped_frozen_rows": [],
+      "mapping_note": "Bounded companion operations only; no entire legacy CLI/HTTP/Python row is marked qualified.",
+      "scenario_ids": [
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_changed_source_metadata_after_effect_requires_fresh_scan",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_completed_historical_effect_does_not_verify_changed_desired_mapping",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_creation_repeat_warnings_and_readonly_preview",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_exact_preview_and_verification_reports",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_final_pointer_blocks_disabled_and_confirmed_missing_cleanup",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_link_mode_and_rebinding_guards_include_retained_data",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_manifest_records_mode_and_inode_without_symlink_claims",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_native_crash_all_ack_boundaries_keeps_exactly_one_generation",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_native_created_link_survives_python_recovery",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_native_preview_read_only_and_unowned_collision",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_native_retirement_preserves_final_reference_for_python_recovery",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_owned_inode_substitution_blocks_mutation",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_python_created_link_survives_native_recovery",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_python_retirement_and_stale_replacement_recover_natively",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_replacement_of_last_old_reference_is_blocked",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_replacement_retains_old_inode",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_retirement_preserves_data_and_is_reported",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_staged_intent_rechecks_final_reference_and_can_cancel",
+        "tests.test_rust_hardlinks.NativeHardlinkTest.test_symlink_substitution_and_retention_parent_tampering_are_blocked",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_forged_journal_identity_cannot_escape_temporary_parent",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_native_process_exit_at_durable_boundaries_recovers_in_python",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_native_removal_journal_recovered_by_python",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_native_resumes_native_scan_with_same_scan_and_fresh_claim",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_native_resumes_python_guarded_scan_after_interruption",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_python_crashed_claim_and_create_recover_natively",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_python_replacement_temporary_is_recovered_natively",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_python_resumes_native_guarded_scan_after_process_exit",
+        "tests.test_rust_observation_filesystem.NativeJournalInteropTest.test_unqualified_destructive_symlink_paths_are_blocked_without_fixture_opt_in",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_cancelling_one_request_preserves_shared_resume_and_claim_fence",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_continuation_matches_completed_scope_retention_and_barrier",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_continuation_rejects_new_dirty_generation",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_exclusions_and_extension_filters_retain_old_evidence",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_full_scan_id_and_header_state_matches_python",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_partial_directory_absence_and_removed_subtree_match_python",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_path_trust_continuation_rejects_replaced_root",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_read_preview_preserves_database_and_does_not_create_lock",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_selected_continuation_preserves_other_deferred_scopes",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_source_policy_revision_and_history_matches_python",
+        "tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_temporary_storage_budget_preserves_prior_inventory",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_all_catalogs_preflight_blocks_before_any_mutation",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_changed_root_blocks_scan_and_sync",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_confirmed_missing_removes_link_and_restores_mapping",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_empty_source_is_blocked",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_end_to_end_and_repeat_preserves_source_and_link",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_external_regular_file_is_not_replaced_or_removed",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_external_retargeted_symlink_is_not_removed",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_incomplete_download_suffix_is_never_projected",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_missing_root_blocks_scan_and_sync",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_missing_without_scan_blocks_all_changes",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_preview_is_read_only",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_source_changed_requires_rescan",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_source_symlink_is_not_followed",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_symlink_parent_blocks_without_touching_external_tree",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_unknown_output_is_never_claimed",
+        "tests.test_rust_observation_filesystem.NativeReconciliationReferenceTest.test_wrong_ownership_blocks"
+      ],
+      "remaining_gates": [
+        "Race-safe compatible destructive-output protocol",
+        "All durable boundaries and real platform faults",
+        "Foreign-file relocation and marker temporary cleanup races",
+        "Independent filesystem review unavailable"
+      ]
+    },
+    {
+      "id": "native:M7:media-and-artifacts",
+      "milestone": "M7",
+      "status": "partial-implementation-tested",
+      "mapped_frozen_rows": [],
+      "mapping_note": "Bounded companion operations only; no entire legacy CLI/HTTP/Python row is marked qualified.",
+      "scenario_ids": [
+        "tests.test_rust_component_media.NativeComponentMediaTest.test_actual_mux_worker_death_recovers_packet_validated_intent",
+        "tests.test_rust_component_media.NativeComponentMediaTest.test_exact_reference_extraction_plan_and_native_publication",
+        "tests.test_rust_component_media.NativeComponentMediaTest.test_external_audio_subtitle_and_exact_accepted_offset",
+        "tests.test_rust_component_media.NativeComponentMediaTest.test_font_attachment_exact_bytes_and_lineage",
+        "tests.test_rust_component_media.NativeComponentMediaTest.test_selected_streams_packet_evidence_and_reference_publication",
+        "tests.test_rust_media.NativeMediaParityTest.test_actual_sniff_hash_probe_decode_and_component_inventory",
+        "tests.test_rust_media.NativeMediaParityTest.test_header_defect_and_required_stream_policy",
+        "tests.test_rust_media.NativeMediaParityTest.test_immutable_analysis_revisions_have_identical_definition_bytes_and_digest",
+        "tests.test_rust_media.NativeMediaParityTest.test_missing_optional_probe_is_durable_unsupported_evidence",
+        "tests.test_rust_media.NativeMediaParityTest.test_text_lines_subtitles_casefold_and_partial_budget"
+      ],
+      "remaining_gates": [
+        "Shared demand retry/refresh scheduling",
+        "Complete resource and platform acceptance"
+      ]
+    },
+    {
+      "id": "native:M8:components-and-fallback",
+      "milestone": "M8",
+      "status": "partial-implementation-tested",
+      "mapped_frozen_rows": [],
+      "mapping_note": "Bounded companion operations only; no entire legacy CLI/HTTP/Python row is marked qualified.",
+      "scenario_ids": [
+        "tests.test_rust_component_media.NativeComponentMediaTest.test_actual_mux_worker_death_recovers_packet_validated_intent",
+        "tests.test_rust_component_media.NativeComponentMediaTest.test_exact_reference_extraction_plan_and_native_publication",
+        "tests.test_rust_component_media.NativeComponentMediaTest.test_external_audio_subtitle_and_exact_accepted_offset",
+        "tests.test_rust_component_media.NativeComponentMediaTest.test_font_attachment_exact_bytes_and_lineage",
+        "tests.test_rust_component_media.NativeComponentMediaTest.test_selected_streams_packet_evidence_and_reference_publication",
+        "tests.test_rust_fallback_policy.NativeFallbackPolicyTest.test_defaults_rankings_packages_and_immutable_dependencies",
+        "tests.test_rust_fallback_policy.NativeFallbackPolicyTest.test_invalid_policy_and_cross_profile_dependencies_leave_no_revisions"
+      ],
+      "remaining_gates": [
+        "All fallback resolver/retry/failback families",
+        "Shared rendition caller publication",
+        "Accepted source and package lifecycle orchestration"
+      ]
+    },
+    {
+      "id": "native:M9:integrations-and-playback",
+      "milestone": "M9",
+      "status": "partial-implementation-tested",
+      "mapped_frozen_rows": [],
+      "mapping_note": "Bounded companion operations only; no entire legacy CLI/HTTP/Python row is marked qualified.",
+      "scenario_ids": [
+        "tests.test_rust_consumers.NativeConsumerTest.test_automatic_native_publication_drains_after_store_release",
+        "tests.test_rust_consumers.NativeConsumerTest.test_bounded_lists_and_invalid_configuration",
+        "tests.test_rust_consumers.NativeConsumerTest.test_busy_backoff_failure_exhaustion_repair_and_redaction",
+        "tests.test_rust_consumers.NativeConsumerTest.test_coalescing_scope_and_overlap_rejection",
+        "tests.test_rust_consumers.NativeConsumerTest.test_creation_preview_commit_reconcile_idempotence_and_binding",
+        "tests.test_rust_consumers.NativeConsumerTest.test_disable_during_scan_fences_ack_and_enable_requeues",
+        "tests.test_rust_consumers.NativeConsumerTest.test_discovery_generation_change_defers_without_attempt_penalty",
+        "tests.test_rust_consumers.NativeConsumerTest.test_generation_changed_during_scan_not_acknowledged",
+        "tests.test_rust_consumers.NativeConsumerTest.test_indexing_exact_paths_bounded_evidence_and_revision_fence",
+        "tests.test_rust_consumers.NativeConsumerTest.test_jellyfin_exact_non_destructive_refresh",
+        "tests.test_rust_consumers.NativeConsumerTest.test_live_lease_contention_expiry_and_crash_recovery",
+        "tests.test_rust_consumers.NativeConsumerTest.test_native_process_death_leaves_expiring_uncertain_claim",
+        "tests.test_rust_consumers.NativeConsumerTest.test_native_publication_scan_and_idempotent_initial",
+        "tests.test_rust_consumers.NativeConsumerTest.test_noop_disable_preserves_delivery_and_binding_revisions",
+        "tests.test_rust_consumers.NativeConsumerTest.test_private_file_credentials_reject_unsafe_modes_links_and_fifo",
+        "tests.test_rust_consumers.NativeConsumerTest.test_retry_preserves_inflight_refresh_lease",
+        "tests.test_rust_consumers.NativeConsumerTest.test_server_library_and_connection_revision_fences",
+        "tests.test_rust_consumers.NativeConsumerTest.test_setup_discovery_parity_and_readonly_dryrun",
+        "tests.test_rust_consumers.NativeConsumerTest.test_uncertain_creation_never_replays_post_and_checks_immutable_intent",
+        "tests.test_rust_consumers.NativeConsumerTest.test_unhealthy_shared_binding_and_output_identity_hold_scan",
+        "tests.test_rust_consumers.NativeConsumerTest.test_xml_entities_response_size_redirect_and_missing_credentials_fail_closed",
+        "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_compiler_matches_python_exactly_and_retains_credentials_as_names",
+        "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_compiler_rejects_remote_recursive_refs_security_and_path_escapes",
+        "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_complete_graphql_connection_and_unicode_wire_bytes",
+        "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_credentials_missing_bad_and_tokens_revoked_never_dispatch",
+        "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_incomplete_queries_conflicting_keys_and_late_batch_failure_are_atomic",
+        "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_native_preview_enqueue_retry_and_immutable_request",
+        "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_preview_exact_parity_and_stale_plan_rollback",
+        "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_response_contract_rejects_invalid_json_duplicates_and_overflow",
+        "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_response_precedence_no_content_and_no_cross_origin_redirects",
+        "tests.test_rust_http_mappings.NativeHTTPMappingTest.test_supersession_cancels_pending_but_live_leases_block_and_disable",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_callback_is_principal_bound_and_requires_current_approved_origin",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_event_identity_routing_and_deduplication_match_python",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_http_owned_destination_never_falls_back_to_environment",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_inflight_policy_edit_cancels_and_fences_ack",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_invalid_configuration_fails_before_mutation",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_loopback_envelope_matches_python",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_loopback_partial_success_retry_envelopes_and_no_proxy",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_managed_webhook_revalidates_token_principal_and_current_grants",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_missing_optional_provider_and_bad_urls_require_repair",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_native_webhook_crud_bearer_auth_and_principal_isolation",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_optional_apprise_adapter_partial_success_and_redaction",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_policy_dry_run_idempotency_and_python_encoding",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_process_exit_recovers_expired_lease",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_profile_isolation_status_paging_and_unverified_publications",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_redirects_are_not_followed",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_retry_preserves_live_lease_and_disable_cancels",
+        "tests.test_rust_notifications.NativeNotificationsTest.test_run_alias_matches_drain",
+        "tests.test_rust_playback.NativePlaybackTest.test_admission_python_interop_shared_job_isolation_and_rotation",
+        "tests.test_rust_playback.NativePlaybackTest.test_budget_failure_and_reservation_limits",
+        "tests.test_rust_playback.NativePlaybackTest.test_continuous_worker_advertises_readiness_and_shared_grants_are_current",
+        "tests.test_rust_playback.NativePlaybackTest.test_direct_ready_rendition_without_worker_and_source_ctime_pin",
+        "tests.test_rust_playback.NativePlaybackTest.test_distinct_operation_grants_survive_first_viewer_cancellation",
+        "tests.test_rust_playback.NativePlaybackTest.test_expiry_owned_cleanup_and_foreign_symlink_refusal",
+        "tests.test_rust_playback.NativePlaybackTest.test_growing_whole_segments_and_independent_cancellation",
+        "tests.test_rust_playback.NativePlaybackTest.test_live_tool_change_is_fenced",
+        "tests.test_rust_playback.NativePlaybackTest.test_python_session_native_worker_and_python_recovery",
+        "tests.test_rust_playback.NativePlaybackTest.test_python_supervisor_lock_excludes_native_recovery",
+        "tests.test_rust_playback.NativePlaybackTest.test_real_native_hls_python_delivery_decodes_and_ready_cache_reuse",
+        "tests.test_rust_playback.NativePlaybackTest.test_reservations_limits_invalid_request_and_missing_worker",
+        "tests.test_rust_playback.NativePlaybackTest.test_shared_viewer_must_still_match_pinned_job",
+        "tests.test_rust_playback.NativePlaybackTest.test_source_mutation_stops_native_worker",
+        "tests.test_rust_playback.NativePlaybackTest.test_stored_token_revocation_stops_running_native_encoder",
+        "tests.test_rust_playback.NativePlaybackTest.test_timeout_releases_reservation",
+        "tests.test_rust_playback.NativePlaybackTest.test_truncated_duration_is_not_ready",
+        "tests.test_rust_playback.NativePlaybackTest.test_worker_death_kills_encoder_recovery_releases_reservation",
+        "tests.test_rust_playback.NativePlaybackTest.test_worker_tools_change_rejects_queued_job"
+      ],
+      "remaining_gates": [
+        "Real supported consumer/provider installations",
+        "Full Plex workflows",
+        "Non-Linux playback",
+        "All scheduler integration"
+      ]
+    },
+    {
+      "id": "native:M10:shared-boundaries",
+      "milestone": "M10",
+      "status": "partial-implementation-tested",
+      "mapped_frozen_rows": [],
+      "mapping_note": "Bounded companion operations only; no entire legacy CLI/HTTP/Python row is marked qualified.",
+      "scenario_ids": [
+        "tests.test_rust_content_access.NativeContentAccessTest.test_auth_readonly_exact_revision_and_private_redaction",
+        "tests.test_rust_content_access.NativeContentAccessTest.test_expired_revoked_and_exhausted_ticket_do_not_change_ledger",
+        "tests.test_rust_content_access.NativeContentAccessTest.test_live_and_registered_retired_sidecar_aliases_are_refused",
+        "tests.test_rust_content_access.NativeContentAccessTest.test_native_ticket_python_ranges_and_native_debit_are_one_budget",
+        "tests.test_rust_content_access.NativeContentAccessTest.test_python_ticket_native_revalidates_grants_token_and_owner",
+        "tests.test_rust_content_access.NativeContentAccessTest.test_source_exposure_revision_sqlite_header_and_named_identity",
+        "tests.test_rust_json_boundaries.NativeJsonBoundaryTest.test_mutation_http_mode_requires_auth_before_open",
+        "tests.test_rust_json_boundaries.NativeJsonBoundaryTest.test_nonfinite_nested_tokens_reject",
+        "tests.test_rust_json_boundaries.NativeJsonBoundaryTest.test_tokens_and_private_sentinel_keep_python_values"
+      ],
+      "remaining_gates": [
+        "Full HTTP1.7/auth/events/TypeScript",
+        "Complete public Python facade",
+        "Unregistered orphaned private sidecar alias identification",
+        "Every promised installed platform"
+      ]
+    }
+  ],
+  "M11_blockers": [
+    "Every remaining row and hard gate in docs/RUST_MIGRATION_MUTATIONS.md",
+    "Unresolved filesystem/content discrepancies and incomplete independent reviews",
+    "Current-source macOS and promised platform acceptance",
+    "Required real integrations, complete HTTP/Python facade and installed resources",
+    "Reviewed performance/resource budgets and handover/rollback rehearsals",
+    "No artifact publication authorized or performed"
+  ]
+}

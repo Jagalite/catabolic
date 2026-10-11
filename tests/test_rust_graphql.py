@@ -146,6 +146,7 @@ class NativeGraphQLTest(unittest.TestCase):
         output = (
             Path(__file__).resolve().parents[1] / ".local-tests/rust-migration/m2-m3"
         )
+        output.mkdir(parents=True, exist_ok=True)
         (output / "introspection-python.json").write_text(
             json.dumps(expected, indent=2)
         )
@@ -178,6 +179,7 @@ class NativeGraphQLTest(unittest.TestCase):
             Path(__file__).resolve().parents[1]
             / ".local-tests/rust-migration/m2-m3/graphql-errors.json"
         )
+        output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(results, indent=2))
         for result in results:
             self.assertEqual(result["native"], result["python"], result["query"])
@@ -278,7 +280,7 @@ class NativeGraphQLTest(unittest.TestCase):
             "query($v:String){renditions(matching:{purpose:$v}){nodes}}",
             "query($v:Boolean){items(hasRendition:{current:$v}){nodes{id}}}",
             "query($v:Boolean){items(missingRendition:{current:$v}){nodes{id}}}",
-            "query($v:String=\"thumbnail\"){renditions(matching:{purpose:$v}){nodes}}",
+            'query($v:String="thumbnail"){renditions(matching:{purpose:$v}){nodes}}',
         ):
             for variables in ({}, {"v": None}):
                 with self.subTest(document=document, variables=variables):

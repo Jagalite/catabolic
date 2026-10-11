@@ -125,3 +125,44 @@ def plan_layout(
             profile,
         )
     )
+
+
+def execute_operation(path, surface, operation, *, profile="default", **request):
+    """Run one opt-in native operation, with native ownership through completion.
+
+    These companion operations do not replace the complete Catabolic public
+    Python API. Unsupported operations fail without retrying under Python.
+    """
+    return json.loads(
+        _native.execute_operation(
+            str(path),
+            surface,
+            operation,
+            json.dumps(request, allow_nan=False),
+            profile,
+        )
+    )
+
+
+def interchange(operation, **request):
+    """Validate, decode, encode, or inspect frozen interchange documents."""
+    return json.loads(
+        _native.interchange(operation, json.dumps(request, allow_nan=False))
+    )
+
+
+def build_manifest(
+    path, catalog="global", *, profile="default", extra=None, selection=None
+):
+    """Build a read-only interchange manifest without publishing filesystem bytes."""
+    return json.loads(
+        _native.evaluate_read(
+            str(path),
+            "manifest",
+            json.dumps(
+                {"catalog": catalog, "extra": extra, "selection": selection},
+                allow_nan=False,
+            ),
+            profile,
+        )
+    )

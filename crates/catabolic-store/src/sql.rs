@@ -32,8 +32,8 @@ pub fn casefold(text: &str) -> String {
         .collect()
 }
 fn field(raw: String, key: &str) -> rusqlite::Result<Value> {
-    let value: Value =
-        serde_json::from_str(&raw).map_err(|e| rusqlite::Error::UserFunctionError(Box::new(e)))?;
+    let value: Value = catabolic_core::decode_json(&raw)
+        .map_err(|e| rusqlite::Error::UserFunctionError(Box::new(e)))?;
     Ok(value[key].clone())
 }
 pub fn install_functions(db: &Connection) -> Result<()> {
@@ -72,7 +72,7 @@ pub fn install_functions(db: &Connection) -> Result<()> {
         let raw: String = ctx.get(0)?;
         let key: String = ctx.get(1)?;
         let expected: String = ctx.get(2)?;
-        let value: Value = serde_json::from_str(&raw)
+        let value: Value = catabolic_core::decode_json(&raw)
             .map_err(|e| rusqlite::Error::UserFunctionError(Box::new(e)))?;
         Ok(value
             .get(key)
@@ -110,7 +110,7 @@ fn parameters(raw: Option<&str>, profile: &str) -> Result<Vec<(String, SqlValue)
     let invalid = || {
         Error("--params must be a JSON object with named scalar values; profile is reserved, numbers must be finite and integers fit signed 64 bits".into())
     };
-    let value: Value = serde_json::from_str(raw.unwrap_or("{}")).map_err(|_| invalid())?;
+    let value: Value = catabolic_core::decode_json(raw.unwrap_or("{}")).map_err(|_| invalid())?;
     let mut bound = vec![];
     for (key, value) in value.as_object().ok_or_else(invalid)? {
         if key == "profile"

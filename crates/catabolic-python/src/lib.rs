@@ -13,7 +13,8 @@ fn version() -> &'static str {
 }
 #[pyfunction]
 fn encode_json(raw: &str) -> PyResult<String> {
-    let value = serde_json::from_str(raw).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    let value =
+        catabolic_core::decode_json(raw).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     Ok(catabolic_core::encode(&value))
 }
 #[pyfunction]
@@ -84,6 +85,9 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(catalog_query, m)?)?;
     m.add_function(wrap_pyfunction!(execute_graphql, m)?)?;
     m.add_function(wrap_pyfunction!(evaluate_read, m)?)?;
+    m.add_function(wrap_pyfunction!(tag_mutation, m)?)?;
+    m.add_function(wrap_pyfunction!(execute_operation, m)?)?;
+    m.add_function(wrap_pyfunction!(interchange, m)?)?;
     Ok(())
 }
 #[pyfunction]
@@ -96,7 +100,7 @@ fn catalog_query(
     profile: &str,
 ) -> PyResult<String> {
     let request =
-        serde_json::from_str(options).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        catabolic_core::decode_json(options).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     result(py.detach(|| {
         let store = catabolic_store::Store::open(Path::new(path), false, false)?;
         catabolic_store::query::CatalogQuery::new(&store, profile)?.execute(entity, &request)
@@ -113,8 +117,8 @@ fn execute_graphql(
     operation_name: Option<&str>,
     timeout_ms: u64,
 ) -> PyResult<String> {
-    let variables =
-        serde_json::from_str(variables).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    let variables = catabolic_core::decode_json(variables)
+        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     result(py.detach(|| {
         catabolic_store::graphql::execute(
             Path::new(path),
@@ -137,15 +141,58 @@ fn evaluate_read(
     profile: &str,
 ) -> PyResult<String> {
     let request: serde_json::Value =
-        serde_json::from_str(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        catabolic_core::decode_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     result(py.detach(|| {
         let store = catabolic_store::Store::open(Path::new(path), false, false)?;
         let mut evaluation=catabolic_store::selection::Evaluation::new(store,profile,60000,100000,false)?;
         match operation {
+            "manifest"=>catabolic_store::manifest::build(&mut evaluation,request["catalog"].as_str().unwrap_or("global"),request.get("extra"),request.get("selection")),
             "select"=>{let selected=evaluation.select(&request)?;Ok(serde_json::json!({"entity":selected.entity,"ids":selected.ids,"report":selected.report}))},
             "query"=>evaluation.run(request["id"].as_str().ok_or_else(||catabolic_store::Error("query requires id".into()))?,request["limit"].as_u64().unwrap_or(1000) as usize),
             "layout"=>catabolic_store::layout::plan(&mut evaluation,request["id"].as_str().ok_or_else(||catabolic_store::Error("layout requires id".into()))?,request["catalog"].as_str().unwrap_or("global"),request["replace_layout"]==true,request["allow_empty"]==true,request["limit"].as_u64().unwrap_or(100) as usize),
             _=>Err(catabolic_store::Error("unknown read operation".into())),
         }
     }))
+}
+
+#[pyfunction]
+#[pyo3(signature=(path, operation, request="{}", profile="default"))]
+fn tag_mutation(
+    py: Python<'_>,
+    path: &str,
+    operation: &str,
+    request: &str,
+    profile: &str,
+) -> PyResult<String> {
+    let request: serde_json::Value =
+        catabolic_core::decode_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    result(py.detach(|| {
+        let store = catabolic_store::Store::open(Path::new(path), true, false)?;
+        catabolic_store::tagging::dispatch(&store, profile, operation, &request)
+    }))
+}
+
+#[pyfunction]
+#[pyo3(signature=(path, surface, operation, request="{}", profile="default"))]
+fn execute_operation(
+    py: Python<'_>,
+    path: &str,
+    surface: &str,
+    operation: &str,
+    request: &str,
+    profile: &str,
+) -> PyResult<String> {
+    let request: serde_json::Value =
+        catabolic_core::decode_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    result(py.detach(|| {
+        catabolic_runtime::api::execute(Path::new(path), profile, surface, operation, &request)
+    }))
+}
+
+#[pyfunction]
+#[pyo3(signature=(operation, request="{}"))]
+fn interchange(py: Python<'_>, operation: &str, request: &str) -> PyResult<String> {
+    let request: serde_json::Value =
+        catabolic_core::decode_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    result(py.detach(|| catabolic_store::interchange::dispatch(operation, &request)))
 }

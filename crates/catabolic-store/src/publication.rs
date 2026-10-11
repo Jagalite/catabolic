@@ -9,7 +9,12 @@ use crate::{
 };
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
-fn ready(store: &Store, profile: &str, output: &Value, ancestors: &[String]) -> Result<()> {
+pub(crate) fn ready(
+    store: &Store,
+    profile: &str,
+    output: &Value,
+    ancestors: &[String],
+) -> Result<()> {
     let id = output["id"].as_str().unwrap();
     if ancestors.iter().any(|a| a == id) || ancestors.len() >= 64 {
         return Err(Error("rendition lineage cycle or depth exceeds 64".into()));
@@ -31,7 +36,7 @@ fn ready(store: &Store, profile: &str, output: &Value, ancestors: &[String]) -> 
     }
     let (snapshot, digest) = if let Some(artifact) = output["artifact_id"].as_str() {
         let mut row=rows(&store.db,"SELECT a.*,j.snapshot AS input_snapshot FROM processing_artifacts a JOIN processing_jobs j ON j.id=a.job_id WHERE a.id=? AND j.state='complete' AND a.state='ready'",&[artifact.to_owned().into()])?.into_iter().next().ok_or_else(||Error("artifact is not ready".into()))?;
-        let snapshot: Value = serde_json::from_str(
+        let snapshot: Value = catabolic_core::decode_json(
             row["publication_snapshot"]
                 .as_str()
                 .filter(|v| !v.is_empty())
@@ -122,7 +127,7 @@ pub fn candidates(
     let Some(row) = policy.first() else {
         return Ok((None, json!({"configured":false,"admitted":0,"excluded":[]})));
     };
-    let policy: Value = serde_json::from_str(row["definition"].as_str().unwrap())?;
+    let policy: Value = catabolic_core::decode_json(row["definition"].as_str().unwrap())?;
     if policy["mode"] == "preferred"
         && rows(
             &store.db,

@@ -8,7 +8,6 @@ use base64::{Engine, engine::general_purpose::URL_SAFE};
 use catabolic_core::{encode, sha256};
 use rusqlite::types::Value as SqlValue;
 use serde_json::{Value, json};
-use unicode_normalization::UnicodeNormalization;
 
 fn get(args: &Value, key: &str, default: Value) -> Value {
     args.get(key).cloned().unwrap_or(default)
@@ -27,7 +26,7 @@ fn boolean(args: &Value, key: &str) -> Result<bool> {
 pub fn decode(row: &mut Value, keys: &[&str]) -> Result<()> {
     for key in keys {
         if let Some(raw) = row[*key].as_str() {
-            row[*key] = serde_json::from_str(raw)?;
+            row[*key] = catabolic_core::decode_json(raw)?;
         }
     }
     Ok(())
@@ -110,7 +109,7 @@ impl<'a> CatalogQuery<'a> {
                 .filter(|s| s.len() <= 16384)
                 .ok_or_else(invalid)?;
             let token: Value =
-                serde_json::from_slice(&URL_SAFE.decode(cursor).map_err(|_| invalid())?)
+                catabolic_core::decode_json_bytes(&URL_SAFE.decode(cursor).map_err(|_| invalid())?)
                     .map_err(|_| invalid())?;
             if token.as_array().is_none_or(|a| a.len() != 4)
                 || token[0] != 1
@@ -191,7 +190,7 @@ impl<'a> CatalogQuery<'a> {
                     .and_then(|s| s.split_once('='))
                     .filter(|(k, _)| !k.is_empty())
                     .ok_or_else(invalid)?;
-                let expected: Value = serde_json::from_str(raw).map_err(|_| invalid())?;
+                let expected: Value = catabolic_core::decode_json(raw).map_err(|_| invalid())?;
                 clauses.push("metadata_matches(i.metadata,?,?)".into());
                 values.extend([
                     SqlValue::Text(key.into()),
@@ -202,43 +201,10 @@ impl<'a> CatalogQuery<'a> {
         Ok((clauses, values))
     }
     fn tag(&self, value: &Value) -> Result<SqlValue> {
-        let name = value.as_str().ok_or_else(|| {
-            Error("tag name must be text without control characters, at most 255 characters".into())
-        })?;
-        if name.trim().is_empty() || name.chars().count() > 255 || name.chars().any(unicode_other) {
-            return Err(Error(
-                "tag name must be text without control characters, at most 255 characters".into(),
-            ));
-        }
-        let mut normalized = casefold(name.trim()).nfc().collect::<String>();
-        if let Some((namespace, label)) = normalized.split_once(':') {
-            let namespace = namespace.trim();
-            let label = label.trim();
-            if label.is_empty()
-                || namespace.is_empty()
-                || !namespace.chars().enumerate().all(|(i, c)| {
-                    c.is_ascii_lowercase() || c.is_ascii_digit() || i > 0 && "_.-".contains(c)
-                })
-            {
-                return Err(Error("namespaced tags require namespace:value; namespace uses letters, digits, dots, underscores or hyphens".into()));
-            }
-            normalized = format!("{namespace}:{label}");
-        }
-        if normalized.chars().count() > 255 || normalized.chars().any(unicode_other) {
-            return Err(Error(
-                "tag name must be text without control characters, at most 255 characters".into(),
-            ));
-        }
-        let id = self
-            .store
-            .db
-            .query_row(
-                "SELECT tag_id FROM tag_names WHERE name=?",
-                [normalized],
-                |r| r.get::<_, String>(0),
-            )
-            .map_err(|_| Error(format!("unknown tag: {name}; create it with tag put")))?;
-        Ok(SqlValue::Text(id))
+        Ok(SqlValue::Text(crate::tagging::resolve_tag(
+            &self.store.db,
+            value,
+        )?))
     }
     fn tag_filters(
         &self,
@@ -915,16 +881,4 @@ pub fn name(value: &str) -> Result<()> {
         ));
     }
     Ok(())
-}
-
-fn unicode_other(character: char) -> bool {
-    static RANGES: std::sync::OnceLock<Vec<[u32; 2]>> = std::sync::OnceLock::new();
-    let ranges = RANGES.get_or_init(|| {
-        let value: Value = serde_json::from_str(include_str!("../resources/unicode-other.json"))
-            .expect("frozen Unicode categories");
-        serde_json::from_value(value["ranges"].clone()).expect("ordered Unicode ranges")
-    });
-    let code = u32::from(character);
-    let index = ranges.partition_point(|range| range[1] < code);
-    ranges.get(index).is_some_and(|range| range[0] <= code)
 }

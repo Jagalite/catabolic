@@ -9,7 +9,7 @@
 
 All new crate names, harness commands, budgets, milestones, and architecture below are proposed. Existing paths are identified separately. A current-source reference identifies observed behavior, not proof that the behavior is correct under every environment.
 
-**Implementation status:** M0 is in progress. See [the reference-freeze work log](RUST_MIGRATION_M0.md) for the reference receipts, reviewed scope ledger, fixture captures, and remaining acceptance gates. M1–M3 implementation is in progress; see [the native implementation checkpoints](RUST_MIGRATION_NATIVE.md). No milestone exit gate is yet declared complete.
+**Implementation status:** M0 remains in progress; see [the reference-freeze work log](RUST_MIGRATION_M0.md). The historical [M1–M3 native receipts](RUST_MIGRATION_NATIVE.md) qualify their recorded source snapshot and platforms, without closing M0 or later gates. M4–M11 work is an opt-in [implementation checkpoint](RUST_MIGRATION_MUTATIONS.md), with remaining ownership, safety, review, platform and release gates explicit. No M4–M11 exit gate is declared complete and Python remains the default.
 
 ## 1. Executive decision
 

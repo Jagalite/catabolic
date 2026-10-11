@@ -23,7 +23,7 @@ fn read(store: &Store, key: &str) -> Result<Value> {
     )?;
     records
         .first()
-        .map(|r| serde_json::from_str(r["value"].as_str().unwrap()).map_err(Into::into))
+        .map(|r| catabolic_core::decode_json(r["value"].as_str().unwrap()).map_err(Into::into))
         .unwrap_or(Ok(Value::Null))
 }
 fn array(value: &Value) -> &[Value] {
@@ -153,7 +153,8 @@ pub fn validate(definition: &Value) -> Result<()> {
         return fail("layout requires version: 1 and rules");
     }
     if let Some(profile) = definition.get("profile") {
-        let presets: Value = serde_json::from_str(include_str!("../resources/layouts.json"))?;
+        let presets: Value =
+            catabolic_core::decode_json(include_str!("../resources/layouts.json"))?;
         let matched = presets
             .as_object()
             .unwrap()
@@ -975,7 +976,7 @@ pub fn copy_filter(
     let Some(row) = records.first() else {
         return Ok((associations.to_vec(), json!({"configured":false})));
     };
-    let definition: Value = serde_json::from_str(row["definition"].as_str().unwrap())?;
+    let definition: Value = catabolic_core::decode_json(row["definition"].as_str().unwrap())?;
     let mut retained = vec![];
     let mut groups = vec![];
     let mut grouped: BTreeMap<(String, String), Vec<Value>> = BTreeMap::new();
@@ -1039,7 +1040,7 @@ pub fn copy_filter(
         .collect::<BTreeSet<_>>();
     let mut attached = vec![];
     for row in retained {
-        let metadata: Value = serde_json::from_str(row["metadata"].as_str().unwrap())?;
+        let metadata: Value = catabolic_core::decode_json(row["metadata"].as_str().unwrap())?;
         let related = metadata.get("primary_file_ids");
         if related.is_some_and(|v| {
             !v.is_null() && (!v.is_array() || array(v).iter().any(|v| !v.is_string()))

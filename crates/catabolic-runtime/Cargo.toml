@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "catabolic-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+catabolic-core.workspace = true
+catabolic-store.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+libc.workspace = true
+tempfile.workspace = true
+uuid.workspace = true
+ureq.workspace = true
+roxmltree.workspace = true
+chrono.workspace = true
+num-bigint.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+rusqlite.workspace = true

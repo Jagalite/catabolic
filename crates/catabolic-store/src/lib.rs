@@ -1,16 +1,46 @@
 //! Owns Catabolic's SQLite lifecycle. Opening never creates or upgrades a catalog.
+pub mod access;
+pub mod artifact_mutation;
+pub mod component_mutation;
 mod components;
+pub mod consumers;
+pub mod content_access;
+pub mod curation;
+pub mod definitions;
 mod document;
+pub mod estimates;
+pub mod fallback_mutation;
+pub mod filesystem_mutation;
 pub mod graphql;
+pub mod hardlink_mutation;
+pub mod http_mappings;
+pub mod http_operations;
+pub mod interchange;
 mod introspection;
 pub mod layout;
+pub mod manifest;
+pub mod media_mutation;
 pub mod migration;
+pub mod mutation;
+pub mod notifications;
+pub mod observation;
+pub mod output_mutation;
+pub mod plans;
+pub mod playback;
+pub mod playback_cache;
+pub mod processor_mutation;
+pub mod programs;
 mod publication;
 pub mod query;
+pub mod receipt_mutation;
+pub mod remount;
 pub mod selection;
 mod source;
 pub mod sql;
+pub mod tagging;
 mod validation;
+pub mod watcher;
+pub mod webhooks;
 
 use rusqlite::{Connection, OpenFlags};
 use std::fs::{File, OpenOptions};
@@ -39,6 +69,11 @@ impl From<std::io::Error> for Error {
 }
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
+        Self(e.to_string())
+    }
+}
+impl From<catabolic_core::Error> for Error {
+    fn from(e: catabolic_core::Error) -> Self {
         Self(e.to_string())
     }
 }

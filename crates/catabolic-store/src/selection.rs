@@ -59,6 +59,10 @@ impl Evaluation {
     pub fn store(&self) -> &Store {
         self.store.as_ref().expect("evaluation owns snapshot")
     }
+    /// Transfer this same owned snapshot to the next policy boundary.
+    pub fn into_store(mut self) -> Store {
+        self.store.take().expect("evaluation owns snapshot")
+    }
     fn remaining(&self, message: &str) -> Result<u64> {
         let ms = self
             .deadline
@@ -404,6 +408,15 @@ impl Evaluation {
     }
     fn account(&mut self, result: &Selected) -> Result<()> {
         self.result_bytes += encode(&json!([result.entity, result.ids, result.report])).len();
+        if self.result_bytes > 4 * 1024 * 1024 {
+            return Err(Error("evaluation_result_byte_budget".into()));
+        }
+        Ok(())
+    }
+    /// Charge owner-specific expansion evidence to the same evaluation budget.
+    pub fn account_value(&mut self, value: &Value) -> Result<()> {
+        self.remaining("query composition timed out")?;
+        self.result_bytes += encode(value).len();
         if self.result_bytes > 4 * 1024 * 1024 {
             return Err(Error("evaluation_result_byte_budget".into()));
         }
