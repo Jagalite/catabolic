@@ -162,20 +162,149 @@ fn tokens(source: &str) -> Vec<Token> {
 struct Located<'a> {
     value: &'a Input,
     pos: Pos,
+    scalar: Option<String>,
     children: Vec<Located<'a>>,
     fields: Vec<(String, Pos)>,
 }
+
+// Input's Display loses number spelling and block-string node kind. These are
+// part of graphql-core's print_ast diagnostics, so use the accepted source token
+// for lexical details and the parsed tree for list/object structure.
+fn print_string(value: &str) -> String {
+    let mut result = String::from("\"");
+    for c in value.chars() {
+        match c {
+            '\"' => result.push_str("\\\""),
+            '\\' => result.push_str("\\\\"),
+            '\u{8}' => result.push_str("\\b"),
+            '\u{c}' => result.push_str("\\f"),
+            '\n' => result.push_str("\\n"),
+            '\r' => result.push_str("\\r"),
+            '\t' => result.push_str("\\t"),
+            '\u{0}'..='\u{1f}' | '\u{7f}'..='\u{9f}' => {
+                result.push_str(&format!("\\u{:04X}", c as u32));
+            }
+            _ => result.push(c),
+        }
+    }
+    result.push('"');
+    result
+}
+
+fn print_block_string(value: &str) -> String {
+    // The parser keeps the block-string escape in its value. graphql-core
+    // removes that one backslash before its printer escapes triple quotes.
+    let value = value.replace("\\\"\"\"", "\"\"\"");
+    let escaped = value.replace("\"\"\"", "\\\"\"\"");
+
+    // Python str.splitlines includes these additional separators. They affect
+    // only printing layout here, not GraphQL's source-location line counting.
+    let mut lines = vec![];
+    let mut chars = escaped.char_indices().peekable();
+    let mut start = 0;
+    while let Some((index, c)) = chars.next() {
+        if matches!(
+            c,
+            '\n' | '\r' | '\u{b}' | '\u{c}' | '\u{1c}'
+                ..='\u{1e}' | '\u{85}' | '\u{2028}' | '\u{2029}'
+        ) {
+            lines.push(&escaped[start..index]);
+            start = index + c.len_utf8();
+            if c == '\r' && chars.peek().is_some_and(|(_, c)| *c == '\n') {
+                let (index, _) = chars.next().unwrap();
+                start = index + 1;
+            }
+        }
+    }
+    if start < escaped.len() {
+        lines.push(&escaped[start..]);
+    }
+    if lines.is_empty() {
+        lines.push("");
+    }
+    let single_line = lines.len() == 1;
+    let force_leading = !single_line
+        && lines[1..]
+            .iter()
+            .all(|line| line.is_empty() || line.starts_with([' ', '\t']));
+    let trailing_triple_quotes = escaped.ends_with("\\\"\"\"");
+    let force_trailing = value.ends_with('"') && !trailing_triple_quotes || value.ends_with('\\');
+    let multiple_lines = !single_line
+        || value.chars().count() > 70
+        || force_trailing
+        || force_leading
+        || trailing_triple_quotes;
+    let skip_leading = single_line && value.starts_with([' ', '\t']);
+    let before = if multiple_lines && !skip_leading || force_leading {
+        "\n"
+    } else {
+        ""
+    };
+    let after = if multiple_lines || force_trailing {
+        "\n"
+    } else {
+        ""
+    };
+    format!("\"\"\"{before}{escaped}{after}\"\"\"")
+}
+
+fn render_located(value: &Located<'_>) -> String {
+    if let Some(scalar) = &value.scalar {
+        return scalar.clone();
+    }
+    match value.value {
+        Input::List(_) => format!(
+            "[{}]",
+            value
+                .children
+                .iter()
+                .map(render_located)
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        Input::Object(_) => format!(
+            "{{{}}}",
+            value
+                .fields
+                .iter()
+                .zip(&value.children)
+                .map(|((name, _), child)| format!("{name}: {}", render_located(child)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        _ => value.value.to_string(),
+    }
+}
+
+pub(crate) fn render_input(document: &str, value: &Positioned<Input>) -> String {
+    let tokens = tokens(document);
+    let mut cursor =
+        tokens.partition_point(|t| (t.pos.line, t.pos.column) < (value.pos.line, value.pos.column));
+    render_located(&locate(&value.node, &tokens, &mut cursor, value.pos))
+}
+
 fn locate<'a>(
     value: &'a Input,
     tokens: &[Token],
     cursor: &mut usize,
     fallback: Pos,
 ) -> Located<'a> {
-    let pos = tokens.get(*cursor).map_or(fallback, |t| t.pos);
+    let token = tokens.get(*cursor);
+    let pos = token.map_or(fallback, |t| t.pos);
+    let scalar = match value {
+        Input::Number(_) => token.map(|t| t.text.clone()),
+        Input::String(value) => Some(if token.is_some_and(|t| t.text.starts_with("\"\"\"")) {
+            print_block_string(value)
+        } else {
+            print_string(value)
+        }),
+        _ => None,
+    };
     *cursor += 1;
     let mut result = Located {
         value,
         pos,
+        scalar,
         children: vec![],
         fields: vec![],
     };
@@ -260,7 +389,7 @@ impl Validator<'_> {
             return;
         }
         let kind = named(expected);
-        let rendered = value.value.to_string();
+        let rendered = render_located(value);
         let definition = ty_for(kind, self.http);
         if matches!(value.value, Input::Object(_))
             && definition.is_some_and(|ty| ty["kind"] == "INPUT_OBJECT")
@@ -1010,4 +1139,23 @@ pub(crate) fn parse_error(document: &str, error: &async_graphql_parser::Error) -
         error["locations"] = json!(positions);
     }
     json!({"data":null,"errors":[error]})
+}
+
+#[cfg(test)]
+mod literal_diagnostic_render_tests {
+    use super::*;
+
+    #[test]
+    fn runtime_renderer_retains_variables_and_literal_node_spelling() {
+        let document = r#"query($v:String){items(first: [{zz:$v, aa:-0, bb:1E+0, cc:"\b\f\u008a", dd:"""text"""}]){nodes{id}}}"#;
+        let parsed = async_graphql_parser::parse_query(document).unwrap();
+        let (_, operation) = parsed.operations.iter().next().unwrap();
+        let Selection::Field(field) = &operation.node.selection_set.node.items[0].node else {
+            panic!("expected test field");
+        };
+        assert_eq!(
+            render_input(document, &field.node.arguments[0].1),
+            r#"[{zz: $v, aa: -0, bb: 1E+0, cc: "\b\f\u008A", dd: """text"""}]"#,
+        );
+    }
 }

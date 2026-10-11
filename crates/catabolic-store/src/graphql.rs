@@ -70,6 +70,58 @@ impl async_graphql::extensions::ExtensionFactory for Budget {
 }
 #[async_trait::async_trait]
 impl async_graphql::extensions::Extension for Budget {
+    async fn validation(
+        &self,
+        ctx: &async_graphql::extensions::ExtensionContext<'_>,
+        next: async_graphql::extensions::NextValidation<'_>,
+    ) -> std::result::Result<async_graphql::ValidationResult, Vec<async_graphql::ServerError>> {
+        match next.run(ctx).await {
+            Err(mut errors) => {
+                let state = ctx
+                    .data_unchecked::<Arc<Mutex<Context>>>()
+                    .lock()
+                    .expect("query context");
+                errors.retain(|error| !state.runtime_inputs.defers(error));
+                if errors.is_empty() {
+                    // Strict validation already enforced its complexity/depth
+                    // limits. Only runtime-null errors at identified argument
+                    // positions move to execution; no static rule is disabled.
+                    Ok(async_graphql::ValidationResult {
+                        cache_control: Default::default(),
+                        complexity: 0,
+                        depth: 0,
+                    })
+                } else {
+                    Err(errors)
+                }
+            }
+            result => result,
+        }
+    }
+    async fn execute(
+        &self,
+        ctx: &async_graphql::extensions::ExtensionContext<'_>,
+        operation: Option<&str>,
+        next: async_graphql::extensions::NextExecute<'_>,
+    ) -> async_graphql::Response {
+        let early = {
+            let state = ctx
+                .data_unchecked::<Arc<Mutex<Context>>>()
+                .lock()
+                .expect("query context");
+            state
+                .runtime_inputs
+                .root_error
+                .as_ref()
+                .map(|error| (error.clone(), state.deadline, state.profile.clone()))
+        };
+        if let Some((error, deadline, profile)) = early {
+            let response = json!({"data":null,"errors":[error.server_error(vec![])],"extensions":{"interfaceVersion":1,"profile":profile,"records":0}});
+            return serde_json::from_value(early_query_response(response, deadline))
+                .expect("GraphQL response");
+        }
+        next.run(ctx, operation).await
+    }
     async fn resolve(
         &self,
         ctx: &async_graphql::extensions::ExtensionContext<'_>,
@@ -93,7 +145,12 @@ impl async_graphql::extensions::Extension for Budget {
             .map_err(|e| e.into_server_error(async_graphql::Pos::default()))?;
         {
             let mut context = state.lock().expect("query context");
-            context.fields += 1;
+            // graphql-core obtains argument values before invoking its resolver
+            // (and budget middleware). A rejected runtime null is not a field
+            // resolution, although cancellation/deadline checks still apply.
+            if context.runtime_inputs.argument_error(info.field).is_none() {
+                context.fields += 1;
+            }
             if context.fields > 20000 {
                 context.aborted = Some("query field budget exceeded".into());
             }
@@ -124,6 +181,11 @@ impl async_graphql::extensions::Extension for Budget {
         let mut result = match next.run(ctx, info).await {
             Ok(value) => value,
             Err(mut error) => {
+                if let Some(input) = error.source.as_ref().and_then(|source| {
+                    source.downcast_ref::<crate::graphql_runtime_input::Failure>()
+                }) {
+                    error = input.server_error(error_path.clone());
+                }
                 if error.path.is_empty() {
                     error.path = error_path;
                 }
@@ -180,6 +242,8 @@ struct Context {
     authority: Option<Authority>,
     nullability: BTreeMap<Vec<String>, bool>,
     null_bubbles: Vec<Vec<String>>,
+    runtime_inputs: crate::graphql_runtime_input::RuntimeInputs,
+    runtime_error_emitted: bool,
 }
 impl Context {
     fn authorized_resolve(
@@ -1269,6 +1333,14 @@ fn build_schema(http: bool) -> Result<Schema> {
                     let mut state = state
                         .lock()
                         .map_err(|_| async_graphql::Error::new("query context poisoned"))?;
+                    if let Some(error) = state.runtime_inputs.argument_error(&ctx.item.node) {
+                        state.runtime_error_emitted = true;
+                        if !ty.nullable {
+                            return Err(async_graphql::Error::new_with_source(error));
+                        }
+                        ctx.add_error(ctx.set_error_path(error.server_error(vec![])));
+                        return Ok(None);
+                    }
                     let source = ctx
                         .parent_value
                         .try_downcast_ref::<Value>()
@@ -1330,6 +1402,20 @@ fn build_schema(http: bool) -> Result<Schema> {
                         }
                     };
                     if result.is_null() {
+                        return Ok(None);
+                    }
+                    if let Some(error) =
+                        state
+                            .runtime_inputs
+                            .completion_error(&ctx.item.node, &result, &ty)
+                    {
+                        if !ty.nullable {
+                            return Err(async_graphql::Error::new_with_source(error));
+                        }
+                        let base = ctx
+                            .set_error_path(async_graphql::ServerError::new("", None))
+                            .path;
+                        ctx.add_error(error.server_error(base));
                         return Ok(None);
                     }
                     Ok(Some(output(result, &ty, &enums, &objects)?))
@@ -1616,6 +1702,13 @@ pub(crate) fn execute_session(
             deadline,
         ));
     }
+    let runtime_inputs = crate::graphql_runtime_input::RuntimeInputs::new(
+        &ast,
+        &coerced_variables,
+        operation,
+        http,
+        document,
+    );
     crate::graphql_input::normalize_document_literals(&mut ast, http);
     let query_only: bool = store
         .db
@@ -1631,6 +1724,8 @@ pub(crate) fn execute_session(
         authority,
         nullability: BTreeMap::new(),
         null_bubbles: Vec::new(),
+        runtime_inputs,
+        runtime_error_emitted: false,
         undefined: ast
             .operations
             .iter()
@@ -1756,7 +1851,17 @@ pub(crate) fn execute_session(
                     json!({"data":null,"errors":[{"message":state.aborted.as_deref().unwrap_or("query execution deadline exceeded"),"extensions":{"code":"LIMIT_EXCEEDED"}}]}),
                 );
             }
-            if state.fields > 0 || coercion_error {
+            let successful = result
+                .get("errors")
+                .is_none_or(|errors| errors.as_array().is_some_and(Vec::is_empty));
+            // The framework's empty root collection is Null. A successful
+            // read-only operation with every root selection skipped returns an
+            // empty object in graphql-core, with ordinary zero-record metadata.
+            // Error/null-bubble and deadline/abort results never enter this path.
+            if successful && state.fields == 0 && result["data"].is_null() {
+                result["data"] = json!({});
+            }
+            if successful || state.fields > 0 || coercion_error || state.runtime_error_emitted {
                 result["extensions"] =
                     json!({"interfaceVersion":1,"profile":profile,"records":state.nodes});
             }

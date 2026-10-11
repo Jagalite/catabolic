@@ -268,8 +268,12 @@ pub fn dispatch(a: &Value) -> Result<Value> {
             } else {
                 text(a, "document").into()
             };
-            let variables = if a["variables"].is_null() {
-                Value::Null.into()
+            let variables = if a["variables"].is_null()
+                || catabolic_core::decode_json(text(a, "variables"))?.is_null()
+            {
+                // Frozen execute_graphql treats omitted and JSON-null variables
+                // alike. Other transports retain their own validated adapters.
+                json!({}).into()
             } else {
                 catabolic_store::graphql::InputVariables::from_json(text(a, "variables"))?
             };

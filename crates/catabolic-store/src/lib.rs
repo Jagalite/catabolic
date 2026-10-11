@@ -24,6 +24,7 @@ pub mod fallback_resolution;
 pub mod filesystem_mutation;
 pub mod graphql;
 mod graphql_input;
+mod graphql_runtime_input;
 pub mod hardlink_mutation;
 pub mod http_mappings;
 pub mod http_operations;

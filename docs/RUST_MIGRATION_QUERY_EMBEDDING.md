@@ -137,6 +137,20 @@ frozen direct read-denial branch. The rejection itself and allowed tables have
 not changed. This does not resolve or reclassify any previously documented
 scoped-query restriction/discrepancy.
 
+## Independent input review
+
+A subsequent [independent review](RUST_MIGRATION_GRAPHQL_REVIEW.md) found and
+corrected additional literal-rendering, runtime nullable-argument/directive, and
+legacy/typed-facade presence cases. It also retained thirteen additional explicit
+parser, location, enum-resolver, field-merging, empty-completion, and introspection-input vectors in
+[`graphql-review-remaining-gaps.json`](../tests/parity/graphql-review-remaining-gaps.json).
+The four residual vectors above remain unchanged; they are not an exhaustive list
+of remaining GraphQL differences. Repeated-field/runtime-null and
+introspection-owned/runtime-null combinations preserve their pre-fix strict
+errors until their separate execution owners can implement the complete
+contract. No blanket GraphQL parity or final-wheel claim follows from either
+checkpoint.
+
 ## Separate qualification
 
 Source checks:
