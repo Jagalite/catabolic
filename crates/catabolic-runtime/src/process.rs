@@ -1133,10 +1133,11 @@ mod tests {
     #[test]
     fn direct_tool_is_killed_when_worker_process_dies() {
         let dir = tempfile::tempdir().unwrap();
-        let executable = dir.path().join("runner-test");
-        fs::copy("/proc/self/exe", &executable).unwrap();
         let pid_path = dir.path().join("tool.pid");
-        let mut worker = Command::new(executable)
+        // Re-exec the running test image without creating a writable executable.
+        // A concurrent fork can retain a copy's write descriptor until exec and
+        // make the fixture's spawn fail with ETXTBSY, even with FD_CLOEXEC set.
+        let mut worker = Command::new("/proc/self/exe")
             .args([
                 "--exact",
                 "process::tests::parent_death_fixture_worker",
