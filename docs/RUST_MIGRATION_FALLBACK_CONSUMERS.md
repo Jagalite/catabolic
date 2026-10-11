@@ -72,6 +72,25 @@ SHA-256 `7171b1094a95f2ff32b4875340e3bc8af38ded4b7e9123cec0681db79af8bcc4`.
 These are Linux-local disposable fixtures, not real Plex/Jellyfin deployments,
 macOS qualification, or packaged release-artifact acceptance.
 
+## Independent review and HTTP/1.0 correction
+
+Later independent review expanded the Rust consumer suite to 11 tests and fixed
+two ordinary translation mismatches: separately valid path inputs may compose
+past 4096 characters, and an empty suffix must preserve remote root `/`.
+
+An intermittent discovery failure was subsequently reproduced deterministically:
+the native client reused a completed HTTP/1.0 connection while the server's close
+was still in flight. The next request was lost. Delaying fixture shutdown exposed
+the failure in every pre-fix attempt; frozen Python used separate connections.
+Consumer requests now explicitly send `Connection: close`, and idle pooling is
+disabled. No request replay or automatic retry is added.
+
+The permanent independent-catalog regression exercises bind, publication and
+indexing against delayed close. It checks all five expected requests on distinct
+connections, completed closes, no dropped request, no writer-lock failure and
+identical Python/native reports. Historical failures are retained; their original
+low-level cause cannot be proven retrospectively from the coarser old logs.
+
 ## Reproduction
 
 Build the native CLI once, copy it to a stable path, and set

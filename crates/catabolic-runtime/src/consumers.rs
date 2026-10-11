@@ -141,6 +141,10 @@ impl Adapter {
                 .map_err(|_| Failure::new("invalid_configuration"))?,
             agent: ureq::Agent::config_builder()
                 .proxy(None)
+                // The frozen urllib adapter uses one connection per request.
+                // Do not reuse a completed HTTP/1.0 connection while its FIN
+                // is still in flight; a second request can otherwise be lost.
+                .max_idle_connections(0)
                 .max_redirects(0)
                 .http_status_as_error(false)
                 .timeout_global(Some(Duration::from_secs(15)))
@@ -170,6 +174,7 @@ impl Adapter {
             let mut request = self
                 .agent
                 .post(&url)
+                .header("Connection", "close")
                 .header(header, &secret)
                 .header("Accept", accept);
             if let Some(client) = &client {
@@ -182,6 +187,7 @@ impl Adapter {
             let mut request = self
                 .agent
                 .get(&url)
+                .header("Connection", "close")
                 .header(header, &secret)
                 .header("Accept", accept);
             if let Some(client) = &client {

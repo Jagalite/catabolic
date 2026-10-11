@@ -141,6 +141,35 @@ class NativeArtifactBuildTest(unittest.TestCase):
         self.assertIn("requires unoptimized Python tests", result.stderr)
         self.assertEqual(result.stdout, "")
 
+    def test_http_qualification_refuses_optimized_and_fences_client_artifacts(self):
+        script = ROOT / "scripts/qualify_native_http.py"
+        result = subprocess.run(
+            [sys.executable, "-O", str(script), "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("requires unoptimized Python assertions", result.stderr)
+        self.assertEqual(result.stdout, "")
+        spec = importlib.util.spec_from_file_location("http_qualifier", script)
+        qualifier = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(qualifier)
+        binary = self.root / "native"
+        binary.write_bytes(b"native fixture")
+        client = self.root / "client/acceptance.js"
+        client.parent.mkdir()
+        client.write_text("fixture client")
+        dependency = client.parent / "busy.js"
+        dependency.write_text("fixture import")
+        before = qualifier.artifact_hashes(binary, client)
+        for path in (binary, client, dependency):
+            original = path.read_bytes()
+            path.write_bytes(original + b"changed")
+            self.assertNotEqual(before, qualifier.artifact_hashes(binary, client))
+            path.write_bytes(original)
+            self.assertEqual(before, qualifier.artifact_hashes(binary, client))
+
     def test_mutation_qualification_refuses_imported_oracles_and_unbound_http(self):
         native = "tests.test_rust_example.NativeTest.test_case"
         oracle = "tests.test_example.ReferenceTest.test_case"

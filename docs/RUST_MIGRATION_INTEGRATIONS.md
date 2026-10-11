@@ -95,7 +95,15 @@ Focused Rust tests cover transaction/lease invariants, producer-event admission,
 origin parsing, external schema refusal, XML budgets, and retry/path boundaries.
 No live external server or real credential was used for qualification.
 
-## Remaining work outside this checkpoint
+## Remaining work outside the original checkpoint
+
+Later HTTP, scoped-query, watcher and fallback-consumer implementations are
+recorded in [HTTP](RUST_MIGRATION_HTTP.md),
+[observation](RUST_MIGRATION_OBSERVATION.md), and
+[fallback consumers](RUST_MIGRATION_FALLBACK_CONSUMERS.md). The following original
+scope exclusions are historical, not a claim that those later owners are absent.
+The current unresolved public/Plex work is enumerated in
+[public surfaces](RUST_MIGRATION_PUBLIC_SURFACES.md).
 
 - Full public HTTP routing/transport, authenticated operation/mapping admission,
   and watcher HTTP reactions require their own qualification

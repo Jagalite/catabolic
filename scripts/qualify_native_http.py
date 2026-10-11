@@ -9,6 +9,7 @@ This is evidence for the opt-in backend, not production/default enablement.
 """
 
 import argparse
+import hashlib
 import json
 import os
 import socket
@@ -17,6 +18,25 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+if not __debug__:
+    raise RuntimeError("HTTP qualification requires unoptimized Python assertions")
+
+
+def artifact_hashes(binary, client):
+    result = {"native_cli_sha256": hashlib.sha256(binary.read_bytes()).hexdigest()}
+    if client:
+        if not client.is_file():
+            raise ValueError("generated client entrypoint is missing")
+        result["generated_client_sha256"] = {
+            str(path.relative_to(client.parent)): hashlib.sha256(
+                path.read_bytes()
+            ).hexdigest()
+            for path in sorted(client.parent.rglob("*"))
+            if path.is_file()
+        }
+    return result
+
 
 BOOTSTRAP = r"""
 import json,os,sys,time
@@ -96,6 +116,7 @@ def main():
     native = str(args.native.resolve())
     if not Path(native).is_file():
         raise RuntimeError("native CLI artifact does not exist")
+    artifacts_before = artifact_hashes(Path(native), args.generated_client)
     env = {
         k: v
         for k, v in os.environ.items()
@@ -356,6 +377,17 @@ def main():
                 raise RuntimeError(
                     "generated client failed; preserved output and busy evidence"
                 )
+        artifacts_after = artifact_hashes(Path(native), args.generated_client)
+        if artifacts_before != artifacts_after:
+            (root / "report.json").write_text(
+                json.dumps(
+                    {"complete": False, "error": "qualification_artifact_changed"}
+                )
+                + "\n"
+            )
+            raise RuntimeError(
+                "native CLI or generated client changed during qualification"
+            )
         report = {
             "complete": True,
             "commands": commands,
@@ -365,6 +397,8 @@ def main():
             "generated_client": bool(args.generated_client),
             "fixture_python": interpreter,
             "native_cli": native,
+            "artifacts": artifacts_before,
+            "artifacts_unchanged": True,
             "release_qualified": False,
             "release_blockers": [
                 "private_unregistered_orphaned_database_sidecar_aliases",
