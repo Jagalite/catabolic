@@ -63,7 +63,16 @@ Reports are in `.local-tests/components-policies-independent-review/`,
 `.local-tests/consumer-json-review/`. They distinguish earlier immutable artifacts
 from this final selected development replay.
 
-## Integration still required
+## Historical scope and later integration
+
+This document records the earlier `a067cca` development snapshot. The later
+`749755e` merge includes the phase-three corrections mentioned below; its merge
+alone does not requalify the older wheel. Strict facade gate implementation has
+also since been added, but the corresponding new release cohort has not been
+built or exercised. The [paused handoff](RUST_MIGRATION_PAUSED_HANDOFF.md) is the
+current status and records work left incomplete when implementation stopped.
+
+## Integration still required at this historical snapshot
 
 The separate public-workflows branch has newer independently reviewed GraphQL
 runtime-input corrections, XML gate hardening and a Linux process-test fixture

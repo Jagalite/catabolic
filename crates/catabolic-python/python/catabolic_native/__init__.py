@@ -6,6 +6,11 @@ import sys
 from pathlib import Path
 
 from . import _native
+from . import access as access
+from . import content_access as content_access
+from . import fallback_projection as fallback_projection
+from . import fallback_resolution as fallback_resolution
+from . import fallback_worker as fallback_worker
 from .app import Application as Application
 from .artifacts import Artifacts as Artifacts
 from .catalog_refresh import CatalogRefresh as CatalogRefresh

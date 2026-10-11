@@ -244,11 +244,25 @@ impl NativeStore {
             ));
         }
         if cancelled.is_some()
-            && !(surface == "components" && operation == "get" && request.get("session").is_some())
+            && !((surface == "components" && operation == "get" || surface == "fallback")
+                && request.get("session").is_some())
         {
             return Err(CatabolicError::new_err(
-                "live cancellation is supported only for component session lookups",
+                "live cancellation is supported only for component or fallback session lookups",
             ));
+        }
+        if surface == "fallback" {
+            let signal = Arc::new(Mutex::new(None));
+            let captured = signal.clone();
+            let value = self.run(py, |session| {
+                crate::public_fallback::call(
+                    session, profile, operation, &request, captured, cancelled,
+                )
+            });
+            if let Some(error) = signal.lock().unwrap().take() {
+                return Err(error);
+            }
+            return value.map(|value| value.to_string());
         }
         if surface == "catalog_refresh" {
             let signal = Arc::new(Mutex::new(None));
@@ -324,6 +338,16 @@ impl NativeStore {
                 .map(|v| v.to_string());
         }
         self.read(py, |store| match surface {
+            "content_access" if operation == "revision_of" => {
+                catabolic_store::content_access::revision_of(
+                    store,
+                    profile,
+                    request["file_id"]
+                        .as_str()
+                        .ok_or_else(|| catabolic_store::Error("file_id must be text".into()))?,
+                )
+                .map(Value::String)
+            }
             "artifacts" => {
                 catabolic_runtime::public_artifacts::call(store, profile, operation, &request)
             }

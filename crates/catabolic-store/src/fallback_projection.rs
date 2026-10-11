@@ -75,6 +75,7 @@ fn entries(store: &Store, profile: &str, catalog: &str) -> Result<BTreeMap<Strin
     .map(|r| Ok((text(&r, "id")?.to_owned(), r)))
     .collect()
 }
+#[derive(Clone)]
 pub struct PreparedProjection {
     plan: Value,
     old: BTreeMap<String, Value>,
@@ -83,6 +84,10 @@ pub struct PreparedProjection {
     seal: String,
 }
 impl PreparedProjection {
+    /// Full frozen plan value; mutation cannot alter the sealed native owner.
+    pub fn full_plan(&self) -> &Value {
+        &self.plan
+    }
     pub fn present(&self) -> Value {
         present(&self.plan)
     }

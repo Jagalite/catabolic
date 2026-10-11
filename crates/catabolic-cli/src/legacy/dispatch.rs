@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: MIT
 //! Legacy transport adaptation to production owners. No Python execution and no
 //! automatic engine fallback, including after partially completed operations.
+#[path = "api_worker.rs"]
+mod api_worker;
 #[path = "catalog_refresh.rs"]
 mod catalog_refresh;
+#[path = "refresh.rs"]
+mod refresh;
 use super::parser::resource;
 use catabolic_store::{Error, Result, Store};
 use serde_json::{Value, json};
@@ -297,9 +301,11 @@ pub fn dispatch(a: &Value) -> Result<Value> {
         return Err(Error(
             if matches!(command, "consumer" | "notify") {
                 "database_required"
+            } else if command == "api" {
+                "select --db or CATABOLIC_DB"
             } else if matches!(
                 command,
-                "processor" | "api" | "watcher" | "supervise" | "catalog-refresh"
+                "processor" | "watcher" | "supervise" | "catalog-refresh"
             ) {
                 "select --db or set CATABOLIC_DB"
             } else {
@@ -384,6 +390,7 @@ pub fn dispatch(a: &Value) -> Result<Value> {
         ("artifact",_)=>artifact(a),
         ("rendition",_)=>rendition(a),
         ("catalog-refresh",_)=>catalog_refresh::execute(a),
+        ("refresh",_)=>refresh::execute(a),
         ("rule",_)=>rule(a),
         ("watcher",_)=>watcher(a),
         ("fallback",_)=>fallback(a),
@@ -403,6 +410,7 @@ pub fn dispatch(a: &Value) -> Result<Value> {
         ("process","enqueue"|"run")=>processing(a),
         ("supervise",_)=>supervise(a),
         ("process","show"|"cancel"|"retry")=>runtime(a,"media",if operation=="show"{"get"}else{operation},&r),
+        ("api","worker")=>api_worker::run(path,profile,a["once"]==true),
         ("api","serve")=>Err(Error("native HTTP is unqualified; use catabolic-native api serve --experimental-native-http for disposable loopback fixtures".into())),
         _=>unavailable(command,operation),
     }

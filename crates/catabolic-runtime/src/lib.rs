@@ -11,6 +11,7 @@ pub mod fallback;
 pub mod helper;
 pub mod http_worker;
 pub mod imports;
+pub mod legacy_refresh;
 
 pub mod rendering;
 
@@ -48,3 +49,5 @@ pub mod public_processing;
 pub mod public_artifacts;
 
 pub mod source_events;
+
+pub mod public_fallback;

@@ -19,6 +19,10 @@ fn main() {
             std::process::exit(2);
         }
     };
+    if args.len() == 1 && args[0] == catabolic_runtime::legacy_refresh::WORKER_ARGUMENT {
+        catabolic_runtime::legacy_refresh::worker_main();
+        return;
+    }
     let output = match parser::parse(&args) {
         Ok(args) => match execute(&args) {
             Ok(value) => presentation::success(&args, value),

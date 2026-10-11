@@ -599,7 +599,7 @@ impl<'a, 'b> Resolver<'a, 'b> {
         }
         Ok(Some(captured))
     }
-    fn health(&self, entry: &str, candidate: &Value, catalog: &str) -> Result<Value> {
+    pub fn health(&self, entry: &str, candidate: &Value, catalog: &str) -> Result<Value> {
         let now = crate::notifications::now();
         let rows = crate::migration::rows(
             &self.store().db,

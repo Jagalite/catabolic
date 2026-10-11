@@ -26,6 +26,7 @@ pub struct Session {
     next_scope: u64,
     evaluations: std::collections::BTreeMap<u64, QueryEvaluation>,
     next_evaluation: u64,
+    fallback_plans: crate::public_fallback::Plans,
     transaction_thread: Option<ThreadId>,
     poisoned_scopes: Cell<bool>,
 }
@@ -49,9 +50,69 @@ impl Session {
             next_scope: 0,
             evaluations: Default::default(),
             next_evaluation: 0,
+            fallback_plans: Default::default(),
             transaction_thread: None,
             poisoned_scopes: Cell::new(false),
         })
+    }
+    /// Lend the same Store to a bounded evaluator without reopening a catalog.
+    /// Native session handles retain their consumed budget, cache and epoch.
+    pub fn with_evaluation<T>(
+        &mut self,
+        profile: &str,
+        args: &Value,
+        timeout_ms: u64,
+        max_ids: usize,
+        operation: impl FnOnce(&mut crate::selection::Evaluation) -> Result<T>,
+    ) -> Result<T> {
+        self.store()?;
+        if args["session_owner_matches"] == false {
+            return Err(Error("evaluation_session_identity_mismatch".into()));
+        }
+        let epoch = crate::fallback_resolution::epoch(self.store()?)?;
+        let mut temporary;
+        let evaluation = if let Some(token) = args["session"].as_u64() {
+            let entry = self
+                .evaluations
+                .get_mut(&token)
+                .ok_or_else(|| Error("evaluation_session_identity_mismatch".into()))?;
+            if entry.profile != profile {
+                return Err(Error("evaluation_session_identity_mismatch".into()));
+            }
+            if entry.epoch != epoch {
+                return Err(Error("stale_evaluation_snapshot".into()));
+            }
+            &mut entry.evaluation
+        } else {
+            if !args["session"].is_null() {
+                return Err(Error("evaluation_session_identity_mismatch".into()));
+            }
+            temporary = crate::selection::Evaluation::unbound(profile, timeout_ms, max_ids, false);
+            &mut temporary
+        };
+        if args["cancelled"] == true || poll_interrupt() {
+            return Err(Error("evaluation_cancelled".into()));
+        }
+        evaluation.remaining("query composition timed out")?;
+        self.store
+            .as_ref()
+            .unwrap()
+            .db
+            .progress_handler(1000, Some(poll_interrupt))?;
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            evaluation.with_store(&mut self.store, operation)
+        }));
+        if let Some(store) = &self.store {
+            let _ = store.db.progress_handler(0, None::<fn() -> bool>);
+        }
+        match result {
+            Ok(result) => result,
+            Err(panic) => std::panic::resume_unwind(panic),
+        }
+    }
+    /// Native plans are tied to this Session and never serialized into SQLite.
+    pub fn fallback_plans(&mut self) -> &mut crate::public_fallback::Plans {
+        &mut self.fallback_plans
     }
     /// Dispatch persistent query engines using the caller's current transaction.
     pub fn query_call(&mut self, profile: &str, operation: &str, args: &Value) -> Result<Value> {

@@ -1,6 +1,7 @@
 mod artifacts_processing;
 mod catalog_refresh;
 mod embedding;
+mod public_fallback;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use std::path::Path;
@@ -98,6 +99,7 @@ fn execute_sql(
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     embedding::register(m)?;
+    public_fallback::register(m)?;
     m.add_function(wrap_pyfunction!(version, m)?)?;
     m.add_function(wrap_pyfunction!(register_native_helper, m)?)?;
     m.add_function(wrap_pyfunction!(native_helper, m)?)?;

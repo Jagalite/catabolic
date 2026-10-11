@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 # SPDX-License-Identifier: MIT
-"""Build a companion wheel with a same-source-content subprocess helper.
+"""Build a companion wheel and both CLIs from the same source-content snapshot.
 
 This stages and verifies local artifacts only. It never uploads or publishes.
 Use the pinned Maturin interpreter and run qualify_native_wheel.py afterwards
@@ -63,6 +63,10 @@ def main():
     parser.add_argument("--python", default=sys.executable)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
+    args.out = args.out.resolve()
+    args.out.mkdir(parents=True, exist_ok=True)
+    sidecar = args.out / "build-manifest.json"
+    sidecar.unlink(missing_ok=True)
     root = Path(__file__).resolve().parents[1]
     # Resolving a venv's interpreter symlink would silently select its base
     # environment and lose the pinned build dependencies.
@@ -78,6 +82,7 @@ def main():
     project = tomllib.loads((root / "Cargo.toml").read_text())
     release = project["workspace"]["package"]["version"]
     sources = source_digest(root)
+    build_script_sha256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     provenance = {
         "scope": "local-source-content-and-toolchain; not a hermetic-build proof",
         "rustc": subprocess.check_output(["rustc", "-vV"], cwd=root, text=True).strip(),
@@ -86,6 +91,7 @@ def main():
         ).strip(),
         "maturin": version,
         "python": subprocess.check_output([python, "--version"], text=True).strip(),
+        "python_executable": python,
         "build_environment_sha256": hashlib.sha256(
             json.dumps(
                 {
@@ -116,23 +122,27 @@ def main():
         "catabolic-cli",
         "--bin",
         "catabolic-native",
+        "--bin",
+        "catabolic-legacy-native",
         "--message-format=json-render-diagnostics",
     ]
     build = subprocess.run(command, cwd=root, text=True, stdout=subprocess.PIPE)
     if build.returncode:
         raise SystemExit(build.returncode)
-    executables = []
+    executables = {"catabolic-native": [], "catabolic-legacy-native": []}
     for line in build.stdout.splitlines():
         message = json.loads(line)
         if (
             message.get("reason") == "compiler-artifact"
-            and message["target"]["name"] == "catabolic-native"
+            and message["target"]["name"] in executables
             and message.get("executable")
         ):
-            executables.append(Path(message["executable"]))
-    if len(executables) != 1:
-        raise SystemExit("Cargo did not identify exactly one native helper")
-    binary = executables[0]
+            executables[message["target"]["name"]].append(Path(message["executable"]))
+    if any(len(paths) != 1 for paths in executables.values()):
+        raise SystemExit("Cargo did not identify exactly one native and one legacy CLI")
+    binary = executables["catabolic-native"][0]
+    legacy_binary = executables["catabolic-legacy-native"][0]
+    legacy_digest = hashlib.sha256(legacy_binary.read_bytes()).hexdigest()
     digest = hashlib.sha256(binary.read_bytes()).hexdigest()
     if binary.stat().st_size > 128 * 1024 * 1024:
         raise SystemExit("native helper exceeds its installed validation budget")
@@ -153,8 +163,6 @@ def main():
         "build": provenance,
     }
     manifest.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-    args.out = args.out.resolve()
-    args.out.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="catabolic-wheel-") as directory:
         subprocess.run(
             [
@@ -175,7 +183,11 @@ def main():
             check=True,
         )
         wheels = list(Path(directory).glob("*.whl"))
-        if source_digest(root) != sources:
+        if (
+            source_digest(root) != sources
+            or hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+            != build_script_sha256
+        ):
             raise SystemExit(
                 "crate sources changed during the paired helper/extension build; rebuild a stable snapshot"
             )
@@ -183,6 +195,8 @@ def main():
             raise SystemExit("build did not produce exactly one wheel")
         wheel = wheels[0]
         with zipfile.ZipFile(wheel) as archive:
+            if "catabolic_native/bin/catabolic-legacy-native" in archive.namelist():
+                raise SystemExit("release wheel must not package the legacy CLI")
             member = archive.getinfo("catabolic_native/bin/catabolic-native")
             if hashlib.sha256(archive.read(member)).hexdigest() != digest:
                 raise SystemExit("wheel native helper differs from the Cargo artifact")
@@ -202,8 +216,54 @@ def main():
                 ).decode()
             ):
                 raise SystemExit("wheel native launcher entry point is missing")
+            extensions = [
+                name
+                for name in archive.namelist()
+                if name.startswith("catabolic_native/_native.")
+                and name.endswith((".so", ".pyd"))
+            ]
+            if len(extensions) != 1:
+                raise SystemExit("wheel must contain exactly one native extension")
+            extension_digest = hashlib.sha256(archive.read(extensions[0])).hexdigest()
         destination = args.out / wheel.name
         shutil.copyfile(wheel, destination)
+        for name, artifact, expected in (
+            ("catabolic-native", binary, digest),
+            ("catabolic-legacy-native", legacy_binary, legacy_digest),
+        ):
+            target = args.out / name
+            shutil.copyfile(artifact, target)
+            target.chmod(0o755)
+            if hashlib.sha256(target.read_bytes()).hexdigest() != expected:
+                raise SystemExit("CLI artifact changed during the paired build")
+        if (
+            source_digest(root) != sources
+            or hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+            != build_script_sha256
+        ):
+            raise SystemExit("source or build script changed before artifact handoff")
+        wheel_digest = hashlib.sha256(destination.read_bytes()).hexdigest()
+        build_manifest = {
+            "format": 1,
+            "profile": "release",
+            "source_sha256": sources,
+            "source_sha256_after": sources,
+            "wheel": destination.name,
+            "wheel_sha256": wheel_digest,
+            "extension_sha256": extension_digest,
+            "native_binary": "catabolic-native",
+            "native_binary_sha256": digest,
+            "legacy_binary": "catabolic-legacy-native",
+            "legacy_binary_sha256": legacy_digest,
+            "build_script_sha256": build_script_sha256,
+            "build": provenance,
+            "publication": "local-only",
+            "scope": "Local source-content/toolchain provenance; not hostile-directory attestation or hermetic reproduction",
+        }
+        # The success sidecar is emitted last; an interrupted build has no new receipt.
+        sidecar.write_text(
+            json.dumps(build_manifest, indent=2) + "\n", encoding="utf-8"
+        )
         print(
             json.dumps(
                 {
@@ -214,6 +274,12 @@ def main():
                     "native_helper_sha256": digest,
                     "native_helper_bytes": binary.stat().st_size,
                     "publication": "local-only",
+                    "legacy_binary_sha256": legacy_digest,
+                    "extension_sha256": extension_digest,
+                    "build_manifest": str(sidecar),
+                    "build_manifest_sha256": hashlib.sha256(
+                        sidecar.read_bytes()
+                    ).hexdigest(),
                 },
                 sort_keys=True,
             )

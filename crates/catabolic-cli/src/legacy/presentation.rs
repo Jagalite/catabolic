@@ -16,6 +16,17 @@ fn py(value: &Value) -> String {
 }
 fn order(value: &Value) -> Vec<&str> {
     let object = value.as_object().unwrap();
+    if object.contains_key("processed") && object.contains_key("notifications") {
+        // The supervisor appends notification results to the owner's report.
+        // Resolve the owner's existing shape before adding that final field.
+        let mut base = object.clone();
+        base.remove("notifications");
+        return order(&Value::Object(base))
+            .into_iter()
+            .filter_map(|key| object.get_key_value(key).map(|(key, _)| key.as_str()))
+            .chain(std::iter::once("notifications"))
+            .collect();
+    }
     if object.len() == 2 {
         for cursor in ["next_after", "next_cursor"] {
             if object.contains_key(cursor) {
@@ -29,9 +40,13 @@ fn order(value: &Value) -> Vec<&str> {
         }
     }
 
-    let preferred: &[&str] = if object.contains_key("interface_version")
-        && object.contains_key("exit_code")
+    let preferred: &[&str] = if object.len() == 3
+        && object.contains_key("processed")
+        && object.contains_key("complete")
+        && object.contains_key("blockers")
     {
+        &["processed", "complete", "blockers"]
+    } else if object.contains_key("interface_version") && object.contains_key("exit_code") {
         &[
             "interface_version",
             "command",
@@ -136,6 +151,23 @@ fn order(value: &Value) -> Vec<&str> {
             "blockers",
             "safe",
             "association_ids",
+        ]
+    } else if object.contains_key("target")
+        && object.contains_key("lease_token")
+        && object.contains_key("catalog")
+    {
+        &[
+            "id",
+            "profile",
+            "catalog",
+            "target",
+            "state",
+            "attempts",
+            "error",
+            "created_at",
+            "finished_at",
+            "lease_token",
+            "lease_until",
         ]
     } else if object.contains_key("interval_seconds") && object.contains_key("policy_id") {
         &[
@@ -275,6 +307,10 @@ fn order(value: &Value) -> Vec<&str> {
             "truncation_reason",
             "complete",
         ]
+    } else if object.get("type").and_then(Value::as_str) == Some("KeyboardInterrupt")
+        && object.contains_key("message")
+    {
+        &["type", "message"]
     } else if object.contains_key("message") && object.contains_key("type") {
         &["message", "type", "code", "safe_to_retry"]
     } else if object.contains_key("locations") && object.contains_key("journal") {
@@ -855,4 +891,59 @@ fn rule_report(original: &Value) -> String {
         }
     }
     lines.join("\n")
+}
+
+#[cfg(test)]
+mod adapter_order_tests {
+    use super::*;
+
+    #[test]
+    fn worker_notifications_follow_the_existing_owner_shape() {
+        let base = json!({"processed":0,"complete":true,"jobs":[]});
+        let mut expected = order(&base)
+            .into_iter()
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        expected.push("notifications".into());
+        let mut report = base.clone();
+        report["notifications"] = json!({"complete":true});
+        assert_eq!(order(&report), expected);
+        assert_eq!(
+            order(&json!({"alpha":0,"notifications":{},"zulu":1})),
+            ["alpha", "notifications", "zulu"]
+        );
+    }
+
+    #[test]
+    fn legacy_refresh_event_columns_keep_frozen_table_order() {
+        let row = json!({"id":1,"profile":"default","catalog":"global","target":{},"state":"pending","attempts":0,"error":null,"created_at":"x","finished_at":null,"lease_token":null,"lease_until":null});
+        assert_eq!(
+            order(&row),
+            [
+                "id",
+                "profile",
+                "catalog",
+                "target",
+                "state",
+                "attempts",
+                "error",
+                "created_at",
+                "finished_at",
+                "lease_token",
+                "lease_until"
+            ]
+        );
+    }
+
+    #[test]
+    fn only_keyboard_interrupt_uses_type_before_message() {
+        assert_eq!(
+            order(&json!({"message":"","type":"KeyboardInterrupt"})),
+            ["type", "message"]
+        );
+        assert_eq!(
+            order(&json!({"message":"failure","type":"CatabolicError"})),
+            ["message", "type"]
+        );
+    }
 }

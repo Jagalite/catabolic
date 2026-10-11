@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 # SPDX-License-Identifier: MIT
-"""Installed eight-row CatalogRefresh checkpoint, disposable/no-publication only."""
+"""Fixed eight-row CatalogRefresh paired-wheel or explicit development checkpoint.
+
+All 16 installed scenarios, including three legacy CLI cases, and 43 paired
+groups are required. This is selected disposable/no-publication evidence only.
+"""
 
 import argparse
 import functools
@@ -24,8 +28,10 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-if not __debug__:
-    raise RuntimeError("catalog refresh qualification requires Python assertions")
+if not __debug__ or os.environ.get("PYTHONOPTIMIZE"):
+    raise RuntimeError(
+        "catalog refresh qualification requires Python assertions; do not use -O, -OO or PYTHONOPTIMIZE"
+    )
 
 PREFIX = "python:catabolic.catalog_refresh"
 CONTRACTS = {
@@ -44,6 +50,53 @@ CONTRACTS = {
     PREFIX
     + ".CatalogRefresh.run": "Writer/transaction checks, empty runs, force, durable backoff and watcher-owned skip",
 }
+
+
+EXPECTED_GROUPS = (
+    "identity",
+    "empty",
+    "disabled",
+    "enqueue_return",
+    "uncommitted",
+    "watchers_suppressed",
+    "coalesced",
+    "other_profile",
+    "inner_rollback",
+    "outer_rollback",
+    "missing_layout_run",
+    "backoff_run",
+    "force_zero",
+    "force_one",
+    "retry_attempts",
+    "finish_report",
+    "configure_bool_False",
+    "configure_bool_False_stored",
+    "configure_bool_True",
+    "configure_bool_True_stored",
+    "configure_int_0",
+    "configure_int_0_stored",
+    "configure_int_1",
+    "configure_int_1_stored",
+    "configure_str_0",
+    "configure_str_0_stored",
+    "configure_str_1",
+    "configure_str_1_stored",
+    "enabled_two_constraint",
+    "invalid_enabled",
+    "invalid_removals",
+    "unknown_catalog",
+    "invalid_limit",
+    "run_limit",
+    "invalid_force",
+    "active_transaction",
+    "finish_identity",
+    "finish_disabled",
+    "configure_metadata_rejections",
+    "configure_coercion_preconditions",
+    "malformed_retry_batch",
+    "malformed_retry_attempts",
+    "readonly_run",
+)
 
 
 def sibling(name):
@@ -755,7 +808,19 @@ class CatalogRefreshCLI(unittest.TestCase):
 
     def command(self, engine, arguments, *, machine=False):
         command = (
-            [str(OPTIONS.reference_python), "-m", "catabolic"]
+            [
+                str(OPTIONS.reference_python),
+                "-I",
+                "-B",
+                str(Path(__file__).with_name("native_facade_qualification.py")),
+                "--reference-root",
+                str(OPTIONS.reference_root),
+                "--oracle-manifest",
+                str(OPTIONS.oracle_manifest),
+                "--oracle-sha256",
+                OPTIONS.oracle_manifest_sha256,
+                "--",
+            ]
             if engine == "reference"
             else [str(OPTIONS.legacy_binary)]
         )
@@ -954,6 +1019,12 @@ def verify_development_wheel(path):
     package = Path(catabolic_native.__file__).resolve().parent
     hashes = {}
     with zipfile.ZipFile(path) as archive:
+        assert "catabolic_native/native-helper.json" not in archive.namelist(), (
+            "development wheel must be helperless"
+        )
+        assert "catabolic_native/bin/catabolic-native" not in archive.namelist(), (
+            "development wheel must be helperless"
+        )
         members = archive.infolist()
         assert 0 < len(members) < 10000
         assert sum(member.file_size for member in members) <= 256 * 1024 * 1024
@@ -984,8 +1055,21 @@ def verify_development_wheel(path):
     return hashes
 
 
+def clear_stale_report():
+    # Invalidate a normal attempt before loading even the shared gate helper.
+    # Optimized-mode refusal above deliberately leaves all files untouched.
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--report", type=Path)
+    args, _ = parser.parse_known_args()
+    if args.report:
+        args.report.unlink(missing_ok=True)
+        args.report.with_suffix(".attempt.json").unlink(missing_ok=True)
+
+
 def main():
     global OPTIONS
+    clear_stale_report()
+    qualification = sibling("native_facade_qualification")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scenario", choices=("native", "reference"))
     parser.add_argument("--root", type=Path)
@@ -1005,10 +1089,18 @@ def main():
     parser.add_argument("--build-manifest", type=Path)
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
+    for name, value in vars(args).items():
+        if isinstance(value, Path):
+            # Keep interpreter symlinks to preserve the selected environment.
+            setattr(args, name, value.absolute())
     provenance = sibling("qualify_native_embedding")
     if args.scenario:
         oracle, calls = None, {}
         if args.scenario == "reference":
+            assert list(sys.version_info[:3]) == qualification.REFERENCE_VERSION, (
+                "oracle requires Python 3.14.6"
+            )
+            assert args.reference_commit == qualification.FROZEN_COMMIT
             oracle = provenance.reference_provenance(
                 args.reference_root, args.reference_commit
             )
@@ -1027,6 +1119,7 @@ def main():
             json.dumps(
                 {
                     "result": result,
+                    "oracle": oracle,
                     "calls": calls,
                     "imports": imports,
                     "diagnostics": DIAGNOSTICS,
@@ -1046,24 +1139,19 @@ def main():
             args.report,
         )
     )
-    assert args.dev, (
-        "This selected checkpoint currently accepts explicit development artifacts only"
-    )
-    assert not args.report.exists(), (
-        "preserve existing receipts; choose a new report path"
-    )
     assert not Path.cwd().resolve().is_relative_to(args.source_root.resolve()), (
         "run installed qualification outside the checkout"
     )
     OPTIONS = args
     inventory = json.loads(args.inventory.read_text())
-    rows = [row for row in inventory["rows"] if row["id"] in CONTRACTS]
-    assert len(rows) == len(CONTRACTS) == 8
-    assert len({row["id"] for row in rows}) == 8
+    rows = qualification.inventory_rows(inventory, CONTRACTS, 8)
+    identity = qualification.NativeIdentity(args.source_root)
+    fence = qualification.file_fence(__file__, args.inventory, args.build_manifest)
+    runtime = qualification.reference_runtime(args.reference_python)
     source = sibling("build_native_wheel").source_digest(args.source_root)
     manifest = json.loads(args.build_manifest.read_text())
     expected_manifest = {
-        "profile": "development",
+        "profile": "development" if args.dev else "release",
         "source_sha256": source,
         "wheel_sha256": digest(args.wheel),
         "native_binary_sha256": digest(args.native_binary),
@@ -1079,18 +1167,47 @@ def main():
         "native_qualification_results.py",
         "qualify_native_embedding.py",
         "build_native_wheel.py",
+        "native_facade_qualification.py",
+        "qualify_native_wheel.py",
     )
     script_hashes = {
         name: digest(Path(__file__).with_name(name)) for name in script_names
     }
     inventory_hash = digest(args.inventory)
     manifest_hash = digest(args.build_manifest)
-    installed = verify_development_wheel(args.wheel)
+    installed = (
+        verify_development_wheel(args.wheel)
+        if args.dev
+        else qualification.strict_artifact(
+            args.wheel,
+            args.build_manifest,
+            args.source_root,
+            native_binary=args.native_binary,
+            legacy_binary=args.legacy_binary,
+        )
+    )
     oracle = provenance.reference_provenance(
         args.reference_root, inventory["reference_commit"]
     )
     os.environ["CATABOLIC_NATIVE_BINARY"] = str(args.native_binary)
     os.environ["CATABOLIC_PYTHON_REFERENCE"] = str(args.reference_root / "src")
+    attempt = args.report.with_suffix(".attempt.json")
+    attempt.write_text(
+        json.dumps(
+            dict(
+                development_only=args.dev,
+                build=manifest,
+                installed=installed,
+                oracle=oracle,
+                reference_runtime=runtime,
+                **fence,
+            ),
+            indent=2,
+        )
+        + "\n"
+    )
+    args.oracle_manifest = attempt
+    args.oracle_manifest_sha256 = digest(attempt)
     calls = trace()
     suite = unittest.TestSuite(
         [
@@ -1112,6 +1229,7 @@ def main():
             command = [
                 str(interpreter),
                 "-I",
+                "-B",
                 str(Path(__file__).resolve()),
                 "--scenario",
                 engine,
@@ -1132,27 +1250,27 @@ def main():
             )
             outputs[engine] = json.loads(completed.stdout)
         reference, native = outputs["reference"]["result"], outputs["native"]["result"]
-        assert reference == native, json.dumps(
-            {
-                key: [reference.get(key), native.get(key)]
-                for key in reference.keys() | native.keys()
-                if reference.get(key) != native.get(key)
-            },
-            indent=2,
-        )
+        qualification.paired_groups(reference, native, EXPECTED_GROUPS, 43)
+        assert outputs["reference"]["oracle"] == oracle
     paired_calls = outputs["native"]["calls"]
     report = {
         "format": 1,
         "scope": "Eight-row CatalogRefresh public facade and five CLI leaves, selected disposable/no-publication contracts only",
-        "development_only": True,
+        "development_only": args.dev,
+        "passed": True,
+        "reference_runtime": runtime,
         "publication_qualification": "Not established; default/release destructive and fallback publication gates remain intact",
         "tests": result.testsRun,
         "successful_scenarios": result.successful_scenarios,
         "paired_groups": len(native),
+        "paired_group_names": list(EXPECTED_GROUPS),
         "cli_evidence": CLI_EVIDENCE,
         "build": manifest,
         "build_manifest_sha256": manifest_hash,
-        "installed_payloads_sha256": installed,
+        "artifact": installed,
+        "installed_payloads_sha256": installed
+        if args.dev
+        else installed["installed_wheel"]["installed_payloads_sha256"],
         "inventory_sha256": inventory_hash,
         "oracle": oracle,
         "oracle_imports": outputs["reference"]["imports"],
@@ -1179,7 +1297,24 @@ def main():
             }
         )
     assert sibling("build_native_wheel").source_digest(args.source_root) == source
-    assert verify_development_wheel(args.wheel) == installed
+    identity.verify()
+    assert (
+        verify_development_wheel(args.wheel)
+        if args.dev
+        else qualification.strict_artifact(
+            args.wheel,
+            args.build_manifest,
+            args.source_root,
+            native_binary=args.native_binary,
+            legacy_binary=args.legacy_binary,
+        )
+    ) == installed
+    assert fence == qualification.file_fence(
+        __file__, args.inventory, args.build_manifest
+    ), "qualification files changed"
+    assert runtime == qualification.reference_runtime(args.reference_python), (
+        "oracle interpreter changed"
+    )
     assert (
         provenance.reference_provenance(
             args.reference_root, inventory["reference_commit"]
@@ -1193,6 +1328,7 @@ def main():
     } == script_hashes
     assert digest(args.inventory) == inventory_hash
     assert digest(args.build_manifest) == manifest_hash
+    assert digest(attempt) == args.oracle_manifest_sha256, "CLI oracle snapshot changed"
     args.report.write_text(json.dumps(report, indent=2) + "\n")
     print(
         json.dumps(
@@ -1200,6 +1336,7 @@ def main():
                 "tests": result.testsRun,
                 "paired_groups": len(native),
                 "inventory_rows": len(rows),
+                "development_only": args.dev,
                 "report": str(args.report),
             }
         )

@@ -551,42 +551,38 @@
     {
       "id": "cli:refresh configure",
       "command": "refresh configure",
-      "status": "missing_adapter",
-      "native_owner": null,
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::legacy_refresh::configure",
       "parser": "native_frozen_tree",
       "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
-      "gap": "Preserved legacy refresh-adapter owner is not implemented",
-      "owner_mapping": "family"
+      "owner_mapping": "entrypoint"
     },
     {
       "id": "cli:refresh list",
       "command": "refresh list",
-      "status": "missing_adapter",
-      "native_owner": null,
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::legacy_refresh::list",
       "parser": "native_frozen_tree",
       "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
-      "gap": "Preserved legacy refresh-adapter owner is not implemented",
-      "owner_mapping": "family"
+      "owner_mapping": "entrypoint"
     },
     {
       "id": "cli:refresh run",
       "command": "refresh run",
-      "status": "missing_adapter",
-      "native_owner": null,
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_runtime::legacy_refresh::run",
       "parser": "native_frozen_tree",
       "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
-      "gap": "Preserved legacy refresh-adapter owner is not implemented",
-      "owner_mapping": "family"
+      "owner_mapping": "entrypoint"
     },
     {
       "id": "cli:refresh retry",
       "command": "refresh retry",
-      "status": "missing_adapter",
-      "native_owner": null,
+      "status": "adapted_unqualified",
+      "native_owner": "catabolic_store::legacy_refresh::retry",
       "parser": "native_frozen_tree",
       "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
-      "gap": "Preserved legacy refresh-adapter owner is not implemented",
-      "owner_mapping": "family"
+      "owner_mapping": "entrypoint"
     },
     {
       "id": "cli:identify",

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 # SPDX-License-Identifier: MIT
-"""Separate 10-row Components/Policies installed development qualification.
+"""Fixed ten-row Components/Policies installed wheel qualification.
 
-This explicitly accepts a helperless development wheel, never release evidence.
+Strict paired-release-wheel mode and explicit helperless development mode are
+separate. Neither closes aggregate, publication, default or release gates.
 """
 
 import argparse
@@ -22,6 +23,11 @@ import unittest
 import zipfile
 from pathlib import Path
 from uuid import UUID
+
+if not __debug__ or os.environ.get("PYTHONOPTIMIZE"):
+    raise SystemExit(
+        "component/policy qualification requires assertions; do not run with -O or -OO or PYTHONOPTIMIZE"
+    )
 
 PREFIX = "python:catabolic."
 CONTRACTS = {
@@ -857,6 +863,12 @@ def installed_artifact(wheel):
         "installed qualification must run outside checkout"
     )
     with zipfile.ZipFile(wheel) as archive:
+        assert "catabolic_native/native-helper.json" not in archive.namelist(), (
+            "development wheel must be helperless"
+        )
+        assert "catabolic_native/bin/catabolic-native" not in archive.namelist(), (
+            "development wheel must be helperless"
+        )
         expected = {
             name.removeprefix("catabolic_native/"): hashlib.sha256(
                 archive.read(name)
@@ -936,6 +948,8 @@ def source_manifest():
         Path(__file__).with_name("native_qualification_results.py"),
         Path(__file__).with_name("qualify_native_embedding.py"),
         Path(__file__).with_name("build_native_wheel.py"),
+        Path(__file__).with_name("qualify_native_wheel.py"),
+        Path(__file__).with_name("native_facade_qualification.py"),
     ]
     root = Path(__file__).resolve().parents[1]
     source_files += [
@@ -963,16 +977,34 @@ def source_manifest():
     }
 
 
+def clear_stale_report():
+    # Invalidate a normal attempt before loading even the shared gate helper.
+    # Optimized-mode refusal above deliberately leaves all files untouched.
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--report", type=Path)
+    args, _ = parser.parse_known_args()
+    if args.report:
+        args.report.unlink(missing_ok=True)
+        args.report.with_suffix(".attempt.json").unlink(missing_ok=True)
+
+
 def main():
     if not __debug__:
         raise SystemExit(
             "component/policy qualification requires assertions; do not run with -O or -OO"
         )
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
+    clear_stale_report()
+    qualification = sibling("native_facade_qualification")
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--wheel", type=Path, help="Exact installed paired release wheel")
+    mode.add_argument(
         "--dev-wheel",
         type=Path,
         help="Exact installed helperless development wheel; never release qualification",
+    )
+    parser.add_argument(
+        "--source-root", type=Path, default=Path(__file__).resolve().parents[1]
     )
     parser.add_argument("--inventory", type=Path)
     parser.add_argument("--build-manifest", type=Path)
@@ -983,10 +1015,18 @@ def main():
     parser.add_argument("--scenario", choices=("reference", "native"))
     parser.add_argument("--root", type=Path)
     args = parser.parse_args()
+    for name, value in vars(args).items():
+        if isinstance(value, Path):
+            # Keep interpreter symlinks to preserve the selected environment.
+            setattr(args, name, value.absolute())
     provenance = sibling("qualify_native_embedding")
     if args.scenario:
         oracle, calls = None, {}
         if args.scenario == "reference":
+            assert list(sys.version_info[:3]) == qualification.REFERENCE_VERSION, (
+                "oracle requires Python 3.14.6"
+            )
+            assert args.reference_commit == qualification.FROZEN_COMMIT
             oracle = provenance.reference_provenance(
                 args.reference_root, args.reference_commit
             )
@@ -1006,35 +1046,36 @@ def main():
         )
         return
     assert (
-        args.dev_wheel
+        (args.dev_wheel or args.wheel)
         and args.inventory
         and args.reference_root
         and args.reference_python
         and args.report
     )
     assert args.build_manifest is not None, "qualification requires --build-manifest"
-    if args.report.exists():
-        raise SystemExit(
-            "report already exists; choose a new path to retain prior evidence"
-        )
     source_before = source_manifest()
-    artifact = installed_artifact(args.dev_wheel)
-    build = build_identity(args.build_manifest, artifact)
+    identity = qualification.NativeIdentity(args.source_root)
+    fence = qualification.file_fence(__file__, args.inventory, args.build_manifest)
+    runtime = qualification.reference_runtime(args.reference_python)
+    if args.wheel:
+        artifact = qualification.strict_artifact(
+            args.wheel, args.build_manifest, args.source_root
+        )
+        build = artifact["build"]
+    else:
+        artifact = installed_artifact(args.dev_wheel)
+        build = build_identity(args.build_manifest, artifact)
     inventory = json.loads(args.inventory.read_text())
-    rows = [row for row in inventory["rows"] if row["id"] in CONTRACTS]
-    assert len(rows) == len(CONTRACTS) == 10
-    assert len({row["id"] for row in rows}) == 10
+    rows = qualification.inventory_rows(inventory, CONTRACTS, 10)
     signatures = installed_signatures(rows)
     oracle = provenance.reference_provenance(
         args.reference_root, inventory["reference_commit"]
     )
     attempt = args.report.with_suffix(".attempt.json")
-    if attempt.exists():
-        raise SystemExit("attempt receipt already exists; choose a new report path")
     attempt.write_text(
         json.dumps(
             dict(
-                development_only=True,
+                development_only=bool(args.dev_wheel),
                 artifact=artifact,
                 build=build,
                 installed_signatures=signatures,
@@ -1103,17 +1144,7 @@ def main():
             )
             outputs[engine] = json.loads(completed.stdout)
         reference, native = outputs["reference"]["result"], outputs["native"]["result"]
-        assert (
-            set(reference) == set(native) == set(EXPECTED_GROUPS) and len(native) == 37
-        )
-        assert reference == native, json.dumps(
-            {
-                key: [reference[key], native[key]]
-                for key in native
-                if reference[key] != native[key]
-            },
-            indent=2,
-        )
+        qualification.paired_groups(reference, native, EXPECTED_GROUPS, 37)
         assert outputs["reference"]["oracle"] == oracle
         paired_calls = outputs["native"]["calls"]
         oracle["imported_modules"] = outputs["reference"]["imports"]
@@ -1133,8 +1164,20 @@ def main():
                 **CONTRACTS[row["id"]],
             )
         )
-    assert artifact == installed_artifact(args.dev_wheel)
-    assert build == build_identity(args.build_manifest, artifact)
+    identity.verify()
+    if args.wheel:
+        assert artifact == qualification.strict_artifact(
+            args.wheel, args.build_manifest, args.source_root
+        )
+    else:
+        assert artifact == installed_artifact(args.dev_wheel)
+        assert build == build_identity(args.build_manifest, artifact)
+    assert fence == qualification.file_fence(
+        __file__, args.inventory, args.build_manifest
+    ), "qualification files changed"
+    assert runtime == qualification.reference_runtime(args.reference_python), (
+        "oracle interpreter changed"
+    )
     assert signatures == installed_signatures(rows)
     assert provenance.reference_provenance(
         args.reference_root, inventory["reference_commit"]
@@ -1144,8 +1187,11 @@ def main():
     )
     report = dict(
         format=1,
-        scope="Separate Components/Policies development checkpoint; no aggregate, default, publication or release gate closure",
-        development_only=True,
+        scope="Separate Components/Policies selected-contract checkpoint; no aggregate, default, publication or release gate closure",
+        development_only=bool(args.dev_wheel),
+        passed=True,
+        reference_runtime=runtime,
+        qualification_scripts_sha256=fence["qualification_scripts_sha256"],
         artifact=artifact,
         build=build,
         installed_signatures=signatures,
@@ -1165,7 +1211,7 @@ def main():
                 tests=result.testsRun,
                 paired_groups=len(native),
                 inventory_rows=len(rows),
-                development_only=True,
+                development_only=bool(args.dev_wheel),
                 report=str(args.report),
             )
         )

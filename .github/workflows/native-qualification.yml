@@ -65,10 +65,11 @@ jobs:
       - name: Exercise native HTTP worker and generated client journey
         run: |
           python scripts/qualify_native_http.py --native .local-tests/rust-migration/m4-plus/artifacts/qualification-native --python "$(command -v python)" --root "$RUNNER_TEMP/native-http" --generated-client tests/clients/v1_7/build/acceptance.js
-      - name: Build one source-fenced helper and extension pair
+      - name: Test fixed public-facade qualification fences
+        run: python -m unittest tests.test_native_facade_wheel_qualification
+      - name: Build one source-fenced helper, legacy CLI and extension set
         run: |
           python scripts/build_native_wheel.py --python "$(command -v python)" --out dist/native
-          cp target/release/catabolic-native dist/native/catabolic-native
           python scripts/check_native_output_gate.py dist/native/catabolic-native > dist/native/release-output-gate.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -120,7 +121,7 @@ jobs:
           "$oracle" -m pip install --no-deps --no-build-isolation -e .local-tests/rust-migration/reference
           python -m venv "$RUNNER_TEMP/native-installed"
           "$RUNNER_TEMP/native-installed/bin/python" -m pip install --no-deps dist/native/*.whl
-          chmod +x dist/native/catabolic-native
+          chmod +x dist/native/catabolic-native dist/native/catabolic-legacy-native
       - name: Outside-checkout installed helper, cancellation and persistent facade
         run: |
           root="$PWD"
@@ -131,6 +132,8 @@ jobs:
           "$RUNNER_TEMP/native-installed/bin/python" "$root/scripts/qualify_native_embedding.py" --wheel "$wheel" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-embedding.json"
           "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_query_embedding_tests.py" --wheel "$wheel" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-query-embedding.json"
           "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_processing_embedding_tests.py" --wheel "$wheel" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-processing-embedding.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_component_policy_embedding_tests.py" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-component-policy-embedding.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_catalog_refresh_embedding_tests.py" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --native-binary "$root/dist/native/catabolic-native" --legacy-binary "$root/dist/native/catabolic-legacy-native" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-catalog-refresh-embedding.json"
           "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_query_review_tests.py"
           "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_processing_review_tests.py"
           for surface in import matching metadata; do
@@ -150,6 +153,8 @@ jobs:
             ${{ runner.temp }}/native-embedding.json
             ${{ runner.temp }}/native-query-embedding.json
             ${{ runner.temp }}/native-processing-embedding.json
+            ${{ runner.temp }}/native-component-policy-embedding*.json
+            ${{ runner.temp }}/native-catalog-refresh-embedding*.json
             ${{ runner.temp }}/native-plex-*.json
             ${{ runner.temp }}/native-plex-xml.json
             ${{ runner.temp }}/native-plex-xml-review.json

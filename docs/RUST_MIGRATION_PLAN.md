@@ -11,6 +11,14 @@ All new crate names, harness commands, budgets, milestones, and architecture bel
 
 **Implementation status:** M0 remains in progress; see [the reference-freeze work log](RUST_MIGRATION_M0.md). The historical [M1–M3 native receipts](RUST_MIGRATION_NATIVE.md) qualify their recorded source snapshot and platforms, without closing M0 or later gates. M4–M11 work is an opt-in [implementation checkpoint](RUST_MIGRATION_MUTATIONS.md), with remaining ownership, safety, review, platform and release gates explicit. No M4–M11 exit gate is declared complete and Python remains the default.
 
+**Paused implementation checkpoint (2026-10-11):** Work was stopped at the user's
+request and preserved for handoff. See [current completion, validation and WIP
+status](RUST_MIGRATION_PAUSED_HANDOFF.md) before using older receipts. The
+consolidated feature branch is `codex/rust-migration-m4-plus`; later local work
+was integrated from `codex/native-public-workflows` and
+`codex/native-remaining-facades`. This is a work-in-progress checkpoint, not a
+release or a declaration that any M4–M11 hard gate has passed.
+
 ## 1. Executive decision
 
 A Rust rewrite makes sense as an investment in a reusable native catalog engine, predictable resource ownership, native distribution, and explicitly testable lifecycle decisions. It does **not** make sense as a promise that merely changing languages will dramatically accelerate scanning or media processing.

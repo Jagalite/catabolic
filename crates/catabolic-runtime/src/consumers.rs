@@ -178,7 +178,21 @@ impl Adapter {
     pub(crate) fn put(&self, route: &str) -> NetworkResult<Vec<u8>> {
         self.request(route, "PUT")
     }
+    /// Preserved legacy refresh uses the same credentials, redirect policy and
+    /// transport, with its historical one-MiB response limit.
+    pub(crate) fn legacy_refresh(&self) -> NetworkResult<Vec<u8>> {
+        self.request_bounded("/Library/Refresh", "POST", 1024 * 1024, true)
+    }
     fn request(&self, route: &str, method: &str) -> NetworkResult<Vec<u8>> {
+        self.request_bounded(route, method, MAXIMUM, false)
+    }
+    fn request_bounded(
+        &self,
+        route: &str,
+        method: &str,
+        maximum: usize,
+        legacy: bool,
+    ) -> NetworkResult<Vec<u8>> {
         let (secret, client) = credentials(&self.connection)?;
         let header = if self.plex() {
             "X-Plex-Token"
@@ -191,6 +205,22 @@ impl Adapter {
             "application/json"
         };
         let url = format!("{}{route}", self.base);
+        if legacy {
+            // Account for the frozen request budget without serializing the
+            // credential into the helper protocol or any diagnostic value.
+            let escaped_secret: usize = secret
+                .bytes()
+                .map(|byte| match byte {
+                    b'"' | b'\\' | b'\x08' | b'\x0c' | b'\n' | b'\r' | b'\t' => 2,
+                    0..=31 => 6,
+                    _ => 1,
+                })
+                .sum();
+            let overhead = catabolic_core::encode(&json!({"url":url,"headers":{"X-Emby-Token":""},"method":method,"maximum":maximum,"timeout":15,"body":null,"structured_errors":false})).len();
+            if overhead.saturating_add(escaped_secret) > 262144 {
+                return Err(Failure::new("invalid_configuration"));
+            }
+        }
         // Never forward credentials through a redirect or ambient proxy.
         let result = if method != "GET" {
             let mut request = if method == "PUT" {
@@ -245,7 +275,7 @@ impl Adapter {
             .get("content-length")
             .and_then(|v| v.to_str().ok())
             .and_then(|v| v.parse::<u64>().ok())
-            .is_some_and(|n| n > MAXIMUM as u64)
+            .is_some_and(|n| n > maximum as u64)
         {
             return Err(Failure::new("response_limit"));
         }
@@ -253,10 +283,10 @@ impl Adapter {
         response
             .body_mut()
             .as_reader()
-            .take((MAXIMUM + 1) as u64)
+            .take((maximum + 1) as u64)
             .read_to_end(&mut bytes)
             .map_err(|_| Failure::new("temporarily_failed"))?;
-        if bytes.len() > MAXIMUM {
+        if bytes.len() > maximum {
             return Err(Failure::new("response_limit"));
         }
         Ok(bytes)

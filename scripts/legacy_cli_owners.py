@@ -17,6 +17,7 @@ ADAPTED = {
     "copies": "put show plan",
     "process": "enqueue run list facts show cancel retry attempts",
     "content": "duplicates search",
+    "refresh": "configure list run retry",
     "fallback": "schema put show list bind preview execute resolve enable disable history",
     "component": "schema show extract package",
     "rule": "put list show stats enable disable preview apply run",
@@ -122,7 +123,6 @@ GAPS = {
     "maintenance": "Aggregate maintenance orchestration and its report renderer are not implemented",
     "supervise": "Preserved supervise lifecycle facade is not implemented",
     "identify": "TMDB candidate-intake business owner is not implemented",
-    "refresh": "Preserved legacy refresh-adapter owner is not implemented",
     "api": "Administrative parser exists; native access-control CLI adapters/secret-file contracts remain missing",
     "inbox": "Underlying native query owners exist; the preserved inbox evidence adapter is missing",
     "projection": "Underlying native planning/mapping owners exist; this preserved operation adapter is missing",
@@ -131,6 +131,10 @@ GAPS = {
 # Exact reviewed transport entrypoints override family-level implementation
 # associations. Neither form constitutes a behavioral or safety qualification.
 ENTRYPOINTS = {
+    "refresh configure": "catabolic_store::legacy_refresh::configure",
+    "refresh list": "catabolic_store::legacy_refresh::list",
+    "refresh run": "catabolic_runtime::legacy_refresh::run",
+    "refresh retry": "catabolic_store::legacy_refresh::retry",
     "docs": "catabolic_cli::legacy::dispatch::documentation (embedded frozen guides)",
     "item types": "embedded frozen resource: types",
     "layout presets": "embedded frozen resource: presets",
