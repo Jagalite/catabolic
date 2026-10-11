@@ -1,5 +1,5 @@
 //! Complete, bounded ID selections evaluated in one caller-owned SQLite snapshot.
-use crate::{Error, Result, Store, graphql, migration::rows, sql};
+use crate::{Error, Result, Store, api_catalog::Authority, graphql, migration::rows, sql};
 use async_graphql_parser::{
     parse_query,
     types::{Field, OperationType, Selection},
@@ -24,10 +24,43 @@ pub struct Selected {
     pub ids: BTreeSet<String>,
     pub report: Value,
 }
+/// Sealed consumed work, moved only by Access after fresh scope validation.
+pub(crate) struct EvaluationCheckpoint {
+    remaining: Duration,
+    maximum: usize,
+    count: usize,
+    nodes: usize,
+    result_bytes: usize,
+    cache: BTreeMap<String, Selected>,
+    materialized: bool,
+}
+impl EvaluationCheckpoint {
+    pub(crate) fn materialized(&self) -> bool {
+        self.materialized
+    }
+    pub(crate) fn after_detach(&mut self) {
+        self.materialized = false;
+    }
+    pub(crate) fn account_value(&mut self, value: &Value) -> Result<()> {
+        if self.remaining < Duration::from_millis(1) {
+            return Err(Error("query composition timed out".into()));
+        }
+        let size = self.result_bytes.saturating_add(encode(value).len());
+        if size > 4 * 1024 * 1024 {
+            return Err(Error("evaluation_result_byte_budget".into()));
+        }
+        self.result_bytes = size;
+        Ok(())
+    }
+}
 pub struct Evaluation {
     store: Option<Store>,
     pub profile: String,
     pub http: bool,
+    authority: Option<Authority>,
+    membership: Option<crate::access::SelectionAdmission>,
+    deferred: Option<crate::access::SelectionAdmission>,
+    session_limits: bool,
     deadline: Instant,
     maximum: usize,
     count: usize,
@@ -48,6 +81,10 @@ impl Evaluation {
             store: Some(store),
             profile: profile.into(),
             http,
+            authority: None,
+            membership: None,
+            deferred: None,
+            session_limits: false,
             deadline: Instant::now() + Duration::from_millis(timeout),
             maximum,
             count: 0,
@@ -56,10 +93,252 @@ impl Evaluation {
             cache: BTreeMap::new(),
         })
     }
+    pub(crate) fn resume_checkpoint(&mut self, checkpoint: EvaluationCheckpoint) -> Result<()> {
+        if !self.http || self.authority.is_some() || self.membership.is_some() {
+            return Err(Error("invalid HTTP evaluation checkpoint".into()));
+        }
+        self.deadline = self.deadline.min(Instant::now() + checkpoint.remaining);
+        self.maximum = self.maximum.min(checkpoint.maximum);
+        self.count = checkpoint.count;
+        self.nodes = checkpoint.nodes;
+        self.result_bytes = checkpoint.result_bytes;
+        self.cache = checkpoint.cache;
+        Ok(())
+    }
+    pub(crate) fn into_checkpoint(self) -> Option<EvaluationCheckpoint> {
+        // A failed owned GraphQL execution may have retired its Store. Never
+        // preserve work from that failed ownership boundary for another session.
+        if self.store.is_none() || self.membership.is_some() {
+            return None;
+        }
+        Some(EvaluationCheckpoint {
+            remaining: self.deadline.saturating_duration_since(Instant::now()),
+            maximum: self.maximum,
+            count: self.count,
+            nodes: self.nodes,
+            result_bytes: self.result_bytes,
+            cache: self.cache,
+            materialized: self.deferred.is_some() && self.authority.is_some(),
+        })
+    }
+    pub(crate) fn defer_authority(
+        &mut self,
+        proof: crate::access::SelectionAdmission,
+        materialized: bool,
+    ) -> Result<()> {
+        if !self.http || self.authority.is_some() || self.membership.is_some() || proof.is_policy()
+        {
+            return Err(Error("invalid deferred HTTP authority".into()));
+        }
+        proof.check(self.store())?;
+        self.deferred = Some(proof);
+        if materialized {
+            self.materialize_authority()?;
+        }
+        Ok(())
+    }
+    fn materialize_authority(&mut self) -> Result<()> {
+        let proof = self
+            .deferred
+            .as_ref()
+            .ok_or_else(|| Error("missing deferred HTTP authority".into()))?;
+        let (store, authority) =
+            proof.install_catalog(self.store.take().expect("owned selection Store"))?;
+        self.store = Some(store);
+        self.authority = Some(authority);
+        Ok(())
+    }
+    /// Bind complete selections/reports to an already admitted HTTP snapshot.
+    pub fn authorized(
+        store: Store,
+        authority: Authority,
+        timeout: u64,
+        maximum: usize,
+    ) -> Result<Self> {
+        authority.check_store(&store)?;
+        let profile = authority.profile().to_owned();
+        let mut evaluation = Self::new(store, &profile, timeout, maximum, true)?;
+        evaluation.authority = Some(authority);
+        Ok(evaluation)
+    }
+    /// Preserve the request's SQL leaf cache and budgets when scoped views are installed.
+    pub(crate) fn bind_authority(mut self, authority: Authority) -> Result<Self> {
+        authority.check_store(self.store())?;
+        if self.membership.is_some() {
+            return Err(Error("recursive_authorization_selection".into()));
+        }
+        if self.profile != authority.profile() {
+            return Err(Error("evaluation_session_identity_mismatch".into()));
+        }
+        self.http = true;
+        self.authority = Some(authority);
+        Ok(self)
+    }
+    fn setup_sql(&self) -> Result<()> {
+        let db = &self.store().db;
+        let query_only: bool = db.pragma_query_value(None, "query_only", |row| row.get(0))?;
+        let result = sql::setup(db);
+        // Membership runs on mutation Access as well as read-only requests.
+        // Installing query views must never permanently disable its writer.
+        db.pragma_update(None, "query_only", query_only)?;
+        result
+    }
+    /// Immutable grant/approved selection admission is the sole bootstrap before
+    /// metadata views exist. SQL still uses HTTP private-table restrictions;
+    /// GraphQL may only select complete IDs through the strict selection grammar.
+    /// Global membership caches never become scoped request-query caches.
+    pub(crate) fn select_admitted(
+        &mut self,
+        proof: crate::access::SelectionAdmission,
+    ) -> Result<Selected> {
+        self.setup_sql()?;
+        if !self.http
+            || self.authority.is_some()
+            || self.membership.is_some()
+            || self
+                .store()
+                .db
+                .prepare("SELECT 1 FROM sqlite_temp_master WHERE name='api_authorized_snapshot'")?
+                .exists([])?
+        {
+            return Err(Error("recursive_authorization_selection".into()));
+        }
+        proof.check(self.store())?;
+        let query_id = proof.query_id()?.to_owned();
+        let (timeout, maximum) = proof.limits()?;
+        let cache = std::mem::take(&mut self.cache);
+        let budget = (
+            self.deadline,
+            self.maximum,
+            self.count,
+            self.nodes,
+            self.result_bytes,
+            self.session_limits,
+        );
+        // Frozen grant/approved selection runs have independent complete-query
+        // budgets even when they use the same Store. Do not double-charge a
+        // 5,001-ID membership during an approved run or shrink a later resolver.
+        self.deadline = Instant::now() + Duration::from_millis(timeout);
+        self.maximum = maximum;
+        self.session_limits = false;
+        self.count = 0;
+        self.nodes = 0;
+        self.result_bytes = 0;
+        self.membership = Some(proof);
+        let result = self.select(&json!({"query_id":query_id,"profile":self.profile}));
+        let proof = self
+            .membership
+            .take()
+            .expect("membership admission is owned");
+        self.cache = cache;
+        (
+            self.deadline,
+            self.maximum,
+            self.count,
+            self.nodes,
+            self.result_bytes,
+            self.session_limits,
+        ) = budget;
+        if result.is_ok() {
+            proof.check(self.store())?;
+        }
+        result
+    }
+    /// Ordinary policy dependency selection keeps the shared policy budgets and
+    /// cache, but requires a fresh immutable policy/query proof for every root.
+    pub(crate) fn select_policy(
+        &mut self,
+        proof: crate::access::SelectionAdmission,
+    ) -> Result<Selected> {
+        self.setup_sql()?;
+        if !proof.is_policy()
+            || !self.http
+            || !self.session_limits
+            || self.authority.is_some()
+            || self.membership.is_some()
+            || self
+                .store()
+                .db
+                .prepare("SELECT 1 FROM sqlite_temp_master WHERE name='api_authorized_snapshot'")?
+                .exists([])?
+        {
+            return Err(Error("recursive_authorization_selection".into()));
+        }
+        proof.check(self.store())?;
+        let id = proof.query_id()?.to_owned();
+        self.membership = Some(proof);
+        let result = self.select(&json!({"query_id":id,"profile":self.profile}));
+        let proof = self
+            .membership
+            .take()
+            .expect("policy selection admission is owned");
+        if result.is_ok() {
+            proof.check(self.store())?;
+        }
+        result
+    }
+    fn check_authority(&self, profile: &str) -> Result<()> {
+        if let Some(proof) = &self.deferred {
+            proof.check(self.store())?;
+        }
+        if let Some(authority) = &self.authority {
+            authority.check_store(self.store())?;
+            if profile != authority.profile() {
+                return Err(Error("evaluation_session_identity_mismatch".into()));
+            }
+        }
+        Ok(())
+    }
     pub fn store(&self) -> &Store {
         self.store.as_ref().expect("evaluation owns snapshot")
     }
+    /// Isolated effect boundary for fallback probes. Scoped HTTP temp tables
+    /// cannot survive a reopen, so bound Authority always refuses detachment.
+    /// A resolver may retain its own epoch-pinned complete query results.
+    pub(crate) fn detached<T>(&mut self, operation: impl FnOnce() -> Result<T>) -> Result<T> {
+        if self.authority.is_some() || self.membership.is_some() || self.deferred.is_some() {
+            return Err(Error(
+                "authorized evaluation cannot detach its snapshot".into(),
+            ));
+        }
+        self.cache.clear();
+        let store = self.store.as_mut().expect("evaluation owns snapshot");
+        let readonly = !store.writable;
+        // A read-only Store owns an implicit BEGIN from open(). This explicit
+        // refresh boundary discards that snapshot; writable user transactions
+        // are still refused by Store::detached before invoking the callback.
+        if readonly && !store.db.is_autocommit() {
+            store.db.execute_batch("ROLLBACK")?;
+        }
+        let started = Instant::now();
+        let result = store.detached(operation);
+        self.deadline += started.elapsed();
+        if readonly {
+            store.db.execute_batch("BEGIN")?;
+        }
+        crate::query::CatalogQuery::new(store, &self.profile)?;
+        result
+    }
     /// Transfer this same owned snapshot to the next policy boundary.
+    /// Mutable durable owner after all resolver/evaluation borrows have ended.
+    pub fn store_mut(&mut self) -> &mut Store {
+        self.store
+            .as_mut()
+            .expect("evaluation Store is present outside detached work")
+    }
+    /// A caller-owned policy session has one cumulative budget. Individual
+    /// definitions retain their output/leaf-time limits without shrinking that
+    /// cumulative cap for later independent roots (frozen EvaluationSession).
+    pub(crate) fn use_session_limits(&mut self) {
+        self.session_limits = true;
+    }
+    /// Lower a caller-owned evaluation budget without resetting elapsed work.
+    pub(crate) fn limit_budget(&mut self, timeout: u64, maximum: usize) {
+        self.deadline = self
+            .deadline
+            .min(Instant::now() + Duration::from_millis(timeout));
+        self.maximum = self.maximum.min(maximum);
+    }
     pub fn into_store(mut self) -> Store {
         self.store.take().expect("evaluation owns snapshot")
     }
@@ -80,24 +359,66 @@ impl Evaluation {
         variables: Value,
         timeout: u64,
     ) -> Result<Value> {
-        if self.http {
-            return Err(Error(
-                "GraphQL HTTP evaluation requires authorization context".into(),
-            ));
+        self.check_authority(profile)?;
+        if self.deferred.is_some() {
+            if let Some(error) = graphql::validate_before_context(query, &variables, timeout, true)?
+            {
+                return Ok(error);
+            }
+            if self.authority.is_some() {
+                // Frozen AuthorizedContext rebuilds TEMP scope per invocation;
+                // repeated initialization is a fatal catalog error, not a grant.
+                return Err(Error("authorized_catalog_reinitialized".into()));
+            }
+            self.materialize_authority()?;
         }
-        let (store, result) = graphql::execute_store(
-            self.store.take().unwrap(),
-            query,
-            profile,
-            variables,
-            None,
-            timeout,
-        )?;
+        if self.http && self.authority.is_none() {
+            let proof = self.membership.as_ref().ok_or_else(|| {
+                Error("GraphQL HTTP evaluation requires authorization context".into())
+            })?;
+            proof.check(self.store())?;
+            graphql_contract(query)?;
+        }
+        let (store, result) = if let Some(authority) = &self.authority {
+            graphql::execute_authorized_store(
+                self.store.take().unwrap(),
+                authority.clone(),
+                query,
+                variables,
+                None,
+                timeout,
+            )?
+        } else {
+            graphql::execute_store(
+                self.store.take().unwrap(),
+                query,
+                profile,
+                variables,
+                None,
+                timeout,
+            )?
+        };
         self.store = Some(store);
         Ok(result)
     }
     pub fn select(&mut self, selection: &Value) -> Result<Selected> {
         validate(selection)?;
+        self.remaining("query composition timed out")?;
+        self.check_authority(selection["profile"].as_str().unwrap_or("default"))?;
+        if selection["language"] == "sql"
+            && (self
+                .authority
+                .as_ref()
+                .is_some_and(|authority| !authority.operator("sql:read"))
+                || self
+                    .deferred
+                    .as_ref()
+                    .is_some_and(|proof| !proof.operator("sql:read")))
+        {
+            return Err(Error(
+                "SQL selection requires operator query authority".into(),
+            ));
+        }
         if let Some(id) = selection["query_id"].as_str() {
             let profile = selection["profile"]
                 .as_str()
@@ -423,6 +744,9 @@ impl Evaluation {
         Ok(())
     }
     fn root_budget(&mut self, definition: &Value) {
+        if self.session_limits {
+            return;
+        }
         self.deadline = self.deadline.min(
             Instant::now()
                 + Duration::from_millis(definition["timeout_ms"].as_u64().unwrap_or(5000)),
@@ -432,6 +756,7 @@ impl Evaluation {
             .min(definition["max_ids"].as_u64().unwrap_or(10000) as usize);
     }
     pub fn run(&mut self, id: &str, limit: usize) -> Result<Value> {
+        self.check_authority(&self.profile)?;
         if !(1..=1000).contains(&limit) {
             return Err(Error("limit must be between 1 and 1000".into()));
         }
@@ -456,6 +781,13 @@ impl Evaluation {
         }
         let selection = &definition["selection"];
         if definition["mode"] == "rows" {
+            if self.authority.as_ref().is_some_and(|authority| {
+                !authority.operator("sql:read") && !authority.permits_report(id)
+            }) {
+                return Err(Error(
+                    "SQL report requires operator or approved report authority".into(),
+                ));
+            }
             let params = encode(selection.get("params").unwrap_or(&json!({})));
             sql::execute_store(
                 self.store(),

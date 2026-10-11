@@ -87,3 +87,79 @@ pub fn render_selected(
     result.validation["component_signature"] = package["signature"].clone();
     Ok(result)
 }
+
+/// Preview or admit a complete, revision-pinned component package through the
+/// same native resolver used by publication. Probe slots require a writable
+/// owner even for preview; no processing job exists until reviewed admission.
+#[allow(clippy::too_many_arguments)]
+pub fn package(
+    store: Store,
+    profile: &str,
+    policy_id: &str,
+    item_id: &str,
+    location: &str,
+    apply: bool,
+    expected_plan: Option<&str>,
+) -> Result<Value> {
+    use catabolic_store::{
+        fallback_resolution::{Context, Resolver},
+        selection::Evaluation,
+    };
+    let policy =
+        catabolic_store::fallback_mutation::get(&store, profile, policy_id)?["definition"].clone();
+    let mut evaluation = Evaluation::new(
+        store,
+        profile,
+        policy["budgets"]["query_timeout_ms"]
+            .as_u64()
+            .unwrap_or(5000),
+        policy["budgets"]["max_candidates"]
+            .as_u64()
+            .unwrap_or(10000) as usize,
+        false,
+    )?;
+    let result = {
+        let mut probe = crate::fallback::probe;
+        let mut resolver = Resolver::new(Context::Local(&mut evaluation), &mut probe, None);
+        resolver.resolve(
+            &[json!({"item_id":item_id})],
+            policy_id,
+            "",
+            &std::collections::BTreeMap::new(),
+            false,
+        )?
+    };
+    if !apply {
+        return Ok(result);
+    }
+    if result["plan_id"].as_str() != expected_plan {
+        return Err(Error("stale_or_missing_component_package_plan".into()));
+    }
+    let decision = &result["decisions"][0];
+    if !decision["state"]
+        .as_str()
+        .is_some_and(|s| s.starts_with("resolved"))
+    {
+        return Err(Error("component package is unresolved".into()));
+    }
+    let package = &decision["evidence"]["component_package"];
+    if package.is_null() {
+        return Err(Error("policy does not select a component package".into()));
+    }
+    let operation = package["packaging"]["operation_id"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| Error("component package has no approved operation".into()))?;
+    let file = package["video"]["file_id"]
+        .as_str()
+        .ok_or_else(|| Error("invalid component video".into()))?;
+    artifacts::enqueue_package(
+        &mut evaluation.into_store(),
+        profile,
+        file,
+        operation,
+        location,
+        item_id,
+        Some(package),
+    )
+}

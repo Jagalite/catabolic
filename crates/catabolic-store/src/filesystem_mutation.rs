@@ -20,6 +20,225 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+// One production journal executor, with explicit mutable ownership only when
+// isolated fallback probes may suspend the catalog. Legacy callers retain the
+// original fixed Store boundary and its fail-closed unsupported-mode check.
+enum Reconciliation<'s, 'p> {
+    Fixed(&'s Store),
+    Mutable(
+        &'s mut Store,
+        &'s mut crate::fallback_resolution::Probe<'p>,
+        crate::fallback_publication::Selections,
+    ),
+}
+impl Reconciliation<'_, '_> {
+    fn store(&self) -> &Store {
+        match self {
+            Self::Fixed(s) => s,
+            Self::Mutable(s, _, _) => s,
+        }
+    }
+    fn supported(&self, profile: &str, catalog: &str) -> Result<()> {
+        if matches!(self, Self::Mutable(..))
+            && crate::fallback_projection::binding(self.store(), profile, catalog)?.is_some()
+        {
+            if hardlink_mode(self.store(), catalog)? {
+                return Err(Error("fallback publication supports symlinks only".into()));
+            }
+            if !self
+                .store()
+                .db
+                .prepare("SELECT 1 FROM catalogs WHERE id=?")?
+                .exists([catalog])?
+            {
+                return Err(Error(format!("unknown catalog: {catalog}")));
+            }
+            Ok(())
+        } else {
+            supported(self.store(), profile, catalog)
+        }
+    }
+    fn mappings(&self, profile: &str, catalog: &str) -> Result<Vec<Value>> {
+        if matches!(self, Self::Mutable(..))
+            && crate::fallback_projection::binding(self.store(), profile, catalog)?.is_some()
+        {
+            if self.store().db.prepare("SELECT 1 FROM fallback_entries WHERE profile=? AND catalog=? AND active=1 AND state IN ('blocked','unresolved') LIMIT 1")?.exists([profile,catalog])? {
+                return Err(Error("fallback membership unresolved; owned output retained".into()));
+            }
+            return crate::fallback_publication::effective_mappings(self.store(), profile, catalog);
+        }
+        mappings(self.store(), profile, catalog)
+    }
+    fn source_target(
+        &mut self,
+        profile: &str,
+        mapping: &Value,
+        output: &Value,
+    ) -> Result<(Option<String>, Option<String>)> {
+        if mapping.get("revision").is_some() {
+            use crate::fallback_publication::{Outcome, capture};
+            let Self::Mutable(store, probe, selections) = self else {
+                return Err(Error(
+                    "native fallback output reconciliation requires the mutable probe owner".into(),
+                ));
+            };
+            let captured = match capture(store, profile, mapping, selections)? {
+                Outcome::Unavailable(reason) => return Ok((None, Some(reason.into()))),
+                Outcome::Stale(reason) => return Err(Error(reason.into())),
+                Outcome::Ready(captured) => captured,
+            };
+            let (path, database) = (store.path.clone(), store.database_id.clone());
+            let result = store.detached(|| {
+                probe(
+                    &path,
+                    profile,
+                    &database,
+                    &captured.checks,
+                    captured.timeout_ms,
+                )
+            })?;
+            crate::fallback_resolution::require_epoch(store, captured.epoch)?;
+            if result["usable"] != true {
+                let reason = result["reason"].as_str().unwrap_or("probe_failed");
+                if matches!(reason, "probe_timeout" | "probe_capacity" | "probe_failed") {
+                    return Err(Error(format!("fallback probe incomplete: {reason}")));
+                }
+                return Ok((None, Some(reason.into())));
+            }
+            let target = Path::new(
+                captured.snapshot["root"]
+                    .as_str()
+                    .ok_or_else(|| Error("invalid fallback source root".into()))?,
+            )
+            .join(
+                captured.snapshot["path"]
+                    .as_str()
+                    .ok_or_else(|| Error("invalid fallback source path".into()))?,
+            );
+            let destination = Path::new(
+                output["root"]
+                    .as_str()
+                    .ok_or_else(|| Error("invalid fallback output root".into()))?,
+            )
+            .join(
+                mapping["path"]
+                    .as_str()
+                    .ok_or_else(|| Error("invalid fallback output path".into()))?,
+            );
+            return Ok((
+                Some(relative(
+                    &target,
+                    destination
+                        .parent()
+                        .ok_or_else(|| Error("invalid fallback output path".into()))?,
+                )?),
+                None,
+            ));
+        }
+        source_target(self.store(), profile, mapping, output)
+    }
+}
+/// Mutable owner for an explicit isolated-probe callback. All ordinary journal
+/// execution, leaf-race restrictions and durable transitions are shared above.
+pub fn execute_mut_locked(
+    store: &mut Store,
+    profile: &str,
+    action: &str,
+    args: &Value,
+    probe: &mut crate::fallback_resolution::Probe<'_>,
+    guard: &PublicationGuard,
+) -> Result<Value> {
+    require_writer(store)?;
+    if guard.path != store.path || guard.database_id != store.database_id {
+        return Err(Error(
+            "publication guard belongs to a different catalog".into(),
+        ));
+    }
+    notify_consumers(args)?;
+    let catalog = args["catalog"]
+        .as_str()
+        .ok_or_else(|| Error("locked publication requires one explicit catalog".into()))?;
+    if matches!(action, "apply" | "recover")
+        && crate::fallback_projection::binding(store, profile, catalog)?.is_some()
+    {
+        require_fallback_fixture(args)?;
+    }
+    let mut context = Reconciliation::Mutable(store, probe, Default::default());
+    match action {
+        "preview" => preview_context(&mut context, profile, catalog, args),
+        "apply" => apply_locked_context(&mut context, profile, catalog, args),
+        "recover" => recover_locked_context(&mut context, profile, catalog, args),
+        "verify" => verify_context(&mut context, profile, catalog),
+        _ => Err(Error(format!("unknown filesystem action: {action}"))),
+    }
+}
+
+/// Logical publication remains restricted to explicitly disposable debug
+/// fixtures while the shared filesystem qualification gate is open.
+pub fn require_fallback_fixture(args: &Value) -> Result<()> {
+    if cfg!(debug_assertions) && args["disposable_fixture"] == true {
+        Ok(())
+    } else {
+        Err(Error("native fallback publication is unqualified; only disposable debug fixtures may apply or recover".into()))
+    }
+}
+/// Named logical reconciliation with a mutable owner for every live probe.
+/// Exact catalogs keep their established fixed-Store boundary unchanged.
+pub fn execute_mut(
+    store: &mut Store,
+    profile: &str,
+    action: &str,
+    args: &Value,
+    probe: &mut crate::fallback_resolution::Probe<'_>,
+) -> Result<Value> {
+    let catalog = args
+        .get("catalog")
+        .and_then(Value::as_str)
+        .unwrap_or("global");
+    let all = args.get("catalog").is_some_and(Value::is_null);
+    let fallback = if all {
+        store
+            .db
+            .prepare("SELECT 1 FROM fallback_bindings WHERE profile=? LIMIT 1")?
+            .exists([profile])?
+    } else {
+        crate::fallback_projection::binding(store, profile, catalog)?.is_some()
+    };
+    if !fallback {
+        return execute(store, profile, action, args);
+    }
+    notify_consumers(args)?;
+    if matches!(action, "apply" | "recover") {
+        require_fallback_fixture(args)?;
+    }
+    let readonly_snapshot = !store.writable && !store.db.is_autocommit();
+    if readonly_snapshot {
+        store.db.execute_batch("COMMIT")?;
+    }
+    let result = (|| {
+        if all {
+            let mut context = Reconciliation::Mutable(store, probe, Default::default());
+            all_catalogs_context(&mut context, profile, action, args)
+        } else if matches!(action, "apply" | "recover") {
+            let guard = publication_lock(store)?;
+            let mut request = args.clone();
+            request["catalog"] = json!(catalog);
+            execute_mut_locked(store, profile, action, &request, probe, &guard)
+        } else {
+            let mut context = Reconciliation::Mutable(store, probe, Default::default());
+            match action {
+                "preview" => preview_context(&mut context, profile, catalog, args),
+                "verify" => verify_context(&mut context, profile, catalog),
+                _ => Err(Error(format!("unknown filesystem action: {action}"))),
+            }
+        }
+    })();
+    if readonly_snapshot && store.db.is_autocommit() {
+        store.db.execute_batch("BEGIN")?;
+    }
+    result
+}
+
 pub(crate) const MARKER: &str = ".catabolic-owner.json";
 pub(crate) fn now() -> f64 {
     SystemTime::now()
@@ -344,6 +563,7 @@ fn remove_claim(root: &File, name: &str) -> Result<()> {
 /// Preview or execute native symlink reconciliation. Unsupported modes are
 /// refused before journaling or modifying any output.
 pub fn execute(store: &Store, profile: &str, action: &str, args: &Value) -> Result<Value> {
+    notify_consumers(args)?;
     if args.get("catalog").is_some_and(Value::is_null) {
         return all_catalogs(store, profile, action, args);
     }
@@ -363,8 +583,26 @@ pub fn execute(store: &Store, profile: &str, action: &str, args: &Value) -> Resu
         _ => Err(Error(format!("unknown filesystem action: {action}"))),
     }
 }
+pub(crate) fn notify_consumers(args: &Value) -> Result<bool> {
+    args.get("notify_consumers")
+        .map(|v| {
+            v.as_bool()
+                .ok_or_else(|| Error("notify_consumers must be boolean".into()))
+        })
+        .transpose()
+        .map(|v| v.unwrap_or(true))
+}
 fn all_catalogs(store: &Store, profile: &str, action: &str, args: &Value) -> Result<Value> {
-    let catalogs: Vec<String> = store
+    all_catalogs_context(&mut Reconciliation::Fixed(store), profile, action, args)
+}
+fn all_catalogs_context(
+    context: &mut Reconciliation<'_, '_>,
+    profile: &str,
+    action: &str,
+    args: &Value,
+) -> Result<Value> {
+    let catalogs: Vec<String> = context
+        .store()
         .db
         .prepare("SELECT id FROM catalogs ORDER BY id")?
         .query_map([], |r| r.get(0))?
@@ -373,7 +611,8 @@ fn all_catalogs(store: &Store, profile: &str, action: &str, args: &Value) -> Res
         let mut recovered = Vec::new();
         let mut cancelled = Vec::new();
         for catalog in &catalogs {
-            let result = recover(store, profile, catalog, args)?;
+            let _guard = publication_lock(context.store())?;
+            let result = recover_locked_context(context, profile, catalog, args)?;
             recovered.extend(result["recovered"].as_array().unwrap().iter().cloned());
             cancelled.extend(result["cancelled"].as_array().unwrap().iter().cloned());
         }
@@ -382,14 +621,14 @@ fn all_catalogs(store: &Store, profile: &str, action: &str, args: &Value) -> Res
         );
     }
     if action == "verify" {
-        return verify_catalogs(store, profile, &catalogs);
+        return verify_catalogs_context(context, profile, &catalogs);
     }
     if !matches!(action, "preview" | "apply") {
         return Err(Error(format!("unknown filesystem action: {action}")));
     }
     let _lock = if action == "apply" {
-        require_writer(store)?;
-        Some(publication_lock(store)?)
+        require_writer(context.store())?;
+        Some(publication_lock(context.store())?)
     } else {
         None
     };
@@ -401,7 +640,7 @@ fn all_catalogs(store: &Store, profile: &str, action: &str, args: &Value) -> Res
     let mut removals = 0u64;
     let mut count = 0u64;
     for catalog in &catalogs {
-        let plan = preview(store, profile, catalog, &local)?;
+        let plan = preview_context(context, profile, catalog, &local)?;
         actions.extend(plan["actions"].as_array().unwrap().iter().cloned());
         blockers.extend(plan["blockers"].as_array().unwrap().iter().cloned());
         removals += plan["removal_budget"]["removals"].as_u64().unwrap();
@@ -443,7 +682,7 @@ fn all_catalogs(store: &Store, profile: &str, action: &str, args: &Value) -> Res
     let mut plan = json!({"safe":blockers.is_empty(),"actions":actions,"blockers":blockers,"removal_budget":{"removals":removals,"owned_entries":count,"percent":percent,"max_removals":max,"max_removal_percent":maximum_percent}});
     let mut hard_catalogs = Vec::new();
     for catalog in &catalogs {
-        if hardlink_mode(store, catalog)? {
+        if hardlink_mode(context.store(), catalog)? {
             hard_catalogs.push(catalog.clone());
         }
     }
@@ -484,26 +723,36 @@ fn all_catalogs(store: &Store, profile: &str, action: &str, args: &Value) -> Res
         let action = op.clone();
         op["id"] = json!(uuid::Uuid::new_v4().to_string());
         op["profile"] = json!(profile);
-        store.transaction(|db|{db.execute("INSERT INTO journal(id,profile,catalog,path,kind,target,previous) VALUES(?,?,?,?,?,?,?)",params![op["id"].as_str(),profile,op["catalog"].as_str(),op["path"].as_str(),op["kind"].as_str(),op["target"].as_str(),op["previous"].as_str()])?;Ok(())})?;
+        context.store().transaction(|db|{db.execute("INSERT INTO journal(id,profile,catalog,path,kind,target,previous) VALUES(?,?,?,?,?,?,?)",params![op["id"].as_str(),profile,op["catalog"].as_str(),op["path"].as_str(),op["kind"].as_str(),op["target"].as_str(),op["previous"].as_str()])?;Ok(())})?;
         failpoint(args, "after_journal")?;
-        execute_operation(store, profile, &op, args)?;
+        execute_operation_context(context, profile, &op, args)?;
         applied.push(action);
     }
-    let verified = verify_catalogs(store, profile, &catalogs)?;
+    let verified = verify_catalogs_context(context, profile, &catalogs)?;
     let mut result = json!({"safe":true,"applied":applied,"healthy":verified["healthy"],"verification":verified});
     if let Some(warnings) = plan.get("warnings") {
         result["warnings"] = warnings.clone();
     }
     for catalog in &catalogs {
-        published(store, profile, catalog, &mut result, true)?;
+        published_context(
+            context,
+            profile,
+            catalog,
+            &mut result,
+            notify_consumers(args)?,
+        )?;
     }
     Ok(result)
 }
-fn verify_catalogs(store: &Store, profile: &str, catalogs: &[String]) -> Result<Value> {
+fn verify_catalogs_context(
+    context: &mut Reconciliation<'_, '_>,
+    profile: &str,
+    catalogs: &[String],
+) -> Result<Value> {
     let mut reports = Vec::new();
     for catalog in catalogs {
         reports.extend(
-            verify(store, profile, catalog)?["catalogs"]
+            verify_context(context, profile, catalog)?["catalogs"]
                 .as_array()
                 .unwrap()
                 .iter()
@@ -692,17 +941,21 @@ fn order(kind: &str) -> usize {
         _ => 7,
     }
 }
-fn delta(store: &Store, profile: &str, catalog: &str) -> Result<Vec<Value>> {
-    supported(store, profile, catalog)?;
-    if hardlink_mode(store, catalog)? {
-        return crate::hardlink_mutation::delta(store, profile, catalog);
+fn delta_context(
+    context: &mut Reconciliation<'_, '_>,
+    profile: &str,
+    catalog: &str,
+) -> Result<Vec<Value>> {
+    context.supported(profile, catalog)?;
+    if hardlink_mode(context.store(), catalog)? {
+        return crate::hardlink_mutation::delta(context.store(), profile, catalog);
     }
-    let output = crate::observation::binding(store, profile, "output", catalog)?;
-    let (root, _) = crate::observation::checked_root(store, profile, &output)?;
-    let owned = owned(store, profile, catalog)?;
+    let output = crate::observation::binding(context.store(), profile, "output", catalog)?;
+    let (root, _) = crate::observation::checked_root(context.store(), profile, &output)?;
+    let owned = owned(context.store(), profile, catalog)?;
     let mut actions = Vec::new();
     let mut desired = BTreeMap::new();
-    match owner_state(&root, &owner(store, profile, catalog))? {
+    match owner_state(&root, &owner(context.store(), profile, catalog))? {
         "unowned" => {
             return Err(Error(
                 "output is not empty and has no matching ownership marker".into(),
@@ -718,8 +971,8 @@ fn delta(store: &Store, profile: &str, catalog: &str) -> Result<Vec<Value>> {
         }
         _ => {}
     }
-    for mapping in mappings(store, profile, catalog)? {
-        let (target, reason) = source_target(store, profile, &mapping, &output)?;
+    for mapping in context.mappings(profile, catalog)? {
+        let (target, reason) = context.source_target(profile, &mapping, &output)?;
         if let Some(target) = target {
             desired.insert(mapping["path"].as_str().unwrap().to_string(), target);
         } else {
@@ -783,6 +1036,14 @@ fn symlink_leaf_allowed(kind: &str, args: &Value) -> bool {
 }
 
 fn preview(store: &Store, profile: &str, catalog: &str, args: &Value) -> Result<Value> {
+    preview_context(&mut Reconciliation::Fixed(store), profile, catalog, args)
+}
+fn preview_context(
+    context: &mut Reconciliation<'_, '_>,
+    profile: &str,
+    catalog: &str,
+    args: &Value,
+) -> Result<Value> {
     let max = args
         .get("max_removals")
         .filter(|v| !v.is_null())
@@ -803,7 +1064,8 @@ fn preview(store: &Store, profile: &str, catalog: &str, args: &Value) -> Result<
         })
         .transpose()?;
     let mut blockers = Vec::new();
-    let actions = if store
+    let actions = if context
+        .store()
         .db
         .prepare("SELECT 1 FROM journal WHERE profile=? AND catalog=?")?
         .exists([profile, catalog])?
@@ -811,7 +1073,7 @@ fn preview(store: &Store, profile: &str, catalog: &str, args: &Value) -> Result<
         blockers.push(json!({"catalog":catalog,"reason":"pending operations require recover before a fresh preview"}));
         vec![]
     } else {
-        match delta(store, profile, catalog) {
+        match delta_context(context, profile, catalog) {
             Ok(v) => v,
             Err(e) => {
                 blockers.push(json!({"catalog":catalog,"reason":e.0}));
@@ -825,12 +1087,19 @@ fn preview(store: &Store, profile: &str, catalog: &str, args: &Value) -> Result<
     {
         blockers.push(json!({"catalog":catalog,"reason":SYMLINK_RACE_GATE}));
     }
+    if actions.iter().any(|action| {
+        !crate::hardlink_mutation::retirement_allowed(action["kind"].as_str().unwrap_or(""), args)
+    }) {
+        blockers.push(
+            json!({"catalog":catalog,"reason":crate::hardlink_mutation::RETIREMENT_RACE_GATE}),
+        );
+    }
     let removals = actions
         .iter()
         .filter(|a| matches!(a["kind"].as_str(), Some("remove" | "hard_remove")))
         .count();
-    let hard = hardlink_mode(store, catalog)?;
-    let count: i64 = store.db.query_row(
+    let hard = hardlink_mode(context.store(), catalog)?;
+    let count: i64 = context.store().db.query_row(
         &format!(
             "SELECT count(*) FROM {} WHERE profile=? AND catalog=?",
             if hard {
@@ -865,10 +1134,49 @@ fn require_writer(store: &Store) -> Result<()> {
     }
     Ok(())
 }
-fn publication_lock(store: &Store) -> Result<File> {
+/// Opaque publication serialization guard. It may outlive a detached SQLite
+/// session but only admits effects against the same catalog identity and path.
+pub struct PublicationGuard {
+    _file: crate::WriterLock,
+    path: std::path::PathBuf,
+    database_id: String,
+}
+pub fn publication_lock(store: &Store) -> Result<PublicationGuard> {
+    require_writer(store)?;
     let mut path = store.path.as_os_str().to_os_string();
     path.push(".publication");
-    crate::writer_lock(Path::new(&path))
+    Ok(PublicationGuard {
+        _file: crate::writer_lock(Path::new(&path))?,
+        path: store.path.clone(),
+        database_id: store.database_id.clone(),
+    })
+}
+/// Reuse an existing publication guard across projection planning/admission and
+/// reconciliation. The ordinary protocol, gates and journal remain unchanged.
+pub fn execute_locked(
+    store: &Store,
+    profile: &str,
+    action: &str,
+    args: &Value,
+    guard: &PublicationGuard,
+) -> Result<Value> {
+    require_writer(store)?;
+    if guard.path != store.path || guard.database_id != store.database_id {
+        return Err(Error(
+            "publication guard belongs to a different catalog".into(),
+        ));
+    }
+    notify_consumers(args)?;
+    let catalog = args["catalog"]
+        .as_str()
+        .ok_or_else(|| Error("locked publication requires one explicit catalog".into()))?;
+    match action {
+        "preview" => preview(store, profile, catalog, args),
+        "apply" => apply_locked(store, profile, catalog, args),
+        "recover" => recover_locked(store, profile, catalog, args),
+        "verify" => verify(store, profile, catalog),
+        _ => Err(Error(format!("unknown filesystem action: {action}"))),
+    }
 }
 pub(crate) fn failpoint(args: &Value, stage: &str) -> Result<()> {
     if args["failpoint"] == stage {
@@ -882,7 +1190,18 @@ pub(crate) fn failpoint(args: &Value, stage: &str) -> Result<()> {
 fn apply(store: &Store, profile: &str, catalog: &str, args: &Value) -> Result<Value> {
     require_writer(store)?;
     let _lock = publication_lock(store)?;
-    let mut plan = preview(store, profile, catalog, args)?;
+    apply_locked(store, profile, catalog, args)
+}
+fn apply_locked(store: &Store, profile: &str, catalog: &str, args: &Value) -> Result<Value> {
+    apply_locked_context(&mut Reconciliation::Fixed(store), profile, catalog, args)
+}
+fn apply_locked_context(
+    context: &mut Reconciliation<'_, '_>,
+    profile: &str,
+    catalog: &str,
+    args: &Value,
+) -> Result<Value> {
+    let mut plan = preview_context(context, profile, catalog, args)?;
     if plan["safe"] != true {
         plan["applied"] = json!([]);
         plan["healthy"] = json!(false);
@@ -916,32 +1235,41 @@ fn apply(store: &Store, profile: &str, catalog: &str, args: &Value) -> Result<Va
         }
         operation["id"] = json!(uuid::Uuid::new_v4().to_string());
         operation["profile"] = json!(profile);
-        store.transaction(|db|{db.execute("INSERT INTO journal(id,profile,catalog,path,kind,target,previous) VALUES(?,?,?,?,?,?,?)",params![operation["id"].as_str(),profile,catalog,operation["path"].as_str(),operation["kind"].as_str(),operation["target"].as_str(),operation["previous"].as_str()])?;Ok(())})?;
+        context.store().transaction(|db|{db.execute("INSERT INTO journal(id,profile,catalog,path,kind,target,previous) VALUES(?,?,?,?,?,?,?)",params![operation["id"].as_str(),profile,catalog,operation["path"].as_str(),operation["kind"].as_str(),operation["target"].as_str(),operation["previous"].as_str()])?;Ok(())})?;
         failpoint(args, "after_journal")?;
-        execute_operation(store, profile, &operation, args)?;
+        execute_operation_context(context, profile, &operation, args)?;
         operation.as_object_mut().unwrap().remove("id");
         operation.as_object_mut().unwrap().remove("profile");
         applied.push(operation);
     }
-    let verified = verify(store, profile, catalog)?;
+    let verified = verify_context(context, profile, catalog)?;
     let mut result = json!({"safe":true,"applied":applied,"healthy":verified["healthy"],"verification":verified});
     if let Some(warnings) = plan.get("warnings") {
         result["warnings"] = warnings.clone();
     }
-    published(store, profile, catalog, &mut result, true)?;
+    published_context(
+        context,
+        profile,
+        catalog,
+        &mut result,
+        notify_consumers(args)?,
+    )?;
     Ok(result)
 }
-fn validate_intent(
-    store: &Store,
+fn validate_intent_context(
+    context: &mut Reconciliation<'_, '_>,
     profile: &str,
     catalog: &str,
     path: &str,
     target: Option<&str>,
 ) -> Result<()> {
-    let mapping = rows(&store.db,"SELECT m.path,m.file_id,f.location,f.path AS source_path,o.size,o.mtime_ns,o.device,o.inode,o.status FROM mappings m JOIN files f ON f.id=m.file_id LEFT JOIN observations o ON o.file_id=f.id AND o.profile=? WHERE m.catalog=? AND m.active=1 AND m.path=?",&[profile.to_string().into(),catalog.to_string().into(),path.to_string().into()])?.into_iter().next();
-    let output = crate::observation::binding(store, profile, "output", catalog)?;
+    let mapping = context
+        .mappings(profile, catalog)?
+        .into_iter()
+        .find(|mapping| mapping["path"] == path);
+    let output = crate::observation::binding(context.store(), profile, "output", catalog)?;
     if let Some(mapping) = mapping {
-        let (current, reason) = source_target(store, profile, &mapping, &output)?;
+        let (current, reason) = context.source_target(profile, &mapping, &output)?;
         if target.is_some() && current.as_deref() == target
             || target.is_none() && current.is_none() && reason.is_some()
         {
@@ -973,18 +1301,23 @@ fn before_destructive_leaf() {
     });
 }
 
-fn execute_operation(store: &Store, profile: &str, op: &Value, args: &Value) -> Result<()> {
+fn execute_operation_context(
+    context: &mut Reconciliation<'_, '_>,
+    profile: &str,
+    op: &Value,
+    args: &Value,
+) -> Result<()> {
     let catalog = op["catalog"].as_str().unwrap();
-    supported(store, profile, catalog)?;
+    context.supported(profile, catalog)?;
     if op["kind"]
         .as_str()
         .is_some_and(|kind| kind.starts_with("hard_"))
     {
-        return crate::hardlink_mutation::execute(store, profile, op, args);
+        return crate::hardlink_mutation::execute(context.store(), profile, op, args);
     }
 
-    let output = crate::observation::binding(store, profile, "output", catalog)?;
-    let (root, _) = crate::observation::checked_root(store, profile, &output)?;
+    let output = crate::observation::binding(context.store(), profile, "output", catalog)?;
+    let (root, _) = crate::observation::checked_root(context.store(), profile, &output)?;
     let kind = op["kind"].as_str().unwrap();
     if !symlink_leaf_allowed(kind, args) {
         return Err(Error(SYMLINK_RACE_GATE.into()));
@@ -995,9 +1328,9 @@ fn execute_operation(store: &Store, profile: &str, op: &Value, args: &Value) -> 
     let target = op["target"].as_str();
     let previous = op["previous"].as_str();
     if kind == "prepare" {
-        claim_output(&root, &owner(store, profile, catalog), id)?;
+        claim_output(&root, &owner(context.store(), profile, catalog), id)?;
     } else {
-        if owner_state(&root, &owner(store, profile, catalog))? != "owned" {
+        if owner_state(&root, &owner(context.store(), profile, catalog))? != "owned" {
             return Err(Error(
                 "output ownership missing during operation recovery".into(),
             ));
@@ -1007,7 +1340,7 @@ fn execute_operation(store: &Store, profile: &str, op: &Value, args: &Value) -> 
             "create" | "replace" => {
                 let target = target.ok_or_else(|| Error("journal target is missing".into()))?;
                 if (current.as_str(), actual.as_deref()) != ("link", Some(target)) {
-                    validate_intent(store, profile, catalog, path, Some(target))?;
+                    validate_intent_context(context, profile, catalog, path, Some(target))?;
                     if kind == "create" && current != "absent"
                         || kind == "replace"
                             && (current.as_str(), actual.as_deref()) != ("link", previous)
@@ -1069,7 +1402,7 @@ fn execute_operation(store: &Store, profile: &str, op: &Value, args: &Value) -> 
                             "removal destination changed externally: {path}"
                         )));
                     }
-                    validate_intent(store, profile, catalog, path, None)?;
+                    validate_intent_context(context, profile, catalog, path, None)?;
                     let (parent, leaf) = parent(&root, path, false)?;
                     if state_at(&parent, &leaf)? != ("link".into(), previous.map(str::to_owned)) {
                         return Err(Error(format!("owned link changed before removal: {path}")));
@@ -1084,10 +1417,10 @@ fn execute_operation(store: &Store, profile: &str, op: &Value, args: &Value) -> 
         }
     }
     failpoint(args, "after_filesystem")?;
-    store.transaction(|db|{
+    context.store().transaction(|db|{
         if matches!(kind,"create"|"replace"){db.execute("INSERT INTO owned_links VALUES(?,?,?,?) ON CONFLICT(profile,catalog,path) DO UPDATE SET target=excluded.target",params![profile,catalog,path,target])?;}
         else if matches!(kind,"remove"|"forget"){db.execute("DELETE FROM owned_links WHERE profile=? AND catalog=? AND path=?",[profile,catalog,path])?;}
-        if matches!(kind,"create"|"replace"|"remove"){record_change(db,profile,catalog,path,&output)?;}
+        if matches!(kind,"create"|"replace"|"remove"){record_change(db,profile,catalog,path,&output,notify_consumers(args)?)?;}
         db.execute("DELETE FROM journal WHERE id=?",[id])?;failpoint(args,"before_commit")?;Ok(())
     })?;
     failpoint(args, "after_commit")?;
@@ -1099,9 +1432,13 @@ pub(crate) fn record_change(
     catalog: &str,
     path: &str,
     output: &Value,
+    legacy_refresh: bool,
 ) -> Result<()> {
     db.execute("INSERT INTO publication_generations(profile,catalog,local_binding,generation) VALUES(?,?,?,1) ON CONFLICT(profile,catalog) DO UPDATE SET generation=generation+1,local_binding=excluded.local_binding",params![profile,catalog,encode(output)])?;
     db.execute("UPDATE consumer_bindings SET generation=generation+1,due_at=?+debounce,indexing=NULL WHERE profile=? AND catalog=? AND enabled=1 AND (subtree='' OR ?=subtree OR substr(?,1,length(subtree)+1)=subtree||'/')",params![now(),profile,catalog,path,path])?;
+    if !legacy_refresh {
+        return Ok(());
+    }
     let targets = rows(
         db,
         "SELECT * FROM refresh_targets WHERE profile=? AND catalog=?",
@@ -1114,10 +1451,21 @@ pub(crate) fn record_change(
 }
 fn recover(store: &Store, profile: &str, catalog: &str, args: &Value) -> Result<Value> {
     require_writer(store)?;
-    supported(store, profile, catalog)?;
     let _lock = publication_lock(store)?;
+    recover_locked(store, profile, catalog, args)
+}
+fn recover_locked(store: &Store, profile: &str, catalog: &str, args: &Value) -> Result<Value> {
+    recover_locked_context(&mut Reconciliation::Fixed(store), profile, catalog, args)
+}
+fn recover_locked_context(
+    context: &mut Reconciliation<'_, '_>,
+    profile: &str,
+    catalog: &str,
+    args: &Value,
+) -> Result<Value> {
+    context.supported(profile, catalog)?;
     let operations = rows(
-        &store.db,
+        &context.store().db,
         "SELECT * FROM journal WHERE profile=? AND catalog=? ORDER BY rowid",
         &[profile.to_string().into(), catalog.to_string().into()],
     )?;
@@ -1128,9 +1476,12 @@ fn recover(store: &Store, profile: &str, catalog: &str, args: &Value) -> Result<
             .map_err(|_| Error("invalid journal operation identity".into()))?;
         let kind = op["kind"].as_str().unwrap();
         let path = op["path"].as_str().unwrap();
+        if !crate::hardlink_mutation::retirement_allowed(kind, args) {
+            return Err(Error(crate::hardlink_mutation::RETIREMENT_RACE_GATE.into()));
+        }
         if kind.starts_with("hard_")
             && crate::hardlink_mutation::cancel_obsolete(
-                store,
+                context.store(),
                 profile,
                 &op,
                 args["cancel_unapplied"].as_bool().unwrap_or(false),
@@ -1141,15 +1492,40 @@ fn recover(store: &Store, profile: &str, catalog: &str, args: &Value) -> Result<
         }
 
         if matches!(kind, "create" | "replace" | "remove") {
-            let output = crate::observation::binding(store, profile, "output", catalog)?;
-            let (root, _) = crate::observation::checked_root(store, profile, &output)?;
+            let output = crate::observation::binding(context.store(), profile, "output", catalog)?;
+            let (root, _) = crate::observation::checked_root(context.store(), profile, &output)?;
             let initial = if kind == "create" {
                 ("absent".to_string(), None)
             } else {
                 ("link".into(), op["previous"].as_str().map(str::to_owned))
             };
             if state(&root, path)? == initial {
-                let desired = delta(store, profile, catalog)?;
+                let desired = match delta_context(context, profile, catalog) {
+                    Err(error)
+                        if matches!(
+                            error.0.as_str(),
+                            "stale_resolution_policy"
+                                | "stale_resolution_membership"
+                                | "stale_resolution_candidate"
+                                | "stale_resolution_evidence"
+                        ) =>
+                    {
+                        if owner_state(&root, &owner(context.store(), profile, catalog))? != "owned"
+                        {
+                            return Err(Error(
+                                "output ownership missing during cancellation".into(),
+                            ));
+                        }
+                        let recorded = owned(context.store(), profile, catalog)?;
+                        if recorded.get(path).map(String::as_str) != op["previous"].as_str() {
+                            return Err(Error(
+                                "recorded ownership changed during cancellation".into(),
+                            ));
+                        }
+                        vec![]
+                    }
+                    result => result?,
+                };
                 if !desired.iter().any(|a| {
                     ["kind", "path", "target", "previous"]
                         .iter()
@@ -1169,7 +1545,7 @@ fn recover(store: &Store, profile: &str, catalog: &str, args: &Value) -> Result<
                             parent.sync_all()?;
                         }
                     }
-                    store.transaction(|db| {
+                    context.store().transaction(|db| {
                         db.execute(
                             "DELETE FROM journal WHERE id=?",
                             [op["id"].as_str().unwrap()],
@@ -1181,11 +1557,11 @@ fn recover(store: &Store, profile: &str, catalog: &str, args: &Value) -> Result<
                 }
             }
         }
-        execute_operation(store, profile, &op, args)?;
+        execute_operation_context(context, profile, &op, args)?;
         recovered.push(op["id"].clone());
     }
     let mut result = json!({"recovered":recovered,"cancelled":cancelled,"next":"run sync --dry-run to inspect current desired state"});
-    published(store, profile, catalog, &mut result, false)?;
+    published_context(context, profile, catalog, &mut result, false)?;
     Ok(result)
 }
 /// Revalidate a bounded set of committed publication generations. No network
@@ -1232,12 +1608,46 @@ pub(crate) fn published(
     result: &mut Value,
     refresh: bool,
 ) -> Result<()> {
-    let verification = verify(store, profile, catalog)?;
+    published_context(
+        &mut Reconciliation::Fixed(store),
+        profile,
+        catalog,
+        result,
+        refresh,
+    )
+}
+/// Revalidate current logical publication using the same production verifier.
+/// Callers own a writable Store at an autocommit boundary; each isolated probe
+/// may release that ownership, so caller-specific leases need a fresh fence.
+pub(crate) fn published_mut(
+    store: &mut Store,
+    profile: &str,
+    catalog: &str,
+    result: &mut Value,
+    refresh: bool,
+    probe: &mut crate::fallback_resolution::Probe<'_>,
+) -> Result<()> {
+    published_context(
+        &mut Reconciliation::Mutable(store, probe, Default::default()),
+        profile,
+        catalog,
+        result,
+        refresh,
+    )
+}
+fn published_context(
+    context: &mut Reconciliation<'_, '_>,
+    profile: &str,
+    catalog: &str,
+    result: &mut Value,
+    refresh: bool,
+) -> Result<()> {
+    let verification = verify_context(context, profile, catalog)?;
     if verification["healthy"] != true {
         return Ok(());
     }
-    let binding = crate::observation::binding(store, profile, "output", catalog)?;
-    store.transaction(|db|{
+    let binding = crate::observation::binding(context.store(), profile, "output", catalog)?;
+    context.store().transaction(|db|{
         let publication_rows=rows(db,"SELECT * FROM publication_generations WHERE profile=? AND catalog=? AND generation>verified",&[profile.to_string().into(),catalog.to_string().into()])?;
         if let Some(row)=publication_rows.first()&& catabolic_core::decode_json(row["local_binding"].as_str().unwrap())?==binding {
             db.execute("UPDATE publication_generations SET verified=generation,verified_at=CURRENT_TIMESTAMP WHERE profile=? AND catalog=?",[profile,catalog])?;
@@ -1251,53 +1661,89 @@ pub(crate) fn published(
         }
         Ok(())
     })?;
-    if store
+    if context
+        .store()
         .db
         .prepare("SELECT 1 FROM consumer_bindings WHERE profile=? AND enabled=1 LIMIT 1")?
         .exists([profile])?
     {
-        let unresolved:i64=store.db.query_row("SELECT count(*) FROM consumer_bindings WHERE profile=? AND enabled=1 AND generation>acknowledged",[profile],|r|r.get(0))?;
+        let unresolved:i64=context.store().db.query_row("SELECT count(*) FROM consumer_bindings WHERE profile=? AND enabled=1 AND generation>acknowledged",[profile],|r|r.get(0))?;
         result["consumers"] = json!({"scope":"profile","complete":unresolved==0,"unresolved_bindings":unresolved,"processed":0,"state":if unresolved==0{"idle"}else{"pending_worker"}});
+    }
+    // Match the frozen historical acknowledgment rule: a healthy no-op is not
+    // proof that this invocation completed any interrupted fallback intent.
+    // This follows the last live verification without another detach/wait.
+    if ["applied", "recovered"]
+        .iter()
+        .any(|key| result[key].as_array().is_some_and(|v| !v.is_empty()))
+    {
+        context.store().transaction(|db| {
+            if !db.prepare("SELECT 1 FROM journal WHERE profile=? AND catalog=?")?.exists([profile,catalog])? {
+                db.execute("UPDATE fallback_entries SET published_generation=generation WHERE profile=? AND catalog=? AND state NOT IN ('blocked','unresolved')",[profile,catalog])?;
+            }
+            Ok(())
+        })?;
     }
     Ok(())
 }
 pub(crate) fn verify(store: &Store, profile: &str, catalog: &str) -> Result<Value> {
-    if hardlink_mode(store, catalog)? {
-        supported(store, profile, catalog)?;
-        let report = crate::hardlink_mutation::verify(store, profile, catalog)?;
+    verify_context(&mut Reconciliation::Fixed(store), profile, catalog)
+}
+pub(crate) fn verify_mut(
+    store: &mut Store,
+    profile: &str,
+    catalog: &str,
+    probe: &mut crate::fallback_resolution::Probe<'_>,
+) -> Result<Value> {
+    verify_context(
+        &mut Reconciliation::Mutable(store, probe, Default::default()),
+        profile,
+        catalog,
+    )
+}
+fn verify_context(
+    context: &mut Reconciliation<'_, '_>,
+    profile: &str,
+    catalog: &str,
+) -> Result<Value> {
+    if hardlink_mode(context.store(), catalog)? {
+        context.supported(profile, catalog)?;
+        let report = crate::hardlink_mutation::verify(context.store(), profile, catalog)?;
         return Ok(json!({"healthy":report["healthy"],"catalogs":[report]}));
     }
     let mut issues = Vec::new();
     let mut verified = 0;
     let mut evidence = serde_json::Map::new();
     let check = (|| -> Result<()> {
-        supported(store, profile, catalog)?;
-        let output = crate::observation::binding(store, profile, "output", catalog)?;
-        let (root, _) = crate::observation::checked_root(store, profile, &output)?;
-        if owner_state(&root, &owner(store, profile, catalog))? != "owned" {
+        context.supported(profile, catalog)?;
+        let output = crate::observation::binding(context.store(), profile, "output", catalog)?;
+        let (root, _) = crate::observation::checked_root(context.store(), profile, &output)?;
+        if owner_state(&root, &owner(context.store(), profile, catalog))? != "owned" {
             return Err(Error("output ownership is missing".into()));
         }
-        if store
+        if context
+            .store()
             .db
             .prepare("SELECT 1 FROM journal WHERE profile=? AND catalog=?")?
             .exists([profile, catalog])?
         {
             issues.push(json!({"reason":"pending operations require recovery"}));
         }
-        let owned = owned(store, profile, catalog)?;
-        let mappings = mappings(store, profile, catalog)?;
+        let owned = owned(context.store(), profile, catalog)?;
+        let mappings = context.mappings(profile, catalog)?;
         for mapping in &mappings {
             let path = mapping["path"].as_str().unwrap();
             let check = (|| -> Result<()> {
                 let binding = crate::observation::binding(
-                    store,
+                    context.store(),
                     profile,
                     "source",
                     mapping["location"].as_str().unwrap(),
                 )?;
-                let (_, validation) = crate::observation::checked_root(store, profile, &binding)?;
+                let (_, validation) =
+                    crate::observation::checked_root(context.store(), profile, &binding)?;
                 evidence.insert(mapping["location"].as_str().unwrap().into(), validation);
-                let (target, reason) = source_target(store, profile, mapping, &output)?;
+                let (target, reason) = context.source_target(profile, mapping, &output)?;
                 if let Some(reason) = reason {
                     return Err(Error(reason));
                 }
@@ -1371,6 +1817,36 @@ mod tests {
         crate::observation::execute(&store, "default", "scan", &json!({"source":"media"})).unwrap();
         store.transaction(|db|{db.execute("INSERT INTO items(id,kind,metadata) VALUES('item','movie','{}')",[])?;db.execute("INSERT INTO mappings(id,catalog,file_id,item_id,path) SELECT 'mapping','global',id,'item','folder/one.txt' FROM files WHERE path='one.txt'",[])?;Ok(())}).unwrap();
         (root, store, source, output)
+    }
+    #[test]
+    fn held_publication_guard_survives_detach_and_refuses_other_catalog() {
+        let (_root, mut store, source, output) = catalog();
+        let guard = publication_lock(&store).unwrap();
+        assert!(publication_lock(&store).is_err());
+        store.detached(|| Ok(())).unwrap();
+        let options = json!({"catalog":"global"});
+        let report = execute_locked(&store, "default", "apply", &options, &guard).unwrap();
+        assert_eq!(report["healthy"], true);
+        assert_eq!(
+            std::fs::read(source.join("one.txt")).unwrap(),
+            b"original source"
+        );
+        assert_eq!(
+            std::fs::read(output.join("folder/one.txt")).unwrap(),
+            b"original source"
+        );
+        let (_other_root, other, _, _) = catalog();
+        assert!(
+            execute_locked(&other, "default", "apply", &options, &guard)
+                .unwrap_err()
+                .0
+                .contains("different catalog")
+        );
+        assert!(
+            execute_locked(&store, "default", "apply", &json!({"catalog":null}), &guard).is_err()
+        );
+        drop(guard);
+        assert!(publication_lock(&store).is_ok());
     }
     #[test]
     fn characterize_unresolved_external_writer_leaf_race() {

@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 // SPDX-License-Identifier: MIT
 
-//! Typed recorded-only plan descriptions and semantic comparison. Execution of
-//! fallback/projection plans stays behind the corresponding native owner.
+//! Typed plan descriptions and semantic comparison. Fallback evaluation receives
+//! its caller's bounded session and detached probe owner explicitly.
 use crate::{Error, Result, Store, definitions, migration::rows, selection::Evaluation};
 use catabolic_core::{encode, sha256};
 use serde_json::{Value, json};
@@ -282,6 +282,71 @@ pub fn evaluate(evaluation: &mut Evaluation, reference: &Value) -> Result<Value>
         .unwrap_or_else(|| value["errors"].as_array().is_none_or(|a| a.is_empty()))
         && value["truncated"] != true;
     Ok(json!({"kind":query["mode"],"complete":complete,"value":value,"description":description}))
+}
+
+/// Local-owner fallback evaluation preserves one shared selection/resolver
+/// session and the previous semantic baseline for failback hysteresis.
+pub fn evaluate_fallback(
+    evaluation: &mut Evaluation,
+    reference: &Value,
+    previous: Option<&Value>,
+    context: &str,
+    probe: &mut crate::fallback_resolution::Probe<'_>,
+) -> Result<Value> {
+    if evaluation.http {
+        return fail("plan orchestration currently requires local-owner authority");
+    }
+    let description = describe(evaluation.store(), &evaluation.profile, reference)?;
+    let plan = normalize(reference)?;
+    if plan["kind"] != "fallback" {
+        return fail("fallback plan required");
+    }
+    let selected = evaluation
+        .select(&json!({"query_id":plan["membership_query_id"],"profile":evaluation.profile}))?;
+    if selected.entity != "item_id" {
+        return fail("fallback membership requires item IDs");
+    }
+    if selected.report["complete"] != true {
+        return fail("incomplete_evaluation_has_no_baseline");
+    }
+    let entries: Vec<_> = selected.ids.iter().map(|id|json!({"item_id":id,"role":plan["role"],"part":plan["part"],"variant":plan["variant"]})).collect();
+    let previous = previous
+        .map(|p| &p["value"])
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[])
+        .iter()
+        .filter(|d| d["policy_id"] == plan["policy_id"])
+        .map(|d| {
+            let mut value = d.clone();
+            value["tier"] = d["selected_tier"].clone();
+            value["evidence"] = json!(encode(&d["evidence"]));
+            Ok((string(d, "entry_id")?.to_owned(), value))
+        })
+        .collect::<Result<std::collections::BTreeMap<_, _>>>()?;
+    let value = if entries.is_empty() {
+        json!({"decisions":[],"complete":true})
+    } else {
+        crate::fallback_resolution::Resolver::new(
+            crate::fallback_resolution::Context::Local(evaluation),
+            probe,
+            None,
+        )
+        .resolve(
+            &entries,
+            string(&plan, "policy_id")?,
+            context,
+            &previous,
+            false,
+        )?
+    };
+    let complete = value["decisions"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or(&[])
+        .iter()
+        .all(|d| d["state"] != "blocked");
+    Ok(json!({"kind":"fallback","complete":complete,"value":value,"description":description}))
 }
 pub fn semantic(result: &Value) -> Result<Value> {
     let kind = string(result, "kind")?;

@@ -1,0 +1,676 @@
+// SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+// SPDX-License-Identifier: MIT
+//! Persistent native embedding session. Never borrows a Python sqlite connection.
+use crate::{Error, Result, Store, migration::rows};
+use rusqlite::{
+    OptionalExtension,
+    types::{Value as SqlValue, ValueRef},
+};
+use serde_json::{Value, json};
+use std::{
+    cell::Cell,
+    path::{Path, PathBuf},
+    thread::ThreadId,
+    time::{Duration, Instant},
+};
+
+pub struct Session {
+    store: Option<Store>,
+    path: PathBuf,
+    writable: bool,
+    recovery: bool,
+    database_id: String,
+    schema_version: u32,
+    detached: bool,
+    scopes: Vec<(u64, Option<String>)>,
+    next_scope: u64,
+    transaction_thread: Option<ThreadId>,
+    poisoned_scopes: Cell<bool>,
+}
+impl Session {
+    pub fn open(path: &Path, writable: bool, recovery: bool) -> Result<Self> {
+        let store = Store::open(path, writable, recovery)?;
+        Ok(Self {
+            path: store.path.clone(),
+            database_id: store.database_id.clone(),
+            schema_version: store.schema_version,
+            store: Some(store),
+            writable,
+            recovery,
+            detached: false,
+            scopes: vec![],
+            next_scope: 0,
+            transaction_thread: None,
+            poisoned_scopes: Cell::new(false),
+        })
+    }
+    pub fn info(&self) -> Value {
+        json!({"path":self.path,"writable":self.writable,"database_id":self.database_id,"schema_version":self.schema_version,"closed":self.store.is_none(),"detached":self.detached})
+    }
+    fn raw_store(&self) -> Result<&Store> {
+        if self
+            .transaction_thread
+            .is_some_and(|id| id != std::thread::current().id())
+        {
+            return Err(Error("native transaction belongs to another thread".into()));
+        }
+        self.store.as_ref().ok_or_else(|| {
+            Error(
+                if self.detached {
+                    "native store is detached"
+                } else {
+                    "native store is closed"
+                }
+                .into(),
+            )
+        })
+    }
+    /// Detect SQLite's implicit rollback before any later handle/service use.
+    /// Keep lexical tokens until their contexts unwind; they are all poisoned.
+    pub fn synchronize(&self) {
+        if !self.scopes.is_empty()
+            && self
+                .store
+                .as_ref()
+                .is_none_or(|s| s.db.is_autocommit() || s.transaction_available().is_err())
+        {
+            self.poisoned_scopes.set(true);
+        }
+    }
+    pub fn store(&self) -> Result<&Store> {
+        self.synchronize();
+        let store = self.raw_store()?;
+        if self.poisoned_scopes.get() {
+            return Err(Error(
+                "native transaction was aborted; exit all active transaction scopes before reuse"
+                    .into(),
+            ));
+        }
+        store.transaction_available()?;
+        Ok(store)
+    }
+    /// Cancel all live lexical scopes, retaining tokens only for clean unwind.
+    pub fn abort_scopes(&mut self) {
+        if !self.scopes.is_empty() {
+            self.poisoned_scopes.set(true);
+        }
+        if let Some(store) = &self.store
+            && store.writable
+            && !store.db.is_autocommit()
+            && store.rollback_transaction(None).is_err()
+        {
+            self.store.take();
+        }
+    }
+    /// A panic must never restore an unchecked, live transaction to Python.
+    pub fn unwind(&mut self) {
+        self.abort_scopes();
+    }
+    pub fn store_mut(&mut self) -> Result<&mut Store> {
+        self.store()?;
+        Ok(self.store.as_mut().unwrap())
+    }
+    pub fn close(&mut self) -> Result<()> {
+        if self.store.is_some() {
+            self.raw_store()?;
+        }
+        self.store.take();
+        if self.scopes.is_empty() {
+            self.transaction_thread = None;
+            self.poisoned_scopes.set(false);
+        } else {
+            self.poisoned_scopes.set(true);
+        }
+        Ok(())
+    }
+    pub fn begin(&mut self) -> Result<u64> {
+        let scope = self.store()?.begin_transaction()?;
+        self.next_scope += 1;
+        self.scopes.push((self.next_scope, scope));
+        self.transaction_thread = Some(std::thread::current().id());
+        Ok(self.next_scope)
+    }
+    pub fn check_scope(&self, token: Option<u64>) -> Result<()> {
+        self.store()?;
+        if token.is_some_and(|id| !self.scopes.iter().any(|(current, _)| *current == id)) {
+            return Err(Error(
+                "native transaction handle is no longer active".into(),
+            ));
+        }
+        Ok(())
+    }
+    pub fn finish(&mut self, token: u64, commit: bool) -> Result<()> {
+        if self
+            .transaction_thread
+            .is_some_and(|id| id != std::thread::current().id())
+        {
+            return Err(Error("native transaction belongs to another thread".into()));
+        }
+        self.synchronize();
+        if self.scopes.last().map(|s| s.0) != Some(token) {
+            return Err(Error(
+                "native transactions must exit in nesting order".into(),
+            ));
+        }
+        let (_, scope) = self.scopes.pop().unwrap();
+        let poisoned = self.poisoned_scopes.get();
+        let result = if poisoned {
+            // The underlying transaction already vanished or was cancelled.
+            // Cleanup does not mask the exception that initiated scope unwind.
+            self.abort_scopes();
+            if commit {
+                Err(Error(
+                    "native transaction was aborted; commit refused".into(),
+                ))
+            } else {
+                Ok(())
+            }
+        } else {
+            match self.raw_store() {
+                Ok(store) if commit => store.finish_transaction(scope, Ok(())),
+                Ok(store) => store.rollback_transaction(scope.as_deref()),
+                Err(error) => Err(error),
+            }
+        };
+        // Commit/rollback failure may itself abort or invalidate parent scopes.
+        self.synchronize();
+        if result.is_err()
+            && self
+                .store
+                .as_ref()
+                .is_some_and(|s| s.transaction_available().is_err())
+        {
+            self.store.take();
+            self.poisoned_scopes.set(true);
+        }
+        if self.scopes.is_empty() {
+            self.transaction_thread = None;
+            self.poisoned_scopes.set(false);
+        }
+        result
+    }
+    pub fn detach(&mut self) -> Result<()> {
+        if !self.store()?.db.is_autocommit() {
+            return Err(Error("cannot detach an active transaction".into()));
+        }
+        self.store.take();
+        self.detached = true;
+        Ok(())
+    }
+    pub fn reconnect(&mut self) -> Result<()> {
+        if !self.detached {
+            return Err(Error("native store is not detached".into()));
+        }
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let reopened = loop {
+            match Store::open(&self.path, self.writable, self.recovery) {
+                Err(error)
+                    if error.0.contains("another Catabolic writer")
+                        && Instant::now() < deadline =>
+                {
+                    std::thread::sleep(Duration::from_millis(20))
+                }
+                result => break result,
+            }
+        };
+        self.detached = false;
+        let store = reopened?;
+        if store.database_id != self.database_id {
+            return Err(Error("catalog replaced during detached execution".into()));
+        }
+        self.store = Some(store);
+        Ok(())
+    }
+    pub fn in_transaction(&self) -> Result<bool> {
+        Ok(!self.store()?.db.is_autocommit())
+    }
+}
+
+fn wire_value(value: &Value) -> Result<SqlValue> {
+    let kind = value[0]
+        .as_str()
+        .ok_or_else(|| Error("invalid native SQL parameter".into()))?;
+    Ok(match kind {
+        "null" => SqlValue::Null,
+        "int" => SqlValue::Integer(
+            value[1]
+                .as_str()
+                .and_then(|s| s.parse().ok())
+                .ok_or_else(|| Error("Python int too large to convert to SQLite INTEGER".into()))?,
+        ),
+        "float" => SqlValue::Real(
+            value[1]
+                .as_str()
+                .and_then(|s| s.parse().ok())
+                .ok_or_else(|| Error("invalid SQL float".into()))?,
+        ),
+        "str" => SqlValue::Text(
+            value[1]
+                .as_str()
+                .ok_or_else(|| Error("invalid SQL text".into()))?
+                .into(),
+        ),
+        "bytes" => SqlValue::Blob(
+            value[1]
+                .as_array()
+                .ok_or_else(|| Error("invalid SQL bytes".into()))?
+                .iter()
+                .map(|v| {
+                    v.as_u64()
+                        .filter(|n| *n <= 255)
+                        .map(|n| n as u8)
+                        .ok_or_else(|| Error("invalid SQL byte".into()))
+                })
+                .collect::<Result<_>>()?,
+        ),
+        _ => return Err(Error("unsupported native SQL parameter".into())),
+    })
+}
+fn wire_result(value: ValueRef<'_>) -> Result<Value> {
+    Ok(match value {
+        ValueRef::Null => json!(["null"]),
+        ValueRef::Integer(v) => json!(["int", v.to_string()]),
+        ValueRef::Real(v) => json!(["float", v.to_string()]),
+        ValueRef::Text(v) => json!([
+            "str",
+            std::str::from_utf8(v).map_err(|_| Error("SQLite text is not valid UTF-8".into()))?
+        ]),
+        ValueRef::Blob(v) => json!(["bytes", v]),
+    })
+}
+/// Explicit native command result, not the Python sqlite3 API or connection.
+pub fn command(store: &Store, sql: &str, args: &Value) -> Result<Value> {
+    store.transaction_available()?;
+    // Session contexts own transaction state. SQL must not escape their scopes.
+    use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
+    store
+        .db
+        .authorizer(Some(|context: AuthContext<'_>| match context.action {
+            AuthAction::Transaction { .. }
+            | AuthAction::Savepoint { .. }
+            | AuthAction::Attach { .. }
+            | AuthAction::Detach { .. } => Authorization::Deny,
+            AuthAction::Pragma {
+                pragma_name,
+                pragma_value: Some(_),
+            } if ["writable_schema", "query_only"]
+                .iter()
+                .any(|v| pragma_name.eq_ignore_ascii_case(v)) =>
+            {
+                Authorization::Deny
+            }
+            _ => Authorization::Allow,
+        }))?;
+    struct Reset<'a>(&'a rusqlite::Connection);
+    impl Drop for Reset<'_> {
+        fn drop(&mut self) {
+            let _ = self
+                .0
+                .authorizer(None::<fn(AuthContext<'_>) -> Authorization>);
+        }
+    }
+    let _reset = Reset(&store.db);
+    let mut statement = store.db.prepare(sql)?;
+    if let Some(values) = args.as_array() {
+        let values = values.iter().map(wire_value).collect::<Result<Vec<_>>>()?;
+        for (index, value) in values.iter().enumerate() {
+            statement.raw_bind_parameter(index + 1, value)?;
+        }
+        if values.len() != statement.parameter_count() {
+            return Err(Error(format!(
+                "SQL statement uses {} parameters, {} supplied",
+                statement.parameter_count(),
+                values.len()
+            )));
+        }
+    } else if let Some(values) = args.as_object() {
+        for index in 1..=statement.parameter_count() {
+            let name = statement
+                .parameter_name(index)
+                .ok_or_else(|| Error("unnamed parameter requires a sequence".into()))?;
+            let value = values
+                .get(name.trim_start_matches([':', '@', '$']))
+                .ok_or_else(|| Error(format!("missing SQL parameter: {name}")))?;
+            statement.raw_bind_parameter(index, wire_value(value)?)?;
+        }
+    } else {
+        return Err(Error("SQL parameters must be a sequence or mapping".into()));
+    }
+    let columns = statement
+        .column_names()
+        .iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>();
+    let readonly = statement.readonly();
+    let mut result = Vec::new();
+    {
+        let mut cursor = statement.raw_query();
+        while let Some(row) = cursor.next()? {
+            result.push(
+                (0..columns.len())
+                    .map(|i| wire_result(row.get_ref(i)?))
+                    .collect::<Result<Vec<_>>>()?,
+            );
+        }
+    }
+    Ok(
+        json!({"columns":columns,"rows":result,"rowcount":if readonly {-1_i64}else{store.db.changes() as i64},"lastrowid":store.db.last_insert_rowid()}),
+    )
+}
+fn text<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
+    value[key]
+        .as_str()
+        .ok_or_else(|| Error(format!("{key} must be text")))
+}
+pub fn application(store: &Store, profile: &str, operation: &str, args: &Value) -> Result<Value> {
+    crate::mutation::profile(store, profile)?;
+    match operation {
+        "initialize" => {
+            crate::query::CatalogQuery::new(store, profile)?;
+            Ok(Value::Null)
+        }
+        "status" => {
+            let mut counts = serde_json::Map::new();
+            for table in [
+                "locations",
+                "catalogs",
+                "files",
+                "items",
+                "mappings",
+                "journal",
+            ] {
+                counts.insert(
+                    table.into(),
+                    json!(store.db.query_row(
+                        &format!("SELECT count(*) FROM {table}"),
+                        [],
+                        |r| r.get::<_, i64>(0)
+                    )?),
+                );
+            }
+            Ok(
+                json!({"database":store.path,"database_id":store.database_id,"profile":profile,"pending_operations":rows(&store.db,"SELECT * FROM journal WHERE profile=? ORDER BY rowid",&[profile.to_owned().into()])?,"counts":counts,"bindings":rows(&store.db,"SELECT * FROM bindings WHERE profile=? ORDER BY kind,owner",&[profile.to_owned().into()])?}),
+            )
+        }
+        "require_recovered" => {
+            crate::mutation::require_recovered(&store.db)?;
+            Ok(Value::Null)
+        }
+        "add_profile" => {
+            let name = text(args, "profile")?;
+            crate::query::name(name)?;
+            store.transaction(|db| {
+                db.execute(
+                    "INSERT INTO profiles(id) VALUES (?) ON CONFLICT DO NOTHING",
+                    [name],
+                )?;
+                Ok(())
+            })?;
+            Ok(json!({"profile":name}))
+        }
+        "link_mode" => Ok(json!(link_mode(store, text(args, "catalog")?)?)),
+        "binding" => {
+            let kind = text(args, "kind")?;
+            let owner = text(args, "owner")?;
+            let binding = crate::observation::binding(store, profile, kind, owner)?;
+            let volume: Option<String> = if store.schema_version >= 18 {
+                store.db.query_row("SELECT volume_uuid FROM binding_volumes WHERE profile=? AND kind=? AND owner=?",[profile,kind,owner],|r|r.get(0)).optional()?
+            } else {
+                None
+            };
+            let policy = if kind == "source" {
+                crate::observation::trust_policy(store, profile, owner)?
+            } else {
+                json!({"revision":0,"settings":{"uuid":"check","device":"check","inode":"check"}})
+            };
+            Ok(json!({"value":binding,"volume_uuid":volume,"policy":policy}))
+        }
+        "bind" => bind(store, profile, args),
+        "put_item" => crate::curation::item_put(store, args),
+        "mapping_id" => Ok(json!(mapping_id(store, args)?)),
+        "put_mapping" => put_mapping(store, profile, args),
+        "disable_mapping" => {
+            crate::mutation::require_recovered(&store.db)?;
+            let id = text(args, "id")?;
+            store.transaction(|db| {
+                if !db
+                    .prepare("SELECT id FROM mappings WHERE id=?")?
+                    .exists([id])?
+                {
+                    return Err(Error(format!("unknown mapping: {id}")));
+                }
+                db.execute("UPDATE mappings SET active=0 WHERE id=?", [id])?;
+                Ok(())
+            })?;
+            Ok(json!({"id":id,"active":false}))
+        }
+        _ => Err(Error(format!(
+            "unsupported native Application operation: {operation}"
+        ))),
+    }
+}
+fn link_mode(store: &Store, catalog: &str) -> Result<String> {
+    if store.schema_version < 5 {
+        return Ok("symlink".into());
+    }
+    Ok(store
+        .db
+        .query_row(
+            "SELECT mode FROM catalog_link_modes WHERE catalog=?",
+            [catalog],
+            |r| r.get(0),
+        )
+        .optional()?
+        .unwrap_or_else(|| "symlink".into()))
+}
+fn bind(store: &Store, profile: &str, args: &Value) -> Result<Value> {
+    crate::mutation::require_recovered(&store.db)?;
+    let kind = text(args, "kind")?;
+    let owner = text(args, "owner")?;
+    if !matches!(kind, "source" | "output") {
+        return Err(Error("binding kind must be source or output".into()));
+    }
+    crate::query::name(owner)?;
+    let mode = args["link_mode"].as_str();
+    if let Some(mode) = mode {
+        if kind != "output" {
+            return Err(Error("link mode applies only to output catalogs".into()));
+        }
+        if !matches!(mode, "symlink" | "hardlink") {
+            return Err(Error("link mode must be symlink or hardlink".into()));
+        }
+        if mode != link_mode(store, owner)? {
+            for table in [
+                "owned_links",
+                "owned_hardlinks",
+                "retained_hardlinks",
+                "journal",
+            ] {
+                if store
+                    .db
+                    .prepare(&format!("SELECT 1 FROM {table} WHERE catalog=? LIMIT 1"))?
+                    .exists([owner])?
+                {
+                    return Err(Error("cannot change link mode while this catalog has owned links, retained data or pending operations; create a separate catalog".into()));
+                }
+            }
+        }
+    } else if !args["link_mode"].is_null() {
+        return Err(Error("link mode must be symlink or hardlink".into()));
+    }
+    let value = if args["root"].is_null() {
+        if kind != "output" {
+            return Err(Error("source bindings require an explicit root".into()));
+        }
+        let existing=crate::observation::binding(store,profile,kind,owner).map_err(|_|Error("native embedding does not yet support creating an omitted output root; supply root explicitly".into()))?;
+        crate::observation::checked_root(store, profile, &existing)?;
+        existing
+    } else {
+        crate::observation::execute(store, profile, "bind", args)?
+    };
+    if let Some(mode) = mode {
+        store.transaction(|db|{db.execute("INSERT INTO catalog_link_modes VALUES (?,?) ON CONFLICT(catalog) DO UPDATE SET mode=excluded.mode",[owner,mode])?;Ok(())})?;
+    }
+    Ok(value)
+}
+fn mapping_id(store: &Store, args: &Value) -> Result<String> {
+    let namespace = uuid::Uuid::parse_str(&store.database_id).map_err(|e| Error(e.to_string()))?;
+    Ok(uuid::Uuid::new_v5(
+        &namespace,
+        catabolic_core::encode(&json!([
+            args["catalog"],
+            args["file_id"],
+            args["item_id"],
+            args["path"]
+        ]))
+        .as_bytes(),
+    )
+    .to_string())
+}
+fn put_mapping(store: &Store, profile: &str, args: &Value) -> Result<Value> {
+    crate::mutation::require_recovered(&store.db)?;
+    let catalog = text(args, "catalog")?;
+    let file = text(args, "file_id")?;
+    let item = text(args, "item_id")?;
+    let path = text(args, "path")?;
+    crate::layout::relative_path(path)?;
+    let id = mapping_id(store, args)?;
+    store.transaction(|db| {
+        for (table, key) in [("catalogs", catalog), ("files", file), ("items", item)] {
+            if !db
+                .prepare(&format!("SELECT id FROM {table} WHERE id=?"))?
+                .exists([key])?
+            {
+                return Err(Error(format!("unknown {table} ID: {key}")));
+            }
+        }
+        for row in rows(
+            db,
+            "SELECT id,path FROM mappings WHERE catalog=? AND active=1",
+            &[catalog.to_owned().into()],
+        )? {
+            let other = row["path"].as_str().unwrap();
+            if row["id"] != id
+                && (other == path
+                    || other.starts_with(&format!("{path}/"))
+                    || path.starts_with(&format!("{other}/")))
+            {
+                return Err(Error(format!(
+                    "destination conflicts with active mapping: {other}"
+                )));
+            }
+        }
+        db.execute(
+            "INSERT INTO mappings VALUES (?,?,?,?,?,1) ON CONFLICT(id) DO UPDATE SET active=1",
+            rusqlite::params![id, catalog, file, item, path],
+        )?;
+        if !db
+            .prepare("SELECT 1 FROM item_files WHERE file_id=? AND item_id=? AND active=1")?
+            .exists([file, item])?
+        {
+            crate::curation::associate_in_transaction(
+                store,
+                profile,
+                db,
+                &json!({"file_id":file,"item_id":item}),
+                "mapping",
+            )?;
+        }
+        Ok(())
+    })?;
+    Ok(rows(&store.db, "SELECT * FROM mappings WHERE id=?", &[id.into()])?.remove(0))
+}
+
+/// SQLite cancellation checks are installed and removed on this same owner.
+pub fn interruptible<T>(
+    store: &Store,
+    check: impl FnMut() -> bool + Send + 'static,
+    action: impl FnOnce() -> Result<T>,
+) -> Result<T> {
+    store.db.progress_handler(1000, Some(check))?;
+    struct Reset<'a>(&'a rusqlite::Connection);
+    impl Drop for Reset<'_> {
+        fn drop(&mut self) {
+            let _ = self.0.progress_handler(0, None::<fn() -> bool>);
+        }
+    }
+    let _reset = Reset(&store.db);
+    action()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn session() -> (tempfile::TempDir, Session) {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("db");
+        crate::migration::initialize(&path).unwrap();
+        let owner = Session::open(&path, true, false).unwrap();
+        (root, owner)
+    }
+    #[test]
+    fn transaction_tokens_cannot_escape_or_exit_out_of_order() {
+        let (_root, mut owner) = session();
+        let first = owner.begin().unwrap();
+        let second = owner.begin().unwrap();
+        assert!(owner.finish(first, true).is_err());
+        owner.finish(second, false).unwrap();
+        assert!(owner.check_scope(Some(second)).is_err());
+        owner.finish(first, true).unwrap();
+        assert!(!owner.in_transaction().unwrap());
+    }
+    #[test]
+    fn command_preserves_blob_and_blocks_transaction_escape() {
+        let (_root, mut owner) = session();
+        let first = owner.begin().unwrap();
+        let store = owner.store().unwrap();
+        let value = command(
+            store,
+            "SELECT ? AS b, ? AS i",
+            &json!([["bytes", [0, 255]], ["int", "9223372036854775807"]]),
+        )
+        .unwrap();
+        assert_eq!(value["rows"][0][0], json!(["bytes", [0, 255]]));
+        assert_eq!(value["rows"][0][1], json!(["int", "9223372036854775807"]));
+        assert!(command(store, "COMMIT", &json!([])).is_err());
+        assert!(command(store, "SELECT 1; SELECT 2", &json!([])).is_err());
+        owner.finish(first, false).unwrap();
+    }
+    #[test]
+    fn failed_runtime_detach_disables_embedding_commands() {
+        let (_root, mut owner) = session();
+        let path = owner.path.clone();
+        let result = owner.store_mut().unwrap().detached(|| {
+            std::fs::remove_file(&path)?;
+            Ok(())
+        });
+        assert!(result.is_err());
+        assert!(!owner.store.as_ref().unwrap().owns_writer_lock());
+        assert!(
+            command(
+                owner.store.as_ref().unwrap(),
+                "CREATE TABLE escaped(n)",
+                &json!([])
+            )
+            .is_err()
+        );
+        // The native command adapter replaces its own temporary authorizer.
+        // It must never obtain the failed-detach placeholder connection.
+        assert!(
+            owner.store().is_err(),
+            "failed detached owner remained available to command adapter"
+        );
+        owner.close().unwrap();
+    }
+    #[test]
+    fn detached_replacement_retires_owner() {
+        let (root, mut owner) = session();
+        let replacement = root.path().join("replacement");
+        crate::migration::initialize(&replacement).unwrap();
+        owner.detach().unwrap();
+        std::fs::rename(replacement, &owner.path).unwrap();
+        assert!(owner.reconnect().unwrap_err().0.contains("replaced"));
+        assert!(owner.store().is_err());
+        owner.close().unwrap();
+    }
+}

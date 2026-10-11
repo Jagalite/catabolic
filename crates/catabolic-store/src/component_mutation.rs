@@ -8,7 +8,7 @@ use rusqlite::params;
 use serde_json::{Value, json};
 
 pub fn get(store: &Store, profile: &str, identifier: &str, require_current: bool) -> Result<Value> {
-    let mut row = rows(
+    let row = rows(
         &store.db,
         &format!(
             "SELECT * FROM ({}) WHERE profile=? AND occurrence_id=?",
@@ -19,6 +19,18 @@ pub fn get(store: &Store, profile: &str, identifier: &str, require_current: bool
     .into_iter()
     .next()
     .ok_or_else(|| Error("unknown component occurrence in this profile".into()))?;
+    decode_occurrence(store, profile, row, require_current)
+}
+
+/// Decode the frozen row shape once, after either a direct lookup or a bounded
+/// evaluation-session lookup. Currentness always includes the live catalog's
+/// recorded source-policy and file revision evidence.
+pub(crate) fn decode_occurrence(
+    store: &Store,
+    profile: &str,
+    mut row: Value,
+    require_current: bool,
+) -> Result<Value> {
     for key in [
         "locator",
         "snapshot",

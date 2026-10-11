@@ -559,6 +559,84 @@ pub fn worker_remove(store: &Store, profile: &str, pid: u32) -> Result<()> {
     })
 }
 
+/// Closed segment capability for transport: no SQLite owner survives between
+/// chunks. Current session/token/grants and the named segment are checked anew.
+pub struct SegmentTransfer {
+    file: File,
+    stat: std::fs::Metadata,
+    path: std::path::PathBuf,
+    database_id: String,
+    token: String,
+    principal: String,
+    profile: String,
+    session: String,
+    segment: String,
+    tools: Value,
+}
+impl SegmentTransfer {
+    pub fn length(&self) -> u64 {
+        self.stat.len()
+    }
+    pub fn read_chunk(&self, offset: u64, length: usize) -> Result<Vec<u8>> {
+        let store = Store::open(&self.path, false, false)?;
+        if store.database_id != self.database_id {
+            return Err(Error("unauthorized".into()));
+        }
+        let mut access = Access::from_stored_token(store, &self.token)?;
+        if access.principal() != self.principal || access.profile() != self.profile {
+            return Err(Error("unauthorized".into()));
+        }
+        with_media(
+            &mut access,
+            &self.session,
+            Some(&self.segment),
+            &self.tools,
+            |media| match media {
+                Media::Segment(file) => {
+                    let stat = file.metadata()?;
+                    if stat.dev() != self.stat.dev() || stat.ino() != self.stat.ino() {
+                        return Err(Error("playback_cache_changed".into()));
+                    }
+                    Ok(())
+                }
+                _ => Err(Error("invalid_playback_cache".into())),
+            },
+        )?;
+        drop(access);
+        content_access::read_chunk(&self.file, &self.stat, offset, length)
+    }
+}
+pub fn open_transfer(
+    mut access: Access,
+    session: &str,
+    segment: &str,
+    tools: &Value,
+) -> Result<SegmentTransfer> {
+    let file = with_media(
+        &mut access,
+        session,
+        Some(segment),
+        tools,
+        |media| match media {
+            Media::Segment(file) => Ok(file.try_clone()?),
+            _ => Err(Error("invalid_playback_cache".into())),
+        },
+    )?;
+    let stat = file.metadata()?;
+    Ok(SegmentTransfer {
+        file,
+        stat,
+        path: access.store().path.clone(),
+        database_id: access.store().database_id.clone(),
+        token: access.token_id().into(),
+        principal: access.principal().into(),
+        profile: access.profile().into(),
+        session: session.into(),
+        segment: segment.into(),
+        tools: tools.clone(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

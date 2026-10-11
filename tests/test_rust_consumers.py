@@ -653,3 +653,48 @@ class NativeConsumerTest(unittest.TestCase):
         self.sync()
         self.assertEqual(len(self.remote.scans), 1)
         self.assertEqual(self.remote.lock_failures, [])
+
+    def _assert_indexing_translation_matches_python(
+        self, remote_root, subtree, expected
+    ):
+        reference = reference_fixture.ConsumerTest("runTest")
+        self.addCleanup(reference.doCleanups)
+        reference.setUp()
+        self.assertNotEqual(self.database, reference.database)
+        for fixture in (reference, self):
+            fixture.remote.libraries[0]["roots"] = [remote_root]
+            self.assertTrue(
+                fixture.bind(remote_root=remote_root, subtree=subtree)["complete"]
+            )
+            fixture.add()
+            self.assertTrue(fixture.sync()["healthy"])
+            fixture.remote.indexed = [expected]
+        reference_requests = len(reference.remote.requests)
+        native_requests = len(self.remote.requests)
+        oracle = reference_fixture.verify_indexing(
+            reference.database, "default", "movies"
+        )
+        actual = self.native("verify-indexing", {"id": "movies"})
+        self.assertEqual(actual, oracle)
+        self.assertTrue(actual["complete"])
+        self.assertEqual(actual["matched_paths"], [expected])
+        self.assertEqual(len(reference.remote.requests) - reference_requests, 3)
+        self.assertEqual(len(self.remote.requests) - native_requests, 3)
+        self.assertEqual(reference.remote.lock_failures, [])
+        self.assertEqual(self.remote.lock_failures, [])
+
+    def test_long_translated_path_matches_python_on_independent_catalogs(self):
+        # Regression: the frozen contract bounds each path input at 4096
+        # characters, rather than rejecting their valid composed output.
+        remote_root = "/" + "/".join(["r" * 200] * 20) + "/" + "s" * 74
+        expected = remote_root + "/One.mkv"
+        self.assertEqual(len(remote_root), 4095)
+        self.assertEqual(len(expected), 4103)
+        self._assert_indexing_translation_matches_python(
+            remote_root, "Movies", expected
+        )
+
+    def test_root_translation_matches_python_on_independent_catalogs(self):
+        # An exact subtree match has an empty suffix, but its remote root must
+        # remain "/" rather than becoming the empty string after slash trimming.
+        self._assert_indexing_translation_matches_python("/", "Movies/One.mkv", "/")

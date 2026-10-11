@@ -1,4 +1,5 @@
 //! Values and deterministic codecs shared by every Catabolic interface.
+pub mod component;
 pub mod coordination;
 pub mod execution;
 pub mod fallback;
@@ -6,6 +7,8 @@ pub mod json;
 pub mod lifecycle;
 pub mod media;
 pub mod playback;
+pub mod rendition;
+pub mod resolution;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 

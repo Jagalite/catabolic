@@ -262,7 +262,14 @@ fn complete_rows(value: &Value, query: &Value, definition: &Value) -> Result<Vec
     }
     Ok(rows.clone())
 }
-pub fn prepare(evaluation: &mut Evaluation, definition: &Value) -> Result<Value> {
+/// Validate an immutable mapping without executing its saved report or making
+/// network requests. Definition admission must remain independent of row count.
+pub fn validate_definition(store: &Store, profile: &str, definition: &Value) -> Result<()> {
+    let read = Store::open(&store.path, false, false)?;
+    let mut evaluation = Evaluation::new(read, profile, 60_000, 100_000, false)?;
+    preflight(&mut evaluation, definition).map(|_| ())
+}
+fn preflight(evaluation: &mut Evaluation, definition: &Value) -> Result<(Value, Value)> {
     let Some(fields) = definition.as_object() else {
         return fail("invalid_http_definition");
     };
@@ -333,6 +340,11 @@ pub fn prepare(evaluation: &mut Evaluation, definition: &Value) -> Result<Value>
     if old.is_some_and(|digest| digest != sha256(encode(definition))) {
         return fail("definition_changed_use_new_mapping_id");
     }
+    Ok((operation, query))
+}
+pub fn prepare(evaluation: &mut Evaluation, definition: &Value) -> Result<Value> {
+    let (operation, query) = preflight(evaluation, definition)?;
+    let profile = evaluation.profile.clone();
     let evaluated = evaluation.run(required(definition, "query")?, 1000)?;
     let rows = complete_rows(&evaluated, &query, definition)?;
     if rows.len() > 1000 {
@@ -443,4 +455,43 @@ pub fn execute(store: Store, profile: &str, operation: &str, request: &Value) ->
     } else {
         Ok(plan)
     }
+}
+
+/// HTTP mappings retain approved report authority and both durable token fences.
+pub fn ingress(mut access: crate::access::Access, request: &Value, apply: bool) -> Result<Value> {
+    access.require_operator("webhooks:manage")?;
+    access.require_operator("sql:read")?;
+    let profile = access.profile().to_owned();
+    let token = access.token_id().to_owned();
+    let definition = &request["definition"];
+    let id = definition["operation"]
+        .as_str()
+        .ok_or_else(|| Error("mapping_invalid_http_definition".into()))?;
+    crate::http_operations::ingress(&access, "get", &json!({"id":id}))?;
+    let (_, query) = preflight(access.evaluation_mut(), definition)?;
+    // Explicit operator SQL reports keep their admitted global SQL snapshot.
+    // GraphQL documents must use the scoped metadata owner before execution.
+    let mut evaluation = if query["mode"] == "rows" {
+        access.into_evaluation()
+    } else {
+        let authority = crate::api_catalog::install(&mut access)?;
+        access.into_evaluation().bind_authority(authority)?
+    };
+    let plan = prepare(&mut evaluation, definition)?;
+    if !apply {
+        return Ok(plan);
+    }
+    let expected = request["expected_plan"]
+        .as_str()
+        .ok_or_else(|| Error("expected_plan_required".into()))?;
+    let maximum = request["max_changes"].as_u64().unwrap_or(100) as usize;
+    evaluation
+        .store()
+        .db
+        .pragma_update(None, "query_only", false)?;
+    evaluation.store().transaction(|db|{
+        let result=enqueue(evaluation.store(),&profile,&plan,expected,maximum)?;
+        for row in plan["rows"].as_array().unwrap().iter().filter(|v|v["changed"]==true){db.execute("UPDATE http_mapping_deliveries SET token_id=? WHERE event_id=(SELECT event_id FROM http_mapping_ledger WHERE profile=? AND mapping_id=? AND key=?)",params![token,profile,definition["id"].as_str(),row["key"].as_str()])?;}
+        Ok(result)
+    })
 }

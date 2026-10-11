@@ -26,7 +26,8 @@ public Python facade compatibility.
 - M5/M6: guarded observations, remounts, observation/query watchers, managed
   symlink and hardlink journal owners. See
   [observation and output](RUST_MIGRATION_OBSERVATION.md). Destructive symlink
-  effects are blocked in release builds while their safety gate is open.
+  effects and hardlink retirement are blocked in release builds while their
+  safety gates are open.
 - M7/M8: bounded processes, real media analysis, text/subtitle/PDF/OCR extraction,
   render presets, artifacts, processors, receipts, components and packet-verified
   extraction/remux, plus immutable fallback policies. See
@@ -68,8 +69,9 @@ grant and source evidence. Reads check descriptor metadata before and after
 reading. Credential files, registered private files, and live catalog/WAL/SHM/
 journal inode aliases are refused. An unregistered orphaned private sidecar alias
 cannot always be identified after SQLite removes its original pathname; that
-remains a content/HTTP release blocker. There is no native HTTP listener in this
-checkpoint, and local operation access must not be advertised as qualified HTTP.
+remains a content/HTTP release blocker. The recorded `787b5ed` checkpoint had no
+native HTTP listener. Later work adds an explicitly experimental loopback
+listener, documented below; it is not qualified for general deployment.
 
 The Statelessness playback adapter calls the production reducer and checks an
 independent input/effect ledger. The bounded graph and injected stale-completion
@@ -91,8 +93,12 @@ The following are intentional restrictions/corrections, not silent parity claims
    debug `disposable_fixture` exception exercises unchanged cross-language journal
    semantics. A shared safe protocol remains required before real-output use.
 2. A hardlink retention race preserves a swapped foreign file's bytes but can
-   relocate it into retention. Marker-temporary cleanup races also remain open.
-   Neither is qualified merely because existing deterministic tests pass.
+   relocate it into retention. Hardlink replacement/removal now has the same
+   explicit disposable-debug-fixture restriction, checked before admission and
+   unfinished-journal recovery; release builds cannot opt in. This is incomplete
+   functionality, not a resolved race or M6 qualification. Marker-temporary
+   cleanup races also remain open. Neither is qualified merely because existing
+   deterministic tests pass.
 3. Explicit consumer retry cannot steal a live lease; idempotent enable/disable
    cannot invalidate one. Frozen Python permits those races. Playback likewise
    fixes the frozen first-caller operation coupling described above. These safer
@@ -145,28 +151,72 @@ scripts/check-native-mutations.sh
   --wheel /path/to/catabolic_native.whl --receipt /path/to/receipt.json
 ```
 
-The mutation runner rejects zero scenarios, duplicate identifiers, incomplete
-outcome coverage and skipped tests. The wheel runner rejects malformed archives
-and compares each installed payload and the imported extension with the supplied
+The mutation runner rejects zero scenarios, duplicate identifiers, leaked
+Python-only oracle cases, incomplete outcome coverage, skipped tests, optimized
+Python, and implementation/test-source or executable changes during the run.
+It binds both CLI and HTTP executables, verifies the frozen oracle and historical
+fixture bytes before/after execution, records actual oracle imports, and starts
+with a fresh bytecode cache for itself and subprocesses. A failed preflight
+cannot retain an earlier passing receipt. The wheel runner rejects optimized
+Python and malformed archives, and compares each installed payload and the imported extension with the supplied
 wheel bytes. A passing smoke for an older artifact does not qualify a rebuilt one.
 Debug fixture tests cannot qualify release destructive-output safety.
 
 ## Remaining hard gates
 
-- M4: item workflow mutations, rule execution, complete target/export/import
-  adapters, full reviewed plan execution and stale-plan orchestration
-- M5: detached short-writer scan scheduling, generated inventory/nonempty regex,
-  full watcher reactions and real filesystem/platform acceptance
+### Work after the recorded checkpoint
+
+The following later owners are implemented and have focused receipts, but are
+not covered by the `787b5ed` aggregate qualification register above:
+
+- Item workflow, rule orchestration and reviewed desired layouts:
+  [workflow checkpoint](RUST_MIGRATION_WORKFLOWS.md)
+- Target metadata, XSPF/OPDS/NFO, detached bundles and official CLI imports:
+  [export/import checkpoint](RUST_MIGRATION_EXPORTS.md)
+- Detached observation scheduling, generated inventory, watcher supervisors and
+  refresh generation handling: [observation checkpoint](RUST_MIGRATION_OBSERVATION.md)
+- Shared rendition requests, component selection and actual package publication:
+  [component checkpoint](RUST_MIGRATION_COMPONENT_SELECTION.md) and
+  [shared rendition checkpoint](RUST_MIGRATION_SHARED_RENDITIONS.md)
+- Experimental HTTP 1.7 transport, actual worker/stream journeys and generated
+  clients: [HTTP checkpoint](RUST_MIGRATION_HTTP.md)
+- Qualified-helper packaging and installed subprocess ownership:
+  [artifact checkpoint](RUST_MIGRATION_NATIVE_ARTIFACTS.md)
+- Fresh fallback publication verification and fenced consumer delivery:
+  [fallback consumer checkpoint](RUST_MIGRATION_FALLBACK_CONSUMERS.md)
+- Persistent native Store and selected embedding facades:
+  [embedding checkpoint](RUST_MIGRATION_EMBEDDING.md), with explicit partial
+  contract coverage and completed scoped lifecycle/provenance review
+
+The [public-surface inventory](RUST_MIGRATION_PUBLIC_SURFACES.md) separately
+enumerates remaining preserved Python entry points, legacy CLI branches and Plex
+owners. A path-based companion operation is not a persistent-facade or legacy
+parser/presentation qualification.
+
+Their reviewed fixes and focused tests require a new source-stable aggregate
+run, installed-artifact qualification and a separately identified receipt. Do not
+combine counts from overlapping suites or attach the old source hashes to them.
+
+### Exit conditions still open
+
+- M4: complete frozen-ledger coverage of revisions/digests/unknown fields,
+  full reviewed workflow integration, real official-application acceptance, and
+  the blocked independent definition-boundary review
+- M5: native event monitoring, the complete supported regex dialect, full watcher
+  exploration/scale, unmount/disk-full/permission cases and real platform evidence
 - M6: compatible safe destructive-output protocol, all required crash boundaries,
-  both rollback directions and real Linux/macOS adversarial filesystem evidence
-- M7: complete shared rendition demand/retry/refresh orchestration and all resource,
-  late-result and cancellation acceptance scenarios
-- M8: every fallback resolution/retry/failback family, accepted-source execution
-  and end-to-end independent publication for shared physical renditions
+  both rollback directions, blocked independent filesystem review and real
+  Linux/macOS adversarial filesystem evidence; logical publication is additionally
+  restricted to explicit disposable debug fixtures while qualification is open
+- M7: all resource/late-result/cancellation scenarios, complete runtime integration
+  and production-reducer/independent-ledger evidence for every execution family
+- M8: full fallback-family ledger coverage and budget/replay review, consumer and
+  scheduler integration, plus qualified publication under the M6 dependency gate
 - M9: full Plex workflows, actual supported consumer/provider acceptance,
   scheduler integration and non-Linux growing-playback qualification
-- M10: full HTTP 1.7.0 routes/authentication/events/clients, the documented Python
-  facade and complete installed-platform/resource compatibility
+- M10: every HTTP 1.7.0 black-box/authentication/client gate, unresolved private
+  sidecar and scoped-query cases, the complete documented Python facade and
+  installed-platform/resource compatibility
 - M11: every frozen ledger row, missing independent review, platform/resource and
   performance budgets, handover/rollback rehearsal and exact artifact approval
 

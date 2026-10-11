@@ -9,6 +9,95 @@ use chrono::{DateTime, Datelike, LocalResult, TimeZone, Timelike, Utc};
 use rusqlite::{OptionalExtension, params};
 use serde_json::{Value, json};
 use std::{collections::BTreeSet, io::Read};
+
+/// Bound-source reconciliation excludes generated roots, whose completion
+/// events are authoritative instead of directory watcher notifications.
+pub fn startup_sources(store: &Store, profile: &str) -> Result<Vec<String>> {
+    let mut query = store.db.prepare(
+        "SELECT owner FROM bindings WHERE profile=? AND kind='source' AND owner NOT IN(SELECT location FROM generated_locations WHERE profile=?) ORDER BY owner",
+    )?;
+    Ok(query
+        .query_map((profile, profile), |row| row.get(0))?
+        .collect::<std::result::Result<Vec<String>, _>>()?)
+}
+
+/// Snapshot the complete admitted processing set before runtime capability I/O.
+pub fn processing_inputs(
+    store: &Store,
+    profile: &str,
+    evaluation: &Value,
+    max_jobs: usize,
+) -> Result<Vec<Value>> {
+    if evaluation["kind"] == "fallback" {
+        let decisions = evaluation["value"]["decisions"]
+            .as_array()
+            .ok_or_else(|| Error("processing fallback has unresolved inputs".into()))?;
+        if decisions.len() > max_jobs {
+            return Err(Error("watcher_processing_budget".into()));
+        }
+        return decisions.iter().map(|decision| {
+            if !decision["state"].as_str().is_some_and(|state|state.starts_with("resolved")) {
+                return Err(Error("processing fallback has unresolved inputs".into()));
+            }
+            Ok(json!({"file_id":decision["file_id"],"item_id":decision["item_id"],"revision":decision["revision"]}))
+        }).collect();
+    }
+    if evaluation["kind"] != "selection" || evaluation["value"]["entity"] != "file_id" {
+        return Err(Error(
+            "processing requires complete file IDs or resolved fallback inputs".into(),
+        ));
+    }
+    let ids = evaluation["value"]["ids"]
+        .as_array()
+        .ok_or_else(|| Error("processing requires complete file IDs".into()))?;
+    if ids.len() > max_jobs {
+        return Err(Error("watcher_processing_budget".into()));
+    }
+    let mut inputs = Vec::with_capacity(ids.len());
+    for id in ids {
+        let file = id
+            .as_str()
+            .ok_or_else(|| Error("invalid processing file ID".into()))?;
+        let associations = rows(
+            &store.db,
+            "SELECT DISTINCT item_id FROM item_files WHERE file_id=? AND active=1 AND role='primary' LIMIT 2",
+            &[file.to_string().into()],
+        )?;
+        if associations.len() != 1 {
+            return Err(Error(
+                "processing requires unambiguous primary item association".into(),
+            ));
+        }
+        inputs.push(json!({"file_id":file,"item_id":associations[0]["item_id"],"revision":crate::content_access::revision_of(store,profile,file)?}));
+    }
+    Ok(inputs)
+}
+
+pub fn supervisor_candidates(
+    store: &Store,
+    profile: &str,
+    now: f64,
+    limit: usize,
+) -> Result<Vec<String>> {
+    let candidates = rows(
+        &store.db,
+        "SELECT w.*,d.definition FROM watchers w JOIN watcher_definitions d ON d.id=w.definition_id WHERE w.profile=? AND (enabled=1 OR requested_generation>completed_generation) ORDER BY coalesce(last_run,''),next_due,name LIMIT 1000",
+        &[profile.to_string().into()],
+    )?;
+    let mut names = vec![];
+    for mut row in candidates {
+        row["definition"] = decode_json(row["definition"].as_str().unwrap())?;
+        if due(&row, now)? && names.len() < limit {
+            names.push(row["name"].as_str().unwrap().to_string());
+        }
+    }
+    Ok(names)
+}
+
+pub fn pending_count(store: &Store, profile: &str, now: f64) -> Result<i64> {
+    Ok(store.db.query_row("SELECT count(*) FROM watchers WHERE profile=? AND (active_run IS NOT NULL OR requested_generation>completed_generation OR pending_reaction IS NOT NULL OR (enabled=1 AND (retry_at>0 OR pending_generation>completed_generation OR (next_due<=? AND definition_id IN(SELECT id FROM watcher_definitions WHERE json_extract(definition,'$.schedule.kind')!='manual')))))",(profile,now),|row|row.get(0))?)
+}
+
 fn time() -> f64 {
     crate::filesystem_mutation::now()
 }
@@ -404,9 +493,8 @@ fn normalize(store: &Store, profile: &str, input: &Value) -> Result<Value> {
             crate::definitions::query_get(store, profile, id)?;
         }
         Some("fallback" | "projection") => {
-            return Err(Error(
-                "native watcher fallback/projection evaluation is not yet qualified".into(),
-            ));
+            *plan = crate::plans::normalize(plan)?;
+            crate::plans::describe(store, profile, plan)?;
         }
         _ => return Err(Error("unknown watcher plan".into())),
     }
@@ -420,15 +508,40 @@ fn normalize(store: &Store, profile: &str, input: &Value) -> Result<Value> {
             "query/fallback/projection plans require a reaction".into(),
         ));
     }
-    if matches!(
-        value["reaction"].as_str(),
-        Some("processing" | "http" | "projection")
-    ) {
+    if value["reaction"] == "projection" && value["plan"]["kind"] != "projection" {
         return Err(Error(
-            "native watcher processing/HTTP/projection reactions are not yet qualified".into(),
+            "projection reaction requires a pinned projection plan".into(),
         ));
     }
-    if !value["mapping"].is_null() {
+    if value["reaction"] == "processing" {
+        if value["plan"]["kind"] == "projection" {
+            return Err(Error(
+                "processing requires an approved operation and a selection/fallback plan".into(),
+            ));
+        }
+        let operation = crate::media_mutation::operation_get(
+            store,
+            value["operation_id"]
+                .as_str()
+                .ok_or_else(|| Error("processing requires an operation_id".into()))?,
+        )?;
+        if !matches!(
+            operation["operation_kind"].as_str(),
+            Some("analysis" | "render")
+        ) {
+            return Err(Error("unsupported watcher operation".into()));
+        }
+    }
+    if value["reaction"] == "http" {
+        if value["plan"]["kind"] != "query"
+            || value["mapping"]["query"] != value["plan"]["query_id"]
+        {
+            return Err(Error(
+                "HTTP reaction requires its matching query plan".into(),
+            ));
+        }
+        crate::http_mappings::validate_definition(store, profile, &value["mapping"])?;
+    } else if !value["mapping"].is_null() {
         return Err(Error("mapping requires an HTTP reaction".into()));
     }
     Ok(value)
@@ -442,6 +555,31 @@ fn get(store: &Store, profile: &str, name: &str) -> Result<Value> {
     let mut row = rows.pop().ok_or_else(|| Error("unknown watcher".into()))?;
     row["definition"] = decode_json(row["definition"].as_str().unwrap())?;
     Ok(row)
+}
+
+pub fn definition(store: &Store, profile: &str, name: &str) -> Result<Value> {
+    Ok(get(store, profile, name)?["definition"].clone())
+}
+fn require_projection_owner(
+    store: &Store,
+    profile: &str,
+    name: &str,
+    definition: &Value,
+) -> Result<()> {
+    if definition["reaction"] == "projection" {
+        let owner: Option<String> = store
+            .db
+            .query_row(
+                "SELECT watcher FROM watcher_owners WHERE profile=? AND catalog=?",
+                (profile, definition["plan"]["catalog"].as_str()),
+                |row| row.get(0),
+            )
+            .optional()?;
+        if owner.is_some_and(|owner| owner != name) {
+            return Err(Error("projection owned by another watcher".into()));
+        }
+    }
+    Ok(())
 }
 pub fn execute(store: &Store, profile: &str, action: &str, args: &Value) -> Result<Value> {
     let name = args["name"].as_str().unwrap_or("");
@@ -498,7 +636,17 @@ pub fn execute(store: &Store, profile: &str, action: &str, args: &Value) -> Resu
             } else {
                 0.0
             };
-            store.transaction(|db|{if !enabled{db.execute("UPDATE watchers SET retry_at=0,requested_generation=completed_generation WHERE profile=? AND name=?",[profile,name])?;db.execute("DELETE FROM watcher_owners WHERE profile=? AND watcher=?",[profile,name])?;}db.execute("UPDATE watchers SET enabled=?,next_due=? WHERE profile=? AND name=?",params![enabled,next,profile,name])?;Ok(())})?;
+            store.transaction(|db|{
+                if enabled && row["definition"]["reaction"] == "projection" {
+                    let catalog = row["definition"]["plan"]["catalog"].as_str().unwrap();
+                    require_projection_owner(store,profile,name,&row["definition"])?;
+                    let legacy:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM fallback_bindings WHERE profile=? AND catalog=? AND enabled=1 UNION SELECT 1 FROM catalog_refresh_settings WHERE profile=? AND catalog=? AND enabled=1)",(profile,catalog,profile,catalog),|row|row.get(0))?;
+                    if legacy && args["transfer"] != true {return Err(Error("explicit transfer required from legacy automation".into()));}
+                    db.execute("INSERT OR REPLACE INTO watcher_owners VALUES(?,?,?)",(profile,catalog,name))?;
+                    db.execute("UPDATE fallback_bindings SET enabled=0 WHERE profile=? AND catalog=?",(profile,catalog))?;
+                    db.execute("UPDATE catalog_refresh_settings SET enabled=0 WHERE profile=? AND catalog=?",(profile,catalog))?;
+                }
+                if !enabled{db.execute("UPDATE watchers SET retry_at=0,requested_generation=completed_generation WHERE profile=? AND name=?",[profile,name])?;db.execute("DELETE FROM watcher_owners WHERE profile=? AND watcher=?",[profile,name])?;}db.execute("UPDATE watchers SET enabled=?,next_due=? WHERE profile=? AND name=?",params![enabled,next,profile,name])?;Ok(())})?;
             get(store, profile, name)
         }
         "due" => {
@@ -506,13 +654,9 @@ pub fn execute(store: &Store, profile: &str, action: &str, args: &Value) -> Resu
             Ok(json!({"due":due(&row,now)?}))
         }
         "schedule" => Ok(json!({"next_due":next_due(&args["schedule"],now)?})),
-        "run" => run(
-            store,
-            profile,
-            name,
-            args["trigger"].as_str().unwrap_or("manual"),
-            now,
-        ),
+        "run" => Err(Error(
+            "native watcher runs require the detached runtime owner".into(),
+        )),
         "recover" => recover(store, profile, now),
         _ => Err(Error(format!("unknown watcher action: {action}"))),
     }
@@ -545,7 +689,7 @@ pub fn due(row: &Value, now: f64) -> Result<bool> {
             >= (timestamp("event_last") + value["debounce_seconds"].as_f64().unwrap())
                 .min(timestamp("event_first") + value["maximum_delay_seconds"].as_f64().unwrap()))
 }
-fn require_run(
+pub fn require_run(
     store: &Store,
     profile: &str,
     name: &str,
@@ -553,6 +697,7 @@ fn require_run(
     definition: &Value,
 ) -> Result<()> {
     let row = get(store, profile, name)?;
+    require_projection_owner(store, profile, name, &row["definition"])?;
     let generation: Option<i64> = store
         .db
         .query_row(
@@ -583,18 +728,35 @@ fn require_run(
     .map_err(|_| Error("stale_watcher_run".into()))?;
     Ok(())
 }
-fn evaluate(store: &Store, profile: &str, plan: &Value) -> Result<Value> {
+pub fn evaluate(store: &Store, profile: &str, plan: &Value) -> Result<Value> {
     let read = Store::open(&store.path, false, false)?;
     let mut evaluation = crate::selection::Evaluation::new(read, profile, 60_000, 100_000, false)?;
     crate::plans::evaluate(&mut evaluation, plan)
 }
 
-fn run(store: &Store, profile: &str, name: &str, trigger: &str, now: f64) -> Result<Value> {
+fn http_plan(store: &Store, profile: &str, definition: &Value) -> Result<Value> {
+    let read = Store::open(&store.path, false, false)?;
+    let mut evaluation = crate::selection::Evaluation::new(read, profile, 60_000, 100_000, false)?;
+    crate::http_mappings::prepare(&mut evaluation, definition)
+}
+
+/// All slow effects receive a mutable Store so they can release the catalog
+/// session. Definition/claim/observation/baseline/reaction fences stay here.
+pub fn run(
+    store: &mut Store,
+    profile: &str,
+    name: &str,
+    trigger: &str,
+    now: f64,
+    observe: &mut impl FnMut(&mut Store, &Value) -> Result<Value>,
+    complete: &mut impl FnMut(&mut Store, Completion) -> Result<Value>,
+) -> Result<Value> {
     let row = get(store, profile, name)?;
     let value = normalize(store, profile, &row["definition"])?;
     if trigger == "scheduled" && !due(&row, now)? {
         return Err(Error("watcher_not_due".into()));
     }
+    require_projection_owner(store, profile, name, &value)?;
     let id = uuid::Uuid::new_v4().to_string();
     let state = lifecycle::State {
         generation: row["completed_generation"].as_i64().unwrap(),
@@ -652,10 +814,8 @@ fn run(store: &Store, profile: &str, name: &str, trigger: &str, now: f64) -> Res
         };
         let mut evidence = Vec::new();
         for source in sources {
-            let observed = crate::observation::execute(
+            let observed = observe(
                 store,
-                profile,
-                "scan",
                 &json!({"source":source,"exclude":exclusions,"max_age":value["max_age_seconds"],"require_complete":value["require_complete_inventory"],"after":if value["observe_after_request"]==true{now}else{0.0},"requester":format!("watcher:{}:{generation}",row["definition_id"].as_str().unwrap())}),
             )?;
             evidence.push(observed["observations"][0].clone());
@@ -670,6 +830,12 @@ fn run(store: &Store, profile: &str, name: &str, trigger: &str, now: f64) -> Res
             )?;
             Ok(())
         })?;
+        if evidence
+            .iter()
+            .any(|e| matches!(e["state"].as_str(), Some("queued" | "running")))
+        {
+            return Err(Error("observation_pending".into()));
+        }
         if value["require_complete_inventory"] == true
             && evidence.iter().any(|e| e["state"] != "complete")
         {
@@ -692,37 +858,17 @@ fn run(store: &Store, profile: &str, name: &str, trigger: &str, now: f64) -> Res
                 json!({"run_id":id,"definition_id":row["definition_id"],"observations":evidence,"reaction":null,"complete":true}),
             );
         }
-        let evaluated = evaluate(store, profile, &value["plan"])?;
-        let previous = row["baseline"].as_str().map(decode_json).transpose()?;
-        let comparison =
-            crate::plans::compare(previous.as_ref().unwrap_or(&Value::Null), &evaluated)?;
-        let baseline = comparison["baseline"].clone();
-        let changed = comparison["changed"] == true;
-        store.transaction(|db|{db.execute("UPDATE watchers SET baseline=?,pending_reaction=? WHERE profile=? AND name=? AND active_run=?",params![encode(&baseline),id,profile,name,id])?;db.execute("UPDATE watcher_runs SET state='reacting',result=? WHERE id=?",params![encode(&json!({"observations":evidence,"evaluation":comparison,"plan_id":null,"complete":false,"phase":"planned","retry_of":row["pending_reaction"]})),id])?;Ok(())})?;
-        require_run(store, profile, name, &id, &row["definition_id"])?;
-        if value["reaction"] == "event" && (changed || !row["pending_reaction"].is_null()) {
-            store.transaction(|db| {
-                crate::notifications::emit(
-                    db,
-                    profile,
-                    "watcher_changed",
-                    "info",
-                    name,
-                    &json!([id]),
-                )?;
-                Ok(())
-            })?;
-        }
-        finish(
+        complete(
             store,
-            profile,
-            name,
-            &row,
-            &value,
-            &id,
-            generation,
-            now,
-            json!({"run_id":id,"definition_id":row["definition_id"],"observations":evidence,"evaluation":comparison,"reaction":null,"complete":true}),
+            Completion {
+                name: name.to_string(),
+                row: row.clone(),
+                definition: value.clone(),
+                id: id.clone(),
+                generation,
+                now,
+                evidence: json!(evidence),
+            },
         )
     })();
     match attempt {
@@ -730,12 +876,97 @@ fn run(store: &Store, profile: &str, name: &str, trigger: &str, now: f64) -> Res
         Err(error) => {
             let waiting = matches!(
                 error.0.as_str(),
-                "observation_pending" | "observation_already_claimed"
-            );
+                "observation_pending" | "observation_already_claimed" | "observation_capacity"
+            ) || error.0.contains("another Catabolic writer");
             store.transaction(|db|{db.execute("UPDATE watcher_runs SET state=?,completed_at=?,error=? WHERE id=?",params![if waiting{"waiting"}else{"failed"},time(),error.0.chars().take(4000).collect::<String>(),id])?;db.execute("UPDATE watchers SET active_run=NULL,lease_until=0,retry_at=? WHERE profile=? AND name=? AND active_run=?",params![time()+if waiting{1.0}else{value["retry_seconds"].as_f64().unwrap()},profile,name,id])?;Ok(())})?;
             Ok(json!({"run_id":id,"complete":false,"error":error.0}))
         }
     }
+}
+pub struct Completion {
+    pub name: String,
+    pub row: Value,
+    pub definition: Value,
+    pub id: String,
+    pub generation: i64,
+    pub now: f64,
+    pub evidence: Value,
+}
+pub fn complete_evaluation(
+    store: &mut Store,
+    profile: &str,
+    context: &Completion,
+    evaluated: &Value,
+    reaction: &mut impl FnMut(&mut Store, &Value, &Value, &Value) -> Result<Value>,
+) -> Result<Value> {
+    let name = context.name.as_str();
+    let row = &context.row;
+    let value = &context.definition;
+    let id = context.id.as_str();
+    let generation = context.generation;
+    let now = context.now;
+    let evidence = &context.evidence;
+    let previous = row["baseline"].as_str().map(decode_json).transpose()?;
+    let comparison = crate::plans::compare(previous.as_ref().unwrap_or(&Value::Null), evaluated)?;
+    let baseline = comparison["baseline"].clone();
+    let changed = comparison["changed"] == true;
+    require_run(store, profile, name, id, &row["definition_id"])?;
+    let mapping_plan = if value["reaction"] == "http" {
+        Some(http_plan(store, profile, &value["mapping"])?)
+    } else {
+        None
+    };
+    let queued = store.transaction(|db| {
+            require_run(store, profile, name, id, &row["definition_id"])?;
+            let queued = mapping_plan.as_ref().map(|plan| crate::http_mappings::enqueue(store, profile, plan, plan["plan_id"].as_str().unwrap(), value["max_changes"].as_u64().unwrap() as usize)).transpose()?;
+            if evaluated["kind"] == "fallback" {
+                let context = format!("watcher:{name}");
+                db.execute("DELETE FROM fallback_health WHERE profile=? AND catalog=?",(profile,&context))?;
+                for health in evaluated["value"]["health"].as_array().map(Vec::as_slice).unwrap_or(&[]) {
+                    db.execute("INSERT INTO fallback_health VALUES(?,?,?,?,?,?,?,?)",params![profile,context,health["entry_id"].as_str(),health["file_id"].as_str(),health["revision"].as_str(),crate::sql::scalar(&health["healthy_since"])?,crate::sql::scalar(&health["successes"])?,crate::sql::scalar(&health["last_check"])?])?;
+                }
+            }
+            db.execute("UPDATE watchers SET baseline=?,pending_reaction=? WHERE profile=? AND name=? AND active_run=?",params![encode(&baseline),id,profile,name,id])?;
+            db.execute("UPDATE watcher_runs SET state='reacting',result=? WHERE id=?",params![encode(&json!({"observations":evidence,"evaluation":comparison,"plan_id":evaluated["value"]["plan_id"],"complete":false,"phase":"planned","retry_of":row["pending_reaction"]})),id])?;
+            Ok(queued)
+        })?;
+    require_run(store, profile, name, id, &row["definition_id"])?;
+    let reaction = if matches!(
+        value["reaction"].as_str(),
+        Some("processing" | "projection")
+    ) {
+        // The runtime revalidates all pinned input revisions after tool waits.
+        reaction(
+            store,
+            value,
+            evaluated,
+            &json!({"name":name,"run_id":id,"definition_id":row["definition_id"]}),
+        )?
+    } else if let Some(queued) = queued {
+        json!({"mapping":queued["mapping"],"plan_id":queued["plan_id"],"queued":queued["queued"],"complete":queued["complete"],"delivery_acknowledged":queued["delivery_acknowledged"]})
+    } else {
+        Value::Null
+    };
+    if value["reaction"] == "projection" && reaction["complete"] != true {
+        return Err(Error("projection_reaction_incomplete".into()));
+    }
+    if value["reaction"] == "event" && (changed || !row["pending_reaction"].is_null()) {
+        store.transaction(|db| {
+            crate::notifications::emit(db, profile, "watcher_changed", "info", name, &json!([id]))?;
+            Ok(())
+        })?;
+    }
+    finish(
+        store,
+        profile,
+        name,
+        row,
+        value,
+        id,
+        generation,
+        now,
+        json!({"run_id":id,"definition_id":row["definition_id"],"observations":evidence,"evaluation":comparison,"reaction":reaction,"complete":true}),
+    )
 }
 #[allow(clippy::too_many_arguments)]
 fn finish(

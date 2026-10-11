@@ -1,6 +1,7 @@
 //! GraphQL transport over the same native snapshot and catalog query functions.
 use crate::{
     Error, Result, Store,
+    api_catalog::Authority,
     migration::{SCHEMA_VERSION, reference, rows},
     query::{CatalogQuery, decode, rendition_conditions, view_sql},
     sql::scalar,
@@ -89,7 +90,52 @@ impl async_graphql::extensions::Extension for Budget {
             })?;
         }
         let introspection = info.is_for_introspection;
-        let result = next.run(ctx, info).await?;
+        let path = info.path_node.to_string_vec();
+        let nullable = !info.return_type.ends_with('!');
+        let error_path: Vec<async_graphql::PathSegment> = serde_json::from_value(
+            serde_json::to_value(info.path_node).expect("GraphQL response path"),
+        )
+        .expect("GraphQL response path segments");
+        {
+            let mut context = state.lock().expect("query context");
+            context.nullability.insert(path.clone(), nullable);
+            if context
+                .null_bubbles
+                .iter()
+                .any(|boundary| path.starts_with(boundary))
+            {
+                return Ok(None);
+            }
+        }
+        let mut result = match next.run(ctx, info).await {
+            Ok(value) => value,
+            Err(mut error) => {
+                if error.path.is_empty() {
+                    error.path = error_path;
+                }
+                if !nullable {
+                    let mut context = state.lock().expect("query context");
+                    let boundary = (0..path.len())
+                        .rev()
+                        .find(|length| context.nullability.get(&path[..*length]) == Some(&true))
+                        .map(|length| path[..length].to_vec())
+                        .unwrap_or_default();
+                    context.null_bubbles.push(boundary);
+                }
+                return Err(error);
+            }
+        };
+        // async-graphql's dynamic container collects child errors without
+        // applying the SDL non-null chain. Preserve graphql-core's nullable
+        // boundary and stop resolving sibling nodes after that boundary failed.
+        if state
+            .lock()
+            .expect("query context")
+            .null_bubbles
+            .contains(&path)
+        {
+            result = Some(GValue::Null);
+        }
         if introspection && let Some(value) = &result {
             let mut context = state.lock().expect("query context");
             let charged = match value {
@@ -117,8 +163,144 @@ struct Context {
     bytes: usize,
     aborted: Option<String>,
     undefined: Vec<String>,
+    authority: Option<Authority>,
+    nullability: BTreeMap<Vec<String>, bool>,
+    null_bubbles: Vec<Vec<String>>,
 }
 impl Context {
+    fn authorized_resolve(
+        &mut self,
+        parent: &str,
+        field: &str,
+        source: &Value,
+        args: &Value,
+    ) -> Result<Value> {
+        let Some(authority) = self.authority.as_ref() else {
+            return self.resolve(parent, field, source, args);
+        };
+        if !authority.operator("metadata:read") {
+            let allowed: Option<&[&str]> = match parent {
+                "Query" => Some(&[
+                    "items",
+                    "item",
+                    "files",
+                    "file",
+                    "associations",
+                    "relationships",
+                    "mappings",
+                    "catalogs",
+                    "profile",
+                    "schemaVersion",
+                    "mediaTypes",
+                    "fallbackPolicy",
+                    "components",
+                    "componentOccurrences",
+                    "fallbackResolutions",
+                ]),
+                "Component" => Some(&["id", "kind", "itemIds"]),
+                "ComponentOccurrence" => Some(&[
+                    "id",
+                    "componentId",
+                    "itemId",
+                    "fileId",
+                    "kind",
+                    "role",
+                    "language",
+                    "title",
+                    "codec",
+                    "defaultFlag",
+                    "forced",
+                    "commentary",
+                    "hearingImpaired",
+                    "visualImpaired",
+                    "storage",
+                    "locator",
+                    "revision",
+                    "current",
+                    "technicallyVerified",
+                    "conflicts",
+                ]),
+                "Item" => Some(&[
+                    "id",
+                    "kind",
+                    "title",
+                    "year",
+                    "metadata",
+                    "associations",
+                    "relationships",
+                    "mappings",
+                ]),
+                "File" => Some(&[
+                    "id",
+                    "size",
+                    "mtimeNs",
+                    "status",
+                    "associations",
+                    "mappings",
+                ]),
+                "Association" => Some(&[
+                    "id", "fileId", "itemId", "role", "part", "active", "item", "file",
+                ]),
+                "Relationship" => Some(&[
+                    "id", "sourceId", "targetId", "kind", "position", "active", "source", "target",
+                ]),
+                "Mapping" => Some(&[
+                    "id", "catalog", "path", "active", "itemId", "fileId", "item", "file",
+                ]),
+                "Catalog" => Some(&["id", "mappings"]),
+                _ => None,
+            };
+            if allowed.is_some_and(|allowed| !allowed.contains(&field)) {
+                return Err(Error("field is not authorized".into()));
+            }
+            if [
+                "hasRendition",
+                "missingRendition",
+                "curationStatus",
+                "tags",
+                "anyTags",
+                "notTags",
+                "descendants",
+            ]
+            .iter()
+            .any(|key| {
+                let value = &args[*key];
+                !value.is_null() && value != false && !value.as_array().is_some_and(Vec::is_empty)
+            }) {
+                return Err(Error("filter is not authorized".into()));
+            }
+        }
+        if parent == "Query"
+            && field == "fallbackPolicy"
+            && !authority.permits_fallback_policy(args["id"].as_str().unwrap_or(""))
+        {
+            return Err(Error("resource is not authorized".into()));
+        }
+        let scope = json!([parent, field, source.get("id").unwrap_or(&Value::Null)]);
+        let mut args = args.clone();
+        if !args["after"].is_null() && args["after"] != "" && args["after"] != 0 {
+            let cursor = args["after"]
+                .as_str()
+                .ok_or_else(|| Error("invalid_cursor".into()))?;
+            args["after"] = json!(authority.after(&scope, Some(cursor))?);
+        }
+        if parent == "Query" && field == "files" && args["unmapped"] != true {
+            args["catalog"] = Value::Null;
+        }
+        let mut result = self.resolve(parent, field, source, &args)?;
+        if let Some(cursor) = result["pageInfo"]["endCursor"]
+            .as_str()
+            .filter(|v| !v.is_empty())
+        {
+            let signed = self
+                .authority
+                .as_ref()
+                .expect("authorized context")
+                .cursor(&scope, cursor)?;
+            result["pageInfo"]["endCursor"] = json!(signed);
+        }
+        Ok(result)
+    }
     fn one(
         &self,
         table: &str,
@@ -521,14 +703,16 @@ impl Context {
                     };
                     id = format!("a.{column}");
                     columns = format!("a.*,a.{column} AS id");
-                    table = format!(
-                        "({}) a",
-                        view_sql(if field == "components" {
-                            "catalog_components"
-                        } else {
-                            "catalog_component_occurrences"
-                        })
-                    );
+                    let view = if field == "components" {
+                        "catalog_components"
+                    } else {
+                        "catalog_component_occurrences"
+                    };
+                    table = if self.authority.is_some() {
+                        format!("{view} a")
+                    } else {
+                        format!("({}) a", view_sql(view))
+                    };
                     clauses.push("a.profile=?".into());
                     values.push(SqlValue::Text(self.profile.clone()));
                     for (key, column) in [
@@ -764,6 +948,16 @@ impl Context {
                 }
                 "contentSearch" => self.content_search(args)?,
                 "fallbackResolutions" => {
+                    if self.authority.as_ref().is_some_and(|authority| {
+                        !authority.permits_catalog(args["catalog"].as_str().unwrap_or(""))
+                    }) {
+                        return Err(Error("not_found".into()));
+                    }
+                    let restriction = if self.authority.is_some() {
+                        " AND e.item_id IN (SELECT id FROM items) AND (e.file_id IS NULL OR e.file_id IN (SELECT id FROM files))"
+                    } else {
+                        ""
+                    };
                     let first = args["first"]
                         .as_i64()
                         .filter(|n| (1..=1000).contains(n))
@@ -772,7 +966,9 @@ impl Context {
                         })?;
                     let mut records = rows(
                         &self.store.db,
-                        "SELECT e.id,e.item_id,e.file_id,e.revision,e.policy_id,e.state,e.tier,e.generation,e.published_generation FROM fallback_entries e WHERE e.profile=? AND e.catalog=? AND e.active=1 AND e.id>? ORDER BY e.id LIMIT ?",
+                        &format!(
+                            "SELECT e.id,e.item_id,e.file_id,e.revision,e.policy_id,e.state,e.tier,e.generation,e.published_generation FROM fallback_entries e WHERE e.profile=? AND e.catalog=? AND e.active=1 AND e.id>?{restriction} ORDER BY e.id LIMIT ?"
+                        ),
                         &[
                             SqlValue::Text(self.profile.clone()),
                             scalar(&args["catalog"])?,
@@ -935,14 +1131,16 @@ fn input(value: async_graphql_parser::types::InputValueDefinition) -> InputValue
     }
     input
 }
-fn schema() -> Result<&'static Schema> {
+fn schema(http: bool) -> Result<&'static Schema> {
     static SCHEMA: OnceLock<std::result::Result<Schema, String>> = OnceLock::new();
-    SCHEMA
-        .get_or_init(|| build_schema().map_err(|e| e.to_string()))
+    static HTTP_SCHEMA: OnceLock<std::result::Result<Schema, String>> = OnceLock::new();
+    let schema = if http { &HTTP_SCHEMA } else { &SCHEMA };
+    schema
+        .get_or_init(|| build_schema(http).map_err(|e| e.to_string()))
         .as_ref()
         .map_err(|e| Error(e.clone()))
 }
-fn build_schema() -> Result<Schema> {
+fn build_schema(http: bool) -> Result<Schema> {
     let document = parse_schema(SDL).map_err(|e| Error(e.to_string()))?;
     let mut object_fields: BTreeMap<
         String,
@@ -1024,6 +1222,9 @@ fn build_schema() -> Result<Schema> {
         }
         for field in fields {
             let field = field.node;
+            if http && parent == "Query" && field.name.node == "workInbox" {
+                continue;
+            }
             let name = field.name.node.to_string();
             let parent = parent.clone();
             let field_name = name.clone();
@@ -1072,32 +1273,48 @@ fn build_schema() -> Result<Schema> {
                         }
                         args.insert(key.to_string(), value);
                     }
-                    let result =
-                        match state.resolve(&parent, &name, &source, &Value::Object(args)) {
-                            Ok(result) => result,
-                            Err(error) => {
-                                let error = async_graphql::Error::new(error.to_string())
-                                    .extend_with(|_, extensions| {
-                                        extensions.set(
-                                            "code",
-                                            if state.aborted.is_some()
-                                                || Instant::now() > state.deadline
-                                            {
-                                                "LIMIT_EXCEEDED"
-                                            } else {
-                                                "QUERY_ERROR"
-                                            },
-                                        )
-                                    });
-                                if !ty.nullable {
-                                    return Err(error);
-                                }
-                                ctx.add_error(
-                                    ctx.set_error_path(error.into_server_error(ctx.item.pos)),
-                                );
-                                return Ok(None);
+                    let result = match state.authorized_resolve(
+                        &parent,
+                        &name,
+                        &source,
+                        &Value::Object(args),
+                    ) {
+                        Ok(result) => result,
+                        Err(error) => {
+                            let message = error.to_string();
+                            let mut error = async_graphql::Error::new(&message);
+                            if state.authority.is_none() || message != "invalid_cursor" {
+                                error = error.extend_with(|_, extensions| {
+                                    extensions.set(
+                                        "code",
+                                        if state.aborted.is_some()
+                                            || Instant::now() > state.deadline
+                                        {
+                                            "LIMIT_EXCEEDED"
+                                        } else if state.authority.is_some()
+                                            && [
+                                                "field is not authorized",
+                                                "filter is not authorized",
+                                                "resource is not authorized",
+                                            ]
+                                            .contains(&message.as_str())
+                                        {
+                                            "FORBIDDEN"
+                                        } else {
+                                            "QUERY_ERROR"
+                                        },
+                                    )
+                                });
                             }
-                        };
+                            if !ty.nullable {
+                                return Err(error);
+                            }
+                            ctx.add_error(
+                                ctx.set_error_path(error.into_server_error(ctx.item.pos)),
+                            );
+                            return Ok(None);
+                        }
+                    };
                     if result.is_null() {
                         return Ok(None);
                     }
@@ -1321,7 +1538,43 @@ pub fn execute_store(
     operation: Option<&str>,
     timeout_ms: u64,
 ) -> Result<(Store, Value)> {
-    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+    execute_context(
+        store, None, document, profile, variables, operation, timeout_ms,
+    )
+}
+
+/// Execute only against the snapshot whose authorized TEMP views minted authority.
+/// The returned store remains the same owned snapshot for composed evaluation.
+pub fn execute_authorized_store(
+    store: Store,
+    authority: Authority,
+    document: &str,
+    variables: Value,
+    operation: Option<&str>,
+    timeout_ms: u64,
+) -> Result<(Store, Value)> {
+    authority.check_store(&store)?;
+    authority.require("metadata:read")?;
+    let profile = authority.profile().to_owned();
+    execute_context(
+        store,
+        Some(authority),
+        document,
+        &profile,
+        variables,
+        operation,
+        timeout_ms,
+    )
+}
+
+/// Frozen GraphQL validates the document before AuthorizedContext creates TEMP
+/// scope. Package sessions must not materialize scope for invalid documents.
+pub(crate) fn validate_before_context(
+    document: &str,
+    variables: &Value,
+    timeout_ms: u64,
+    http: bool,
+) -> Result<Option<Value>> {
     if !(1..=60000).contains(&timeout_ms) {
         return Err(Error("timeout-ms must be between 1 and 60000".into()));
     }
@@ -1331,28 +1584,41 @@ pub fn execute_store(
     if !variables.is_object() {
         return Err(Error("variables must be a JSON object".into()));
     }
-    if encode(&variables).len() > 131072 {
+    if encode(variables).len() > 131072 {
         return Err(Error("variables exceed input budget".into()));
     }
-    CatalogQuery::new(&store, profile)?;
     if let Some(error) = crate::document::token_limit(document, 4000) {
-        return Ok((store, error));
+        return Ok(Some(error));
     }
     let ast = match parse_query(document) {
         Ok(ast) => ast,
-        Err(error) => {
-            return Ok((store, crate::validation::parse_error(document, &error)));
-        }
+        Err(error) => return Ok(Some(crate::validation::parse_error(document, &error))),
     };
     if let Err(error) = check_document(&ast) {
-        return Ok((
-            store,
+        return Ok(Some(
             json!({"data":null,"errors":[{"message":error.to_string()}]}),
         ));
     }
-    if let Some(error) = crate::validation::validate(&ast) {
+    Ok(crate::validation::validate_for(&ast, http))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_context(
+    store: Store,
+    authority: Option<Authority>,
+    document: &str,
+    profile: &str,
+    variables: Value,
+    operation: Option<&str>,
+    timeout_ms: u64,
+) -> Result<(Store, Value)> {
+    let http = authority.is_some();
+    let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+    if let Some(error) = validate_before_context(document, &variables, timeout_ms, http)? {
         return Ok((store, error));
     }
+    CatalogQuery::new(&store, profile)?;
+    let ast = parse_query(document).map_err(|error| Error(error.to_string()))?;
     let query_only: bool = store
         .db
         .pragma_query_value(None, "query_only", |row| row.get(0))?;
@@ -1369,6 +1635,9 @@ pub fn execute_store(
         fields: 0,
         bytes: 0,
         aborted: None,
+        authority,
+        nullability: BTreeMap::new(),
+        null_bubbles: Vec::new(),
         undefined: ast
             .operations
             .iter()
@@ -1417,7 +1686,7 @@ pub fn execute_store(
         request = request.operation_name(operation);
     }
     request.set_parsed_query(ast.clone());
-    let response = futures::executor::block_on(schema()?.execute(request));
+    let response = futures::executor::block_on(schema(http)?.execute(request));
     let mut result = serde_json::to_value(response)?;
     let mut coercion_error = false;
     if result["errors"][0]["message"] == "Operation name required in request." {
@@ -1449,7 +1718,7 @@ pub fn execute_store(
                         "Cannot query field '{}' on type '{}'.{}",
                         words[1],
                         words[3],
-                        crate::introspection::field_suggestions(words[3], words[1])
+                        crate::introspection::field_suggestions_for(words[3], words[1], http)
                     ));
                 }
             }
@@ -1482,8 +1751,16 @@ pub fn execute_store(
         .lock()
         .map_err(|_| Error("query context poisoned".into()))?;
     let result = (|| -> Result<Value> {
-        let introspection =
-            crate::introspection::apply(&ast, operation, &variables, &mut result, &mut |value| {
+        if state.null_bubbles.iter().any(Vec::is_empty) {
+            result["data"] = Value::Null;
+        }
+        let introspection = crate::introspection::apply_for(
+            &ast,
+            operation,
+            &variables,
+            &mut result,
+            http,
+            &mut |value| {
                 state.fields += 1;
                 if state.fields > 20000 {
                     state.aborted = Some("query field budget exceeded".into());
@@ -1496,7 +1773,8 @@ pub fn execute_store(
                     state.check()?;
                 }
                 Ok(())
-            });
+            },
+        );
         if let Err(error) = introspection
             && state.aborted.is_none()
         {
@@ -1536,4 +1814,347 @@ pub fn execute_store(
         .into_inner()
         .map_err(|_| Error("query context poisoned".into()))?;
     Ok((context.store, result?))
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use crate::{access::Access, selection::Evaluation};
+    use rusqlite::params;
+
+    pub(crate) fn fixture(grant: Value) -> (tempfile::TempDir, Access) {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("catalog.sqlite3");
+        crate::migration::initialize(&path).unwrap();
+        let store = Store::open(&path, true, false).unwrap();
+        store.transaction(|db| {
+            db.execute_batch(r#"
+                INSERT INTO locations VALUES ('media');
+                INSERT INTO files VALUES ('fa','media','private-a.bin'),('fb','media','private-b.bin'),('fh','media','hidden.bin');
+                INSERT INTO items VALUES ('a','movie','{"title":"Allowed A","year":2026,"secret":"DO_NOT_DISCLOSE"}'),('b','movie','{"title":"Allowed B","year":2025,"secret":"DO_NOT_DISCLOSE"}'),('hidden','movie','{"title":"Hidden title"}');
+                INSERT INTO item_files(id,file_id,item_id,role,origin) VALUES ('aa','fa','a','primary','explicit'),('ab','fb','b','primary','explicit'),('ah','fh','hidden','primary','explicit'),('cross','fh','a','secondary','explicit');
+                INSERT INTO item_relationships(id,source_id,target_id,kind) VALUES ('ra','a','b','related'),('rh','a','hidden','related');
+                INSERT INTO identities VALUES ('test','visible','a'),('test','hidden','hidden');
+                INSERT INTO catalogs VALUES ('allowed'),('hidden');
+                INSERT INTO mappings(id,catalog,file_id,item_id,path) VALUES ('ma','allowed','fa','a','a.bin'),('mh','hidden','fh','hidden','hidden.bin');
+                INSERT INTO media_components VALUES ('ca','audio'),('ch','audio');
+                INSERT INTO component_occurrences(id,component_id,profile,file_id,association_id,item_id,revision,snapshot,association_evidence,item_evidence,storage,locator) VALUES ('oa','ca','default','fa','aa','a','r','{}','{"metadata":"{}"}','{}','external','{}'),('oh','ch','default','fh','ah','hidden','r','{}','{"metadata":"{}"}','{}','external','{}');
+                INSERT INTO api_principals(id,profile) VALUES ('test','default');
+            "#)?;
+            db.execute("INSERT INTO api_grants(id,principal,definition) VALUES ('grant','test',?)", [encode(&grant)])?;
+            db.execute("INSERT INTO api_tokens(id,principal,digest,grants,expires) VALUES ('token','test',?,'[\"grant\"]',?)", params![catabolic_core::sha256("token.secret"),crate::notifications::now()+1000.0])?;
+            for (id, definition) in [
+                ("selection", json!({"mode":"selection","selection":{"language":"graphql","query":"query($after:String) { items(first:1,after:$after) { nodes { id } pageInfo { endCursor hasNextPage } } }"}})),
+                ("document", json!({"mode":"document","selection":{"language":"graphql","query":"{ items { nodes { id metadata } } }"}})),
+                ("report", json!({"mode":"rows","selection":{"language":"sql","query":"SELECT item_id FROM catalog_items ORDER BY item_id"}})),
+                ("unapproved", json!({"mode":"rows","selection":{"language":"sql","query":"SELECT item_id FROM catalog_items ORDER BY item_id"}})),
+            ] {
+                db.execute("INSERT INTO saved_queries(id,profile,name,revision,definition,digest) VALUES (?,'default',?,1,?,?)",params![id,id,encode(&definition),id])?;
+            }
+            db.execute_batch(r#"
+                INSERT INTO fallback_policies VALUES ('policy','default','test',1,'{"fallbacks":[{"name":"main"}]}','policy');
+                INSERT INTO fallback_bindings(profile,catalog,policy_id,query_id,layout) VALUES ('default','allowed','policy','selection','{}');
+                INSERT INTO fallback_entries(id,profile,catalog,item_id,role,policy_id,file_id,state,generation,published_generation) VALUES ('0hidden','default','allowed','hidden','primary','policy','fh','ready',1,1),('1hidden-file','default','allowed','a','primary','policy','fh','ready',1,1),('2allowed','default','allowed','a','primary','policy','fa','ready',1,1),('3allowed-null','default','allowed','b','primary','policy',NULL,'unavailable',1,1);
+            "#)?;
+            Ok(())
+        }).unwrap();
+        (root, Access::authenticate(store, "token.secret").unwrap())
+    }
+    pub(crate) fn limited() -> Value {
+        json!({"actions":["metadata:read","component:read"],"item_ids":["a","b"],"file_ids":["fa","fb"],"metadata_fields":["title","year"],"projection_ids":["allowed"],"occurrence_ids":["oa"],"fallback_policy_ids":["policy"],"report_ids":["report"]})
+    }
+    fn admitted(mut access: Access) -> (Store, Authority) {
+        let authority = crate::api_catalog::install(&mut access).unwrap();
+        (access.into_store(), authority)
+    }
+    fn query(
+        store: Store,
+        authority: &Authority,
+        document: &str,
+        variables: Value,
+    ) -> (Store, Value) {
+        execute_authorized_store(store, authority.clone(), document, variables, None, 5000).unwrap()
+    }
+    fn no_errors(result: &Value) {
+        assert!(result.get("errors").is_none(), "{result}");
+    }
+    #[test]
+    fn http_redaction_search_and_nested_joins_are_admitted_first() {
+        let (_root, access) = fixture(limited());
+        let (store, authority) = admitted(access);
+        let (store, result) = query(
+            store,
+            &authority,
+            r#"{ items { nodes { id title metadata associations { nodes { id file { id } } } relationships { nodes { id target { id } } } } pageInfo { hasNextPage } } files { nodes { id } } item(identity:"test=hidden") { id } }"#,
+            json!({}),
+        );
+        no_errors(&result);
+        assert_eq!(
+            result["data"]["items"]["nodes"].as_array().unwrap().len(),
+            2
+        );
+        assert_eq!(
+            result["data"]["files"]["nodes"].as_array().unwrap().len(),
+            2
+        );
+        assert!(result["data"]["item"].is_null());
+        for denied in ["DO_NOT_DISCLOSE", "hidden", "cross", "private-a"] {
+            assert!(!encode(&result).contains(denied), "{result}");
+        }
+        let (_, result) = query(
+            store,
+            &authority,
+            r#"{ items(search:"DO_NOT_DISCLOSE") { nodes { id } } hidden:items(metadata:["secret=\"DO_NOT_DISCLOSE\""]) { nodes { id } } }"#,
+            json!({}),
+        );
+        no_errors(&result);
+        assert_eq!(result["data"]["items"]["nodes"], json!([]));
+        assert_eq!(result["data"]["hidden"]["nodes"], json!([]));
+    }
+    #[test]
+    fn http_fields_and_evidence_filters_fail_before_disclosure() {
+        for document in [
+            "{ files { nodes { id sourcePath } } }",
+            "{ item(id:\"a\") { identities { namespace } } }",
+            "{ items(tags:[\"private\"]) { nodes { id } } }",
+            "{ items(hasRendition:{}) { nodes { id } } }",
+            "{ items(descendants:true) { nodes { id } } }",
+            "{ contentSearch(text:\"private\") }",
+            "{ fallbackPolicy(id:\"not-granted\") { id } }",
+        ] {
+            let (_root, access) = fixture(limited());
+            let (store, authority) = admitted(access);
+            let (_, result) = query(store, &authority, document, json!({}));
+            assert_eq!(
+                result["errors"][0]["extensions"]["code"], "FORBIDDEN",
+                "{result}"
+            );
+            assert!(!encode(&result).contains("private-a.bin"));
+        }
+    }
+    #[test]
+    fn http_signed_cursors_are_scope_and_authority_bound() {
+        let (_root, access) = fixture(limited());
+        let (store, authority) = admitted(access);
+        let document = "query($after:String){ items(first:1,after:$after) { nodes { id } pageInfo { endCursor hasNextPage } } }";
+        let (store, first) = query(store, &authority, document, json!({}));
+        no_errors(&first);
+        let cursor = first["data"]["items"]["pageInfo"]["endCursor"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let (store, second) = query(store, &authority, document, json!({"after":cursor}));
+        no_errors(&second);
+        assert_eq!(second["data"]["items"]["nodes"][0]["id"], "b");
+        let (store, wrong) = query(
+            store,
+            &authority,
+            "query($after:String){ files(first:1,after:$after) { nodes { id } } }",
+            json!({"after":cursor}),
+        );
+        assert_eq!(wrong["errors"][0]["message"], "invalid_cursor");
+        assert!(wrong["errors"][0].get("extensions").is_none());
+        let inner = authority
+            .after(&json!(["Query", "items", null]), Some(&cursor))
+            .unwrap();
+        let (store, unsigned) = query(store, &authority, document, json!({"after":inner}));
+        assert_eq!(unsigned["errors"][0]["message"], "invalid_cursor");
+        let mut tampered = cursor.into_bytes();
+        tampered[0] = if tampered[0] == b'A' { b'B' } else { b'A' };
+        let (_, bad) = query(
+            store,
+            &authority,
+            document,
+            json!({"after":String::from_utf8(tampered).unwrap()}),
+        );
+        assert_eq!(bad["errors"][0]["message"], "invalid_cursor");
+    }
+    #[test]
+    fn http_nonnull_private_fields_bubble_through_lists_and_aliases() {
+        for document in [
+            "{componentOccurrences{nodes{technical provenance}}}",
+            "{alias:componentOccurrences{nodes{id private:technical}}}",
+            "{alias:componentOccurrences{nodes{...Private}}} fragment Private on ComponentOccurrence {id technical}",
+        ] {
+            let (_root, access) = fixture(limited());
+            let (store, authority) = admitted(access);
+            let (_, result) = query(store, &authority, document, json!({}));
+            let key = if document.contains("alias:") {
+                "alias"
+            } else {
+                "componentOccurrences"
+            };
+            assert_eq!(result["data"], json!({key:Value::Null}), "{result}");
+            assert_eq!(result["errors"].as_array().unwrap().len(), 1, "{result}");
+            assert_eq!(result["errors"][0]["extensions"]["code"], "FORBIDDEN");
+            assert_eq!(result["errors"][0]["path"][0], key);
+            assert_eq!(result["errors"][0]["path"][2], 0);
+        }
+    }
+    #[test]
+    fn http_components_and_published_resolutions_filter_before_limit() {
+        let (_root, access) = fixture(limited());
+        let (store, authority) = admitted(access);
+        let (store, result) = query(
+            store,
+            &authority,
+            "{ components(first:1) { nodes { id itemIds } pageInfo { hasNextPage } } componentOccurrences(first:1) { nodes { id fileId itemId } pageInfo { hasNextPage } } fallbackPolicy(id:\"policy\") { id tiers } fallbackResolutions(catalog:\"allowed\",first:1) { nodes { id fileId } pageInfo { endCursor hasNextPage } } }",
+            json!({}),
+        );
+        no_errors(&result);
+        assert_eq!(
+            result["data"]["components"]["nodes"],
+            json!([{"id":"ca","itemIds":["a"]}])
+        );
+        assert_eq!(
+            result["data"]["components"]["pageInfo"]["hasNextPage"],
+            false
+        );
+        assert_eq!(
+            result["data"]["componentOccurrences"]["nodes"][0]["id"],
+            "oa"
+        );
+        assert_eq!(
+            result["data"]["componentOccurrences"]["pageInfo"]["hasNextPage"],
+            false
+        );
+        assert_eq!(
+            result["data"]["fallbackResolutions"]["nodes"][0]["id"],
+            "2allowed"
+        );
+        let cursor = result["data"]["fallbackResolutions"]["pageInfo"]["endCursor"].clone();
+        let (store, next) = query(
+            store,
+            &authority,
+            "query($after:String){fallbackResolutions(catalog:\"allowed\",first:1,after:$after){nodes{id fileId} pageInfo{hasNextPage}}}",
+            json!({"after":cursor}),
+        );
+        no_errors(&next);
+        assert_eq!(
+            next["data"]["fallbackResolutions"]["nodes"][0]["id"],
+            "3allowed-null"
+        );
+        let (_, denied) = query(
+            store,
+            &authority,
+            "{fallbackResolutions(catalog:\"hidden\"){nodes{id}}}",
+            json!({}),
+        );
+        assert_eq!(denied["errors"][0]["message"], "not_found");
+    }
+    #[test]
+    fn http_operator_schema_omits_local_inbox_and_selects_operation() {
+        let (_root, access) = fixture(json!({"actions":["*"],"operator":true}));
+        let (store, authority) = admitted(access);
+        let (store, result) = execute_authorized_store(
+            store,
+            authority.clone(),
+            "query A { profile } query B { schemaVersion }",
+            json!({}),
+            Some("B"),
+            5000,
+        )
+        .unwrap();
+        no_errors(&result);
+        assert_eq!(result["data"], json!({"schemaVersion":32}));
+        let (store, result) = query(
+            store,
+            &authority,
+            "{__type(name:\"Query\"){fields{name}}}",
+            json!({}),
+        );
+        no_errors(&result);
+        assert!(!encode(&result).contains("workInbox"));
+        let (store, denied) = query(store, &authority, "{workInbox{nodes}}", json!({}));
+        assert_eq!(
+            denied["errors"][0]["message"],
+            "Cannot query field 'workInbox' on type 'Query'. Did you mean 'worklog'?"
+        );
+        let (_, local) = execute_store(
+            store,
+            "{__type(name:\"Query\"){fields{name}}}",
+            "default",
+            json!({}),
+            None,
+            5000,
+        )
+        .unwrap();
+        no_errors(&local);
+        assert!(encode(&local).contains("workInbox"));
+    }
+    #[test]
+    fn http_evaluation_requires_snapshot_authority_and_preserves_bootstrap_denial() {
+        let (_root, access) = fixture(limited());
+        let (store, authority) = admitted(access);
+        let other = Store::open(&store.path, false, false).unwrap();
+        assert!(
+            execute_authorized_store(other, authority.clone(), "{profile}", json!({}), None, 5000)
+                .is_err()
+        );
+        let mut evaluation = Evaluation::authorized(store, authority, 5000, 10000).unwrap();
+        let selected = evaluation.select(&json!({"query_id":"selection"})).unwrap();
+        assert_eq!(selected.ids, BTreeSet::from(["a".into(), "b".into()]));
+        let document = evaluation.run("document", 100).unwrap();
+        no_errors(&document);
+        assert!(!encode(&document).contains("secret"));
+        assert!(
+            evaluation
+                .select(&json!({"language":"sql","query":"SELECT item_id FROM catalog_items"}))
+                .is_err()
+        );
+        assert!(evaluation.run("unapproved", 100).is_err());
+        let report = evaluation.run("report", 100).unwrap();
+        assert_eq!(report["rows"], json!([["a"], ["b"], ["hidden"]]));
+        assert!(
+            evaluation
+                .select(&json!({"query_id":"selection","profile":"other"}))
+                .is_err()
+        );
+        let store = evaluation.into_store();
+        let mut bootstrap = Evaluation::new(store, "default", 5000, 10000, true).unwrap();
+        assert_eq!(
+            bootstrap.run("document", 100).unwrap_err().0,
+            "GraphQL HTTP evaluation requires authorization context"
+        );
+    }
+    #[test]
+    fn http_authority_rejects_same_connection_snapshot_changes() {
+        let (_root, access) = fixture(limited());
+        let (store, authority) = admitted(access);
+        store.db.pragma_update(None, "query_only", false).unwrap();
+        store
+            .db
+            .execute("UPDATE main.items SET metadata='{}' WHERE id='a'", [])
+            .unwrap();
+        assert!(
+            execute_authorized_store(
+                store,
+                authority,
+                "{items{nodes{id}}}",
+                json!({}),
+                None,
+                5000
+            )
+            .is_err()
+        );
+    }
+    #[test]
+    fn http_cursor_replay_by_another_principal_is_rejected() {
+        let (root, access) = fixture(limited());
+        let (store, authority) = admitted(access);
+        let document = "query($after:String){items(first:1,after:$after){nodes{id} pageInfo{endCursor hasNextPage}}}";
+        let (store, result) = query(store, &authority, document, json!({}));
+        let cursor = result["data"]["items"]["pageInfo"]["endCursor"].clone();
+        drop(store);
+        let store = Store::open(&root.path().join("catalog.sqlite3"), true, false).unwrap();
+        store.transaction(|db| {
+            db.execute("INSERT INTO api_principals(id,profile) VALUES ('other','default')", [])?;
+            db.execute("INSERT INTO api_grants(id,principal,definition) VALUES ('other-grant','other',?)", [encode(&limited())])?;
+            db.execute("INSERT INTO api_tokens(id,principal,digest,grants,expires) VALUES ('other-token','other',?,'[\"other-grant\"]',?)", params![catabolic_core::sha256("other-token.secret"),crate::notifications::now()+1000.0])?;
+            Ok(())
+        }).unwrap();
+        let (store, other) = admitted(Access::authenticate(store, "other-token.secret").unwrap());
+        let (_, result) = query(store, &other, document, json!({"after":cursor}));
+        assert_eq!(result["errors"][0]["message"], "invalid_cursor");
+    }
 }

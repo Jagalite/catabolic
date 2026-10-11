@@ -8,7 +8,14 @@ version = "0.2.0"
 requires-python = ">=3.11"
 description = "Opt-in native storage and query engine for Catabolic's Rust migration"
 
+[project.scripts]
+catabolic-native = "catabolic_native:main"
+
 [tool.maturin]
 python-source = "python"
 module-name = "catabolic_native._native"
 features = ["pyo3/extension-module"]
+include = [
+    { path = "catabolic_native/bin/catabolic-native", format = "wheel" },
+    { path = "catabolic_native/native-helper.json", format = "wheel" },
+]

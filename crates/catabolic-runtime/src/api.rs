@@ -39,6 +39,23 @@ fn count(request: &Value, key: &str, default: usize) -> Result<usize> {
         .transpose()
         .map(|v| v.unwrap_or(default))
 }
+/// Import-specific cancellable boundary shared by the CLI signal bridge and
+/// Python signal polling. No implicit engine fallback follows admission.
+pub fn execute_import_with_poll(
+    path: &Path,
+    profile: &str,
+    request: &Value,
+    cancel: &AtomicBool,
+    poll: &mut dyn FnMut(),
+) -> Result<Value> {
+    if !request.is_object() {
+        return Err(Error("operation request must be a JSON object".into()));
+    }
+    catabolic_core::validate_finite(request)?;
+    let mut store = Store::open(path, request["apply"] == true, false)?;
+    catabolic_store::mutation::profile(&store, profile)?;
+    crate::imports::execute_with_poll(&mut store, profile, request, cancel, poll)
+}
 
 pub fn execute(
     path: &Path,
@@ -51,6 +68,32 @@ pub fn execute(
         return Err(Error("operation request must be a JSON object".into()));
     }
     catabolic_core::validate_finite(request)?;
+    if surface == "target" {
+        return match operation {
+            "describe" | "list" => catabolic_store::targets::describe(request["target"].as_str()),
+            "definitions" => Ok(catabolic_store::targets::definitions()),
+            _ => Err(Error("unknown target operation".into())),
+        };
+    }
+    if surface == "export" && operation == "build" {
+        return catabolic_store::exports::build(
+            &request["document"],
+            required(request, "format")?,
+            request["base_url"].as_str(),
+        );
+    }
+    if surface == "rendition-worker" {
+        return match operation {
+            "tick" => {
+                let capabilities = match request.get("capabilities") {
+                    Some(value) => value.clone(),
+                    None => crate::rendering::capabilities()?,
+                };
+                crate::renditions::tick(path, profile, &capabilities)
+            }
+            _ => Err(Error("unknown rendition worker operation".into())),
+        };
+    }
     let writable = match (surface, operation) {
         ("definitions", operation)
             if operation.ends_with("-get")
@@ -79,6 +122,11 @@ pub fn execute(
         | ("output", "get" | "definition-get") => false,
         ("programs", "export" | "validate") | ("fallback-policy", "get" | "list") => false,
         ("plans", _) => false,
+        ("workflow", "get" | "checks" | "log")
+        | ("layout", "preview" | "prepare")
+        | ("catalog-refresh", "pending")
+        | ("rules", "preview" | "statistics")
+        | ("rendition-request", "status" | "capabilities") => false,
         (
             "consumers",
             "connections" | "bindings" | "status" | "attempts" | "events" | "creations"
@@ -89,10 +137,28 @@ pub fn execute(
             request["apply"] == true || request["reconcile"] == true
         }
         ("component", "extract") => request["apply"] == true,
+        ("import", _) => request["apply"] == true,
         _ => true,
     };
     let mut store = Store::open(path, writable, false)?;
     catabolic_store::mutation::profile(&store, profile)?;
+    if surface == "fallback" && operation == "resolve" {
+        return crate::fallback::resolve(store, profile, request);
+    }
+    if surface == "fallback" && matches!(operation, "bind" | "plan" | "run") {
+        return crate::fallback::projection(store, profile, operation, request);
+    }
+    if surface == "component" && operation == "package" {
+        return crate::component_packaging::package(
+            store,
+            profile,
+            required(request, "policy_id")?,
+            required(request, "item_id")?,
+            required(request, "location")?,
+            request["apply"] == true,
+            request["expected_plan"].as_str(),
+        );
+    }
     if surface == "plans" {
         let mut evaluation =
             catabolic_store::selection::Evaluation::new(store, profile, 60_000, 100_000, false)?;
@@ -120,7 +186,10 @@ pub fn execute(
         }
         return Ok(report);
     }
-    if surface == "webhooks" || surface == "content" || surface == "playback" {
+    if matches!(
+        surface,
+        "webhooks" | "content" | "playback" | "rendition-request"
+    ) {
         let environment = request["token_env"]
             .as_str()
             .unwrap_or("CATABOLIC_API_TOKEN");
@@ -130,7 +199,9 @@ pub fn execute(
         if access.profile() != profile {
             return Err(Error("unauthorized".into()));
         }
-        return if surface == "playback" {
+        return if surface == "rendition-request" {
+            catabolic_store::rendition_mutation::execute(&mut access, operation, request)
+        } else if surface == "playback" {
             crate::playback::execute(&mut access, operation, request)
         } else if surface == "content" {
             catabolic_store::content_access::execute(&mut access, operation, request)
@@ -142,7 +213,22 @@ pub fn execute(
         return catabolic_store::http_mappings::execute(store, profile, operation, request);
     }
     let mut result = match surface {
+        "workflow" => catabolic_store::item_workflow::dispatch(&store, profile, operation, request),
+        "import" if operation == "catalog" => crate::imports::execute(&mut store, profile, request),
+        "rules" => crate::rules::dispatch(&mut store, profile, operation, request),
+        "layout" => catabolic_store::layout_mutation::dispatch(&store, profile, operation, request),
+        "catalog-refresh" => {
+            crate::catalog_refresh::execute(&mut store, profile, operation, request)
+        }
+        "export" if operation == "publish" => catabolic_store::export_bundle::publish(
+            &store,
+            profile,
+            &request["document"],
+            &request["export"],
+            Path::new(required(request, "output")?),
+        ),
         "playback-worker" => crate::playback::worker(&mut store, profile, operation, request),
+        "api-worker" => crate::http_worker::execute(&mut store, profile, operation, request),
         "component" => match operation {
             "get" => catabolic_store::component_mutation::get(
                 &store,
@@ -279,7 +365,7 @@ pub fn execute(
             }
             _ => Err(Error("unknown receipt operation".into())),
         },
-        "watcher" => catabolic_store::watcher::execute(&store, profile, operation, request),
+        "watcher" => crate::watchers::execute(&mut store, profile, operation, request),
         "artifact" => match operation {
             "bind" => catabolic_store::artifact_mutation::bind(
                 &store,
@@ -299,6 +385,17 @@ pub fn execute(
             }
             "get" => {
                 catabolic_store::artifact_mutation::get(&store, profile, required(request, "id")?)
+            }
+            "enqueue" if request.get("source_lineage_mode").is_some() => {
+                crate::artifacts::enqueue_lineage(
+                    &mut store,
+                    profile,
+                    required(request, "file_id")?,
+                    required(request, "recipe_id")?,
+                    required(request, "location")?,
+                    required(request, "item_id")?,
+                    required(request, "source_lineage_mode")?,
+                )
             }
             "enqueue" => crate::artifacts::enqueue(
                 &mut store,
@@ -379,10 +476,14 @@ pub fn execute(
         "definitions" => {
             catabolic_store::definitions::dispatch(&store, profile, operation, request)
         }
-        "observe" => catabolic_store::observation::execute(&store, profile, operation, request),
-        "outputs" => {
-            catabolic_store::filesystem_mutation::execute(&store, profile, operation, request)
-        }
+        "observe" => crate::observation::execute(&mut store, profile, operation, request),
+        "outputs" => catabolic_store::filesystem_mutation::execute_mut(
+            &mut store,
+            profile,
+            operation,
+            request,
+            &mut crate::fallback::probe,
+        ),
         "notify" if matches!(operation, "drain" | "run") => {
             let limit = request
                 .get("limit")
@@ -435,7 +536,14 @@ pub fn execute(
     if writable
         && matches!(
             surface,
-            "outputs" | "artifact" | "receipt" | "processor" | "media"
+            "outputs"
+                | "artifact"
+                | "receipt"
+                | "processor"
+                | "media"
+                | "rules"
+                | "catalog-refresh"
+                | "watcher"
         )
     {
         crate::consumers::after_publication(&mut store, profile, &mut result)?;

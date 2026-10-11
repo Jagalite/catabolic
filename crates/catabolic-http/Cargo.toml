@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+[package]
+name = "catabolic-http"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+[dependencies]
+catabolic-core.workspace = true
+catabolic-store.workspace = true
+catabolic-runtime.workspace = true
+serde_json.workspace = true
+futures.workspace = true
+uuid.workspace = true
+axum.workspace = true
+tokio.workspace = true
+form_urlencoded.workspace = true
+rusqlite.workspace = true
+[lints]
+workspace = true

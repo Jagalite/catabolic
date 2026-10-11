@@ -15,6 +15,11 @@ use std::{
 
 pub const RETAINED: &str = ".catabolic-retained";
 pub const WARNING: &str = "Hardlinks share source data and permissions. Retired links are retained, never automatically purged.";
+pub const RETIREMENT_RACE_GATE: &str = "hardlink retirement/replacement/removal is blocked: concurrent foreign-leaf relocation safety is not yet qualified";
+pub(crate) fn retirement_allowed(kind: &str, args: &Value) -> bool {
+    !matches!(kind, "hard_replace" | "hard_remove")
+        || (cfg!(debug_assertions) && args["disposable_fixture"] == true)
+}
 fn field<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
     value[key]
         .as_str()
@@ -519,6 +524,9 @@ fn execute_with(
     let catalog = field(op, "catalog")?;
     let path = field(op, "path")?;
     let kind = field(op, "kind")?;
+    if !retirement_allowed(kind, args) {
+        return Err(Error(RETIREMENT_RACE_GATE.into()));
+    }
     let output = observation::binding(store, profile, "output", catalog)?;
     let (root, _) = observation::checked_root(store, profile, &output)?;
     if fs::owner_state(&root, &fs::owner(store, profile, catalog))? != "owned" {
@@ -575,7 +583,7 @@ fn execute_with(
         if was_retained{record_retention(db,profile,op)?;}
         if ["hard_create","hard_replace"].contains(&kind){db.execute("INSERT INTO owned_hardlinks VALUES (?,?,?,?) ON CONFLICT(profile,catalog,path) DO UPDATE SET target=excluded.target",params![profile,catalog,path,field(op,"target")?])?;}
         else{db.execute("DELETE FROM owned_hardlinks WHERE profile=? AND catalog=? AND path=?",[profile,catalog,path])?;}
-        if ["hard_create","hard_replace","hard_remove"].contains(&kind){fs::record_change(db,profile,catalog,path,&output)?;}
+        if ["hard_create","hard_replace","hard_remove"].contains(&kind){fs::record_change(db,profile,catalog,path,&output,fs::notify_consumers(args)?)?;}
         db.execute("DELETE FROM journal WHERE id=?",[field(op,"id")?])?;fs::failpoint(args,"before_commit")?;Ok(())
     })?;
     fs::failpoint(args, "after_commit")
@@ -739,7 +747,7 @@ mod tests {
             &store,
             "default",
             &intent(&store, "hard_create"),
-            &json!({}),
+            &json!({"disposable_fixture":true}),
         )
         .unwrap();
         store
@@ -749,12 +757,18 @@ mod tests {
             })
             .unwrap();
         let op = intent(&store, "hard_remove");
-        execute_with(&store, "default", &op, &json!({}), &|stage, _| {
-            if stage == "before_retention_rename" {
-                std::fs::remove_file(source.join("one.txt"))?;
-            }
-            Ok(())
-        })
+        execute_with(
+            &store,
+            "default",
+            &op,
+            &json!({"disposable_fixture":true}),
+            &|stage, _| {
+                if stage == "before_retention_rename" {
+                    std::fs::remove_file(source.join("one.txt"))?;
+                }
+                Ok(())
+            },
+        )
         .unwrap();
         let retained = output.join(format!("{RETAINED}/{}/data", op["id"].as_str().unwrap()));
         assert_eq!(std::fs::read(&retained).unwrap(), b"original source");
@@ -768,7 +782,7 @@ mod tests {
             &store,
             "default",
             &intent(&store, "hard_create"),
-            &json!({}),
+            &json!({"disposable_fixture":true}),
         )
         .unwrap();
         store
@@ -779,12 +793,18 @@ mod tests {
             .unwrap();
         let op = intent(&store, "hard_remove");
         let retained = output.join(format!("{RETAINED}/{}/data", op["id"].as_str().unwrap()));
-        let error = execute_with(&store, "default", &op, &json!({}), &|stage, _| {
-            if stage == "before_retention_rename" {
-                std::fs::write(&retained, "foreign final reference")?;
-            }
-            Ok(())
-        })
+        let error = execute_with(
+            &store,
+            "default",
+            &op,
+            &json!({"disposable_fixture":true}),
+            &|stage, _| {
+                if stage == "before_retention_rename" {
+                    std::fs::write(&retained, "foreign final reference")?;
+                }
+                Ok(())
+            },
+        )
         .unwrap_err();
         assert!(error.0.contains("not overwritten"));
         assert_eq!(
@@ -808,13 +828,19 @@ mod tests {
     fn swapped_source_is_preserved_for_inspection_without_false_ownership() {
         let (_temporary, store, source, output) = fixture();
         let op = intent(&store, "hard_create");
-        let error = execute_with(&store, "default", &op, &json!({}), &|stage, _| {
-            if stage == "before_link" {
-                std::fs::remove_file(source.join("one.txt"))?;
-                std::fs::write(source.join("one.txt"), "new raced inode")?;
-            }
-            Ok(())
-        })
+        let error = execute_with(
+            &store,
+            "default",
+            &op,
+            &json!({"disposable_fixture":true}),
+            &|stage, _| {
+                if stage == "before_link" {
+                    std::fs::remove_file(source.join("one.txt"))?;
+                    std::fs::write(source.join("one.txt"), "new raced inode")?;
+                }
+                Ok(())
+            },
+        )
         .unwrap_err();
         assert!(error.0.contains("source changed during hardlink creation"));
         assert_eq!(
@@ -845,7 +871,7 @@ mod tests {
             &store,
             "default",
             &intent(&store, "hard_create"),
-            &json!({}),
+            &json!({"disposable_fixture":true}),
         )
         .unwrap();
         store
@@ -855,13 +881,19 @@ mod tests {
             })
             .unwrap();
         let op = intent(&store, "hard_remove");
-        let error = execute_with(&store, "default", &op, &json!({}), &|stage, _| {
-            if stage == "before_retention_rename" {
-                std::fs::remove_file(output.join("folder/one.txt"))?;
-                std::fs::write(output.join("folder/one.txt"), "foreign final reference")?;
-            }
-            Ok(())
-        })
+        let error = execute_with(
+            &store,
+            "default",
+            &op,
+            &json!({"disposable_fixture":true}),
+            &|stage, _| {
+                if stage == "before_retention_rename" {
+                    std::fs::remove_file(output.join("folder/one.txt"))?;
+                    std::fs::write(output.join("folder/one.txt"), "foreign final reference")?;
+                }
+                Ok(())
+            },
+        )
         .unwrap_err();
         assert!(error.0.contains("unexpected file preserved in retention"));
         let retained = output.join(format!("{RETAINED}/{}/data", op["id"].as_str().unwrap()));
@@ -887,7 +919,7 @@ mod tests {
                 .unwrap()
         );
         assert!(
-            execute(&store, "default", &op, &json!({}))
+            execute(&store, "default", &op, &json!({"disposable_fixture":true}))
                 .unwrap_err()
                 .0
                 .contains("retained hardlink changed externally")

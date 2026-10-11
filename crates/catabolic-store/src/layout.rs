@@ -572,6 +572,47 @@ pub fn statistics(
         json!({"scope":"selected active associations before copy and rendition filtering","query":report,"items":associations.iter().map(|r|r["item_id"].as_str().unwrap()).collect::<BTreeSet<_>>().len(),"associations":associations.len(),"files":files.len(),"known_referenced_bytes":bytes.to_string(),"unknown_size_files":unknown,"availability":{"present":present,"missing":missing,"unknown":other},"oldest_observation_at":times.first(),"newest_observation_at":times.last(),"unobserved_files":files.len()-times.len(),"byte_scope":"sum once per file ID, including recorded missing files; not unique content, physical allocation or symlink storage"}),
     )
 }
+fn candidate_path(
+    store: &Store,
+    profile: &str,
+    association: &Value,
+    rule: &Value,
+    item: Value,
+    definition: &Value,
+) -> Result<String> {
+    let context = context(store, profile, association, rule, item)?;
+    render(
+        rule["path"].as_str().unwrap(),
+        &context,
+        definition["normalization"].as_str().unwrap_or("portable"),
+    )
+}
+
+/// A fallback owner can reuse layout naming without adopting legacy mapping IDs.
+pub(crate) fn render_association(
+    store: &Store,
+    profile: &str,
+    association: &Value,
+    definition: &Value,
+) -> Result<Option<String>> {
+    validate(definition)?;
+    let item = item_value(store, &association["item_id"])?;
+    let Some(rule) = array(&definition["rules"])
+        .iter()
+        .find(|rule| matching(rule, &item, association))
+    else {
+        return Ok(None);
+    };
+    candidate_path(store, profile, association, rule, item, definition).map(Some)
+}
+
+pub(crate) struct PreparedPlan {
+    pub report: Value,
+    pub desired: Vec<Value>,
+    pub owned: BTreeSet<String>,
+    pub rendition_associations: Vec<Value>,
+}
+
 pub fn plan(
     evaluation: &mut Evaluation,
     id: &str,
@@ -583,6 +624,53 @@ pub fn plan(
     if !(1..=1000).contains(&limit) {
         return fail("limit must be between 1 and 1000");
     }
+    let prepared = prepare(evaluation, id, catalog, replace, allow_empty)?;
+    Ok(bounded_report(&prepared.report, limit, false))
+}
+
+pub(crate) fn bounded_report(report: &Value, limit: usize, applied: bool) -> Value {
+    let mut report = report.clone();
+    let count = array(&report["changes"]).len();
+    let blocked = array(&report["blockers"]).len();
+    report["change_count"] = json!(count);
+    report["blocker_count"] = json!(blocked);
+    report["details_truncated"] = json!(count.max(blocked) > limit);
+    report["changes"] = json!(
+        array(&report["changes"])
+            .iter()
+            .take(limit)
+            .cloned()
+            .collect::<Vec<_>>()
+    );
+    report["blockers"] = json!(
+        array(&report["blockers"])
+            .iter()
+            .take(limit)
+            .cloned()
+            .collect::<Vec<_>>()
+    );
+    report["applied"] = json!(applied);
+    let publication = &mut report["publication"];
+    let excluded = array(&publication["excluded"]).len();
+    publication["excluded_count"] = json!(excluded);
+    publication["details_truncated"] = json!(excluded > limit);
+    publication["excluded"] = json!(
+        array(&publication["excluded"])
+            .iter()
+            .take(limit)
+            .cloned()
+            .collect::<Vec<_>>()
+    );
+    report
+}
+
+pub(crate) fn prepare(
+    evaluation: &mut Evaluation,
+    id: &str,
+    catalog: &str,
+    replace: bool,
+    allow_empty: bool,
+) -> Result<PreparedPlan> {
     name(id)?;
     let mut definition = read(evaluation.store(), &format!("layout:{id}"))?;
     if definition.is_null() {
@@ -639,7 +727,7 @@ pub fn plan(
             "layout ownership references missing mappings; refusing to discard its history",
         );
     }
-    let (admitted, mut publication) =
+    let (admitted, publication) =
         crate::publication::candidates(evaluation.store(), &evaluation.profile, catalog)?;
     if admitted.is_some()
         && definition.get("selection").is_some()
@@ -726,6 +814,20 @@ pub fn plan(
             encode(&copy_report["blockers"])
         )));
     }
+    let admitted_ids = admitted
+        .as_ref()
+        .map(|records| {
+            records
+                .iter()
+                .filter_map(|r| r["id"].as_str())
+                .collect::<BTreeSet<_>>()
+        })
+        .unwrap_or_default();
+    let rendition_associations = associations
+        .iter()
+        .filter(|r| r["id"].as_str().is_some_and(|id| admitted_ids.contains(id)))
+        .map(|r| r["id"].clone())
+        .collect::<Vec<_>>();
     let mut blockers = vec![];
     let mut desired = vec![];
     let mut skipped = 0;
@@ -739,17 +841,13 @@ pub fn plan(
             continue;
         };
         let candidate = (|| -> Result<Value> {
-            let context = context(
+            let destination = candidate_path(
                 evaluation.store(),
                 &evaluation.profile,
                 &association,
                 rule,
                 item,
-            )?;
-            let destination = render(
-                rule["path"].as_str().unwrap(),
-                &context,
-                definition["normalization"].as_str().unwrap_or("portable"),
+                &definition,
             )?;
             let mapping = Uuid::new_v5(
                 &Uuid::parse_str(&evaluation.store().database_id)
@@ -847,26 +945,21 @@ pub fn plan(
     {
         blockers.push(json!({"reason":"query layout would clear all generated mappings; inspect the selection and use --allow-empty explicitly"}));
     }
-    let excluded = array(&publication["excluded"]).len();
-    publication["excluded_count"] = json!(excluded);
-    publication["details_truncated"] = json!(excluded > limit);
-    publication["excluded"] = json!(
-        array(&publication["excluded"])
-            .iter()
-            .take(limit)
-            .cloned()
-            .collect::<Vec<_>>()
-    );
     let count = changes.len();
     let blocked = blockers.len();
-    let mut report = json!({"layout":id,"catalog":catalog,"definition_sha256":sha256(encode(&definition).as_bytes()),"safe":blocked==0,"blockers":blockers.into_iter().take(limit).collect::<Vec<_>>(),"changes":changes.into_iter().take(limit).collect::<Vec<_>>(),"desired_count":desired.len(),"unchanged_count":desired.len()-(count-removals),"skipped_associations":skipped,"selection_statistics":stats,"publication":publication,"applied":false,"change_count":count,"blocker_count":blocked,"details_truncated":count.max(blocked)>limit});
+    let mut report = json!({"layout":id,"catalog":catalog,"definition_sha256":sha256(encode(&definition).as_bytes()),"safe":blocked==0,"blockers":blockers,"changes":changes,"desired_count":desired.len(),"unchanged_count":desired.len()-(count-removals),"skipped_associations":skipped,"selection_statistics":stats,"publication":publication});
     if !selection_report.is_null() {
         report["selection"] = selection_report;
     }
-    Ok(report)
+    Ok(PreparedPlan {
+        report,
+        desired,
+        owned,
+        rendition_associations,
+    })
 }
 
-fn score_cmp(a: &[(u8, f64)], b: &[(u8, f64)]) -> std::cmp::Ordering {
+pub(crate) fn score_cmp(a: &[(u8, f64)], b: &[(u8, f64)]) -> std::cmp::Ordering {
     for (a, b) in a.iter().zip(b) {
         let c = a.0.cmp(&b.0).then_with(|| a.1.total_cmp(&b.1));
         if !c.is_eq() {
@@ -875,7 +968,7 @@ fn score_cmp(a: &[(u8, f64)], b: &[(u8, f64)]) -> std::cmp::Ordering {
     }
     a.len().cmp(&b.len())
 }
-fn rank(
+pub(crate) fn rank(
     store: &Store,
     profile: &str,
     file: &str,

@@ -1,0 +1,133 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
+name: Opt-in native Linux checkpoint
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'crates/**'
+      - 'src/**'
+      - 'requirements/**'
+      - 'pyproject.toml'
+      - 'Cargo.*'
+      - 'rust-toolchain.toml'
+      - '.cargo/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/**'
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_PROFILE_DEV_DEBUG: '0'
+  CARGO_PROFILE_TEST_DEBUG: '0'
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: 453fca983222c6665a48775eef67c489c96b527e
+          path: .local-tests/rust-migration/reference
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Require real disposable media tools and pinned oracle
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg poppler-utils tesseract-ocr
+          python -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock -r requirements/dev.lock -r requirements/notifications.lock -r requirements/http-test.lock
+          python -m pip install --no-deps --no-build-isolation -e .local-tests/rust-migration/reference
+          python -m pip install --only-binary=:all: maturin==1.13.1
+          python -m pip check
+          rustup show
+          rustc -vV
+          python scripts/migration_fixtures.py --source .local-tests/rust-migration/reference --output .local-tests/rust-migration/m0-completion/legacy-fixtures
+      - name: Install and generate both frozen contract clients before test discovery
+        run: |
+          npm --prefix tests/clients ci --ignore-scripts
+          npm --prefix tests/clients test
+          npm --prefix tests/clients run test:1.7
+      - name: Required native tests, journal oracles, models and release refusals
+        run: |
+          export CATABOLIC_QUALIFICATION_PYTHON="$(command -v python)"
+          scripts/check-native-mutations.sh
+          python scripts/migration_rust_resources.py --source .local-tests/rust-migration/reference --check
+      - name: Exercise native HTTP worker and generated client journey
+        run: |
+          python scripts/qualify_native_http.py --native .local-tests/rust-migration/m4-plus/artifacts/qualification-native --python "$(command -v python)" --root "$RUNNER_TEMP/native-http" --generated-client tests/clients/v1_7/build/acceptance.js
+      - name: Build one source-fenced helper and extension pair
+        run: |
+          python scripts/build_native_wheel.py --python "$(command -v python)" --out dist/native
+          cp target/release/catabolic-native dist/native/catabolic-native
+          python scripts/check_native_output_gate.py dist/native/catabolic-native > dist/native/release-output-gate.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: opt-in-native-candidate
+          path: dist/native/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: opt-in-native-linux-evidence
+          path: |
+            .local-tests/rust-migration/m4-plus/native-results.json
+            .local-tests/rust-migration/m4-plus/release-output-gate.json
+            ${{ runner.temp }}/native-http/report.json
+  installed:
+    needs: native
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.14']
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: 453fca983222c6665a48775eef67c489c96b527e
+          path: .local-tests/rust-migration/reference
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: opt-in-native-candidate
+          path: dist/native
+      - name: Install exact artifact in an isolated interpreter
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock -r requirements/runtime.lock
+          python -m pip install --no-deps --no-build-isolation -e .local-tests/rust-migration/reference
+          python -m venv "$RUNNER_TEMP/native-installed"
+          "$RUNNER_TEMP/native-installed/bin/python" -m pip install --no-deps dist/native/*.whl
+          chmod +x dist/native/catabolic-native
+      - name: Outside-checkout installed helper, cancellation and persistent facade
+        run: |
+          root="$PWD"
+          reference_python="$(command -v python)"
+          wheel="$(find "$root/dist/native" -maxdepth 1 -name '*.whl' -print)"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/native-installed/bin/python" "$root/scripts/qualify_native_wheel.py" --binary "$root/dist/native/catabolic-native" --wheel "$wheel" --receipt "$RUNNER_TEMP/native-wheel.json"
+          "$RUNNER_TEMP/native-installed/bin/python" "$root/scripts/qualify_native_embedding.py" --wheel "$wheel" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-embedding.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: opt-in-native-installed-${{ matrix.python }}
+          path: |
+            ${{ runner.temp }}/native-wheel.json
+            ${{ runner.temp }}/native-embedding.json
+# Passing this Linux fixture lane is not macOS, real-consumer, destructive-output,
+# performance, rollback, or complete M0-M11 acceptance. No release job is invoked.

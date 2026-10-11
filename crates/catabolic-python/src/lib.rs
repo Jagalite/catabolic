@@ -1,3 +1,4 @@
+mod embedding;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use std::path::Path;
@@ -10,6 +11,17 @@ fn result(value: catabolic_store::Result<serde_json::Value>) -> PyResult<String>
 #[pyfunction]
 fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
+}
+#[pyfunction]
+fn register_native_helper(py: Python<'_>, path: &str, sha256: &str) -> PyResult<()> {
+    py.detach(|| catabolic_runtime::helper::register(Path::new(path), Some(sha256)))
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))
+}
+#[pyfunction]
+fn native_helper(py: Python<'_>) -> PyResult<String> {
+    py.detach(catabolic_runtime::helper::executable)
+        .map(|path| path.to_string_lossy().into_owned())
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))
 }
 #[pyfunction]
 fn encode_json(raw: &str) -> PyResult<String> {
@@ -76,7 +88,10 @@ fn execute_sql(
 }
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    embedding::register(m)?;
     m.add_function(wrap_pyfunction!(version, m)?)?;
+    m.add_function(wrap_pyfunction!(register_native_helper, m)?)?;
+    m.add_function(wrap_pyfunction!(native_helper, m)?)?;
     m.add_function(wrap_pyfunction!(encode_json, m)?)?;
     m.add_function(wrap_pyfunction!(initialize_database, m)?)?;
     m.add_function(wrap_pyfunction!(inspect_database, m)?)?;
@@ -185,6 +200,21 @@ fn execute_operation(
     let request: serde_json::Value =
         catabolic_core::decode_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     result(py.detach(|| {
+        if surface == "import" && operation == "catalog" {
+            let cancelled = std::sync::atomic::AtomicBool::new(false);
+            let mut poll = || {
+                if Python::attach(|py| py.check_signals()).is_err() {
+                    cancelled.store(true, std::sync::atomic::Ordering::Release);
+                }
+            };
+            return catabolic_runtime::api::execute_import_with_poll(
+                Path::new(path),
+                profile,
+                &request,
+                &cancelled,
+                &mut poll,
+            );
+        }
         catabolic_runtime::api::execute(Path::new(path), profile, surface, operation, &request)
     }))
 }

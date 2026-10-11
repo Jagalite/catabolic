@@ -32,6 +32,68 @@ fn run(mut args: Vec<String>) -> Result<Value> {
     let variables = argument(&mut args, "--variables")?.unwrap_or_else(|| "{}".into());
     let operation = argument(&mut args, "--operation-name")?;
     let profile = argument(&mut args, "--profile")?.unwrap_or_else(|| "default".into());
+    if args.starts_with(&["api".into(), "worker".into()]) {
+        let once = flag(&mut args, "--once");
+        let interval = argument(&mut args, "--interval")?
+            .unwrap_or_else(|| "2".into())
+            .parse::<f64>()
+            .map_err(|_| Error("invalid API worker interval".into()))?;
+        if !interval.is_finite() || interval <= 0.0 || interval > 86400.0 {
+            return Err(Error("invalid API worker interval".into()));
+        }
+        if args != ["api", "worker"] {
+            return Err(Error("unknown native API worker arguments".into()));
+        }
+        return catabolic_http::worker(
+            &path,
+            &profile,
+            once,
+            std::time::Duration::from_secs_f64(interval),
+        );
+    }
+    if args.starts_with(&["api".into(), "serve".into()]) {
+        if !flag(&mut args, "--experimental-native-http") {
+            return Err(Error("native HTTP is unqualified; disposable loopback fixtures require --experimental-native-http".into()));
+        }
+        let host = argument(&mut args, "--host")?.unwrap_or_else(|| "127.0.0.1".into());
+        let port = argument(&mut args, "--port")?
+            .unwrap_or_else(|| "8421".into())
+            .parse::<u16>()
+            .map_err(|_| Error("port must be between 0 and 65535".into()))?;
+        let read_only = !flag(&mut args, "--enable-processing");
+        let mut config = catabolic_http::ServerConfig {
+            host,
+            port,
+            read_only,
+            ..Default::default()
+        };
+        let mut hosts = Vec::new();
+        while let Some(host) = argument(&mut args, "--allowed-host")? {
+            hosts.push(host);
+        }
+        if !hosts.is_empty() {
+            config.allowed_hosts = hosts;
+        }
+        while let Some(origin) = argument(&mut args, "--cors-origin")? {
+            config.origins.push(origin);
+        }
+        for (name, target) in [
+            ("--streams", &mut config.streams),
+            ("--streams-per-principal", &mut config.per_principal),
+            ("--rate-limit", &mut config.rate),
+        ] {
+            if let Some(value) = argument(&mut args, name)? {
+                *target = value
+                    .parse()
+                    .map_err(|_| Error(format!("invalid {name}")))?;
+            }
+        }
+        if args != ["api", "serve"] {
+            return Err(Error("unknown native API serve arguments".into()));
+        }
+        catabolic_http::serve(&path, config)?;
+        return Ok(Value::Null);
+    }
     let params = argument(&mut args, "--params")?;
     let describe = flag(&mut args, "--schema");
     let stable = flag(&mut args, "--stable");
@@ -59,6 +121,9 @@ fn run(mut args: Vec<String>) -> Result<Value> {
                 "curation",
                 "programs",
                 "plans",
+                "workflow",
+                "rules",
+                "layout",
                 "manifest-build",
                 "manifest-write",
                 "notify",
@@ -78,6 +143,39 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         ));
     }
     match args.as_slice() {
+        [command, action] if command == "fallback-probe" && action == "check" => {
+            use std::io::Read;
+            let mut input = Vec::new();
+            std::io::stdin()
+                .lock()
+                .take(1024 * 1024 + 1)
+                .read_to_end(&mut input)?;
+            if input.len() > 1024 * 1024 {
+                return Err(Error("fallback probe input exceeds 1 MiB".into()));
+            }
+            let value = catabolic_runtime::fallback::probe_check(
+                &catabolic_core::decode_json_bytes(&input)?,
+            )?;
+            if value.to_string().len() >= 64 * 1024 {
+                return Err(Error("fallback probe response exceeds 64 KiB".into()));
+            }
+            Ok(value)
+        }
+        [command, name] if command == "watcher-worker" => {
+            catabolic_runtime::watchers::worker_with_options(
+                &path,
+                &profile,
+                name,
+                &catabolic_core::decode_json(&options)?,
+            )
+        }
+        [command, payload] if command == "observation-worker" => {
+            catabolic_runtime::observation::worker(
+                &path,
+                &profile,
+                &catabolic_core::decode_json(payload)?,
+            )
+        }
         [command] if command == "--version" || command == "version" => Ok(
             json!({"version":env!("CARGO_PKG_VERSION"),"schema":migration::SCHEMA_VERSION,"reference":migration::reference()["reference_commit"]}),
         ),
@@ -118,6 +216,20 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             "write",
             &catabolic_core::decode_json(&options)?,
         ),
+        [command, surface, operation]
+            if command == "operation" && surface == "import" && operation == "catalog" =>
+        {
+            let request = catabolic_core::decode_json(&options)?;
+            catabolic_http::interruptible(move |cancel| {
+                catabolic_runtime::api::execute_import_with_poll(
+                    &path,
+                    &profile,
+                    &request,
+                    &cancel,
+                    &mut || {},
+                )
+            })
+        }
         [command, surface, operation] if command == "operation" => catabolic_runtime::api::execute(
             &path,
             &profile,
@@ -182,7 +294,10 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             if command == "definitions"
                 || command == "curation"
                 || command == "programs"
-                || command == "plans" =>
+                || command == "plans"
+                || command == "workflow"
+                || command == "rules"
+                || command == "layout" =>
         {
             catabolic_runtime::api::execute(
                 &path,
@@ -281,6 +396,13 @@ fn run(mut args: Vec<String>) -> Result<Value> {
     }
 }
 fn main() {
+    if let Err(error) = std::env::current_exe()
+        .map_err(Error::from)
+        .and_then(|path| catabolic_runtime::helper::register(&path, None))
+    {
+        eprintln!("catabolic: {error}");
+        std::process::exit(2);
+    }
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     if args == ["--stdio"] {
         use std::io::{BufRead, Write};

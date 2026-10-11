@@ -491,6 +491,136 @@ pub fn execute(
     }
 }
 
+/// Authenticated ingress. Local approval never substitutes for caller identity.
+pub fn ingress(access: &crate::access::Access, action: &str, request: &Value) -> Result<Value> {
+    access.require_operator("webhooks:manage")?;
+    access.require_operator("sql:read")?;
+    let store = access.store();
+    let profile = access.profile();
+    let principal = access.principal();
+    let id = request["id"].as_str().unwrap_or("");
+    let owned = |id: &str| -> Result<Value> {
+        let row = get(store, profile, id)?;
+        if row["principal"].as_str().is_some_and(|p| p != principal) {
+            return Err(Error("not_found".into()));
+        }
+        Ok(row)
+    };
+    match action {
+        "list" => {
+            let limit = request["limit"].as_u64().unwrap_or(100);
+            if !(1..=1000).contains(&limit) {
+                return Err(Error("invalid_page".into()));
+            }
+            let mut values = crate::migration::rows(
+                &store.db,
+                "SELECT id FROM http_operations WHERE profile=? AND id>? AND (principal IS NULL OR principal=?) ORDER BY id LIMIT ?",
+                &[
+                    profile.to_owned().into(),
+                    request["after"].as_str().unwrap_or("").to_owned().into(),
+                    principal.to_owned().into(),
+                    ((limit + 1) as i64).into(),
+                ],
+            )?;
+            let next = if values.len() > limit as usize {
+                values[limit as usize - 1]["id"].clone()
+            } else {
+                Value::Null
+            };
+            values.truncate(limit as usize);
+            let operations = values
+                .iter()
+                .map(|v| owned(v["id"].as_str().unwrap()).map(|v| present(&v)))
+                .collect::<Result<Vec<_>>>()?;
+            Ok(json!({"operations":operations,"next_cursor":next}))
+        }
+        "get" => {
+            let row = owned(id)?;
+            let mut result = present(&row);
+            result["definition"] = row["definition"].clone();
+            Ok(result)
+        }
+        "put" => {
+            let field = |key: &str| {
+                request[key]
+                    .as_str()
+                    .ok_or_else(|| Error("invalid_request".into()))
+            };
+            let name = field("name")?;
+            let definition = compile(
+                &request["spec"],
+                field("operation_id")?,
+                field("base_url")?,
+                request["credential_env"].as_str(),
+            )?;
+            let prior: Option<String> = store
+                .db
+                .query_row(
+                    "SELECT id FROM http_operations WHERE profile=? AND name=? AND digest=?",
+                    params![profile, name, sha256(encode(&definition))],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if let Some(id) = prior {
+                return Ok(present(&owned(&id)?));
+            }
+            store.transaction(|db| {
+                let result = put(
+                    store,
+                    profile,
+                    name,
+                    &request["spec"],
+                    field("operation_id")?,
+                    field("base_url")?,
+                    request["credential_env"].as_str(),
+                )?;
+                db.execute(
+                    "UPDATE http_operations SET principal=?,token_id=? WHERE id=?",
+                    params![principal, access.token_id(), result["id"].as_str()],
+                )?;
+                Ok(result)
+            })
+        }
+        "disable" | "retry" => {
+            let current = owned(id)?;
+            if action == "retry" && current["enabled"] != true {
+                return fail("disabled");
+            }
+            store.transaction(|db|{notifications::control(store,profile,&format!("operation:{id}"),action,notifications::now())?;if action=="disable"{db.execute("UPDATE http_operations SET enabled=0 WHERE id=?",[id])?;}else{db.execute("UPDATE http_operations SET token_id=? WHERE id=?",params![access.token_id(),id])?;db.execute("UPDATE http_mapping_deliveries SET token_id=? WHERE operation_id=? AND event_id IN (SELECT event_id FROM notification_deliveries WHERE profile=? AND state NOT IN ('complete','cancelled'))",params![access.token_id(),id,profile])?;}Ok(())})?;
+            Ok(if action == "disable" {
+                json!({"id":id,"enabled":false})
+            } else {
+                json!({"id":id,"retry_scheduled":true})
+            })
+        }
+        "deliveries" => {
+            owned(id)?;
+            let limit = request["limit"].as_u64().unwrap_or(100);
+            if !(1..=1000).contains(&limit) {
+                return Err(Error("invalid_page".into()));
+            }
+            let mut deliveries = crate::migration::rows(
+                &store.db,
+                "SELECT m.event_id AS id,m.mapping_id AS owner,m.key,m.plan_id,n.state,n.attempts,n.error,3 AS version FROM http_mapping_deliveries m JOIN notification_deliveries n ON n.event_id=m.event_id WHERE n.profile=? AND m.operation_id=? AND m.event_id>? ORDER BY m.event_id LIMIT ?",
+                &[
+                    profile.to_owned().into(),
+                    id.to_owned().into(),
+                    request["after"].as_str().unwrap_or("").to_owned().into(),
+                    ((limit + 1) as i64).into(),
+                ],
+            )?;
+            let next = if deliveries.len() > limit as usize {
+                deliveries[limit as usize - 1]["id"].clone()
+            } else {
+                Value::Null
+            };
+            deliveries.truncate(limit as usize);
+            Ok(json!({"deliveries":deliveries,"next_cursor":next}))
+        }
+        _ => Err(Error("not_found".into())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

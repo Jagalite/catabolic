@@ -8,7 +8,11 @@ import hashlib
 import importlib.metadata
 import json
 import math
+import os
 import random
+import shutil
+import signal
+import sqlite3
 import struct
 import subprocess
 import sys
@@ -20,6 +24,11 @@ from pathlib import Path
 
 import catabolic_native as native
 
+if not __debug__:
+    raise RuntimeError(
+        "wheel qualification requires Python assertions; do not use -O or PYTHONOPTIMIZE"
+    )
+
 
 def verify_installed_wheel(wheel):
     """Bind the supplied archive to every installed payload, not just its label."""
@@ -27,6 +36,27 @@ def verify_installed_wheel(wheel):
     root = Path(distribution.locate_file("")).resolve()
     imported = Path(native.__file__).resolve()
     extension = Path(native._native.__file__).resolve()
+    generated_metadata = {"INSTALLER", "REQUESTED", "direct_url.json", "RECORD"}
+    installed_payloads = set()
+    for entry in distribution.files or ():
+        relative = Path(entry)
+        if "__pycache__" in relative.parts:
+            continue
+        if (
+            len(relative.parts) >= 2
+            and relative.parts[0].endswith(".dist-info")
+            and relative.name in generated_metadata
+        ):
+            continue
+        if relative.is_absolute() or ".." in relative.parts:
+            # pip's generated launcher is tested independently, and is not
+            # an archive payload. No other outside-root file is qualified.
+            assert relative.name == "catabolic-native" and "bin" in relative.parts, (
+                "unexpected relocated distribution payload"
+            )
+            continue
+        installed_payloads.add(str(relative))
+    assert installed_payloads, "installed distribution has no payload inventory"
     hashes = {}
     with zipfile.ZipFile(wheel) as archive:
         members = archive.infolist()
@@ -64,9 +94,28 @@ def verify_installed_wheel(wheel):
     )
     extension_hash = hashes.get(str(extension.relative_to(root)))
     assert extension_hash, "imported native extension missing from supplied wheel"
-    assert any(name.endswith(".dist-info/WHEEL") for name in hashes), (
-        "missing wheel metadata"
+    assert set(hashes) == installed_payloads, (
+        "wheel and installed distribution payload inventories differ",
+        sorted(installed_payloads - set(hashes)),
+        sorted(set(hashes) - installed_payloads),
     )
+    for name in ("WHEEL", "METADATA", "entry_points.txt"):
+        assert sum(key.endswith(".dist-info/" + name) for key in hashes) == 1, (
+            "missing or ambiguous wheel metadata",
+            name,
+        )
+    for name in ("bin/catabolic-native", "native-helper.json"):
+        assert "catabolic_native/" + name in hashes, "missing packaged native helper"
+    for path in imported.parent.rglob("*"):
+        assert not path.is_symlink(), (
+            "installed package contains an unqualified symlink"
+        )
+        if path.is_file() and "__pycache__" not in path.parts:
+            assert path.resolve().is_relative_to(root), "package payload escaped root"
+            assert str(path.relative_to(root)) in hashes, (
+                "installed package file missing from supplied wheel",
+                str(path.relative_to(root)),
+            )
     assert distribution.version == native.__version__, (
         "distribution/import version mismatch"
     )
@@ -75,6 +124,108 @@ def verify_installed_wheel(wheel):
         "imported_extension_sha256": extension_hash,
         "installed_payloads_match_wheel": True,
     }
+
+
+def qualify_import_interrupt(path, source, temporary):
+    """Exercise installed PyO3 cancellation after a disposable tool launch."""
+    file_id = native.execute_sql(path, "SELECT id FROM files")["rows"][0][0]
+    native.execute_operation(
+        path,
+        "curation",
+        "item-put",
+        id="installed-book",
+        kind="book_edition",
+        identities={},
+        metadata={"title": "Installed fixture"},
+    )
+    native.execute_operation(
+        path,
+        "curation",
+        "associate",
+        file_id=file_id,
+        item_id="installed-book",
+        role="primary",
+    )
+    # A fixture-only desired mapping. No output is created or reconciled.
+    with sqlite3.connect(path) as db:
+        db.execute(
+            "INSERT INTO mappings VALUES (?, 'global', ?, ?, ?, 1)",
+            ("installed-import", file_id, "installed-book", "Books/installed.epub"),
+        )
+    document = native.build_manifest(path)
+    request = temporary / "import-request.json"
+    request.write_text(json.dumps(document))
+    tools = temporary / "tools"
+    tools.mkdir()
+    staging = temporary / "import-staging"
+    staging.mkdir()
+    marker = temporary / "tool-started.json"
+    executable = tools / "calibredb"
+    executable.write_text(
+        f"#!{sys.executable}\n"
+        "import json,os,pathlib,sys,time\n"
+        f"pathlib.Path({str(marker)!r}).write_text(json.dumps({{'pid':os.getpid(),'copy':sys.argv[-1]}}))\n"
+        "time.sleep(60)\n"
+    )
+    executable.chmod(0o755)
+    environment = os.environ | {
+        "PATH": str(tools) + os.pathsep + os.environ.get("PATH", ""),
+        "TMPDIR": str(staging),
+    }
+    environment.pop("CATABOLIC_NATIVE_BINARY", None)
+    before = (source.stat().st_ino, hashlib.sha256(source.read_bytes()).hexdigest())
+    child = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import catabolic_native as n,json,sys; "
+            "print(json.dumps(n.execute_operation(sys.argv[1],'import','catalog',"
+            "document=json.load(open(sys.argv[2])),target='calibre',"
+            "destination=sys.argv[3],apply=True,timeout=120)))",
+            str(path),
+            str(request),
+            str(temporary / "import-library"),
+        ],
+        cwd=temporary,
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        deadline = time.monotonic() + 20
+        while not marker.exists() and time.monotonic() < deadline:
+            assert child.poll() is None, child.communicate()
+            time.sleep(0.01)
+        assert marker.exists(), "installed importer did not launch fixture tool"
+        # The long external call must not retain the catalog's writer lease.
+        native.execute_operation(path, "tag", "put", name="installed:during-import")
+        child.send_signal(signal.SIGINT)
+        output, error = child.communicate(timeout=15)
+        assert child.returncode == 0, error
+        report = json.loads(output)
+        assert report["interrupted"] is True, report
+        assert report["outcome"] == "external_outcome_unknown", report
+        assert report["applied"] is None and not report["safe_to_retry"], report
+        assert not report["complete"] and report["completed"] == [], report
+        assert not list(staging.iterdir()), "interrupted staging was retained"
+        launched = json.loads(marker.read_text())
+        assert "catabolic-import-" in launched["copy"]
+        assert not Path(launched["copy"]).exists()
+        try:
+            os.kill(launched["pid"], 0)
+        except ProcessLookupError:
+            pass
+        else:
+            raise AssertionError("interrupted external tool was not reaped")
+        assert before == (
+            source.stat().st_ino,
+            hashlib.sha256(source.read_bytes()).hexdigest(),
+        ), "import changed source bytes or identity"
+    finally:
+        if child.poll() is None:
+            child.kill()
+        child.communicate(timeout=15)
 
 
 def main():
@@ -89,6 +240,31 @@ def main():
         "installed import required"
     )
     installed = verify_installed_wheel(args.wheel)
+    optimized = subprocess.run(
+        [sys.executable, "-O", str(Path(__file__).resolve()), "--help"],
+        capture_output=True,
+        text=True,
+    )
+    if (
+        optimized.returncode == 0
+        or "requires Python assertions" not in optimized.stderr
+    ):
+        raise RuntimeError("optimized qualification did not refuse")
+    helper = native.native_binary()
+    helper_metadata = json.loads(
+        (helper.parent.parent / "native-helper.json").read_text()
+    )
+    assert helper.is_file() and os.access(helper, os.X_OK)
+    assert hashlib.sha256(helper.read_bytes()).hexdigest() == helper_metadata["sha256"]
+    assert (
+        hashlib.sha256(args.binary.read_bytes()).hexdigest()
+        == helper_metadata["sha256"]
+    ), "supplied native CLI differs from the helper packaged with this extension"
+    assert helper_metadata["version"] == native.__version__
+    launcher = Path(sys.executable).parent / "catabolic-native"
+    assert launcher.is_file(), "installed native launcher missing"
+    launched = json.loads(subprocess.check_output([launcher, "--version"], text=True))
+    assert launched["version"] == native.__version__
     with tempfile.TemporaryDirectory(prefix="catabolic-installed-") as temporary:
         path = Path(temporary) / "catalog.sqlite3"
         native.initialize_database(path)
@@ -214,6 +390,74 @@ def main():
         assert path.read_bytes() == after
         for version in (1, 2, 3):
             assert native.interchange("schema", version=version)["$schema"]
+        # This actually launches the Rust observation worker from an embedded
+        # Python host. Neither ambient PATH nor an explicit fixture override
+        # supplies the helper; the exact helper packaged beside _native does.
+        source = Path(temporary) / "source"
+        source.mkdir()
+        (source / "installed.epub").write_text("packaged native worker evidence")
+        native.execute_operation(
+            path, "observe", "bind", source="media", root=str(source)
+        )
+        override = os.environ.pop("CATABOLIC_NATIVE_BINARY", None)
+        try:
+            observation = native.execute_operation(
+                path, "observe", "scan", source="media", isolate=True, wait_seconds=30
+            )
+        finally:
+            if override is not None:
+                os.environ["CATABOLIC_NATIVE_BINARY"] = override
+        assert observation["complete"], observation
+        assert observation["scans"][0]["observed"] == 1, observation
+        assert (
+            source / "installed.epub"
+        ).read_text() == "packaged native worker evidence"
+        qualify_import_interrupt(path, source / "installed.epub", Path(temporary))
+    with tempfile.TemporaryDirectory(prefix="catabolic-helper-check-") as temporary:
+        copied = Path(temporary) / "catabolic_native"
+        shutil.copytree(Path(native.__file__).parent, copied)
+        binary = copied / "bin/catabolic-native"
+        environment = os.environ | {"PYTHONPATH": temporary}
+        environment.pop("CATABOLIC_NATIVE_BINARY", None)
+        saved = binary.read_bytes()
+        for state in ("missing", "changed", "not-executable"):
+            if state == "missing":
+                binary.unlink()
+            elif state == "changed":
+                binary.write_bytes(saved + b"changed")
+            else:
+                binary.write_bytes(saved)
+                binary.chmod(0o644)
+            check = subprocess.run(
+                [sys.executable, "-c", "import catabolic_native"],
+                cwd=temporary,
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            assert check.returncode != 0 and "native helper" in check.stderr, (
+                state,
+                check.stderr,
+            )
+            binary.write_bytes(saved)
+            binary.chmod(0o755)
+        check = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import catabolic_native as n; p=n.native_binary(); "
+                    "p.write_bytes(p.read_bytes()+b'changed'); n.native_binary()"
+                ),
+            ],
+            cwd=temporary,
+            env=environment,
+            capture_output=True,
+            text=True,
+        )
+        assert check.returncode != 0 and "identity changed" in check.stderr, (
+            check.stderr
+        )
     randomizer = random.Random(453)
     values = [0.0, -0.0, 1.0, 1e-5, 1e-4, 1e16, 5e-324, 1.7976931348623157e308]
     values += [
@@ -244,6 +488,11 @@ def main():
         "native_mutation_and_definition_roundtrip": True,
         "unsupported_owner_no_fallback": True,
         "interchange_versions": [1, 2, 3],
+        "packaged_native_helper_sha256": helper_metadata["sha256"],
+        "packaged_native_cli_launcher": True,
+        "installed_pyo3_isolated_observation": True,
+        "installed_pyo3_import_interrupt_and_writer_progress": True,
+        "missing_changed_nonexecutable_helper_refused": True,
         "passed": True,
     }
     args.receipt.write_text(json.dumps(receipt, indent=2) + "\n")

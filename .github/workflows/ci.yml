@@ -39,7 +39,9 @@ jobs:
       - run: python -m pip install --no-deps --no-build-isolation .
       - run: python -m pip check
       - run: python scripts/audit_dependencies.py --report dependency-audit.json
-      - run: python -m unittest discover -s tests -q
+      # Native scenarios have explicit compiler/helper prerequisites and run in
+      # native-qualification.yml. This preserves every original Python test.
+      - run: python scripts/run_reference_tests.py --report python-unit-results.json
       - run: ruff check src tests scripts
       - run: ruff format --check src tests scripts
       - run: catabolic spec check
@@ -60,7 +62,9 @@ jobs:
         if: always()
         with:
           name: dependency-audit-${{ matrix.os }}-${{ matrix.python }}
-          path: dependency-audit.json
+          path: |
+            dependency-audit.json
+            python-unit-results.json
 
   wheel:
     runs-on: ubuntu-latest

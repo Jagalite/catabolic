@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+query LogicalPolicy($id: ID!) {
+  fallbackPolicy(id: $id) { id name tiers }
+}

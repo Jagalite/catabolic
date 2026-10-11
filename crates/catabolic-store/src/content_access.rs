@@ -469,6 +469,66 @@ pub fn execute(access: &mut Access, operation: &str, request: &Value) -> Result<
     }
 }
 
+/// Evidence may survive backpressure, but never carries an authorization cache.
+#[derive(Clone)]
+pub struct TransferEvidence {
+    path: PathBuf,
+    database_id: String,
+    principal: String,
+    profile: String,
+    token: String,
+    file_id: String,
+    revision: String,
+    ticket: Option<String>,
+}
+impl TransferEvidence {
+    pub fn revalidate(&self) -> Result<()> {
+        let store = Store::open(&self.path, false, false)?;
+        if store.database_id != self.database_id {
+            return Err(denied("unauthorized"));
+        }
+        let mut access = Access::from_stored_token(store, &self.token)?;
+        if access.principal() != self.principal || access.profile() != self.profile {
+            return Err(denied("unauthorized"));
+        }
+        authorize_snapshot(&mut access, &self.file_id, &self.revision)?;
+        if let Some(ticket)=&self.ticket&&!access.store().db.prepare("SELECT 1 FROM api_tickets WHERE id=? AND token_id=? AND file_id=? AND revision=? AND revoked=0 AND expires>?")?.exists(params![ticket,self.token,self.file_id,self.revision,crate::notifications::now()])?{return Err(denied("unauthorized"))}
+        Ok(())
+    }
+}
+/// Release the catalog owner after header/range/slot/ticket admission, before
+/// delivery. Existing source descriptor guards still fence the whole callback.
+pub fn with_transfer<P, T>(
+    mut access: Access,
+    id: &str,
+    revision: &str,
+    ticket: Option<&str>,
+    prepare: impl FnOnce(&mut Access, &std::fs::Metadata, &Value) -> Result<P>,
+    deliver: impl FnOnce(&File, &std::fs::Metadata, TransferEvidence, P) -> Result<T>,
+) -> Result<T> {
+    let row = authorize(&mut access, id, revision)?;
+    let evidence = TransferEvidence {
+        path: access.store().path.clone(),
+        database_id: access.store().database_id.clone(),
+        principal: access.principal().into(),
+        profile: access.profile().into(),
+        token: access.token_id().into(),
+        file_id: id.into(),
+        revision: revision.into(),
+        ticket: ticket.map(str::to_owned),
+    };
+    source::with_validated_source(&row, |file| {
+        let mut header = [0u8; 16];
+        if file.read_at(&mut header, 0)? == 16 && header == *b"SQLite format 3\0" {
+            return Err(denied("private_content"));
+        }
+        let stat = file.metadata()?;
+        let prepared = prepare(&mut access, &stat, &row)?;
+        drop(access);
+        deliver(file, &stat, evidence, prepared)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

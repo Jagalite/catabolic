@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli", "crates/catabolic-python", "crates/catabolic-verification", "crates/catabolic-runtime"]
+members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli", "crates/catabolic-python", "crates/catabolic-verification", "crates/catabolic-runtime", "crates/catabolic-http"]
 default-members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli"]
 resolver = "3"
 
@@ -13,6 +13,13 @@ license = "MIT"
 catabolic-core = { path = "crates/catabolic-core" }
 catabolic-store = { path = "crates/catabolic-store" }
 catabolic-runtime = { path = "crates/catabolic-runtime" }
+catabolic-http = { path = "crates/catabolic-http" }
+axum = { version = "=0.8.6", default-features = false, features = ["http1", "tokio"] }
+tokio = { version = "=1.48.0", features = ["rt-multi-thread", "net", "sync", "time", "signal"] }
+http-body-util = "=0.1.3"
+form_urlencoded = "=1.2.2"
+hmac = "=0.12.1"
+fancy-regex = "=0.19.2"
 chrono = "=0.4.42"
 chrono-tz = "=0.10.4"
 jsonschema = { version = "=0.58.6", default-features = false, features = ["arbitrary-precision"] }

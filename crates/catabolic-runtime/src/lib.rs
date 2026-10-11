@@ -7,16 +7,25 @@ pub mod notifications;
 pub mod process;
 
 pub mod api;
+pub mod fallback;
+pub mod helper;
+pub mod http_worker;
+pub mod imports;
 
 pub mod rendering;
 
 pub mod document;
 
 pub mod artifacts;
+pub mod catalog_refresh;
 pub mod consumers;
+pub mod observation;
 pub mod playback;
 pub mod processors;
 pub mod receipts;
+pub mod renditions;
+pub mod rules;
+pub mod watchers;
 
 pub mod component_packaging;
 

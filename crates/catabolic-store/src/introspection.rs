@@ -12,6 +12,26 @@ pub(crate) fn schema() -> &'static Value {
             .expect("frozen schema metadata")
     })
 }
+/// HTTP contract 1.7.0 excludes the local owner's work inbox extension.
+pub(crate) fn schema_for(http: bool) -> &'static Value {
+    if !http {
+        return schema();
+    }
+    static HTTP_SCHEMA: OnceLock<Value> = OnceLock::new();
+    HTTP_SCHEMA.get_or_init(|| {
+        let mut value = schema().clone();
+        for ty in value["types"].as_array_mut().expect("schema types") {
+            if ty["name"] == "Query" {
+                ty["fields"]
+                    .as_array_mut()
+                    .expect("query fields")
+                    .retain(|field| field["name"] != "workInbox");
+            }
+        }
+        value
+    })
+}
+
 fn input(value: &Input, variables: &Value) -> Value {
     match value {
         Input::Variable(name) => variables[name.as_str()].clone(),
@@ -103,10 +123,10 @@ fn child_type(parent: &str, field: &str) -> &'static str {
         _ => "",
     }
 }
-fn typed(source: &Value, typename: &str) -> Value {
+fn typed(source: &Value, typename: &str, http: bool) -> Value {
     if typename == "__Type"
         && source["name"].is_string()
-        && let Some(value) = schema()["types"]
+        && let Some(value) = schema_for(http)["types"]
             .as_array()
             .unwrap()
             .iter()
@@ -116,18 +136,20 @@ fn typed(source: &Value, typename: &str) -> Value {
     }
     source.clone()
 }
+#[allow(clippy::too_many_arguments)]
 fn project(
     source: &Value,
     typename: &str,
     set: &SelectionSet,
     document: &ExecutableDocument,
     variables: &Value,
+    http: bool,
     charge: &mut impl FnMut(&Value) -> Result<()>,
 ) -> Result<Value> {
     if source.is_null() {
         return Ok(Value::Null);
     }
-    let source = typed(source, typename);
+    let source = typed(source, typename, http);
     let mut output = serde_json::Map::new();
     let mut selections = vec![];
     fields(set, document, variables, &mut selections);
@@ -175,6 +197,7 @@ fn project(
                                 &field.selection_set.node,
                                 document,
                                 variables,
+                                http,
                                 charge,
                             )
                         })
@@ -187,6 +210,7 @@ fn project(
                     &field.selection_set.node,
                     document,
                     variables,
+                    http,
                     charge,
                 )?
             };
@@ -195,11 +219,12 @@ fn project(
     }
     Ok(Value::Object(output))
 }
-pub fn apply(
+pub fn apply_for(
     document: &ExecutableDocument,
     operation: Option<&str>,
     variables: &Value,
     result: &mut Value,
+    http: bool,
     charge: &mut impl FnMut(&Value) -> Result<()>,
 ) -> Result<()> {
     if !result["data"].is_object() {
@@ -226,7 +251,7 @@ pub fn apply(
         let name = field.name.node.as_str();
         let key = field.alias.as_ref().unwrap_or(&field.name).node.as_str();
         let (source, typename) = match name {
-            "__schema" => (schema().clone(), "__Schema"),
+            "__schema" => (schema_for(http).clone(), "__Schema"),
             "__type" => {
                 let wanted = field
                     .arguments
@@ -235,7 +260,7 @@ pub fn apply(
                     .map(|(_, v)| input(&v.node, &variables))
                     .unwrap_or(Value::Null);
                 (
-                    schema()["types"]
+                    schema_for(http)["types"]
                         .as_array()
                         .unwrap()
                         .iter()
@@ -254,6 +279,7 @@ pub fn apply(
             &field.selection_set.node,
             document,
             &variables,
+            http,
             charge,
         )?;
     }
@@ -262,8 +288,11 @@ pub fn apply(
 
 /// graphql-core's bounded lexical suggestions, independent of framework wording.
 pub(crate) fn field_suggestions(typename: &str, input: &str) -> String {
+    field_suggestions_for(typename, input, false)
+}
+pub(crate) fn field_suggestions_for(typename: &str, input: &str, http: bool) -> String {
     suggestions(
-        schema()["types"]
+        schema_for(http)["types"]
             .as_array()
             .unwrap()
             .iter()

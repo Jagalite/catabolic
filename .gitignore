@@ -15,3 +15,5 @@ dist/
 .local-tests/
 .DS_Store
 target/
+crates/catabolic-python/python/catabolic_native/bin/catabolic-native
+crates/catabolic-python/python/catabolic_native/native-helper.json

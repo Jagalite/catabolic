@@ -227,6 +227,21 @@ pub fn validate_source_item(
     item: &str,
     value: &Value,
 ) -> Result<()> {
+    validate_source_item_mode(store, profile, file, item, value, None)
+}
+pub fn validate_source_item_mode(
+    store: &Store,
+    profile: &str,
+    file: &str,
+    item: &str,
+    value: &Value,
+    lineage: Option<&str>,
+) -> Result<()> {
+    if lineage
+        .is_some_and(|v| !["current_source_revision", "accepted_source_revision"].contains(&v))
+    {
+        return Err(Error("invalid source lineage mode".into()));
+    }
     if !store.db.query_row(
         "SELECT EXISTS(SELECT 1 FROM item_files WHERE file_id=? AND item_id=? AND active=1)",
         params![file, item],
@@ -248,7 +263,15 @@ pub fn validate_source_item(
             return Err(Error("input must have an active association or a validated rendition for the requested item".into()));
         }
         for output in outputs {
-            crate::publication::ready(store, profile, &output, &[])?;
+            if let Some(mode) = lineage {
+                let (checks, _) =
+                    crate::publication::fallback_evidence(store, profile, &output, mode, &[])?;
+                for snapshot in checks {
+                    source::validate(&snapshot)?;
+                }
+            } else {
+                crate::publication::ready(store, profile, &output, &[])?;
+            }
         }
     }
     if value["mode"] == "new_item" && value["relationship"] == "edition_of" {

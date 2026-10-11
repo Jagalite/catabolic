@@ -3,7 +3,9 @@
 
 //! Consumer connection/binding ownership and fenced refresh delivery. This
 //! module performs no network I/O and never reads a credential value.
-use crate::{Error, Result, Store, migration::rows, notifications::now};
+use crate::{
+    Error, Result, Store, fallback_resolution::Probe, migration::rows, notifications::now,
+};
 use catabolic_core::{decode_json, encode, sha256};
 use rusqlite::params;
 use serde_json::{Value, json};
@@ -217,11 +219,12 @@ pub fn same_library(left: &Value, right: &Value) -> bool {
     library_identity(left) == library_identity(right)
 }
 pub fn bind(
-    store: &Store,
+    store: &mut Store,
     profile: &str,
     request: &Value,
     observed_connection: &Value,
     libraries: &[Value],
+    probe: &mut Probe<'_>,
 ) -> Result<Value> {
     validate_binding_request(request)?;
     let id = string(request, "id")?;
@@ -330,7 +333,13 @@ pub fn bind(
             Ok(())
         })?;
         if request["initial_scan"] == true {
-            crate::filesystem_mutation::published(store, profile, catalog, &mut value, false)?;
+            let saved = binding(store, profile, id)?;
+            let snapshot = binding_snapshot(store, profile, std::slice::from_ref(&saved))?;
+            let outcome = crate::filesystem_mutation::published_mut(
+                store, profile, catalog, &mut value, false, probe,
+            );
+            require_bindings(store, profile, &snapshot)?;
+            outcome?;
         }
     }
     value["library"] = library.clone();
@@ -346,27 +355,87 @@ fn group_bindings(store: &Store, profile: &str, group: &str) -> Result<Vec<Value
         &[profile.to_owned().into(), group.to_owned().into()],
     )
 }
-pub fn local_valid(
-    store: &Store,
-    profile: &str,
-    bindings: &[Value],
-) -> Result<BTreeMap<String, Value>> {
-    let mut catalogs = BTreeSet::new();
-    for binding in bindings {
-        let catalog = string(binding, "catalog")?;
-        let current = crate::observation::binding(store, profile, "output", catalog)
+// Only publication verification bookkeeping may change while a caller marks a
+// healthy generation verified. Revisions, generations, due times and connection
+// identities must remain exactly those admitted before detached probe work.
+fn binding_snapshot(store: &Store, profile: &str, bindings: &[Value]) -> Result<Vec<Value>> {
+    bindings
+        .iter()
+        .map(|row| {
+            let mut value = row.clone();
+            for key in ["verified", "verified_at", "error", "indexing"] {
+                value
+                    .as_object_mut()
+                    .ok_or_else(|| error("invalid_configuration"))?
+                    .remove(key);
+            }
+            value["connection_revision"] =
+                connection(store, profile, string(row, "connection_id")?)?["revision"].clone();
+            Ok(value)
+        })
+        .collect()
+}
+fn require_bindings(store: &Store, profile: &str, expected: &[Value]) -> Result<()> {
+    let current = expected
+        .iter()
+        .map(|row| binding(store, profile, string(row, "id")?))
+        .collect::<Result<Vec<_>>>()?;
+    if binding_snapshot(store, profile, &current)? != expected {
+        return Err(error("binding_changed"));
+    }
+    for row in &current {
+        let local = crate::observation::binding(store, profile, "output", string(row, "catalog")?)
             .map_err(|_| error("publication_unhealthy"))?;
-        if encode(&current) != string(binding, "local_binding")? {
+        if encode(&local) != string(row, "local_binding")? {
             return Err(error("output_binding_changed"));
         }
-        crate::observation::checked_root(store, profile, &current)
+        crate::observation::checked_root(store, profile, &local)
             .map_err(|_| error("publication_unhealthy"))?;
-        catalogs.insert(catalog.to_owned());
     }
+    Ok(())
+}
+fn unchanged_group(
+    store: &Store,
+    profile: &str,
+    expected: &Value,
+    bindings: &[Value],
+) -> Result<bool> {
+    let current = rows(
+        &store.db,
+        "SELECT * FROM consumer_deliveries WHERE profile=? AND id=?",
+        &[
+            profile.to_owned().into(),
+            string(expected, "id")?.to_owned().into(),
+        ],
+    )?;
+    if current.first() != Some(expected) {
+        return Ok(false);
+    }
+    let current = group_bindings(store, profile, string(expected, "id")?)?;
+    Ok(binding_snapshot(store, profile, &current)? == bindings)
+}
+pub fn local_valid(
+    store: &mut Store,
+    profile: &str,
+    bindings: &[Value],
+    probe: &mut Probe<'_>,
+) -> Result<BTreeMap<String, Value>> {
+    let snapshot = binding_snapshot(store, profile, bindings)?;
+    require_bindings(store, profile, &snapshot)?;
+    let catalogs = bindings
+        .iter()
+        .map(|row| string(row, "catalog").map(str::to_owned))
+        .collect::<Result<BTreeSet<_>>>()?;
+    // The epoch covers the complete multi-catalog proof, not just the most
+    // recent probe. A later catalog's probe may invalidate an earlier one.
+    let epoch = crate::fallback_resolution::epoch(store)?;
     let mut validations = BTreeMap::new();
     for catalog in catalogs {
-        let report = crate::filesystem_mutation::verify(store, profile, &catalog)
-            .map_err(|_| error("publication_unhealthy"))?;
+        let report = crate::filesystem_mutation::verify_mut(store, profile, &catalog, probe);
+        require_bindings(store, profile, &snapshot)?;
+        crate::fallback_resolution::require_epoch(store, epoch)
+            .map_err(|_| error("publication_changed"))?;
+        let report = report.map_err(|_| error("publication_unhealthy"))?;
         if report["healthy"] != true {
             return Err(error("publication_unhealthy"));
         }
@@ -384,7 +453,12 @@ pub struct Claim {
     pub connection: Value,
     pub library: Value,
 }
-pub fn claim(store: &Store, profile: &str, automatic: bool) -> Result<Option<Claim>> {
+pub fn claim(
+    store: &mut Store,
+    profile: &str,
+    automatic: bool,
+    probe: &mut Probe<'_>,
+) -> Result<Option<Claim>> {
     let at = now();
     let groups = rows(
         &store.db,
@@ -406,6 +480,7 @@ pub fn claim(store: &Store, profile: &str, automatic: bool) -> Result<Option<Cla
         {
             continue;
         }
+        let captured = binding_snapshot(store, profile, &bindings)?;
         let validate = (|| {
             let evidence: Vec<_> = bindings
                 .iter()
@@ -418,14 +493,20 @@ pub fn claim(store: &Store, profile: &str, automatic: bool) -> Result<Option<Cla
             if evidence.iter().any(|v| Some(v) != evidence.first()) {
                 return Err(error("library_binding_evidence_mismatch"));
             }
-            local_valid(store, profile, &bindings)
+            local_valid(store, profile, &bindings, probe)
         })();
+        // A competing worker may have claimed, delivered or reconfigured the
+        // group while a probe held no Store. Do not touch its lease or error.
+        if !unchanged_group(store, profile, &group, &captured)? {
+            continue;
+        }
         let validations = match validate {
             Ok(v) => v,
             Err(e) => {
                 let failure = Failure::new(match e.0.as_str() {
                     "library_binding_evidence_mismatch" => "library_binding_evidence_mismatch",
                     "output_binding_changed" => "output_binding_changed",
+                    "publication_changed" => "publication_changed",
                     _ => "publication_unhealthy",
                 });
                 store.transaction(|db|{db.execute("UPDATE consumer_deliveries SET state=CASE WHEN ? THEN 'repair' ELSE state END,error=?,due_at=? WHERE profile=? AND id=?",params![!failure.retryable(),failure.code,now()+30.0,profile,id])?;Ok(())})?;
@@ -436,8 +517,24 @@ pub fn claim(store: &Store, profile: &str, automatic: bool) -> Result<Option<Cla
             store.transaction(|db|{db.execute("UPDATE consumer_deliveries SET state='exhausted',lease_token=NULL,lease_until=NULL WHERE profile=? AND id=?",params![profile,id])?;Ok(())})?;
             continue;
         }
+        let mut unchanged = true;
         for catalog in validations.keys() {
-            crate::filesystem_mutation::published(store, profile, catalog, &mut json!({}), false)?;
+            let result = crate::filesystem_mutation::published_mut(
+                store,
+                profile,
+                catalog,
+                &mut json!({}),
+                false,
+                probe,
+            );
+            if !unchanged_group(store, profile, &group, &captured)? {
+                unchanged = false;
+                break;
+            }
+            result?;
+        }
+        if !unchanged {
+            continue;
         }
         let mut snapshot = Vec::new();
         for b in &bindings {
@@ -445,10 +542,18 @@ pub fn claim(store: &Store, profile: &str, automatic: bool) -> Result<Option<Cla
         }
         let token = uuid::Uuid::new_v4().to_string();
         let attempt_id=store.transaction(|db|{
+            if !unchanged_group(store, profile, &group, &captured)? {
+                return Ok(None);
+            }
+            let at = now();
+            let acquired = db.execute("UPDATE consumer_deliveries SET state='leased',lease_token=?,lease_until=?,attempts=attempts+1 WHERE profile=? AND id=? AND state IN ('pending','accepted','retry','leased','busy') AND due_at<=? AND (lease_until IS NULL OR lease_until<=?)",params![token,at+LEASE_SECONDS,profile,id,at,at])?;
+            if acquired != 1 { return Ok(None); }
             db.execute("UPDATE consumer_attempts SET state='lease_expired',finished_at=CURRENT_TIMESTAMP WHERE profile=? AND group_id=? AND state='leased'",params![profile,id])?;
-            db.execute("UPDATE consumer_deliveries SET state='leased',lease_token=?,lease_until=?,attempts=attempts+1 WHERE profile=? AND id=?",params![token,now()+LEASE_SECONDS,profile,id])?;
-            db.execute("INSERT INTO consumer_attempts(profile,group_id,token,snapshot,state) VALUES (?,?,?,?,'leased')",params![profile,id,token,encode(&json!(snapshot))])?;Ok(db.last_insert_rowid())
+            db.execute("INSERT INTO consumer_attempts(profile,group_id,token,snapshot,state) VALUES (?,?,?,?,'leased')",params![profile,id,token,encode(&json!(snapshot))])?;Ok(Some(db.last_insert_rowid()))
         })?;
+        let Some(attempt_id) = attempt_id else {
+            continue;
+        };
         return Ok(Some(Claim {
             group_id: id.to_owned(),
             token,
@@ -490,9 +595,18 @@ pub fn fence(
     }
     Ok((group, current))
 }
-pub fn before_send(store: &Store, profile: &str, claim: &Claim) -> Result<()> {
+pub fn before_send(
+    store: &mut Store,
+    profile: &str,
+    claim: &Claim,
+    probe: &mut Probe<'_>,
+) -> Result<()> {
     let (_, current) = fence(store, profile, claim, true)?;
-    local_valid(store, profile, &current)?;
+    let result = local_valid(store, profile, &current, probe);
+    // Fence even failed verification: expiry/rebinding during detached work
+    // must not be reported or acknowledged as this worker's current attempt.
+    fence(store, profile, claim, true)?;
+    result?;
     Ok(())
 }
 pub fn acknowledge(
@@ -642,10 +756,11 @@ pub struct IndexingClaim {
     pub expected: Vec<String>,
 }
 pub fn indexing_claim(
-    store: &Store,
+    store: &mut Store,
     profile: &str,
     id: &str,
     limit: usize,
+    probe: &mut Probe<'_>,
 ) -> Result<IndexingClaim> {
     if !(1..=1000).contains(&limit) {
         return Err(error("invalid_configuration"));
@@ -654,22 +769,39 @@ pub fn indexing_claim(
     if binding["enabled"] != 1 {
         return Err(error("binding_disabled"));
     }
-    local_valid(store, profile, std::slice::from_ref(&binding))?;
+    local_valid(store, profile, std::slice::from_ref(&binding), probe)?;
     let connection = connection(store, profile, string(&binding, "connection_id")?)?;
     let subtree = binding["subtree"]
         .as_str()
         .ok_or_else(|| error("invalid_configuration"))?;
+    // Effective fallback membership replaces exact mappings. Keep the limit
+    // in SQL so indexing never materializes an unbounded catalog in memory.
+    let catalog = string(&binding, "catalog")?;
+    let logical = crate::fallback_projection::binding(store, profile, catalog)?.is_some();
+    let source = if logical {
+        "fallback_entries m JOIN files f ON f.id=m.file_id"
+    } else {
+        "mappings m"
+    };
+    let scope = if logical { "m.profile=? AND " } else { "" };
+    let mut parameters = Vec::<rusqlite::types::Value>::new();
+    if logical {
+        parameters.push(profile.to_owned().into());
+    }
+    parameters.extend([
+        catalog.to_owned().into(),
+        subtree.to_owned().into(),
+        subtree.to_owned().into(),
+        subtree.to_owned().into(),
+        subtree.to_owned().into(),
+        ((limit + 1) as i64).into(),
+    ]);
     let paths = rows(
         &store.db,
-        "SELECT path FROM mappings WHERE catalog=? AND active=1 AND (?='' OR path=? OR substr(path,1,length(?)+1)=?||'/') ORDER BY path LIMIT ?",
-        &[
-            string(&binding, "catalog")?.to_owned().into(),
-            subtree.to_owned().into(),
-            subtree.to_owned().into(),
-            subtree.to_owned().into(),
-            subtree.to_owned().into(),
-            ((limit + 1) as i64).into(),
-        ],
+        &format!(
+            "SELECT m.path AS path FROM {source} WHERE {scope}m.catalog=? AND m.active=1 AND m.path IS NOT NULL AND (?='' OR m.path=? OR substr(m.path,1,length(?)+1)=?||'/') ORDER BY m.path LIMIT ?"
+        ),
+        &parameters,
     )?;
     if paths.len() > limit {
         return Err(error("response_limit"));
@@ -684,12 +816,17 @@ pub fn indexing_claim(
             .strip_prefix(subtree)
             .ok_or_else(|| error("outside_binding_scope"))?
             .trim_start_matches('/');
-        let root = string(&binding, "remote_root")?.trim_end_matches('/');
-        expected.push(if suffix.is_empty() {
-            root.to_owned()
+        let remote = path(string(&binding, "remote_root")?, false)?;
+        let root = remote.trim_end_matches('/');
+        let translated = if suffix.is_empty() {
+            remote
         } else {
             format!("{root}/{suffix}")
-        });
+        };
+        // Frozen translation validates each input at 4096 characters, not the
+        // composed output at that same bound. The sum is still bounded by
+        // 8193 characters, and the checked subtree contributes no traversal.
+        expected.push(translated);
     }
     Ok(IndexingClaim {
         binding,

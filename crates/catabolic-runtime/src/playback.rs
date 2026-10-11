@@ -79,7 +79,16 @@ pub fn capabilities() -> Result<Value> {
     Ok(caps)
 }
 pub fn execute(access: &mut Access, operation: &str, request: &Value) -> Result<Value> {
-    let tools = rendering::tools(false)?;
+    let tools = access.detached(|| rendering::tools(false))?;
+    execute_with_tools(access, operation, request, &tools)
+}
+/// The caller may discover tools before opening its authenticated owner.
+pub fn execute_with_tools(
+    access: &mut Access,
+    operation: &str,
+    request: &Value,
+    tools: &Value,
+) -> Result<Value> {
     match operation {
         "admit" => sessions::admit(
             access,
@@ -93,22 +102,20 @@ pub fn execute(access: &mut Access, operation: &str, request: &Value) -> Result<
                 })
                 .transpose()?
                 .unwrap_or(3600),
-            &tools,
+            tools,
         ),
-        "status" => sessions::status(access, text(request, "session_id")?, &tools),
-        "cancel" => sessions::cancel(access, text(request, "session_id")?, &tools),
-        "playlist" => sessions::with_media(
-            access,
-            text(request, "session_id")?,
-            None,
-            &tools,
-            |media| match media {
-                sessions::Media::Playlist(bytes) => Ok(
-                    json!({"playlist":String::from_utf8(bytes).map_err(|_|Error("invalid_playback_cache".into()))?}),
-                ),
-                _ => unreachable!(),
-            },
-        ),
+        "status" => sessions::status(access, text(request, "session_id")?, tools),
+        "cancel" => sessions::cancel(access, text(request, "session_id")?, tools),
+        "playlist" => {
+            sessions::with_media(access, text(request, "session_id")?, None, tools, |media| {
+                match media {
+                    sessions::Media::Playlist(bytes) => Ok(
+                        json!({"playlist":String::from_utf8(bytes).map_err(|_|Error("invalid_playback_cache".into()))?}),
+                    ),
+                    _ => unreachable!(),
+                }
+            })
+        }
         "inspect-segment" => {
             if request.get("range").is_some() {
                 return Err(Error("range_not_satisfiable".into()));
@@ -117,7 +124,7 @@ pub fn execute(access: &mut Access, operation: &str, request: &Value) -> Result<
                 access,
                 text(request, "session_id")?,
                 Some(text(request, "segment")?),
-                &tools,
+                tools,
                 |media| match media {
                     sessions::Media::Segment(file) => Ok(
                         json!({"size":file.metadata()?.len(),"sha256":rendering::digest(&mut file.try_clone()?)?,"content_type":"video/mp2t"}),
@@ -279,12 +286,17 @@ fn duration(before: &Value) -> Option<f64> {
         })
         .filter(|n| n.is_finite() && *n > 0.)
 }
-fn run_job(store: &mut Store, mut job: Value, caps: &Value) -> Result<Value> {
+fn run_job(
+    store: &mut Store,
+    mut job: Value,
+    caps: &Value,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> Result<Value> {
     let id = text(&job, "id")?.to_owned();
     let outcome: Result<()> = (|| {
         let recipe = decode(&job, "recipe")?;
         let tools = decode(&job, "tools")?;
-        let current_tools = rendering::tools(false)?;
+        let current_tools = store.detached(|| rendering::tools(false))?;
         let mut initial = evidence(store, &job, &current_tools, true)?;
         initial.tools_current &= caps["playback_hls"] == true;
         let decision = policy::decide(state(&job)?, initial, Event::Start);
@@ -326,6 +338,7 @@ fn run_job(store: &mut Store, mut job: Value, caps: &Value) -> Result<Value> {
                             return Ok(());
                         }
                         last = Instant::now();
+                        let current_tools = rendering::tools(false)?;
                         let current = Store::open(&path, true, false)?;
                         if current.database_id != database {
                             return Err(Error("playback_catalog_changed".into()));
@@ -334,8 +347,7 @@ fn run_job(store: &mut Store, mut job: Value, caps: &Value) -> Result<Value> {
                         if current_job["state"] != "running" {
                             return Err(Error("playback_claim_lost".into()));
                         }
-                        let evidence =
-                            evidence(&current, &current_job, &rendering::tools(false)?, true)?;
+                        let evidence = evidence(&current, &current_job, &current_tools, true)?;
                         let decision = policy::decide(State::Running, evidence, Event::Poll);
                         if decision.stop {
                             return Err(Error(
@@ -382,6 +394,7 @@ fn run_job(store: &mut Store, mut job: Value, caps: &Value) -> Result<Value> {
                         timeout: Duration::from_secs(recipe["timeout"].as_u64().unwrap_or(120)),
                         umask: Some(0o077),
                         on_poll: Some(&mut poll),
+                        cancel: Some(cancel),
                         ..Default::default()
                     },
                 )
@@ -422,6 +435,7 @@ fn run_job(store: &mut Store, mut job: Value, caps: &Value) -> Result<Value> {
                 Ok((p.segments.len(), p.seconds))
             })
         })?;
+        let current_tools = store.detached(|| rendering::tools(false))?;
         let current = sessions::job(store, &id)?;
         if current["state"] != "running" {
             return Err(Error("playback_claim_lost".into()));
@@ -432,7 +446,7 @@ fn run_job(store: &mut Store, mut job: Value, caps: &Value) -> Result<Value> {
             evidence(
                 store,
                 &current,
-                &rendering::tools(false)?,
+                &current_tools,
                 budget(&directory, &recipe)?,
             )?,
             Event::Complete { valid_output: true },
@@ -450,7 +464,7 @@ fn run_job(store: &mut Store, mut job: Value, caps: &Value) -> Result<Value> {
     }
     Ok(json!({"processed":1,"job_id":id,"state":sessions::job(store,&id)?["state"]}))
 }
-fn recover(store: &Store, profile: &str) -> Result<usize> {
+pub(crate) fn recover(store: &Store, profile: &str) -> Result<usize> {
     let jobs = sessions::running_jobs(store, profile)?;
     for job in &jobs {
         let decision = policy::decide(
@@ -468,11 +482,41 @@ fn recover(store: &Store, profile: &str) -> Result<usize> {
     }
     Ok(jobs.len())
 }
+/// One playback step under the caller's API-worker supervisor lock.
+pub(crate) fn tick(store: &mut Store, profile: &str, caps: &Value) -> Result<Option<Value>> {
+    tick_with_cancel(
+        store,
+        profile,
+        caps,
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+}
+pub(crate) fn tick_with_cancel(
+    store: &mut Store,
+    profile: &str,
+    caps: &Value,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> Result<Option<Value>> {
+    cache::cleanup(store, profile)?;
+    if cancel.load(std::sync::atomic::Ordering::Acquire) {
+        return Ok(Some(json!({"processed":0})));
+    }
+    sessions::next_job(store, profile)?
+        .map(|job| run_job(store, job, caps, cancel))
+        .transpose()
+}
 /// A single Python-compatible supervisor lock protects recovery, cleanup and
 /// work admission while the catalog writer itself detaches around slow tools.
 pub fn worker(store: &mut Store, profile: &str, operation: &str, request: &Value) -> Result<Value> {
     if operation == "capabilities" {
-        return capabilities();
+        // Capabilities have no need for the caller's database snapshot.
+        return if store.db.is_autocommit() {
+            store.detached(capabilities)
+        } else {
+            Err(Error(
+                "capabilities require a standalone transaction boundary".into(),
+            ))
+        };
     }
     if !matches!(operation, "run" | "tick" | "recover" | "cleanup") {
         return Err(Error("unknown playback worker operation".into()));
@@ -505,17 +549,12 @@ pub fn worker(store: &mut Store, profile: &str, operation: &str, request: &Value
     if operation == "recover" {
         return Ok(json!({"recovered":recovered}));
     }
-    let caps = capabilities()?;
+    let caps = store.detached(capabilities)?;
     let once = operation == "tick" || request["once"] != false;
     let result = (|| {
         loop {
             sessions::worker_heartbeat(store, profile, std::process::id(), &caps)?;
-            cache::cleanup(store, profile)?;
-            let result = if let Some(job) = sessions::next_job(store, profile)? {
-                run_job(store, job, &caps)?
-            } else {
-                json!({"processed":0})
-            };
+            let result = tick(store, profile, &caps)?.unwrap_or_else(|| json!({"processed":0}));
             if once {
                 return Ok(result);
             }

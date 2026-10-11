@@ -53,6 +53,19 @@ pub fn enqueue_package(
     item: &str,
     package: Option<&Value>,
 ) -> Result<Value> {
+    let available = capabilities_for(store, recipe)?;
+    storage::enqueue_package(
+        store,
+        profile,
+        file,
+        recipe,
+        location,
+        item,
+        &available["tools"],
+        package,
+    )
+}
+fn capabilities_for(store: &mut Store, recipe: &str) -> Result<Value> {
     let saved = storage::get_recipe(store, recipe)?;
     let available = store.detached(rendering::capabilities)?;
     let capability = available["presets"]
@@ -65,7 +78,21 @@ pub fn enqueue_package(
             capability["missing"]
         )));
     }
-    storage::enqueue_package(
+    Ok(available)
+}
+/// Explicit local historical derivative admission; ordinary originals retain
+/// their exact cache identity and the concrete chosen input remains pinned.
+pub fn enqueue_lineage(
+    store: &mut Store,
+    profile: &str,
+    file: &str,
+    recipe: &str,
+    location: &str,
+    item: &str,
+    lineage: &str,
+) -> Result<Value> {
+    let available = capabilities_for(store, recipe)?;
+    storage::enqueue_lineage(
         store,
         profile,
         file,
@@ -73,7 +100,7 @@ pub fn enqueue_package(
         location,
         item,
         &available["tools"],
-        package,
+        lineage,
     )
 }
 fn budget(root: &File, output: &File, recipe: &Value) -> Result<()> {

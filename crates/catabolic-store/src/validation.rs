@@ -7,7 +7,10 @@ use async_graphql_parser::{
 use async_graphql_value::Value as Input;
 use serde_json::{Value, json};
 fn ty(name: &str) -> Option<&'static Value> {
-    crate::introspection::schema()["types"]
+    ty_for(name, false)
+}
+fn ty_for(name: &str, http: bool) -> Option<&'static Value> {
+    crate::introspection::schema_for(http)["types"]
         .as_array()
         .unwrap()
         .iter()
@@ -106,7 +109,13 @@ fn literal(value: &Positioned<Input>, expected: &Value, out: &mut Vec<Value>) {
         error(out, reason, value.pos);
     }
 }
-fn walk(set: &SelectionSet, parent: &str, doc: &ExecutableDocument, out: &mut Vec<Value>) {
+fn walk(
+    set: &SelectionSet,
+    parent: &str,
+    doc: &ExecutableDocument,
+    out: &mut Vec<Value>,
+    http: bool,
+) {
     for selection in &set.items {
         match &selection.node {
             Selection::Field(field) => {
@@ -124,7 +133,7 @@ fn walk(set: &SelectionSet, parent: &str, doc: &ExecutableDocument, out: &mut Ve
                     _ => None,
                 };
                 let definition = synthetic.as_ref().or_else(|| {
-                    ty(parent)
+                    ty_for(parent, http)
                         .and_then(|ty| ty["fields"].as_array())
                         .and_then(|fields| fields.iter().find(|field| field["name"] == name))
                 });
@@ -133,7 +142,7 @@ fn walk(set: &SelectionSet, parent: &str, doc: &ExecutableDocument, out: &mut Ve
                         out,
                         format!(
                             "Cannot query field '{name}' on type '{parent}'.{}",
-                            crate::introspection::field_suggestions(parent, name)
+                            crate::introspection::field_suggestions_for(parent, name, http)
                         ),
                         field.node.name.pos,
                     );
@@ -187,7 +196,7 @@ fn walk(set: &SelectionSet, parent: &str, doc: &ExecutableDocument, out: &mut Ve
                     }
                 }
                 if !is_leaf && has_children {
-                    walk(&field.node.selection_set.node, child, doc, out);
+                    walk(&field.node.selection_set.node, child, doc, out, http);
                 }
             }
             Selection::InlineFragment(fragment) => walk(
@@ -200,6 +209,7 @@ fn walk(set: &SelectionSet, parent: &str, doc: &ExecutableDocument, out: &mut Ve
                     .unwrap_or(parent),
                 doc,
                 out,
+                http,
             ),
             Selection::FragmentSpread(spread) => {
                 if !doc
@@ -216,10 +226,10 @@ fn walk(set: &SelectionSet, parent: &str, doc: &ExecutableDocument, out: &mut Ve
         }
     }
 }
-pub(crate) fn validate(doc: &ExecutableDocument) -> Option<Value> {
+pub(crate) fn validate_for(doc: &ExecutableDocument, http: bool) -> Option<Value> {
     let mut out = vec![];
     for (_, op) in doc.operations.iter() {
-        walk(&op.node.selection_set.node, "Query", doc, &mut out);
+        walk(&op.node.selection_set.node, "Query", doc, &mut out, http);
     }
     for fragment in doc.fragments.values() {
         walk(
@@ -227,6 +237,7 @@ pub(crate) fn validate(doc: &ExecutableDocument) -> Option<Value> {
             fragment.node.type_condition.node.on.node.as_str(),
             doc,
             &mut out,
+            http,
         );
     }
     if out.is_empty() {

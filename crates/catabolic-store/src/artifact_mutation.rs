@@ -214,10 +214,11 @@ fn supported(options: &Value) -> Result<()> {
             "component-mux requires an explicitly selected package".into(),
         ));
     }
-    if options.get("source_lineage_mode").is_some() {
-        return Err(Error(
-            "native accepted-source-revision rendering is not implemented".into(),
-        ));
+    if options
+        .get("source_lineage_mode")
+        .is_some_and(|v| v != "accepted_source_revision")
+    {
+        return Err(Error("invalid source lineage mode".into()));
     }
     Ok(())
 }
@@ -232,9 +233,17 @@ pub fn enqueue(
 ) -> Result<Value> {
     enqueue_package(store, profile, file, recipe, location, item, tools, None)
 }
+struct PreparedRender {
+    profile: String,
+    file: String,
+    recipe_id: String,
+    snapshot: Value,
+    options: Value,
+    key: String,
+}
 #[allow(clippy::too_many_arguments)]
-pub fn enqueue_package(
-    store: &mut Store,
+fn prepare_enqueue(
+    store: &Store,
     profile: &str,
     file: &str,
     recipe_id: &str,
@@ -242,12 +251,28 @@ pub fn enqueue_package(
     item: &str,
     tools: &Value,
     package: Option<&Value>,
-) -> Result<Value> {
+    lineage: Option<&str>,
+) -> Result<PreparedRender> {
     mutation::require_recovered(&store.db)?;
     mutation::profile(store, profile)?;
     let recipe = get_recipe(store, recipe_id)?;
     let output = outputs::get_definition(store, text(&recipe, "output_definition_id")?)?;
-    outputs::validate_source_item(store, profile, file, item, &output["definition"])?;
+    if lineage
+        .is_some_and(|v| !["current_source_revision", "accepted_source_revision"].contains(&v))
+    {
+        return Err(Error("invalid source lineage mode".into()));
+    }
+    let lineage = if lineage == Some("accepted_source_revision")
+        && store.db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM media_outputs WHERE profile=? AND file_id=?)",
+            params![profile, file],
+            |r| r.get::<_, bool>(0),
+        )? {
+        lineage
+    } else {
+        None
+    };
+    outputs::validate_source_item_mode(store, profile, file, item, &output["definition"], lineage)?;
     if !store.db.query_row(
         "SELECT EXISTS(SELECT 1 FROM generated_locations WHERE profile=? AND location=?)",
         params![profile, location],
@@ -266,12 +291,28 @@ pub fn enqueue_package(
         crate::component_mutation::validate_package(store, profile, package, Some(&recipe), false)?;
         options["component_package"] = package.clone();
     }
+    if let Some(mode) = lineage {
+        options["source_lineage_mode"] = json!(mode);
+    }
     supported(&options)?;
     let key = sha256(encode(&json!([snapshot, recipe["digest"], options])));
-    let old=store.db.query_row("SELECT id,state FROM processing_jobs WHERE profile=? AND operation='render' AND cache_key=? ORDER BY created_at DESC,id DESC LIMIT 1",params![profile,key],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()?;
+    Ok(PreparedRender {
+        profile: profile.into(),
+        file: file.into(),
+        recipe_id: recipe_id.into(),
+        snapshot,
+        options,
+        key,
+    })
+}
+fn reusable_job(
+    store: &Store,
+    prepared: &PreparedRender,
+) -> Result<Option<(String, Option<Value>)>> {
+    let old=store.db.query_row("SELECT id,state FROM processing_jobs WHERE profile=? AND operation='render' AND cache_key=? ORDER BY created_at DESC,id DESC LIMIT 1",params![prepared.profile,prepared.key],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()?;
     if let Some((id, state)) = old {
-        if ["queued", "running"].contains(&state.as_str()) {
-            return Ok(json!({"job_id":id,"reused":true}));
+        if matches!(state.as_str(), "queued" | "running") {
+            return Ok(Some((id, None)));
         }
         if state == "complete" {
             let artifact = store
@@ -283,17 +324,128 @@ pub fn enqueue_package(
                 )
                 .optional()?;
             if let Some(artifact) = artifact {
-                let a = get(store, profile, &artifact)?;
-                if usable(store, profile, &a)? {
-                    return Ok(json!({"job_id":id,"artifact_id":artifact,"reused":true}));
-                }
+                return Ok(Some((id, Some(get(store, &prepared.profile, &artifact)?))));
             }
         }
     }
+    Ok(None)
+}
+fn create_job(store: &Store, prepared: PreparedRender) -> Result<Value> {
+    let PreparedRender {
+        profile,
+        file,
+        recipe_id,
+        snapshot,
+        options,
+        key,
+    } = prepared;
     let id = uuid::Uuid::new_v4().to_string();
-    store.transaction(|db| {db.execute("INSERT INTO processing_jobs(id,profile,file_id,operation,location,snapshot,options,cache_key,recipe_id) VALUES (?,?,?,'render',?,?,?,?,?)",params![id,profile,file,snapshot["location"].as_str(),encode(&snapshot),encode(&options),key,recipe_id])?;
-        if let Some(package)=package {for (ordinal,entry) in package["components"].as_array().unwrap().iter().enumerate(){db.execute("INSERT INTO component_job_inputs VALUES (?,?,?,?)",params![id,ordinal as i64,entry["occurrence"]["occurrence_id"].as_str(),encode(entry)])?;}}Ok(())})?;
+    store.transaction(|db| {
+        db.execute("INSERT INTO processing_jobs(id,profile,file_id,operation,location,snapshot,options,cache_key,recipe_id) VALUES (?,?,?,'render',?,?,?,?,?)",params![id,profile,file,snapshot["location"].as_str(),encode(&snapshot),encode(&options),key,recipe_id])?;
+        if let Some(package)=options.get("component_package") { for (ordinal,entry) in package["components"].as_array().unwrap().iter().enumerate() {
+            db.execute("INSERT INTO component_job_inputs VALUES (?,?,?,?)",params![id,ordinal as i64,entry["occurrence"]["occurrence_id"].as_str(),encode(entry)])?;
+        }}
+        Ok(())
+    })?;
     Ok(json!({"job_id":id,"reused":false}))
+}
+#[allow(clippy::too_many_arguments)]
+pub fn enqueue_package(
+    store: &mut Store,
+    profile: &str,
+    file: &str,
+    recipe_id: &str,
+    location: &str,
+    item: &str,
+    tools: &Value,
+    package: Option<&Value>,
+) -> Result<Value> {
+    let prepared = prepare_enqueue(
+        store, profile, file, recipe_id, location, item, tools, package, None,
+    )?;
+    enqueue_prepared(store, profile, prepared)
+}
+#[allow(clippy::too_many_arguments)]
+pub fn enqueue_lineage(
+    store: &mut Store,
+    profile: &str,
+    file: &str,
+    recipe_id: &str,
+    location: &str,
+    item: &str,
+    tools: &Value,
+    lineage: &str,
+) -> Result<Value> {
+    let prepared = prepare_enqueue(
+        store,
+        profile,
+        file,
+        recipe_id,
+        location,
+        item,
+        tools,
+        None,
+        Some(lineage),
+    )?;
+    enqueue_prepared(store, profile, prepared)
+}
+fn enqueue_prepared(store: &mut Store, profile: &str, prepared: PreparedRender) -> Result<Value> {
+    if let Some((id, artifact)) = reusable_job(store, &prepared)? {
+        if let Some(artifact) = artifact {
+            if usable(store, profile, &artifact)? {
+                return Ok(json!({"job_id":id,"artifact_id":artifact["id"],"reused":true}));
+            }
+        } else {
+            return Ok(json!({"job_id":id,"reused":true}));
+        }
+    }
+    create_job(store, prepared)
+}
+/// Request admission runs in the caller's existing transaction. Capabilities
+/// are supplied by the supervised worker; cache verification is metadata-only,
+/// matching the frozen demand contract and never detaching an active writer.
+#[allow(clippy::too_many_arguments)]
+pub fn enqueue_request(
+    store: &Store,
+    profile: &str,
+    file: &str,
+    recipe_id: &str,
+    location: &str,
+    item: &str,
+    capabilities: &Value,
+    lineage: Option<&str>,
+) -> Result<Value> {
+    let recipe = get_recipe(store, recipe_id)?;
+    let capability = capabilities["presets"]
+        .as_array()
+        .and_then(|v| v.iter().find(|v| v["name"] == recipe["preset"]))
+        .ok_or_else(|| Error("unknown render preset".into()))?;
+    if capability["available"] != true {
+        return Err(Error(
+            "the installed FFmpeg build lacks required encoders, muxers or filters".into(),
+        ));
+    }
+    let prepared = prepare_enqueue(
+        store,
+        profile,
+        file,
+        recipe_id,
+        location,
+        item,
+        &capabilities["tools"],
+        None,
+        lineage,
+    )?;
+    if let Some((id, artifact)) = reusable_job(store, &prepared)? {
+        if let Some(artifact) = artifact {
+            if usable_metadata(store, profile, &artifact)? {
+                return Ok(json!({"job_id":id,"artifact_id":artifact["id"],"reused":true}));
+            }
+        } else {
+            return Ok(json!({"job_id":id,"reused":true}));
+        }
+    }
+    create_job(store, prepared)
 }
 fn claim_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<claims::Claim> {
     Ok(claims::Claim {
@@ -341,6 +493,17 @@ pub fn start(
     name(extension)?;
     let job = claims::get_job(store, profile, id)?;
     supported(&job["options"])?;
+    if job["options"].get("source_lineage_mode").is_some()
+        && !store.db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM media_outputs WHERE profile=? AND file_id=?)",
+            params![profile, text(&job, "file_id")?],
+            |r| r.get::<_, bool>(0),
+        )?
+    {
+        return Err(Error(
+            "historical lineage requires a recorded derivative".into(),
+        ));
+    }
     if let Some(package) = job["options"].get("component_package") {
         let recipe = get_recipe(store, text(&job, "recipe_id")?)?;
         crate::component_mutation::validate_package(store, profile, package, Some(&recipe), false)?;
@@ -349,12 +512,13 @@ pub fn start(
         return Err(Error("only queued render jobs can be started".into()));
     }
     let options = &job["options"];
-    outputs::validate_source_item(
+    outputs::validate_source_item_mode(
         store,
         profile,
         text(&job, "file_id")?,
         text(options, "item_id")?,
         &options["output_definition"]["definition"],
+        options["source_lineage_mode"].as_str(),
     )?;
     owned_root(store, profile, &options["destination"])?;
     let id_artifact = uuid::Uuid::new_v4().to_string();
@@ -750,12 +914,13 @@ fn publish_inner(
     if let Some(package) = options.get("component_package") {
         crate::component_mutation::validate_package(store, profile, package, None, true)?;
     }
-    outputs::validate_source_item(
+    outputs::validate_source_item_mode(
         store,
         profile,
         text(&job, "file_id")?,
         text(options, "item_id")?,
         &options["output_definition"]["definition"],
+        options["source_lineage_mode"].as_str(),
     )?;
     let database = uuid::Uuid::parse_str(&store.database_id).map_err(|e| Error(e.to_string()))?;
     let file = uuid::Uuid::new_v5(
@@ -1135,7 +1300,7 @@ mod tests {
         );
     }
     #[test]
-    fn historical_admission_and_malformed_package_jobs_are_refused_before_creating_artifacts() {
+    fn noncanonical_lineage_and_malformed_package_jobs_are_refused_before_creating_artifacts() {
         for field in ["source_lineage_mode", "component_package"] {
             let mut f = Fixture::new();
             let id = f.queued();

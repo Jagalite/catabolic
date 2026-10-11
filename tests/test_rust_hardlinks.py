@@ -217,6 +217,46 @@ class NativeHardlinkTest(unittest.TestCase):
         self.app.scan()
         self.assertTrue(self.reconciler.apply()["healthy"])
 
+    def check_nonfixture_retirement_refusal(self, replace):
+        self.reconciler.apply()
+        if replace:
+            os.link(self.media, self.source / "old-copy.mkv")
+            self.media.unlink()
+            self.media.write_bytes(b"new inode")
+            self.app.scan()
+        else:
+            self.disable()
+        original = self.link.lstat()
+        journal = self.store.rows("SELECT * FROM journal")
+        for action in ("preview", "apply"):
+            result = self.reconciler.call(action, disposable_fixture=False)
+            self.assertFalse(result["safe"])
+            self.assertTrue(
+                any(
+                    "foreign-leaf relocation safety" in row["reason"]
+                    for row in result["blockers"]
+                )
+            )
+            self.assertEqual(self.link.lstat(), original)
+            self.assertEqual(self.retained(), [])
+            self.assertEqual(self.store.rows("SELECT * FROM journal"), journal)
+        # A compatible unfinished journal created in an explicit disposable
+        # fixture must also be retained untouched by a non-fixture recovery.
+        self.native_crash("after_journal")
+        pending = self.store.rows("SELECT * FROM journal")
+        self.assertTrue(pending)
+        with self.assertRaisesRegex(CatabolicError, "foreign-leaf relocation safety"):
+            self.reconciler.recover(disposable_fixture=False)
+        self.assertEqual(self.link.lstat(), original)
+        self.assertEqual(self.retained(), [])
+        self.assertEqual(self.store.rows("SELECT * FROM journal"), pending)
+
+    def test_nonfixture_hardlink_replacement_is_fail_closed(self):
+        self.check_nonfixture_retirement_refusal(replace=True)
+
+    def test_nonfixture_hardlink_removal_is_fail_closed(self):
+        self.check_nonfixture_retirement_refusal(replace=False)
+
 
 for _name in (
     "test_creation_repeat_warnings_and_readonly_preview",

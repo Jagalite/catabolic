@@ -1,0 +1,11 @@
+SPDX-FileCopyrightText: Python Software Foundation
+SPDX-License-Identifier: PSF-2.0 AND LicenseRef-media-types-public-domain
+
+Derived MIME registry facts from Python 3.14.6 mimetypes and this qualification
+host's Debian media-types /etc/mime.types. The JSON records the input SHA-256.
+Debian /usr/share/doc/media-types/copyright states:
+Files: *
+Copyright: public-domain
+License: ad-hoc
+ This package contains public information compiled from around the 'net and
+ many people.

@@ -1,26 +1,41 @@
 //! Owns Catabolic's SQLite lifecycle. Opening never creates or upgrades a catalog.
 pub mod access;
+pub mod api_catalog;
+pub mod api_events;
+pub mod api_queries;
 pub mod artifact_mutation;
+pub mod catalog_refresh;
 pub mod component_mutation;
+pub mod component_selection;
 mod components;
 pub mod consumers;
 pub mod content_access;
 pub mod curation;
 pub mod definitions;
 mod document;
+pub mod embedding;
 pub mod estimates;
+pub mod export_bundle;
+pub mod exports;
 pub mod fallback_mutation;
+pub mod fallback_projection;
+pub mod fallback_publication;
+pub mod fallback_resolution;
 pub mod filesystem_mutation;
 pub mod graphql;
 pub mod hardlink_mutation;
 pub mod http_mappings;
 pub mod http_operations;
+pub mod imports;
 pub mod interchange;
 mod introspection;
+pub mod item_workflow;
 pub mod layout;
+pub mod layout_mutation;
 pub mod manifest;
 pub mod media_mutation;
 pub mod migration;
+pub mod mime;
 pub mod mutation;
 pub mod notifications;
 pub mod observation;
@@ -34,10 +49,13 @@ mod publication;
 pub mod query;
 pub mod receipt_mutation;
 pub mod remount;
+pub mod rendition_mutation;
+pub mod rules;
 pub mod selection;
 mod source;
 pub mod sql;
 pub mod tagging;
+pub mod targets;
 mod validation;
 pub mod watcher;
 pub mod webhooks;
@@ -114,7 +132,20 @@ pub fn database_path(path: &Path) -> Result<PathBuf> {
     Ok(resolved)
 }
 
-pub fn writer_lock(path: &Path) -> Result<File> {
+/// The owning scope explicitly releases its advisory lock before closing.
+/// Closing alone can retain a flock through an unrelated child's transient
+/// fork/exec duplicate of the same open-file description, even with CLOEXEC.
+/// The descriptor is intentionally private and the ownership is not clonable.
+pub struct WriterLock(File);
+impl Drop for WriterLock {
+    fn drop(&mut self) {
+        // SAFETY: this object owns a live descriptor. Unlock only releases the
+        // lock belonging to this open-file description, never another owner's.
+        unsafe { libc::flock(self.0.as_raw_fd(), libc::LOCK_UN) };
+    }
+}
+
+pub fn writer_lock(path: &Path) -> Result<WriterLock> {
     let mut lock = path.as_os_str().to_os_string();
     lock.push(".lock");
     let file = OpenOptions::new()
@@ -141,7 +172,7 @@ pub fn writer_lock(path: &Path) -> Result<File> {
         }
         return Err(error.into());
     }
-    Ok(file)
+    Ok(WriterLock(file))
 }
 
 pub fn connect(path: &Path, writable: bool) -> Result<Connection> {
@@ -163,7 +194,8 @@ pub struct Store {
     pub writable: bool,
     pub schema_version: u32,
     pub database_id: String,
-    lock: Option<File>,
+    lock: Option<WriterLock>,
+    transaction_poisoned: std::cell::Cell<bool>,
 }
 impl Store {
     pub fn open(path: &Path, writable: bool, for_recovery: bool) -> Result<Self> {
@@ -206,9 +238,53 @@ impl Store {
                 .expect("validated identity")
                 .into(),
             lock,
+            transaction_poisoned: std::cell::Cell::new(false),
         })
     }
-    pub fn transaction<T>(&self, operation: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
+    pub(crate) fn transaction_available(&self) -> Result<()> {
+        if self.writable && self.lock.is_none() {
+            return Err(Error(
+                "catalog session unavailable after detached execution".into(),
+            ));
+        }
+        if self.transaction_poisoned.get() {
+            return Err(Error(
+                "native store unavailable after transaction cleanup failure".into(),
+            ));
+        }
+        Ok(())
+    }
+    fn poison_transaction_owner(&self) {
+        self.transaction_poisoned.set(true);
+        // Even direct db access must fail closed after an unprovable rollback.
+        let _ = self
+            .db
+            .authorizer(Some(|_: rusqlite::hooks::AuthContext<'_>| {
+                rusqlite::hooks::Authorization::Deny
+            }));
+    }
+    pub(crate) fn rollback_transaction(&self, savepoint: Option<&str>) -> Result<()> {
+        // SQLITE_INTERRUPT, OR ROLLBACK and certain I/O failures can already
+        // have rolled back every savepoint. Never replace the original error
+        // with a spurious "no transaction is active" cleanup error.
+        if self.db.is_autocommit() {
+            return Ok(());
+        }
+        let sql = savepoint.map_or_else(
+            || "ROLLBACK".into(),
+            |name| format!("ROLLBACK TO {name}; RELEASE {name}"),
+        );
+        if let Err(error) = self.db.execute_batch(&sql) {
+            // A missing/corrupt scope cannot be acknowledged as scoped rollback.
+            // Retire the connection even if a best-effort full rollback succeeds.
+            let _ = self.db.execute_batch("ROLLBACK");
+            self.poison_transaction_owner();
+            return Err(error.into());
+        }
+        Ok(())
+    }
+    pub(crate) fn begin_transaction(&self) -> Result<Option<String>> {
+        self.transaction_available()?;
         if self.writable && self.lock.is_none() {
             return Err(Error(
                 "catalog session unavailable after detached execution".into(),
@@ -226,36 +302,69 @@ impl Store {
         } else {
             "BEGIN IMMEDIATE".into()
         })?;
-        match operation(&self.db) {
+        Ok(nested.then_some(savepoint))
+    }
+    pub(crate) fn finish_transaction<T>(
+        &self,
+        savepoint: Option<String>,
+        outcome: Result<T>,
+    ) -> Result<T> {
+        match outcome {
             Ok(value) => {
-                let result = self.db.execute_batch(&if nested {
-                    format!("RELEASE {savepoint}")
-                } else {
-                    "COMMIT".into()
-                });
-                if let Err(e) = result {
-                    let _ = self.db.execute_batch(&if nested {
-                        format!("ROLLBACK TO {savepoint}; RELEASE {savepoint}")
-                    } else {
-                        "ROLLBACK".into()
-                    });
-                    return Err(e.into());
+                self.transaction_available()?;
+                if self.db.is_autocommit() {
+                    return Err(Error("native transaction was aborted before commit".into()));
+                }
+                let commit = savepoint
+                    .as_ref()
+                    .map_or_else(|| "COMMIT".into(), |name| format!("RELEASE {name}"));
+                if let Err(error) = self.db.execute_batch(&commit) {
+                    let _ = self.rollback_transaction(savepoint.as_deref());
+                    return Err(error.into());
                 }
                 Ok(value)
             }
-            Err(e) => {
-                self.db.execute_batch(&if nested {
-                    format!("ROLLBACK TO {savepoint}; RELEASE {savepoint}")
-                } else {
-                    "ROLLBACK".into()
-                })?;
-                Err(e)
+            Err(error) => {
+                let rollback = self.rollback_transaction(savepoint.as_deref());
+                match rollback {
+                    Ok(()) => Err(error),
+                    Err(cleanup) => {
+                        Err(Error(format!("{error}; native rollback failed: {cleanup}")))
+                    }
+                }
             }
         }
+    }
+    pub fn transaction<T>(&self, operation: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
+        struct RollbackOnUnwind<'a> {
+            store: &'a Store,
+            scope: Option<String>,
+            armed: bool,
+        }
+        impl Drop for RollbackOnUnwind<'_> {
+            fn drop(&mut self) {
+                if self.armed {
+                    // Drop cannot replace the original panic with cleanup failure.
+                    // rollback_transaction retires the owner if rollback fails.
+                    let _ = self.store.rollback_transaction(self.scope.as_deref());
+                }
+            }
+        }
+        let scope = self.begin_transaction()?;
+        let mut guard = RollbackOnUnwind {
+            store: self,
+            scope: scope.clone(),
+            armed: true,
+        };
+        let outcome = operation(&self.db);
+        let result = self.finish_transaction(scope, outcome);
+        guard.armed = false;
+        result
     }
     /// Release the connection and writer lock around slow external work, then
     /// validate the reopened catalog identity before allowing further work.
     pub fn detached<T>(&mut self, operation: impl FnOnce() -> Result<T>) -> Result<T> {
+        self.transaction_available()?;
         if self.writable && self.lock.is_none() {
             return Err(Error(
                 "catalog session unavailable after detached execution".into(),
@@ -319,6 +428,21 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn writer_scope_releases_lock_despite_inherited_description() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("catalog.sqlite3");
+        let owner = writer_lock(&path).unwrap();
+        let inherited = owner.0.try_clone().unwrap();
+        assert!(writer_lock(&path).is_err());
+        drop(owner);
+        let successor = writer_lock(&path).unwrap();
+        // Closing an earlier open-file description cannot unlock this scope.
+        drop(inherited);
+        assert!(writer_lock(&path).is_err());
+        drop(successor);
+        assert!(writer_lock(&path).is_ok());
+    }
     fn catalog() -> (tempfile::TempDir, PathBuf) {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("catalog.sqlite3");

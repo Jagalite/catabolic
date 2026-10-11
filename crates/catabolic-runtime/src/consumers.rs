@@ -427,7 +427,8 @@ pub fn drain(store: &mut Store, profile: &str, limit: usize, automatic: bool) ->
     }
     let mut outcomes = Vec::new();
     for _ in 0..limit {
-        let Some(claim) = policy::claim(store, profile, automatic)? else {
+        let Some(claim) = policy::claim(store, profile, automatic, &mut crate::fallback::probe)?
+        else {
             break;
         };
         let discovered = network(store, || {
@@ -442,17 +443,19 @@ pub fn drain(store: &mut Store, profile: &str, limit: usize, automatic: bool) ->
         })?;
         let failure = match discovered {
             Err(e) => Some(e),
-            Ok((adapter, library)) => match policy::before_send(store, profile, &claim) {
-                Err(e) => Some(Failure::new(match e.0.as_str() {
-                    "publication_changed" => "publication_changed",
-                    "publication_unhealthy" => "publication_unhealthy",
-                    "output_binding_changed" => "output_binding_changed",
-                    "stale_claim" => "stale_claim",
-                    "binding_changed" => "binding_changed",
-                    _ => "temporarily_failed",
-                })),
-                Ok(()) => network(store, || Ok(adapter.scan(&library)))?.err(),
-            },
+            Ok((adapter, library)) => {
+                match policy::before_send(store, profile, &claim, &mut crate::fallback::probe) {
+                    Err(e) => Some(Failure::new(match e.0.as_str() {
+                        "publication_changed" => "publication_changed",
+                        "publication_unhealthy" => "publication_unhealthy",
+                        "output_binding_changed" => "output_binding_changed",
+                        "stale_claim" => "stale_claim",
+                        "binding_changed" => "binding_changed",
+                        _ => "temporarily_failed",
+                    })),
+                    Ok(()) => network(store, || Ok(adapter.scan(&library)))?.err(),
+                }
+            }
         };
         let mut outcome = policy::acknowledge(store, profile, &claim, failure.as_ref())?;
         outcome["group_id"] = json!(claim.group_id);
@@ -581,7 +584,14 @@ pub fn execute(
                 })())
             })?
             .map_err(|e| e.error())?;
-            let mut result = policy::bind(store, profile, request, &connection, &libraries)?;
+            let mut result = policy::bind(
+                store,
+                profile,
+                request,
+                &connection,
+                &libraries,
+                &mut crate::fallback::probe,
+            )?;
             if request["apply"] == true && request["initial_scan"] == true {
                 after_publication(store, profile, &mut result)?;
             }
@@ -589,8 +599,13 @@ pub fn execute(
         }
         "verify-indexing" => {
             let limit = policy::limit(request, 100, 1000)?;
-            let claim =
-                policy::indexing_claim(store, profile, policy::string(request, "id")?, limit)?;
+            let claim = policy::indexing_claim(
+                store,
+                profile,
+                policy::string(request, "id")?,
+                limit,
+                &mut crate::fallback::probe,
+            )?;
             let library = catabolic_core::decode_json(policy::string(&claim.binding, "library")?)?;
             let report = network(store, || {
                 Ok((|| {
