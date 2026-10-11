@@ -1,4 +1,5 @@
 mod artifacts_processing;
+mod catalog_refresh;
 mod embedding;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
@@ -29,6 +30,13 @@ fn encode_json(raw: &str) -> PyResult<String> {
     let value =
         catabolic_core::decode_json(raw).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     Ok(catabolic_core::encode(&value))
+}
+#[pyfunction]
+fn component_revision(raw: &str) -> PyResult<String> {
+    let value = catabolic_core::decode_json(raw)
+        .map_err(|error| embedding::CatabolicError::new_err(error.to_string()))?;
+    catabolic_store::public_components::revision(&value)
+        .map_err(|error| embedding::CatabolicError::new_err(error.to_string()))
 }
 #[pyfunction]
 fn initialize_database(py: Python<'_>, path: &str) -> PyResult<String> {
@@ -94,6 +102,7 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(register_native_helper, m)?)?;
     m.add_function(wrap_pyfunction!(native_helper, m)?)?;
     m.add_function(wrap_pyfunction!(encode_json, m)?)?;
+    m.add_function(wrap_pyfunction!(component_revision, m)?)?;
     m.add_function(wrap_pyfunction!(initialize_database, m)?)?;
     m.add_function(wrap_pyfunction!(inspect_database, m)?)?;
     m.add_function(wrap_pyfunction!(upgrade_database, m)?)?;

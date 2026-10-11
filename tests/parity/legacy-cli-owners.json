@@ -153,11 +153,10 @@
     {
       "id": "cli:catalog-refresh watch",
       "command": "catalog-refresh watch",
-      "status": "missing_adapter",
+      "status": "adapted_unqualified",
       "native_owner": "catabolic_runtime::catalog_refresh",
       "parser": "native_frozen_tree",
-      "qualification": "No full-leaf behavioral parity claim; selected scenario evidence only",
-      "gap": "Native family owner exists; this preserved command adapter is not implemented",
+      "qualification": "Bounded per-tick owner, idle writer release and interruption fixtures; publication/platform parity remains unqualified",
       "owner_mapping": "family"
     },
     {

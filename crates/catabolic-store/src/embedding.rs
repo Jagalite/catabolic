@@ -57,6 +57,44 @@ impl Session {
     pub fn query_call(&mut self, profile: &str, operation: &str, args: &Value) -> Result<Value> {
         self.query_call_inputs(profile, operation, args, None)
     }
+    /// Preserve exact native command scope during adoption, and lend the same
+    /// owner to an existing bounded native evaluation for component lookups.
+    pub fn component_call(
+        &mut self,
+        profile: &str,
+        operation: &str,
+        args: &Value,
+    ) -> Result<Value> {
+        if operation == "get" && args.get("session").is_some() {
+            return self.query_call(profile, "component-get", args);
+        }
+        if operation == "backfill" {
+            let token = match args.get("token") {
+                Some(Value::Null) => None,
+                Some(value) => Some(
+                    value
+                        .as_u64()
+                        .ok_or_else(|| Error("invalid native transaction handle".into()))?,
+                ),
+                None => {
+                    return Err(Error(
+                        "backfill requires a native Store command handle".into(),
+                    ));
+                }
+            };
+            self.check_scope(token)?;
+        }
+        let store = self.store()?;
+        store.db.progress_handler(1000, Some(poll_interrupt))?;
+        struct Reset<'a>(&'a rusqlite::Connection);
+        impl Drop for Reset<'_> {
+            fn drop(&mut self) {
+                let _ = self.0.progress_handler(0, None::<fn() -> bool>);
+            }
+        }
+        let _reset = Reset(&store.db);
+        crate::public_components::call(store, profile, operation, args)
+    }
     /// Preserve GraphQL input order from the existing bounded Python request.
     pub fn query_call_json(&mut self, profile: &str, operation: &str, raw: &str) -> Result<Value> {
         let args = catabolic_core::decode_json(raw)?;
@@ -167,7 +205,8 @@ impl Session {
                     .remove(&args["session"].as_u64().unwrap_or(0));
                 Ok(Value::Null)
             }
-            "evaluation-check" | "evaluation-account" | "evaluation-pause" | "select" | "run" => {
+            "evaluation-check" | "evaluation-account" | "evaluation-pause" | "select" | "run"
+            | "component-get" => {
                 let session = args["session"].as_u64();
                 let epoch: i64 = self.store()?.db.query_row(
                     "SELECT generation FROM fallback_epoch WHERE id=1",
@@ -247,6 +286,13 @@ impl Session {
                             evaluation.select(&json!({"query_id":identifier,"profile":profile}))?;
                         Ok(json!([selected.entity, selected.ids, selected.report]))
                     }
+                    "component-get" => crate::public_components::get_evaluated(
+                        evaluation,
+                        profile,
+                        identifier,
+                        args["require_current"].as_bool().unwrap_or(false),
+                        epoch,
+                    ),
                     _ => {
                         let result = evaluation.run(identifier, limit)?;
                         if session.is_some() && definition["mode"] != "selection" {

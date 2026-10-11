@@ -226,88 +226,9 @@ fn positive_integer(value: &Value) -> bool {
         !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()) && s.bytes().any(|b| b != b'0')
     }
 }
-// Match Python json.loads(bytes) encoding detection while keeping the wire
-// byte bound in the HTTP owner. Private text files remain UTF-8 text as before.
+// Preserve the PIN endpoint error contract around the shared wire decoder.
 fn decode_response(bytes: &[u8]) -> Result<Value> {
-    enum Encoding {
-        Utf8,
-        Utf16(bool),
-        Utf32(bool),
-    }
-    let (encoding, raw) = if bytes.starts_with(&[0xff, 0xfe, 0, 0]) {
-        (Encoding::Utf32(true), &bytes[4..])
-    } else if bytes.starts_with(&[0, 0, 0xfe, 0xff]) {
-        (Encoding::Utf32(false), &bytes[4..])
-    } else if bytes.starts_with(&[0xff, 0xfe]) {
-        (Encoding::Utf16(true), &bytes[2..])
-    } else if bytes.starts_with(&[0xfe, 0xff]) {
-        (Encoding::Utf16(false), &bytes[2..])
-    } else if bytes.starts_with(&[0xef, 0xbb, 0xbf]) {
-        (Encoding::Utf8, &bytes[3..])
-    } else if bytes.len() >= 4 && bytes[0] == 0 {
-        (
-            if bytes[1] == 0 {
-                Encoding::Utf32(false)
-            } else {
-                Encoding::Utf16(false)
-            },
-            bytes,
-        )
-    } else if bytes.len() >= 4 && bytes[1] == 0 {
-        (
-            if bytes[2] == 0 && bytes[3] == 0 {
-                Encoding::Utf32(true)
-            } else {
-                Encoding::Utf16(true)
-            },
-            bytes,
-        )
-    } else if bytes.len() == 2 && bytes[0] == 0 {
-        (Encoding::Utf16(false), bytes)
-    } else if bytes.len() == 2 && bytes[1] == 0 {
-        (Encoding::Utf16(true), bytes)
-    } else {
-        (Encoding::Utf8, bytes)
-    };
-    let invalid = || error("plex_login_failed");
-    let decoded = match encoding {
-        Encoding::Utf8 => std::str::from_utf8(raw).map_err(|_| invalid())?.to_owned(),
-        Encoding::Utf16(little) => {
-            let (chunks, remainder) = raw.as_chunks::<2>();
-            if !remainder.is_empty() {
-                return Err(invalid());
-            }
-            let units = chunks.iter().map(|c| {
-                if little {
-                    u16::from_le_bytes([c[0], c[1]])
-                } else {
-                    u16::from_be_bytes([c[0], c[1]])
-                }
-            });
-            char::decode_utf16(units)
-                .collect::<std::result::Result<String, _>>()
-                .map_err(|_| invalid())?
-        }
-        Encoding::Utf32(little) => {
-            let (chunks, remainder) = raw.as_chunks::<4>();
-            if !remainder.is_empty() {
-                return Err(invalid());
-            }
-            chunks
-                .iter()
-                .map(|c| {
-                    let c = [c[0], c[1], c[2], c[3]];
-                    char::from_u32(if little {
-                        u32::from_le_bytes(c)
-                    } else {
-                        u32::from_be_bytes(c)
-                    })
-                    .ok_or_else(invalid)
-                })
-                .collect::<Result<String>>()?
-        }
-    };
-    catabolic_core::decode_json(&decoded).map_err(|_| invalid())
+    crate::consumers::json_wire::decode(bytes).map_err(|_| error("plex_login_failed"))
 }
 
 fn same_pin_id(returned: &Value, pin: &Value) -> bool {

@@ -63,17 +63,61 @@ class NativeEmbeddingInventory(unittest.TestCase):
                 if isinstance(node, ast.Import):
                     imported = [alias.name for alias in node.names]
                 elif isinstance(node, ast.ImportFrom):
+                    if (
+                        path.name == "catalog_refresh.py"
+                        and node.level == 0
+                        and node.module == "sqlite3"
+                        and [(alias.name, alias.asname) for alias in node.names]
+                        == [("Error", "SqliteError")]
+                    ):
+                        # Frozen finish catches this exception class; no SQLite
+                        # module, engine, connection or cursor enters the facade.
+                        continue
                     imported = [] if node.level else [node.module or ""]
                 else:
                     continue
                 self.assertFalse(
                     any(
                         name == "sqlite3"
+                        or name.startswith("sqlite3.")
                         or name == "catabolic"
                         or name.startswith("catabolic.")
                         for name in imported
                     ),
                     str(path),
+                )
+
+    def test_refresh_sqlite_exception_alias_is_handler_only(self):
+        tree = ast.parse((FACADE / "catalog_refresh.py").read_text())
+        aliases = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Name) and node.id == "SqliteError"
+        ]
+        handler_aliases = [
+            node
+            for handler in ast.walk(tree)
+            if isinstance(handler, ast.ExceptHandler) and handler.type is not None
+            for node in ast.walk(handler.type)
+            if isinstance(node, ast.Name) and node.id == "SqliteError"
+        ]
+        self.assertEqual(len(aliases), 1)
+        self.assertEqual(aliases, handler_aliases)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name):
+                self.assertNotEqual(node.id, "sqlite3")
+            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                self.assertNotIn(
+                    node.func.attr,
+                    {
+                        "connect",
+                        "Connection",
+                        "Cursor",
+                        "cursor",
+                        "execute",
+                        "executemany",
+                        "executescript",
+                    },
                 )
 
     def test_thin_services_never_call_path_reopening_companion(self):

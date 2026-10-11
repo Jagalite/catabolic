@@ -16,6 +16,7 @@ use std::{
     time::Duration,
 };
 
+pub(crate) mod json_wire;
 mod xml;
 mod xml_encodings;
 
@@ -274,8 +275,8 @@ impl Adapter {
                 json!({"server_id":text(xml_attribute(root, "machineIdentifier"),4096)?,"version":text(xml_attribute(root, "version"),4096)?,"permissions":{"discovery":"authorized","mutations":"unknown; checked on request","read_only_libraries":xml_attribute(root, "readOnlyLibraries")},"capabilities":capabilities}),
             )
         } else {
-            let value = catabolic_core::decode_json_bytes(&self.call("/System/Info", false)?)
-                .map_err(|_| invalid())?;
+            let value =
+                json_wire::decode(&self.call("/System/Info", false)?).map_err(|_| invalid())?;
             if !value.is_object() {
                 return Err(invalid());
             }
@@ -303,7 +304,7 @@ impl Adapter {
             }).collect()
         } else {
             let raw = self.call("/Library/VirtualFolders", false)?;
-            let value = catabolic_core::decode_json_bytes(&raw).map_err(|_| invalid())?;
+            let value = json_wire::decode(&raw).map_err(|_| invalid())?;
             let rows = value
                 .as_array()
                 .filter(|r| r.len() <= 1000)

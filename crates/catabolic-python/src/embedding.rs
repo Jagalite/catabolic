@@ -207,6 +207,25 @@ impl NativeStore {
         }
         value.map(|v| v.to_string())
     }
+    #[pyo3(signature=(profile, observation_job=None, token=None))]
+    fn catalog_refresh_enqueue(
+        &self,
+        py: Python<'_>,
+        profile: &str,
+        observation_job: Option<&str>,
+        token: Option<u64>,
+    ) -> PyResult<()> {
+        let signal = Arc::new(Mutex::new(None));
+        let captured = signal.clone();
+        let value = self.run(py, |session| {
+            crate::catalog_refresh::enqueue(session, profile, observation_job, token, captured)
+        });
+        if let Some(error) = signal.lock().unwrap().take() {
+            return Err(error);
+        }
+        value
+    }
+    #[pyo3(signature=(surface, operation, request, profile, cancelled=None))]
     fn call(
         &self,
         py: Python<'_>,
@@ -214,6 +233,7 @@ impl NativeStore {
         operation: &str,
         request: &str,
         profile: &str,
+        cancelled: Option<Py<PyAny>>,
     ) -> PyResult<String> {
         let raw_request = request;
         let request: Value = catabolic_core::decode_json(request)
@@ -223,7 +243,25 @@ impl NativeStore {
                 "native request must be a JSON object",
             ));
         }
-        if surface == "query_execution" {
+        if cancelled.is_some()
+            && !(surface == "components" && operation == "get" && request.get("session").is_some())
+        {
+            return Err(CatabolicError::new_err(
+                "live cancellation is supported only for component session lookups",
+            ));
+        }
+        if surface == "catalog_refresh" {
+            let signal = Arc::new(Mutex::new(None));
+            let captured = signal.clone();
+            let value = self.run(py, |session| {
+                crate::catalog_refresh::call(session, profile, operation, &request, captured)
+            });
+            if let Some(error) = signal.lock().unwrap().take() {
+                return Err(error);
+            }
+            return value.map(|value| value.to_string());
+        }
+        if surface == "query_execution" || surface == "components" {
             let signal = Arc::new(Mutex::new(None));
             let captured = signal.clone();
             let value = self.run(py, |session| {
@@ -234,15 +272,28 @@ impl NativeStore {
                         if captured.lock().unwrap().is_some() {
                             return true;
                         }
-                        Python::attach(|py| match py.check_signals() {
-                            Ok(()) => false,
-                            Err(error) => {
-                                *captured.lock().unwrap() = Some(error);
-                                true
+                        Python::attach(|py| {
+                            let checked = py.check_signals().and_then(|()| {
+                                cancelled
+                                    .as_ref()
+                                    .map_or(Ok(false), |check| check.bind(py).call0()?.is_truthy())
+                            });
+                            match checked {
+                                Ok(cancelled) => cancelled,
+                                Err(error) => {
+                                    *captured.lock().unwrap() = Some(error);
+                                    true
+                                }
                             }
                         })
                     },
-                    || session.query_call_json(profile, operation, raw_request),
+                    || {
+                        if surface == "components" {
+                            session.component_call(profile, operation, &request)
+                        } else {
+                            session.query_call_json(profile, operation, raw_request)
+                        }
+                    },
                 )
             });
             if let Some(error) = signal.lock().unwrap().take() {
@@ -282,6 +333,9 @@ impl NativeStore {
             }
             "saved_queries" => {
                 catabolic_store::definitions::dispatch(store, profile, operation, &request)
+            }
+            "fallback_policies" => {
+                catabolic_store::fallback_mutation::execute(store, profile, operation, &request)
             }
             "query" => catabolic_store::query::CatalogQuery::new(store, profile)?
                 .execute(operation, &request),

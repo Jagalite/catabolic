@@ -46,6 +46,7 @@ pub mod playback;
 pub mod playback_cache;
 pub mod processor_mutation;
 pub mod programs;
+pub mod public_components;
 mod publication;
 pub mod query;
 pub mod receipt_mutation;

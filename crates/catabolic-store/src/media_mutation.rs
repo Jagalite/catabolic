@@ -319,9 +319,7 @@ pub fn retry(store: &Store, profile: &str, id: &str) -> Result<Value> {
     })
 }
 fn enqueue_refresh(db: &Connection, profile: &str) -> Result<()> {
-    db.execute("UPDATE watchers SET pending_generation=pending_generation+1,event_first=coalesce(event_first,unixepoch('now')),event_last=unixepoch('now') WHERE profile=? AND enabled=1 AND definition_id IN (SELECT id FROM watcher_definitions WHERE json_extract(definition,'$.events')=1)", [profile])?;
-    db.execute("INSERT INTO catalog_refresh_queue(profile,catalog) SELECT profile,catalog FROM catalog_refresh_settings WHERE profile=? AND enabled=1 AND NOT EXISTS (SELECT 1 FROM watcher_owners w WHERE w.profile=catalog_refresh_settings.profile AND w.catalog=catalog_refresh_settings.catalog) ON CONFLICT(profile,catalog) DO UPDATE SET generation=generation+1,next_attempt=0,error=NULL,updated_at=CURRENT_TIMESTAMP",[profile])?;
-    Ok(())
+    crate::catalog_refresh::enqueue(db, profile, None)
 }
 /// A late, cancelled or replaced worker cannot write facts, retry intents, or
 /// components. The fence is rechecked inside the same transaction as publication.

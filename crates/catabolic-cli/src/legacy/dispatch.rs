@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 //! Legacy transport adaptation to production owners. No Python execution and no
 //! automatic engine fallback, including after partially completed operations.
+#[path = "catalog_refresh.rs"]
+mod catalog_refresh;
 use super::parser::resource;
 use catabolic_store::{Error, Result, Store};
 use serde_json::{Value, json};
@@ -377,8 +379,7 @@ pub fn dispatch(a: &Value) -> Result<Value> {
         ("processor",_)=>processor(a),
         ("artifact",_)=>artifact(a),
         ("rendition",_)=>rendition(a),
-        ("catalog-refresh","enable"|"disable")=>{r["enabled"]=json!(operation=="enable");runtime(a,"catalog-refresh","configure",&r)},
-        ("catalog-refresh","pending"|"run")=>runtime(a,"catalog-refresh",operation,&r),
+        ("catalog-refresh",_)=>catalog_refresh::execute(a),
         ("rule",_)=>rule(a),
         ("watcher",_)=>watcher(a),
         ("fallback",_)=>fallback(a),

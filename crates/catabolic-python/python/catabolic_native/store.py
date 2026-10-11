@@ -208,9 +208,13 @@ class Store:
             raise CatabolicError("expected a command handle owned by this native Store")
         self._owner.check_scope(handle._token)
 
-    def _call(self, surface, operation, request, profile="default"):
+    def _call(self, surface, operation, request, profile="default", *, _cancelled=None):
         return json.loads(
             self._owner.call(
-                surface, operation, json.dumps(request, allow_nan=False), profile
+                surface,
+                operation,
+                json.dumps(request, allow_nan=False),
+                profile,
+                _cancelled,
             )
         )

@@ -48,6 +48,74 @@ pub fn execute(store: &mut Store, profile: &str, action: &str, request: &Value) 
         _ => Err(Error("unknown catalog refresh action".into())),
     }
 }
+/// Compatibility adapter on an already-owned Store. The companion API above
+/// remains strict; only the Python boundary supplies int() coercion results.
+pub fn execute_public(
+    store: &mut Store,
+    profile: &str,
+    action: &str,
+    request: &Value,
+) -> Result<Value> {
+    match action {
+        "configure_prevalidate" => {
+            catabolic_store::catalog_refresh::validate_configuration_preconditions(store, request)?;
+            Ok(Value::Null)
+        }
+        "configure_validate" => {
+            catabolic_store::catalog_refresh::validate_configuration(store, profile, request)?;
+            Ok(Value::Null)
+        }
+        "configure" => {
+            let stored_enabled = request["_enabled_storage"]
+                .as_i64()
+                .ok_or_else(|| Error("Python int too large to convert to SQLite INTEGER".into()))?;
+            let mut result = catabolic_store::catalog_refresh::configure_integer(
+                store,
+                profile,
+                request,
+                stored_enabled,
+            )?;
+            if request["enabled"] == true {
+                result["catalog_refresh"] =
+                    run(store, profile, request["catalog"].as_str(), 100, false)?;
+            }
+            Ok(result)
+        }
+        "run_validate" => {
+            public_limit(request)?;
+            require_writer(store)?;
+            Ok(Value::Null)
+        }
+        "run" => {
+            let force = request["force"]
+                .as_i64()
+                .ok_or_else(|| Error("Python int too large to convert to SQLite INTEGER".into()))?
+                != 0;
+            run(
+                store,
+                profile,
+                request["catalog"].as_str(),
+                public_limit(request)?,
+                force,
+            )
+        }
+        "pending" => {
+            catabolic_store::catalog_refresh::pending(store, profile, public_limit(request)?)
+        }
+        _ => Err(Error("unknown public catalog refresh action".into())),
+    }
+}
+fn public_limit(request: &Value) -> Result<usize> {
+    limit(request).map_err(|_| Error("limit must be between 1 and 1000".into()))
+}
+fn require_writer(store: &Store) -> Result<()> {
+    if !store.owns_writer_lock() || !store.db.is_autocommit() {
+        return Err(Error(
+            "catalog refresh requires a writer outside an active transaction".into(),
+        ));
+    }
+    Ok(())
+}
 pub fn finish(store: &mut Store, profile: &str, mut result: Value) -> Result<Value> {
     match run(store, profile, None, 100, false) {
         Ok(report) if report["processed"] != 0 || report["pending"] != 0 => {
@@ -80,11 +148,7 @@ fn run_with_options(
     if !(1..=1000).contains(&limit) {
         return Err(Error("limit must be 1..1000".into()));
     }
-    if !store.owns_writer_lock() || !store.db.is_autocommit() {
-        return Err(Error(
-            "catalog refresh requires a writer outside an active transaction".into(),
-        ));
-    }
+    require_writer(store)?;
     let selected =
         catabolic_store::catalog_refresh::selected(store, profile, catalog, limit, force)?;
     let mut refreshed = vec![];
@@ -94,11 +158,13 @@ fn run_with_options(
         let catalog = row["catalog"]
             .as_str()
             .ok_or_else(|| Error("invalid refresh catalog".into()))?;
-        let target = catabolic_store::catalog_refresh::target(store, profile, catalog)?;
-        if target.watcher_owned {
-            continue;
-        }
-        let attempt = (|| -> Result<()> {
+        let attempt = (|| -> Result<bool> {
+            // Target decoding belongs to this row's retry boundary. One bad
+            // layout must not abort later rows or lose the failed row's backoff.
+            let target = catabolic_store::catalog_refresh::target(store, profile, catalog)?;
+            if target.watcher_owned {
+                return Ok(false);
+            }
             let mut options = json!({"catalog":catalog,"max_removals":row["max_removals"],"notify_consumers":false});
             if cfg!(debug_assertions) && request["disposable_fixture"] == true {
                 options["disposable_fixture"] = json!(true);
@@ -174,10 +240,11 @@ fn run_with_options(
                     .push(json!({"consumers":synced["consumers"]}));
             }
             catabolic_store::catalog_refresh::acknowledge(store, profile, row)?;
-            Ok(())
+            Ok(true)
         })();
         match attempt {
-            Ok(()) => refreshed.push(catalog.to_string()),
+            Ok(true) => refreshed.push(catalog.to_string()),
+            Ok(false) => {}
             Err(error) => {
                 let message = error.0.chars().take(4000).collect::<String>();
                 catabolic_store::catalog_refresh::retry(store, profile, row, &message)?;

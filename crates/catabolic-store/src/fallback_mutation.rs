@@ -34,13 +34,6 @@ pub fn put(store: &Store, profile: &str, name: &str, input: &Value) -> Result<Va
     }
     let value = fallback::definition(input)?;
     let dependencies = fallback::query_dependencies(&value);
-    for id in &dependencies {
-        if definitions::query_get(store, profile, id)?["definition"]["mode"] != "selection" {
-            return Err(Error(
-                "fallback tiers require complete typed selections".into(),
-            ));
-        }
-    }
     if let Some(operation) = value["package"]["operation_id"]
         .as_str()
         .filter(|s| !s.is_empty())
@@ -51,6 +44,13 @@ pub fn put(store: &Store, profile: &str, name: &str, input: &Value) -> Result<Va
         )?
     {
         return Err(Error("unknown approved packaging operation".into()));
+    }
+    for id in &dependencies {
+        if definitions::query_get(store, profile, id)?["definition"]["mode"] != "selection" {
+            return Err(Error(
+                "fallback tiers require complete typed selections".into(),
+            ));
+        }
     }
     let serialized = encode(&value);
     let digest = sha256(&serialized);
@@ -86,17 +86,21 @@ pub fn put(store: &Store, profile: &str, name: &str, input: &Value) -> Result<Va
     get(store, profile, &id)
 }
 pub fn listing(store: &Store, profile: &str, limit: usize, after: &str) -> Result<Value> {
+    listing_scalar(store, profile, limit, after.to_owned().into())
+}
+fn listing_scalar(
+    store: &Store,
+    profile: &str,
+    limit: usize,
+    after: rusqlite::types::Value,
+) -> Result<Value> {
     if !(1..=1000).contains(&limit) {
         return Err(Error("invalid policy page".into()));
     }
     let ids = rows(
         &store.db,
         "SELECT id FROM fallback_policies WHERE profile=? AND id>? ORDER BY id LIMIT ?",
-        &[
-            profile.to_owned().into(),
-            after.to_owned().into(),
-            (limit as i64 + 1).into(),
-        ],
+        &[profile.to_owned().into(), after, (limit as i64 + 1).into()],
     )?;
     let policies = ids
         .iter()
@@ -122,14 +126,20 @@ pub fn execute(store: &Store, profile: &str, action: &str, args: &Value) -> Resu
                 .as_str()
                 .ok_or_else(|| Error("missing policy id".into()))?,
         ),
-        "list" => listing(
+        "list" => listing_scalar(
             store,
             profile,
             args.get("limit")
-                .map_or(Some(100), Value::as_u64)
+                .map_or(Some(100), |value| match value {
+                    // The frozen public page comparison accepts Python bools
+                    // as integer limits. False still fails the range check.
+                    Value::Bool(value) => Some(u64::from(*value)),
+                    _ => value.as_u64(),
+                })
                 .and_then(|n| usize::try_from(n).ok())
+                .filter(|n| (1..=1000).contains(n))
                 .ok_or_else(|| Error("invalid policy page".into()))?,
-            args["after"].as_str().unwrap_or(""),
+            crate::sql::scalar(args.get("after").unwrap_or(&json!("")))?,
         ),
         _ => Err(Error(format!(
             "unknown native fallback policy action: {action}"

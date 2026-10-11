@@ -703,15 +703,14 @@ pub(crate) fn header_check(file: &File, path: &str, expected: &Value) -> Result<
         json!({"status":if invalid{"invalid"}else{"not_detected"},"reason":if invalid{Some("zero_filled_header")}else{None},"bytes_read":count}),
     )
 }
-fn dirty_watchers(db: &Connection, profile: &str, job: Option<&str>) -> Result<()> {
+pub(crate) fn dirty_watchers(db: &Connection, profile: &str, job: Option<&str>) -> Result<()> {
     db.execute("UPDATE watchers SET pending_generation=pending_generation+1,event_first=coalesce(event_first,unixepoch('now')),event_last=unixepoch('now') WHERE profile=? AND enabled=1 AND definition_id IN(SELECT id FROM watcher_definitions WHERE json_extract(definition,'$.events')=1) AND NOT EXISTS(SELECT 1 FROM watcher_runs r JOIN observation_requests q ON q.requester='watcher:'||r.definition_id||':'||r.generation WHERE r.id=watchers.active_run AND r.state='observing' AND q.job_id=?)",params![profile,job])?;
     Ok(())
 }
 fn enqueue(db: &Connection, profile: &str, job: &str) -> Result<()> {
-    dirty_watchers(db, profile, Some(job))?;
-    db.execute("INSERT INTO catalog_refresh_queue(profile,catalog) SELECT profile,catalog FROM catalog_refresh_settings WHERE profile=? AND enabled=1 AND NOT EXISTS(SELECT 1 FROM watcher_owners w WHERE w.profile=catalog_refresh_settings.profile AND w.catalog=catalog_refresh_settings.catalog) ON CONFLICT(profile,catalog) DO UPDATE SET generation=generation+1,next_attempt=0,error=NULL,updated_at=CURRENT_TIMESTAMP",[profile])?;
-    Ok(())
+    crate::catalog_refresh::enqueue(db, profile, Some(job))
 }
+
 fn compatibility_for(
     store: &Store,
     profile: &str,
