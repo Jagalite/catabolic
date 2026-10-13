@@ -1,7 +1,26 @@
 # Native-first completion and Python retirement
 
-**Current status:** [paused at the October 13 stop checkpoint](RUST_MIGRATION_STOP_2026_10_13.md);
-no implementation or qualification is running.
+**Current status:** [resumed on macOS on October 13](RUST_MIGRATION_MACOS_RESUMED_2026_10_13.md).
+The `f8c2759` native CLI lane passes all 28 selected methods and both lifecycle
+and playback models pass. Its completed full aggregate has failures. The
+`cd70ac7` fixture and CI portability repairs pass the selected Python and shell
+checks, Rust formatting, strict Clippy and test compilation. Its complete native
+replay discovers and executes all 53 artifacts: **579 tests pass, five fail and
+six are ignored**. Five available mandatory witnesses pass; OCR is blocked by
+missing Tesseract, and the Linux entry-budget witness is excluded on macOS.
+All 11 before/after identity checks pass, but the aggregate remains failed.
+A separate unchanged-artifact diagnostic passes both notification cases and the
+regex case but repeats the fallback PID-file failure. Test-only commit
+`5e912f1` separates anchor semantics from host timing and increases the sleeping
+fallback fixture's timeout while retaining its strict outcome and cleanup checks;
+formatting, strict Clippy, both test compilations and all four focused tests pass
+with unchanged source and artifact identities. Existing distribution CI run
+`38338151813` completed successfully for `cd70ac7`, with all 11 jobs passing.
+Its reference tests retain their documented skips and deferred native checks.
+That hosted result does not qualify the failed native aggregate or the later
+test-only commit.
+The [October 13 stop handoff](RUST_MIGRATION_STOP_2026_10_13.md)
+is preserved as the historical boundary before this resumption.
 
 Priority revised by the user on **2026-10-12 at 22:45 UTC**: retire the Python
 implementation, retain only a thin compatibility wrapper, and work on that
@@ -88,8 +107,10 @@ claim follows from the current 242-route owner ledger.
 
 **Test infrastructure:** three stale source/CI assertions have reviewed fixes;
 the idle-watch fixture now establishes a genuine production tick before testing
-idle SIGINT. Historical failures remain failures. A frozen-reference fallback
-fixture also returned `stale_or_missing_resolution_plan` in the latest full
+idle SIGINT. Two further test-only startup/regex corrections are committed as
+`5e912f1`, with all four focused Rust tests passing. Historical failures remain
+failures. A frozen-reference fallback
+fixture also returned `stale_or_missing_resolution_plan` in an earlier full
 reference run; its original cause is not established. A later diagnostic pass
 must not erase it or imply a native product defect was fixed.
 
