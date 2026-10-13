@@ -558,7 +558,9 @@ class NativeNotificationsTest(unittest.TestCase):
         self.assertNotIn("private-title", json.dumps(received))
 
     def test_native_provider_partial_success_and_redaction(self):
-        base, received = self.receiver(lambda path: 503 if path == "/bad-private/message" else 200)
+        base, received = self.receiver(
+            lambda path: 503 if path == "/bad-private/message" else 200
+        )
         self.put("good")
         self.put("bad")
         self.emit()
@@ -569,11 +571,18 @@ class NativeNotificationsTest(unittest.TestCase):
             "CATABOLIC_TEST_bad": native + "/bad-private/synthetic-token",
         }
         result = self.native("drain", env=env)
-        self.assertEqual({r["state"] for r in result["deliveries"]}, {"complete", "retry"})
+        self.assertEqual(
+            {r["state"] for r in result["deliveries"]}, {"complete", "retry"}
+        )
         self.assertNotIn("private", json.dumps(result))
         self.assertEqual(len(received), 2)
         self.assertTrue(all(body["title"] == "Catabolic" for _, _, body in received))
-        self.assertTrue(all(body["message"] == "A Catabolic projection update was locally verified." for _, _, body in received))
+        self.assertTrue(
+            all(
+                body["message"] == "A Catabolic projection update was locally verified."
+                for _, _, body in received
+            )
+        )
         self.assertNotIn("private-media-title", json.dumps(received))
         self.native("retry", {"id": "bad"})
         env["CATABOLIC_TEST_bad"] = native + "/good-private/synthetic-token"

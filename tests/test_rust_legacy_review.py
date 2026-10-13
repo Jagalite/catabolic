@@ -139,7 +139,9 @@ def assert_entrypoint_separation(case, relative, source):
     if relative == "legacy_main.rs":
         # Only the exact native notification worker registration at the entry
         # boundary is allowed. It cannot choose a Python executable or PATH.
-        before = "fn main() {\n" + NOTIFICATION_HELPER_REGISTRATION + "    let mut args ="
+        before = (
+            "fn main() {\n" + NOTIFICATION_HELPER_REGISTRATION + "    let mut args ="
+        )
         source = replace_once(case, source, before, "fn main() {\n    let mut args =")
     case.assertNotRegex(source, r"Command::|helper::register")
     if relative == "legacy/dispatch.rs":
@@ -215,7 +217,12 @@ class LegacySourceContractGuards(unittest.TestCase):
         block = NOTIFICATION_HELPER_REGISTRATION
         for label, changed in (
             ("missing", source.replace(block, "", 1)),
-            ("changed", source.replace("std::env::current_exe()", 'std::path::PathBuf::from("python")', 1)),
+            (
+                "changed",
+                source.replace(
+                    "std::env::current_exe()", 'std::path::PathBuf::from("python")', 1
+                ),
+            ),
             ("duplicate", source + block),
             ("moved", source.replace(block, "", 1) + block),
             ("extra", source + "std::env::current_exe()"),
