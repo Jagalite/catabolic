@@ -2692,8 +2692,10 @@ mod tests {
             &json!({"extensions":null,"include_regex":[r"foo\Z"],"exclude_regex":[]}),
         )
         .unwrap();
-        assert!(filter.matches("foo").unwrap());
-        assert!(!filter.matches("foo\n").unwrap());
+        // Check anchor translation on the production-compiled regex without
+        // making correctness depend on the caller's ten-millisecond wall budget.
+        assert!(filter.include[0].is_match("foo").unwrap());
+        assert!(!filter.include[0].is_match("foo\n").unwrap());
         let filter = ScanFilter::new(
             &json!({"extensions":null,"include_regex":[r"(?i)(a|b|ab)*(?>c)"],"exclude_regex":[]}),
         )

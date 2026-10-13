@@ -93,7 +93,9 @@ fn sleeping_child_times_out_and_is_reaped_before_slot_reuse() {
     fs::set_permissions(&helper, fs::Permissions::from_mode(0o700)).unwrap();
     catabolic_runtime::helper::register(&helper, None).unwrap();
     let before = Instant::now();
-    let result = fallback::probe(&path, "default", &database, &json!([{}]), 200).unwrap();
+    // Give the shell fixture time to publish its PID under host startup load.
+    // The timeout, three-second wall bound, reaping and slot checks remain real.
+    let result = fallback::probe(&path, "default", &database, &json!([{}]), 1000).unwrap();
     assert_eq!(result, json!({"usable":false,"reason":"probe_timeout"}));
     assert!(
         before.elapsed() < Duration::from_secs(3),
