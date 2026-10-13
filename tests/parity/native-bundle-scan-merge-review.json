@@ -1,0 +1,125 @@
+{
+  "review_scope": "Narrow bundle/scan merge composition, strict fixture provenance and mechanical fixture/documentation corrections",
+  "reviewed_source_commit": "8d3b8a785a1940c1e926dc749b631198bb20b5d5",
+  "status": "no remaining actionable finding in this scope",
+  "original_findings_corrected": [
+    "Imported TestCase caused 1128 discovered versus 1119 unique IDs; module alias removes duplicates and exact 25-case module-discovery regression now rejects old in-memory import (34 != 25) on both Pythons",
+    "Mapping preview ledger and opening documentation still described folder-only/run; corrected to folder/export/import and run_with_account, with partial qualification retained"
+  ],
+  "source_composition": [
+    {
+      "path": "crates/catabolic-runtime/src/imports.rs",
+      "accepted_commit": "8b95590",
+      "whole_file_identical": true,
+      "production_body_identical": true,
+      "sha256": "b620f951a8c4d3751c1bd0376b69bf7c824d923a7ab76a94951c529172c83192"
+    },
+    {
+      "path": "crates/catabolic-store/src/export_bundle.rs",
+      "accepted_commit": "8b95590",
+      "whole_file_identical": true,
+      "production_body_identical": true,
+      "sha256": "8c0ffe9f8ba8b57d29c38c5c3a39dee0627eb169aef5db8cb65d5a2387d46daf"
+    },
+    {
+      "path": "crates/catabolic-store/src/imports.rs",
+      "accepted_commit": "8b95590",
+      "whole_file_identical": true,
+      "production_body_identical": true,
+      "sha256": "8bece90337eda3357f5fa4b7130bf722330a33af3293a42e9dac314cc7425f16"
+    },
+    {
+      "path": "crates/catabolic-store/src/publication_mappings.rs",
+      "accepted_commit": "8b95590",
+      "whole_file_identical": false,
+      "production_body_identical": true,
+      "sha256": "807ac88afb7ddb5fb425cd2669a22cd61ca08bcb22e02ffac6ed03003cc3ce4d"
+    },
+    {
+      "path": "crates/catabolic-store/src/observation.rs",
+      "accepted_commit": "b6a29ee",
+      "whole_file_identical": true,
+      "production_body_identical": true,
+      "sha256": "6cf362fdd1f219f4ef07691e38da64e7baf0232eac650620000b472b73e2c854"
+    },
+    {
+      "path": "tests/scan_report_support.py",
+      "accepted_commit": "b6a29ee",
+      "whole_file_identical": true,
+      "production_body_identical": true,
+      "sha256": "5430a3d092058aaccf509b95d3737febb8d97d22823ab622de70cce089c96f2c"
+    }
+  ],
+  "merge_glue_checked": [
+    "Numeric-v2 run_with_account closure forwards current_exe and cancellation to mapping_identity",
+    "IDENTITY_WORKER dispatch retained",
+    "Existing v1, v3 and recovery routes retained",
+    "Presentation preserves consumer-prefix and metadata error codes"
+  ],
+  "provenance_change": "dd22c87 adds only exact reviewed helper manifest entry and per-module reviewed-commit assertion; admission implementation unchanged",
+  "scan_helper_reviewed_commit": "2784bd4601d6243899c313ff5f58243ccce0ba04",
+  "scan_helper_sha256": "5430a3d092058aaccf509b95d3737febb8d97d22823ab622de70cce089c96f2c",
+  "provenance_controls": {
+    "314": {
+      "path": "/tmp/catabolic-merge-provenance-review-XFF6lA/final-provenance-python314.log",
+      "sha256": "361eba8c6568634f4584923bb7d9e65dd10a5a29ed0162ab62db9a87077c4000",
+      "tests": 26,
+      "status": "passed",
+      "skips": 0
+    },
+    "311": {
+      "path": "/tmp/catabolic-merge-provenance-review-XFF6lA/final-provenance-python311.log",
+      "sha256": "c117a08dfea7766a3008493788af0aea4eadb82a401b4946407614cef59ed072",
+      "tests": 26,
+      "status": "passed",
+      "skips": 0
+    }
+  },
+  "final_discovery_preflight": {
+    "source_commit": "8d3b8a785a1940c1e926dc749b631198bb20b5d5",
+    "unique_discovered_scenarios": 1120,
+    "verified_imports": 241,
+    "tests_executed": 0,
+    "unregistered_helper_refused": true,
+    "source_and_oracle_unchanged": true,
+    "installed_asgi_prerequisite": "pending",
+    "helper": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-next/tests/scan_report_support.py",
+      "sha256": "5430a3d092058aaccf509b95d3737febb8d97d22823ab622de70cce089c96f2c",
+      "provenance": "reviewed-fixture-helper"
+    }
+  },
+  "integration_artifact": {
+    "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-next/.local-tests/cli-next/resumed-validation-8/artifacts/qualification-legacy",
+    "sha256": "b69cba4d704c8d2c9d49e1067efc20309578019e10b55ab198bb674b24ee9db1",
+    "before_after_unchanged": true
+  },
+  "integration_controls": {
+    "314": {
+      "path": "/tmp/catabolic-merge-provenance-review-XFF6lA/integration-python314.log",
+      "sha256": "0ca5c607d4767f2ffb6ea620f692546815c059c50b26c677ee25c1b14e834134",
+      "tests": 12,
+      "status": "passed",
+      "skips": 0
+    },
+    "311": {
+      "path": "/tmp/catabolic-merge-provenance-review-XFF6lA/integration-python311.log",
+      "sha256": "3e199847851c693b9cfe4a2590e10b99adb86bcb6ca0d2652425081d4d4193e0",
+      "tests": 12,
+      "status": "passed",
+      "skips": 0
+    }
+  },
+  "selected_source_fence": {
+    "path": "/tmp/catabolic-merge-provenance-review-XFF6lA/integration-source-before.sha256",
+    "all_11_paths_unchanged": true
+  },
+  "limits": [
+    "No broad owner/definitions/filesystem safety review reopened",
+    "No Rust builds, dependency installs, network access beyond toy loopback fixtures, or source edits by reviewer",
+    "No aggregate test execution; installed ASGI prerequisite remains pending",
+    "Python 3.11 broad discovery is not qualified because its reference environment lacks HTTP test dependencies; selected integration and provenance controls pass",
+    "No installed, platform, publication, milestone or release qualification",
+    "This review precedes the separately reviewed signal merge"
+  ]
+}

@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 from catabolic.artifacts import Artifacts
 from tests import test_component_media as reference
+from tests.probe_timing import delay_first_probe_start
 from tests.test_rust_migration import BINARY
 
 
@@ -60,6 +61,14 @@ class NativeComponentMediaTest(unittest.TestCase):
         self.run_reference_case(
             reference.MediaTest.test_mux_selected_streams_then_resolve_verified_artifact
         )
+
+    def test_selected_streams_publication_tolerates_delayed_reference_probe(self):
+        with delay_first_probe_start("a.mkv") as observed:
+            self.test_selected_streams_packet_evidence_and_reference_publication()
+        self.assertEqual(len(observed), 1)
+        self.assertEqual(observed[0]["delayed_children"], 1)
+        self.assertEqual(observed[0]["timeout_ms"], 10000)
+        self.assertEqual(observed[0]["result"], {"usable": True, "reason": None})
 
     def test_external_audio_subtitle_and_exact_accepted_offset(self):
         self.run_reference_case(

@@ -66,8 +66,9 @@ remains unchanged:
   hashes, command results, and scope
 
 The additional skipped-root guard returns an empty data object and standard
-zero-record extensions, including HTTP 200. Nested empty-object/list completion
-is not qualified by that guard.
+zero-record extensions, including HTTP 200. That guard did not qualify nested
+empty-object/list completion; the subsequent [focused completion correction](RUST_MIGRATION_GRAPHQL_REVIEW.md#present-objects-with-every-selected-field-skipped)
+adds separate evidence for those two residual witnesses.
 
 Earlier receipts remain unchanged under
 `.local-tests/graphql-intake-independent-final/`,

@@ -1,0 +1,66 @@
+{
+  "result": "No correctness findings in the newly implemented ordinary M9 read-only bundle/import preview composition",
+  "source_commit": "e91e72056944427745b9c0fac44115b262faa0b8",
+  "source_sha256": "b5f946c39eb2a6adccce79f1a04e5fae397876e801bc5d1168c6be0d2662addb",
+  "binary": "/workspace/scratch/9c9a5a8c3955/catabolic-bundle-previews/target/debug/catabolic-legacy-native",
+  "binary_sha256": "a72da146bed9fffd5002b084a7e05765967478db28c45e1a4fcbe195723e7af9",
+  "base_commit": "1d7b4a3",
+  "frozen_reference": "453fca983222c6665a48775eef67c489c96b527e",
+  "reference_python_version": "3.14.6",
+  "fresh_checks": {
+    "focused_bundle_import_suite": 16,
+    "independent_composition_checks": 9,
+    "cli_gate_regressions": 2,
+    "failures": 0,
+    "skips": 0
+  },
+  "qualification_receipts_inspected": [
+    ".local-tests/bundle-preview/proof.json",
+    ".local-tests/bundle-preview/proof-python311.json"
+  ],
+  "verified_prior_logs": {
+    "native_adapter_tests": 9,
+    "mapping_history_regressions": 7
+  },
+  "observed_native_stalled_get_seconds": 15.264,
+  "source_harness_binary_unchanged": true,
+  "builds_run": 0,
+  "scope": [
+    "new canonical plan and import-group composition",
+    "factored read-only preflight and source-snapshot interfaces",
+    "immutable bundle and submitted history composition",
+    "GET-only Immich identity adapter and CLI wiring",
+    "early M6 effect gates"
+  ],
+  "coverage": [
+    "Independent plan, manifest content, export and import-group digest calculations",
+    "Full selected source stat identities and scalar-typed frozen Python plan parity",
+    "Immutable export extra/missing artifacts, altered link text, and owner refusal",
+    "Calibre alias scope deduplication and non-transmitted association metadata",
+    "Account identity scope, source revisions, destination identity and pending history",
+    "Missing/newline/input-overbudget fake credential precedence with zero GETs",
+    "128-codepoint Unicode account identity boundary and prefixed API route",
+    "Proxy bypass, response-size/status/redirect limits, stalled GET deadline and cancellation",
+    "Document, total-plan and aggregate-group limits",
+    "No SQLite, source or output contents effects; no official import CLI execution"
+  ],
+  "notes": [
+    "The initial independent harness run had two fixture mistakes: disallowed origin value and assuming book NFO yields artifacts. These were corrected only in the local review script; the raw initial failure log is preserved. They were not product defects.",
+    "No broad or previously blocked owner review or filesystem races were retried. Existing owners remain dependencies.",
+    "Native unit-test results were inspected in hash-verified prior receipts, not rebuilt or rerun."
+  ],
+  "qualification_limits": [
+    "Not full M9 or M6 qualification",
+    "No release, wheel, alternate platform, real catalog or real service qualification",
+    "No apply/recovery/destructive effects execution"
+  ],
+  "logs": {
+    "independent-checks-initial.log": "cdabec6b014f33c650be8f07bd8bf24abb0055d337eadca3c73cb48ade4907c5",
+    "before.json": "bf74986072d8f3850fca4daa20a3a5045650388f68f731e2e70eb98fb5e3e103",
+    "independent_checks.py": "4169a84bf589850b39a4b8ccf70702706df8ca2cdd4cc5af21daba5a355ca57d",
+    "gate-regressions.log": "e3f13b14f4f8951ce70da0f7a07d301510f199eb6f1c2e2ad6956aea15234bd7",
+    "independent-checks.log": "e1cb20cf78fed865bb966818227c851af5bbc946b06d00f07676d7c6c346c19b",
+    "after.json": "bf74986072d8f3850fca4daa20a3a5045650388f68f731e2e70eb98fb5e3e103",
+    "focused-suite.log": "83ea017d066b0844140cb7947c84567e709ebc90195c3d4749fd553a47303adf"
+  }
+}

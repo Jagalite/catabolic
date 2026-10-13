@@ -1,0 +1,870 @@
+{
+  "scope": "Selected local Linux evidence; no milestone hard gate or release qualification",
+  "reviews": [
+    {
+      "evidence_directory": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave10/.local-tests/wave10/independent-composition-review",
+      "receipt_sha256": "2cbcd73403fb0a8422c40119faf98379a17fa04d8ecb230cb72e3ac16bb5472b",
+      "receipt": {
+        "review_scope": "Fresh narrow Wave10 adapter merge-composition review only",
+        "reviewed_head": "1fa5e41efe2a4abe69e672afe8ab04bc8293b59d",
+        "integration_base": "343d7e83a8c275dc282cda9b1ac0e6b4a320aaa6",
+        "accepted_sources": [
+          "c0b50f8",
+          "79ce8c9",
+          "08413a9",
+          "9212df8",
+          "7f3c3f2",
+          "08ab40d"
+        ],
+        "findings": [],
+        "conclusion": "No actionable merge-composition finding in the inspected adapter changes or selected controls",
+        "source_control_counts": {
+          "314": 17,
+          "311": 17
+        },
+        "frozen_preloaded_module_count": {
+          "314": 17,
+          "311": 17
+        },
+        "byte_identity_comparisons": {
+          "tests/test_native_legacy_adapter_qualification.py": {
+            "matches_accepted": "79ce8c9",
+            "sha256": "de0ff53c9e0a1608a180ef56ae212baa3c1be3d65f0cc5f6e34699dc7caee5e1"
+          },
+          "crates/catabolic-runtime/src/processors.rs": {
+            "matches_accepted": "08413a9",
+            "sha256": "9e738a9cd9ec05f37a76314ea0b03037c64581cd87454a3ca82b83975da5326d"
+          },
+          "tests/test_rust_legacy_external_worker_diagnostics.py": {
+            "matches_accepted": "08413a9",
+            "sha256": "e0e5f2cb6f539d19db477a61f8e2d3fc90195b77adbbda551dfa9d46f1f8160f"
+          },
+          "crates/catabolic-cli/src/legacy/mapping_events.rs": {
+            "matches_accepted": "08ab40d",
+            "sha256": "943ec8f895b0e4eda4ffa6a0e2e08e0b60cf752e7ed308a623fa168fdbd16ad5"
+          },
+          "crates/catabolic-cli/src/legacy/presentation.rs": {
+            "matches_accepted": "08ab40d",
+            "sha256": "98daa822d767734557a9cae01babf1030113d4f4c56abf1d99219a0da69924b6"
+          },
+          "crates/catabolic-cli/src/legacy_main.rs": {
+            "matches_accepted": "08ab40d",
+            "sha256": "b79f1a5056133a9cc655a698359ddcb56fb88aca37ec9b636ad2cf97292f70ab"
+          },
+          "crates/catabolic-store/src/mapping_history.rs": {
+            "matches_accepted": "08ab40d",
+            "sha256": "6360faa6824deee96763dcffbafdc0fac7a61cd5f27472f0f4f91e6889b70c2d"
+          },
+          "tests/test_rust_legacy_mapping_event_order.py": {
+            "matches_accepted": "08ab40d",
+            "sha256": "89dfc2308160255c6f82dbd23d14ebf4d70ad3c8d628a024ed23df07fbcb3f4d"
+          },
+          "tests/test_rust_legacy_mapping_history.py": {
+            "matches_accepted": "08ab40d",
+            "sha256": "755f85549964430bb8add52e68ce56fe2b13b7934949274861a28ef505bca75e"
+          },
+          "scripts/legacy_cli_owners.py": {
+            "matches_accepted": "08ab40d",
+            "sha256": "a662c8d0367da2669d698f67ca661a393d2cad21ff6b5ceb33db8d632f733bb3"
+          },
+          "tests/parity/legacy-cli-owners.json": {
+            "matches_accepted": "08ab40d",
+            "sha256": "6c74a35ba9e30191370c5b57087e60ae2c829c813b082e5af9791f410d42a6d0"
+          },
+          "tests/test_native_cli_owner_ledger.py": {
+            "composition": "08ab40d AST plus c0b50f8 fallback method",
+            "sha256": "53d294bdcafc9c2a877b7317899cbb21366806083ac1fee140a690aef2b4723b"
+          },
+          "Cargo.toml": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "10fb5ec7e5ea374fae6003ebe41a6024adeeb6685519508b0c5ee56b45d39c15"
+          },
+          "Cargo.lock": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "606910a01efffc503c840fcffc5e0eee3038e417dd583f91dfb5e28ee259c1be"
+          },
+          "pyproject.toml": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "10e296b4b2a3df1ac1138e2b81319e64897345fe972cfd68703a4ecfd27ecc82"
+          },
+          "crates/catabolic-cli/src/legacy/dispatch.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "9eef75f7b5c3b397f963653e173cdb00d90bdb55e6b259baf35dbea997577515"
+          },
+          "crates/catabolic-cli/src/legacy/parser.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "34b1d0ce86e07e0ee8f74a5ea6d24253bfbe532476763b9ea14c94c455aaa08f"
+          },
+          "crates/catabolic-cli/src/legacy/signals.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "b10ddbaeafafe8a173abdcb3719fae0c6b815ed061419f7a2e9881651d043783"
+          },
+          "crates/catabolic-cli/src/legacy/transport.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "db948e0ed8fc20c959d68c667b80fcd8244019010dd4c53715e020c424198afc"
+          },
+          "crates/catabolic-cli/src/legacy/spec_roundtrip.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "b5f844841301f071a7340c41350ddd1f4ef32afc4a55391d9a486f3c5a09f5c3"
+          },
+          "crates/catabolic-cli/src/legacy/projection.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "455c72a7592996d91e8618d9ac9a0de04ada1a0735815974e26573512b058724"
+          },
+          "crates/catabolic-python/python/catabolic_native/cli.py": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "52bdf9c8ea6438857c2d0c0af56b2ac57be55cf931ce6be5b37b89d94a2c20ab"
+          },
+          "crates/catabolic-python/python/catabolic_native/__init__.py": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "dc475bf18ccf7d098644eee2708c9c93c8f08b2f2ee3374432f66cd030b77381"
+          },
+          "scripts/native_legacy_adapter_tests.py": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "586ee851c1d4e24f91127258d8ba261ad8993b31085ba22a10eff79aa3a7f115"
+          },
+          "scripts/native_legacy_adapter_scenarios.py": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "b6efd26a9c4c09e93a8b44172776ce1a56ca16b07d07adb2c86864490eb83caf"
+          },
+          "scripts/native_legacy_adapter_oracle.py": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "f604456868b342244a762ea37efb695b0d927a150971a1958477be0a7bf64270"
+          },
+          "scripts/qualify_native_mutations.py": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "7d672f59241f3b9edee1722c52834902e35b8763f4f6ee78d5318c56354f87ed"
+          },
+          "scripts/qualify_native_embedding.py": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "ac7d6c32f55732beb6e5ea019716b784be2d0ad6ece1d65d65f82283152fa4e3"
+          },
+          "tests/parity/native-fixture-adaptations.json": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "27d6282769ef47f9423ea09c402c6e36e7484fa59f2dc2a784f2409fe57597ee"
+          },
+          "crates/catabolic-core/Cargo.toml": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "b66092697ff4c52ae9ea7c5e4c72eafefb559972eb7ac20ce7a97586280d350c"
+          },
+          "crates/catabolic-core/src/component.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "fb20f406b33a92d75b3b22da9adf166c4f0199cd8b957b05fd7f3855dfd68a9f"
+          },
+          "crates/catabolic-core/src/coordination.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "de454e4ee54e78dd634190fa1825c73e50af2ceb77b0613f0dbf801be84f86a0"
+          },
+          "crates/catabolic-core/src/execution.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "17748239205eab4fd72c5e3a858a5d94e2592f726951ea73a9cf25876978d1b8"
+          },
+          "crates/catabolic-core/src/fallback.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "16c99578bb84bdcc08cb96f1f1d4ce90edca71fa0d67d8336b7dc02b7ebd26fc"
+          },
+          "crates/catabolic-core/src/json.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "62d23d3638b4b13e4f53edb7d280d60397fbc723ac6fe0fd9540921a10492fc2"
+          },
+          "crates/catabolic-core/src/lib.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "e08a07e22ba0c6955b3bf43aeea959d3f16dc0e4982d3532be7c157283d31708"
+          },
+          "crates/catabolic-core/src/lifecycle.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "ae1ceda8060554dff32d38ce2b8908d4ee01f93572376788733722a0e25dd5b3"
+          },
+          "crates/catabolic-core/src/media.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "3a11f24943325d48d4eaa6ed47ca9e76ad9b1b708ea7f3a291977971490190c4"
+          },
+          "crates/catabolic-core/src/playback.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "eab0cc6acd00e1edd43e4c6162df66e1234aa2642405d2e8e28f1c66a78d38a7"
+          },
+          "crates/catabolic-core/src/rendition.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "66e9834d98083a1993f455c5d76ecf69f6bbab30807cd9807f95a6035f18792a"
+          },
+          "crates/catabolic-core/src/resolution.rs": {
+            "matches_frozen_integration_base": "343d7e8",
+            "sha256": "5b8de70efe093de96bf54b5131bf2e658741bbb8e2881ae8980814490b480cfc"
+          }
+        },
+        "installed_gate_inventory_count": 79,
+        "reviewed_fixture_entries": 5,
+        "runtime_controls": {
+          "314": {
+            "python": "3.14.6 (main, Aug  4 2026, 18:27:20) [Clang 22.1.3 ]",
+            "executable": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+            "oracle_python": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+            "binary": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave10/.local-tests/wave10/artifacts/catabolic-legacy-native",
+            "binary_sha256_before_and_after": "7e9038ab2a6378d606d1338349682abad7c68f3b187e2f433c7e65e8bed33981",
+            "tests_run": 8,
+            "successful": true,
+            "skips": 0,
+            "selected_ids": [
+              "__main__.CompositionControls.test_redirect_put_and_oversize_resumed_get_retain_diagnostics",
+              "__main__.CompositionControls.test_mapping_callables_keep_completed_output_and_omitted_database_error",
+              "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest.test_duplicate_keys_keep_first_position_and_last_value",
+              "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest.test_http_shaped_publication_uses_actual_source_and_first_aggregate_match",
+              "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest.test_real_sigint_discards_selected_sidecar_and_releases_snapshot",
+              "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_missing_database_admission",
+              "tests.test_rust_legacy_sigterm.LegacySigtermContract.test_rule_sigterm_has_no_error_envelope_and_reaps_helper_all_modes",
+              "tests.test_rust_legacy_sigterm.LegacySigtermContract.test_callable_sigterm_retains_acknowledged_130_result_and_reaps_helper"
+            ],
+            "scope": "Disposable metadata-only catalogs and numeric loopback adapter composition; not full product, installed, or broad safety qualification"
+          },
+          "311": {
+            "python": "3.11.15 (main, Aug  7 2026, 02:25:55) [Clang 22.1.3 ]",
+            "executable": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/ci-harness/python311-reference/bin/python",
+            "oracle_python": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/ci-harness/python311-reference/bin/python",
+            "binary": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave10/.local-tests/wave10/artifacts/catabolic-legacy-native",
+            "binary_sha256_before_and_after": "7e9038ab2a6378d606d1338349682abad7c68f3b187e2f433c7e65e8bed33981",
+            "tests_run": 8,
+            "successful": true,
+            "skips": 0,
+            "selected_ids": [
+              "__main__.CompositionControls.test_redirect_put_and_oversize_resumed_get_retain_diagnostics",
+              "__main__.CompositionControls.test_mapping_callables_keep_completed_output_and_omitted_database_error",
+              "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest.test_duplicate_keys_keep_first_position_and_last_value",
+              "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest.test_http_shaped_publication_uses_actual_source_and_first_aggregate_match",
+              "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest.test_real_sigint_discards_selected_sidecar_and_releases_snapshot",
+              "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_missing_database_admission",
+              "tests.test_rust_legacy_sigterm.LegacySigtermContract.test_rule_sigterm_has_no_error_envelope_and_reaps_helper_all_modes",
+              "tests.test_rust_legacy_sigterm.LegacySigtermContract.test_callable_sigterm_retains_acknowledged_130_result_and_reaps_helper"
+            ],
+            "scope": "Disposable metadata-only catalogs and numeric loopback adapter composition; not full product, installed, or broad safety qualification"
+          }
+        },
+        "discovery_314": {
+          "python": "3.14.6 (main, Aug  4 2026, 18:27:20) [Clang 22.1.3 ]",
+          "executable": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+          "unique_scenario_count": 1141,
+          "duplicate_ids": [],
+          "failed_import_ids": [],
+          "new_scenarios": [
+            "tests.test_rust_legacy_external_worker_diagnostics.ExternalWorkerDiagnosticsTest.test_cancel_cleanup_neighbor",
+            "tests.test_rust_legacy_external_worker_diagnostics.ExternalWorkerDiagnosticsTest.test_exact_response_byte_boundaries_with_length_and_chunked_bodies",
+            "tests.test_rust_legacy_external_worker_diagnostics.ExternalWorkerDiagnosticsTest.test_interrupt_cleanup_neighbor",
+            "tests.test_rust_legacy_external_worker_diagnostics.ExternalWorkerDiagnosticsTest.test_ordinary_location_forms_and_legacy_uri_header",
+            "tests.test_rust_legacy_external_worker_diagnostics.ExternalWorkerDiagnosticsTest.test_other_statuses_keep_their_diagnostic_and_success_neighbors",
+            "tests.test_rust_legacy_external_worker_diagnostics.ExternalWorkerDiagnosticsTest.test_redirect_status_and_location_presence_for_put_and_get",
+            "tests.test_rust_legacy_external_worker_diagnostics.ExternalWorkerDiagnosticsTest.test_resumed_poll_cleanup_neighbor",
+            "tests.test_rust_legacy_external_worker_diagnostics.ExternalWorkerDiagnosticsTest.test_valid_receipt_after_durable_cancellation_remains_rejected",
+            "tests.test_rust_legacy_external_worker_diagnostics.ExternalWorkerDiagnosticsTest.test_writer_release_cleanup_neighbor",
+            "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest.test_duplicate_keys_keep_first_position_and_last_value",
+            "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest.test_exit_code_and_empty_containers_follow_authoritative_value",
+            "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest.test_http_shaped_publication_uses_actual_source_and_first_aggregate_match",
+            "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest.test_nested_permutations_report_like_objects_and_scalar_values",
+            "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest.test_numeric_token_normalization_uses_owner_values",
+            "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest.test_real_sigint_discards_selected_sidecar_and_releases_snapshot"
+          ],
+          "source_sha256": "52a3b8b797133d9bcd49c67671cbcd5ac88b20e4c3b16ed75e3916230f5d25d0",
+          "imported_module_count": 245,
+          "reviewed_fixture_manifest_sha256": "27d6282769ef47f9423ea09c402c6e36e7484fa59f2dc2a784f2409fe57597ee",
+          "reviewed_fixture_module_names": [
+            "tests.probe_timing",
+            "tests.scan_report_support",
+            "tests.test_component_lifecycle",
+            "tests.test_component_packages",
+            "tests.test_fallback_identity"
+          ],
+          "installed_prerequisites": [
+            {
+              "name": "installed_asgi",
+              "mandatory": true,
+              "status": "pending",
+              "manifest_verified": true,
+              "gate": "scripts/native_asgi_installed_tests.py",
+              "workflow": ".github/workflows/native-qualification.yml",
+              "workflow_step": "Mandatory installed disposable ASGI fixtures, 21 full or 6 minimal",
+              "reason": "Requires the installed release wheel; an explicit debug extension is insufficient",
+              "source_sha256": {
+                "tests/test_rust_asgi_adapter.py": "e7363359abb3065c98066d185edce6e12640c6111bd149e0f6ee35f77ca417f2",
+                "tests/test_rust_asgi_smoke.py": "d9f29ce7c6a208f7693283788d1ce96d7cd427087d8af78a3811a458a960563c"
+              },
+              "required_scenarios": [
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_exact_signature_and_ordinary_constructor_refusal",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_native_and_python_refuse_remote_missing_and_proxy_peers_before_effects",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_fresh_capability_and_live_owner_cleanup",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_fixture_catalog_identity_cannot_be_replaced",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_lifespan_callback_failure_preserves_exception_and_closes",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_paired_identity_methods_and_content_frames",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_paired_hosts_cors_and_body_bounds",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_persistent_rate_state_and_application_isolation",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_chunked_request_and_response_streaming",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_disconnect_and_cancel_release_streams_for_reuse",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_callback_exception_identity_and_cleanup",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_delayed_bodies_progress_with_one_executor_worker",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_delayed_body_cancellation_and_close_do_not_need_executor_slots",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_shutdown_stops_new_calls_before_background_close_runs",
+                "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_request_body_cancellation_and_lifespan_shutdown",
+                "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_real_http_application_without_framework",
+                "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_ordinary_paths_and_remote_peers_are_refused",
+                "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_streamed_request_body_is_bounded",
+                "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_cancelled_partial_body_retires_native_request",
+                "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_delayed_body_concurrency_with_one_executor_thread",
+                "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_lifespan_is_terminal_and_cleanup_is_owned"
+              ],
+              "required_lanes": [
+                {
+                  "python": "3.14.6",
+                  "gate_arguments": [
+                    "--lane",
+                    "full"
+                  ],
+                  "scenario_ids": [
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_exact_signature_and_ordinary_constructor_refusal",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_native_and_python_refuse_remote_missing_and_proxy_peers_before_effects",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_fresh_capability_and_live_owner_cleanup",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_fixture_catalog_identity_cannot_be_replaced",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_lifespan_callback_failure_preserves_exception_and_closes",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_paired_identity_methods_and_content_frames",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_paired_hosts_cors_and_body_bounds",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_persistent_rate_state_and_application_isolation",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_chunked_request_and_response_streaming",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_disconnect_and_cancel_release_streams_for_reuse",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_callback_exception_identity_and_cleanup",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_delayed_bodies_progress_with_one_executor_worker",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_delayed_body_cancellation_and_close_do_not_need_executor_slots",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_shutdown_stops_new_calls_before_background_close_runs",
+                    "tests.test_rust_asgi_adapter.ASGIAdapterTest.test_request_body_cancellation_and_lifespan_shutdown",
+                    "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_real_http_application_without_framework",
+                    "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_ordinary_paths_and_remote_peers_are_refused",
+                    "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_streamed_request_body_is_bounded",
+                    "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_cancelled_partial_body_retires_native_request",
+                    "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_delayed_body_concurrency_with_one_executor_thread",
+                    "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_lifespan_is_terminal_and_cleanup_is_owned"
+                  ]
+                },
+                {
+                  "python": "3.11",
+                  "gate_arguments": [
+                    "--lane",
+                    "minimal"
+                  ],
+                  "scenario_ids": [
+                    "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_real_http_application_without_framework",
+                    "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_ordinary_paths_and_remote_peers_are_refused",
+                    "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_streamed_request_body_is_bounded",
+                    "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_cancelled_partial_body_retires_native_request",
+                    "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_delayed_body_concurrency_with_one_executor_thread",
+                    "tests.test_rust_asgi_smoke.InstalledASGISmoke.test_lifespan_is_terminal_and_cleanup_is_owned"
+                  ]
+                }
+              ]
+            }
+          ],
+          "product_scenarios_executed": 0
+        },
+        "discovery_311": {
+          "broader_discovery": "failed before execution",
+          "reason": "Nine pre-existing HTTP modules cannot import httpx from the designated 3.11 reference environment",
+          "selected_base_and_new_ids": 44,
+          "new_adapter_ids": 15,
+          "all_selected_ids_unique": true,
+          "product_scenarios_executed": 0,
+          "failure_log": "discovery-python311.log",
+          "detail_log": "discovery-python311-detail.log"
+        },
+        "binary_path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave10/.local-tests/wave10/artifacts/catabolic-legacy-native",
+        "binary_sha256": "7e9038ab2a6378d606d1338349682abad7c68f3b187e2f433c7e65e8bed33981",
+        "python_executable_sha256": {
+          "314": "2f7fff382c9d335d6d63f134b55cb8ced9d0b2e1d47e6f210ad3f059adfa71c1",
+          "311": "0253b01a7f5d96a042a2b9f5e0f5ff5062707a1c75be2b089098e3111cd186d2"
+        },
+        "git_status_after": "",
+        "retained_commands": "commands.txt",
+        "limits": [
+          "No full product/native suite or installed product gate executed",
+          "No build, dependency installation, code change, live service, credential, push/release/default action",
+          "catabolic-cli-next untouched",
+          "No investigation of the separate cohort7 frozen ConsumerError versus CatalogBusy failure",
+          "The previously denied broad definitions/curation/programs/plans/interchange/manifest/layout review remains BLOCKED and was not retried",
+          "The previously denied broad filesystem/hardlink/source-access/observation/remount/watcher safety review remains BLOCKED and was not retried",
+          "No product-safety, complete-leaf, milestone, installed-artifact, platform or release claim"
+        ]
+      }
+    },
+    {
+      "evidence_directory": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave10/.local-tests/wave10/contention-observability-review",
+      "receipt_sha256": "89d4ff3f8c60d9f763240682f168bed59ba605324a504099ab918e762c682206",
+      "receipt": {
+        "reviewed_head": "727188b2f3410ab6a242979a92e8169fc6aee9a2",
+        "base_commit": "1fa5e41efe2a4abe69e672afe8ab04bc8293b59d",
+        "findings": [],
+        "result": "No actionable issue in the fixture-observability-only change",
+        "fixture_ast_identical_after_removing_one_added_message": true,
+        "fixture_sha256": "1bff820c1069232517d93e5d36231256fa9510c88ce9efe4c47cd741077010ff",
+        "source_controls": {
+          "python314": {
+            "count": 20,
+            "preloaded_modules": 17,
+            "restored": true
+          },
+          "python311": {
+            "count": 20,
+            "preloaded_modules": 17,
+            "restored": true
+          }
+        },
+        "evidence_files_hash_verified": 17,
+        "historical_receipt": "79 methods, 78 passes, 1 failure; remains failed",
+        "historical_cause": "unknown",
+        "diagnostics": {
+          "baseline": {
+            "recovery_count": 4,
+            "first_error_type": "CatalogBusy",
+            "elapsed_first_recovery": 2.7885778519994346,
+            "scenario_passed": true,
+            "identities_equal_historical": true,
+            "postflight_fences": true,
+            "diagnostic_only": true
+          },
+          "response-delay": {
+            "recovery_count": 1,
+            "first_error_type": "ConsumerError",
+            "elapsed_first_recovery": 17.168759236999904,
+            "scenario_passed": false,
+            "identities_equal_historical": true,
+            "postflight_fences": true,
+            "diagnostic_only": true
+          },
+          "status-503": {
+            "recovery_count": 1,
+            "first_error_type": "ConsumerError",
+            "elapsed_first_recovery": 2.0087680159995216,
+            "scenario_passed": false,
+            "identities_equal_historical": true,
+            "postflight_fences": true,
+            "diagnostic_only": true
+          }
+        },
+        "checkpoint_sha256": "82357cea7a07b18cd80659d070427b5c38af25c9ffdbe20313ec061c070312fa",
+        "reviewer_harness_initial_failure": "Initial independent evidence parser used reference_commit where the existing receipt schema uses head. It stopped before executing controls. Failed script/log retained; only that reviewer parser key was corrected. No repository change.",
+        "limitations": [
+          "No full installed gate or product scenario rerun",
+          "No product, timeout, expected-error, sequencing, gate-policy, cache or provenance change",
+          "No wave10 or catabolic-cli-next edit",
+          "Previously denied broad reviews remain BLOCKED and were not retried",
+          "No fix claim for the original unknown failure and no full qualification claim"
+        ]
+      }
+    }
+  ],
+  "cohort_7": {
+    "source_commit": "343d7e83a8c275dc282cda9b1ac0e6b4a320aaa6",
+    "source_directory": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-next/.local-tests/cli-next/resumed-cohort-7",
+    "wheel_sha256": "01711411dc3514ee4cd52651b10177da77b33df88f16671b5d436e1bbb6f3a2f",
+    "build_manifest_sha256": "4aff9771773f202407b5fc49d6939067a38801c31826928c4f49a557f942cb3b",
+    "receipt_index_sha256": "3ca0228d5ec7a0e79340f79bf4726d506b31fd0e620eab499f7c65fa98d2e81b",
+    "receipt_index": {
+      "311": [
+        {
+          "file": "native-asgi-minimal.attempt.json",
+          "sha256": "7b1d7e28bf13073c908942b3edb1ea2340c3896668be22798ba2893abcdd549b",
+          "passed": true,
+          "tests_run": 6,
+          "error": null
+        },
+        {
+          "file": "native-asgi-minimal.json",
+          "sha256": "7b1d7e28bf13073c908942b3edb1ea2340c3896668be22798ba2893abcdd549b",
+          "passed": true,
+          "tests_run": 6,
+          "error": null
+        },
+        {
+          "file": "native-prerequisites.json",
+          "sha256": "91abebac4104463546719ad27eab7515f651a3dd153141f7a28ea5f74862251a",
+          "passed": true,
+          "tests_run": 4,
+          "error": null
+        },
+        {
+          "file": "native-wheel-after.json",
+          "sha256": "a624bff95db8f979e225a2ed14d59139f67ee4278ac672e4dc0c2bf52344d654",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native-wheel-before.json",
+          "sha256": "a624bff95db8f979e225a2ed14d59139f67ee4278ac672e4dc0c2bf52344d654",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_access_admin_tests.json",
+          "sha256": "22c0a25c0a6afb7846d0959011bc44a5964ee284fc0b1e9c97990f10d1a62414",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_catalog_refresh_embedding_tests.attempt.json",
+          "sha256": "ba86245e5d0fb99fc42c4cc809213b076507ce97ea998eec5792db01c009bb35",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_catalog_refresh_embedding_tests.json",
+          "sha256": "6add3f6cb815f71988d1c32b64592ed14b8b82c05260260594611a4cac46caa7",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_cli_callable_tests.json",
+          "sha256": "f0515e3026143e7487c320867b4b731b24a9f5fa6c2a16cda2e23a991aa7b997",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_component_policy_embedding_tests.attempt.json",
+          "sha256": "61b9ddf2dbf3744031337628f127516e7a4392b23fdbb7446c45454748d65bc6",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_component_policy_embedding_tests.json",
+          "sha256": "bcc045d278da9e0fefd8e8051a68f5198c2b6abff8a32e4148afcac27327771a",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_fallback_embedding_tests.attempt.json",
+          "sha256": "6285cd31d1deca02cf31969c93f61dd302c0ff66364ac2574f6ad31a2ae0907a",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_fallback_embedding_tests.json",
+          "sha256": "652f87ea81ce7229bd85927e26e05f7c242e556e05632f1275d95a260c84522b",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_layout_embedding_tests.attempt.json",
+          "sha256": "009ddda5bc48051ff6a6df35094bc45f4f934a4bf9a432e0ca0639e9ab5c785d",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_layout_embedding_tests.json",
+          "sha256": "46a0aae946fd4c42868471e5e4a6d663526aad03ffbfcfcbed1fde80526c9b3a",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_legacy_adapter_tests.attempt.json",
+          "sha256": "50bfee364807bcae87951bf232bc14052bfd8f103ccf034af9444131b1a4453b",
+          "passed": true,
+          "tests_run": 79,
+          "error": null
+        },
+        {
+          "file": "native_legacy_adapter_tests.json",
+          "sha256": "50bfee364807bcae87951bf232bc14052bfd8f103ccf034af9444131b1a4453b",
+          "passed": true,
+          "tests_run": 79,
+          "error": null
+        },
+        {
+          "file": "native_plex_import_embedding_tests.json",
+          "sha256": "956d148ef9ab0028e335b64d07d66146ef15f88642b948eca54f05117fe7e1ea",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_plex_matching_embedding_tests.json",
+          "sha256": "83751fbf8a7092059d2571caed74ec724a1e0d5afb2b6abab3f881b6abb29e3f",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_plex_metadata_embedding_tests.json",
+          "sha256": "c659e3e34349f3dcd310af809230b82ae83a9af3921222b2279f7bff208dbd25",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_plex_metadata_review_tests.json",
+          "sha256": "4f46d1e940e3da254d2b2918561b2465dd12274dd6af75b94492444b1509b83c",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_plex_xml_embedding_tests.json",
+          "sha256": "cbd3341e0f4a0f1b3f3e37dfca2f7449b7195eaa617b9ed6eb85c6289b60e353",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_plex_xml_review_tests.json",
+          "sha256": "4c1f1fea7f4cdad5795ee8eda6d20e2dacceaded38094da89e32a0092b26accc",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_private_secret_gate.json",
+          "sha256": "97dbfe3557661f204a1ad4185ace2da2e5e8fb0199e328ac90c490c7b6ec77e8",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_processing_embedding_tests.json",
+          "sha256": "b206a5ab8aaaed4626776dcb107bc22ea8d7f18e6c237b54b79392a25c337198",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_public_import_tests.json",
+          "sha256": "fa13e487e84ae026e2c54cf9f96dba555322585217f484711e3fab7471922564",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_publisher_embedding_tests.json",
+          "sha256": "d12ec24c683a834bf68f373e08c3a6dffc549fa1b5fdca1f10a98e0268169f39",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_query_embedding_tests.json",
+          "sha256": "8fedccb0e91001fa7bc65f5d29c95665f3a985d408a6a4e906a253af9cf46a33",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_reconciler_embedding_tests.json",
+          "sha256": "6818bb4abfb3309f8ed82f2dd86652fc9bb5b66e338d68dba8e0ff3d512ff1e3",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_watchers_embedding_tests.attempt.json",
+          "sha256": "cea17d791ea93eaa6af95089d25223862ec974e84cb7880e1f71cd0c6061de4f",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_watchers_embedding_tests.json",
+          "sha256": "2dfa7de453d93c2abbda9c06e3138984eedc9cc9f550f9d1b94bd2c3694cad80",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "qualify_native_embedding.json",
+          "sha256": "4efc43fc143ef923bf1b9f515c79c0be51bc526786f5094f9175d7a5081ab036",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        }
+      ],
+      "314": [
+        {
+          "file": "native-prerequisites.json",
+          "sha256": "386afabdb8a5a52856b19f049f9c438f9a286192a26d6610d4b3ec9d2298493e",
+          "passed": true,
+          "tests_run": 4,
+          "error": null
+        },
+        {
+          "file": "native-wheel-before.json",
+          "sha256": "edf50bff4925b0ff1f6ccd90593db27698017834dd42fbdc58fca33c1faa43eb",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_access_admin_tests.json",
+          "sha256": "d0b96db1a5e4c6f9396c5b5c03bd7beb54777ae9c71f4928d012fa1d0fb40c5c",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_catalog_refresh_embedding_tests.attempt.json",
+          "sha256": "ba86245e5d0fb99fc42c4cc809213b076507ce97ea998eec5792db01c009bb35",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_catalog_refresh_embedding_tests.json",
+          "sha256": "ec481dfd5d46052af5258a195548ffee94c572bb120427fc7de082d4d2f6ffae",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_cli_callable_tests.json",
+          "sha256": "9a2cdf4230eb81190d3af91cbad20a67c358dccdc6f1dd070f9d0de1d2489bd2",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_component_policy_embedding_tests.attempt.json",
+          "sha256": "61b9ddf2dbf3744031337628f127516e7a4392b23fdbb7446c45454748d65bc6",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_component_policy_embedding_tests.json",
+          "sha256": "bcc045d278da9e0fefd8e8051a68f5198c2b6abff8a32e4148afcac27327771a",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_fallback_embedding_tests.attempt.json",
+          "sha256": "6285cd31d1deca02cf31969c93f61dd302c0ff66364ac2574f6ad31a2ae0907a",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_fallback_embedding_tests.json",
+          "sha256": "652f87ea81ce7229bd85927e26e05f7c242e556e05632f1275d95a260c84522b",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_layout_embedding_tests.attempt.json",
+          "sha256": "009ddda5bc48051ff6a6df35094bc45f4f934a4bf9a432e0ca0639e9ab5c785d",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_layout_embedding_tests.json",
+          "sha256": "46a0aae946fd4c42868471e5e4a6d663526aad03ffbfcfcbed1fde80526c9b3a",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_legacy_adapter_tests.attempt.json",
+          "sha256": "e2e3e0d705cb575c4843536f5f650682d6d8aa37145c970d96c4437644c4ee58",
+          "passed": false,
+          "tests_run": 79,
+          "error": "RuntimeError: qualification requires every scenario to pass without skips"
+        },
+        {
+          "file": "native_private_secret_gate.json",
+          "sha256": "7bbff7eca26e008d5e7d3dadf5b503945f2053dadf59fb7c850133ddcbacefa0",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_processing_embedding_tests.json",
+          "sha256": "b206a5ab8aaaed4626776dcb107bc22ea8d7f18e6c237b54b79392a25c337198",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_public_import_tests.json",
+          "sha256": "73d7c21c3382b02cfa16f23940773c967ae96d9c8ed7e54ee5abcbf133a9d67b",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_publisher_embedding_tests.json",
+          "sha256": "d12ec24c683a834bf68f373e08c3a6dffc549fa1b5fdca1f10a98e0268169f39",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_query_embedding_tests.json",
+          "sha256": "8fedccb0e91001fa7bc65f5d29c95665f3a985d408a6a4e906a253af9cf46a33",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_reconciler_embedding_tests.json",
+          "sha256": "6818bb4abfb3309f8ed82f2dd86652fc9bb5b66e338d68dba8e0ff3d512ff1e3",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_watchers_embedding_tests.attempt.json",
+          "sha256": "cea17d791ea93eaa6af95089d25223862ec974e84cb7880e1f71cd0c6061de4f",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "native_watchers_embedding_tests.json",
+          "sha256": "2dfa7de453d93c2abbda9c06e3138984eedc9cc9f550f9d1b94bd2c3694cad80",
+          "passed": true,
+          "tests_run": null,
+          "error": null
+        },
+        {
+          "file": "qualify_native_embedding.json",
+          "sha256": "1cbbfce40fb16c0a6bab2a2737f1dabe2c782417b5503d5b95a213e319129feb",
+          "passed": null,
+          "tests_run": null,
+          "error": null
+        }
+      ]
+    },
+    "python311": {
+      "sequence_exit": 0,
+      "sequence_elapsed_seconds": 1683,
+      "strict_m9_methods": 79,
+      "strict_m9_passed": 79,
+      "sequence_passed": true,
+      "scope": "Selected gate sequence incl minimal fixture-ASGI, not full ASGI"
+    },
+    "python314": {
+      "sequence_exit": 1,
+      "strict_m9_methods": 79,
+      "strict_m9_passed": 78,
+      "sequence_passed": false,
+      "failure": "First frozen recovery contention expected CatalogBusy, returned ConsumerError. Original cause unknown. Later sequence tail did not run."
+    }
+  },
+  "remaining": [
+    "Fresh integrated full reference/native replay",
+    "New same-source wheel installed105 replay",
+    "Network-approved exact HTTP dependency wheels for full ASGI",
+    "M6 safety and blocked broad reviews",
+    "macOS, real services, complete performance and rollback gates"
+  ]
+}

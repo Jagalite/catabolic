@@ -458,7 +458,7 @@ fn symlink(fd: &File, name: &str, target: &str) -> Result<()> {
     Ok(())
 }
 pub(crate) fn owner(store: &Store, profile: &str, catalog: &str) -> Value {
-    json!({"format":1,"database_id":store.database_id,"profile":profile,"catalog":catalog})
+    crate::public_reconcile::owner(&store.database_id, profile, catalog)
 }
 pub(crate) fn owner_state(root: &File, expected: &Value) -> Result<&'static str> {
     match open_at(root, MARKER, false) {

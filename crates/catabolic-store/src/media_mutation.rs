@@ -445,7 +445,7 @@ pub fn operation_put(store: &Store, name: &str, definition: &Value) -> Result<Va
         if let Some(id)=old {return Ok(id);}
         let id=uuid::Uuid::new_v4().to_string();
         let revision:i64=db.query_row("SELECT coalesce(max(revision),0)+1 FROM processing_recipes WHERE name=?",[name],|r|r.get(0))?;
-        db.execute("INSERT INTO processing_recipes(id,name,revision,preset,definition,digest,operation_kind,output_definition_id) VALUES (?,?,?,?,?,?,?,NULL)",params![id,name,revision,definition["operation"].as_str(),serialized,digest,"analysis"])?;
+        db.execute("INSERT INTO processing_recipes(id,name,revision,preset,definition,digest,operation_kind,output_definition_id) VALUES (?,?,?,?,?,?,?,?)",params![id,name,revision,definition["operation"].as_str(),serialized,digest,definition["kind"].as_str(),definition["output_definition_id"].as_str()])?;
         Ok(id)
     })?;
     operation_get(store, &id)

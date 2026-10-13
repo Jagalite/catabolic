@@ -21,6 +21,7 @@ fn lock<T>(value: &Mutex<T>) -> PyResult<MutexGuard<'_, T>> {
 #[pyclass(module = "catabolic_native._native")]
 pub struct NativeStore {
     session: Mutex<Option<Session>>,
+    fallback_releases: catabolic_store::public_fallback::PlanReleases,
 }
 struct Checkout<'a> {
     owner: &'a Mutex<Option<Session>>,
@@ -111,12 +112,105 @@ impl NativeStore {
     #[new]
     #[pyo3(signature=(path, writable=false, for_recovery=false))]
     fn new(py: Python<'_>, path: &str, writable: bool, for_recovery: bool) -> PyResult<Self> {
+        let mut session = py
+            .detach(|| Session::open(Path::new(path), writable, for_recovery))
+            .map_err(error)?;
+        let fallback_releases = session.fallback_plans().releases();
         Ok(Self {
-            session: Mutex::new(Some(
-                py.detach(|| Session::open(Path::new(path), writable, for_recovery))
-                    .map_err(error)?,
-            )),
+            session: Mutex::new(Some(session)),
+            fallback_releases,
         })
+    }
+    fn publisher(
+        &self,
+        py: Python<'_>,
+        profile: &str,
+        job: &str,
+    ) -> PyResult<crate::public_publisher::NativePublisher> {
+        let job =
+            catabolic_core::decode_json(job).map_err(|e| CatabolicError::new_err(e.to_string()))?;
+        self.run(py, |session| {
+            catabolic_store::observation::Publisher::new(session.store()?, profile, &job)
+        })
+        .map(|owner| crate::public_publisher::NativePublisher { owner })
+    }
+    fn scan_with_publisher(
+        &self,
+        py: Python<'_>,
+        profile: &str,
+        request: &str,
+        app: Py<PyAny>,
+    ) -> PyResult<String> {
+        let request = catabolic_core::decode_json(request)
+            .map_err(|e| CatabolicError::new_err(e.to_string()))?;
+        let captured = Arc::new(Mutex::new(None));
+        let mut factory = crate::public_publisher::Factory {
+            app,
+            error: captured.clone(),
+        };
+        let result = self.run(py, |session| {
+            catabolic_runtime::public_scan::execute_with(
+                session.store_mut()?,
+                profile,
+                &request,
+                |store, profile, args| {
+                    catabolic_store::observation::execute_detached_with_publisher(
+                        store,
+                        profile,
+                        "scan",
+                        args,
+                        Some(&mut factory),
+                    )
+                },
+            )
+        });
+        if let Some(error) = captured.lock().unwrap().take() {
+            return Err(error);
+        }
+        result.map(|v| v.to_string())
+    }
+    // A Python plan destructor may run while this Store is checked out, closed
+    // or detached. Release only its process-local handle, without a new checkout
+    // or signal/callback poll that could discard cleanup.
+    fn drop_fallback_plan(&self, token: u64) -> PyResult<()> {
+        self.fallback_releases.forget(token).map_err(error)
+    }
+    #[pyo3(signature=(request, profile, cancelled=None))]
+    fn prepare_fallback(
+        &self,
+        py: Python<'_>,
+        request: &str,
+        profile: &str,
+        cancelled: Option<Py<PyAny>>,
+    ) -> PyResult<crate::public_fallback::PreparedReply> {
+        let request: Value = catabolic_core::decode_json(request)
+            .map_err(|e| CatabolicError::new_err(e.to_string()))?;
+        if !request.is_object() {
+            return Err(CatabolicError::new_err(
+                "native request must be a JSON object",
+            ));
+        }
+        if cancelled.is_some() && request.get("session").is_none() {
+            return Err(CatabolicError::new_err(
+                "live cancellation is supported only for component or fallback session lookups",
+            ));
+        }
+        let signal = Arc::new(Mutex::new(None));
+        let captured = signal.clone();
+        let value = self.run(py, |session| {
+            crate::public_fallback::call(
+                session,
+                profile,
+                "projection-plan",
+                &request,
+                captured,
+                cancelled,
+            )
+        });
+        if let Some(error) = signal.lock().unwrap().take() {
+            return Err(error);
+        }
+        value.map(crate::public_fallback::PreparedReply::new)
     }
     #[staticmethod]
     fn validate_query(surface: &str, request: &str, profile: &str) -> PyResult<String> {
@@ -225,6 +319,96 @@ impl NativeStore {
         }
         value
     }
+    fn access_admin(
+        &self,
+        py: Python<'_>,
+        operation: &str,
+        request: &Bound<'_, pyo3::types::PyDict>,
+    ) -> PyResult<String> {
+        let request = crate::public_access::arguments(operation, request)?;
+        let signal = Arc::new(Mutex::new(None));
+        let captured = signal.clone();
+        let value = self.run(py, |session| {
+            crate::public_access::call(session, operation, &request, captured)
+        });
+        if let Some(error) = signal.lock().unwrap().take() {
+            return Err(error);
+        }
+        value.map(|value| value.to_string())
+    }
+    fn save_secret(
+        &self,
+        py: Python<'_>,
+        filename: &Bound<'_, PyAny>,
+        result: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let path = py
+            .import("pathlib")?
+            .getattr("Path")?
+            .call1((filename,))?
+            .call_method0("expanduser")?
+            .call_method0("absolute")?;
+        let native_path: std::path::PathBuf = path.extract()?;
+        let serialized = result.clone().unbind();
+        let raised = Arc::new(Mutex::new(None));
+        let captured = raised.clone();
+        let outcome = self.run(py, |session| {
+            crate::public_secret::save(session, &native_path, serialized, captured)
+        });
+        if let Some(error) = raised.lock().unwrap().take() {
+            return Err(error);
+        }
+        outcome?;
+        // Frozen ordering: missing summary fields fail after registration.
+        // Return original Python values, without JSON round-trip coercion.
+        let summary = pyo3::types::PyDict::new(py);
+        summary.set_item("token_id", result.get_item("token_id")?)?;
+        summary.set_item("expires", result.get_item("expires")?)?;
+        summary.set_item("credential_file", path.str()?)?;
+        Ok(summary.into_any().unbind())
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn layout_run(
+        &self,
+        py: Python<'_>,
+        request: &str,
+        profile: &str,
+        apply: Py<PyAny>,
+        replace_layout: Py<PyAny>,
+        allow_empty: Py<PyAny>,
+        limit: &Bound<'_, PyAny>,
+    ) -> PyResult<String> {
+        // Preserve exact-int admission without calling __int__/__index__ or
+        // serializing arbitrary-size invalid Python integers through JSON.
+        let limit = if limit.is_exact_instance_of::<pyo3::types::PyInt>() {
+            limit.extract::<u64>().ok()
+        } else {
+            None
+        };
+        let mut request: Value = catabolic_core::decode_json(request)
+            .map_err(|e| CatabolicError::new_err(e.to_string()))?;
+        if !request.is_object() {
+            return Err(CatabolicError::new_err(
+                "native request must be a JSON object",
+            ));
+        }
+        request["limit"] = limit.map_or(Value::Null, Value::from);
+        let signal = Arc::new(Mutex::new(None));
+        let captured = signal.clone();
+        let result = self.run(py, |session| {
+            crate::public_layouts::run(
+                session,
+                profile,
+                &request,
+                captured,
+                [apply, replace_layout, allow_empty],
+            )
+        });
+        if let Some(error) = signal.lock().unwrap().take() {
+            return Err(error);
+        }
+        result.map(|value| value.to_string())
+    }
     #[pyo3(signature=(surface, operation, request, profile, cancelled=None))]
     fn call(
         &self,
@@ -262,7 +446,31 @@ impl NativeStore {
             if let Some(error) = signal.lock().unwrap().take() {
                 return Err(error);
             }
+            return value.map(crate::public_fallback::Reply::into_json);
+        }
+        if surface == "watchers" {
+            let signal = Arc::new(Mutex::new(None));
+            let captured = signal.clone();
+            let value = self.run(py, |session| {
+                crate::public_watchers::call(session, profile, operation, &request, captured)
+            });
+            if let Some(error) = signal.lock().unwrap().take() {
+                return Err(error);
+            }
             return value.map(|value| value.to_string());
+        }
+        if surface == "reconcile" && operation == "owner" {
+            return self.run(py, |session| {
+                let info = session.info();
+                Ok(catabolic_store::public_reconcile::owner(
+                    info["database_id"].as_str().unwrap_or(""),
+                    profile,
+                    request["catalog"]
+                        .as_str()
+                        .ok_or_else(|| Error("catalog must be text".into()))?,
+                )
+                .to_string())
+            });
         }
         if surface == "catalog_refresh" {
             let signal = Arc::new(Mutex::new(None));
@@ -275,7 +483,7 @@ impl NativeStore {
             }
             return value.map(|value| value.to_string());
         }
-        if surface == "query_execution" || surface == "components" {
+        if surface == "query_execution" || surface == "components" || surface == "layouts" {
             let signal = Arc::new(Mutex::new(None));
             let captured = signal.clone();
             let value = self.run(py, |session| {
@@ -302,7 +510,11 @@ impl NativeStore {
                         })
                     },
                     || {
-                        if surface == "components" {
+                        if surface == "layouts" {
+                            catabolic_store::public_layouts::call(
+                                session, profile, operation, &request,
+                            )
+                        } else if surface == "components" {
                             session.component_call(profile, operation, &request)
                         } else {
                             session.query_call_json(profile, operation, raw_request)
@@ -352,6 +564,9 @@ impl NativeStore {
                 catabolic_runtime::public_artifacts::call(store, profile, operation, &request)
             }
             "processing" => crate::artifacts_processing::read(store, profile, operation, &request),
+            "reconcile" => {
+                catabolic_store::public_reconcile::call(store, profile, operation, &request)
+            }
             "application" => {
                 catabolic_store::embedding::application(store, profile, operation, &request)
             }
@@ -409,6 +624,7 @@ impl NativeStore {
 
 pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<NativeStore>()?;
+    module.add_class::<crate::public_publisher::NativePublisher>()?;
     module.add("CatabolicError", module.py().get_type::<CatabolicError>())?;
     Ok(())
 }

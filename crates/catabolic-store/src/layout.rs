@@ -664,23 +664,30 @@ pub(crate) fn bounded_report(report: &Value, limit: usize, applied: bool) -> Val
     report
 }
 
-pub(crate) fn prepare(
-    evaluation: &mut Evaluation,
+pub fn effective_definition(
+    store: &Store,
+    profile: &str,
     id: &str,
     catalog: &str,
-    replace: bool,
-    allow_empty: bool,
-) -> Result<PreparedPlan> {
-    name(id)?;
-    let mut definition = read(evaluation.store(), &format!("layout:{id}"))?;
-    if definition.is_null() {
-        return Err(Error(format!("unknown layout: {id}")));
+) -> Result<Value> {
+    let definition = crate::definitions::layout_get(store, id)?["definition"].clone();
+    if store.schema_version < 15 {
+        return Ok(definition);
     }
-    validate(&definition)?;
+    projection_definition(store, profile, id, catalog, definition)
+}
+
+fn projection_definition(
+    store: &Store,
+    profile: &str,
+    id: &str,
+    catalog: &str,
+    mut definition: Value,
+) -> Result<Value> {
     let bindings = rows(
-        &evaluation.store().db,
+        &store.db,
         "SELECT * FROM projection_bindings WHERE profile=? AND catalog=?",
-        &[evaluation.profile.clone().into(), catalog.to_owned().into()],
+        &[profile.to_owned().into(), catalog.to_owned().into()],
     )?;
     if let Some(binding) = bindings.first() {
         if binding["layout"] != id {
@@ -688,9 +695,55 @@ pub(crate) fn prepare(
                 "projection is configured with a different layout; execute that projection explicitly",
             );
         }
-        definition["selection"] =
-            json!({"query_id":binding["query_id"],"profile":evaluation.profile});
+        definition["selection"] = json!({"query_id":binding["query_id"],"profile":profile});
     }
+    Ok(definition)
+}
+
+/// Python option objects are evaluated only where the native planner consumes
+/// their truth value. Ordinary Rust callers retain their bool-taking entrypoint.
+#[derive(Clone, Copy)]
+pub enum RunFlag {
+    Apply,
+    ReplaceLayout,
+    AllowEmpty,
+}
+
+pub(crate) fn prepare(
+    evaluation: &mut Evaluation,
+    id: &str,
+    catalog: &str,
+    replace: bool,
+    allow_empty: bool,
+) -> Result<PreparedPlan> {
+    prepare_with_flags(evaluation, id, catalog, &mut |flag| {
+        Ok(match flag {
+            RunFlag::ReplaceLayout => replace,
+            RunFlag::AllowEmpty => allow_empty,
+            RunFlag::Apply => unreachable!("apply belongs to orchestration"),
+        })
+    })
+}
+
+pub(crate) fn prepare_with_flags(
+    evaluation: &mut Evaluation,
+    id: &str,
+    catalog: &str,
+    flag: &mut impl FnMut(RunFlag) -> Result<bool>,
+) -> Result<PreparedPlan> {
+    name(id)?;
+    let definition = read(evaluation.store(), &format!("layout:{id}"))?;
+    if definition.is_null() {
+        return Err(Error(format!("unknown layout: {id}")));
+    }
+    validate(&definition)?;
+    let definition = projection_definition(
+        evaluation.store(),
+        &evaluation.profile,
+        id,
+        catalog,
+        definition,
+    )?;
     if rows(
         &evaluation.store().db,
         "SELECT 1 FROM catalogs WHERE id=?",
@@ -704,7 +757,7 @@ pub(crate) fn prepare(
         return fail("recover pending operations before changing desired catalog state");
     }
     let owner = read(evaluation.store(), &format!("layout-catalog:{catalog}"))?;
-    if !owner.is_null() && owner["layout"] != id && !replace {
+    if !owner.is_null() && owner["layout"] != id && !flag(RunFlag::ReplaceLayout)? {
         return Err(Error(format!(
             "catalog is managed by layout {}; use --replace-layout explicitly",
             owner["layout"].as_str().unwrap_or("")
@@ -941,7 +994,7 @@ pub(crate) fn prepare(
     if (!selection_report.is_null() || admitted.is_some())
         && desired.is_empty()
         && removals > 0
-        && !allow_empty
+        && !flag(RunFlag::AllowEmpty)?
     {
         blockers.push(json!({"reason":"query layout would clear all generated mappings; inspect the selection and use --allow-empty explicitly"}));
     }

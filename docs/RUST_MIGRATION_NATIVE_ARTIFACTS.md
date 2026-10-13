@@ -12,9 +12,10 @@ M11 does not authorize publication before the dependency gates pass.
 
 Run `scripts/build_native_wheel.py --python PATH_TO_PINNED_PYTHON --out DIRECTORY`
 with Rust 1.99 and Maturin 1.13.1. This only builds local artifacts. It compiles
-the release CLI, packages it under `catabolic_native/bin/catabolic-native`, and
-includes a versioned digest manifest beside the extension. The generated binary
-and manifest are ignored by Git and explicitly included in the wheel. The script
+both release CLIs, packages them under `catabolic_native/bin/catabolic-native`
+and `catabolic_native/bin/catabolic-legacy-native`, and includes separate versioned
+digest manifests beside the extension. The generated binaries and manifests are
+ignored by Git and explicitly included in the wheel. The script
 inspects actual archive bytes, execute permissions and the launcher entry point.
 
 The helper and extension builds are fenced by a source-content digest covering
@@ -32,6 +33,12 @@ extension-only builds can still perform in-process operations; child-process
 work requires the qualified package or explicit `CATABOLIC_NATIVE_BINARY` override.
 There is no ambient PATH lookup or reinterpretation of the Python executable as
 a worker. The opt-in installed `catabolic-native` entry point launches this helper.
+
+The separate `catabolic_native.cli.main(argv=None)` callable verifies
+`legacy-helper.json`, matching companion source/toolchain provenance and executable
+bytes on every call. It launches the packaged legacy helper through a bounded
+returning text-stream protocol. It has no environment/PATH helper override.
+See [the callable boundary checkpoint](RUST_MIGRATION_PYTHON_CLI_CALLABLE.md).
 
 This identity check assumes a trusted installation directory. Returning a checked
 pathname does not close a hostile concurrent check-to-exec replacement race.
@@ -55,8 +62,16 @@ structured uncertain outcome, child reaping and private-copy cleanup.
 
 `native-qualification.yml` prepares a separate opt-in Linux fixture lane and
 clean Python 3.11/3.14 installed-artifact checks. The Python-only CI lane uses
-`run_reference_tests.py`, which excludes native prerequisites before importing
-their test modules and still runs every original Python test. Configuration is
+`run_reference_tests.py`, which excludes `test_rust_*` modules before importing
+them and still runs every original Python test. Configuration is
+explicit about the four pinned-oracle/installed-native prerequisites in
+`scripts/run_native_prerequisite_tests.py`: two printable-table generator checks
+and the paired content-revision and owner-boundary checks. The reference report
+enumerates those deferred scenario IDs; the installed job requires all four to
+execute without skips against the exact wheel, with payload identity checked
+before and after. Frozen oracle bytes, its pinned interpreter and the selected
+driver/test sources must also remain unchanged throughout the run.
+Source-only native harness tests remain in the Python reference lane. This is
 not evidence of a successful GitHub run. The workflow does not publish packages
 or qualify macOS, external consumer versions, or unresolved output safety.
 

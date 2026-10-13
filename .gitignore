@@ -17,3 +17,7 @@ dist/
 target/
 crates/catabolic-python/python/catabolic_native/bin/catabolic-native
 crates/catabolic-python/python/catabolic_native/native-helper.json
+crates/catabolic-python/python/catabolic_native/bin/catabolic-native.tmp
+crates/catabolic-python/python/catabolic_native/bin/catabolic-legacy-native
+crates/catabolic-python/python/catabolic_native/bin/catabolic-legacy-native.tmp
+crates/catabolic-python/python/catabolic_native/legacy-helper.json

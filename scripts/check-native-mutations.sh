@@ -77,7 +77,14 @@ fi
 required_ignored_test document::tests::real_pdf_text_and_page_overflow -p catabolic-runtime --lib
 required_ignored_test document::tests::real_single_image_ocr -p catabolic-runtime --lib
 required_ignored_test artifact_mutation::tests::python_native_publication_intents_recover_in_both_directions -p catabolic-store --lib
-"$python" scripts/qualify_native_mutations.py --binary "$CATABOLIC_NATIVE_BINARY" --http-binary "$CATABOLIC_HTTP_BINARY" --legacy-binary "$CATABOLIC_LEGACY_BINARY" --parser-binary "$CATABOLIC_NATIVE_PARSER_BINARY" --extension-binary "$CATABOLIC_NATIVE_EXTENSION" --reference-root "$reference_root" --report "$evidence/native-results.json"
+# Local administration's frozen transitions and the explicitly divergent
+# scalar-token refusal witness are mandatory, not silently ignored evidence.
+required_ignored_test access_admin::tests::frozen_access_owner_differential -p catabolic-store --lib
+required_ignored_test access_admin::tests::inherited_scalar_cache_confusion_remains_fail_closed_native -p catabolic-store --lib
+# The two exact ASGI test files require an installed release wheel. Verify their
+# fixed 21-scenario inventory before import, and record this mandatory separate
+# prerequisite as pending rather than treating it as skipped or passed.
+"$python" scripts/qualify_native_mutations.py --defer-installed-asgi --binary "$CATABOLIC_NATIVE_BINARY" --http-binary "$CATABOLIC_HTTP_BINARY" --legacy-binary "$CATABOLIC_LEGACY_BINARY" --parser-binary "$CATABOLIC_NATIVE_PARSER_BINARY" --extension-binary "$CATABOLIC_NATIVE_EXTENSION" --reference-root "$reference_root" --report "$evidence/native-results.json"
 "$target_dir"/debug/catabolic-verification check
 "$target_dir"/debug/catabolic-verification check-playback
 cargo build --locked --release -p catabolic-cli

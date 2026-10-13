@@ -15,7 +15,6 @@ def _session_request(store, profile, session):
         )
     return dict(
         session=session._token,
-        cancelled=bool(session.cancelled),
         session_owner_matches=session.store is store and session.profile == profile,
     ), lambda: session.cancelled
 

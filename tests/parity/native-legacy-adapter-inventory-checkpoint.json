@@ -1,0 +1,270 @@
+{
+  "format": 1,
+  "scope": "Selected installed-adapter qualification inventory wiring and source controls only; no new installed product qualification",
+  "base_commit": "1fa5e41efe2a4abe69e672afe8ab04bc8293b59d",
+  "budget_prerequisite_original_commit": "fed37934109e23915d5aabedc4654ef776fdbe2f",
+  "budget_prerequisite_local_commit": "76fabbb6ab333c7b403d8d24ac49c066772375dc",
+  "scope_changes": {
+    "previous_methods": 79,
+    "previous_methods_retained": 79,
+    "mapping_history_methods_added": 11,
+    "mapping_event_order_methods_added": 6,
+    "external_worker_diagnostic_methods_added": 9,
+    "required_total": 105,
+    "jellyfin_inherited_plus_own": 19,
+    "diagnostic_all_inherited_plus_own": 27,
+    "diagnostic_selected_own_only": 9,
+    "unselected_projection_support_methods": 13
+  },
+  "native_only_witnesses": [
+    "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_publication_version_two_stays_explicitly_unavailable",
+    "tests.test_rust_publication_bundle_preview.PublicationBundlePreviewTest.test_immich_cancellation_stops_read_only_helper"
+  ],
+  "explicit_nonparity_witnesses": [
+    "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_publication_version_two_stays_explicitly_unavailable",
+    "tests.test_rust_publication_bundle_preview.PublicationBundlePreviewTest.test_apply_and_recovery_still_refuse_before_bundle_effects",
+    "tests.test_rust_publication_mapping_preview.PublicationMappingPreviewTest.test_nonfolder_preview_admission_and_apply_recover_no_effects"
+  ],
+  "setup_engine_launches_do_not_prove_paired_branch_coverage": true,
+  "discovery": {
+    "311": {
+      "passed": true,
+      "scope": "source-only discovery outside checkout, not product qualification",
+      "cwd": "/tmp",
+      "source_root": "/workspace/scratch/9c9a5a8c3955/catabolic-installed-adapter-inventory",
+      "python": "3.11.15 (main, Aug  7 2026, 02:25:55) [Clang 22.1.3 ]",
+      "isolated": 1,
+      "executable": "/workspace/scratch/9c9a5a8c3955/catabolic-installed-cohort7/py311/bin/python",
+      "count": 105,
+      "unique_count": 105,
+      "ordinary_discovery_count": 105,
+      "prior_cases_retained": 79,
+      "classes": {
+        "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest": 17,
+        "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest": 19,
+        "tests.test_rust_publication_mapping_preview.PublicationMappingPreviewTest": 9,
+        "tests.test_rust_publication_bundle_preview.PublicationBundlePreviewTest": 16,
+        "tests.test_rust_legacy_external_rule.NativeLegacyExternalRuleTest": 18,
+        "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest": 11,
+        "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest": 6,
+        "tests.test_rust_legacy_external_worker_diagnostics.ExternalWorkerDiagnosticsTest": 9
+      },
+      "package_inventory": [
+        [
+          "catabolic-native",
+          "0.2.0"
+        ],
+        [
+          "pip",
+          "24.0"
+        ],
+        [
+          "setuptools",
+          "79.0.1"
+        ]
+      ],
+      "python_business_imports": [],
+      "product_scenarios_executed": 0,
+      "helper_used_for_discovery_only": true
+    },
+    "314": {
+      "passed": true,
+      "scope": "source-only discovery outside checkout, not product qualification",
+      "cwd": "/tmp",
+      "source_root": "/workspace/scratch/9c9a5a8c3955/catabolic-installed-adapter-inventory",
+      "python": "3.14.6 (main, Aug  4 2026, 18:27:20) [Clang 22.1.3 ]",
+      "isolated": 1,
+      "executable": "/workspace/scratch/9c9a5a8c3955/catabolic-installed-cohort7/py314/bin/python",
+      "count": 105,
+      "unique_count": 105,
+      "ordinary_discovery_count": 105,
+      "prior_cases_retained": 79,
+      "classes": {
+        "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest": 17,
+        "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest": 19,
+        "tests.test_rust_publication_mapping_preview.PublicationMappingPreviewTest": 9,
+        "tests.test_rust_publication_bundle_preview.PublicationBundlePreviewTest": 16,
+        "tests.test_rust_legacy_external_rule.NativeLegacyExternalRuleTest": 18,
+        "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest": 11,
+        "tests.test_rust_legacy_mapping_event_order.NativeLegacyMappingEventOrderTest": 6,
+        "tests.test_rust_legacy_external_worker_diagnostics.ExternalWorkerDiagnosticsTest": 9
+      },
+      "package_inventory": [
+        [
+          "catabolic-native",
+          "0.2.0"
+        ],
+        [
+          "pip",
+          "26.1.2"
+        ]
+      ],
+      "python_business_imports": [],
+      "product_scenarios_executed": 0,
+      "helper_used_for_discovery_only": true
+    }
+  },
+  "fixture_sources_sha256": {
+    "tests/__init__.py": "57721be24eef9ace6eed72ff8af90756624024eebb638a9be4b705b72b0a4309",
+    "tests/test_rust_legacy_review.py": "3351e81aca689e6125f5950556512a2e7057b29fbbc8ebaa87b61f77c0a113dc",
+    "tests/test_rust_legacy_projection.py": "873a5a4a75c380ba94bde65e8bad81c07bf1470652b90091e621b08cd851f081",
+    "tests/test_rust_legacy_destination_mappings.py": "4abc7acc53b79b97eb5b018ca2d4e058deabec0d6054dc205b68653c999686e5",
+    "tests/test_rust_publication_mapping_preview.py": "dbb488507591816d82a803c22fbb08e17e8361fe76330d8ac884ff011e6e3869",
+    "tests/test_rust_publication_bundle_preview.py": "82cb519dcce74e3313821f082db4343c1c090a1df119dfb0ec053772bae2cecd",
+    "tests/test_rust_legacy_external_rule.py": "7e178197ac04a84721f927170d28d5faae0634d42ba5b20a6a388d7f80bf374e",
+    "tests/test_rust_legacy_mapping_history.py": "755f85549964430bb8add52e68ce56fe2b13b7934949274861a28ef505bca75e",
+    "tests/test_rust_legacy_mapping_event_order.py": "89dfc2308160255c6f82dbd23d14ebf4d70ad3c8d628a024ed23df07fbcb3f4d",
+    "tests/test_rust_legacy_external_worker_diagnostics.py": "e0e5f2cb6f539d19db477a61f8e2d3fc90195b77adbbda551dfa9d46f1f8160f"
+  },
+  "changed_files_sha256": {
+    "scripts/native_legacy_adapter_scenarios.py": "835ff26b7e34c661dec73edaa81ad28228df2c27aa5bac4fec8cbd6504a35dee",
+    "scripts/native_legacy_adapter_tests.py": "aa708906f76336b40b31097cb1456967013469dfafdbdfc3faa4ef14fb3cd124",
+    "tests/test_native_legacy_adapter_qualification.py": "936b233a8d4a0c8eea68aa26976837ee470256b41e5c3fed4af5f68fda5b4749",
+    "docs/RUST_MIGRATION_LEGACY_ADAPTER_INSTALLED_GATE.md": "6f5686f31041d01d1039457e8fee18b010ab9fd97955dc3b693ef142075f917e",
+    "docs/RUST_MIGRATION_EXTERNAL_WORKER_DIAGNOSTICS.md": "76e1fccedbaa718c20553cc6204ffc01c692da0ea39400904dbec9e160c7db83"
+  },
+  "unchanged_fences_sha256": {
+    "scripts/native_legacy_adapter_oracle.py": "f604456868b342244a762ea37efb695b0d927a150971a1958477be0a7bf64270",
+    "scripts/native_qualification_results.py": "e7b26add38ac95e32557ee88ffff59a2c47be11165009fd553bbac88028acce3",
+    "scripts/native_facade_qualification.py": "1f95208893f9af22577647b6d29faf995b2feac37d20a050d9c423d093608b29",
+    "scripts/native_asgi_installed_tests.py": "91ea08e305ace141593b999de23e98d97ce29b965d4d656b18c2a7096d5c77ed",
+    "scripts/qualify_native_embedding.py": "ac7d6c32f55732beb6e5ea019716b784be2d0ad6ece1d65d65f82283152fa4e3",
+    ".github/workflows/native-qualification.yml": "e794a7f1c687654e6c6148d4004c877642bf587bc7e3c2f35f6e9b5c11767066",
+    "tests/native_ci_contract.py": "ed64553ae3e72ac1dae1ac357ac30fe6d766c4f7d67095a351423051196ecc37",
+    "tests/test_native_ci_contract.py": "d48a781d4b9cb5d2bc5f40ea88d2a0c13ddd46a4923ed0b3c3cdfca4c86266ce"
+  },
+  "controls": {
+    "311": {
+      "scope": "source-only controls, not product qualification",
+      "python": "3.11.15 (main, Aug  7 2026, 02:25:55) [Clang 22.1.3 ]",
+      "modules": [
+        "tests.test_native_legacy_adapter_qualification",
+        "tests.test_native_ci_contract",
+        "tests.test_native_facade_wheel_qualification",
+        "tests.test_native_qualification_receipts",
+        "tests.test_native_cli_callable_qualification",
+        "tests.test_native_asgi_installed_qualification",
+        "tests.test_native_asgi_discovery",
+        "tests.test_native_access_admin_contract",
+        "tests.test_native_cli_callable_contract",
+        "tests.test_native_layout_embedding_contract",
+        "tests.test_native_private_secret_contract",
+        "tests.test_native_publisher_contract",
+        "tests.test_native_reconciler_contract",
+        "tests.test_native_watchers_contract"
+      ],
+      "tests_run": 164,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "expected_failures": 0,
+      "preloaded_actual_frozen_business_modules": 17,
+      "original_module_identities_restored": true,
+      "seconds": 70.50404940099907,
+      "passed": true
+    },
+    "314": {
+      "scope": "source-only controls, not product qualification",
+      "python": "3.14.6 (main, Aug  4 2026, 18:27:20) [Clang 22.1.3 ]",
+      "modules": [
+        "tests.test_native_legacy_adapter_qualification",
+        "tests.test_native_ci_contract",
+        "tests.test_native_facade_wheel_qualification",
+        "tests.test_native_qualification_receipts",
+        "tests.test_native_cli_callable_qualification",
+        "tests.test_native_asgi_installed_qualification",
+        "tests.test_native_asgi_discovery",
+        "tests.test_native_access_admin_contract",
+        "tests.test_native_cli_callable_contract",
+        "tests.test_native_layout_embedding_contract",
+        "tests.test_native_private_secret_contract",
+        "tests.test_native_publisher_contract",
+        "tests.test_native_reconciler_contract",
+        "tests.test_native_watchers_contract"
+      ],
+      "tests_run": 164,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "expected_failures": 0,
+      "preloaded_actual_frozen_business_modules": 17,
+      "original_module_identities_restored": true,
+      "seconds": 77.62088126000162,
+      "passed": true
+    }
+  },
+  "commands": {
+    "discovery": "cd /tmp; <minimal-installed-python> -I -B <root>/.local-tests/legacy-inventory-expansion/discover.py <root> <frozen-reference-root> <pinned-main314-python>",
+    "controls": "PYTHONPATH=<frozen-reference-root>/src:<root> <pinned-python> <root>/.local-tests/legacy-inventory-expansion/run-full-preloaded-controls.py <report>",
+    "lint": "ruff check scripts/native_legacy_adapter_{scenarios,tests}.py tests/test_native_legacy_adapter_qualification.py",
+    "format": "ruff format --check scripts/native_legacy_adapter_{scenarios,tests}.py tests/test_native_legacy_adapter_qualification.py",
+    "docs": "python scripts/sync_docs.py --check",
+    "whitespace": "git diff --check"
+  },
+  "runtime_paths": {
+    "main314": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+    "full311": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/ci-harness/python311-reference/bin/python",
+    "minimal311": "/workspace/scratch/9c9a5a8c3955/catabolic-installed-cohort7/py311/bin/python",
+    "minimal314": "/workspace/scratch/9c9a5a8c3955/catabolic-installed-cohort7/py314/bin/python",
+    "frozen_reference": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/reference"
+  },
+  "exact_installed_job_budget_minutes": 45,
+  "expanded_105_method_wall_time_measured": false,
+  "historical_timing_and_failure": "The separate budget checkpoint retains cohort7 79-method 311 success (1683-second selected runner) and 314 78/79 ConsumerError/CatalogBusy failure; neither is evidence for changed or expanded sources",
+  "source_product_bodies_and_fixture_assertions_deadlines_changed": false,
+  "new_wheel_built": false,
+  "product_gate_executed": false,
+  "release_qualified": false,
+  "full_leaf_parity": false,
+  "m9_complete": false,
+  "broader_feature_and_filesystem_safety_reviews": "Both previously denied lanes remain blocked; neither retried",
+  "evidence_root": ".local-tests/legacy-inventory-expansion",
+  "evidence_sha256": {
+    "controls-preloaded311.json": "5c9140ae42f1afe3464cc534cefa2f6021348a63d245f314da4e262b494e958e",
+    "controls-preloaded311.log": "725518367a78d33953f0ed5a7c41e3693540496300ad8906ba130806d2818269",
+    "controls-preloaded314.json": "b26a9c9103f5332d7f15dd8d333ced29ee71bf5ebd9ce5fdf2e9b84e6a128b7d",
+    "controls-preloaded314.log": "4b1ce2d989720d9e6b86a9536da2eb5c28432dcf152b64d530b501304a9f344b",
+    "discover.py": "50c809375426866e225daccfe6335bb0583db04bb51ded032a1abee4374c4333",
+    "discovery-minimal311.json": "5f40e4469095fe96d5074651c7a157a218fda6b734cf09e9466615ffdc7d5bda",
+    "discovery-minimal314.json": "ceb41853c34da9bf1ca13120324fc5d1e1d8044bcd4649b3ed9026dc7394888d",
+    "final-format-docs.log": "a61e245b9fd10cbb340f2254284fb9181e8747c53c276701775140cc11ccd5ea",
+    "full-preloaded311.json": "5b7e0ba192167d771878164f4bab6ab63d92575ce078c4282d768517c980b51a",
+    "full-preloaded311.log": "30fe1d62075b0785f5c18131453d5deff2370995a47276cc0cb86181ea2f341f",
+    "full-preloaded314.json": "06e6550e76d54a0a67684c0203242f954a79cdcda24c7517d15b15b0cce1890b",
+    "full-preloaded314.log": "a2e892b66acd29598813328ddb18baa1d0e60281dad359d12391731eaeb6dfcf",
+    "independent/commands.sh": "07a6ebfb2ada481c852ddd4d348191a8ba91cfe1bd7010cee83dcf56a0baeba7",
+    "independent/controls311.json": "8fbee09f01692b7da1d3baed23a87b020f9fb3755122b5bf7620d0a2383e99c9",
+    "independent/controls311.log": "b883171c88bf64a66f56efd87d7d01b9521714010f97e5c2b5f7fd7c0e19ad0c",
+    "independent/controls314.json": "504452c0a0b16f0f243e4653f0583cc18bbba73fa513244c636ffebea60727a4",
+    "independent/controls314.log": "e0e3fafff4e91d46e6ef71e9be1b64f91e60f3b8f0cd9c8ed71fe765397eb29f",
+    "independent/diff-check.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "independent/docs-check.log": "cded038284aa703460ea80dc2d293527d607e1745914ee294cd7d52a19442354",
+    "independent/final-reviewed.patch": "12bb49504c6497230d11303f7d66bfe2faac7fd16d39dfa8fc5fccf6edc95774",
+    "independent/receipt-verification.json": "e354ea39778a6f65d30baa6accb42b8556fde33548cd185235ce0262b2b0a8dd",
+    "independent/receipt-verification.log": "259448b7098ab4094ab287bc2f9b2f43c7177934a488e82efaa280f08c27b97c",
+    "independent/review-static.py": "6393b2ba86a5772a3733bd2539dadab13e788f8122066450a6c3a94f5d0cdcca",
+    "independent/review.json": "f542d5228ab62dbe32de67291b54a5d65b8abf718651a19fd1c8be70b91389e1",
+    "independent/review.md": "3828686f14d9c532aa6a624f5eda87f895ab427bd5249e7b6f2b7e3edb918ca2",
+    "independent/reviewed.patch": "eedbb12fc3ff9e238a52f90b81a638aab2925032d6db004afe12b5de94772805",
+    "independent/ruff-check.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "independent/ruff-format.log": "eee76f865de5a9f2456950f710ae5d5f9b5bd0ea02aa54f614c5eed6642a0bfd",
+    "independent/run-controls.py": "0a83b78334e9725bf95bfdfcf4f41f9eb52863bedc5b47bc8c9cdfea0f7e4cee",
+    "independent/static-review.json": "f5b3bb855d07566795c064c4093a8aaed9675ffebe5844ac814538a2ff20ea46",
+    "independent/static-review.log": "8425f62a31d93b67250c4a83b8c56b862c42bd23b5bcb776c467b24dd510fbd6",
+    "independent/verify-receipt.py": "3a75d6751a42fd84bcccc1df4cd4df90f3c867718f51353e909cbe853017506e",
+    "old-79-ids.json": "0165b20a54918b7fb5e50e41411e8206c5857402080809361a0e263c3290dc47",
+    "run-full-preloaded-controls.py": "3dc9c76d64e4dc54b59a669559555b2a045b847de4cadfa3c98edeb1292dd296",
+    "run-preloaded-controls.py": "e15a824f9a80b1e426db1b88e5152f3f9c76f7ea021f6f7083cfb0c03d45f0ee"
+  },
+  "independent_review": {
+    "status": "accepted",
+    "findings": 0,
+    "passed_controls_each_python": 35,
+    "preloaded_actual_frozen_business_modules_each_python": 17,
+    "original_module_identities_restored_each_python": true,
+    "report": ".local-tests/legacy-inventory-expansion/independent/review.json",
+    "report_sha256": "f542d5228ab62dbe32de67291b54a5d65b8abf718651a19fd1c8be70b91389e1",
+    "reviewed_diff_sha256": "12bb49504c6497230d11303f7d66bfe2faac7fd16d39dfa8fc5fccf6edc95774",
+    "checkpoint_hash_in_report": "pre-verdict only, to avoid a metadata hash cycle"
+  }
+}

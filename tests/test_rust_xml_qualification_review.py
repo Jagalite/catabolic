@@ -48,6 +48,8 @@ class XmlDriverChecks:
             "catabolic_native/_native.so": b"disposable extension",
             "catabolic_native/bin/catabolic-native": b"disposable paired helper",
             "catabolic_native/native-helper.json": b'{"disposable": true}',
+            "catabolic_native/bin/catabolic-legacy-native": b"disposable legacy helper",
+            "catabolic_native/legacy-helper.json": b'{"disposable": true}',
             "catabolic_native-0.2.0.dist-info/WHEEL": b"Wheel-Version: 1.0\n",
             "catabolic_native-0.2.0.dist-info/METADATA": b"Version: 0.2.0\n",
             "catabolic_native-0.2.0.dist-info/entry_points.txt": b"[console_scripts]\n",
@@ -464,7 +466,6 @@ class XmlDriverChecks:
 
     def test_optimized_failure_stops_shell_before_a_downstream_gate(self):
         marker = self.root / "downstream-success"
-        before = self.report.read_bytes()
         env = os.environ.copy()
         env.pop("PYTHONOPTIMIZE", None)
         run = subprocess.run(
@@ -490,9 +491,11 @@ class XmlDriverChecks:
         self.assertEqual(run.stdout, "")
         self.assertIn("qualification requires assertions", run.stderr)
         self.assertFalse(marker.exists())
-        self.assertEqual(self.report.read_bytes(), before)
+        self.assertFalse(self.report.exists())
 
-    def test_all_optimized_entry_modes_refuse_before_fixture_import_or_reports(self):
+    def test_all_optimized_entry_modes_clear_requested_receipts_before_fixture_import(
+        self,
+    ):
         (self.scripts / "native_plex_metadata_embedding_tests.py").write_text(
             'raise RuntimeError("fixture must not be imported")\n'
         )
@@ -524,7 +527,9 @@ class XmlDriverChecks:
                     env.pop("PYTHONOPTIMIZE", None)
                     if optimize is not None:
                         env["PYTHONOPTIMIZE"] = optimize
-                    before = self.report.read_bytes()
+                    self.report.write_text("stale success")
+                    attempt = self.report.with_suffix(".attempt.json")
+                    attempt.write_text("stale attempt")
                     run = subprocess.run(
                         [
                             sys.executable,
@@ -543,7 +548,12 @@ class XmlDriverChecks:
                     self.assertEqual(run.stdout, "")
                     self.assertIn("qualification requires assertions", run.stderr)
                     self.assertNotIn("fixture must not be imported", run.stderr)
-                    self.assertEqual(self.report.read_bytes(), before)
+                    if "--report" in args:
+                        self.assertFalse(self.report.exists())
+                        self.assertFalse(attempt.exists())
+                    else:
+                        self.assertEqual(self.report.read_text(), "stale success")
+                        self.assertEqual(attempt.read_text(), "stale attempt")
 
 
 class XmlEmbeddingQualificationReview(XmlDriverChecks, unittest.TestCase):
@@ -565,10 +575,26 @@ class XmlIndependentQualificationReview(XmlDriverChecks, unittest.TestCase):
 
 
 class XmlQualificationWorkflowReview(unittest.TestCase):
+    def test_installed_python_pin_drift_is_refused(self):
+        workflow = (ROOT / ".github/workflows/native-qualification.yml").read_text()
+        exact = "python: ['3.11', '3.14.6']"
+        self.assertEqual(workflow.count(exact), 1)
+        for replacement in (
+            "python: ['3.11', '3.14']",
+            "python: ['3.11', '3.14.5']",
+            "python: ['3.14.6']",
+            "python: ['3.11']",
+        ):
+            with self.subTest(replacement=replacement):
+                mutated = workflow.replace(exact, replacement)
+                with patch.object(Path, "read_text", return_value=mutated):
+                    with self.assertRaises(AssertionError):
+                        self.test_both_installed_drivers_use_exact_wheel_and_upload_their_receipts()
+
     def test_both_installed_drivers_use_exact_wheel_and_upload_their_receipts(self):
         workflow = (ROOT / ".github/workflows/native-qualification.yml").read_text()
         installed = workflow.split("  installed:\n", 1)[1]
-        self.assertIn("python: ['3.11', '3.14']", installed)
+        self.assertIn("python: ['3.11', '3.14.6']", installed)
         self.assertIn('cd "$RUNNER_TEMP"', installed)
         for script, receipt in (
             ("native_plex_xml_embedding_tests.py", "native-plex-xml.json"),

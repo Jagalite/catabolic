@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "modules": {
+    "tests.probe_timing": {
+      "path": "tests/probe_timing.py",
+      "kind": "fixture-helper",
+      "frozen_sha256": null,
+      "sha256": "bc1dedec7cf9f940d5be805ba805b2faee3545860fe2b7f1b192e96c61b83df8",
+      "reviewed_commit": "340cd70e76ba0e4b4ffbe7b697a9ce4520cd708c",
+      "reason": "Delay one real child interpreter start for the reviewed healthy-budget and timeout controls"
+    },
+    "tests.test_component_packages": {
+      "path": "tests/test_component_packages.py",
+      "kind": "fixture-adaptation",
+      "frozen_sha256": "15ce1f1c37f029c96b5b9eb83f22e863cfcd624740b849b634bccdb9ba270750",
+      "sha256": "e33bd410635defb5e86ebe63ae24a47b4fe7078c14880c279f339ac3d9585b0f",
+      "reviewed_commit": "340cd70e76ba0e4b4ffbe7b697a9ce4520cd708c",
+      "reason": "Use an explicit 10000-ms healthy-path probe budget for borrowed component fixtures"
+    },
+    "tests.test_component_lifecycle": {
+      "path": "tests/test_component_lifecycle.py",
+      "kind": "fixture-adaptation",
+      "frozen_sha256": "a3e836a1cf3281e2f29856e0666970455a7e0bdb63352205058e9b64abe6d8ef",
+      "sha256": "0479852446781b703a577830440bc14afb267fc97401b68eadf8c4ffb6f8e922",
+      "reviewed_commit": "340cd70e76ba0e4b4ffbe7b697a9ce4520cd708c",
+      "reason": "Exercise the healthy delayed probe and unchanged default-budget refusal controls"
+    },
+    "tests.test_fallback_identity": {
+      "path": "tests/test_fallback_identity.py",
+      "kind": "fixture-adaptation",
+      "frozen_sha256": "28167f827586f4539209f8413a53a6c6d1e0c3e0432cc137fbae10c4f688a172",
+      "sha256": "9ec79bc82d34dbbebc3aae5f7c7c8116b3257d5e771abe32d892aec0b142cb65",
+      "reviewed_commit": "9924d23e40bffe657932ee344b3302687bc0027f",
+      "reason": "Use an explicit 10000-ms healthy probe budget for profile identity fixtures; retain real delayed probes, unchanged-default timeout and exact-plan refusal controls"
+    },
+    "tests.scan_report_support": {
+      "path": "tests/scan_report_support.py",
+      "kind": "fixture-helper",
+      "frozen_sha256": null,
+      "sha256": "5430a3d092058aaccf509b95d3737febb8d97d22823ab622de70cce089c96f2c",
+      "reviewed_commit": "2784bd4601d6243899c313ff5f58243ccce0ba04",
+      "reason": "Compare complete ordinary scan reports against each engine's durable scope/entry payload accounting; reviewed exact-byte and real-timing controls retain freshness and full-report nonparity"
+    }
+  }
+}

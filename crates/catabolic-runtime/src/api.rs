@@ -604,11 +604,16 @@ pub fn execute(
             "retry" => {
                 catabolic_store::media_mutation::retry(&store, profile, required(request, "id")?)
             }
-            "operation-put" => crate::media::put_operation(
-                &store,
-                required(request, "name")?,
-                &request["definition"],
-            ),
+            // Definition options are user data, not publication reports. Do
+            // not let the generic post-publication visitor interpret them.
+            "operation-put" => {
+                return crate::operations::put(
+                    &store,
+                    profile,
+                    required(request, "name")?,
+                    &request["definition"],
+                );
+            }
             _ => Err(Error("unknown media operation".into())),
         },
         _ => Err(Error("unknown native operation surface".into())),

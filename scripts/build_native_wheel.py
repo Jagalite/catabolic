@@ -40,6 +40,9 @@ def source_digest(root):
         "crates/catabolic-python/python/catabolic_native/bin/catabolic-native",
         "crates/catabolic-python/python/catabolic_native/bin/catabolic-native.tmp",
         "crates/catabolic-python/python/catabolic_native/native-helper.json",
+        "crates/catabolic-python/python/catabolic_native/bin/catabolic-legacy-native",
+        "crates/catabolic-python/python/catabolic_native/bin/catabolic-legacy-native.tmp",
+        "crates/catabolic-python/python/catabolic_native/legacy-helper.json",
     }
     paths.extend(
         path
@@ -77,8 +80,6 @@ def main():
     if version != "maturin 1.13.1":
         raise SystemExit("build requires exactly maturin 1.13.1")
     package = root / "crates/catabolic-python/python/catabolic_native"
-    helper = package / "bin/catabolic-native"
-    manifest = package / "native-helper.json"
     project = tomllib.loads((root / "Cargo.toml").read_text())
     release = project["workspace"]["package"]["version"]
     sources = source_digest(root)
@@ -144,25 +145,33 @@ def main():
     legacy_binary = executables["catabolic-legacy-native"][0]
     legacy_digest = hashlib.sha256(legacy_binary.read_bytes()).hexdigest()
     digest = hashlib.sha256(binary.read_bytes()).hexdigest()
-    if binary.stat().st_size > 128 * 1024 * 1024:
-        raise SystemExit("native helper exceeds its installed validation budget")
-    helper.parent.mkdir(exist_ok=True)
-    # Staged files are ignored by Git but explicitly included in the wheel.
-    # An interrupted build cannot create a successful artifact: archive bytes
-    # and execute bits are checked before anything reaches the requested output.
-    temporary = helper.with_suffix(".tmp")
-    shutil.copyfile(binary, temporary)
-    temporary.chmod(0o755)
-    os.replace(temporary, helper)
-    metadata = {
-        "format": 1,
-        "version": release,
-        "path": "bin/catabolic-native",
-        "sha256": digest,
-        "source_sha256": sources,
-        "build": provenance,
-    }
-    manifest.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    helpers = {}
+    for name, artifact, expected, manifest_name in (
+        ("catabolic-native", binary, digest, "native-helper.json"),
+        ("catabolic-legacy-native", legacy_binary, legacy_digest, "legacy-helper.json"),
+    ):
+        if artifact.stat().st_size > 128 * 1024 * 1024:
+            raise SystemExit(f"{name} helper exceeds its installed validation budget")
+        helper = package / "bin" / name
+        helper.parent.mkdir(exist_ok=True)
+        # Staged files are ignored by Git but explicitly included in the wheel.
+        # Verify both archive payloads before handing off successful artifacts.
+        temporary = helper.with_suffix(".tmp")
+        shutil.copyfile(artifact, temporary)
+        temporary.chmod(0o755)
+        os.replace(temporary, helper)
+        metadata = {
+            "format": 1,
+            "version": release,
+            "path": f"bin/{name}",
+            "sha256": expected,
+            "source_sha256": sources,
+            "build": provenance,
+        }
+        (package / manifest_name).write_text(
+            json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
+        )
+        helpers[name] = (manifest_name, metadata)
     with tempfile.TemporaryDirectory(prefix="catabolic-wheel-") as directory:
         subprocess.run(
             [
@@ -195,20 +204,38 @@ def main():
             raise SystemExit("build did not produce exactly one wheel")
         wheel = wheels[0]
         with zipfile.ZipFile(wheel) as archive:
-            if "catabolic_native/bin/catabolic-legacy-native" in archive.namelist():
-                raise SystemExit("release wheel must not package the legacy CLI")
-            member = archive.getinfo("catabolic_native/bin/catabolic-native")
-            if hashlib.sha256(archive.read(member)).hexdigest() != digest:
-                raise SystemExit("wheel native helper differs from the Cargo artifact")
-            if not stat.S_IMODE(member.external_attr >> 16) & 0o111:
-                raise SystemExit("wheel native helper lost executable permissions")
-            if (
-                json.loads(archive.read("catabolic_native/native-helper.json"))
-                != metadata
+            if any(
+                "__pycache__" in Path(name).parts
+                or Path(name).suffix in {".pyc", ".pyo"}
+                for name in archive.namelist()
             ):
                 raise SystemExit(
-                    "wheel helper manifest differs from the staged artifact"
+                    "release wheel must not package Python bytecode or cache files"
                 )
+            for name, (manifest_name, metadata) in helpers.items():
+                member_name = "catabolic_native/" + metadata["path"]
+                manifest_member = "catabolic_native/" + manifest_name
+                if any(
+                    archive.namelist().count(required) != 1
+                    for required in (member_name, manifest_member)
+                ):
+                    raise SystemExit(
+                        f"wheel must contain exactly one {name} helper and manifest"
+                    )
+                member = archive.getinfo(member_name)
+                if (
+                    hashlib.sha256(archive.read(member)).hexdigest()
+                    != metadata["sha256"]
+                ):
+                    raise SystemExit(
+                        f"wheel {name} helper differs from the Cargo artifact"
+                    )
+                if not stat.S_IMODE(member.external_attr >> 16) & 0o111:
+                    raise SystemExit(f"wheel {name} helper lost executable permissions")
+                if json.loads(archive.read(manifest_member)) != metadata:
+                    raise SystemExit(
+                        f"wheel {name} helper manifest differs from the staged artifact"
+                    )
             if (
                 "catabolic_native:main"
                 not in archive.read(
@@ -275,6 +302,8 @@ def main():
                     "native_helper_bytes": binary.stat().st_size,
                     "publication": "local-only",
                     "legacy_binary_sha256": legacy_digest,
+                    "legacy_helper_sha256": legacy_digest,
+                    "legacy_helper_bytes": legacy_binary.stat().st_size,
                     "extension_sha256": extension_digest,
                     "build_manifest": str(sidecar),
                     "build_manifest_sha256": hashlib.sha256(

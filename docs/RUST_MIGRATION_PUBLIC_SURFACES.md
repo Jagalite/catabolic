@@ -1,5 +1,12 @@
 # Public Python, legacy CLI, and Plex migration inventory
 
+## Publisher continuation, 2026-10-12
+
+The ordinary [seven-row Publisher adapter](RUST_MIGRATION_PUBLISHER_FACADE.md)
+now uses the real native publication owner during Application.scan. Its selected
+copied-debug evidence is separate from the historical counts below; strict
+installed qualification and explicit compatibility gaps remain open.
+
 ## Current continuation checkpoint, 2026-10-11
 
 This section supersedes the initial implementation-state descriptions below.
@@ -70,6 +77,15 @@ macOS acceptance, performance and rollback qualification remain explicit blocker
 Python stays the installed default; no release or publication is authorized by
 this checkpoint.
 
+## Returning CLI callable continuation, 2026-10-12
+
+The opt-in `catabolic_native.cli.main(argv=None)` boundary now forwards to the
+packaged native legacy parser/dispatch/renderer with returning status, typed parse
+exits and Python text-stream adaptation. The companion console and Python default
+remain unchanged. See [the callable checkpoint](RUST_MIGRATION_PYTHON_CLI_CALLABLE.md)
+for exact selected evidence and limitations. This is the one preserved callable
+row, not a claim that the entire native CLI owner ledger has reached parity.
+
 ## Historical initial inventory and implementation order
 
 Reference: `453fca983222c6665a48775eef67c489c96b527e`. Native branch: `codex/rust-migration-m4-plus`; inspected working checkpoint on 2026-10-11. This is a static implementation plan, not executable qualification or a security review. No repository source was changed and no tests, live catalog, login, consumer call, publication, or push was performed. Existing blocked independent review lanes remain untouched.
@@ -109,6 +125,10 @@ Names below include class/constructor rows where present. Full frozen signatures
 
 ### src/catabolic/api_cli.py (1 rows)
 - `api_cli.save_secret`
+
+Selected native adapter and ordinary token CLI route evidence now lives in
+[RUST_MIGRATION_PRIVATE_SECRET.md](RUST_MIGRATION_PRIVATE_SECRET.md). Remaining
+lifecycle, path, exception and artifact-qualification gaps stay explicit.
 
 ### src/catabolic/artifacts.py (12 rows)
 - `artifacts.Artifacts`, `artifacts.Artifacts.bind`, `artifacts.Artifacts.recipe`, `artifacts.Artifacts.default_output`, `artifacts.Artifacts.get_recipe`, `artifacts.Artifacts.recipes`, `artifacts.Artifacts.list`, `artifacts.Artifacts.get`, `artifacts.Artifacts.enqueue`, `artifacts.Artifacts.recover`, `artifacts.Artifacts.run`, `artifacts.Artifacts.__init__`
@@ -193,7 +213,7 @@ Names below include class/constructor rows where present. Full frozen signatures
 4. CatalogRefresh/Watchers/Publisher/source events: preserve ongoing session ownership, refresh once-per-batch semantics, invocation `now`/trigger options, transfer semantics and execution callbacks. Publisher is a streamed publication object, not a method-name-only wrapper
 5. Fallback and Reconciler/Layouts/plans: adapt policy/value/plan objects and borrowed evaluation/runtime ownership; retain every existing publication gate. This work does not replace or close blocked definition/filesystem reviews
 6. Access helpers and api_cli.save_secret: native access owner exists, but module signatures and secret-file output contract remain distinct. Build only fake-credential tests here; no real authentication or grants are authorized by this planning task
-7. http.app.create_app(database, read_only=True, allowed_hosts=None, origins=None, streams=8, per_principal=2, rate=120): native server transport is not a returned Python ASGI application. Preserve this repository consumer boundary or obtain a separate explicit compatibility decision; do not mark it satisfied by the native CLI server
+7. http.app.create_app(database, read_only=True, allowed_hosts=None, origins=None, streams=8, per_principal=2, rate=120): a [real native ASGI adapter](RUST_MIGRATION_ASGI_FIXTURES.md) now exists only for native-minted disposable fixture capabilities. Ordinary catalog paths remain refused and the production constructor row remains open. Preserve this repository consumer boundary or obtain a separate explicit compatibility decision; neither the native CLI server nor fixture-only ASGI evidence satisfies production parity
 
 ## Legacy CLI: global adapter work applies to every leaf
 

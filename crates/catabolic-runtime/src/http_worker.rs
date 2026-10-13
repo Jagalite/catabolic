@@ -71,14 +71,16 @@ pub fn run(
     return Err(Error(
         "native API worker parent-death supervision is unqualified on this platform".into(),
     ));
-    let initial = Store::open(path, false, false)?;
-    catabolic_store::query::CatalogQuery::new(&initial, profile)?;
-    let identity = initial.database_id.clone();
-    let path = initial.path.clone();
-    drop(initial);
+    // Frozen admission resolves the path before the singleton, but validates
+    // the profile only inside a short writable owner. Contention must retain
+    // its precedence over an unknown profile, without weakening reopen checks.
+    let path = catabolic_store::database_path(path)?;
     let mut lockpath = path.as_os_str().to_os_string();
     lockpath.push(".api-worker");
     let _supervisor = catabolic_store::writer_lock(Path::new(&lockpath))?;
+    let initial = Store::open(&path, false, false)?;
+    let identity = initial.database_id.clone();
+    drop(initial);
     let mut notification: Option<JoinHandle<Result<Value>>> = None;
     let result = (|| {
         let caps = crate::playback::capabilities()?;
@@ -185,27 +187,56 @@ pub fn execute(
 mod tests {
     use super::*;
     #[test]
+    fn checked_owner_keeps_identity_and_profile_validation() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("catalog.sqlite3");
+        catabolic_store::migration::initialize(&path).unwrap();
+        let initial = Store::open(&path, false, false).unwrap();
+        let identity = initial.database_id.clone();
+        drop(initial);
+        for (profile, identity, expected) in [
+            (
+                "missing",
+                "different-database",
+                "catalog replaced during API worker execution",
+            ),
+            ("missing", identity.as_str(), "unknown profile: missing"),
+        ] {
+            let Err(error) = checked_store(&path, profile, identity) else {
+                panic!("invalid owner admitted");
+            };
+            assert_eq!(error.0, expected);
+            // Every rejected short owner releases its writer lease.
+            assert!(catabolic_store::writer_lock(&path).is_ok());
+        }
+        assert!(checked_store(&path, "default", &identity).is_ok());
+    }
+    #[test]
     fn readonly_and_transaction_calls_have_no_side_effects() {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("catalog.sqlite3");
         catabolic_store::migration::initialize(&path).unwrap();
         let before = std::fs::read(&path).unwrap();
         let mut read = Store::open(&path, false, false).unwrap();
-        assert!(
-            execute(&mut read, "default", "tick", &json!({}))
-                .unwrap_err()
-                .0
-                .contains("writable")
-        );
+        for profile in ["default", "missing"] {
+            assert!(
+                execute(&mut read, profile, "tick", &json!({}))
+                    .unwrap_err()
+                    .0
+                    .contains("writable")
+            );
+        }
         drop(read);
         let mut write = Store::open(&path, true, false).unwrap();
         write.db.execute_batch("BEGIN IMMEDIATE").unwrap();
-        assert!(
-            execute(&mut write, "default", "tick", &json!({}))
-                .unwrap_err()
-                .0
-                .contains("transaction boundary")
-        );
+        for profile in ["default", "missing"] {
+            assert!(
+                execute(&mut write, profile, "tick", &json!({}))
+                    .unwrap_err()
+                    .0
+                    .contains("transaction boundary")
+            );
+        }
         write.db.execute_batch("ROLLBACK").unwrap();
         assert_eq!(std::fs::read(&path).unwrap(), before);
         assert!(!root.path().join("catalog.sqlite3.api-worker.lock").exists());

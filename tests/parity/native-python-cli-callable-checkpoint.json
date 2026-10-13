@@ -1,0 +1,254 @@
+{
+  "format": 1,
+  "scope": "Selected returning Python CLI callable and paired artifact qualification; not whole CLI, consolidated aggregate or release",
+  "product_and_gate_commit": "8da98b2eb03dd650a03332bf4cdf981c7d64ec77",
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "reference_python": "3.14.6",
+  "build_manifest": {
+    "format": 1,
+    "profile": "release",
+    "source_sha256": "96c3c4e49db360a9119b14efcf8617f1c2ecc9a903e37b7921d650265e5b2fbe",
+    "source_sha256_after": "96c3c4e49db360a9119b14efcf8617f1c2ecc9a903e37b7921d650265e5b2fbe",
+    "wheel": "catabolic_native-0.2.0-cp311-abi3-manylinux_2_39_x86_64.whl",
+    "wheel_sha256": "379b58a94787109433c8c4027eefa7dd1e774845bec671658fccc55552f7a593",
+    "extension_sha256": "d15f0ad2edf8e2e64274e7af18910c8d12e7d110faad7c0dd39e38ad14f58b76",
+    "native_binary": "catabolic-native",
+    "native_binary_sha256": "6673eab8162a4a921c506a38854d89e48d5e80c12ad2c114f1973fd251e3cdfd",
+    "legacy_binary": "catabolic-legacy-native",
+    "legacy_binary_sha256": "f3ec48e06b3cac19c9c92732bc073710afff6edda508bec08b64611ff1ec892e",
+    "build_script_sha256": "6c6a1df62f52feaac6cfb20aecb177d4834119c9dec48da13797c73268fa9023",
+    "build": {
+      "scope": "local-source-content-and-toolchain; not a hermetic-build proof",
+      "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1",
+      "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)",
+      "maturin": "maturin 1.13.1",
+      "python": "Python 3.14.6",
+      "python_executable": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+      "build_environment_sha256": "d4a7d65eb95d0e0a4f34707a1988b56a2f9e5b60743d97ee08dee570f2091ed9"
+    },
+    "publication": "local-only",
+    "scope": "Local source-content/toolchain provenance; not hostile-directory attestation or hermetic reproduction"
+  },
+  "build_manifest_sha256": "a55a710276dd7824c64f0dc64e608087e70bc8b6528d2a2a6e1dffd84522d8e1",
+  "installed": {
+    "installed-callable-314": {
+      "path": ".local-tests/python-cli/installed-callable-314.json",
+      "sha256": "7099f8db344fe3bc551ee929f06eb67a6ce332ade037ca2259c81084513ac60b",
+      "passed": true,
+      "tests": 14,
+      "paired_groups": 14,
+      "native_children_reaped": 145,
+      "coverage": [
+        {
+          "id": "python:catabolic.cli.main",
+          "installed_calls": 111,
+          "paired_calls": 111,
+          "selected_contracts": "Selected returning callable, argv, text streams, exception and process-lifetime contracts",
+          "qualification": "selected-contracts-tested-with-gaps"
+        }
+      ],
+      "native_runtime": {
+        "version": [
+          3,
+          14,
+          6
+        ],
+        "executable": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-installed/py3.14.6/bin/python",
+        "executable_sha256": "2f7fff382c9d335d6d63f134b55cb8ced9d0b2e1d47e6f210ad3f059adfa71c1"
+      },
+      "known_gaps": {
+        "reference": {
+          "oversized_sql_diagnostic": {
+            "result": {
+              "return": 2,
+              "stdout": "",
+              "stderr": "{\"error\": {\"message\": \"SQL exceeds the 1 MiB input limit\", \"type\": \"CatabolicError\"}}\n"
+            },
+            "read_sizes": [
+              1048577
+            ],
+            "standalone_native_equal": false
+          }
+        },
+        "native": {
+          "oversized_sql_diagnostic": {
+            "result": {
+              "return": 2,
+              "stdout": "",
+              "stderr": "{\"error\": {\"message\": \"input exceeds 1048576 bytes\", \"type\": \"CatabolicError\"}}\n"
+            },
+            "read_sizes": [
+              1048577
+            ],
+            "standalone_native_equal": true
+          }
+        }
+      }
+    },
+    "installed-callable-311": {
+      "path": ".local-tests/python-cli/installed-callable-311.json",
+      "sha256": "4ae4db527450e6c38003398b6bf0999158f97d713a690799bc9c34a8385fd3f8",
+      "passed": true,
+      "tests": 14,
+      "paired_groups": 14,
+      "native_children_reaped": 145,
+      "coverage": [
+        {
+          "id": "python:catabolic.cli.main",
+          "installed_calls": 111,
+          "paired_calls": 111,
+          "selected_contracts": "Selected returning callable, argv, text streams, exception and process-lifetime contracts",
+          "qualification": "selected-contracts-tested-with-gaps"
+        }
+      ],
+      "native_runtime": {
+        "version": [
+          3,
+          11,
+          15
+        ],
+        "executable": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-installed/py3.11.15/bin/python",
+        "executable_sha256": "0253b01a7f5d96a042a2b9f5e0f5ff5062707a1c75be2b089098e3111cd186d2"
+      },
+      "known_gaps": {
+        "reference": {
+          "oversized_sql_diagnostic": {
+            "result": {
+              "return": 2,
+              "stdout": "",
+              "stderr": "{\"error\": {\"message\": \"SQL exceeds the 1 MiB input limit\", \"type\": \"CatabolicError\"}}\n"
+            },
+            "read_sizes": [
+              1048577
+            ],
+            "standalone_native_equal": false
+          }
+        },
+        "native": {
+          "oversized_sql_diagnostic": {
+            "result": {
+              "return": 2,
+              "stdout": "",
+              "stderr": "{\"error\": {\"message\": \"input exceeds 1048576 bytes\", \"type\": \"CatabolicError\"}}\n"
+            },
+            "read_sizes": [
+              1048577
+            ],
+            "standalone_native_equal": true
+          }
+        }
+      }
+    },
+    "installed-wheel-314": {
+      "path": ".local-tests/python-cli/installed-wheel-314.json",
+      "sha256": "930e034118ee0f5b79d015fd6798e7f78b374437d3be2bbe1408bba7525cd1af",
+      "passed": true
+    },
+    "installed-wheel-311": {
+      "path": ".local-tests/python-cli/installed-wheel-311.json",
+      "sha256": "957fa9f9fdf4556eb97367fe0cd7609521ad3d1dbfb8b555c591184a302141d0",
+      "passed": true
+    }
+  },
+  "selected_inventory_rows": [
+    "python:catabolic.cli.main"
+  ],
+  "excluded_parser_factory": {
+    "id": "python:catabolic.cli.parser",
+    "classification": "test-only-observed",
+    "status": "unadapted; no argparse.ArgumentParser object supplied"
+  },
+  "source_files_sha256": {
+    "crates/catabolic-python/python/catabolic_native/cli.py": "52bdf9c8ea6438857c2d0c0af56b2ac57be55cf931ce6be5b37b89d94a2c20ab",
+    "crates/catabolic-cli/src/legacy/transport.rs": "db948e0ed8fc20c959d68c667b80fcd8244019010dd4c53715e020c424198afc",
+    "crates/catabolic-cli/src/legacy_main.rs": "eb4aa1b66bf0cb95e8eb95829e4bf0ee0777ce71746f2be35c335c576b43f809",
+    "crates/catabolic-cli/src/legacy/maintenance.rs": "ec494043518a516cd0689a86c50a6af8e34036e5bd155561d700c98cf0a74075",
+    "crates/catabolic-runtime/src/maintenance.rs": "8b7fd25c343253a32187c4d5f3ccaa2a73230c593277ce634cfa4937494d7146",
+    "crates/catabolic-runtime/tests/maintenance_orchestration.rs": "7a3ac0f347e2979f2b723aa47f3b0ae51c9ce04caa2f286375362b86f06d7084",
+    "scripts/native_cli_callable_tests.py": "361cf06895ca2b654377478d0cdd0b16f339317949d7cab4af337ffb450fc22a",
+    "scripts/build_native_wheel.py": "6c6a1df62f52feaac6cfb20aecb177d4834119c9dec48da13797c73268fa9023",
+    "scripts/native_facade_qualification.py": "1f95208893f9af22577647b6d29faf995b2feac37d20a050d9c423d093608b29",
+    "scripts/qualify_native_wheel.py": "fdc471ff4a3e3c56351ee4daf7c84c7a901ecd3386787ec7a4ca76d23ff33a4f",
+    "tests/test_native_cli_callable_contract.py": "b163cfc38b97f1d8ded49a1dcb07ba35427d175d8bee08ec939a319c33a59ad6",
+    "tests/test_native_cli_callable_qualification.py": "0e412ee049d1fa27fdcf671a81caa899f3e791e68e82e92320137098ffafdd44",
+    ".github/workflows/native-qualification.yml": "34062b98424f01ccfd73613d2b0793c186ff83cc7c735084c057464e7d83516d"
+  },
+  "evidence_logs_sha256": {
+    ".local-tests/python-cli/release-build-invalid-env.log": "5ec11f9c4fab55957c5af4130e1da23c8c3630c874b8c58e3e217b05aab47fb3",
+    ".local-tests/python-cli/release-build-54ec983-cancelled.log": "087740c61c516957632fa21d94af5e324a3c17155428397c228201da75590a12",
+    ".local-tests/python-cli/release-build-018b244-cancelled.log": "4bba78ea8a451397c24ab9f192e1f1ba392551ee20271a6c21cef79b1c2f44d0",
+    ".local-tests/python-cli/release-build-final.log": "df40acb028b1dc59257cc35c9187f2a7fcb71a155d16db67ce756ad9d7e800b0",
+    ".local-tests/python-cli/final-harness-ci-314.log": "e09db900b97d28e4cdb00c5e09f88e8081d495c3bc29e6718da2f53723f43b46",
+    ".local-tests/python-cli/final-harness-ci-311.log": "226aa8eff44da2d4e482107ce9720f1c45e7a52cca39051c9307275ef908c363",
+    ".local-tests/python-cli/final-owner-tests.log": "623d7bb32edc94d3adc92de16969d03b322e33fa385842e7f5cdb1d403e71d8e",
+    ".local-tests/python-cli/final-cli-unit-tests.log": "fee933df530cd06c59e01fd1244fb866e48e3042547b5a061434698a4ca6ebf8",
+    ".local-tests/python-cli/final-maintenance-cli.log": "8a4924f3fdaacaaca4b2b351e052e32522784886e28b442464c4621a84e7e6d1",
+    ".local-tests/python-cli/clippy.log": "7ab3eda1a2bdf1cdc169aca56dc503318bf6fd2f9d535c1485671918b798cb49",
+    ".local-tests/python-cli/install-3.14.6.log": "68b6ad19e60fd137ea49ad29359016f37126534842260e29f11aa975be099f28",
+    ".local-tests/python-cli/install-3.11.15.log": "68b6ad19e60fd137ea49ad29359016f37126534842260e29f11aa975be099f28",
+    ".local-tests/python-cli/installed-callable-314.log": "2b4385e98cd1dbfd81bca583c54b22e4ac73069e1c279010918bb2f6ac0f3f48",
+    ".local-tests/python-cli/installed-callable-311.log": "b672ade2b44eaa28a6b6cf38b4d47dad615e93083ac77080c170902c190a5382",
+    ".local-tests/python-cli/installed-wheel-314.log": "930e034118ee0f5b79d015fd6798e7f78b374437d3be2bbe1408bba7525cd1af",
+    ".local-tests/python-cli/installed-wheel-311.log": "957fa9f9fdf4556eb97367fe0cd7609521ad3d1dbfb8b555c591184a302141d0",
+    ".local-tests/python-cli/final-ci-contract.log": "3cf168bef87f7ee18f54ca55aae7302d9785cd9d1cb902fafc1967a0b26406d9",
+    ".local-tests/python-cli/final-installed-standalone.log": "898f8932b069a4f21de34f425c85efb55da3bf28ba7bebf30e10c5dd66423072"
+  },
+  "focused_checks": {
+    "python_source_packaging_receipt_ci": {
+      "3.14.6": 122,
+      "3.11.15": 122
+    },
+    "rust_maintenance_integration": 4,
+    "rust_legacy_cli_unit": 10,
+    "standalone_maintenance": 12,
+    "targeted_clippy_warnings_denied": true,
+    "installed_standalone_projection_legacy_ledger": {
+      "tests": 32,
+      "elapsed_seconds": 176.318,
+      "helper": "installed paired-final legacy helper on Python3.14.6",
+      "passed_without_skips": true
+    }
+  },
+  "independent_review": {
+    "accepted_product_and_gate": "8da98b2eb03dd650a03332bf4cdf981c7d64ec77",
+    "paired_callback_controls": 30,
+    "independent_reaped_children": 43,
+    "strict_installed_payloads_each": 43,
+    "reported_findings_resolved": [
+      "error-handler output exceptions/interrupts preserve identity",
+      "standalone maintenance progress IO remains ignored",
+      "sqlite3.Error and corresponding native CatabolicError caught categories"
+    ]
+  },
+  "rejected_builds": [
+    {
+      "scope": "invalid CARGO_PROFILE_RELEASE_INCREMENTAL=0",
+      "outcome": "failed before artifact",
+      "accepted": false
+    },
+    {
+      "source": "54ec983",
+      "outcome": "canceled130 after superseded source, no wheel",
+      "accepted": false
+    },
+    {
+      "source": "018b244",
+      "outcome": "canceled130 after superseded source, no wheel",
+      "accepted": false
+    }
+  ],
+  "unchanged_boundaries": [
+    "Python default package/entrypoint/extras",
+    "catabolic_native.main companion exec launcher",
+    "existing M6 publication/recovery refusals"
+  ],
+  "remaining_gaps": [
+    "Native CLI leaf missing/partial/unqualified owners remain explicit",
+    "Oversized SQL diagnostic differs; callable equals standalone native and returns2",
+    "Python cli.parser object factory unadapted",
+    "Non-string/lone-surrogate argv and unusual custom stream contracts not exhaustive",
+    "macOS/Windows/other architectures and parent hard-death not qualified",
+    "No broad blocked safety reviews, real services, credentials, managed outputs or catalog data used",
+    "No push, merge, release, Python retirement or consolidated aggregate claim"
+  ]
+}

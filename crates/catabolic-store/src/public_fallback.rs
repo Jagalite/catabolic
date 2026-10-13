@@ -8,7 +8,10 @@ use crate::{
     selection::Evaluation,
 };
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex, MutexGuard},
+};
 
 pub fn text<'a>(args: &'a Value, key: &str) -> Result<&'a str> {
     args[key]
@@ -16,15 +19,38 @@ pub fn text<'a>(args: &'a Value, key: &str) -> Result<&'a str> {
         .ok_or_else(|| Error(format!("{key} must be text")))
 }
 
+type PreparedValues = BTreeMap<u64, (String, PreparedProjection)>;
+
 /// Adapter handles are process-local evidence, never persisted catalog state.
 #[derive(Default)]
 pub struct Plans {
     next: u64,
-    values: BTreeMap<u64, (String, PreparedProjection)>,
+    releases: PlanReleases,
+}
+/// Release-only access does not borrow the Session or call Python. The registry
+/// mutex never spans callbacks, Store access, or filesystem effects.
+#[derive(Clone, Default)]
+pub struct PlanReleases {
+    values: Arc<Mutex<PreparedValues>>,
+}
+impl PlanReleases {
+    fn values(&self) -> Result<MutexGuard<'_, PreparedValues>> {
+        self.values
+            .lock()
+            .map_err(|_| Error("native prepared projection registry unavailable".into()))
+    }
+    pub fn forget(&self, token: u64) -> Result<()> {
+        self.values()?.remove(&token);
+        Ok(())
+    }
 }
 impl Plans {
+    pub fn releases(&self) -> PlanReleases {
+        self.releases.clone()
+    }
     pub fn remember(&mut self, profile: &str, plan: PreparedProjection) -> Result<Value> {
-        if self.values.len() >= 256 {
+        let mut values = self.releases.values()?;
+        if values.len() >= 256 {
             return Err(Error(
                 "native prepared projection handle limit; release unused plans".into(),
             ));
@@ -34,7 +60,7 @@ impl Plans {
             .checked_add(1)
             .ok_or_else(|| Error("native projection handle exhausted".into()))?;
         let result = json!({"token":self.next,"plan":plan.full_plan()});
-        self.values.insert(self.next, (profile.into(), plan));
+        values.insert(self.next, (profile.into(), plan));
         Ok(result)
     }
     pub fn checked(&self, profile: &str, args: &Value) -> Result<PreparedProjection> {
@@ -44,8 +70,8 @@ impl Plans {
         let token = args["plan_token"]
             .as_u64()
             .ok_or_else(|| Error("native prepared projection identity mismatch".into()))?;
-        let (owner, plan) = self
-            .values
+        let values = self.releases.values()?;
+        let (owner, plan) = values
             .get(&token)
             .ok_or_else(|| Error("native prepared projection identity mismatch".into()))?;
         if owner != profile || plan.full_plan() != &args["plan"] {
@@ -55,8 +81,8 @@ impl Plans {
         }
         Ok(plan.clone())
     }
-    pub fn forget(&mut self, token: u64) {
-        self.values.remove(&token);
+    pub fn forget(&mut self, token: u64) -> Result<()> {
+        self.releases.forget(token)
     }
 }
 
@@ -194,4 +220,41 @@ pub fn configure(store: &Store, profile: &str, args: &Value) -> Result<Value> {
         Ok(())
     })?;
     binding(store, profile, catalog)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn poisoned_plan_release_registry_refuses_further_access() {
+        let plans = Plans::default();
+        let released = plans.releases();
+        let poisoned = released.clone();
+        assert!(
+            std::thread::spawn(move || {
+                let _guard = poisoned.values.lock().unwrap();
+                panic!("release registry poison witness");
+            })
+            .join()
+            .is_err()
+        );
+        assert_eq!(
+            released.forget(1).unwrap_err().0,
+            "native prepared projection registry unavailable"
+        );
+        assert_eq!(
+            plans
+                .checked(
+                    "default",
+                    &json!({
+                        "plan_owner_matches":true,"plan_token":1,"plan":{}
+                    })
+                )
+                .err()
+                .unwrap()
+                .0,
+            "native prepared projection registry unavailable"
+        );
+    }
 }

@@ -24,6 +24,73 @@ import zipfile
 from pathlib import Path
 from uuid import UUID
 
+
+def clear_stale_report(argv=None, parser=None):
+    """Invalidate every canonical --report destination before fallible preflight.
+
+    Only --report PATH and --report=PATH opt in; abbreviations are rejected by
+    the full parser. Stop at -- and use that parser's option lexer to distinguish
+    filename values (including version-specific negative numbers) from options.
+    No argv parsing or project imports happen here. Bootstrap copies are checked
+    against this implementation by the receipt-boundary tests.
+    """
+    if parser is None:
+        parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+        parser.add_argument("--report")
+    arguments = sys.argv[1:] if argv is None else argv
+    first_error = None
+    for index, argument in enumerate(arguments):
+        if argument == "--":
+            break
+        if argument == "--report":
+            value = arguments[index + 1] if index + 1 < len(arguments) else ""
+            if parser._parse_optional(value) is not None:
+                continue
+        elif argument.startswith("--report="):
+            value = argument.partition("=")[2]
+        else:
+            continue
+        if value:
+            report = Path(value)
+            for suffix in (None, ".attempt.json"):
+                try:
+                    target = report if suffix is None else report.with_suffix(suffix)
+                    target.unlink(missing_ok=True)
+                except (OSError, ValueError) as error:
+                    if first_error is None:
+                        first_error = error
+    if first_error is not None:
+        raise first_error
+
+
+def argument_parser():
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--wheel", type=Path, help="Exact installed paired release wheel")
+    mode.add_argument(
+        "--dev-wheel",
+        type=Path,
+        help="Exact installed helperless development wheel; never release qualification",
+    )
+    parser.add_argument(
+        "--source-root", type=Path, default=Path(__file__).resolve().parents[1]
+    )
+    parser.add_argument("--inventory", type=Path)
+    parser.add_argument("--build-manifest", type=Path)
+    parser.add_argument("--reference-root", type=Path)
+    parser.add_argument("--reference-python", type=Path)
+    parser.add_argument("--reference-commit")
+    parser.add_argument("--report", type=Path)
+    parser.add_argument("--scenario", choices=("reference", "native"))
+    parser.add_argument("--root", type=Path)
+    return parser
+
+
+# CLI preflight precedes project imports and optimized-mode refusal.
+# Library imports never inspect caller arguments or invalidate their receipts.
+if __name__ == "__main__":
+    clear_stale_report(parser=argument_parser())
+
 if not __debug__ or os.environ.get("PYTHONOPTIMIZE"):
     raise SystemExit(
         "component/policy qualification requires assertions; do not run with -O or -OO or PYTHONOPTIMIZE"
@@ -943,15 +1010,16 @@ def installed_signatures(rows):
 
 
 def source_manifest():
+    script = Path(__file__).resolve()
     source_files = [
-        Path(__file__),
-        Path(__file__).with_name("native_qualification_results.py"),
-        Path(__file__).with_name("qualify_native_embedding.py"),
-        Path(__file__).with_name("build_native_wheel.py"),
-        Path(__file__).with_name("qualify_native_wheel.py"),
-        Path(__file__).with_name("native_facade_qualification.py"),
+        script,
+        script.with_name("native_qualification_results.py"),
+        script.with_name("qualify_native_embedding.py"),
+        script.with_name("build_native_wheel.py"),
+        script.with_name("qualify_native_wheel.py"),
+        script.with_name("native_facade_qualification.py"),
     ]
-    root = Path(__file__).resolve().parents[1]
+    root = script.parents[1]
     source_files += [
         root / path
         for path in (
@@ -977,43 +1045,14 @@ def source_manifest():
     }
 
 
-def clear_stale_report():
-    # Invalidate a normal attempt before loading even the shared gate helper.
-    # Optimized-mode refusal above deliberately leaves all files untouched.
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--report", type=Path)
-    args, _ = parser.parse_known_args()
-    if args.report:
-        args.report.unlink(missing_ok=True)
-        args.report.with_suffix(".attempt.json").unlink(missing_ok=True)
-
-
 def main():
+    parser = argument_parser()
+    clear_stale_report(parser=parser)
     if not __debug__:
         raise SystemExit(
             "component/policy qualification requires assertions; do not run with -O or -OO"
         )
-    clear_stale_report()
     qualification = sibling("native_facade_qualification")
-    parser = argparse.ArgumentParser(description=__doc__)
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--wheel", type=Path, help="Exact installed paired release wheel")
-    mode.add_argument(
-        "--dev-wheel",
-        type=Path,
-        help="Exact installed helperless development wheel; never release qualification",
-    )
-    parser.add_argument(
-        "--source-root", type=Path, default=Path(__file__).resolve().parents[1]
-    )
-    parser.add_argument("--inventory", type=Path)
-    parser.add_argument("--build-manifest", type=Path)
-    parser.add_argument("--reference-root", type=Path)
-    parser.add_argument("--reference-python", type=Path)
-    parser.add_argument("--reference-commit")
-    parser.add_argument("--report", type=Path)
-    parser.add_argument("--scenario", choices=("reference", "native"))
-    parser.add_argument("--root", type=Path)
     args = parser.parse_args()
     for name, value in vars(args).items():
         if isinstance(value, Path):

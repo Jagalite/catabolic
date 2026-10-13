@@ -1,5 +1,7 @@
 """Native-owned Application facade. Python only adapts arguments and values."""
 
+import json
+
 from .media_catalog import MediaCatalog
 from .query import CatalogQuery
 from .store import Store
@@ -64,8 +66,7 @@ class Application:
         scopes=None,
         continue_id=None,
     ) -> dict:
-        return self._call(
-            "scan",
+        request = dict(
             location=location,
             exclude=exclude,
             request_id=request_id,
@@ -73,6 +74,11 @@ class Application:
             budgets=budgets,
             scopes=scopes,
             continue_id=continue_id,
+        )
+        return json.loads(
+            self.store._owner.scan_with_publisher(
+                self.profile, json.dumps(request, allow_nan=False), self
+            )
         )
 
     def files(self, **filters) -> dict:

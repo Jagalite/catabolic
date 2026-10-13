@@ -1,0 +1,71 @@
+{
+  "qualification": "local-v2-read-only-preview-python311-replay",
+  "source_commit": "e91e72056944427745b9c0fac44115b262faa0b8",
+  "source_sha256": "b5f946c39eb2a6adccce79f1a04e5fae397876e801bc5d1168c6be0d2662addb",
+  "binary": "/workspace/scratch/9c9a5a8c3955/catabolic-bundle-previews/target/debug/catabolic-legacy-native",
+  "binary_sha256": "a72da146bed9fffd5002b084a7e05765967478db28c45e1a4fcbe195723e7af9",
+  "build_receipt": "/workspace/scratch/9c9a5a8c3955/catabolic-bundle-previews/.local-tests/bundle-preview/proof.json",
+  "build_receipt_sha256": "c21d0ac7772ae3d06bb4f1211447aa0762994ef05a255f7b88d40960662ca00f",
+  "build_source_commit": "e91e72056944427745b9c0fac44115b262faa0b8",
+  "reference": "453fca983222c6665a48775eef67c489c96b527e",
+  "reference_python": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/ci-harness/python311-reference/bin/python",
+  "reference_python_version": "3.11.15",
+  "harness_sha256": {
+    "scripts/qualify_publication_mapping_preview.py": "25c385c7b02abf912553c39e1fa973b42cdbda99a3bc8632f2d6817ca8454dc0",
+    "scripts/replay_publication_preview_python311.py": "32c52c61c70433e6abd6b47a2103c79b698e8059d7cc86cf4d6e20cd49429439",
+    "scripts/build_native_wheel.py": "6c6a1df62f52feaac6cfb20aecb177d4834119c9dec48da13797c73268fa9023",
+    "tests/__init__.py": "57721be24eef9ace6eed72ff8af90756624024eebb638a9be4b705b72b0a4309",
+    "tests/test_rust_publication_mapping_preview.py": "dbb488507591816d82a803c22fbb08e17e8361fe76330d8ac884ff011e6e3869",
+    "tests/test_rust_publication_bundle_preview.py": "477e2b5bd7b0a8bee863677e5b1d64a43f1cfc3145055990c7eb04095fef98c3",
+    "tests/test_rust_legacy_review.py": "3351e81aca689e6125f5950556512a2e7057b29fbbc8ebaa87b61f77c0a113dc",
+    "tests/test_rust_legacy_mapping_history.py": "f48b607f776d2dc41208ffa5717a63597fcc3b41f2485a7769d755ed35f09609",
+    "tests/test_rust_legacy_projection.py": "b4f0cb8c7fc45633144510d54fbe63169187af55d507df1ae9c72fe433b1334d"
+  },
+  "loaded_selection": {
+    "test_rust_legacy_review.py": {
+      "BINARY": "/workspace/scratch/9c9a5a8c3955/catabolic-bundle-previews/target/debug/catabolic-legacy-native",
+      "REFERENCE": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/reference/src",
+      "PYTHON": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/ci-harness/python311-reference/bin/python"
+    },
+    "test_rust_publication_mapping_preview.py": {
+      "BINARY": "/workspace/scratch/9c9a5a8c3955/catabolic-bundle-previews/target/debug/catabolic-legacy-native",
+      "REFERENCE": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/reference/src",
+      "PYTHON": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/ci-harness/python311-reference/bin/python"
+    },
+    "oracle_program_sha256": "cf5550f50e59e097b9cf1282cea388fff9f2c1738c1b1bae10cc41821f3e1770"
+  },
+  "folder_tests": [
+    "test_all_seventeen_presets_use_complete_selection",
+    "test_complete_file_association_and_paginated_graphql_selections",
+    "test_definition_and_option_scalar_admission",
+    "test_empty_query_guard_and_allow_empty_plans_rollback",
+    "test_nonfolder_preview_admission_and_apply_recover_no_effects",
+    "test_pending_history_order_and_other_profile_isolation",
+    "test_populated_complete_plan_and_repeat_rollback",
+    "test_query_revision_and_definition_options_pin_plan",
+    "test_unknown_query_catalog_and_foreign_projection_errors"
+  ],
+  "bundle_tests": [
+    "test_apply_and_recovery_still_refuse_before_bundle_effects",
+    "test_calibre_aliases_preserve_groups_and_destination_identity",
+    "test_document_limit_and_source_revision_dedup_refusal",
+    "test_export_existing_foreign_destination_and_preflight_collision",
+    "test_export_verified_bundle_history_and_changed_artifact",
+    "test_immich_cancellation_stops_read_only_helper",
+    "test_immich_identity_scope_dedup_and_account_change",
+    "test_immich_invalid_identity_status_and_redirect_errors",
+    "test_immich_legacy_history_refuses_before_identity_request",
+    "test_import_destination_identity_and_untransmitted_metadata",
+    "test_import_multiformat_groups_and_duplicate_format_refusal",
+    "test_import_submitted_history_dedup_and_revision_guard",
+    "test_nfo_ignores_unused_base_url_but_definition_stays_in_identity",
+    "test_pending_history_and_empty_selection",
+    "test_selection_and_import_unsupported_association",
+    "test_three_export_formats_preserve_complete_plan_and_repeat"
+  ],
+  "cases_passed": 25,
+  "skipped": 0,
+  "expected_failures": 0,
+  "publication_qualified": false,
+  "python_default_unchanged": true
+}

@@ -1,5 +1,5 @@
 {
-  "status": "Verified remaining document validation/parser gaps; not counted as passing generalized variable coercion evidence.",
+  "status": "Historical failing witnesses, closed by the bounded native document-validation slice in graphql-document-validation.json. Original documents, variables, expected and observed responses are retained unchanged; this is not a full GraphQL validation claim.",
   "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
   "reference_python": "3.14.6",
   "cases": [
@@ -167,63 +167,6 @@
                 {
                   "line": 1,
                   "column": 7
-                }
-              ]
-            }
-          ]
-        }
-      }
-    },
-    {
-      "name": "whitespace-in-wrapped-variable-type",
-      "document": "query($n:[\n Int!\n]!){items(first:$n){nodes{id}}}",
-      "variables": {
-        "n": [
-          1
-        ]
-      },
-      "expected": {
-        "interface_version": 1,
-        "command": "graphql",
-        "operation": null,
-        "profile": "default",
-        "outcome": "error",
-        "exit_code": 2,
-        "data": {
-          "data": null,
-          "errors": [
-            {
-              "message": "Variable '$n' of type '[Int!]!' used in position expecting type 'Int!'.",
-              "locations": [
-                {
-                  "line": 1,
-                  "column": 7
-                },
-                {
-                  "line": 3,
-                  "column": 17
-                }
-              ]
-            }
-          ]
-        }
-      },
-      "observed": {
-        "interface_version": 1,
-        "command": "graphql",
-        "operation": null,
-        "profile": "default",
-        "outcome": "error",
-        "exit_code": 2,
-        "data": {
-          "data": null,
-          "errors": [
-            {
-              "message": " --> 1:10\n  |\n1 | query($n:[\n  |          ^---\n  |\n  = expected type_",
-              "locations": [
-                {
-                  "line": 1,
-                  "column": 10
                 }
               ]
             }

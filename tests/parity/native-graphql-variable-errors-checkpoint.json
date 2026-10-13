@@ -1,0 +1,156 @@
+{
+  "scope": "ordinary legacy GraphQL variable JSON syntax diagnostics and error precedence",
+  "implementation_commit": "56e2bb32b8d0512d3808db4e496bce887d1c3026",
+  "integrated_base": "becad4575254533196a91ca695e5e958cb451dc1",
+  "initial_base": "a607d5b1f441c551d90763f1edfd9cbd04d7cbd4",
+  "oracle": {
+    "commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "python": "3.14.6"
+  },
+  "source_sha256": {
+    "crates/catabolic-cli/src/legacy/dispatch.rs": "721dffbf4a738c81fbc9b8bee73df9ebd6a1bbd581b20837a2e112af2f94429c",
+    "crates/catabolic-cli/src/legacy/failure.rs": "963fbfa2f5928436aa5f1d8233d75519f3849f7e89a4222d128186681d036f8c",
+    "crates/catabolic-cli/src/legacy/graphql_cli.rs": "dd86e10ad5b9be047183c7f3842980aaaca297dde6da48fd4c357fd1a6e142bb",
+    "crates/catabolic-cli/src/legacy/json_diagnostic.rs": "ac6b61601af3b5fdc1ab2d29178c93a48363bb828611889ce3663faaf95fae9a",
+    "crates/catabolic-cli/src/legacy/presentation.rs": "ee058b8558650f4fd77ef25773dbb54924e0c3aba487269ad3d36b3e9f387606",
+    "crates/catabolic-cli/src/legacy/signals.rs": "43a36e8caa9ef12c3497561f46a4c4cfab71685887133fd671deb1778f614505",
+    "crates/catabolic-cli/src/legacy_main.rs": "41dc9eb6c043711a92f49d71f96876e3d26ae5e1370ddaf6879b4d9f000b495c",
+    "crates/catabolic-http/src/lib.rs": "e55672aaedbce13a93b0681077db25552f804dba3065ed87cf67ad633be6a828",
+    "crates/catabolic-http/src/worker.rs": "ee02a02f144b9ca64043a7c553cd76d6fad2c87cc0d5e704c2694ddc7f1ca250"
+  },
+  "artifacts": {
+    "catabolic-native": {
+      "bytes": 34356816,
+      "sha256": "012a135d8e17832df81ebe1caf42147b17ddc8d19409be5c91a0a9debec0ed96"
+    },
+    "legacy-unit-tests": {
+      "bytes": 36568648,
+      "sha256": "b1eed6bbbf6051fcdbfa315fd0e60407897de91678e9cb1b83a20ac94fd7f0ec"
+    },
+    "catabolic-legacy-native": {
+      "bytes": 36708520,
+      "sha256": "4138871cb545246127f209763d4d59567b8b267a87ec32c9bcada7fea1806ef2"
+    }
+  },
+  "baselines": [
+    {
+      "name": "initial b116 matrix",
+      "commit": "b11666f5259fb414cacf6653b81f74129e30bfcd",
+      "pairs": 144,
+      "matching": 48,
+      "different": 96,
+      "evidence": "before.json",
+      "legacy_sha256": "cad859c4e7061f7bc1a7803f06417073a37c28d0b33e69d0e2db0ce54e484801"
+    },
+    {
+      "name": "expanded file-boundary baseline",
+      "commit": "6957244d184ba9717040852d49a07d077b05d276",
+      "pairs": 153,
+      "matching": 59,
+      "different": 94,
+      "evidence": "file-boundary-baseline.json",
+      "legacy_sha256": "e423bc2562e6a2899cd52647b36ae12e29db0218b6bc84348a98b874a3ced373"
+    }
+  ],
+  "author": {
+    "variable_pairs": 153,
+    "variable_matches": 153,
+    "legacy_cli_release_units": 22,
+    "strict_cli_all_targets_release_clippy": true,
+    "combined_cap_variable_pairs": 4,
+    "combined_cap_variable_matches": 4,
+    "focused_test_methods": 15,
+    "focused_test_outcome": "passed",
+    "file_boundary_pairs": 55,
+    "file_boundary_matches": 55,
+    "coercion_pairs": 182,
+    "runtime_input_pairs": 104,
+    "rustfmt": true,
+    "scoped_python_lint_and_format": true,
+    "bundled_guides_fresh": true
+  },
+  "independent": {
+    "required_pairs": 53,
+    "required_mismatches": 0,
+    "residual_controls": 9,
+    "residual_baseline_changes": 0,
+    "residual_oracle_differences": [
+      "unused-4301-digit-integer",
+      "unused-nan",
+      "unused-infinity",
+      "unused-negative-infinity",
+      "unused-overflow-float",
+      "unused-high-surrogate",
+      "unused-low-surrogate"
+    ],
+    "companion_controls": 5,
+    "companion_baseline_changes": 0,
+    "direct_immutable_harness_tests": 3,
+    "blocking_findings": 0
+  },
+  "limitations": [
+    "This is not blanket JSON, GraphQL, all-interface or installed-wrapper parity.",
+    "Seven well-formed non-syntax oracle differences are retained unchanged: 4301-digit integer, NaN/positive Infinity/negative Infinity/1e400, unpaired high/low surrogates.",
+    "Depth/decoder constraints and non-syntax decoder-failure precedence inside malformed input are outside this lane.",
+    "No release, default, wrapper or M4-M11 gate closure."
+  ],
+  "evidence_root": ".local-tests/graphql-variable-errors/",
+  "canonical_witness": {
+    "document": "{profile}",
+    "document_bytes": 9,
+    "variables": "{",
+    "source_variants": [
+      "inline",
+      "file",
+      "stdin"
+    ],
+    "frozen": {
+      "code": 2,
+      "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\", \"type\": \"JSONDecodeError\"}}}\n",
+      "stderr": ""
+    },
+    "prior_native": {
+      "code": 2,
+      "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+      "stderr": ""
+    },
+    "native": {
+      "code": 2,
+      "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\", \"type\": \"JSONDecodeError\"}}}\n",
+      "stderr": ""
+    }
+  },
+  "qualification_source_sha256": {
+    "tests/test_rust_graphql_variable_errors.py": "55e9e8edc055bd157d52a3db9c69080b90ce5283879e3f70a9b3791889f6e83f"
+  },
+  "documentation_sha256": {
+    "docs/RUST_MIGRATION_GRAPHQL_VARIABLE_ERRORS.md": "88d268f13a1bba0dcdf699062d9a4718bffe9c5c7ead5000d8605e65e164098d"
+  },
+  "evidence_sha256": {
+    "before.json": "ae4160afd6dda51b5d28d12c300b7f399976605dacc9a0881f2dc887bedd4638",
+    "before.log": "c73007cbcdeffc102453ac57234fd9697af17de451037e28c8cef8832e0b79ba",
+    "file-boundary-baseline.json": "f0feaf65e7220234095e38d5c58eb76bcc5ca822715809fdc3803d6b36a759da",
+    "file-boundary-baseline.log": "235441c6970888e839bbd9c12f56ae2e89b3b4724bb2c9332348d16bdc568699",
+    "after.json": "d969486a93d81376eb8d3ffa046dd801f763eb33102ceceb7237a71cfc572e89",
+    "file-boundary-after.json": "b846a93a2b420fd8a09569fe9c4386f9ac6654c0c73619a24740f2f86f374eba",
+    "combined-boundary-check.py": "a3ea31f9ef973ccc3e3a4c8a4f1a54fc2156e48fdcf3bbb8196cdec99ab23460",
+    "combined-boundary.json": "949a9f718441027c2f1db203e1b6c8750021936f7fd1138e9aaf763f810850b4",
+    "combined-boundary.log": "80bb114c3d7f5a46250bc35890833b294f0add15570665300ca164f0afbb4c0a",
+    "build.log": "8225a2461293c9dda6595338d7367856f555f8a5235c55a62a9b2063e84b838e",
+    "build-messages.jsonl": "d67c885848aab07fbe80b50ac0a370eafdb9502248a7b340bb28e3058079cdb0",
+    "cargo-artifacts.json": "60ca2dc0ae945eb15fe4ad0fdeb653445bce8528e164620bef974ede6fa43d32",
+    "cli-units.log": "6e10424deed2fff0ad79a07eca6a443afa8c9e9ccc4df3dca8950c3d7ebf0bae",
+    "clippy.log": "56b658c730fad2ed4d3a5c29729d48526489a10bc8063e258a7928f32b18e1ba",
+    "focused-tests.log": "4d2d6528206e628ddb1aafdaec0fa066fb1603d695312894fbfce573d1fbcbb7",
+    "fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "python-lint.log": "ce04ce92b16073000b77c97a42c00b98b96305692d9d5ed4dcfa5a9ca9ea62d6",
+    "guides.log": "cded038284aa703460ea80dc2d293527d607e1745914ee294cd7d52a19442354",
+    "independent-review/source-review.md": "b46d44900e0479ad6d9aaa6feefbe66706d85c94f0581b8a5a8084a13fc08941",
+    "independent-review/reviewed-sources.sha256": "4e7dabeb3f329d9bc8e57466c2ecfc6a1a22f9c78ddca6c8ce166a429cfd8746",
+    "independent-review/probe.py": "8ce1ff101482c48d61f77658428a2a20333be63c71e10cbcc607471f015503fe",
+    "independent-review/results.json": "c2ef2f9ae58999d54835b215761848320f8ed7054cbf1445486826936521fe98",
+    "independent-review/run.log": "345e744ab425df1dba87160673df5943a77406af2cf721f1a0e5aa24ce7802fe",
+    "independent-review/immutable-unit-rerun.log": "5ee2bd8650836a46460958acc73d8c4d61e90c9cd83d03ffccc96c2dc51d1c80",
+    "independent-review/final-review.md": "ca0319b761dbbb8525ad869142f72b04c00aeaee41c7eda997fa63c35256741e"
+  }
+}

@@ -15,7 +15,11 @@ catabolic-native = "catabolic_native:main"
 python-source = "python"
 module-name = "catabolic_native._native"
 features = ["pyo3/extension-module"]
+# Source imports must not add interpreter-specific bytecode to release artifacts.
+exclude = ["**/__pycache__/**", "**/*.pyc", "**/*.pyo"]
 include = [
     { path = "catabolic_native/bin/catabolic-native", format = "wheel" },
     { path = "catabolic_native/native-helper.json", format = "wheel" },
+    { path = "catabolic_native/bin/catabolic-legacy-native", format = "wheel" },
+    { path = "catabolic_native/legacy-helper.json", format = "wheel" },
 ]

@@ -253,7 +253,6 @@ class NativeLegacyCliTest(unittest.TestCase):
             "LC-SPEC-002",
             ["--machine", "spec", "roundtrip", "--file", str(path)],
             database=False,
-            semantic=True,
         )
         self.compare(
             "LC-SPEC-003",
@@ -261,16 +260,16 @@ class NativeLegacyCliTest(unittest.TestCase):
             database=False,
         )
 
-    def test_missing_owner_is_explicit_without_mutation(self):
+    def test_maintenance_preflight_and_http_gate_are_explicit(self):
         before = self.native.read_bytes()
         result = self.run_process(
             False, ["--db", str(self.native), "--machine", "maintenance"]
         )
-        self.assertEqual(result.returncode, 2, "LC-GAP-001")
+        self.assertEqual(result.returncode, 3, "LC-MAINT-PREFLIGHT-001")
         error = json.loads(result.stdout)
         self.assertIn(
-            "native legacy CLI owner unavailable: maintenance",
-            error["data"]["error"]["message"],
+            "no source locations configured",
+            error["data"]["errors"][0]["message"],
         )
         self.assertEqual(before, self.native.read_bytes(), "LC-GAP-DB-001")
         result = self.run_process(

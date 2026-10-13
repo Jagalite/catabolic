@@ -69,16 +69,21 @@ class NativeArtifactBuildTest(unittest.TestCase):
 
     def test_generated_helper_and_python_cache_do_not_self_invalidate_build(self):
         before = BUILDER.source_digest(self.root)
+        qualification_before = QUALIFIER.source_snapshot(self.root)
         for name in (
             "crates/catabolic-python/python/catabolic_native/bin/catabolic-native",
             "crates/catabolic-python/python/catabolic_native/bin/catabolic-native.tmp",
             "crates/catabolic-python/python/catabolic_native/native-helper.json",
+            "crates/catabolic-python/python/catabolic_native/bin/catabolic-legacy-native",
+            "crates/catabolic-python/python/catabolic_native/bin/catabolic-legacy-native.tmp",
+            "crates/catabolic-python/python/catabolic_native/legacy-helper.json",
             "crates/catabolic-python/python/catabolic_native/__pycache__/module.pyc",
         ):
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("local generated artifact")
         self.assertEqual(before, BUILDER.source_digest(self.root))
+        self.assertEqual(qualification_before, QUALIFIER.source_snapshot(self.root))
 
     def test_optimized_qualifier_refuses_before_emitting_receipt(self):
         # Supply only a disposable import stub; optimized refusal must not
@@ -283,7 +288,15 @@ class NativeArtifactBuildTest(unittest.TestCase):
             QUALIFIER.extra_artifact_hashes(artifacts)
 
     def run_legacy_qualification_fixture(
-        self, options, scenario, *, discover=None, action=None, prepare=None
+        self,
+        options,
+        scenario,
+        *,
+        discover=None,
+        action=None,
+        prepare=None,
+        prerequisites=None,
+        import_snapshots=None,
     ):
         """Exercise receipt/binding control flow without real builds or oracles."""
         artifacts = {
@@ -306,7 +319,11 @@ class NativeArtifactBuildTest(unittest.TestCase):
             str(reference),
             "--report",
             str(report),
+            "--pattern",
+            "test_rust_fixture.py",
         ]
+        if "defer_installed_asgi" in options:
+            argv.append("--defer-installed-asgi")
         for option, name in (
             ("--legacy-binary", "legacy_cli"),
             ("--parser-binary", "legacy_parser"),
@@ -356,16 +373,238 @@ class NativeArtifactBuildTest(unittest.TestCase):
                 )
             )
             stack.enter_context(patch.object(QUALIFIER.atexit, "register"))
-            for name in ("oracle_snapshot", "fixture_snapshot", "oracle_imports"):
+            for name in (
+                "oracle_snapshot",
+                "fixture_snapshot",
+                "adaptation_snapshot",
+            ):
                 stack.enter_context(patch.object(QUALIFIER, name, return_value={}))
+            stack.enter_context(
+                patch.object(
+                    QUALIFIER,
+                    "oracle_imports",
+                    return_value={},
+                    side_effect=import_snapshots,
+                )
+            )
             stack.enter_context(
                 patch.object(unittest.defaultTestLoader, "discover", side_effect=load)
             )
+            if prerequisites is not None:
+                stack.enter_context(
+                    patch.object(
+                        QUALIFIER,
+                        "discover_native_suite",
+                        side_effect=lambda *args: (load(), prerequisites),
+                    )
+                )
             stack.enter_context(
                 patch.object(QUALIFIER.subprocess, "check_output", return_value="{}")
             )
             stack.enter_context(redirect_stderr(io.StringIO()))
             return QUALIFIER.main()
+
+    def test_deferred_asgi_receipt_cannot_claim_installed_prerequisite_success(self):
+        from scripts.native_asgi_scenarios import (
+            REQUIRED_IDS,
+            installed_prerequisite,
+            validate_sources,
+        )
+
+        prerequisite = installed_prerequisite(validate_sources(ROOT))
+        selected = "tests.test_rust_probe.NativeProbe.test_selected"
+
+        def inspect_running_marker(_artifacts):
+            marker = json.loads((self.root / "receipt.json").read_text())
+            self.assertEqual(marker["phase"], "running")
+            self.assertEqual(marker["tests_run"], 0)
+            self.assertFalse(marker["passed_without_skips"])
+            self.assertFalse(marker["selected_aggregate_passed_without_skips"])
+            self.assertEqual(marker["installed_prerequisites"], [prerequisite])
+
+        self.assertEqual(
+            self.run_legacy_qualification_fixture(
+                {"defer_installed_asgi"},
+                selected,
+                prerequisites=[prerequisite],
+                action=inspect_running_marker,
+            ),
+            0,
+        )
+        receipt = json.loads((self.root / "receipt.json").read_text())
+        self.assertEqual(
+            receipt["qualification_status"],
+            "selected_aggregate_passed_installed_prerequisites_pending",
+        )
+        self.assertTrue(receipt["selected_aggregate_passed_without_skips"])
+        self.assertFalse(receipt["passed_without_skips"])
+        self.assertEqual(receipt["installed_prerequisites"], [prerequisite])
+        self.assertEqual(receipt["tests_run"], 1)
+        self.assertEqual(receipt["unique_discovered_scenarios"], [selected])
+        self.assertEqual(receipt["results"], [{"id": selected, "outcome": "passed"}])
+        self.assertEqual(receipt["skips"], [])
+        self.assertTrue(
+            set(REQUIRED_IDS).isdisjoint(receipt["unique_discovered_scenarios"])
+        )
+
+        def fail(_artifacts):
+            raise AssertionError("selected aggregate failure")
+
+        self.assertEqual(
+            self.run_legacy_qualification_fixture(
+                {"defer_installed_asgi"},
+                selected,
+                prerequisites=[prerequisite],
+                action=fail,
+            ),
+            1,
+        )
+        receipt = json.loads((self.root / "receipt.json").read_text())
+        self.assertFalse(receipt["selected_aggregate_passed_without_skips"])
+        self.assertFalse(receipt["passed_without_skips"])
+        self.assertEqual(receipt["installed_prerequisites"][0]["status"], "pending")
+
+    def test_deferred_asgi_discovery_failure_invalidates_previous_receipt(self):
+        with patch.object(
+            QUALIFIER,
+            "discover_native_suite",
+            side_effect=ValueError("installed ASGI scenario inventory drift"),
+        ):
+            with self.assertRaises(SystemExit) as error:
+                self.run_legacy_qualification_fixture(
+                    {"defer_installed_asgi"},
+                    "tests.test_rust_probe.NativeProbe.test_selected",
+                )
+        self.assertEqual(error.exception.code, 2)
+        receipt = json.loads((self.root / "receipt.json").read_text())
+        self.assertEqual(receipt["qualification_status"], "started")
+        self.assertFalse(receipt["selected_aggregate_passed_without_skips"])
+        self.assertFalse(receipt["passed_without_skips"])
+        self.assertEqual(receipt["installed_prerequisites"][0]["status"], "pending")
+        self.assertFalse(receipt["installed_prerequisites"][0]["manifest_verified"])
+
+    def test_mutation_during_scenarios_invalidates_source_stability_receipt(self):
+        def change(_artifacts):
+            path = self.root / "tests/new_fixture.py"
+            path.parent.mkdir(parents=True)
+            path.write_text("# added during qualification\n")
+
+        self.assertEqual(
+            self.run_legacy_qualification_fixture(
+                set(), "tests.test_rust_fixture.Case.test_case", action=change
+            ),
+            1,
+        )
+        receipt = json.loads((self.root / "receipt.json").read_text())
+        self.assertEqual(receipt["tests_run"], 1)
+        self.assertFalse(receipt["source_content_unchanged_during_qualification"])
+        self.assertFalse(receipt["passed_without_skips"])
+
+    def test_discovery_failure_cannot_claim_scenarios_ran(self):
+        def refuse(_artifacts):
+            raise ValueError("fixture discovery refused")
+
+        with self.assertRaises(SystemExit) as error:
+            self.run_legacy_qualification_fixture(
+                set(), "tests.test_rust_fixture.Case.test_case", discover=refuse
+            )
+        self.assertEqual(error.exception.code, 2)
+        receipt = json.loads((self.root / "receipt.json").read_text())
+        self.assertEqual(receipt["phase"], "preflight")
+        self.assertEqual(receipt["tests_run"], 0)
+        self.assertFalse(receipt["passed_without_skips"])
+
+    def test_import_preflight_failure_records_zero_executed_scenarios(self):
+        executed = []
+        with self.assertRaisesRegex(ValueError, "fixture import refused"):
+            self.run_legacy_qualification_fixture(
+                set(),
+                "tests.test_rust_fixture.Case.test_case",
+                action=lambda _artifacts: executed.append(True),
+                import_snapshots=[ValueError("fixture import refused")],
+            )
+        self.assertEqual(executed, [])
+        receipt = json.loads((self.root / "receipt.json").read_text())
+        self.assertEqual(receipt["phase"], "preflight")
+        self.assertEqual(receipt["tests_run"], 0)
+        self.assertFalse(receipt["passed_without_skips"])
+
+    def test_import_disappearance_and_equal_byte_rebinding_invalidate_receipt(self):
+        before = {
+            "tests.fixture": {
+                "path": "/current/tests/fixture.py",
+                "sha256": "a" * 64,
+                "provenance": "frozen-fixture",
+            }
+        }
+        rebound = {
+            "tests.fixture": before["tests.fixture"]
+            | {"path": "/reference/tests/fixture.py"}
+        }
+        for after in ({}, rebound):
+            with self.subTest(after=after):
+                self.assertEqual(
+                    self.run_legacy_qualification_fixture(
+                        set(),
+                        "tests.test_rust_fixture.Case.test_case",
+                        import_snapshots=[before, after],
+                    ),
+                    1,
+                )
+                receipt = json.loads((self.root / "receipt.json").read_text())
+                self.assertEqual(receipt["tests_run"], 1)
+                self.assertFalse(
+                    receipt["source_content_unchanged_during_qualification"]
+                )
+                self.assertFalse(receipt["passed_without_skips"])
+
+    def test_dependency_link_target_and_lock_drift_invalidate_completed_receipt(self):
+        modules = self.root / "tests/clients/node_modules"
+        alias = modules / ".bin/tool"
+        lock = self.root / "tests/clients/package-lock.json"
+
+        def prepare(_artifacts):
+            (modules / ".bin").mkdir(parents=True, exist_ok=True)
+            packages = {}
+            for name in ("original", "alternate"):
+                path = modules / name / "bin.js"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"// identical fixture payload\n")
+                packages["node_modules/" + name] = {
+                    "version": "1.0.0",
+                    "bin": {"tool": "bin.js"},
+                }
+            lock.write_text(json.dumps({"lockfileVersion": 3, "packages": packages}))
+            alias.unlink(missing_ok=True)
+            alias.symlink_to("../original/bin.js")
+
+        for kind in ("link", "target", "lock"):
+
+            def change(_artifacts, kind=kind):
+                if kind == "link":
+                    alias.unlink()
+                    alias.symlink_to("../alternate/bin.js")
+                elif kind == "target":
+                    (modules / "original/bin.js").write_bytes(b"// changed payload\n")
+                else:
+                    lock.write_text(lock.read_text() + "\n")
+
+            with self.subTest(kind=kind):
+                self.assertEqual(
+                    self.run_legacy_qualification_fixture(
+                        set(),
+                        "tests.test_rust_fixture.Case.test_case",
+                        prepare=prepare,
+                        action=change,
+                    ),
+                    1,
+                )
+                receipt = json.loads((self.root / "receipt.json").read_text())
+                self.assertEqual(receipt["tests_run"], 1)
+                self.assertFalse(
+                    receipt["source_content_unchanged_during_qualification"]
+                )
+                self.assertFalse(receipt["passed_without_skips"])
 
     def test_legacy_artifacts_are_bound_before_discovery_and_recorded(self):
         def discover(artifacts):
@@ -563,6 +802,8 @@ class NativeArtifactBuildTest(unittest.TestCase):
             "catabolic_native/app.py": b"fixture public facade",
             "catabolic_native/bin/catabolic-native": b"fixture helper",
             "catabolic_native/native-helper.json": b"{}",
+            "catabolic_native/bin/catabolic-legacy-native": b"fixture legacy helper",
+            "catabolic_native/legacy-helper.json": b"{}",
             "catabolic_native-0.2.0.dist-info/WHEEL": b"Wheel-Version: 1.0",
             "catabolic_native-0.2.0.dist-info/METADATA": b"Name: catabolic-native",
             "catabolic_native-0.2.0.dist-info/entry_points.txt": b"fixture launcher",
@@ -600,6 +841,9 @@ class NativeArtifactBuildTest(unittest.TestCase):
                 "all",
                 "catabolic_native/app.py",
                 "catabolic_native/bin/catabolic-native",
+                "catabolic_native/native-helper.json",
+                "catabolic_native/bin/catabolic-legacy-native",
+                "catabolic_native/legacy-helper.json",
             ):
                 with zipfile.ZipFile(wheel, "w") as archive:
                     for name, content in payloads.items():
@@ -632,7 +876,7 @@ class NativeArtifactBuildTest(unittest.TestCase):
 
     def test_reference_loader_excludes_native_before_import(self):
         spec = importlib.util.spec_from_file_location(
-            "reference_test_runner", ROOT / "scripts/run_reference_tests.py"
+            "scripts.reference_test_runner", ROOT / "scripts/run_reference_tests.py"
         )
         runner = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runner)

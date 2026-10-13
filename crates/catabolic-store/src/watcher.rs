@@ -627,6 +627,17 @@ pub fn execute(store: &Store, profile: &str, action: &str, args: &Value) -> Resu
         "enable" | "disable" => {
             let row = get(store, profile, name)?;
             let enabled = action == "enable";
+            // Only the ordinary Python adapter supplies its int() conversion.
+            // CLI/runtime callers retain the existing boolean storage contract.
+            let enabled_storage = args
+                .get("_enabled_storage")
+                .map(|value| {
+                    value.as_i64().ok_or_else(|| {
+                        Error("Python int too large to convert to SQLite INTEGER".into())
+                    })
+                })
+                .transpose()?
+                .unwrap_or(i64::from(enabled));
             normalize(store, profile, &row["definition"])?;
             if !enabled && !row["active_run"].is_null() {
                 return Err(Error("watcher run active".into()));
@@ -646,7 +657,7 @@ pub fn execute(store: &Store, profile: &str, action: &str, args: &Value) -> Resu
                     db.execute("UPDATE fallback_bindings SET enabled=0 WHERE profile=? AND catalog=?",(profile,catalog))?;
                     db.execute("UPDATE catalog_refresh_settings SET enabled=0 WHERE profile=? AND catalog=?",(profile,catalog))?;
                 }
-                if !enabled{db.execute("UPDATE watchers SET retry_at=0,requested_generation=completed_generation WHERE profile=? AND name=?",[profile,name])?;db.execute("DELETE FROM watcher_owners WHERE profile=? AND watcher=?",[profile,name])?;}db.execute("UPDATE watchers SET enabled=?,next_due=? WHERE profile=? AND name=?",params![enabled,next,profile,name])?;Ok(())})?;
+                if !enabled{db.execute("UPDATE watchers SET retry_at=0,requested_generation=completed_generation WHERE profile=? AND name=?",[profile,name])?;db.execute("DELETE FROM watcher_owners WHERE profile=? AND watcher=?",[profile,name])?;}db.execute("UPDATE watchers SET enabled=?,next_due=? WHERE profile=? AND name=?",params![enabled_storage,next,profile,name])?;Ok(())})?;
             get(store, profile, name)
         }
         "due" => {
@@ -750,6 +761,28 @@ pub fn run(
     now: f64,
     observe: &mut impl FnMut(&mut Store, &Value) -> Result<Value>,
     complete: &mut impl FnMut(&mut Store, Completion) -> Result<Value>,
+) -> Result<Value> {
+    run_owned(
+        &mut &mut *store,
+        profile,
+        name,
+        trigger,
+        now,
+        &mut |owner, request| observe(owner, request),
+        &mut |owner, context| complete(owner, context),
+    )
+}
+
+/// The same durable lifecycle can retain an embedding Evaluation's Store.
+/// The owner abstraction only lends storage; all run decisions remain here.
+pub fn run_owned<O: std::ops::DerefMut<Target = Store>>(
+    store: &mut O,
+    profile: &str,
+    name: &str,
+    trigger: &str,
+    now: f64,
+    observe: &mut impl FnMut(&mut O, &Value) -> Result<Value>,
+    complete: &mut impl FnMut(&mut O, Completion) -> Result<Value>,
 ) -> Result<Value> {
     let row = get(store, profile, name)?;
     let value = normalize(store, profile, &row["definition"])?;

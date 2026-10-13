@@ -1,0 +1,29 @@
+{
+  "scope": "Independent review of the new ordinary v2 folder preview adapter only",
+  "source_commit": "c91355c99f7fdc5bcd39fdd7006f1bfd878851b1",
+  "binary_sha256_before_and_after": "1574f97e22af7cfee7a0950c6ea851378c1e5532ef80ff56c0614ce58f0b96ca",
+  "paired_cases_passed": 9,
+  "additional_ordinary_present_source_baseline_and_repeat": "passed; safe=true, complete=true, applied=false; one prepare and three creates; full plans match; identical repeats; unchanged tables/source bytes/empty output",
+  "blocking_findings": [],
+  "fixed_finding": "Malformed v2 history is now validated in decoded-history, scope, then state order before first unresolved-event admission",
+  "code_inspected_only": [
+    "cancellation cleanup",
+    "callback unwind cleanup",
+    "4 MiB plan refusal cleanup"
+  ],
+  "logs": [
+    {
+      "path": ".local-tests/publication-preview/review/publication-preview-independent-review.log",
+      "sha256": "e3a95939467d9237b5aad9a79b89287c5be8553a70b4fb3dd6957b7e96160bfe"
+    },
+    {
+      "path": ".local-tests/publication-preview/review/publication-preview-present-source-review.log",
+      "sha256": "c0099df5f1930a259343647955dccba3e8dedbc115cc84a3894a81ad40beff60"
+    }
+  ],
+  "extra_inline_script_retained": false,
+  "review_assertion_correction": "Initial extra-fixture action count omitted the expected prepare action; corrected and reran successfully without product changes",
+  "blocked_owner_or_race_reviews_performed": false,
+  "builds_or_product_source_changes_by_reviewer": false,
+  "publication_qualified": false
+}

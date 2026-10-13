@@ -8,6 +8,8 @@ created. The owner has no work to render or deliver in these fixtures.
 
 import fcntl
 import json
+import os
+import select
 import shutil
 import signal
 import sqlite3
@@ -20,6 +22,38 @@ from pathlib import Path
 
 from tests.test_rust_legacy_cli import BINARY, ORACLE
 from tests.test_rust_legacy_parser import PYTHON, REFERENCE, environment
+
+
+def worker_heartbeat(path, profile, pid):
+    """Only the selected child/profile can satisfy this fixture's readiness."""
+    with closing(sqlite3.connect(path, timeout=1)) as db:
+        return (
+            db.execute(
+                "SELECT 1 FROM api_worker_status WHERE profile=? AND worker_pid=?",
+                (profile, pid),
+            ).fetchone()
+            is not None
+        )
+
+
+def selected_frozen_command(boundary, ready_fd):
+    return [
+        str(PYTHON),
+        str(Path(__file__).with_name("frozen_api_worker_signal_fixture.py")),
+        str(REFERENCE / "src"),
+        boundary,
+        str(ready_fd),
+    ]
+
+
+def selected_boundary_event(ready_fd, timeout):
+    readable, _, _ = select.select([ready_fd], [], [], max(0, timeout))
+    if not readable:
+        raise AssertionError("selected frozen signal boundary not observed")
+    raw = os.read(ready_fd, 4096)
+    if not raw:
+        raise AssertionError("frozen child exited before selected signal boundary")
+    return json.loads(raw)
 
 
 class LegacyApiWorker(unittest.TestCase):
@@ -134,38 +168,75 @@ class LegacyApiWorker(unittest.TestCase):
                 )
                 self.assertEqual(result.returncode, 3)
 
-    def interrupted(self, reference, prefix, signum):
+    def interrupted(self, reference, prefix, signum, profile="default"):
         path = self.reference if reference else self.native
-        child = subprocess.Popen(
-            self.command(reference) + ["--db", str(path)] + prefix + ["api", "worker"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=self.env,
-        )
+        # The frozen heartbeat commits before its tick Store closes. Select
+        # its idle-loop boundary explicitly, rather than pretending heartbeat
+        # visibility alone qualifies every possible SIGINT schedule.
+        ready_read, ready_write = os.pipe() if reference else (None, None)
+        try:
+            child = subprocess.Popen(
+                (
+                    selected_frozen_command("idle", ready_write)
+                    if reference
+                    else self.command(False)
+                )
+                + ["--db", str(path), "--profile", profile]
+                + prefix
+                + ["api", "worker"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=self.env,
+                pass_fds=(ready_write,) if reference else (),
+            )
+        except BaseException:
+            if ready_read is not None:
+                os.close(ready_read)
+            raise
+        finally:
+            if ready_write is not None:
+                os.close(ready_write)
         try:
             deadline = time.monotonic() + 15
             while True:
-                with closing(sqlite3.connect(path, timeout=1)) as db:
-                    ready = db.execute(
-                        "SELECT count(*) FROM api_worker_status"
-                    ).fetchone()[0]
-                if ready:
-                    break
                 self.assertIsNone(
                     child.poll(),
                     child.communicate() if child.poll() is not None else "",
                 )
+                if worker_heartbeat(path, profile, child.pid):
+                    break
                 self.assertLess(
                     time.monotonic(), deadline, "worker heartbeat not observed"
                 )
                 time.sleep(0.02)
+            if reference:
+                self.assertEqual(
+                    selected_boundary_event(ready_read, deadline - time.monotonic()),
+                    {"boundary": "idle", "profile": profile, "pid": child.pid},
+                )
             child.send_signal(signum)
             stdout, stderr = child.communicate(timeout=20)
         finally:
+            if ready_read is not None:
+                os.close(ready_read)
             if child.poll() is None:
                 child.kill()
                 child.communicate()
+        with closing(sqlite3.connect(path)) as db:
+            self.assertEqual(
+                db.execute("SELECT * FROM api_worker_status").fetchall(), []
+            )
+        # Reuse immediately: both the singleton and catalog writer lease must
+        # be available, and a successful empty run must clean its own heartbeat.
+        restarted = self.run_process(
+            reference,
+            ["--db", str(path), "--profile", profile]
+            + prefix
+            + ["api", "worker", "--once"],
+        )
+        self.assertEqual(restarted.returncode, 0, (restarted.stdout, restarted.stderr))
+        self.assertEqual(restarted.stderr, "")
         with closing(sqlite3.connect(path)) as db:
             self.assertEqual(
                 db.execute("SELECT * FROM api_worker_status").fetchall(), []

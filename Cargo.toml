@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli", "crates/catabolic-python", "crates/catabolic-verification", "crates/catabolic-runtime", "crates/catabolic-http"]
+members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli", "crates/catabolic-python", "crates/catabolic-verification", "crates/catabolic-runtime", "crates/catabolic-http", "crates/catabolic-dist"]
 default-members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli"]
 resolver = "3"
 
@@ -25,6 +25,8 @@ chrono-tz = "=0.10.4"
 jsonschema = { version = "=0.58.6", default-features = false, features = ["arbitrary-precision"] }
 ureq = { version = "=3.3.0", default-features = false, features = ["rustls"] }
 roxmltree = "=0.21.1"
+rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = "=1.0.9"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.151", features = ["float_roundtrip", "arbitrary_precision"] }
 rusqlite = { version = "=0.40.2", features = ["bundled", "backup", "functions", "hooks", "limits"] }

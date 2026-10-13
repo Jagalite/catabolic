@@ -1,0 +1,660 @@
+{
+  "format": 1,
+  "date": "2026-10-12",
+  "source_commit": "24f5f45b5d42b8173474b02c048ade2e686b3610",
+  "python_remains_default": true,
+  "milestone_gates_closed": [],
+  "scope": "Selected installed and CLI fixture checkpoint, with separate failed workspace Clippy aggregate; not full parity or release qualification",
+  "aggregate": {
+    "commit": "24f5f45b5d42b8173474b02c048ade2e686b3610",
+    "command": "scripts/check-native-mutations.sh",
+    "exit_code": 101,
+    "failure_phase": "workspace Clippy before artifact copy, Rust test execution and native Python qualification",
+    "error": "clippy::items_after_test_module in crates/catabolic-store/src/private_secret.rs",
+    "native_python_scenarios_executed": 0,
+    "rust_tests_executed": 0,
+    "source_before": "02dc40378ceb99a6b2eb55fe2a2cde8afe06321bf1e5c6751c90b26d2bd55074",
+    "source_after": "02dc40378ceb99a6b2eb55fe2a2cde8afe06321bf1e5c6751c90b26d2bd55074",
+    "source_unchanged": true,
+    "log_sha256": "96a4cab376150687af34adf76865d967d46654317b877f8ea7b8f5278d0c3b45",
+    "passed": false,
+    "prior_live_native_results_is_current_result": false
+  },
+  "selected_installed": {
+    "cohort": "resumed-cohort-5",
+    "interpreters": [
+      "3.11.15",
+      "3.14.6"
+    ],
+    "passed": true,
+    "build_manifest": {
+      "format": 1,
+      "profile": "release",
+      "source_sha256": "d6aae69c1c28ec4b05ac1351b48b06c1a177759c1cb32bbd0cdaf6f3b489d7f5",
+      "source_sha256_after": "d6aae69c1c28ec4b05ac1351b48b06c1a177759c1cb32bbd0cdaf6f3b489d7f5",
+      "wheel": "catabolic_native-0.2.0-cp311-abi3-manylinux_2_39_x86_64.whl",
+      "wheel_sha256": "3b09cc1eb694cb5ef2f8bb5002ea75a083d6194b4d5c70c8f16d5792b8265e92",
+      "extension_sha256": "99fce35bee3761cd8ae4500ea3b4ab6c44e659c129690ac9aa197f5d9d2db097",
+      "native_binary": "catabolic-native",
+      "native_binary_sha256": "e2e918e6197a3d565b419f489b6102757c6eb88b83b91ba14bdc42d11de02770",
+      "legacy_binary": "catabolic-legacy-native",
+      "legacy_binary_sha256": "933dd5d641fc71891081d17d53b1613d94162cbac26b9c2c751861fbf55a3d45",
+      "build_script_sha256": "3c7d315de18b2954f2043a62a49c207c369abdf31c8fff062bf1e3a086cb0e33",
+      "build": {
+        "scope": "local-source-content-and-toolchain; not a hermetic-build proof",
+        "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1",
+        "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)",
+        "maturin": "maturin 1.13.1",
+        "python": "Python 3.14.6",
+        "python_executable": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+        "build_environment_sha256": "d8b53845a0083b970caef1b6127706ad0de3150d91b2be8a85e8ace931030173"
+      },
+      "publication": "local-only",
+      "scope": "Local source-content/toolchain provenance; not hostile-directory attestation or hermetic reproduction"
+    },
+    "build_manifest_sha256": "82f9f33cdb34585eb34460022328704823f65f55eff1c773d5f6895bbe4d143e",
+    "artifact_adoption": {
+      "built_at_commit": "e6ae2421185144131bd9f4347aad3ceef9ca8134",
+      "integrated_at_commit": "934b10a",
+      "source_content_sha256": "d6aae69c1c28ec4b05ac1351b48b06c1a177759c1cb32bbd0cdaf6f3b489d7f5",
+      "both_crate_source_snapshots_match_build_manifest": true,
+      "scope": "Reuse exact tested local artifacts with verified equal crate/config content; new installed gates run against integrated checkout. Not a hermetic/reproducible-build claim.",
+      "files": [
+        {
+          "path": "build-manifest.json",
+          "sha256": "82f9f33cdb34585eb34460022328704823f65f55eff1c773d5f6895bbe4d143e"
+        },
+        {
+          "path": "catabolic_native-0.2.0-cp311-abi3-manylinux_2_39_x86_64.whl",
+          "sha256": "3b09cc1eb694cb5ef2f8bb5002ea75a083d6194b4d5c70c8f16d5792b8265e92"
+        },
+        {
+          "path": "catabolic-native",
+          "sha256": "e2e918e6197a3d565b419f489b6102757c6eb88b83b91ba14bdc42d11de02770"
+        },
+        {
+          "path": "catabolic-legacy-native",
+          "sha256": "933dd5d641fc71891081d17d53b1613d94162cbac26b9c2c751861fbf55a3d45"
+        },
+        {
+          "path": "build.log",
+          "sha256": "e30134e5ff1fafbfbad5825c28682f9019d853563614762eadc79cf20e999c6e"
+        }
+      ]
+    },
+    "receipts": {
+      "311": {
+        "complete_success_marker": true,
+        "progress_log_sha256": "781a7bd9c1902ec48b3e81a3cc3507e72ec2c2972149b0ead39289ce9cc694b3",
+        "receipts": [
+          {
+            "name": "native-prerequisites.json",
+            "sha256": "ae1ed2c6b6edf23073796c94667a49be37ea128e75c693feac7b5ad5ce158eb5",
+            "tests": 4,
+            "paired_groups": null,
+            "reported_passed": true
+          },
+          {
+            "name": "native-wheel-after.json",
+            "sha256": "37cc05eb1f36ab9f1b98cc1c158baf4d64021d8a7d60290e6a3942def1d10ab7",
+            "tests": null,
+            "paired_groups": null,
+            "reported_passed": true
+          },
+          {
+            "name": "native-wheel-before.json",
+            "sha256": "37cc05eb1f36ab9f1b98cc1c158baf4d64021d8a7d60290e6a3942def1d10ab7",
+            "tests": null,
+            "paired_groups": null,
+            "reported_passed": true
+          },
+          {
+            "name": "native_access_admin_tests.json",
+            "sha256": "6b3afb4e9e76be65eabc53490b08fc4e5bb827a0f16706e88579777d601851a9",
+            "tests": 9,
+            "paired_groups": 30,
+            "reported_passed": true
+          },
+          {
+            "name": "native_catalog_refresh_embedding_tests.json",
+            "sha256": "3e4835147dfe983c1a1d06d74fe8347801ab711fc856793d54daf50dc1d109b7",
+            "tests": 16,
+            "paired_groups": 43,
+            "reported_passed": true
+          },
+          {
+            "name": "native_component_policy_embedding_tests.json",
+            "sha256": "03036ddc3cd387de9810301825ccd98139bfa3609cb2b33bb1d14dcb2a92c993",
+            "tests": null,
+            "paired_groups": 37,
+            "reported_passed": true
+          },
+          {
+            "name": "native_fallback_embedding_tests.json",
+            "sha256": "44f7ed7b72f21f38a49920b93221c7dca515e1f7b8acd74f43090c72eb45fe20",
+            "tests": null,
+            "paired_groups": 27,
+            "reported_passed": true
+          },
+          {
+            "name": "native_layout_embedding_tests.json",
+            "sha256": "0c15a4f9ebf4ee159fa7adcfb7b23a16c4b7f7dafd7dfe6f3887ee9ddd88aaf5",
+            "tests": null,
+            "paired_groups": 27,
+            "reported_passed": true
+          },
+          {
+            "name": "native_plex_import_embedding_tests.json",
+            "sha256": "8896ed0e96cf7da2e31b2c38da60b73247a640edd9b4424c2f8045235aa9dc57",
+            "tests": 2,
+            "paired_groups": null,
+            "reported_passed": null
+          },
+          {
+            "name": "native_plex_matching_embedding_tests.json",
+            "sha256": "5872b224d619446e60e6dfa2f1b624419f8afbbc1d1cf2a2d09025bd4ca7094d",
+            "tests": 2,
+            "paired_groups": null,
+            "reported_passed": null
+          },
+          {
+            "name": "native_plex_metadata_embedding_tests.json",
+            "sha256": "9aa2d8cd156d2a1e5e999f168ae1184e2445dff8048d15f8e8ec23fc52118ea1",
+            "tests": 4,
+            "paired_groups": null,
+            "reported_passed": null
+          },
+          {
+            "name": "native_plex_metadata_review_tests.json",
+            "sha256": "bfba763439cba0c14e83c5d1315269208bf955230b6dffb75e1a55724e5805a3",
+            "tests": 2,
+            "paired_groups": null,
+            "reported_passed": true
+          },
+          {
+            "name": "native_plex_xml_embedding_tests.json",
+            "sha256": "3948630167a448781f5662b0e0833e4a86e239c620ac52f7e99a8a3553302382",
+            "tests": 2,
+            "paired_groups": null,
+            "reported_passed": true
+          },
+          {
+            "name": "native_plex_xml_review_tests.json",
+            "sha256": "62819363e6f0677d2463734e1b0d11ac19523023bab4a2f6694fced1bf36cc69",
+            "tests": 2,
+            "paired_groups": null,
+            "reported_passed": true
+          },
+          {
+            "name": "native_private_secret_gate.json",
+            "sha256": "c6077a99992c507c10282033e260345b1f1488291c74593e26411fe60b20343d",
+            "tests": 4,
+            "paired_groups": 17,
+            "reported_passed": true
+          },
+          {
+            "name": "native_processing_embedding_tests.json",
+            "sha256": "89207437f4d80cf72874541e32d03fa4984c21e56e56fd8972e69ca9aca698d2",
+            "tests": null,
+            "paired_groups": 74,
+            "reported_passed": null
+          },
+          {
+            "name": "native_public_import_tests.json",
+            "sha256": "83e348727ede526068edcef60aafbd5ff4e7ae1c8313f9989ee0d39767614adb",
+            "tests": null,
+            "paired_groups": 4,
+            "reported_passed": true
+          },
+          {
+            "name": "native_query_embedding_tests.json",
+            "sha256": "f527a766c85f064d96de47db30bd447b4ed4693ee70035f339cef1ebb904d198",
+            "tests": null,
+            "paired_groups": 77,
+            "reported_passed": null
+          },
+          {
+            "name": "native_reconciler_embedding_tests.json",
+            "sha256": "0928cc484de5d537105002fa257658a48a9d7e5d20a729f92a79249bb7110c09",
+            "tests": 6,
+            "paired_groups": 25,
+            "reported_passed": true
+          },
+          {
+            "name": "native_watchers_embedding_tests.json",
+            "sha256": "158e0b5c61879c95ffbeba9dd275702768eaa4b795b5d2066ee5787f106c2f63",
+            "tests": null,
+            "paired_groups": 32,
+            "reported_passed": true
+          },
+          {
+            "name": "qualify_native_embedding.json",
+            "sha256": "4ea1bafbefb3969f6fe57cd4f37561c2ec3b869ec746967c3251f1f04b8d2ea1",
+            "tests": null,
+            "paired_groups": null,
+            "reported_passed": null
+          }
+        ]
+      },
+      "314": {
+        "complete_success_marker": true,
+        "progress_log_sha256": "b90fc927e87eed29d346594ec56aed426c84afd980a85ee8cc50506edb837a19",
+        "receipts": [
+          {
+            "name": "native-prerequisites.json",
+            "sha256": "3e8c01cfec1250725ca51c348b8ad606f988480055e1943f713c8a9c7539a492",
+            "tests": 4,
+            "paired_groups": null,
+            "reported_passed": true
+          },
+          {
+            "name": "native-wheel-after.json",
+            "sha256": "c6336e8e8bca1be8d9f5a396f7f6a797a2dd15daa7c540020465e230ef8057db",
+            "tests": null,
+            "paired_groups": null,
+            "reported_passed": true
+          },
+          {
+            "name": "native-wheel-before.json",
+            "sha256": "c6336e8e8bca1be8d9f5a396f7f6a797a2dd15daa7c540020465e230ef8057db",
+            "tests": null,
+            "paired_groups": null,
+            "reported_passed": true
+          },
+          {
+            "name": "native_access_admin_tests.json",
+            "sha256": "f86d27c7c2f88ba7a48b3d4de623ad29317c1e08559a14afc07b41956624aac2",
+            "tests": 9,
+            "paired_groups": 30,
+            "reported_passed": true
+          },
+          {
+            "name": "native_catalog_refresh_embedding_tests.json",
+            "sha256": "076c799e590dfdfbff47e4eef8dcd3c4963be6f8c8f195f307a6766bbd9665f7",
+            "tests": 16,
+            "paired_groups": 43,
+            "reported_passed": true
+          },
+          {
+            "name": "native_component_policy_embedding_tests.json",
+            "sha256": "03036ddc3cd387de9810301825ccd98139bfa3609cb2b33bb1d14dcb2a92c993",
+            "tests": null,
+            "paired_groups": 37,
+            "reported_passed": true
+          },
+          {
+            "name": "native_fallback_embedding_tests.json",
+            "sha256": "44f7ed7b72f21f38a49920b93221c7dca515e1f7b8acd74f43090c72eb45fe20",
+            "tests": null,
+            "paired_groups": 27,
+            "reported_passed": true
+          },
+          {
+            "name": "native_layout_embedding_tests.json",
+            "sha256": "0c15a4f9ebf4ee159fa7adcfb7b23a16c4b7f7dafd7dfe6f3887ee9ddd88aaf5",
+            "tests": null,
+            "paired_groups": 27,
+            "reported_passed": true
+          },
+          {
+            "name": "native_plex_import_embedding_tests.json",
+            "sha256": "2e6b67695799e415d9aab3a69bbbdc5bef4be962c6010eecc9202d048071cc62",
+            "tests": 2,
+            "paired_groups": null,
+            "reported_passed": null
+          },
+          {
+            "name": "native_plex_matching_embedding_tests.json",
+            "sha256": "99fdb9d1946f3a538635166891af12babe3c16784dddf89def14fd6b9fd7d32d",
+            "tests": 2,
+            "paired_groups": null,
+            "reported_passed": null
+          },
+          {
+            "name": "native_plex_metadata_embedding_tests.json",
+            "sha256": "de36247b75a72a63935256329316e6d59a2150d10e894163bbfbe252b268e223",
+            "tests": 4,
+            "paired_groups": null,
+            "reported_passed": null
+          },
+          {
+            "name": "native_plex_metadata_review_tests.json",
+            "sha256": "2c44c30d4131b9a864d1b6b6006bc272801a7a049ae4b6960811334e1a70c4db",
+            "tests": 2,
+            "paired_groups": null,
+            "reported_passed": true
+          },
+          {
+            "name": "native_plex_xml_embedding_tests.json",
+            "sha256": "ac7ecbd23b03ba67110c44926bdc555118c49e0f150d4f0b9138ab6d604e3ed9",
+            "tests": 2,
+            "paired_groups": null,
+            "reported_passed": true
+          },
+          {
+            "name": "native_plex_xml_review_tests.json",
+            "sha256": "2f563a30ab7b93c8d4ccc0603cec2ea7060a66b278ab8586cd18ea6978e43d2f",
+            "tests": 2,
+            "paired_groups": null,
+            "reported_passed": true
+          },
+          {
+            "name": "native_private_secret_gate.json",
+            "sha256": "e2400db96d67627644f15f50d4f20d5d9603366d9390594b7dc5849fb625c0f7",
+            "tests": 4,
+            "paired_groups": 17,
+            "reported_passed": true
+          },
+          {
+            "name": "native_processing_embedding_tests.json",
+            "sha256": "89207437f4d80cf72874541e32d03fa4984c21e56e56fd8972e69ca9aca698d2",
+            "tests": null,
+            "paired_groups": 74,
+            "reported_passed": null
+          },
+          {
+            "name": "native_public_import_tests.json",
+            "sha256": "a6808b86738c75bbe33607b7c3de5d3aab7b66f7cb669ffd0d901d25fc08d489",
+            "tests": null,
+            "paired_groups": 4,
+            "reported_passed": true
+          },
+          {
+            "name": "native_query_embedding_tests.json",
+            "sha256": "f527a766c85f064d96de47db30bd447b4ed4693ee70035f339cef1ebb904d198",
+            "tests": null,
+            "paired_groups": 77,
+            "reported_passed": null
+          },
+          {
+            "name": "native_reconciler_embedding_tests.json",
+            "sha256": "0928cc484de5d537105002fa257658a48a9d7e5d20a729f92a79249bb7110c09",
+            "tests": 6,
+            "paired_groups": 25,
+            "reported_passed": true
+          },
+          {
+            "name": "native_watchers_embedding_tests.json",
+            "sha256": "158e0b5c61879c95ffbeba9dd275702768eaa4b795b5d2066ee5787f106c2f63",
+            "tests": null,
+            "paired_groups": 32,
+            "reported_passed": true
+          },
+          {
+            "name": "qualify_native_embedding.json",
+            "sha256": "744e8996ed823a31a1817ad07f7b02068d26fa57348c935908c53beff9a8cb03",
+            "tests": null,
+            "paired_groups": null,
+            "reported_passed": null
+          }
+        ]
+      }
+    }
+  },
+  "private_secret_release_cli": {
+    "command": "CATABOLIC_LEGACY_BINARY=COHORT/catabolic-legacy-native python -m unittest -v tests.test_rust_legacy_private_secret",
+    "tests": 4,
+    "passed": true,
+    "log_sha256": "30fb356ebfd2009ab00d31aa14713e03e4616e9bed8c822869fd82a753fa3e12",
+    "scope": "Copied release executable; not an installed packaged legacy-console claim"
+  },
+  "release_output_refusal": {
+    "binary": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/resumed-cohort-5/catabolic-native",
+    "sha256": "e2e918e6197a3d565b419f489b6102757c6eb88b83b91ba14bdc42d11de02770",
+    "checked": [
+      [
+        "symlink",
+        "replace",
+        "preview",
+        false
+      ],
+      [
+        "symlink",
+        "replace",
+        "apply",
+        false
+      ],
+      [
+        "symlink",
+        "replace",
+        "preview",
+        true
+      ],
+      [
+        "symlink",
+        "replace",
+        "apply",
+        true
+      ],
+      [
+        "symlink",
+        "replace",
+        "recover",
+        true
+      ],
+      [
+        "symlink",
+        "remove",
+        "preview",
+        false
+      ],
+      [
+        "symlink",
+        "remove",
+        "apply",
+        false
+      ],
+      [
+        "symlink",
+        "remove",
+        "preview",
+        true
+      ],
+      [
+        "symlink",
+        "remove",
+        "apply",
+        true
+      ],
+      [
+        "symlink",
+        "remove",
+        "recover",
+        true
+      ],
+      [
+        "hardlink",
+        "replace",
+        "preview",
+        false
+      ],
+      [
+        "hardlink",
+        "replace",
+        "apply",
+        false
+      ],
+      [
+        "hardlink",
+        "replace",
+        "preview",
+        true
+      ],
+      [
+        "hardlink",
+        "replace",
+        "apply",
+        true
+      ],
+      [
+        "hardlink",
+        "replace",
+        "recover",
+        true
+      ],
+      [
+        "hardlink",
+        "remove",
+        "preview",
+        false
+      ],
+      [
+        "hardlink",
+        "remove",
+        "apply",
+        false
+      ],
+      [
+        "hardlink",
+        "remove",
+        "preview",
+        true
+      ],
+      [
+        "hardlink",
+        "remove",
+        "apply",
+        true
+      ],
+      [
+        "hardlink",
+        "remove",
+        "recover",
+        true
+      ],
+      [
+        "fallback",
+        "run",
+        "global",
+        false
+      ],
+      [
+        "fallback",
+        "run",
+        "global",
+        true
+      ],
+      [
+        "outputs",
+        "apply",
+        "global",
+        false
+      ],
+      [
+        "outputs",
+        "apply",
+        "global",
+        true
+      ],
+      [
+        "outputs",
+        "recover",
+        "global",
+        false
+      ],
+      [
+        "outputs",
+        "recover",
+        "global",
+        true
+      ],
+      [
+        "outputs",
+        "apply",
+        null,
+        false
+      ],
+      [
+        "outputs",
+        "apply",
+        null,
+        true
+      ],
+      [
+        "outputs",
+        "recover",
+        null,
+        false
+      ],
+      [
+        "outputs",
+        "recover",
+        null,
+        true
+      ]
+    ],
+    "safe_gate": "closed",
+    "cases": 30
+  },
+  "http_fixture_journey": {
+    "complete": true,
+    "commands": 52,
+    "catalog_busy_retries": 0,
+    "catalog_busy_attempts": [],
+    "generated_client_busy_attempts": [],
+    "generated_client": true,
+    "fixture_python": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+    "native_cli": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/resumed-cohort-5/catabolic-native",
+    "artifacts": {
+      "native_cli_sha256": "e2e918e6197a3d565b419f489b6102757c6eb88b83b91ba14bdc42d11de02770",
+      "generated_client_sha256": {
+        "acceptance.js": "1954239b57bfc93c1afc409fdb151117283c7f802ae5e496ae7ea606b67fb964",
+        "busy.js": "5fcf62b58db1b7279770dd306df7a7fbf079aa86d3438320410edb051f4d40e1",
+        "fallback.js": "12e6c487bd3a9f8f677694eb8b81a7447db332d00058015c3e682d80dc13e488",
+        "generated/graphql.js": "cb5071f2e54b34331de3696744f62e55f4cb29e2ceddff5b9a9636402e98c77e",
+        "logical.js": "91dff092865994f8c83bbac59e4df2886f7bc75edff8f694c407da74ff5aeaeb",
+        "management.js": "5e446e4963236c536c564f9265bc162148570a3e96469f033a75289576c9ee96",
+        "typecheck.js": "d5b3d59e9a0d624d69bfc972f87d127c19b9e861c420a48ce30108d9230b1fd3",
+        "watchers.js": "b494e78e154a285901513b648c306ce2b8ba1321e8d2073811c50e32e431d104"
+      }
+    },
+    "artifacts_unchanged": true,
+    "release_qualified": false,
+    "release_blockers": [
+      "private_unregistered_orphaned_database_sidecar_aliases",
+      "remaining_platform_and_full_contract_gates"
+    ],
+    "checks": [
+      "authenticated_graphql",
+      "saved_selection",
+      "durable_rendition",
+      "server_worker_restart",
+      "opaque_ticket",
+      "exact_range",
+      "original_denied",
+      "event_replay"
+    ]
+  },
+  "http_report_sha256": "a665131e3989291600b49f937ac5c51cf282495e7a4ba2cbf13804aa57fe3574",
+  "new_cli_integration": {
+    "source_commit": "e6ae2421185144131bd9f4347aad3ceef9ca8134",
+    "receipt": {
+      "commit": "e6ae2421185144131bd9f4347aad3ceef9ca8134",
+      "modules": [
+        "tests.test_rust_identify",
+        "tests.test_rust_legacy_consumer_watch",
+        "tests.test_rust_legacy_roundtrip",
+        "tests.test_rust_maintenance_cli",
+        "tests.test_rust_legacy_private_secret",
+        "tests.test_rust_legacy_cli"
+      ],
+      "tests_run": 60,
+      "failures": [],
+      "errors": [],
+      "skips": [],
+      "source_before": "df5026590b8fe664570140a134a2641d4e45909fd19b60311a5759ce4de24e4b",
+      "source_after": "df5026590b8fe664570140a134a2641d4e45909fd19b60311a5759ce4de24e4b",
+      "source_unchanged": true,
+      "binary_sha256": "90becce4c0026bb162d707b84314c8429bc703820ba574535dba1c3e507be07b",
+      "binary_unchanged": true,
+      "seconds": 573.0110294818878,
+      "scope": "Scoped combined adapter replay; maintenance contains two explicitly known-nonparity witnesses, not exact full-report parity",
+      "passed": true
+    },
+    "contract_checks": 23,
+    "rust_checks": 20,
+    "scope": "Narrow merged adapter checks. Includes two known maintenance nonparity witnesses; not sixty full-parity contracts."
+  },
+  "reviews": "Identify, consumer-watch, roundtrip, maintenance, private-secret and harness corrections received scoped independent review. Earlier blocked broad definition/filesystem reviews remain blocked.",
+  "publication": "local checkpoint only"
+}

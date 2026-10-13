@@ -60,6 +60,7 @@ class LegacyRefreshTest(unittest.TestCase):
 
     def server(self):
         self.status = 204
+        self.expected_token = None
         self.body = b""
         self.delay = 0
         self.hook = None
@@ -103,8 +104,14 @@ class LegacyRefreshTest(unittest.TestCase):
                             if readable and self.connection.recv(1) == b"":
                                 fixture.closed.set()
                                 return
-                    self.send_response(fixture.status)
-                    if fixture.status == 302:
+                    response_status = fixture.status
+                    if (
+                        fixture.expected_token is not None
+                        and self.headers.get("X-Emby-Token") != fixture.expected_token
+                    ):
+                        response_status = 401
+                    self.send_response(response_status)
+                    if response_status == 302:
                         self.send_header("Location", "/redirect-must-not-run")
                     self.send_header("Content-Length", str(len(fixture.body)))
                     self.end_headers()
@@ -388,6 +395,97 @@ with Store(sys.argv[2], writable=True) as store:
         self.env["CATABOLIC_TEST_JELLYFIN_TOKEN"] = TOKEN
         self.status = 204
         self.paired_run("LR-RETRY-COMPLETE")
+
+    def test_nonascii_credential_wire_encoding_and_admission(self):
+        self.server()
+        self.healthy()
+        self.seed()
+        # The HTTP fixture decodes header bytes as Latin-1. A UTF-8 encoding of
+        # é would therefore differ and receive a 401, rather than silently pass.
+        credential = "FAKE_é_REFRESH_ONLY"
+        self.env["CATABOLIC_TEST_JELLYFIN_TOKEN"] = credential
+        self.expected_token = credential
+        self.paired_run("LR-LATIN1-CREDENTIAL")
+        self.assertEqual(
+            self.calls, [("/Library/Refresh", credential, "writer_released")] * 2
+        )
+        self.sql("DELETE FROM refresh_events")
+        self.seed()
+        self.env["CATABOLIC_TEST_JELLYFIN_TOKEN"] = "FAKE_☃_REFRESH_ONLY"
+        report = self.paired_run("LR-NON-LATIN1-CREDENTIAL", expected_code=3)
+        self.assertEqual(
+            report["events"], [{"id": 1, "state": "failed", "error": ERROR}]
+        )
+        self.assertEqual(len(self.calls), 2)
+        for path in (self.reference, self.native):
+            self.assertNotIn(credential, json.dumps(self.rows(path)))
+
+    def test_nonlegacy_consumer_headers_keep_native_utf8_behavior(self):
+        calls = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_):
+                pass
+
+            def do_GET(self):
+                calls.append(
+                    (
+                        self.path,
+                        self.headers.get("X-Emby-Token"),
+                        self.headers.get("X-Plex-Token"),
+                    )
+                )
+                body = (
+                    b'{"Id":"fake-server","Version":"fixture"}'
+                    if self.path == "/System/Info"
+                    else b'<MediaContainer machineIdentifier="fake-server" version="fixture"/>'
+                )
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(thread.join, 5)
+        self.addCleanup(server.shutdown)
+        for application in ("jellyfin", "plex"):
+            for credential in ("FAKE_é_MODERN_ONLY", "FAKE_☃_MODERN_ONLY"):
+                with self.subTest(
+                    application=application, credential_kind=ord(credential[5])
+                ):
+                    self.env["CATABOLIC_TEST_JELLYFIN_TOKEN"] = credential
+                    result = self.run_process(
+                        False,
+                        [
+                            "--db",
+                            str(self.native),
+                            "--machine",
+                            "consumer",
+                            "connection-put",
+                            "fixture",
+                            "--application",
+                            application,
+                            "--endpoint",
+                            f"http://127.0.0.1:{server.server_port}",
+                            "--credential-env",
+                            "CATABOLIC_TEST_JELLYFIN_TOKEN",
+                        ],
+                    )
+                    self.assertEqual(
+                        result.returncode, 0, result.stdout + result.stderr
+                    )
+                    wire = credential.encode("utf-8").decode("latin-1")
+                    expected = (
+                        ("/System/Info", wire, None)
+                        if application == "jellyfin"
+                        else ("/", None, wire)
+                    )
+                    self.assertEqual(calls[-1], expected)
+                    self.assertNotIn(credential, result.stdout + result.stderr)
+        self.assertEqual(len(calls), 4)
 
     def test_expired_lease_ack_fence_preserves_explicit_retry(self):
         self.server()

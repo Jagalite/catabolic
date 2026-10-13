@@ -1,0 +1,568 @@
+{
+  "scope": "test-only native loopback fixture isolation; no runtime/production changes or release qualification",
+  "harness_base": "bc1052b63c7615fe6106a7d1f269dde35751b8fd",
+  "harness_source": "3f9df860062e596793eb48251a8a092db8845a48",
+  "binary_source": "08616773d48c8f50233575438c4e83801845b899",
+  "source_stable_repeats": [
+    3,
+    4
+  ],
+  "source_unchanged_after_runs": true,
+  "harness_files": [
+    {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/scripts/qualify_native_http.py",
+      "sha256": "0f62c1ae73815d5f30cc3d78c9b0a0601504e9becd84892c2d2f875365a21d7f",
+      "bytes": 25486
+    },
+    {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/tests/test_rust_http_retry_fixture.py",
+      "sha256": "3b016ee47efbdb23241429b70ccfc351aeef931db2b0b0e492ebe0d31c62aafe",
+      "bytes": 22716
+    },
+    {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/tests/clients/v1_7/acceptance.ts",
+      "sha256": "7f26c8125b6ff9521430a2b35ec8db54cddec0f0cdef7ed72bfd116a66e08204",
+      "bytes": 6060
+    }
+  ],
+  "native": {
+    "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-checkpoint/artifacts/catabolic-native",
+    "sha256": "0c70d07cde30acc8480cd3ea80a61bfddf7bfc4ecd80e27cc0b73eae4afd60d1",
+    "bytes": 69752304
+  },
+  "oracle": {
+    "commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "clean": true,
+    "root": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/reference",
+    "python_version": "3.14.6",
+    "interpreter": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tools/python/cpython-3.14.6-linux-x86_64-gnu/bin/python3.14",
+      "sha256": "2f7fff382c9d335d6d63f134b55cb8ced9d0b2e1d47e6f210ad3f059adfa71c1",
+      "bytes": 32076528
+    },
+    "package_entrypoint": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/reference/src/catabolic/__init__.py",
+      "sha256": "e2e5051b5e9aa0043354ed1438d9c10deeeba94e9b97264a18855289e61aa3ff",
+      "bytes": 172
+    }
+  },
+  "node": {
+    "version": "v22.23.3",
+    "path": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tools/node/bin/node",
+    "sha256": "fde6a4bf8d0562f7751d1a2d6cb9b417c4cfe107bbcb0aa3e9a24e125e348f48",
+    "bytes": 124827920
+  },
+  "compiler": {
+    "version": "5.9.3",
+    "entrypoint": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/tests/clients/node_modules/typescript/bin/tsc",
+      "sha256": "8d5fa5bd883fec0979fc2004f1fe1d99aef40570155d550eadc0b03b55513bf0",
+      "bytes": 45
+    },
+    "shim": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/tests/clients/node_modules/typescript/lib/tsc.js",
+      "sha256": "2cffde0b8c6760dfb0b5b0382bbb7e00ba6a8b2d981b9205b256a700a481d983",
+      "bytes": 267
+    },
+    "implementation": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/tests/clients/node_modules/typescript/lib/_tsc.js",
+      "sha256": "e8f349eabd48486bdb2bf9dc1a00c89d58297270c54b745838879e2859194419",
+      "bytes": 6213092
+    },
+    "package": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/tests/clients/node_modules/typescript/package.json",
+      "sha256": "822ef7ca6452205657b6288b066481ecf508bfbf43455d715cf7d3ec457561e6",
+      "bytes": 3620
+    },
+    "node_types_version": "22.15.30",
+    "node_types_entrypoint": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/tests/clients/node_modules/@types/node/index.d.ts",
+      "sha256": "ad90122e1cb599b3bc06a11710eb5489101be678f2920f2322b0ac3e195af78d",
+      "bytes": 3868
+    },
+    "node_types_package": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/tests/clients/node_modules/@types/node/package.json",
+      "sha256": "45bb6d5f970161dd90ccd30e97adf4c85fd7c53ada4954060d9c47053a1dfcf9",
+      "bytes": 6673
+    },
+    "command": "../catabolic/tests/clients/node_modules/.bin/tsc --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --noUncheckedIndexedAccess --skipLibCheck --types node --typeRoots /workspace/scratch/9c9a5a8c3955/catabolic/tests/clients/node_modules/@types --outDir .local-tests/http-isolation/client/build .local-tests/http-isolation/client-source/acceptance.ts .local-tests/http-isolation/client-source/busy.ts",
+    "log": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client-compile-2.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "inputs": [
+      {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client-source/acceptance.ts",
+        "sha256": "7f26c8125b6ff9521430a2b35ec8db54cddec0f0cdef7ed72bfd116a66e08204",
+        "bytes": 6060
+      },
+      {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client-source/busy.ts",
+        "sha256": "75675a4a961817ab265514336dbd2c6398eaee9ecb11cb51defb004d5d8bef62",
+        "bytes": 1975
+      },
+      {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client-source/generated/rest.d.ts",
+        "sha256": "6d1736bf4e0d400d286b26cc3566a05989745a19679a3ff8c8ac1bcf5a304b9d",
+        "bytes": 468382
+      },
+      {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client-source/generated/graphql.ts",
+        "sha256": "94347c99452d15263f2a60f3ad0b49d03cae1da11ee8f7ca2c0508c1f2df052e",
+        "bytes": 21192
+      },
+      {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client-source/package.json",
+        "sha256": "0f4b2e84e312987d0b8bd4837c4c5a3c58cd58596580850eaa2979742387bb47",
+        "bytes": 1004
+      }
+    ],
+    "successful_rebuild": {
+      "log": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client-rebuild.log",
+        "bytes": 449,
+        "sha256": "b9d3df6cbca29a3a880838e18ccb5e495599abec60bae6b376b2bdfa27804f9f"
+      },
+      "exit_code": 0,
+      "no_emit_on_error": true,
+      "fresh_directory": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client-rebuild",
+      "payload_byte_identical_to_qualified_client": true,
+      "payload": [
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client-rebuild/acceptance.js",
+          "bytes": 5848,
+          "sha256": "bddcacb6316599c353b64e0344d3e852518604b9411a0ff97776abde56022154"
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client-rebuild/busy.js",
+          "bytes": 1951,
+          "sha256": "5fcf62b58db1b7279770dd306df7a7fbf079aa86d3438320410edb051f4d40e1"
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client-rebuild/generated/graphql.js",
+          "bytes": 1490,
+          "sha256": "cb5071f2e54b34331de3696744f62e55f4cb29e2ceddff5b9a9636402e98c77e"
+        }
+      ]
+    },
+    "generated_type_origin": [
+      {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic/tests/clients/v1_7/generated/rest.d.ts",
+        "bytes": 468382,
+        "sha256": "6d1736bf4e0d400d286b26cc3566a05989745a19679a3ff8c8ac1bcf5a304b9d"
+      },
+      {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic/tests/clients/v1_7/generated/graphql.ts",
+        "bytes": 21192,
+        "sha256": "94347c99452d15263f2a60f3ad0b49d03cae1da11ee8f7ca2c0508c1f2df052e"
+      }
+    ],
+    "dependency_resolution": {
+      "client_source_node_modules": "/workspace/scratch/9c9a5a8c3955/catabolic/tests/clients/node_modules",
+      "explicit_node_type_roots": "/workspace/scratch/9c9a5a8c3955/catabolic/tests/clients/node_modules/@types",
+      "typescript_executable": "/workspace/scratch/9c9a5a8c3955/catabolic/tests/clients/node_modules/.bin/tsc",
+      "runtime_node_modules": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-http-client/client/node_modules",
+      "new_dependencies_installed": false,
+      "schema_regenerated": false
+    }
+  },
+  "generated_client": {
+    "fresh_schema_generation_claimed": false,
+    "new_assertion_preserving_phase_harness": true,
+    "payload": [
+      {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client/build/acceptance.js",
+        "sha256": "bddcacb6316599c353b64e0344d3e852518604b9411a0ff97776abde56022154",
+        "bytes": 5848
+      },
+      {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client/build/busy.js",
+        "sha256": "5fcf62b58db1b7279770dd306df7a7fbf079aa86d3438320410edb051f4d40e1",
+        "bytes": 1951
+      },
+      {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client/build/generated/graphql.js",
+        "sha256": "cb5071f2e54b34331de3696744f62e55f4cb29e2ceddff5b9a9636402e98c77e",
+        "bytes": 1490
+      },
+      {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client/catalog.graphql",
+        "sha256": "395f9d9d4d7fddb2e0dd931fc83dcb0155dc74d2c7d660e43dc6dccdf2c8fd08",
+        "bytes": 176
+      },
+      {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/client/package.json",
+        "sha256": "0f4b2e84e312987d0b8bd4837c4c5a3c58cd58596580850eaa2979742387bb47",
+        "bytes": 1004
+      }
+    ],
+    "runtime_dependency": "openapi-fetch 0.17.0 reused unchanged from old client",
+    "runtime_dependency_provenance": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-http-client/provenance.json",
+      "sha256": "5ec546b17e03138598f8863ab59fd2099f05f7d77245654f2b4ce71dbce198cf",
+      "bytes": 8041
+    },
+    "runtime_entrypoint": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-http-client/client/node_modules/openapi-fetch/dist/index.mjs",
+      "sha256": "ec9c9437bc2f5b4a59f6411a36b326f82943d7caba634ee2c7d41192f296e11f",
+      "bytes": 17235
+    }
+  },
+  "tests": {
+    "count": 16,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "log": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/tests-final.log",
+      "sha256": "f940fc8ef0e74f863285892c3fbf8ec03ca1a81d517f755ed31db6e57f1d3162",
+      "bytes": 2907
+    },
+    "lint": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/ruff-final.log",
+      "sha256": "afa20b27dacc9bf0aba3c1d265964c21e04ab42f6e39e2dd4769718ceded003a",
+      "bytes": 45
+    }
+  },
+  "historical_failures": {
+    "original_ticket_busy": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-http-journey/report.json",
+      "sha256": "9f52b4f56acfaa723155c4ee25377f5e860b5d5c2c8319e6865ee810522df879",
+      "bytes": 247
+    },
+    "original_ticket_busy_log": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-checkpoint/native-http.log",
+      "sha256": "1ae2e177f33e83077783069c5a8bfb0ba93742e32f42df45804fdce709b92733",
+      "bytes": 604
+    },
+    "stopped_worker_prerequisite": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-1/report.json",
+      "sha256": "83af4cfbfd547cb142a63e41f04a28d0393f53c20d3a803ee431675bd7efd917",
+      "bytes": 629
+    },
+    "stopped_worker_source_and_evidence": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/pre-pause-source/attempt-manifest.json",
+      "sha256": "d8dd67cab5c96df16cc6bd1cef3d13d31d675455e6d08f6cafe67828d6e75919",
+      "bytes": 3685
+    }
+  },
+  "runs": [
+    {
+      "number": 2,
+      "source_stable": false,
+      "summary": {
+        "complete": true,
+        "commands": 32,
+        "catalog_busy_retries": 0,
+        "catalog_busy_attempts": [
+          {
+            "method": "POST",
+            "path": "/v1/content-access",
+            "status": 503,
+            "attempt": 1,
+            "retried": false,
+            "phase": "forced_writer_admission"
+          }
+        ],
+        "generated_client_busy_attempts": [],
+        "generated_client": true,
+        "generated_client_phases": [
+          "processing_ready",
+          "isolated_complete"
+        ],
+        "worker_isolation": {
+          "phase": "after_processing_ready_before_snapshot_and_ticket",
+          "pid": 57,
+          "returncode": 0,
+          "reaped": true
+        },
+        "contention_check": {
+          "phase": "forced_writer_admission",
+          "status": 503,
+          "complete": true,
+          "attempts": 1,
+          "retried": false
+        },
+        "fixture_python": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+        "native_cli": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-checkpoint/artifacts/catabolic-native",
+        "artifacts": {
+          "native_cli_sha256": "0c70d07cde30acc8480cd3ea80a61bfddf7bfc4ecd80e27cc0b73eae4afd60d1",
+          "generated_client_sha256": {
+            "acceptance.js": "bddcacb6316599c353b64e0344d3e852518604b9411a0ff97776abde56022154",
+            "busy.js": "5fcf62b58db1b7279770dd306df7a7fbf079aa86d3438320410edb051f4d40e1",
+            "generated/graphql.js": "cb5071f2e54b34331de3696744f62e55f4cb29e2ceddff5b9a9636402e98c77e"
+          }
+        },
+        "artifacts_unchanged": true,
+        "release_qualified": false,
+        "release_blockers": [
+          "private_unregistered_orphaned_database_sidecar_aliases",
+          "remaining_platform_and_full_contract_gates"
+        ],
+        "checks": [
+          "authenticated_graphql",
+          "saved_selection",
+          "durable_rendition",
+          "server_worker_restart",
+          "worker_isolated_after_ready",
+          "generated_client_phased_isolation",
+          "separate_writer_admission_contention",
+          "opaque_ticket",
+          "exact_range",
+          "original_denied",
+          "event_replay"
+        ]
+      },
+      "evidence": [
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-2/report.json",
+          "sha256": "d303922968b74cdc43ac1b8a62a99b34dcf125a9c1bae06ca04b8916076fb455",
+          "bytes": 1908
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-2/generated-client.stdout",
+          "sha256": "74333a3f78366193ffd2752f8fd32224344483225ae6a9d21417429a7ff19ce3",
+          "bytes": 217
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-2/generated-client.stderr",
+          "sha256": "54bf66dc28d6653f69b13fdb21bca6dad3aae0b6fe6e0ce7fd163fb98c55751e",
+          "bytes": 175
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-2/serve.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-2/worker.log",
+          "sha256": "1f1875e9c3856f63a9e597f525ea6ab949fb5e1042dd0ad6d7ca611df9019b55",
+          "bytes": 498
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-2.log",
+          "sha256": "934c2dd002b55dc97bab6c63a65eddef735e24c17dcb2265889b881b4040fc61",
+          "bytes": 1672
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "source_stable": true,
+      "summary": {
+        "complete": true,
+        "commands": 34,
+        "catalog_busy_retries": 0,
+        "catalog_busy_attempts": [
+          {
+            "method": "POST",
+            "path": "/v1/content-access",
+            "status": 503,
+            "attempt": 1,
+            "retried": false,
+            "phase": "forced_writer_admission"
+          }
+        ],
+        "generated_client_busy_attempts": [],
+        "generated_client": true,
+        "generated_client_phases": [
+          "processing_ready",
+          "isolated_complete"
+        ],
+        "worker_isolation": {
+          "phase": "after_processing_ready_before_snapshot_and_ticket",
+          "pid": 58,
+          "returncode": 0,
+          "reaped": true
+        },
+        "contention_check": {
+          "phase": "forced_writer_admission",
+          "status": 503,
+          "complete": true,
+          "attempts": 1,
+          "retried": false
+        },
+        "fixture_python": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+        "native_cli": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-checkpoint/artifacts/catabolic-native",
+        "artifacts": {
+          "native_cli_sha256": "0c70d07cde30acc8480cd3ea80a61bfddf7bfc4ecd80e27cc0b73eae4afd60d1",
+          "generated_client_sha256": {
+            "acceptance.js": "bddcacb6316599c353b64e0344d3e852518604b9411a0ff97776abde56022154",
+            "busy.js": "5fcf62b58db1b7279770dd306df7a7fbf079aa86d3438320410edb051f4d40e1",
+            "generated/graphql.js": "cb5071f2e54b34331de3696744f62e55f4cb29e2ceddff5b9a9636402e98c77e"
+          }
+        },
+        "artifacts_unchanged": true,
+        "release_qualified": false,
+        "release_blockers": [
+          "private_unregistered_orphaned_database_sidecar_aliases",
+          "remaining_platform_and_full_contract_gates"
+        ],
+        "checks": [
+          "authenticated_graphql",
+          "saved_selection",
+          "durable_rendition",
+          "server_worker_restart",
+          "worker_isolated_after_ready",
+          "generated_client_phased_isolation",
+          "separate_writer_admission_contention",
+          "opaque_ticket",
+          "exact_range",
+          "original_denied",
+          "event_replay"
+        ]
+      },
+      "evidence": [
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-3/report.json",
+          "sha256": "ddcb848fb668e7c4aedeb261c4d8fffb8436a38ade36aa0f13dc0675cbcdb520",
+          "bytes": 1908
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-3/generated-client.stdout",
+          "sha256": "74333a3f78366193ffd2752f8fd32224344483225ae6a9d21417429a7ff19ce3",
+          "bytes": 217
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-3/generated-client.stderr",
+          "sha256": "083f3bb107e3176ec9a64eb9749d0d331fea654a83421aebabd3fc77a59161d1",
+          "bytes": 175
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-3/serve.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-3/worker.log",
+          "sha256": "2b679256b2970d0ab01b549de3149bffea426c82abd3fca7494df7255cbb5fa3",
+          "bytes": 498
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-3.log",
+          "sha256": "14d5d129dae4b84e63bb7dcebe3d76cfa4cb1e4044e188a2c263489d16be507a",
+          "bytes": 1672
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "source_stable": true,
+      "summary": {
+        "complete": true,
+        "commands": 35,
+        "catalog_busy_retries": 0,
+        "catalog_busy_attempts": [
+          {
+            "method": "POST",
+            "path": "/v1/content-access",
+            "status": 503,
+            "attempt": 1,
+            "retried": false,
+            "phase": "forced_writer_admission"
+          }
+        ],
+        "generated_client_busy_attempts": [],
+        "generated_client": true,
+        "generated_client_phases": [
+          "processing_ready",
+          "isolated_complete"
+        ],
+        "worker_isolation": {
+          "phase": "after_processing_ready_before_snapshot_and_ticket",
+          "pid": 142,
+          "returncode": 0,
+          "reaped": true
+        },
+        "contention_check": {
+          "phase": "forced_writer_admission",
+          "status": 503,
+          "complete": true,
+          "attempts": 1,
+          "retried": false
+        },
+        "fixture_python": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+        "native_cli": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-checkpoint/artifacts/catabolic-native",
+        "artifacts": {
+          "native_cli_sha256": "0c70d07cde30acc8480cd3ea80a61bfddf7bfc4ecd80e27cc0b73eae4afd60d1",
+          "generated_client_sha256": {
+            "acceptance.js": "bddcacb6316599c353b64e0344d3e852518604b9411a0ff97776abde56022154",
+            "busy.js": "5fcf62b58db1b7279770dd306df7a7fbf079aa86d3438320410edb051f4d40e1",
+            "generated/graphql.js": "cb5071f2e54b34331de3696744f62e55f4cb29e2ceddff5b9a9636402e98c77e"
+          }
+        },
+        "artifacts_unchanged": true,
+        "release_qualified": false,
+        "release_blockers": [
+          "private_unregistered_orphaned_database_sidecar_aliases",
+          "remaining_platform_and_full_contract_gates"
+        ],
+        "checks": [
+          "authenticated_graphql",
+          "saved_selection",
+          "durable_rendition",
+          "server_worker_restart",
+          "worker_isolated_after_ready",
+          "generated_client_phased_isolation",
+          "separate_writer_admission_contention",
+          "opaque_ticket",
+          "exact_range",
+          "original_denied",
+          "event_replay"
+        ]
+      },
+      "evidence": [
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-4/report.json",
+          "sha256": "c39e089955f1d69efe651b0154d71f4522cdde65fc4c67e773465ffa5c3ad48a",
+          "bytes": 1909
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-4/generated-client.stdout",
+          "sha256": "74333a3f78366193ffd2752f8fd32224344483225ae6a9d21417429a7ff19ce3",
+          "bytes": 217
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-4/generated-client.stderr",
+          "sha256": "d03b16a54a1fa2a664ac901dfae8b692baf6a105b5b804c3b4e7208923a80c4c",
+          "bytes": 176
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-4/serve.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-4/worker.log",
+          "sha256": "dc48915b18908f4bb0d646cf969d6f503fd094e3add6bb6ecfbb762c45e40d01",
+          "bytes": 498
+        },
+        {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-http-isolation/.local-tests/http-isolation/journey-4.log",
+          "sha256": "d466aa034b8bdfa234f96c8329c417081dc63c5f883389f45bf1ced73e1892ec",
+          "bytes": 1673
+        }
+      ]
+    }
+  ],
+  "release_qualified": false,
+  "limitations": [
+    "Linux frozen debug binary only; harness-source differs from binary-source",
+    "Deterministic snapshot/ticket phases run only after native worker reap; does not qualify arbitrary concurrent mutation replay",
+    "No cargo build, wheel/ASGI/Python runtime expansion, remote or release action",
+    "Original active-worker failure and stopped-worker prerequisite failure remain failures"
+  ],
+  "independent_review": {
+    "status": "no blocking findings in three-file fixture scope",
+    "source_commit": "3f9df860062e596793eb48251a8a092db8845a48",
+    "independently_executed_tests": 16,
+    "original_typescript_assertions_preserved": 31,
+    "additional_pipe_assertions": 2,
+    "journey3_and_4_report_and_identity_verified": true,
+    "compiler_rebuild_receipt_inspected": true,
+    "compiler_rebuild_independently_repeated": false,
+    "stopped_on_user_instruction": true
+  },
+  "original_manifest_sha256": "328c5c6f306cae5fc8102170e853d01cbf49c641816a4a14a2c4e4be40a7da6d"
+}

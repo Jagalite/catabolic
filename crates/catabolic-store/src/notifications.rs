@@ -56,18 +56,31 @@ pub fn callback_origin(value: &str) -> std::result::Result<Origin, Outcome> {
     }
     let (host, port) = if let Some(bracketed) = authority.strip_prefix('[') {
         let (host, suffix) = bracketed.split_once(']').ok_or_else(invalid)?;
-        // Python also accepts scoped IPv6 addresses. The scope stays part of
-        // origin identity, so an approval for one interface cannot match another.
-        if let Some((_, scope)) = host.split_once('%')
-            && (scope.is_empty() || scope.contains('%'))
-        {
-            return Err(invalid());
+        if let Some(future) = host.strip_prefix('v') {
+            // Frozen Python 3.14 urlsplit's bracketed-host grammar accepts
+            // lowercase v, one or more hex digits, '.', then a nonempty tail.
+            // This is syntax only: no DNS, transport or approval rule changes.
+            let (version, address) = future.split_once('.').ok_or_else(invalid)?;
+            if version.is_empty()
+                || !version.bytes().all(|c| c.is_ascii_hexdigit())
+                || address.is_empty()
+            {
+                return Err(invalid());
+            }
+        } else {
+            // Python also accepts scoped IPv6 addresses. The scope stays part
+            // of origin identity, so approvals cannot cross interfaces.
+            if let Some((_, scope)) = host.split_once('%')
+                && (scope.is_empty() || scope.contains('%'))
+            {
+                return Err(invalid());
+            }
+            host.split('%')
+                .next()
+                .ok_or_else(invalid)?
+                .parse::<Ipv6Addr>()
+                .map_err(|_| invalid())?;
         }
-        host.split('%')
-            .next()
-            .ok_or_else(invalid)?
-            .parse::<Ipv6Addr>()
-            .map_err(|_| invalid())?;
         let port = if suffix.is_empty() {
             None
         } else {

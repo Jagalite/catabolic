@@ -6,7 +6,6 @@ use super::text;
 use catabolic_store::{Error, Result, Store};
 use serde_json::{Value, json};
 use std::{
-    io::Write,
     path::Path,
     sync::{
         Arc,
@@ -113,9 +112,11 @@ pub fn execute(args: &Value) -> Result<Value> {
                         )
                     })
                     .collect::<Vec<_>>();
-                let mut stdout = std::io::stdout().lock();
-                writeln!(stdout, "{{{}}}", fields.join(", "))?;
-                stdout.flush()?;
+                super::super::transport::write(
+                    "stdout",
+                    &format!("{{{}}}\n", fields.join(", ")),
+                    true,
+                )?;
             }
             let deadline = Instant::now() + Duration::from_secs(interval);
             while Instant::now() < deadline {

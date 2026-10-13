@@ -9,6 +9,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+base64.workspace = true
 catabolic-core.workspace = true
 catabolic-store.workspace = true
 serde_json.workspace = true
@@ -20,6 +21,8 @@ ureq.workspace = true
 roxmltree.workspace = true
 chrono.workspace = true
 num-bigint.workspace = true
+rustls.workspace = true
+webpki-roots.workspace = true
 
 [lints]
 workspace = true

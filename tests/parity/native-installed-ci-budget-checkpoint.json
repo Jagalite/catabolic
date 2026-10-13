@@ -1,0 +1,155 @@
+{
+  "format": 1,
+  "scope": "Measured local selected-installed timing and literal CI budget correction only; not product or hosted-platform qualification",
+  "base_commit": "1fa5e41efe2a4abe69e672afe8ab04bc8293b59d",
+  "budget": {
+    "workflow": ".github/workflows/native-qualification.yml",
+    "context": "jobs.installed.timeout-minutes",
+    "old_minutes": 20,
+    "exact_minutes": 45,
+    "native_job_minutes_unchanged": 90,
+    "headroom_above_selected311_seconds": 1017,
+    "rationale": "28m03s local selected sequence already exceeds 20m; 45m leaves 16m57s for setup, uploads and runner variation, without claiming a measured upper bound",
+    "strict_commands_inputs_refusals_and_always_uploads_unchanged": true
+  },
+  "measured_artifact": {
+    "source_root": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-next",
+    "build_preflight_commit": "263d1e58141629374dc9bf175898e360492ed6c7",
+    "build_source_sha256": "9f812ca7fc957372b7ebbfe2c761e1d3b8dd5c0dc2dc24d09a88fde80e587f19",
+    "build_source_sha256_after": "9f812ca7fc957372b7ebbfe2c761e1d3b8dd5c0dc2dc24d09a88fde80e587f19",
+    "gate_source_snapshot_sha256": "429a843ab3b4f15769b9cba217a213f401913099a81356ed3147a8dee61f920b",
+    "gate_workflow_sha256": "99b167ea9e615b44aa0a987e957a41f08a69c1bef5f0bf23a7619f66743e32d6",
+    "wheel_path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-next/.local-tests/cli-next/resumed-cohort-7/catabolic_native-0.2.0-cp311-abi3-manylinux_2_39_x86_64.whl",
+    "wheel_sha256": "01711411dc3514ee4cd52651b10177da77b33df88f16671b5d436e1bbb6f3a2f",
+    "native_binary_sha256": "ba2f39bcf6225ba057ac5eed503ca439039b3c2b828558114ad1fe08e274d275",
+    "legacy_binary_sha256": "80a8f4caef439cb38d0c697e1ada0cdb27deddfb11b4839e315b655f33ca6fcc",
+    "frozen_reference_commit": "453fca983222c6665a48775eef67c489c96b527e"
+  },
+  "measured_runs": {
+    "python311": {
+      "version": "3.11.15",
+      "started_utc": "2026-10-12T21:30:25Z",
+      "completed_utc": "2026-10-12T21:58:28Z",
+      "selected_runner_seconds": 1683,
+      "selected_runner_exit": 0,
+      "legacy_methods_passed": 79,
+      "legacy_method_suite_seconds": 1344.259,
+      "legacy_strict_receipt_seconds": 1353.9892180969982,
+      "minimal_asgi_cases": 6
+    },
+    "python314": {
+      "version": "3.14.6",
+      "selected_runner_exit": 1,
+      "legacy_methods_run": 79,
+      "legacy_methods_passed": 78,
+      "legacy_methods_failed": 1,
+      "legacy_method_suite_seconds": 1350.968,
+      "legacy_strict_attempt_seconds": 1361.8798331630023,
+      "legacy_success_receipt_exists": false,
+      "failure": "NativeDestinationMappingTest.test_recovery_catalog_writer_contention_preserves_event_and_lock: ConsumerError != CatalogBusy",
+      "runner_stopped_at_failure": true
+    }
+  },
+  "controls": {
+    "python314": {
+      "version": "3.14.6",
+      "focused": {
+        "passed": 19,
+        "seconds": 2.661,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0
+      },
+      "related": {
+        "passed": 154,
+        "seconds": 78.978,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0
+      },
+      "negative_mutations_per_surface": 102,
+      "surfaces": 6,
+      "rejected_mutation_checks": 612
+    },
+    "python311": {
+      "version": "3.11.15",
+      "focused": {
+        "passed": 19,
+        "seconds": 2.617,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0
+      },
+      "related": {
+        "passed": 154,
+        "seconds": 68.235,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0
+      },
+      "negative_mutations_per_surface": 102,
+      "surfaces": 6,
+      "rejected_mutation_checks": 612
+    }
+  },
+  "lint_and_format": "passed for both changed Python files; git diff --check passed",
+  "independent_review": {
+    "status": "accepted",
+    "remaining_blocking_findings": 0,
+    "focused_passed_each_python": 19,
+    "related_passed_each_python": 154,
+    "checked_in_mutation_rejections_each_python": 612,
+    "independent_timeout_mutation_rejections_each_python": 73,
+    "retained_file_and_artifact_hashes_verified": 33,
+    "resolved_item": "Required SPDX sidecar added before acceptance",
+    "report": "/workspace/scratch/9c9a5a8c3955/catabolic-installed-ci-budget/.local-tests/installed-ci-budget/independent/review.json",
+    "report_sha256": "21542526a353115177fd627e03db47279b3929c1c0ba8ed11772804a9a2cad78"
+  },
+  "remaining_limits": [
+    "No GitHub-hosted or macOS timing qualification; local run excludes checkout, installation, artifact download and upload",
+    "Python 3.14 selected runner failed and did not reach later gates or full ASGI qualification",
+    "Changing guarded source requires fresh final integrated qualification; cohort 7 does not qualify this changed workflow",
+    "No fixture or product changes, no full leaf parity or M9 completion, no release acceptance",
+    "Two broader safety reviews remain blocked; narrow review does not replace them"
+  ],
+  "retained_cohort_evidence_root": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-next/.local-tests/cli-next/resumed-cohort-7",
+  "retained_cohort_sha256": {
+    "preflight.json": "454669e925b471611d519c40570ac764eff90e74982ed177d13ba2f7ec88ef22",
+    "build-manifest.json": "4aff9771773f202407b5fc49d6939067a38801c31826928c4f49a557f942cb3b",
+    "run-installed.sh": "12eb83847a30047823c615b528adba950cc98814043f146704d4860a9279f33e",
+    "installed-isolated-311-progress.log": "91dff71e8d7eb40352517b59c0d3bbfce2e906faac8c24287cf2020bbe255001",
+    "installed-isolated-311.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "installed-isolated-311/native_legacy_adapter_tests.log": "3b2f9528d941aeba2ef2565b5fb1058dfa0d152fd7fab0c69ab98144fa578540",
+    "installed-isolated-311/native_legacy_adapter_tests.json": "50bfee364807bcae87951bf232bc14052bfd8f103ccf034af9444131b1a4453b",
+    "installed-isolated-311/native_legacy_adapter_tests.attempt.json": "50bfee364807bcae87951bf232bc14052bfd8f103ccf034af9444131b1a4453b",
+    "installed-isolated-311/native-asgi-minimal.json": "7b1d7e28bf13073c908942b3edb1ea2340c3896668be22798ba2893abcdd549b",
+    "installed-isolated-311/native-wheel-before.json": "a624bff95db8f979e225a2ed14d59139f67ee4278ac672e4dc0c2bf52344d654",
+    "installed-isolated-311/native-wheel-after.json": "a624bff95db8f979e225a2ed14d59139f67ee4278ac672e4dc0c2bf52344d654",
+    "installed-isolated-314-progress.log": "16b5c9f95ed903439cb609a30ed68c4f2da1fa8d83942fbd57d83f293954de2b",
+    "installed-isolated-314.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "installed-isolated-314/native_legacy_adapter_tests.log": "6d101e2e147866f7913d2d07ac2ef6e79bd278b1f5dcc6eb1af681e0b445d70d",
+    "installed-isolated-314/native_legacy_adapter_tests.attempt.json": "e2e3e0d705cb575c4843536f5f650682d6d8aa37145c970d96c4437644c4ee58"
+  },
+  "local_controls_root": "/workspace/scratch/9c9a5a8c3955/catabolic-installed-ci-budget/.local-tests/installed-ci-budget",
+  "local_controls_sha256": {
+    "control-commands.txt": "19c5562d73a308173ac626a4b15f5736ab928bab9f1bd136ef5db4a076905110",
+    "count-mutations.py": "1a64ec27ad55ebbb9bb95df4f730dc6cb7eea2d0aca54d3cb3cc994d63d3a763",
+    "focused-python311.log": "f4e62de952651d9b681dea0eb34f35341ec88368ec89dd5e9e6e654c34e1b78e",
+    "focused-python314.log": "21da183671264195567c6565e31447ece511bb7cf8fe2816df064fb0fc203894",
+    "mutations-python311.json": "5aedafc9a4d8b768506f3aeef28dbb2c93535f4ea564e53ea935cd056d3959f6",
+    "mutations-python311.log": "2ef90de196ddcfd9181f9aa237524d5813fd7ebad34146f0716ea459bd6242f1",
+    "mutations-python314.json": "5aedafc9a4d8b768506f3aeef28dbb2c93535f4ea564e53ea935cd056d3959f6",
+    "mutations-python314.log": "04a7f4228e2d73c75c5586dc5fdfd29b480c787a1492d2e3a0ec2e2189dec3c6",
+    "related-python311.log": "4b81f6f0bcab74bc76189d8ea9be1c1c5fe877b16b19f34ee8bb8d41b8fcd42d",
+    "related-python314.log": "b30978e88613c25a136768bcd8ff44acd8db19b7856ee42b2e26b5e66faeb16b",
+    "ruff-check.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "ruff-format.log": "3bc53bf3e981a98a34a852e175bf9b77af841edea74fca595d9aedcbaf9a4938",
+    "integrity-audit.log": "15126605f170307f2f0b0d007a6f44ab98ce9b16adf5519970b84447c25ab3be",
+    "docs-check.log": "cded038284aa703460ea80dc2d293527d607e1745914ee294cd7d52a19442354"
+  },
+  "changed_contract_sha256": {
+    ".github/workflows/native-qualification.yml": "e794a7f1c687654e6c6148d4004c877642bf587bc7e3c2f35f6e9b5c11767066",
+    "tests/native_ci_contract.py": "ed64553ae3e72ac1dae1ac357ac30fe6d766c4f7d67095a351423051196ecc37",
+    "tests/test_native_ci_contract.py": "d48a781d4b9cb5d2bc5f40ea88d2a0c13ddd46a4923ed0b3c3cdfca4c86266ce"
+  }
+}

@@ -331,6 +331,105 @@ fn run(store: &mut Store, profile: &str, id: &str, args: &Value, refresh: bool) 
         json!({"rule_id":id,"complete":execution["complete"]==true&&after["counts"]["satisfied"]==after["matched_inputs"],"execution":execution,"after":storage::bounded(&after,limit)}),
     )
 }
+
+/// The preserved worker command executes one step per selected registered job.
+/// Claim, transport, acceptance and readback retain their existing owners; no
+/// catalog connection or advisory writer lock survives a network wait.
+pub fn run_external(
+    path: &std::path::Path,
+    profile: &str,
+    id: &str,
+    args: &Value,
+    transport: &mut impl crate::processors::Transport,
+    cancel: &AtomicBool,
+) -> Result<Value> {
+    let batch = page(args, "batch", 1)?;
+    let limit = page(args, "limit", 100)?;
+    let (operation, mut selected) = {
+        let store = Store::open(path, true, false)?;
+        catabolic_store::mutation::profile(&store, profile)?;
+        let rule = definitions::rule_get(&store, profile, id)?;
+        let operation = media_mutation::operation_get(&store, field(&rule, "recipe_id")?)?;
+        if operation["operation_kind"] != "external" {
+            return Err(Error("--worker is for external rule execution".into()));
+        }
+        let before = plan(&store, profile, id, None)?;
+        let registered = storage::registered_processor_jobs(&store, id)?;
+        let mut seen = BTreeSet::new();
+        let selected = before["matches"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|row| matches!(row["state"].as_str(), Some("queued" | "running")))
+            .filter_map(|row| row["job_id"].as_str())
+            .filter(|id| registered.contains(*id) && seen.insert((*id).to_owned()))
+            .take(batch)
+            .map(str::to_owned)
+            .collect::<Vec<_>>();
+        (operation, selected)
+    };
+    let (mut completed, mut errors, mut steps) = (vec![], vec![], vec![]);
+    while !selected.is_empty() {
+        if cancel.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(Error("native legacy CLI interrupted".into()));
+        }
+        let lease = {
+            let store = Store::open(path, true, false)?;
+            catabolic_store::mutation::profile(&store, profile)?;
+            processor_mutation::claim(
+                &store,
+                profile,
+                field(&operation, "preset")?,
+                field(args, "worker")?,
+                300,
+                true,
+                Some(&selected),
+            )?
+        };
+        if lease["claimed"] != true {
+            steps.push(lease);
+            break;
+        }
+        let job_id = field(&lease, "id")?;
+        selected.retain(|id| id != job_id);
+        let result = (|| {
+            let result = {
+                let mut store = Store::open(path, true, false)?;
+                catabolic_store::mutation::profile(&store, profile)?;
+                crate::processors::dispatch_with_transport(
+                    &mut store,
+                    profile,
+                    job_id,
+                    field(&lease, "lease_token")?,
+                    transport,
+                )?
+            };
+            steps.push(json!({"job_id":job_id,"result":result}));
+            let store = Store::open(path, false, false)?;
+            catabolic_store::mutation::profile(&store, profile)?;
+            let job = processor_mutation::job(&store, profile, job_id)?;
+            if job["state"] == "complete" {
+                completed.push(json!({"job_id":job["id"],"receipt_id":job["receipt_id"]}));
+            }
+            Ok::<_, Error>(())
+        })();
+        if cancel.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(Error("native legacy CLI interrupted".into()));
+        }
+        if let Err(error) = result {
+            errors.push(json!({"job_id":job_id,"error":error.0}));
+            break;
+        }
+    }
+    let store = Store::open(path, false, false)?;
+    catabolic_store::mutation::profile(&store, profile)?;
+    let after = storage::bounded(&plan(&store, profile, id, None)?, limit);
+    Ok(
+        json!({"rule_id":id,"execution":{"completed":completed,"errors":errors,
+        "steps":steps,"complete":errors.is_empty()},"complete":errors.is_empty()
+            && after["matched_inputs"] == after["counts"]["satisfied"],"after":after}),
+    )
+}
 fn maintain(store: &mut Store, profile: &str, args: &Value) -> Result<Value> {
     let batch = page(args, "batch", 100)?;
     let limit = page(args, "limit", 100)?;

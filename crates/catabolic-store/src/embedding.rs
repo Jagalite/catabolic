@@ -55,6 +55,30 @@ impl Session {
             poisoned_scopes: Cell::new(false),
         })
     }
+    /// Validate a fallback evaluation before an outer callback can run. This
+    /// performs no cancellation polling and does not lend the Store.
+    pub fn check_evaluation(&self, profile: &str, args: &Value) -> Result<()> {
+        self.store()?;
+        if args["session_owner_matches"] == false {
+            return Err(Error("evaluation_session_identity_mismatch".into()));
+        }
+        let epoch = crate::fallback_resolution::epoch(self.store()?)?;
+        if let Some(token) = args["session"].as_u64() {
+            let entry = self
+                .evaluations
+                .get(&token)
+                .ok_or_else(|| Error("evaluation_session_identity_mismatch".into()))?;
+            if entry.profile != profile {
+                return Err(Error("evaluation_session_identity_mismatch".into()));
+            }
+            if entry.epoch != epoch {
+                return Err(Error("stale_evaluation_snapshot".into()));
+            }
+        } else if !args["session"].is_null() {
+            return Err(Error("evaluation_session_identity_mismatch".into()));
+        }
+        Ok(())
+    }
     /// Lend the same Store to a bounded evaluator without reopening a catalog.
     /// Native session handles retain their consumed budget, cache and epoch.
     pub fn with_evaluation<T>(
@@ -65,28 +89,11 @@ impl Session {
         max_ids: usize,
         operation: impl FnOnce(&mut crate::selection::Evaluation) -> Result<T>,
     ) -> Result<T> {
-        self.store()?;
-        if args["session_owner_matches"] == false {
-            return Err(Error("evaluation_session_identity_mismatch".into()));
-        }
-        let epoch = crate::fallback_resolution::epoch(self.store()?)?;
+        self.check_evaluation(profile, args)?;
         let mut temporary;
         let evaluation = if let Some(token) = args["session"].as_u64() {
-            let entry = self
-                .evaluations
-                .get_mut(&token)
-                .ok_or_else(|| Error("evaluation_session_identity_mismatch".into()))?;
-            if entry.profile != profile {
-                return Err(Error("evaluation_session_identity_mismatch".into()));
-            }
-            if entry.epoch != epoch {
-                return Err(Error("stale_evaluation_snapshot".into()));
-            }
-            &mut entry.evaluation
+            &mut self.evaluations.get_mut(&token).unwrap().evaluation
         } else {
-            if !args["session"].is_null() {
-                return Err(Error("evaluation_session_identity_mismatch".into()));
-            }
             temporary = crate::selection::Evaluation::unbound(profile, timeout_ms, max_ids, false);
             &mut temporary
         };
@@ -110,9 +117,41 @@ impl Session {
             Err(panic) => std::panic::resume_unwind(panic),
         }
     }
+    /// Borrow the exact catalog owner for a sealed administrative grant check.
+    /// This evaluator is temporary and cannot enter the public session table.
+    pub(crate) fn select_access_grant(
+        &mut self,
+        profile: &str,
+        id: &str,
+        admission: crate::access_admin::GrantPreflight,
+    ) -> Result<crate::selection::Selected> {
+        let definition =
+            crate::definitions::query_get(self.store()?, profile, id)?["definition"].clone();
+        let mut evaluation = crate::selection::Evaluation::for_access_grant(
+            profile,
+            definition["timeout_ms"].as_u64().unwrap_or(5000),
+            definition["max_ids"].as_u64().unwrap_or(10000) as usize,
+            admission,
+        );
+        let result = evaluation.with_store(&mut self.store, |evaluation| {
+            evaluation.select(&json!({"query_id":id,"profile":profile}))
+        });
+        // Bounded SQL/GraphQL evaluation removes its own deadline handler.
+        // Restore an enclosing embedding bridge before the owner's mutation.
+        if INTERRUPT.with(|slot| slot.borrow().is_some())
+            && let Some(store) = &self.store
+        {
+            store.db.progress_handler(1000, Some(poll_interrupt))?;
+        }
+        result
+    }
     /// Native plans are tied to this Session and never serialized into SQLite.
     pub fn fallback_plans(&mut self) -> &mut crate::public_fallback::Plans {
         &mut self.fallback_plans
+    }
+    /// Public watcher metadata and invalidation retain the caller's exact owner.
+    pub fn watcher_call(&mut self, profile: &str, operation: &str, args: &Value) -> Result<Value> {
+        crate::public_watchers::call(self.store()?, profile, operation, args)
     }
     /// Dispatch persistent query engines using the caller's current transaction.
     pub fn query_call(&mut self, profile: &str, operation: &str, args: &Value) -> Result<Value> {
@@ -412,6 +451,13 @@ impl Session {
         }
         store.transaction_available()?;
         Ok(store)
+    }
+    /// Cleanup only: remove a bridge callback even after SQLite aborted an
+    /// active lexical scope. This does not admit further operations or revive it.
+    pub fn clear_interrupt_handler(&self) {
+        if let Some(store) = &self.store {
+            let _ = store.db.progress_handler(0, None::<fn() -> bool>);
+        }
     }
     /// Cancel all live lexical scopes, retaining tokens only for clean unwind.
     pub fn abort_scopes(&mut self) {

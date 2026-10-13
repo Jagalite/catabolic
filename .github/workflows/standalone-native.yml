@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
+name: Bounded standalone native candidate
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'crates/**'
+      - 'src/catabolic/http/releases/1.7.0/openapi.json*'
+      - 'Cargo.*'
+      - 'rust-toolchain.toml'
+      - 'LICENSE'
+      - '.cargo/**'
+      - 'scripts/standalone-native-ci.sh'
+      - 'tests/standalone-native-ci-contract.sh'
+      - '.github/workflows/standalone-native.yml'
+permissions:
+  contents: read
+jobs:
+  standalone-native:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      CARGO_BUILD_JOBS: '1'
+      CARGO_TARGET_DIR: ${{ runner.temp }}/standalone-native-target
+      RUSTUP_TOOLCHAIN: '1.99.0'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Reserve fresh evidence before setup
+        run: |
+          mkdir "$RUNNER_TEMP/standalone-native"
+          printf '%s\n' 'not-run; no runtime, platform or release qualification' > "$RUNNER_TEMP/standalone-native/setup-status.txt"
+      - name: Set up exact Rust and fetch locked Cargo dependencies
+        run: |
+          set -o pipefail
+          # This is the only network preparation. No Python, wheel or package installer.
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy 2>&1 | tee "$RUNNER_TEMP/standalone-native/toolchain.log"
+          cargo fetch --locked 2>&1 | tee "$RUNNER_TEMP/standalone-native/fetch.log"
+          printf '%s\n' 'setup-passed; native runner not yet completed' > "$RUNNER_TEMP/standalone-native/setup-status.txt"
+      - name: Test offline runner contracts with fake commands
+        run: bash tests/standalone-native-ci-contract.sh > "$RUNNER_TEMP/standalone-native/contract.log" 2>&1
+      - name: Build and check a source-bound native candidate offline
+        run: bash scripts/standalone-native-ci.sh "$GITHUB_WORKSPACE" "$RUNNER_TEMP/standalone-native/run"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: unqualified-standalone-native-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/standalone-native/run/candidate.tar
+            ${{ runner.temp }}/standalone-native/run/evidence/manifest.sha256
+            ${{ runner.temp }}/standalone-native/run/evidence/archive.sha256
+          if-no-files-found: error
+          compression-level: 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: standalone-native-evidence-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/standalone-native/setup-status.txt
+            ${{ runner.temp }}/standalone-native/*.log
+            ${{ runner.temp }}/standalone-native/run/evidence/
+          if-no-files-found: error
+# Independent of native-qualification.yml and its wrapper/oracle prerequisites.
+# This workflow does not publish releases, qualify M4-M11, or enable unsafe output.

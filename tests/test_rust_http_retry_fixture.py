@@ -3,7 +3,11 @@
 """Hermetic qualification retry checks; never contact a server or run a journey."""
 
 import ast
+import fcntl
 import json
+import os
+import runpy
+import signal
 import subprocess
 import tempfile
 import types
@@ -12,6 +16,7 @@ import urllib.error
 import urllib.request
 from email.message import Message
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 BUSY = {"code": "catalog_busy", "retryable": True}
@@ -169,10 +174,10 @@ class QualificationRetryFixtureTest(unittest.TestCase):
             ):
                 root = Path(temporary)
 
-                def timeout(command, *, binary=binary, **kwargs):
+                def timeout(*arguments, binary=binary):
                     raise subprocess.TimeoutExpired(
-                        command,
-                        kwargs["timeout"],
+                        ["node", "client.js"],
+                        30,
                         output=partial.encode() if binary else partial,
                         stderr=b"fixture error\xff" if binary else "fixture error",
                     )
@@ -188,6 +193,11 @@ class QualificationRetryFixtureTest(unittest.TestCase):
                     "commands": 12,
                     "busy_attempts": [{"method": "GET", "retried": True}],
                     "generated_busy_attempts": [],
+                    "generated_phases": [],
+                    "isolate_worker": Mock(),
+                    "run_generated_client": timeout,
+                    "worker_isolation": {"reaped": True},
+                    "contention_check": {"complete": True},
                     "json": json,
                     "subprocess": types.SimpleNamespace(
                         run=timeout,
@@ -265,6 +275,250 @@ console.log('mock retry checks passed');
             timeout=15,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
+class QualificationIsolationFixtureTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.qualifier = runpy.run_path(str(ROOT / "scripts/qualify_native_http.py"))
+
+    def test_worker_is_reaped_before_isolation_receipt(self):
+        worker = Mock(pid=123, **{"poll.return_value": None, "wait.return_value": 0})
+        receipt = self.qualifier["stop_owned_worker"](worker)
+        worker.terminate.assert_called_once_with()
+        worker.wait.assert_called_once_with(timeout=10)
+        self.assertTrue(receipt["reaped"])
+        self.assertEqual(receipt["returncode"], 0)
+
+    def test_dead_worker_cannot_claim_isolation_success(self):
+        worker = Mock(**{"poll.return_value": 1})
+        with self.assertRaisesRegex(RuntimeError, "exited before"):
+            self.qualifier["stop_owned_worker"](worker)
+        worker.terminate.assert_not_called()
+        worker.wait.assert_not_called()
+
+    def test_shutdown_failure_or_timeout_cannot_claim_isolation_success(self):
+        for code in (1, -signal.SIGTERM, 128 + signal.SIGTERM):
+            worker = Mock(**{"poll.return_value": None, "wait.return_value": code})
+            with (
+                self.subTest(code=code),
+                self.assertRaisesRegex(RuntimeError, "shutdown failed"),
+            ):
+                self.qualifier["stop_owned_worker"](worker)
+        worker.wait.side_effect = subprocess.TimeoutExpired("owned-worker", 10)
+        with self.assertRaises(subprocess.TimeoutExpired):
+            self.qualifier["stop_owned_worker"](worker)
+
+    def test_separate_contention_is_held_for_one_sentinel_request_only(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            lock_path = root / "catalog.sqlite3.lock"
+            lock_path.touch()
+            calls = []
+
+            def request(path, body):
+                calls.append((path, body))
+                with lock_path.open("r+b") as competing:
+                    with self.assertRaises(BlockingIOError):
+                        fcntl.flock(competing, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return 503, BUSY
+
+            receipt = self.qualifier["check_writer_contention"](root, request)
+            self.assertTrue(receipt["complete"])
+            self.assertEqual(
+                calls,
+                [
+                    (
+                        "/v1/content-access",
+                        {
+                            "file_id": "qualification-contended-admission",
+                            "revision": "never-replayed",
+                        },
+                    )
+                ],
+            )
+            with lock_path.open("r+b") as released:
+                fcntl.flock(released, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def test_contention_failures_are_not_replayed_and_release_lock(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            lock_path = root / "catalog.sqlite3.lock"
+            lock_path.touch()
+            for response in (
+                (200, {}),
+                (503, {"code": "other"}),
+                (503, {"code": "catalog_busy", "retryable": False}),
+            ):
+                with self.subTest(response=response):
+                    request = Mock(return_value=response)
+                    with self.assertRaises(AssertionError):
+                        self.qualifier["check_writer_contention"](root, request)
+                    request.assert_called_once()
+                    with lock_path.open("r+b") as released:
+                        fcntl.flock(released, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            request = Mock(side_effect=OSError("fixture failure"))
+            with self.assertRaises(OSError):
+                self.qualifier["check_writer_contention"](root, request)
+            request.assert_called_once()
+            with lock_path.open("r+b") as released:
+                fcntl.flock(released, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+class QualificationClientPhaseTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.qualifier = runpy.run_path(str(ROOT / "scripts/qualify_native_http.py"))
+
+    def run_client(self, root, program, isolate, phases, timeout=5):
+        client = root / "client.mjs"
+        client.write_text(
+            "import {readFileSync,readSync,writeFileSync} from 'node:fs';\n"
+            "const fixture=JSON.parse(readFileSync(0,'utf8'));\n"
+            "const mark=phase=>console.log(JSON.stringify({type:'qualification_phase',phase}));\n"
+            "const release=()=>{const b=Buffer.alloc(1); const n=readSync(fixture.phase_fd,b,0,1,null);"
+            "if(n===1&&b.toString()==='1')writeFileSync('released','yes');else process.exit(9)};\n"
+            + program
+        )
+        children = []
+        descriptors = []
+        self.release_writes = []
+        popen = subprocess.Popen
+        pipe, write = os.pipe, os.write
+
+        def create_pipe():
+            pair = pipe()
+            descriptors.extend(pair)
+            return pair
+
+        def send(descriptor, data):
+            self.release_writes.append((descriptor, data))
+            return write(descriptor, data)
+
+        def start(*args, **kwargs):
+            child = popen(*args, **kwargs)
+            children.append(child)
+            return child
+
+        try:
+            with (
+                patch("subprocess.Popen", side_effect=start),
+                patch("os.pipe", side_effect=create_pipe),
+                patch("os.write", side_effect=send),
+            ):
+                return self.qualifier["run_generated_client"](
+                    client,
+                    {"token": "PRIVATE-AUTH"},
+                    root,
+                    None,
+                    isolate,
+                    phases,
+                    timeout,
+                )
+        finally:
+            self.assertEqual(len(children), 1)
+            self.assertIsNotNone(children[0].poll(), "client process was not reaped")
+            self.assertTrue(children[0].stdin.closed)
+            for descriptor in descriptors:
+                with self.assertRaises(OSError):
+                    os.fstat(descriptor)
+
+    def test_mutations_wait_for_acknowledged_reap(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root, phases = Path(temporary), []
+
+            def isolate():
+                self.assertEqual(phases, ["processing_ready"])
+                self.assertFalse((root / "released").exists())
+                return {"reaped": True}
+
+            result = self.run_client(
+                root,
+                "mark('processing_ready');release();mark('isolated_complete');",
+                isolate,
+                phases,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertTrue((root / "released").exists())
+            self.assertEqual(phases, ["processing_ready", "isolated_complete"])
+            self.assertEqual([value for _, value in self.release_writes], [b"1"])
+            self.assertNotIn("PRIVATE-AUTH", result.stdout + result.stderr)
+
+    def test_failed_shutdown_never_sends_release(self):
+        for isolate in (
+            Mock(side_effect=RuntimeError("shutdown failed")),
+            Mock(return_value={"reaped": False}),
+        ):
+            with tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                with self.assertRaises(RuntimeError):
+                    self.run_client(
+                        root, "mark('processing_ready');release();", isolate, []
+                    )
+                self.assertFalse((root / "released").exists())
+                self.assertEqual(self.release_writes, [])
+                isolate.assert_called_once_with()
+
+    def test_missing_duplicate_and_out_of_order_markers_fail(self):
+        for program in (
+            "console.log('no phases');",
+            "mark('isolated_complete');",
+            "mark('processing_ready');release();mark('processing_ready');",
+            "mark('processing_ready');release();mark('isolated_complete');mark('isolated_complete');",
+        ):
+            with (
+                self.subTest(program=program),
+                tempfile.TemporaryDirectory() as temporary,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "phase"):
+                    self.run_client(
+                        Path(temporary),
+                        program,
+                        Mock(return_value={"reaped": True}),
+                        [],
+                    )
+
+    def test_premature_failure_does_not_isolate_worker(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            isolate = Mock()
+            result = self.run_client(Path(temporary), "process.exit(3);", isolate, [])
+            self.assertEqual(result.returncode, 3)
+            isolate.assert_not_called()
+
+    def test_timeout_preserves_partial_busy_output_and_reaps_client(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root, isolate = Path(temporary), Mock()
+            program = "console.log(JSON.stringify({type:'catalog_busy_attempt',retried:false}));process.stdout.write('partial');setInterval(()=>{},1000);"
+            with self.assertRaises(subprocess.TimeoutExpired) as raised:
+                self.run_client(root, program, isolate, [], timeout=1)
+            isolate.assert_not_called()
+            self.assertIn('"retried":false', raised.exception.stdout)
+            self.assertTrue(raised.exception.stdout.endswith("partial"))
+            self.assertEqual(
+                (root / "generated-client.stdout").read_text(), raised.exception.stdout
+            )
+
+    def test_timeout_after_processing_reap_still_does_not_release(self):
+        import time
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root, phases = Path(temporary), []
+
+            def slow_shutdown():
+                time.sleep(1)
+                return {"reaped": True}
+
+            with self.assertRaises(subprocess.TimeoutExpired):
+                self.run_client(
+                    root,
+                    "mark('processing_ready');release();",
+                    slow_shutdown,
+                    phases,
+                    timeout=1,
+                )
+            self.assertEqual(phases, ["processing_ready"])
+            self.assertEqual(self.release_writes, [])
+            self.assertFalse((root / "released").exists())
 
 
 if __name__ == "__main__":

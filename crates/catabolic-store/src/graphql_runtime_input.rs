@@ -4,7 +4,7 @@
 //! validation. Errors are emitted only at an executed field/selection boundary.
 use async_graphql_parser::{
     Pos, Positioned,
-    types::{BaseType, Directive, ExecutableDocument, Field, Selection, SelectionSet, Type},
+    types::{Directive, ExecutableDocument, Field, Selection, SelectionSet, Type},
 };
 use async_graphql_value::Value as Input;
 use serde_json::Value;
@@ -14,7 +14,6 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(crate) struct Failure {
     pub message: String,
     pub pos: Pos,
-    pub indices: Vec<usize>,
 }
 impl std::fmt::Display for Failure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -24,14 +23,8 @@ impl std::fmt::Display for Failure {
 impl Failure {
     pub fn server_error(
         &self,
-        mut path: Vec<async_graphql::PathSegment>,
+        path: Vec<async_graphql::PathSegment>,
     ) -> async_graphql::ServerError {
-        path.extend(
-            self.indices
-                .iter()
-                .copied()
-                .map(async_graphql::PathSegment::Index),
-        );
         let mut error = async_graphql::ServerError::new(&self.message, Some(self.pos));
         error.path = path;
         error
@@ -40,18 +33,19 @@ impl Failure {
 #[derive(Default)]
 struct FieldPlan {
     argument: Option<Failure>,
-    children: Option<Failure>,
 }
-#[derive(Default)]
 pub(crate) struct RuntimeInputs {
-    pub root_error: Option<Failure>,
+    document: ExecutableDocument,
+    variables: Value,
+    source: String,
+    http: bool,
     fields: BTreeMap<(usize, usize), FieldPlan>,
     deferred: BTreeSet<(usize, usize)>,
 }
 fn key(pos: Pos) -> (usize, usize) {
     (pos.line, pos.column)
 }
-fn named(mut ty: &Value) -> &str {
+pub(crate) fn named(mut ty: &Value) -> &str {
     while ty["ofType"].is_object() {
         ty = &ty["ofType"];
     }
@@ -78,7 +72,17 @@ fn type_def(name: &str, http: bool) -> Option<&'static Value> {
         .iter()
         .find(|v| v["name"] == name)
 }
-fn field_def(parent: &str, name: &str, http: bool) -> Option<Value> {
+pub(crate) fn field_def(parent: &str, name: &str, http: bool) -> Option<Value> {
+    if name == "__typename" {
+        return Some(
+            serde_json::json!({"name":name,"type":{"kind":"NON_NULL","ofType":{"kind":"SCALAR","name":"String"}},"args":[]}),
+        );
+    }
+    if parent == "Query" && name == "__schema" {
+        return Some(
+            serde_json::json!({"name":name,"type":{"kind":"NON_NULL","ofType":{"kind":"OBJECT","name":"__Schema"}},"args":[]}),
+        );
+    }
     if parent == "Query" && name == "__type" {
         return Some(
             serde_json::json!({"name":"__type","type":{"kind":"OBJECT","name":"__Type"},"args":[{"name":"name","type":{"kind":"NON_NULL","ofType":{"kind":"SCALAR","name":"String"}}}]}),
@@ -149,7 +153,6 @@ fn argument_failure(
     Some(Failure {
         message,
         pos: input.pos,
-        indices: vec![],
     })
 }
 struct Planner<'a> {
@@ -191,36 +194,60 @@ impl Planner<'_> {
                 .and_then(|ty| ty["possibleTypes"].as_array())
                 .is_some_and(|types| types.iter().any(|ty| ty["name"] == actual))
     }
-    fn selection_error(
+    fn fields(
         &self,
         set: &SelectionSet,
         parent: &str,
         seen: &mut BTreeSet<String>,
-    ) -> Option<Failure> {
+        out: &mut Vec<CollectedField>,
+        indices: &mut BTreeMap<String, usize>,
+    ) -> Result<(), Failure> {
         for selection in &set.items {
+            // A visited named fragment is ignored before evaluating directives,
+            // matching graphql-core CollectFields, including merged selections.
             if let Selection::FragmentSpread(spread) = &selection.node
                 && seen.contains(spread.node.fragment_name.node.as_str())
             {
                 continue;
             }
-            match self.condition(selection.node.directives()) {
-                Err(error) => return Some(error),
-                Ok(false) => continue,
-                Ok(true) => {}
+            if !self.condition(selection.node.directives())? {
+                continue;
             }
             match &selection.node {
+                Selection::Field(field) => {
+                    let response_key = field.node.response_key().node.to_string();
+                    if let Some(index) = indices.get(&response_key) {
+                        let existing = &mut out[*index];
+                        existing.locations.push(field.pos);
+                        existing
+                            .field
+                            .node
+                            .selection_set
+                            .node
+                            .items
+                            .extend(field.node.selection_set.node.items.clone());
+                    } else {
+                        indices.insert(response_key, out.len());
+                        out.push(CollectedField {
+                            field: field.clone(),
+                            locations: vec![field.pos],
+                        });
+                    }
+                }
                 Selection::InlineFragment(fragment) => {
                     if fragment
                         .node
                         .type_condition
                         .as_ref()
-                        .is_none_or(|condition| {
-                            self.matches(parent, condition.node.on.node.as_str())
-                        })
-                        && let Some(error) =
-                            self.selection_error(&fragment.node.selection_set.node, parent, seen)
+                        .is_none_or(|c| self.matches(parent, c.node.on.node.as_str()))
                     {
-                        return Some(error);
+                        self.fields(
+                            &fragment.node.selection_set.node,
+                            parent,
+                            seen,
+                            out,
+                            indices,
+                        )?;
                     }
                 }
                 Selection::FragmentSpread(spread) => {
@@ -228,133 +255,19 @@ impl Planner<'_> {
                     seen.insert(name.into());
                     if let Some(fragment) = self.ast.fragments.get(name)
                         && self.matches(parent, fragment.node.type_condition.node.on.node.as_str())
-                        && let Some(error) =
-                            self.selection_error(&fragment.node.selection_set.node, parent, seen)
                     {
-                        return Some(error);
-                    }
-                }
-                Selection::Field(_) => {}
-            }
-        }
-        None
-    }
-    fn merged_runtime_input(&self, set: &SelectionSet, parent: &str, out: &RuntimeInputs) -> bool {
-        fn fields<'a>(
-            planner: &Planner<'a>,
-            set: &'a SelectionSet,
-            parent: &str,
-            seen: &mut BTreeSet<String>,
-            result: &mut Vec<&'a Positioned<Field>>,
-        ) {
-            for selection in &set.items {
-                if matches!(planner.condition(selection.node.directives()), Ok(false)) {
-                    continue;
-                }
-                match &selection.node {
-                    Selection::Field(field) => result.push(field),
-                    Selection::InlineFragment(fragment)
-                        if fragment
-                            .node
-                            .type_condition
-                            .as_ref()
-                            .is_none_or(|c| planner.matches(parent, c.node.on.node.as_str())) =>
-                    {
-                        fields(
-                            planner,
+                        self.fields(
                             &fragment.node.selection_set.node,
                             parent,
                             seen,
-                            result,
-                        )
+                            out,
+                            indices,
+                        )?;
                     }
-                    Selection::FragmentSpread(spread) => {
-                        let name = spread.node.fragment_name.node.as_str();
-                        if seen.insert(name.into())
-                            && let Some(fragment) = planner.ast.fragments.get(name)
-                            && planner
-                                .matches(parent, fragment.node.type_condition.node.on.node.as_str())
-                        {
-                            fields(
-                                planner,
-                                &fragment.node.selection_set.node,
-                                parent,
-                                seen,
-                                result,
-                            );
-                        }
-                    }
-                    _ => {}
                 }
             }
         }
-        fn affected(
-            planner: &Planner<'_>,
-            field: &Field,
-            parent: &str,
-            out: &RuntimeInputs,
-        ) -> bool {
-            if out
-                .fields
-                .get(&key(field.name.pos))
-                .is_some_and(|p| p.argument.is_some() || p.children.is_some())
-            {
-                return true;
-            }
-            let child = field_def(parent, field.name.node.as_str(), planner.http)
-                .map(|f| named(&f["type"]).to_owned())
-                .unwrap_or_default();
-            let mut nested = vec![];
-            fields(
-                planner,
-                &field.selection_set.node,
-                &child,
-                &mut BTreeSet::new(),
-                &mut nested,
-            );
-            nested
-                .iter()
-                .any(|field| affected(planner, &field.node, &child, out))
-        }
-        let mut collected = vec![];
-        fields(self, set, parent, &mut BTreeSet::new(), &mut collected);
-        let mut groups = BTreeMap::<String, Vec<&Positioned<Field>>>::new();
-        for field in collected {
-            groups
-                .entry(field.node.response_key().node.to_string())
-                .or_default()
-                .push(field);
-        }
-        for group in groups.values() {
-            let first = &group[0].node;
-            let arguments = |field: &Field| {
-                field
-                    .arguments
-                    .iter()
-                    .map(|(name, value)| (name.node.to_string(), value.node.clone()))
-                    .collect::<BTreeMap<_, _>>()
-            };
-            if group.len() > 1
-                && group.iter().all(|field| {
-                    field.node.name.node == first.name.node
-                        && arguments(&field.node) == arguments(first)
-                })
-                && group
-                    .iter()
-                    .any(|field| affected(self, &field.node, parent, out))
-            {
-                return true;
-            }
-            for field in group {
-                let child = field_def(parent, field.node.name.node.as_str(), self.http)
-                    .map(|f| named(&f["type"]).to_owned())
-                    .unwrap_or_default();
-                if self.merged_runtime_input(&field.node.selection_set.node, &child, out) {
-                    return true;
-                }
-            }
-        }
-        false
+        Ok(())
     }
     fn collect(&self, set: &SelectionSet, parent: &str, out: &mut RuntimeInputs) {
         for selection in &set.items {
@@ -362,8 +275,7 @@ impl Planner<'_> {
                 if matches!(directive.node.name.node.as_str(), "skip" | "include") {
                     let ty = serde_json::json!({"kind":"NON_NULL","ofType":{"kind":"SCALAR","name":"Boolean"}});
                     for (name, value) in &directive.node.arguments {
-                        if !parent.starts_with("__")
-                            && name.node == "if"
+                        if name.node == "if"
                             && argument_failure(
                                 "if",
                                 value,
@@ -403,22 +315,13 @@ impl Planner<'_> {
                                     self.source,
                                 )
                             {
-                                if !parent.starts_with("__")
-                                    && !field.node.name.node.starts_with("__")
-                                {
-                                    out.deferred.insert(key(name.pos));
-                                }
+                                out.deferred.insert(key(name.pos));
                                 if plan.argument.is_none() {
                                     plan.argument = Some(error);
                                 }
                             }
                         }
                         let child = named(&definition["type"]);
-                        plan.children = self.selection_error(
-                            &field.node.selection_set.node,
-                            child,
-                            &mut BTreeSet::new(),
-                        );
                         self.collect(&field.node.selection_set.node, child, out);
                     } else if field.node.name.node == "__schema" {
                         self.collect(&field.node.selection_set.node, "__Schema", out);
@@ -443,7 +346,7 @@ impl RuntimeInputs {
     pub fn new(
         ast: &ExecutableDocument,
         variables: &Value,
-        operation: Option<&str>,
+        _operation: Option<&str>,
         http: bool,
         source: &str,
     ) -> Self {
@@ -453,15 +356,15 @@ impl RuntimeInputs {
             http,
             source,
         };
-        let mut out = Self::default();
-        for (name, op) in ast.operations.iter() {
-            if operation.is_none_or(|selected| name.is_some_and(|name| name.as_str() == selected)) {
-                out.root_error = planner.selection_error(
-                    &op.node.selection_set.node,
-                    "Query",
-                    &mut BTreeSet::new(),
-                );
-            }
+        let mut out = Self {
+            document: ast.clone(),
+            variables: variables.clone(),
+            source: source.into(),
+            http,
+            fields: BTreeMap::new(),
+            deferred: BTreeSet::new(),
+        };
+        for (_, op) in ast.operations.iter() {
             planner.collect(&op.node.selection_set.node, "Query", &mut out);
         }
         for fragment in ast.fragments.values() {
@@ -471,18 +374,7 @@ impl RuntimeInputs {
                 &mut out,
             );
         }
-        // The framework executes merge-compatible repeated fields separately.
-        // Do not introduce new duplicate resolver work while deferring their
-        // runtime input errors: keep its existing strict-validation result until
-        // field merging receives its own complete implementation.
-        if !out.deferred.is_empty()
-            && ast.operations.iter().any(|(name, op)| {
-                operation.is_none_or(|selected| name.is_some_and(|name| name.as_str() == selected))
-                    && planner.merged_runtime_input(&op.node.selection_set.node, "Query", &out)
-            })
-        {
-            return Self::default();
-        }
+        crate::graphql_input::normalize_document_literals(&mut out.document, http);
         out
     }
     pub fn defers(&self, error: &async_graphql::ServerError) -> bool {
@@ -493,83 +385,286 @@ impl RuntimeInputs {
     pub fn argument_error(&self, field: &Field) -> Option<Failure> {
         self.fields.get(&key(field.name.pos))?.argument.clone()
     }
-    pub fn completion_error(&self, field: &Field, value: &Value, ty: &Type) -> Option<Failure> {
-        let mut error = self.fields.get(&key(field.name.pos))?.children.clone()?;
-        fn first_object(value: &Value, ty: &Type, indices: &mut Vec<usize>) -> bool {
-            if value.is_null() {
-                return false;
-            }
-            if let BaseType::List(inner) = &ty.base {
-                if let Some(values) = value.as_array() {
-                    for (index, value) in values.iter().enumerate() {
-                        indices.push(index);
-                        if first_object(value, inner, indices) {
-                            return true;
-                        }
-                        indices.pop();
-                    }
-                }
-                false
-            } else {
-                true
+    pub fn operation(&self, operation: Option<&str>) -> &SelectionSet {
+        &self
+            .document
+            .operations
+            .iter()
+            .find(|(name, _)| {
+                operation.is_none_or(|selected| name.is_some_and(|name| name.as_str() == selected))
+            })
+            .expect("validated selected operation")
+            .1
+            .node
+            .selection_set
+            .node
+    }
+    pub fn fields(&self, set: &SelectionSet, parent: &str) -> Result<Vec<CollectedField>, Failure> {
+        let planner = Planner {
+            ast: &self.document,
+            variables: &self.variables,
+            http: self.http,
+            source: &self.source,
+        };
+        let mut fields = vec![];
+        planner.fields(
+            set,
+            parent,
+            &mut BTreeSet::new(),
+            &mut fields,
+            &mut BTreeMap::new(),
+        )?;
+        Ok(fields)
+    }
+    pub fn arguments(&self, field: &Field, definition: &Value) -> Value {
+        fn input(value: &Input, variables: &Value) -> Option<Value> {
+            match value {
+                Input::Variable(name) => variables.get(name.as_str()).cloned(),
+                Input::Object(fields) => Some(Value::Object(
+                    fields
+                        .iter()
+                        .filter_map(|(name, value)| {
+                            input(value, variables).map(|value| (name.to_string(), value))
+                        })
+                        .collect(),
+                )),
+                Input::List(values) => Some(Value::Array(
+                    values
+                        .iter()
+                        .map(|value| input(value, variables).unwrap_or(Value::Null))
+                        .collect(),
+                )),
+                value => Some(
+                    serde_json::to_value(value.clone().into_const().expect("constant input"))
+                        .expect("input JSON"),
+                ),
             }
         }
-        first_object(value, ty, &mut error.indices).then_some(error)
+        let mut args = serde_json::Map::new();
+        for argument in definition["args"].as_array().expect("field arguments") {
+            let name = argument["name"].as_str().unwrap();
+            let value = field
+                .get_argument(name)
+                .and_then(|value| input(&value.node, &self.variables));
+            if let Some(value) = value {
+                args.insert(name.into(), value);
+            } else if let Some(default) = argument["defaultValue"].as_str() {
+                args.insert(name.into(), default_value(default));
+            }
+        }
+        Value::Object(args)
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn frozen_composite_list_items_are_non_null() {
-        // completion_error reports the first failing object. This is the exact
-        // current schema rule: composite list items are non-null, so their
-        // first failed selection aborts that list. Adding nullable object list
-        // items requires per-item completion errors before changing this guard.
-        fn check(ty: &Type, kinds: &BTreeMap<String, bool>) {
-            if let BaseType::List(inner) = &ty.base {
-                let mut base = inner.as_ref();
-                while let BaseType::List(next) = &base.base {
-                    base = next;
+pub(crate) struct CollectedField {
+    pub field: Positioned<Field>,
+    pub locations: Vec<Pos>,
+}
+
+pub(crate) fn field_type(definition: &Value) -> Type {
+    Type::new(&display(&definition["type"])).expect("frozen field type")
+}
+
+fn default_value(text: &str) -> Value {
+    // Defaults belong to the immutable native schema, not caller input.
+    static DEFAULTS: std::sync::OnceLock<BTreeMap<String, Value>> = std::sync::OnceLock::new();
+    DEFAULTS.get_or_init(|| {
+        let mut values = BTreeMap::new();
+        for ty in crate::introspection::schema()["types"].as_array().unwrap() {
+            for field in ty["fields"].as_array().into_iter().flatten() {
+                for argument in field["args"].as_array().unwrap() {
+                    if let Some(text) = argument["defaultValue"].as_str() {
+                        values.entry(text.into()).or_insert_with(|| {
+                            let ast = async_graphql_parser::parse_query(format!("{{f(a:{text})}}"))
+                                .expect("schema default");
+                            let operation = ast.operations.iter().next().unwrap().1;
+                            let Selection::Field(field) =
+                                &operation.node.selection_set.node.items[0].node
+                            else {
+                                unreachable!()
+                            };
+                            serde_json::to_value(
+                                field.node.arguments[0].1.node.clone().into_const().unwrap(),
+                            )
+                            .unwrap()
+                        });
+                    }
                 }
-                if let BaseType::Named(name) = &base.base
-                    && kinds.get(name.as_str()) == Some(&true)
-                {
-                    assert!(!inner.nullable, "nullable composite list item: {ty}");
-                }
-                check(inner, kinds);
             }
         }
-        let schema =
-            async_graphql_parser::parse_schema(include_str!("../resources/schema.graphql"))
-                .unwrap();
-        let definitions: Vec<_> = schema
-            .definitions
-            .iter()
-            .filter_map(|d| {
-                if let async_graphql_parser::types::TypeSystemDefinition::Type(ty) = d {
-                    Some(&ty.node)
-                } else {
-                    None
-                }
-            })
-            .collect();
-        let kinds = definitions
-            .iter()
-            .map(|ty| {
-                (
-                    ty.name.node.to_string(),
-                    matches!(ty.kind, async_graphql_parser::types::TypeKind::Object(_)),
-                )
-            })
-            .collect();
-        for ty in definitions {
-            if let async_graphql_parser::types::TypeKind::Object(object) = &ty.kind {
-                for field in &object.fields {
-                    check(&field.node.ty.node, &kinds);
-                }
+        values
+    })[text]
+        .clone()
+}
+
+/// Complete native scalar/enum leaves without relaxing the schema's output
+/// contract. JSON remains opaque; BigInt intentionally uses a decimal string.
+pub(crate) fn serialize(name: &str, value: Value, http: bool) -> Result<Value, String> {
+    let fail = |prefix: &str| format!("{prefix}{}", crate::graphql_input::inspect(&value));
+    match name {
+        "JSON" => Ok(value),
+        "BigInt" => Ok(Value::String(
+            value
+                .as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| value.to_string()),
+        )),
+        "String" => match &value {
+            Value::String(_) => Ok(value),
+            Value::Bool(_) | Value::Number(_) => Ok(Value::String(value.to_string())),
+            _ => Err(fail("String cannot represent value: ")),
+        },
+        "ID" => match &value {
+            Value::String(_) => Ok(value),
+            Value::Number(number) if number.is_i64() || number.is_u64() => {
+                Ok(Value::String(number.to_string()))
+            }
+            Value::Number(number)
+                if number
+                    .as_f64()
+                    .is_some_and(|n| n.is_finite() && n.fract() == 0.0) =>
+            {
+                Ok(Value::String(format!("{:.0}", number.as_f64().unwrap())))
+            }
+            _ => Err(fail("ID cannot represent value: ")),
+        },
+        "Boolean" => match &value {
+            Value::Bool(_) => Ok(value),
+            Value::Number(n) if n.as_f64().is_some_and(f64::is_finite) => {
+                Ok(Value::Bool(n.as_f64() != Some(0.0)))
+            }
+            _ => Err(fail("Boolean cannot represent a non boolean value: ")),
+        },
+        "Int" => {
+            let number = match &value {
+                Value::Bool(b) => Some(i128::from(*b)),
+                Value::Number(n) => n
+                    .as_i64()
+                    .map(i128::from)
+                    .or_else(|| n.as_u64().map(i128::from))
+                    .or_else(|| {
+                        n.as_f64()
+                            .filter(|n| n.is_finite() && n.fract() == 0.0)
+                            .map(|n| n as i128)
+                    }),
+                Value::String(s) => s.trim().parse::<i128>().ok(),
+                _ => None,
+            }
+            .ok_or_else(|| fail("Int cannot represent non-integer value: "))?;
+            i32::try_from(number)
+                .map(Value::from)
+                .map_err(|_| fail("Int cannot represent non 32-bit signed integer value: "))
+        }
+        "Float" => {
+            let number = match &value {
+                Value::Bool(b) => Some(if *b { 1.0 } else { 0.0 }),
+                Value::Number(n) => n.as_f64(),
+                Value::String(s) => s.trim().parse::<f64>().ok(),
+                _ => None,
+            }
+            .filter(|n| n.is_finite())
+            .ok_or_else(|| fail("Float cannot represent non numeric value: "))?;
+            Ok(serde_json::json!(number))
+        }
+        _ => {
+            if type_def(name, http)
+                .and_then(|ty| ty["enumValues"].as_array())
+                .is_some_and(|values| values.iter().any(|entry| entry["name"] == value))
+            {
+                Ok(value)
+            } else {
+                Err(fail(&format!("Enum '{name}' cannot represent value: ")))
             }
         }
     }
+}
+
+/// The framework misses some cross-fragment argument and merged-child conflicts.
+/// Refuse incompatible groups before constructing a scoped context or invoking
+/// a resolver. Static directives cannot make conflicting groups valid. This is
+/// a compatibility guard, not a replacement for full overlap-rule diagnostics.
+pub(crate) fn merged_selection_conflict(ast: &ExecutableDocument, http: bool) -> Option<Value> {
+    fn collect<'a>(
+        ast: &'a ExecutableDocument,
+        set: &'a SelectionSet,
+        parent: &str,
+        seen: &mut BTreeSet<String>,
+        groups: &mut BTreeMap<String, Vec<&'a Positioned<Field>>>,
+    ) {
+        for selection in &set.items {
+            // Static compatibility is independent of skip/include conditions.
+            match &selection.node {
+                Selection::Field(field) => groups
+                    .entry(field.node.response_key().node.to_string())
+                    .or_default()
+                    .push(field),
+                Selection::InlineFragment(fragment)
+                    if fragment
+                        .node
+                        .type_condition
+                        .as_ref()
+                        .is_none_or(|c| c.node.on.node == parent) =>
+                {
+                    collect(ast, &fragment.node.selection_set.node, parent, seen, groups)
+                }
+                Selection::FragmentSpread(spread) => {
+                    let name = spread.node.fragment_name.node.as_str();
+                    if seen.insert(name.into())
+                        && let Some(fragment) = ast.fragments.get(name)
+                        && fragment.node.type_condition.node.on.node == parent
+                    {
+                        collect(ast, &fragment.node.selection_set.node, parent, seen, groups);
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+    fn walk(
+        ast: &ExecutableDocument,
+        set: &SelectionSet,
+        parent: &str,
+        http: bool,
+    ) -> Option<Value> {
+        let mut groups = BTreeMap::new();
+        collect(ast, set, parent, &mut BTreeSet::new(), &mut groups);
+        for (key, fields) in groups {
+            let first = &fields[0].node;
+            let arguments = |field: &Field| {
+                field
+                    .arguments
+                    .iter()
+                    .map(|(name, value)| (name.node.to_string(), value.node.clone()))
+                    .collect::<BTreeMap<_, _>>()
+            };
+            let incompatible = fields.iter().skip(1).find(|field| {
+                field.node.name.node != first.name.node
+                    || arguments(&field.node) != arguments(first)
+            });
+            if let Some(other) = incompatible {
+                return Some(
+                    serde_json::json!({"data":null,"errors":[{"message":format!("Fields '{key}' conflict within merged selections. Use different aliases on the fields to fetch both if this was intentional."),"locations":[{"line":fields[0].pos.line,"column":fields[0].pos.column},{"line":other.pos.line,"column":other.pos.column}]}]}),
+                );
+            }
+            let child = field_def(parent, first.name.node.as_str(), http)
+                .map(|field| named(&field["type"]).to_owned())
+                .unwrap_or_default();
+            let combined_set = SelectionSet {
+                items: fields
+                    .iter()
+                    .flat_map(|field| field.node.selection_set.node.items.clone())
+                    .collect(),
+            };
+            if let Some(error) = walk(ast, &combined_set, &child, http) {
+                return Some(error);
+            }
+        }
+        None
+    }
+    for (_, operation) in ast.operations.iter() {
+        if let Some(error) = walk(ast, &operation.node.selection_set.node, "Query", http) {
+            return Some(error);
+        }
+    }
+    None
 }

@@ -2,12 +2,26 @@
 // SPDX-License-Identifier: MIT
 //! Legacy transport adaptation to production owners. No Python execution and no
 //! automatic engine fallback, including after partially completed operations.
+#[path = "admin_cli.rs"]
+mod admin_cli;
 #[path = "api_worker.rs"]
 mod api_worker;
 #[path = "catalog_refresh.rs"]
 mod catalog_refresh;
+#[path = "consumer_watch.rs"]
+pub(crate) mod consumer_watch;
+#[path = "fallback_worker.rs"]
+mod fallback_worker;
+#[path = "identify.rs"]
+mod identify;
+#[path = "maintenance.rs"]
+mod maintenance;
+#[path = "projection.rs"]
+mod projection;
 #[path = "refresh.rs"]
 mod refresh;
+#[path = "watch.rs"]
+mod watch;
 use super::parser::resource;
 use catabolic_store::{Error, Result, Store};
 use serde_json::{Value, json};
@@ -31,10 +45,14 @@ fn nonnull(v: &Value) -> Value {
 pub fn read_text(path: &str, maximum: usize) -> Result<String> {
     let mut bytes = Vec::new();
     if path == "-" {
-        std::io::stdin()
-            .lock()
-            .take(maximum as u64 + 1)
-            .read_to_end(&mut bytes)?;
+        if super::transport::active() {
+            bytes = super::transport::read_stdin(maximum)?.into_bytes();
+        } else {
+            std::io::stdin()
+                .lock()
+                .take(maximum as u64 + 1)
+                .read_to_end(&mut bytes)?;
+        }
     } else {
         std::fs::File::open(path)?
             .take(maximum as u64 + 1)
@@ -160,7 +178,35 @@ fn documentation(a: &Value) -> Result<Value> {
     }
     Ok(json!({"documentation_version":1,"query":search,"topics":topics}))
 }
+/// Preserve administrative failure provenance before ordinary flat dispatch.
+pub fn dispatch_detailed(a: &Value) -> catabolic_store::access_admin::DetailedResult<Value> {
+    if text(a, "command") == "api"
+        // Let ordinary dispatch retain its missing-database diagnostic/order.
+        && !text(a, "db").is_empty()
+        && matches!(
+            text(a, "operation"),
+            "principal-put"
+                | "grant-put"
+                | "token-create"
+                | "token-rotate"
+                | "token-revoke"
+                | "tokens"
+                | "principal-disable"
+                | "grant-disable"
+                | "operation-disable"
+                | "source-expose"
+                | "operation-approve"
+        )
+    {
+        admin_cli::execute_detailed(a)
+    } else {
+        dispatch(a).map_err(Into::into)
+    }
+}
 pub fn dispatch(a: &Value) -> Result<Value> {
+    dispatch_with_cancel(a, &std::sync::atomic::AtomicBool::new(false))
+}
+pub fn dispatch_with_cancel(a: &Value, cancel: &std::sync::atomic::AtomicBool) -> Result<Value> {
     let command = text(a, "command");
     let operation = text(a, "operation");
     let profile = text(a, "profile");
@@ -250,50 +296,7 @@ pub fn dispatch(a: &Value) -> Result<Value> {
             return catabolic_runtime::plex_login::execute_cli(&op, &nonnull(&r));
         }
         ("graphql", _) => {
-            let choices = usize::from(!a["document"].is_null())
-                + usize::from(!a["file"].is_null())
-                + usize::from(a["schema"] == true);
-            if choices != 1 {
-                return Err(Error(
-                    "choose exactly one query document, --file, or --schema".into(),
-                ));
-            }
-            if a["schema"] == true {
-                if !a["variables"].is_null() || !a["operation_name"].is_null() {
-                    return Err(Error(
-                        "--schema cannot be combined with query variables or operation name".into(),
-                    ));
-                }
-                return Ok(catabolic_store::graphql::description());
-            }
-            if text(a, "db").is_empty() {
-                return Err(Error("select --db or set CATABOLIC_DB".into()));
-            }
-            let document = if !a["file"].is_null() {
-                read_text(text(a, "file"), 1024 * 1024)?
-            } else {
-                text(a, "document").into()
-            };
-            let variables = if a["variables"].is_null()
-                || catabolic_core::decode_json(text(a, "variables"))?.is_null()
-            {
-                // Frozen execute_graphql treats omitted and JSON-null variables
-                // alike. Other transports retain their own validated adapters.
-                json!({}).into()
-            } else {
-                catabolic_store::graphql::InputVariables::from_json(text(a, "variables"))?
-            };
-            let timeout = a["timeout_ms"]
-                .as_u64()
-                .ok_or_else(|| Error("timeout-ms must be between 1 and 60000".into()))?;
-            return catabolic_store::graphql::execute(
-                path,
-                &document,
-                profile,
-                variables,
-                a["operation_name"].as_str(),
-                timeout,
-            );
+            return super::graphql_cli::execute(a).map_err(|error| Error(error.to_string()));
         }
         _ => (),
     }
@@ -315,6 +318,9 @@ pub fn dispatch(a: &Value) -> Result<Value> {
         ));
     }
     match (command,operation){
+        ("identify",_)=>identify::execute(a),
+        ("maintenance",_)=>maintenance::execute(a),
+        ("watch",_)=>watch::execute(a),
         ("init",_)=>{if profile!="default"{return Err(Error("init creates the default profile; add additional profiles explicitly".into()));}catabolic_store::migration::initialize(path)}
         ("db","status")=>catabolic_store::migration::inspect(path,false),
         ("db","upgrade")=>catabolic_store::migration::upgrade(path,a["dry_run"]==true,a["backup_dir"].as_str().map(Path::new),&|_,_,_|Ok(())),
@@ -391,13 +397,16 @@ pub fn dispatch(a: &Value) -> Result<Value> {
         ("rendition",_)=>rendition(a),
         ("catalog-refresh",_)=>catalog_refresh::execute(a),
         ("refresh",_)=>refresh::execute(a),
-        ("rule",_)=>rule(a),
+        ("rule",_)=>rule(a,cancel),
         ("watcher",_)=>watcher(a),
         ("fallback",_)=>fallback(a),
         ("export",_)|("target","import")=>export(a),
         ("operation","show")=>{let store=Store::open(path,false,false)?;catabolic_store::media_mutation::operation_get(&store,text(a,"id"))},
         ("operation","list")=>{let store=Store::open(path,false,false)?;let result=catabolic_store::public_reads::artifact(&store,profile,"recipes",a)?;Ok(json!({"operations":result["recipes"],"next_after":result["next_after"]}))},
-        ("operation","put")=>{let definition=file(a,"definition",256*1024)?;if definition["kind"]=="render"{runtime(a,"artifact","recipe",&json!({"name":a["name"],"preset":definition["operation"],"options":definition.get("options").cloned().unwrap_or(json!({})),"output_definition_id":definition["output_definition_id"]}))}else if definition["kind"]=="analysis"{runtime(a,"media","operation-put",&json!({"name":a["name"],"definition":definition}))}else{unavailable("operation","put external definition")}},
+        ("operation","put")=>{let store=Store::open(path,true,false)?;catabolic_store::mutation::profile(&store,profile)?;let definition=file(a,"definition",256*1024)?;catabolic_runtime::operations::put(&store,profile,text(a,"name"),&definition)},
+        ("projection","mapping-preview"|"mapping-apply")=>projection::mapping(a, cancel),
+        ("projection","mapping-events"|"mapping-recover")=>projection::history(a, cancel),
+        ("projection","preview"|"execute")=>catabolic_runtime::projection::run(Path::new(text(a,"db")),text(a,"profile"),operation=="execute",a),
         ("projection","mapping-capabilities")=>Ok(resource()["mapping_capabilities"].clone()),
         ("projection",op) if op.starts_with("http-operation-")=>http_operation(a),
         ("projection","put")=>{set(&mut r,"query_id","query");for key in ["copies","renditions"]{if !a[key].is_null(){r[key]=file(a,key,65536)?;}}definitions(a,"projection-put",&r)},
@@ -410,6 +419,7 @@ pub fn dispatch(a: &Value) -> Result<Value> {
         ("process","enqueue"|"run")=>processing(a),
         ("supervise",_)=>supervise(a),
         ("process","show"|"cancel"|"retry")=>runtime(a,"media",if operation=="show"{"get"}else{operation},&r),
+        ("api","principal-put"|"grant-put"|"token-create"|"token-rotate"|"token-revoke"|"tokens"|"principal-disable"|"grant-disable"|"operation-disable"|"source-expose"|"operation-approve")=>admin_cli::execute(a),
         ("api","worker")=>api_worker::run(path,profile,a["once"]==true),
         ("api","serve")=>Err(Error("native HTTP is unqualified; use catabolic-native api serve --experimental-native-http for disposable loopback fixtures".into())),
         _=>unavailable(command,operation),
@@ -568,7 +578,7 @@ fn consumer(a: &Value) -> Result<Value> {
         return catabolic_runtime::plex_metadata::execute_cli(&path, &profile, &nonnull(&r));
     }
     if op == "watch" {
-        return unavailable("consumer", op);
+        return consumer_watch::execute(a);
     }
     if op == "import" {
         r["mappings"] = file(a, "map", 65536)?;
@@ -879,7 +889,7 @@ fn manifest(a: &Value) -> Result<Value> {
         Ok(document)
     }
 }
-fn rule(a: &Value) -> Result<Value> {
+fn rule(a: &Value, cancel: &std::sync::atomic::AtomicBool) -> Result<Value> {
     let mut r = a.clone();
     let op = text(a, "operation");
     match op {
@@ -912,8 +922,18 @@ fn rule(a: &Value) -> Result<Value> {
         }
         "stats" => runtime(a, "rules", "statistics", &r),
         "preview" | "apply" | "run" => {
-            if !a["worker"].is_null() {
-                return unavailable("rule", "run --worker");
+            if a["worker"].as_str().is_some_and(|v| !v.is_empty()) {
+                return catabolic_runtime::rules::run_external(
+                    Path::new(text(a, "db")),
+                    text(a, "profile"),
+                    text(a, "id"),
+                    &r,
+                    &mut catabolic_runtime::processors::SupervisedTransport {
+                        executable: &std::env::current_exe()?,
+                        cancel,
+                    },
+                    cancel,
+                );
             }
             runtime(a, "rules", op, &r)
         }
@@ -946,6 +966,11 @@ fn fallback(a: &Value) -> Result<Value> {
     let mut r = a.clone();
     let op = text(a, "operation");
     match op {
+        "worker" => fallback_worker::run(
+            Path::new(text(a, "db")),
+            text(a, "profile"),
+            a["once"] == true,
+        ),
         "resolve" => {
             r["policy_id"] = a["policy"].clone();
             r["entries"] = json!([{"item_id":a["item"],"role":a["role"],"part":a["part"],"variant":a["variant"]}]);

@@ -69,7 +69,10 @@ grant and source evidence. Reads check descriptor metadata before and after
 reading. Credential files, registered private files, and live catalog/WAL/SHM/
 journal inode aliases are refused. An unregistered orphaned private sidecar alias
 cannot always be identified after SQLite removes its original pathname; that
-remains a content/HTTP release blocker. The recorded `787b5ed` checkpoint had no
+remains a content/HTTP release blocker. A subsequent bounded
+[recognizable WAL/SHM header refusal](RUST_MIGRATION_PRIVATE_SIDECAR_HEADERS.md)
+improves both descriptor-serving paths but does not identify every orphan.
+The recorded `787b5ed` checkpoint had no
 native HTTP listener. Later work adds an explicitly experimental loopback
 listener, documented below; it is not qualified for general deployment.
 

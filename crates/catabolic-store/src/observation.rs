@@ -4,6 +4,9 @@
 //! Native source identity, bounded inventory and durable scope publication.
 //! Inventory absence is authorized by an unchanged completed directory only;
 //! deferred, excluded and failed child scopes retain their prior observations.
+mod report;
+use report::{Reuse, Statistics};
+
 use crate::filesystem_mutation::{entries, identity, now, open_at, open_root, stat_at, version};
 use crate::{Error, Result, Store, migration::rows};
 use catabolic_core::{coordination as lifecycle, encode, sha256};
@@ -12,11 +15,13 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeSet,
     fs::File,
+    ops::Deref,
     os::{
         fd::AsRawFd,
         unix::fs::{FileExt, MetadataExt},
     },
     path::{Path, PathBuf},
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
@@ -50,6 +55,16 @@ pub fn execute_detached(
     action: &str,
     args: &Value,
 ) -> Result<Value> {
+    execute_detached_with_publisher(store, profile, action, args, None)
+}
+
+pub fn execute_detached_with_publisher(
+    store: &mut Store,
+    profile: &str,
+    action: &str,
+    args: &Value,
+    factory: Option<&mut dyn PublisherFactory>,
+) -> Result<Value> {
     let mut admitted = None;
     let result = execute_inner(store, profile, action, args, Some(&mut admitted))?;
     let Some(admitted) = admitted else {
@@ -64,6 +79,32 @@ pub fn execute_detached(
     match prepared {
         Prepared::Result(value) => Ok(value),
         Prepared::Scan(mut scan, context) => {
+            if let Some(factory) = factory {
+                scan.publisher.with(|p| {
+                    p.initial_scopes = Some(Publisher::snapshot(store, &p.job)?);
+                    p.eager_scopes = true;
+                    Ok(())
+                })?;
+                let job = rows(
+                    &store.db,
+                    "SELECT * FROM observation_jobs WHERE id=?",
+                    &[scan.job.clone().into()],
+                )?
+                .remove(0);
+                let bound = crate::embedding::application(
+                    store,
+                    profile,
+                    "binding",
+                    &json!({"kind":"source","owner":source}),
+                )?;
+                match factory.create(scan.publisher.clone(), job, bound) {
+                    Ok(callbacks) => scan.callbacks = Some(callbacks),
+                    Err(error) => {
+                        fail_claim(store, &scan.job, &scan.claim, &error)?;
+                        return Err(error);
+                    }
+                }
+            }
             let outcome = store.detached(|| scan.walk(None));
             // A failed reopen deliberately leaves Store unusable. Do not mask
             // it by reporting a terminal job on a replacement catalog.
@@ -71,6 +112,13 @@ pub fn execute_detached(
                 return outcome.and(Err(Error(
                     "catalog session unavailable after detached scan".into(),
                 )));
+            }
+            if scan.callbacks.as_ref().is_some_and(|c| c.exceptional()) {
+                let error = outcome
+                    .err()
+                    .unwrap_or_else(|| Error("publisher callback failed".into()));
+                fail_claim(store, &scan.job, &scan.claim, &error)?;
+                return Err(error);
             }
             scan.record_outcome(outcome);
             let job = scan.job.clone();
@@ -766,7 +814,8 @@ fn recover(store: &Store) -> Result<Value> {
     Ok(json!({"stale":stale}))
 }
 
-struct Scan {
+/// Immutable identity/execution context shared by traversal and publication.
+struct PublicationContext {
     path: PathBuf,
     database_id: String,
     profile: String,
@@ -775,115 +824,258 @@ struct Scan {
     scan: String,
     claim: String,
     generation: i64,
-    root: File,
-    root_identity: (u64, u64),
+    root: Option<File>,
     database_identity: (u64, u64),
     execution: Value,
     filter: ScanFilter,
     generated: bool,
     exclusions: Value,
     compatibility: String,
-    queue: Connection,
-    queue_file: tempfile::NamedTempFile,
+}
+
+/// Persistent native publication state. No Python callback runs while this
+/// state's mutex is held; both the scanner and public adapter use this owner.
+struct Publication {
+    context: Arc<PublicationContext>,
+    root_identity: Option<(u64, u64)>,
     sequence: i64,
     entries: Vec<Value>,
     bytes: usize,
     last: Instant,
+    scopes: Vec<(String, String, Value)>,
+    initial_scopes: Option<Connection>,
+    blocker: Option<String>,
+    // Traversal has already applied the filter; standalone Publishers have not.
+    prefiltered_entries: bool,
+    // Preserve the unqualified callback/generated schedule until its own slice.
+    eager_scopes: bool,
+}
+impl Deref for Publication {
+    type Target = PublicationContext;
+    fn deref(&self) -> &Self::Target {
+        &self.context
+    }
+}
+#[derive(Clone)]
+pub struct Publisher(Arc<Mutex<Publication>>);
+
+impl Publisher {
+    fn with<T>(&self, action: impl FnOnce(&mut Publication) -> Result<T>) -> Result<T> {
+        let mut owner = self
+            .0
+            .try_lock()
+            .map_err(|_| Error("native publisher is already in use".into()))?;
+        action(&mut owner)
+    }
+    fn snapshot(store: &Store, job: &str) -> Result<Connection> {
+        let snapshot = Connection::open("")?;
+        snapshot.execute_batch("CREATE TABLE scopes(path,state,detail)")?;
+        let mut statement = store.db.prepare("SELECT path,CASE WHEN state='running' THEN 'pending' ELSE state END,detail FROM observation_scopes WHERE job_id=?")?;
+        let mut cursor = statement.query([job])?;
+        while let Some(row) = cursor.next()? {
+            snapshot.execute(
+                "INSERT INTO scopes VALUES(?,?,?)",
+                params![
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?
+                ],
+            )?;
+        }
+        Ok(snapshot)
+    }
+    pub fn new(store: &Store, profile: &str, job: &Value) -> Result<Self> {
+        let field = |name: &str| {
+            job[name]
+                .as_str()
+                .map(str::to_owned)
+                .ok_or_else(|| Error(format!("publisher job requires {name}")))
+        };
+        let execution = catabolic_core::decode_json(&field("execution")?)?;
+        // Reject malformed caller jobs at the boundary instead of allowing a
+        // panic inside a checkpoint. Admission remains the observation owner's.
+        for key in ["batch_records", "batch_bytes"] {
+            if execution["budgets"][key].as_u64().is_none() {
+                return Err(Error(format!("invalid publisher {key}")));
+            }
+        }
+        if execution["budgets"]["batch_seconds"].as_f64().is_none() {
+            return Err(Error("invalid publisher batch_seconds".into()));
+        }
+        let source = field("source")?;
+        let id = field("id")?;
+        let sequence = store.db.query_row(
+            "SELECT coalesce(max(sequence),0) FROM observation_batches WHERE job_id=?",
+            [&id],
+            |row| row.get(0),
+        )?;
+        let context = Arc::new(PublicationContext {
+            path: store.path.clone(),
+            database_id: store.database_id.clone(),
+            profile: profile.to_owned(),
+            source: source.clone(),
+            job: id.clone(),
+            scan: field("scan_id")?,
+            claim: field("claim_token")?,
+            generation: job["generation"]
+                .as_i64()
+                .ok_or_else(|| Error("invalid observation generation".into()))?,
+            root: None,
+            database_identity: identity(&std::fs::metadata(&store.path)?),
+            filter: ScanFilter::new(&execution)?,
+            execution,
+            generated: store
+                .db
+                .prepare("SELECT 1 FROM generated_locations WHERE profile=? AND location=?")?
+                .exists([profile, &source])?,
+            exclusions: catabolic_core::decode_json(&field("exclusions")?)?,
+            compatibility: field("compatibility")?,
+        });
+        Ok(Self(Arc::new(Mutex::new(Publication {
+            context,
+            root_identity: None,
+            sequence,
+            entries: vec![],
+            scopes: vec![],
+            bytes: 0,
+            last: Instant::now(),
+            initial_scopes: Some(Self::snapshot(store, &id)?),
+            blocker: None,
+            prefiltered_entries: false,
+            eager_scopes: false,
+        }))))
+    }
+    pub fn initial_scopes(&self, after: i64) -> Result<Value> {
+        self.with(|p| {
+            let mut result = rows(p.initial_scopes.as_ref().ok_or_else(|| Error("publisher snapshot unavailable".into()))?, "SELECT rowid AS cursor,path,state,detail FROM scopes WHERE rowid>? ORDER BY rowid LIMIT 256", &[after.into()])?;
+            let cursor = result.last().and_then(|row| row["cursor"].as_i64()).unwrap_or(after);
+            for row in &mut result {
+                row.as_object_mut().unwrap().remove("cursor");
+                row["detail"] = catabolic_core::decode_json(row["detail"].as_str().unwrap())?;
+            }
+            Ok(json!({"rows":result,"after":cursor}))
+        })
+    }
+    pub fn state(&self) -> Result<Value> {
+        self.with(|p| Ok(json!({"entries": p.entries, "scopes": p.scopes.iter().map(|(path,state,detail)| (path.clone(),json!([state,detail]))).collect::<serde_json::Map<_,_>>(), "bytes":p.bytes,"sequence":p.sequence,"blocker":p.blocker,"root_identity":p.root_identity,"execution":p.execution})))
+    }
+    pub fn set_root_identity(&self, value: Option<(u64, u64)>) -> Result<()> {
+        self.with(|p| {
+            p.root_identity = value;
+            Ok(())
+        })
+    }
+    pub fn sequence(&self) -> Result<i64> {
+        self.with(|p| Ok(p.sequence))
+    }
+    fn append_to(p: &mut Publication, entry: Value) -> Result<bool> {
+        let path = entry["path"]
+            .as_str()
+            .ok_or_else(|| Error("publisher entry requires path".into()))?;
+        if entry["status"] == "missing" && !p.generated {
+            return Err(Error("native public Publisher explicit missing entries for non-generated sources are unqualified".into()));
+        }
+        if !p.prefiltered_entries && !p.filter.matches(path)? {
+            return Ok(false);
+        }
+        p.bytes += encode(&entry).len();
+        p.entries.push(entry);
+        Ok(true)
+    }
+    pub fn append(&self, entry: Value) -> Result<bool> {
+        self.with(|p| Self::append_to(p, entry))
+    }
+    pub fn entry(&self, entry: Value) -> Result<bool> {
+        self.with(|p| Ok(Self::append_to(p, entry)? && p.checkpoint()))
+    }
+    pub fn directory(&self, path: &str, state: &str, detail: &Value) -> Result<bool> {
+        self.with(|p| {
+            if !detail.is_object() {
+                return Err(Error("publisher scope detail must be an object".into()));
+            }
+            if !p.eager_scopes {
+                p.bytes += path.len() + encode(detail).len();
+            }
+            if let Some(row) = p.scopes.iter_mut().find(|row| row.0 == path) {
+                *row = (path.to_owned(), state.to_owned(), detail.clone());
+            } else {
+                p.scopes
+                    .push((path.to_owned(), state.to_owned(), detail.clone()));
+            }
+            Ok(p.eager_scopes || state == "running")
+        })
+    }
+    pub fn checkpoint(&self) -> Result<bool> {
+        self.with(|p| Ok(p.checkpoint()))
+    }
+    pub fn stop(&self, reason: &str) -> Result<()> {
+        self.with(|p| {
+            p.blocker = Some(reason.into());
+            p.entries.clear();
+            p.scopes.clear();
+            p.bytes = 0;
+            Ok(())
+        })
+    }
+    pub fn flush(&self, store: Option<&Store>) -> Result<()> {
+        self.with(|p| p.flush(store))
+    }
+}
+
+/// Transport-only callbacks for an embedding's ordinary Publisher object.
+/// Implementations must preserve the supplied owner and return callback errors.
+pub trait PublisherCallbacks: Send {
+    fn directory(&mut self, path: &str, state: &str, detail: &Value) -> Result<()>;
+    fn entry(&mut self, entry: Value) -> Result<()>;
+    fn failed(&self) -> bool;
+    fn exceptional(&self) -> bool {
+        self.failed()
+    }
+}
+pub trait PublisherFactory: Send {
+    fn create(
+        &mut self,
+        publisher: Publisher,
+        job: Value,
+        binding: Value,
+    ) -> Result<Box<dyn PublisherCallbacks>>;
+}
+struct Scan {
+    context: Arc<PublicationContext>,
+    publisher: Publisher,
+    callbacks: Option<Box<dyn PublisherCallbacks>>,
+    queue: Connection,
+    queue_file: tempfile::NamedTempFile,
     started: Instant,
     visited: u64,
     directories: u64,
     blocker: Option<String>,
     errors: Vec<String>,
     crash_after_scope: Option<String>,
+    statistics: Statistics,
+}
+impl Deref for Scan {
+    type Target = PublicationContext;
+    fn deref(&self) -> &Self::Target {
+        &self.context
+    }
 }
 impl Scan {
-    fn writer(&self) -> Result<Store> {
-        let until = Instant::now() + Duration::from_secs(5);
-        loop {
-            match Store::open(&self.path, true, false) {
-                Ok(store) if store.database_id == self.database_id => return Ok(store),
-                Ok(_) => return Err(Error("catalog replaced during scan".into())),
-                Err(e) if e.0.contains("another Catabolic writer") && Instant::now() < until => {
-                    std::thread::sleep(Duration::from_millis(20))
-                }
-                Err(e) => return Err(e),
-            }
-        }
-    }
     fn record_outcome(&mut self, outcome: Result<()>) {
+        let outcome = outcome.and_then(|()| {
+            self.publisher.with(|p| {
+                p.blocker
+                    .clone()
+                    .map_or(Ok(()), |reason| Err(Error(reason)))
+            })
+        });
         if let Err(error) = outcome {
-            self.entries.clear();
-            self.bytes = 0;
+            let _ = self.publisher.stop(&error.0);
             self.blocker = Some(error.0.clone());
             self.errors.push(error.0);
         }
     }
-    fn fence(&self, store: &Store) -> Result<()> {
-        if identity(&std::fs::metadata(&self.path)?) != self.database_identity {
-            return Err(Error("catalog replaced during scan".into()));
-        }
-        let current = rows(&store.db,"SELECT j.*,s.dirty_generation AS current_dirty FROM observation_jobs j JOIN observation_sources s USING(profile,source) WHERE j.id=?", &[self.job.clone().into()])?.pop().ok_or_else(||Error("stale_observation_claim".into()))?;
-        let generation = current["generation"]
-            .as_i64()
-            .ok_or_else(|| Error("invalid observation generation".into()))?;
-        let state = lifecycle::State {
-            generation,
-            lease: if current["state"] == "running" {
-                Some(lifecycle::Lease {
-                    generation,
-                    token: sha256(current["claim_token"].as_str().unwrap_or("")),
-                    identity: sha256(encode(&json!([
-                        current["compatibility"],
-                        current["dirty_generation"]
-                    ]))),
-                    until: current["lease_until"].as_f64().unwrap_or(0.0),
-                })
-            } else {
-                None
-            },
-        };
-        lifecycle::reduce(
-            &state,
-            &lifecycle::Input::Fence {
-                now: now(),
-                generation: self.generation,
-                token: sha256(&self.claim),
-                identity: sha256(encode(&json!([
-                    self.compatibility,
-                    current["current_dirty"]
-                ]))),
-            },
-        )
-        .map_err(|_| Error("stale_observation_claim".into()))?;
-        if compatibility_for(
-            store,
-            &self.profile,
-            &self.source,
-            &self.exclusions,
-            &self.execution,
-            false,
-        )? != self.compatibility
-            && compatibility_for(
-                store,
-                &self.profile,
-                &self.source,
-                &self.exclusions,
-                &self.execution,
-                true,
-            )? != self.compatibility
-        {
-            return Err(Error("stale_observation_claim".into()));
-        }
-        let (root, _) = checked_root(
-            store,
-            &self.profile,
-            &binding(store, &self.profile, "source", &self.source)?,
-        )?;
-        if identity(&root.metadata()?) != self.root_identity {
-            return Err(Error("source root changed during scan".into()));
-        }
-        Ok(())
-    }
+
     fn scope(
         &mut self,
         store: Option<&Store>,
@@ -891,114 +1083,47 @@ impl Scan {
         state: &str,
         detail: &Value,
     ) -> Result<()> {
-        self.flush(store, Some((path, state, detail)))?;
+        if let Some(callbacks) = &mut self.callbacks {
+            callbacks.directory(path, state, detail)?;
+        } else if self.publisher.directory(path, state, detail)? || self.publisher.checkpoint()? {
+            self.publisher.flush(store)?;
+        }
         self.queue.execute("INSERT INTO queue VALUES(?,?,?) ON CONFLICT(path) DO UPDATE SET state=excluded.state,detail=excluded.detail",params![path,state,encode(detail)])?;
         if state == "complete" && self.crash_after_scope.as_deref() == Some(path) {
+            if self.callbacks.is_none() {
+                self.publisher.flush(store)?;
+            }
             std::process::exit(86);
         }
         Ok(())
     }
-    fn flush(&mut self, store: Option<&Store>, scope: Option<(&str, &str, &Value)>) -> Result<()> {
-        let owned;
-        let store = match store {
-            Some(store) => store,
-            None => {
-                owned = self.writer()?;
-                &owned
-            }
-        };
-        self.install_filter(store)?;
-        self.fence(store)?;
-        let mut actual_scope = scope
-            .map(|(path, state, detail)| (path.to_string(), state.to_string(), detail.clone()));
-        if let Some((path, state, detail)) = &mut actual_scope
-            && state == "complete"
-        {
-            let verification = (|| -> Result<()> {
-                let current = reopen(&self.root, path, Some(&detail["identity"]))?;
-                let stamp = version(&current.metadata()?);
-                if stamp["mtime_ns"] != detail["mtime_ns"]
-                    || stamp["ctime_ns"] != detail["ctime_ns"]
-                {
-                    return Err(Error("directory_changed_before_publication".into()));
-                }
-                Ok(())
-            })();
-            if let Err(error) = verification {
-                *state = "failed".into();
-                detail["reason"] = json!(error.0);
-            }
-        }
-        if self.generated {
-            crate::artifact_mutation::owned_root(
-                store,
-                &self.profile,
-                &binding(store, &self.profile, "source", &self.source)?,
-            )?;
-            for index in 0..self.entries.len() {
-                if self.entries[index]["status"] == "missing" {
-                    self.entries[index] =
-                        self.generated_entry(self.entries[index]["path"].as_str().unwrap())?;
-                }
-            }
-        }
-        let sequence = self.sequence + 1;
-        let profile = &self.profile;
-        let source = &self.source;
-        store.transaction(|db|{
-            self.fence(store)?;
-            if db.prepare("SELECT 1 FROM observation_batches WHERE job_id=? AND sequence=?")?.exists(params![self.job,sequence])?{return Err(Error("duplicate_observation_batch".into()));}
-            let mut changed=false;
-            if let Some((path,state,_))=&actual_scope&& state=="running"{let prefix=if path.is_empty(){String::new()}else{format!("{path}/")};db.execute("DELETE FROM observation_seen WHERE job_id=? AND file_id IN(SELECT id FROM files WHERE location=? AND path>=? AND path<? AND instr(substr(path,?),'/')=0)",params![self.job,source,prefix,format!("{prefix}\u{10ffff}"),prefix.chars().count() as i64+1])?;}
-            for entry in &self.entries {
-                let identifier=uuid::Uuid::new_v5(&uuid::Uuid::parse_str(&self.database_id).map_err(|_|Error("invalid catalog identity".into()))?,encode(&json!([source,entry["path"]])).as_bytes()).to_string();
-                let old=rows(db,"SELECT * FROM observations WHERE profile=? AND file_id=?",&[profile.to_string().into(),identifier.clone().into()])?;
-                let status=entry["status"].as_str().unwrap_or("present");
-                changed|=old.first().is_none_or(|old|old["status"]!=status||["size","mtime_ns","device","inode"].iter().any(|k|old[k]!=entry[k]));
-                db.execute("INSERT INTO files VALUES(?,?,?) ON CONFLICT(location,path) DO NOTHING",params![identifier,source,entry["path"].as_str()])?;
-                db.execute("INSERT INTO observations VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(profile,file_id) DO UPDATE SET size=excluded.size,mtime_ns=excluded.mtime_ns,device=excluded.device,inode=excluded.inode,status=excluded.status,scan_id=excluded.scan_id",params![profile,identifier,entry["size"].as_i64(),entry["mtime_ns"].as_i64(),entry["device"].as_i64(),entry["inode"].as_i64(),status,self.scan])?;
-                if status=="missing" {
-                    continue;
-                }
-                let health=&entry["media_header"];let old=rows(db,"SELECT status,reason FROM media_header_checks WHERE profile=? AND file_id=?",&[profile.to_string().into(),identifier.clone().into()])?;
-                changed|=old.first().is_none_or(|old|old["status"]!=health["status"]||old["reason"]!=health["reason"]);
-                if health["status"]=="invalid" {db.execute("UPDATE file_facts SET status='invalidated' WHERE profile=? AND file_id=?",params![profile,identifier])?;}
-                db.execute("INSERT INTO media_header_checks VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(profile,file_id) DO UPDATE SET scan_id=excluded.scan_id,size=excluded.size,mtime_ns=excluded.mtime_ns,device=excluded.device,inode=excluded.inode,status=excluded.status,reason=excluded.reason,bytes_read=excluded.bytes_read",params![profile,identifier,self.scan,entry["size"].as_i64(),entry["mtime_ns"].as_i64(),entry["device"].as_i64(),entry["inode"].as_i64(),health["status"].as_str(),health["reason"].as_str(),health["bytes_read"].as_i64()])?;
-                db.execute("INSERT OR IGNORE INTO observation_seen VALUES(?,?)",params![self.job,identifier])?;
-            }
-            if let Some((path,state,detail))=&actual_scope {
-                db.execute("INSERT INTO observation_scopes VALUES(?,?,?,?,?) ON CONFLICT(job_id,path) DO UPDATE SET state=excluded.state,detail=excluded.detail,updated_at=excluded.updated_at",params![self.job,path,state,encode(detail),now()])?;
-                if state=="complete" {
-                    let prefix=if path.is_empty(){String::new()}else{format!("{path}/")};
-                    let count=db.execute("INSERT INTO observations(profile,file_id,size,mtime_ns,device,inode,status,scan_id) SELECT ?,f.id,0,0,0,0,'missing',? FROM files f WHERE scan_file_in_scope(f.path) AND f.location=? AND f.path>=? AND f.path<? AND (instr(substr(f.path,?),'/')=0 OR NOT EXISTS(SELECT 1 FROM observation_scopes child WHERE child.job_id=? AND child.path=substr(f.path,1,?+instr(substr(f.path,?),'/')-1))) AND NOT EXISTS(SELECT 1 FROM observation_seen s WHERE s.job_id=? AND s.file_id=f.id) ON CONFLICT(profile,file_id) DO UPDATE SET status='missing',scan_id=excluded.scan_id WHERE observations.status!='missing'",params![profile,self.scan,source,prefix,format!("{prefix}\u{10ffff}"),prefix.chars().count() as i64+1,self.job,prefix.chars().count() as i64,prefix.chars().count() as i64+1,self.job])?;changed|=count>0;
-                }
-            }
-            db.execute("INSERT INTO observation_batches VALUES(?,?,?,?,?)",params![self.job,sequence,self.entries.len() as i64,self.bytes as i64,now()])?;
-            db.execute("UPDATE scans SET observed=(SELECT count(*) FROM observation_seen WHERE job_id=?) WHERE id=?",params![self.job,self.scan])?;
-            db.execute("UPDATE observation_jobs SET lease_until=? WHERE id=? AND claim_token=?",params![now()+3600.0,self.job,self.claim])?;
-            if changed{enqueue(db,profile,&self.job)?;}Ok(())
-        })?;
-        self.sequence = sequence;
-        self.entries.clear();
-        self.bytes = 0;
-        self.last = Instant::now();
-        Ok(())
-    }
     fn publish(&mut self, store: Option<&Store>, entry: Value) -> Result<()> {
-        self.bytes += encode(&entry).len();
-        self.entries.push(entry);
-        let limits = &self.execution["budgets"];
-        if self.entries.len() as u64 >= limits["batch_records"].as_u64().unwrap()
-            || self.bytes as u64 >= limits["batch_bytes"].as_u64().unwrap()
-            || self.last.elapsed().as_secs_f64() >= limits["batch_seconds"].as_f64().unwrap()
-        {
-            self.flush(store, None)?;
+        if let Some(callbacks) = &mut self.callbacks {
+            callbacks.entry(entry)
+        } else {
+            if self.publisher.entry(entry)? {
+                self.publisher.flush(store)?;
+            }
+            Ok(())
         }
-        Ok(())
+    }
+    fn writer(&self) -> Result<Store> {
+        self.publisher.with(|p| p.writer())
+    }
+    fn fence(&self, store: &Store) -> Result<()> {
+        self.publisher.with(|p| p.fence(store))
+    }
+    fn generated_entry(&self, path: &str) -> Result<Value> {
+        self.publisher.with(|p| p.generated_entry(path))
+    }
+    fn callback_failed(&self) -> bool {
+        self.callbacks.as_ref().is_some_and(|c| c.failed())
     }
     fn resources(&self) -> Result<()> {
         let limits = &self.execution["budgets"];
-        if self.started.elapsed().as_secs_f64() >= limits["total_seconds"].as_f64().unwrap() {
+        let elapsed = self.started.elapsed().as_secs_f64();
+        self.statistics.elapsed_seconds.set(Some(elapsed));
+        if elapsed >= limits["total_seconds"].as_f64().unwrap() {
             return Err(Error("total_time_budget".into()));
         }
         if self.visited > limits["total_entries"].as_u64().unwrap() {
@@ -1016,6 +1141,9 @@ impl Scan {
         let page_size: i64 = self
             .queue
             .pragma_query_value(None, "page_size", |r| r.get(0))?;
+        self.statistics
+            .temporary_bytes
+            .set(Some(pages.saturating_mul(page_size) as u64));
         if pages.saturating_mul(page_size) as u64 > limits["temporary_bytes"].as_u64().unwrap() {
             return Err(Error("temporary_storage_budget".into()));
         }
@@ -1025,6 +1153,9 @@ impl Scan {
         if unsafe { libc::fstatvfs(parent.as_raw_fd(), &mut stats) } != 0 {
             return Err(std::io::Error::last_os_error().into());
         }
+        self.statistics
+            .temporary_free_bytes
+            .set(Some(stats.f_bavail.saturating_mul(stats.f_frsize)));
         if stats.f_bavail.saturating_mul(stats.f_frsize)
             < limits["minimum_free_bytes"].as_u64().unwrap()
         {
@@ -1032,26 +1163,7 @@ impl Scan {
         }
         Ok(())
     }
-    fn generated_entry(&self, path: &str) -> Result<Value> {
-        let result = (|| {
-            let (parent, leaf) = crate::filesystem_mutation::parent(&self.root, path, false)?;
-            let (mode, mut stamp) = stat_at(&parent, &leaf)?;
-            if mode != libc::S_IFREG {
-                return Err(Error("generated artifact is not a regular file".into()));
-            }
-            stamp.as_object_mut().unwrap().remove("ctime_ns");
-            stamp["path"] = json!(path);
-            stamp["media_header"] =
-                json!({"status":"unknown","reason":"header_not_checked","bytes_read":0});
-            Ok(stamp)
-        })();
-        match result {
-            Err(error) if error.0.contains("(os error 2)") => Ok(
-                json!({"path":path,"status":"missing","size":0,"mtime_ns":0,"device":0,"inode":0}),
-            ),
-            other => other,
-        }
-    }
+
     fn walk_generated(&mut self, store: Option<&Store>) -> Result<()> {
         let mut after = String::new();
         loop {
@@ -1077,37 +1189,14 @@ impl Scan {
         self.scope(store, "", "registry_complete", &json!({}))?;
         Ok(())
     }
-    fn install_filter(&self, store: &Store) -> Result<()> {
-        let filter = self.filter.clone();
-        let excluded_paths = self.exclusions.clone();
-        let started = Instant::now();
-        store.db.create_scalar_function(
-            "scan_file_in_scope",
-            1,
-            rusqlite::functions::FunctionFlags::SQLITE_UTF8,
-            move |ctx| {
-                let path: String = ctx.get(0)?;
-                if (!filter.include.is_empty() || !filter.exclude.is_empty())
-                    && started.elapsed() > Duration::from_secs(1)
-                {
-                    return Err(rusqlite::Error::UserFunctionError(Box::new(Error(
-                        "regex_finalization_budget".into(),
-                    ))));
-                }
-                filter
-                    .matches(&path)
-                    .map(|included| included && !excluded(&path, &excluded_paths))
-                    .map_err(|error| rusqlite::Error::UserFunctionError(Box::new(error)))
-            },
-        )?;
-        Ok(())
-    }
+
     fn walk(&mut self, store: Option<&Store>) -> Result<()> {
         if self.generated {
             return self.walk_generated(store);
         }
         loop {
             self.resources()?;
+            self.ordinary_checkpoint(store)?;
             let row = rows(
                 &self.queue,
                 "SELECT path,detail FROM queue WHERE state='pending' ORDER BY rowid LIMIT 1",
@@ -1140,7 +1229,7 @@ impl Scan {
                 )?;
                 continue;
             }
-            let fd = match reopen(&self.root, &path, prior.get("identity")) {
+            let fd = match reopen(self.root.as_ref().unwrap(), &path, prior.get("identity")) {
                 Ok(fd) => fd,
                 Err(e) => {
                     self.errors.push(format!(
@@ -1187,6 +1276,9 @@ impl Scan {
                     status = "deferred";
                     reason = Some("directory_time_budget".to_string());
                     return Ok(false);
+                }
+                if count % 100 == 1 {
+                    self.ordinary_checkpoint(store)?;
                 }
                 let child = if path.is_empty() {
                     name.to_string()
@@ -1253,6 +1345,9 @@ impl Scan {
                     Ok(Some(entry))
                 })();
                 match result {
+                    // A directory callback can fail inside the entry closure.
+                    // Preserve its source-wide error before per-file aggregation.
+                    Err(error) if self.callback_failed() => return Err(error),
                     Ok(Some(entry)) => self.publish(store, entry)?,
                     Ok(None) => {}
                     Err(e)
@@ -1268,6 +1363,9 @@ impl Scan {
                         status = "failed";
                         reason = Some(e.0);
                     }
+                }
+                if self.callback_failed() {
+                    return Err(Error("publisher callback failed".into()));
                 }
                 if tick.elapsed().as_secs_f64()
                     >= self.execution["budgets"]["metadata_seconds"]
@@ -1287,6 +1385,9 @@ impl Scan {
                 Ok(true)
             });
             if let Err(e) = enumeration {
+                if self.callback_failed() {
+                    return Err(e);
+                }
                 if matches!(
                     e.0.as_str(),
                     "total_time_budget"
@@ -1331,10 +1432,275 @@ impl Scan {
                 }
             }
             self.scope(store, &path, status, &detail)?;
+            if self.callbacks.is_none() {
+                // The frozen walker flushes after each enumerated directory,
+                // even when the scope checkpoint just committed the buffer.
+                self.publisher.flush(store)?;
+            }
+        }
+        if self.callbacks.is_none() {
+            // The executor's final successful flush is a real fenced batch,
+            // including when the preceding directory flush emptied the buffer.
+            self.publisher.flush(store)?;
+        }
+        Ok(())
+    }
+    fn ordinary_checkpoint(&self, store: Option<&Store>) -> Result<()> {
+        if self.callbacks.is_none() && self.publisher.checkpoint()? {
+            self.publisher.flush(store)?;
         }
         Ok(())
     }
 }
+impl Publication {
+    fn checkpoint(&self) -> bool {
+        let limits = &self.execution["budgets"];
+        self.entries.len() as u64
+            + if self.eager_scopes {
+                0
+            } else {
+                self.scopes.len() as u64
+            }
+            >= limits["batch_records"].as_u64().unwrap()
+            || self.bytes as u64 >= limits["batch_bytes"].as_u64().unwrap()
+            || self.last.elapsed().as_secs_f64() >= limits["batch_seconds"].as_f64().unwrap()
+    }
+    fn writer(&self) -> Result<Store> {
+        let until = Instant::now() + Duration::from_secs(5);
+        loop {
+            match Store::open(&self.path, true, false) {
+                Ok(store) if store.database_id == self.database_id => return Ok(store),
+                Ok(_) => return Err(Error("catalog replaced during scan".into())),
+                Err(e) if e.0.contains("another Catabolic writer") && Instant::now() < until => {
+                    std::thread::sleep(Duration::from_millis(20))
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+    fn fence(&self, store: &Store) -> Result<()> {
+        if identity(&std::fs::metadata(&self.path)?) != self.database_identity {
+            return Err(Error("catalog replaced during scan".into()));
+        }
+        let current = rows(&store.db,"SELECT j.*,s.dirty_generation AS current_dirty FROM observation_jobs j JOIN observation_sources s USING(profile,source) WHERE j.id=?", &[self.job.clone().into()])?.pop().ok_or_else(||Error("stale_observation_claim".into()))?;
+        let generation = current["generation"]
+            .as_i64()
+            .ok_or_else(|| Error("invalid observation generation".into()))?;
+        let state = lifecycle::State {
+            generation,
+            lease: if current["state"] == "running" {
+                Some(lifecycle::Lease {
+                    generation,
+                    token: sha256(current["claim_token"].as_str().unwrap_or("")),
+                    identity: sha256(encode(&json!([
+                        current["compatibility"],
+                        current["dirty_generation"]
+                    ]))),
+                    until: current["lease_until"].as_f64().unwrap_or(0.0),
+                })
+            } else {
+                None
+            },
+        };
+        lifecycle::reduce(
+            &state,
+            &lifecycle::Input::Fence {
+                now: now(),
+                generation: self.generation,
+                token: sha256(&self.claim),
+                identity: sha256(encode(&json!([
+                    self.compatibility,
+                    current["current_dirty"]
+                ]))),
+            },
+        )
+        .map_err(|_| Error("stale_observation_claim".into()))?;
+        if compatibility_for(
+            store,
+            &self.profile,
+            &self.source,
+            &self.exclusions,
+            &self.execution,
+            false,
+        )? != self.compatibility
+            && compatibility_for(
+                store,
+                &self.profile,
+                &self.source,
+                &self.exclusions,
+                &self.execution,
+                true,
+            )? != self.compatibility
+        {
+            return Err(Error("stale_observation_claim".into()));
+        }
+        let (root, _) = checked_root(
+            store,
+            &self.profile,
+            &binding(store, &self.profile, "source", &self.source)?,
+        )?;
+        if Some(identity(&root.metadata()?)) != self.root_identity {
+            return Err(Error("source root changed during scan".into()));
+        }
+        Ok(())
+    }
+    fn flush(&mut self, store: Option<&Store>) -> Result<()> {
+        let owned;
+        let store = match store {
+            Some(store) => store,
+            None => {
+                owned = self.writer()?;
+                &owned
+            }
+        };
+        self.install_filter(store)?;
+        self.fence(store)?;
+        let context = self.context.clone();
+        let opened;
+        let root = if let Some(root) = context.root.as_ref() {
+            root
+        } else {
+            opened = checked_root(
+                store,
+                &self.profile,
+                &binding(store, &self.profile, "source", &self.source)?,
+            )?
+            .0;
+            &opened
+        };
+        let mut actual_scopes = self.scopes.clone();
+        for (path, state, detail) in &mut actual_scopes {
+            if state != "complete" {
+                continue;
+            }
+            let verification = (|| -> Result<()> {
+                let current = reopen(root, path, Some(&detail["identity"]))?;
+                let stamp = version(&current.metadata()?);
+                if stamp["mtime_ns"] != detail["mtime_ns"]
+                    || stamp["ctime_ns"] != detail["ctime_ns"]
+                {
+                    return Err(Error("directory_changed_before_publication".into()));
+                }
+                Ok(())
+            })();
+            if let Err(error) = verification {
+                *state = "failed".into();
+                detail["reason"] = json!(error.0);
+            }
+        }
+        if self.generated {
+            crate::artifact_mutation::owned_root(
+                store,
+                &self.profile,
+                &binding(store, &self.profile, "source", &self.source)?,
+            )?;
+            for index in 0..self.entries.len() {
+                if self.entries[index]["status"] == "missing" {
+                    self.entries[index] = Self::generated_entry_at(
+                        root,
+                        self.entries[index]["path"].as_str().unwrap(),
+                    )?;
+                }
+            }
+        }
+        let sequence = self.sequence + 1;
+        let profile = &self.profile;
+        let source = &self.source;
+        store.transaction(|db|{
+            self.fence(store)?;
+            if db.prepare("SELECT 1 FROM observation_batches WHERE job_id=? AND sequence=?")?.exists(params![self.job,sequence])?{return Err(Error("duplicate_observation_batch".into()));}
+            let mut changed=false;
+            for (path,state,_) in &actual_scopes { if state=="running"{let prefix=if path.is_empty(){String::new()}else{format!("{path}/")};db.execute("DELETE FROM observation_seen WHERE job_id=? AND file_id IN(SELECT id FROM files WHERE location=? AND path>=? AND path<? AND instr(substr(path,?),'/')=0)",params![self.job,source,prefix,format!("{prefix}\u{10ffff}"),prefix.chars().count() as i64+1])?;}}
+            for entry in &self.entries {
+                let identifier=uuid::Uuid::new_v5(&uuid::Uuid::parse_str(&self.database_id).map_err(|_|Error("invalid catalog identity".into()))?,encode(&json!([source,entry["path"]])).as_bytes()).to_string();
+                let old=rows(db,"SELECT * FROM observations WHERE profile=? AND file_id=?",&[profile.to_string().into(),identifier.clone().into()])?;
+                let status=entry["status"].as_str().unwrap_or("present");
+                changed|=old.first().is_none_or(|old|old["status"]!=status||["size","mtime_ns","device","inode"].iter().any(|k|old[k]!=entry[k]));
+                db.execute("INSERT INTO files VALUES(?,?,?) ON CONFLICT(location,path) DO NOTHING",params![identifier,source,entry["path"].as_str()])?;
+                db.execute("INSERT INTO observations VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(profile,file_id) DO UPDATE SET size=excluded.size,mtime_ns=excluded.mtime_ns,device=excluded.device,inode=excluded.inode,status=excluded.status,scan_id=excluded.scan_id",params![profile,identifier,entry["size"].as_i64(),entry["mtime_ns"].as_i64(),entry["device"].as_i64(),entry["inode"].as_i64(),status,self.scan])?;
+                if status=="missing" {
+                    continue;
+                }
+                let default_health=json!({"status":"unknown","reason":"header_not_checked","bytes_read":0});let health=entry.get("media_header").filter(|value| !value.is_null()).unwrap_or(&default_health);let old=rows(db,"SELECT status,reason FROM media_header_checks WHERE profile=? AND file_id=?",&[profile.to_string().into(),identifier.clone().into()])?;
+                changed|=old.first().is_none_or(|old|old["status"]!=health["status"]||old["reason"]!=health["reason"]);
+                if health["status"]=="invalid" {db.execute("UPDATE file_facts SET status='invalidated' WHERE profile=? AND file_id=?",params![profile,identifier])?;}
+                db.execute("INSERT INTO media_header_checks VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(profile,file_id) DO UPDATE SET scan_id=excluded.scan_id,size=excluded.size,mtime_ns=excluded.mtime_ns,device=excluded.device,inode=excluded.inode,status=excluded.status,reason=excluded.reason,bytes_read=excluded.bytes_read",params![profile,identifier,self.scan,entry["size"].as_i64(),entry["mtime_ns"].as_i64(),entry["device"].as_i64(),entry["inode"].as_i64(),health["status"].as_str(),health["reason"].as_str(),health["bytes_read"].as_i64()])?;
+                db.execute("INSERT OR IGNORE INTO observation_seen VALUES(?,?)",params![self.job,identifier])?;
+            }
+            for (path,state,detail) in &actual_scopes {
+                db.execute("INSERT INTO observation_scopes VALUES(?,?,?,?,?) ON CONFLICT(job_id,path) DO UPDATE SET state=excluded.state,detail=excluded.detail,updated_at=excluded.updated_at",params![self.job,path,state,encode(detail),now()])?;
+                if state=="complete" {
+                    let prefix=if path.is_empty(){String::new()}else{format!("{path}/")};
+                    let count=db.execute("INSERT INTO observations(profile,file_id,size,mtime_ns,device,inode,status,scan_id) SELECT ?,f.id,0,0,0,0,'missing',? FROM files f WHERE scan_file_in_scope(f.path) AND f.location=? AND f.path>=? AND f.path<? AND (instr(substr(f.path,?),'/')=0 OR NOT EXISTS(SELECT 1 FROM observation_scopes child WHERE child.job_id=? AND child.path=substr(f.path,1,?+instr(substr(f.path,?),'/')-1))) AND NOT EXISTS(SELECT 1 FROM observation_seen s WHERE s.job_id=? AND s.file_id=f.id) ON CONFLICT(profile,file_id) DO UPDATE SET status='missing',scan_id=excluded.scan_id WHERE observations.status!='missing'",params![profile,self.scan,source,prefix,format!("{prefix}\u{10ffff}"),prefix.chars().count() as i64+1,self.job,prefix.chars().count() as i64,prefix.chars().count() as i64+1,self.job])?;changed|=count>0;
+                }
+            }
+            db.execute("INSERT INTO observation_batches VALUES(?,?,?,?,?)",params![self.job,sequence,self.entries.len() as i64,self.bytes as i64,now()])?;
+            db.execute("UPDATE scans SET observed=(SELECT count(*) FROM observation_seen WHERE job_id=?) WHERE id=?",params![self.job,self.scan])?;
+            db.execute("UPDATE observation_jobs SET lease_until=? WHERE id=? AND claim_token=?",params![now()+3600.0,self.job,self.claim])?;
+            if changed{enqueue(db,profile,&self.job)?;}Ok(())
+        })?;
+        self.sequence = sequence;
+        self.entries.clear();
+        self.scopes.clear();
+        self.bytes = 0;
+        self.last = Instant::now();
+        Ok(())
+    }
+    fn install_filter(&self, store: &Store) -> Result<()> {
+        let filter = self.filter.clone();
+        let excluded_paths = self.exclusions.clone();
+        let started = Instant::now();
+        store.db.create_scalar_function(
+            "scan_file_in_scope",
+            1,
+            rusqlite::functions::FunctionFlags::SQLITE_UTF8,
+            move |ctx| {
+                let path: String = ctx.get(0)?;
+                if (!filter.include.is_empty() || !filter.exclude.is_empty())
+                    && started.elapsed() > Duration::from_secs(1)
+                {
+                    return Err(rusqlite::Error::UserFunctionError(Box::new(Error(
+                        "regex_finalization_budget".into(),
+                    ))));
+                }
+                filter
+                    .matches(&path)
+                    .map(|included| included && !excluded(&path, &excluded_paths))
+                    .map_err(|error| rusqlite::Error::UserFunctionError(Box::new(error)))
+            },
+        )?;
+        Ok(())
+    }
+    fn generated_entry(&self, path: &str) -> Result<Value> {
+        Self::generated_entry_at(
+            self.root
+                .as_ref()
+                .ok_or_else(|| Error("publisher root unavailable".into()))?,
+            path,
+        )
+    }
+    fn generated_entry_at(root: &File, path: &str) -> Result<Value> {
+        let result = (|| {
+            let (parent, leaf) = crate::filesystem_mutation::parent(root, path, false)?;
+            let (mode, mut stamp) = stat_at(&parent, &leaf)?;
+            if mode != libc::S_IFREG {
+                return Err(Error("generated artifact is not a regular file".into()));
+            }
+            stamp.as_object_mut().unwrap().remove("ctime_ns");
+            stamp["path"] = json!(path);
+            stamp["media_header"] =
+                json!({"status":"unknown","reason":"header_not_checked","bytes_read":0});
+            Ok(stamp)
+        })();
+        match result {
+            Err(error) if error.0.contains("(os error 2)") => Ok(
+                json!({"path":path,"status":"missing","size":0,"mtime_ns":0,"device":0,"inode":0}),
+            ),
+            other => other,
+        }
+    }
+}
+
 fn excluded(path: &str, exclusions: &Value) -> bool {
     exclusions.as_array().is_some_and(|rows| {
         rows.iter()
@@ -1375,7 +1741,15 @@ fn scan(
         ));
     }
     if let Some(request) = args["request_id"].as_str() {
-        return resume_scan(store, profile, source, request, args, admitted);
+        return resume_scan(
+            store,
+            profile,
+            source,
+            request,
+            args,
+            admitted,
+            Reuse::Resumed,
+        );
     }
     if args["after"].as_f64().is_some_and(|after| after > now()) {
         return Err(Error("observation_barrier".into()));
@@ -1528,6 +1902,7 @@ fn scan(
                 old["id"].as_str().unwrap(),
                 &json!({"request_id":old["id"]}),
                 admitted,
+                Reuse::Resumed,
             );
         }
     }
@@ -1579,6 +1954,7 @@ fn scan(
                 &request,
                 &guarantees,
                 catabolic_core::decode_json(old["report"].as_str().unwrap_or("{}"))?,
+                Some(Reuse::Completed),
             );
         }
     }
@@ -1618,6 +1994,7 @@ fn scan(
                 &request,
                 &guarantees,
                 report,
+                Some(Reuse::Deferred),
             );
         }
     }
@@ -1636,7 +2013,15 @@ fn scan(
         if let Some(old) = inflight.first() {
             store.transaction(|db| { db.execute("INSERT INTO observation_requests(id,profile,source,requester,guarantees,job_id,created_at) VALUES(?,?,?,?,?,?,?)", params![request,profile,source,args["requester"].as_str(),encode(&guarantees),old["id"].as_str(),started])?; Ok(()) })?;
             if old["state"] == "queued" {
-                return resume_scan(store, profile, source, &request, &json!({}), admitted);
+                return resume_scan(
+                    store,
+                    profile,
+                    source,
+                    &request,
+                    &json!({}),
+                    admitted,
+                    Reuse::Inflight,
+                );
             }
             return scan_result(
                 store,
@@ -1644,6 +2029,7 @@ fn scan(
                 &request,
                 &guarantees,
                 catabolic_core::decode_json(old["report"].as_str().unwrap_or("{}"))?,
+                Some(Reuse::Inflight),
             );
         }
     }
@@ -1672,7 +2058,14 @@ fn scan(
             db.execute("INSERT INTO observation_requests(id,profile,source,requester,guarantees,job_id,created_at) VALUES(?,?,?,?,?,?,?)",params![request,profile,source,args["requester"].as_str(),encode(&guarantees),job,started])?;
             Ok(())
         })?;
-        let mut pending = scan_result(store, &job, &request, &guarantees, json!({}))?;
+        let mut pending = scan_result(
+            store,
+            &job,
+            &request,
+            &guarantees,
+            json!({}),
+            Some(Reuse::Created),
+        )?;
         pending["observations"][0]["blocker"] = json!("observation_capacity");
         return Ok(pending);
     }
@@ -1716,6 +2109,7 @@ fn scan(
             execution,
             exclusions,
             compatibility,
+            reuse: Reuse::Created,
         },
     )
 }
@@ -1726,6 +2120,7 @@ fn resume_scan(
     request: &str,
     args: &Value,
     admitted: Option<&mut Option<Admitted>>,
+    reuse: Reuse,
 ) -> Result<Value> {
     if [
         "extended",
@@ -1759,7 +2154,7 @@ fn resume_scan(
     let report = catabolic_core::decode_json(old["report"].as_str().unwrap_or("{}"))?;
     let job = old["id"].as_str().unwrap().to_string();
     if old["request_state"] == "cancelled" {
-        return scan_result(store, &job, request, &guarantees, report);
+        return scan_result(store, &job, request, &guarantees, report, None);
     }
     if execution["policy_revision"] != effective_policy(store, profile, source)?["revision"] {
         return Err(Error(
@@ -1787,7 +2182,7 @@ fn resume_scan(
             && report["resume_progress"] != true
             && report["deferred"] != true)
     {
-        readmit(
+        let reuse = readmit(
             store,
             profile,
             source,
@@ -1796,13 +2191,13 @@ fn resume_scan(
             &compatibility,
             watermark,
         )?;
-        return resume_scan(store, profile, source, request, args, admitted);
+        return resume_scan(store, profile, source, request, args, admitted, reuse);
     }
     if old["state"] == "complete" || report["deferred"] == true {
-        return scan_result(store, &job, request, &guarantees, report);
+        return scan_result(store, &job, request, &guarantees, report, Some(reuse));
     }
     if old["state"] == "running" {
-        return scan_result(store, &job, request, &guarantees, report);
+        return scan_result(store, &job, request, &guarantees, report, Some(reuse));
     }
     if guarantees["minimum_start"]
         .as_f64()
@@ -1822,7 +2217,7 @@ fn resume_scan(
             )?
             .exists([profile, source])?
     {
-        let mut pending = scan_result(store, &job, request, &guarantees, report)?;
+        let mut pending = scan_result(store, &job, request, &guarantees, report, Some(reuse))?;
         pending["observations"][0]["blocker"] = json!("observation_capacity");
         return Ok(pending);
     }
@@ -1864,6 +2259,7 @@ fn resume_scan(
             execution,
             exclusions,
             compatibility: old["compatibility"].as_str().unwrap().to_string(),
+            reuse,
         },
     )
 }
@@ -1875,7 +2271,7 @@ fn readmit(
     guarantees: &Value,
     compatibility: &str,
     watermark: i64,
-) -> Result<()> {
+) -> Result<Reuse> {
     let now = now();
     let minimum = guarantees["minimum_start"].as_f64().unwrap_or(0.0);
     store.transaction(|db| {
@@ -1884,17 +2280,18 @@ fn readmit(
             row["state"]=="queued" || (row["state"]=="running" && row["lease_until"].as_f64().unwrap_or(0.0)>now && row["started_at"].as_f64().unwrap_or(0.0)>=minimum)
                 || (row["state"]=="complete" && guarantees["reuse_completed"]==true && row["started_at"].as_f64().unwrap_or(0.0)>=minimum && row["parent_job"].is_null())
         });
-        let job=if let Some(row)=reusable {row["id"].as_str().unwrap().to_string()} else {
+        let (job,reuse)=if let Some(row)=reusable {(row["id"].as_str().unwrap().to_string(),if row["state"]=="complete" {Reuse::Completed} else {Reuse::Inflight})} else {
             let id=uuid::Uuid::new_v4().to_string();
             let generation:i64=db.query_row("SELECT coalesce(max(generation),0)+1 FROM observation_jobs WHERE profile=? AND source=?",[profile,source],|r|r.get(0))?;
             db.execute("INSERT INTO observation_jobs(id,profile,source,compatibility,exclusions,dirty_generation,generation,state,requested_at,execution,parent_job,guarded) VALUES(?,?,?,?,?,?,?,'queued',?,?,?,1)",params![id,profile,source,compatibility,encode(&guarantees["exclusions"]),watermark,generation,now,encode(&guarantees["execution"]),guarantees["parent_job"].as_str()])?;
-            id
+            (id,Reuse::Created)
         };
         db.execute("UPDATE observation_requests SET job_id=? WHERE id=? AND profile=? AND state='active'",params![job,request,profile])?;
-        Ok(())
+        Ok(reuse)
     })
 }
 struct Admitted {
+    reuse: Reuse,
     guard: crate::WriterLock,
     job: String,
     scan_id: String,
@@ -1939,6 +2336,7 @@ fn fail_claim(store: &Store, job: &str, claim: &str, error: &Error) -> Result<()
     })
 }
 struct ScanContext {
+    reuse: Reuse,
     request: String,
     guarantees: Value,
     validation: Value,
@@ -1957,6 +2355,7 @@ fn prepare_scan(
     admitted: Admitted,
 ) -> Result<Prepared> {
     let Admitted {
+        reuse,
         guard,
         job,
         scan_id,
@@ -1985,7 +2384,8 @@ fn prepare_scan(
         Err(error) => {
             let report = json!({"scan_id":scan_id,"location":source,"complete":false,"observed":0,"published":0,"excluded":exclusions,"extensions":execution["extensions"],"availability":"unavailable","inventory_retained":true,"errors":[error.0]});
             store.transaction(|db|{db.execute("UPDATE scans SET errors=?,finished_at=CURRENT_TIMESTAMP WHERE id=?",params![encode(&report["errors"]),scan_id])?;db.execute("UPDATE observation_jobs SET state='unavailable',completed_at=?,lease_until=0,report=? WHERE id=?",params![now(),encode(&report),job])?;Ok(())})?;
-            return scan_result(store, &job, &request, &guarantees, report).map(Prepared::Result);
+            return scan_result(store, &job, &request, &guarantees, report, Some(reuse))
+                .map(Prepared::Result);
         }
     };
     let root_identity = identity(&root.metadata()?);
@@ -2004,7 +2404,8 @@ fn prepare_scan(
     {
         let report = json!({"scan_id":scan_id,"location":source,"complete":false,"observed":0,"published":0,"excluded":exclusions,"extensions":execution["extensions"],"blocker":"source_root_replaced","errors":["source root changed during scan recovery"],"deferred":false,"inventory_retained":true});
         store.transaction(|db|{db.execute("UPDATE observation_jobs SET state='failed',completed_at=?,lease_until=0,report=? WHERE id=?",params![now(),encode(&report),job])?;Ok(())})?;
-        return scan_result(store, &job, &request, &guarantees, report).map(Prepared::Result);
+        return scan_result(store, &job, &request, &guarantees, report, Some(reuse))
+            .map(Prepared::Result);
     }
     let database_identity = identity(&std::fs::metadata(&store.path)?);
     store.transaction(|db| {
@@ -2080,7 +2481,7 @@ fn prepare_scan(
             }
         }
     }
-    let scan = Scan {
+    let context = Arc::new(PublicationContext {
         path: store.path.clone(),
         database_id: store.database_id.clone(),
         profile: profile.to_string(),
@@ -2089,30 +2490,45 @@ fn prepare_scan(
         scan: scan_id.clone(),
         claim,
         generation,
-        root,
-        root_identity,
+        root: Some(root),
         database_identity,
         execution: execution.clone(),
         filter: ScanFilter::new(&execution)?,
         generated,
         exclusions: exclusions.clone(),
         compatibility,
-        queue,
-        queue_file,
+    });
+    let publisher = Publisher(Arc::new(Mutex::new(Publication {
+        context: context.clone(),
+        root_identity: Some(root_identity),
         sequence,
         entries: Vec::new(),
         bytes: 0,
         last: Instant::now(),
+        scopes: Vec::new(),
+        initial_scopes: None,
+        blocker: None,
+        prefiltered_entries: true,
+        eager_scopes: generated,
+    })));
+    let scan = Scan {
+        context,
+        publisher,
+        callbacks: None,
+        queue,
+        queue_file,
         started: Instant::now(),
         visited: 0,
         directories,
         blocker: None,
         errors: Vec::new(),
         crash_after_scope: args["crash_after_scope"].as_str().map(str::to_owned),
+        statistics: Statistics::default(),
     };
     Ok(Prepared::Scan(
         Box::new(scan),
         ScanContext {
+            reuse,
             request,
             guarantees,
             validation,
@@ -2123,6 +2539,7 @@ fn prepare_scan(
 }
 fn finish_scan(store: &Store, scan: Scan, context: ScanContext) -> Result<Value> {
     let ScanContext {
+        reuse,
         request,
         guarantees,
         validation,
@@ -2176,7 +2593,8 @@ fn finish_scan(store: &Store, scan: Scan, context: ScanContext) -> Result<Value>
         .into_iter()
         .map(|r| (r["status"].as_str().unwrap().to_string(), r["n"].clone()))
         .collect();
-    let report = json!({"scan_id":scan_id,"location":source,"complete":complete,"observed":observed,"published":observed,"excluded":exclusions,"extensions":execution["extensions"],"include_regex":execution["include_regex"],"exclude_regex":execution["exclude_regex"],"coverage_kind":if execution["extensions"].is_null() && execution["include_regex"]==json!([]) && execution["exclude_regex"]==json!([]){"all_files"}else{"filtered_files"},"coverage":counts,"outstanding":outstanding.iter().take(100).collect::<Vec<_>>(),"outstanding_truncated":outstanding.len()>100,"errors":scan.errors,"blocker":scan.blocker,"budgets":execution["budgets"],"batches":scan.sequence,"validation":validation,"availability":"available","inventory_retained":!complete,"requested_scopes":execution["scopes"],"policy_revision":policy["revision"],"deferred":deferred,"media_headers":{"coverage":"zero-filled container header screen; not a probe or decode","counts":header_counts},"progress":{"entries_visited":scan.visited,"directory_records":scan.directories,"batches":scan.sequence,"buffered_bytes":0}});
+    let mut report = json!({"scan_id":scan_id,"location":source,"complete":complete,"observed":observed,"published":observed,"excluded":exclusions,"extensions":execution["extensions"],"include_regex":execution["include_regex"],"exclude_regex":execution["exclude_regex"],"coverage_kind":if execution["extensions"].is_null() && execution["include_regex"]==json!([]) && execution["exclude_regex"]==json!([]){"all_files"}else{"filtered_files"},"coverage":counts,"outstanding":outstanding.iter().take(100).collect::<Vec<_>>(),"outstanding_truncated":outstanding.len()>100,"errors":scan.errors,"blocker":scan.blocker,"budgets":execution["budgets"],"batches":scan.publisher.sequence()?,"validation":validation,"availability":"available","inventory_retained":!complete,"requested_scopes":execution["scopes"],"policy_revision":policy["revision"],"deferred":deferred,"media_headers":{"coverage":"zero-filled container header screen; not a probe or decode","counts":header_counts},"progress":{"entries_visited":scan.visited,"directory_records":scan.directories,"batches":scan.publisher.sequence()?,"buffered_bytes":0}});
+    report::finish(store, job, scan_id, &scan.statistics, &mut report)?;
     store.transaction(|db| {
         scan.fence(store)?;
         db.execute(
@@ -2198,7 +2616,7 @@ fn finish_scan(store: &Store, scan: Scan, context: ScanContext) -> Result<Value>
         )?;
         Ok(())
     })?;
-    scan_result(store, job, &request, &guarantees, report)
+    scan_result(store, job, &request, &guarantees, report, Some(reuse))
 }
 
 fn scan_result(
@@ -2207,6 +2625,7 @@ fn scan_result(
     request: &str,
     guarantees: &Value,
     report: Value,
+    reuse: Option<Reuse>,
 ) -> Result<Value> {
     let mut row = rows(
         &store.db,
@@ -2218,6 +2637,7 @@ fn scan_result(
     row["request_id"] = json!(request);
     row["guarantees"] = guarantees.clone();
     row["job_state"] = row["state"].clone();
+    report::observation(&mut row, reuse)?;
     let request_state: String = store.db.query_row(
         "SELECT state FROM observation_requests WHERE id=? AND profile=?",
         params![request, row["profile"].as_str()],

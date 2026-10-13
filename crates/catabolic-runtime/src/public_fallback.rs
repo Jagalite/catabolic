@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 use std::{
     path::Path,
     sync::atomic::{AtomicBool, Ordering},
+    time::{Duration, Instant},
 };
 
 pub fn call(session: &mut Session, profile: &str, operation: &str, args: &Value) -> Result<Value> {
@@ -91,7 +92,7 @@ pub fn call(session: &mut Session, profile: &str, operation: &str, args: &Value)
         }
         "projection-drop" => {
             if let Some(token) = args["plan_token"].as_u64() {
-                session.fallback_plans().forget(token);
+                session.fallback_plans().forget(token)?;
             }
             Ok(Value::Null)
         }
@@ -103,6 +104,62 @@ pub fn call(session: &mut Session, profile: &str, operation: &str, args: &Value)
         _ => Err(Error(format!(
             "unsupported native fallback operation: {operation}"
         ))),
+    }
+}
+
+/// Preserved path-based worker lifecycle. The singleton spans every tick, but
+/// each tick releases its catalog writer before the idle interval. Publication
+/// and recovery still use the unchanged public tick's fail-closed M6 gates.
+pub fn run(
+    database: &Path,
+    profile: &str,
+    once: bool,
+    interval: Duration,
+    cancelled: &AtomicBool,
+) -> Result<Value> {
+    let path = catabolic_store::database_path(database)?;
+    let mut lock_path = path.as_os_str().to_os_string();
+    lock_path.push(".fallback-worker");
+    // Contention here is terminal. Only tick-local catalog contention is a
+    // retryable report, matching the frozen worker's admission order.
+    let _worker = catabolic_store::writer_lock(Path::new(&lock_path))?;
+    loop {
+        if cancelled.load(Ordering::Acquire) {
+            return Err(Error("fallback worker cancelled".into()));
+        }
+        let result = match tick(&path, profile, &json!({}), cancelled) {
+            // Store errors currently retain text rather than SQLite codes.
+            // Match only exact known contention diagnostics, not substrings.
+            Err(error)
+                if matches!(
+                    error.0.as_str(),
+                    "another Catabolic writer or upgrade is using this database"
+                        | "database is locked"
+                        | "database is busy"
+                        | "database table is locked"
+                ) =>
+            {
+                json!({"processed":0,"complete":false,"blockers":["catalog_busy"]})
+            }
+            other => other?,
+        };
+        if cancelled.load(Ordering::Acquire) {
+            return Err(Error("fallback worker cancelled".into()));
+        }
+        if once {
+            return Ok(result);
+        }
+        // The frozen perpetual worker emits no per-tick stdout, including
+        // incomplete ticks. Its only public interval is the one-second default.
+        let start = Instant::now();
+        while start.elapsed() < interval {
+            if cancelled.load(Ordering::Acquire) {
+                return Err(Error("fallback worker cancelled".into()));
+            }
+            std::thread::sleep(
+                Duration::from_millis(20).min(interval.saturating_sub(start.elapsed())),
+            );
+        }
     }
 }
 fn prepare(

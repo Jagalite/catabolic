@@ -11,6 +11,7 @@ from catabolic.fallback_projection import FallbackProjection
 from catabolic.layouts import PRESETS, Layouts
 from catabolic.watchers import Watchers
 from tests import test_component_packages as fixtures
+from tests.probe_timing import delay_first_probe_start
 
 
 class LifecycleTest(unittest.TestCase):
@@ -230,6 +231,45 @@ class LifecycleTest(unittest.TestCase):
                 if p.is_symlink()
             },
         )
+
+    def test_component_fallback_publication_tolerates_delayed_probe_start(self):
+        with delay_first_probe_start("preferred.srt") as observed:
+            self.test_component_fallback_publication_and_noop()
+        self.assertEqual(len(observed), 1)
+        self.assertEqual(observed[0]["delayed_children"], 1)
+        self.assertEqual(observed[0]["timeout_ms"], 10000)
+        self.assertEqual(
+            observed[0]["result"],
+            {"usable": False, "reason": "source_unavailable_or_changed"},
+        )
+
+    def test_component_probe_timeout_still_rejects_stale_publication_plan(self):
+        from catabolic.fallback_policies import Policies
+
+        policy, _ = fixtures.PackageTest.subtitle_fallbacks(self)
+        definition = Policies(self.store).get(policy)["definition"]
+        definition["budgets"]["probe_timeout_ms"] = 1000
+        policy = Policies(self.store).put("deadline-control", definition)["id"]
+        (self.source / "preferred.srt").unlink()
+        projection = self.bind(policy)
+        with delay_first_probe_start("preferred.srt") as observed:
+            preview = projection.run("global")
+            with self.assertRaisesRegex(
+                CatabolicError, "stale_or_missing_resolution_plan"
+            ):
+                projection.run(
+                    "global",
+                    apply=True,
+                    expected_plan=preview["plan_id"],
+                    max_removals=20,
+                )
+        self.assertEqual(len(observed), 1)
+        self.assertEqual(observed[0]["delayed_children"], 1)
+        self.assertEqual(observed[0]["timeout_ms"], 1000)
+        self.assertEqual(
+            observed[0]["result"], {"usable": False, "reason": "probe_timeout"}
+        )
+        self.assertFalse([p for p in self.output.rglob("*") if p.is_symlink()])
 
     def test_embedded_subtitle_external_font_requires_packaging(self):
         self.video("a.mkv", True)

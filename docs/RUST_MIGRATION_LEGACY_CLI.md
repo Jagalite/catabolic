@@ -39,11 +39,12 @@ of the **237 frozen leaves plus five dynamic query variants**. Regenerate it wit
 `adapted_unqualified` means a real native owner is wired, not that every flag,
 output byte, mutation effect or failure schedule has passed qualification.
 `partial`, `safety_gated` and `missing_adapter` rows remain visible blockers.
-The current ledger has **203 adapted but unqualified**, **28 missing adapters**,
-**10 partial leaves** and **one safety-gated leaf**. Counts describe routes,
+The current ledger has **220 adapted but unqualified**, **7 missing adapters**,
+**14 partial leaves** and **one safety-gated leaf**. Counts describe routes,
 not passed behavioral qualifications.
-The independent terminal review adds exact entrypoint mappings for 50 reviewed
-routes; 192 rows remain explicitly marked as family-level owner associations.
+The independent terminal review originally added exact entrypoint mappings for
+50 reviewed routes; later checkpoints add their own exact mappings. Every row
+distinguishes an entrypoint from a family-level owner association.
 Embedded offline resources are identified separately from native business owners.
 
 The independent parser suite `tests/test_rust_legacy_parser.py` records exact
@@ -59,9 +60,9 @@ independent disposable catalogs. Named `LC-*` scenarios cover offline docs/spec,
 missing-database error channels, native catalog reads and mutations, persistent
 reopen, SQL tables/machine envelopes/typed bounds/incomplete results, saved-query
 variants, unknown manifest fields, signal exit 130, and explicit owner/gate
-refusals. It checks exact bytes except the clearly marked unknown-field
-round-trip scenario, which checks complete JSON structure and large integer
-preservation, and mapping capabilities, whose frozen adapter order is derived
+refusals. The unknown-field round-trip scenario now checks exact bytes through
+the [command-local order adapter](RUST_MIGRATION_SPEC_ROUNDTRIP_ORDER.md).
+Mapping capabilities' frozen adapter order is derived
 from randomized Python sets. Native capability generation is pinned to hash seed
 zero; arbitrary-seed byte-order parity is explicitly not claimed.
 
@@ -103,13 +104,19 @@ companion artifact, separately from parser tests.
 ## Remaining limits
 
 The ledger, rather than parsing success, is authoritative about missing adapters.
-Aggregate maintenance/watch loops, legacy refresh and identification,
-API administration/secret-file contracts, fallback worker and the remaining
-projection/mapping orchestration adapters need closure. Supervise, inbox,
+The [ordinary maintenance checkpoint](RUST_MIGRATION_MAINTENANCE.md) adds
+inventory/analysis/report orchestration, while retaining M6 refusals and two
+explicit inherited full-report nonparity witnesses. Maintenance stays partial.
+Aggregate watch loops, legacy refresh and identification,
+API administration/secret-file contracts and the remaining
+projection/mapping orchestration adapters need closure. The
+[fallback worker lifecycle adapter](RUST_MIGRATION_FALLBACK_WORKER.md) is present,
+with its publication/recovery work still partial behind M6 and separately
+recorded signal/exception differences. Supervise, inbox,
 processing, artifact and Plex owners are linked, with selected independent
 scenario evidence rather than blanket leaf acceptance.
 
-Exact dynamic-object key ordering, arbitrary unknown extension insertion order,
+Exact dynamic-object key ordering outside the scoped spec-roundtrip adapter,
 all Python exception subclasses/diagnostics, every rule/report output shape,
 all signal timing windows, and every adapter's mutation/recovery behavior remain
 qualification gaps. Known native public-scan continuation, multi-source barrier
@@ -140,3 +147,12 @@ Legacy `api serve` refuses explicitly; disposable native HTTP use remains on
 `catabolic-native api serve --experimental-native-http`, with its loopback gate.
 No real catalogs, credentials, remote writes, releases, commits or pushes are
 part of this checkpoint. No M4–M11 exit gate is declared complete here.
+
+## Consumer watch development checkpoint
+
+The [preserved consumer watch adapter](RUST_MIGRATION_CONSUMER_WATCH.md) now
+forwards bounded, cancellable ticks to the existing consumer and notification
+owners. Selected frozen line/effect/restart comparisons do not establish full
+leaf parity. The current generated ledger has 219 adapted/unqualified, 12 missing,
+10 partial and one safety-gated leaf; earlier counts above are historical.
+Python defaults and all M6 release restrictions remain unchanged.

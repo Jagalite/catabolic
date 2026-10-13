@@ -11,6 +11,8 @@ use async_graphql_value::{ConstValue, Name, Value as Input};
 use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 
+mod overlap;
+
 fn ty_for(name: &str, http: bool) -> Option<&'static Value> {
     crate::introspection::schema_for(http)["types"]
         .as_array()
@@ -90,13 +92,63 @@ fn has_default(def: &Value) -> bool {
 // position index restores child positions without reparsing or evaluating input.
 // Strings and comments are single tokens, so their punctuation cannot become uses.
 #[derive(Clone)]
-struct Token {
-    text: String,
-    pos: Pos,
+pub(crate) struct Token {
+    pub(crate) text: String,
+    pub(crate) pos: Pos,
+    pub(crate) source_pos: Pos,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
 }
-fn tokens(source: &str) -> Vec<Token> {
+
+// graphql-core 3.2.12 reports Source.body[:offset].splitlines(): a prefix
+// ending in a separator has no extra empty line, even at a token's first
+// column. Keep this output coordinate separate from monotonic lexer positions.
+// Both counters consume Unicode scalar values, never UTF-8 byte lengths.
+struct SourcePosition {
+    current: Pos,
+    previous_line_column: usize,
+}
+impl SourcePosition {
+    fn position(&self) -> Pos {
+        if self.current.column == 1 && self.current.line > 1 {
+            Pos {
+                line: self.current.line - 1,
+                column: self.previous_line_column,
+            }
+        } else {
+            self.current
+        }
+    }
+    fn advance(&mut self, c: char, previous: Option<char>) {
+        if c == '\n' && previous == Some('\r') {
+            return;
+        }
+        if matches!(
+            c,
+            '\n' | '\r' | '\u{b}' | '\u{c}' | '\u{1c}'
+                ..='\u{1e}' | '\u{85}' | '\u{2028}' | '\u{2029}'
+        ) {
+            self.previous_line_column = self.current.column;
+            self.current.line += 1;
+            self.current.column = 1;
+        } else {
+            self.current.column += 1;
+        }
+    }
+}
+
+pub(crate) fn tokens(source: &str) -> Vec<Token> {
+    let offsets: Vec<usize> = source
+        .char_indices()
+        .map(|(index, _)| index)
+        .chain([source.len()])
+        .collect();
     let chars: Vec<char> = source.chars().collect();
     let (mut i, mut line, mut column) = (0, 1, 1);
+    let mut source_position = SourcePosition {
+        current: Pos { line: 1, column: 1 },
+        previous_line_column: 1,
+    };
     let mut result = vec![];
     while i < chars.len() {
         let start = i;
@@ -146,9 +198,13 @@ fn tokens(source: &str) -> Vec<Token> {
             result.push(Token {
                 text: chars[start..i].iter().collect(),
                 pos,
+                source_pos: source_position.position(),
+                start: offsets[start],
+                end: offsets[i],
             });
         }
         for j in start..i {
+            source_position.advance(chars[j], j.checked_sub(1).map(|j| chars[j]));
             if chars[j] == '\r' || chars[j] == '\n' && (j == 0 || chars[j - 1] != '\r') {
                 line += 1;
                 column = 1;
@@ -197,8 +253,8 @@ fn print_block_string(value: &str) -> String {
     let value = value.replace("\\\"\"\"", "\"\"\"");
     let escaped = value.replace("\"\"\"", "\\\"\"\"");
 
-    // Python str.splitlines includes these additional separators. They affect
-    // only printing layout here, not GraphQL's source-location line counting.
+    // Python str.splitlines includes these additional separators, as does
+    // graphql-core's separately calculated diagnostic source location.
     let mut lines = vec![];
     let mut chars = escaped.char_indices().peekable();
     let mut start = 0;
@@ -319,7 +375,12 @@ fn locate<'a>(
         Input::Object(values) => {
             for (name, value) in values {
                 let field_pos = tokens.get(*cursor).map_or(pos, |t| t.pos);
-                result.fields.push((name.to_string(), field_pos));
+                result.fields.push((
+                    tokens
+                        .get(*cursor)
+                        .map_or_else(|| name.to_string(), |t| t.text.clone()),
+                    field_pos,
+                ));
                 *cursor += 2;
                 result.children.push(locate(value, tokens, cursor, pos));
             }
@@ -338,19 +399,35 @@ struct Usage {
 }
 struct Validator<'a> {
     doc: &'a ExecutableDocument,
-    tokens: Vec<Token>,
+    tokens: &'a [Token],
     http: bool,
     out: Vec<Value>,
+    overlap: overlap::Overlap<'a>,
 }
-impl Validator<'_> {
+impl<'a> Validator<'a> {
     fn error(&mut self, message: String, positions: &[Pos]) {
-        self.out.push(json!({"message":message,"locations":positions.iter().map(|p|json!({"line":p.line,"column":p.column})).collect::<Vec<_>>()}));
+        // The extra entry is only the sentinel for the frozen 20-error cap.
+        if self.out.len() > 20 {
+            return;
+        }
+        let locations = positions
+            .iter()
+            .map(|p| {
+                let p = self
+                    .tokens
+                    .binary_search_by_key(&(p.line, p.column), |t| (t.pos.line, t.pos.column))
+                    .map_or(*p, |i| self.tokens[i].source_pos);
+                json!({"line":p.line,"column":p.column})
+            })
+            .collect::<Vec<_>>();
+        self.out
+            .push(json!({"message":message,"locations":locations}));
     }
-    fn located<'a>(&self, value: &'a Positioned<Input>) -> Located<'a> {
+    fn located<'v>(&self, value: &'v Positioned<Input>) -> Located<'v> {
         let mut cursor = self
             .tokens
             .partition_point(|t| (t.pos.line, t.pos.column) < (value.pos.line, value.pos.column));
-        locate(&value.node, &self.tokens, &mut cursor, value.pos)
+        locate(&value.node, self.tokens, &mut cursor, value.pos)
     }
     fn named_type_pos(&self, pos: Pos) -> Pos {
         self.tokens
@@ -371,6 +448,29 @@ impl Validator<'_> {
                 ),
                 &[pos],
             );
+        }
+    }
+    fn unique_input_field(&mut self, name: &str, pos: Pos, seen: &mut HashMap<String, Pos>) {
+        if let Some(first) = seen.get(name) {
+            self.error(
+                format!("There can be only one input field named '{name}'."),
+                &[*first, pos],
+            );
+        } else {
+            seen.insert(name.to_owned(), pos);
+        }
+    }
+    fn unique_input_fields(&mut self, value: &Located<'_>) {
+        let mut seen = HashMap::new();
+        if matches!(value.value, Input::Object(_)) {
+            for ((name, pos), child) in value.fields.iter().zip(&value.children) {
+                self.unique_input_field(name, *pos, &mut seen);
+                self.unique_input_fields(child);
+            }
+        } else {
+            for child in &value.children {
+                self.unique_input_fields(child);
+            }
         }
     }
     fn literal(&mut self, value: &Located<'_>, expected: &Value) {
@@ -413,10 +513,10 @@ impl Validator<'_> {
                     );
                 }
             }
+            let mut seen = HashMap::new();
             for ((name, pos), child) in value.fields.iter().zip(&value.children) {
-                if let Some(field) = argument(fields, name) {
-                    self.literal(child, &field["type"]);
-                } else {
+                let field = argument(fields, name);
+                if field.is_none() {
                     self.error(
                         format!(
                             "Field '{name}' is not defined by type '{kind}'.{}",
@@ -424,6 +524,12 @@ impl Validator<'_> {
                         ),
                         &[*pos],
                     );
+                }
+                self.unique_input_field(name, *pos, &mut seen);
+                if let Some(field) = field {
+                    self.literal(child, &field["type"]);
+                } else {
+                    self.unique_input_fields(child);
                 }
             }
             return;
@@ -490,6 +596,7 @@ impl Validator<'_> {
         if let Some(reason) = reason {
             self.error(reason, &[value.pos]);
         }
+        self.unique_input_fields(value);
     }
     fn unique_arguments(&mut self, args: &[(Positioned<Name>, Positioned<Input>)]) {
         let mut seen = HashSet::new();
@@ -571,6 +678,8 @@ impl Validator<'_> {
                 for (arg, value) in &directive.node.arguments {
                     if let Some(expected) = argument(&definition["args"], arg.node.as_str()) {
                         self.literal(&self.located(value), &expected["type"]);
+                    } else {
+                        self.unique_input_fields(&self.located(value));
                     }
                 }
                 self.required_arguments(
@@ -579,6 +688,10 @@ impl Validator<'_> {
                     &format!("Directive '@{name}'"),
                     directive.pos,
                 );
+            } else {
+                for (_, value) in &directive.node.arguments {
+                    self.unique_input_fields(&self.located(value));
+                }
             }
         }
     }
@@ -638,8 +751,11 @@ impl Validator<'_> {
             self.error(format!("{label} cannot be spread here as objects of type '{parent}' can never be of type '{target}'."),&[pos]);
         }
     }
-    fn walk(&mut self, set: &SelectionSet, parent: &str) {
-        for selection in &set.items {
+    fn walk(&mut self, set: &'a Positioned<SelectionSet>, parent: &str) {
+        for (message, positions) in self.overlap.check(set, parent) {
+            self.error(message, &positions);
+        }
+        for selection in &set.node.items {
             match &selection.node {
                 Selection::Field(field) => {
                     let name = field.node.name.node.as_str();
@@ -685,14 +801,17 @@ impl Validator<'_> {
                                     ),
                                     &[arg.pos],
                                 );
+                                self.unique_input_fields(&self.located(value));
                             }
+                        } else {
+                            self.unique_input_fields(&self.located(value));
                         }
                     }
                     self.directives(&field.node.directives, "FIELD");
                     // Unknown fields do not supply a child type, but their subtree
                     // still participates in directive and variable validation.
                     self.walk(
-                        &field.node.selection_set.node,
+                        &field.node.selection_set,
                         definition.as_ref().map_or("", |d| named(&d["type"])),
                     );
                     if let Some(definition) = definition {
@@ -720,7 +839,7 @@ impl Validator<'_> {
                     }
                     self.directives(&fragment.node.directives, "INLINE_FRAGMENT");
                     self.walk(
-                        &fragment.node.selection_set.node,
+                        &fragment.node.selection_set,
                         fragment
                             .node
                             .type_condition
@@ -859,7 +978,7 @@ impl Validator<'_> {
             }
         }
     }
-    fn operation(&mut self, name: Option<&Name>, op: &Positioned<OperationDefinition>) {
+    fn operation(&mut self, name: Option<&Name>, op: &'a Positioned<OperationDefinition>) {
         let mut seen = HashSet::new();
         for def in &op.node.variable_definitions {
             let name = def.node.name.node.as_str();
@@ -909,6 +1028,9 @@ impl Validator<'_> {
             {
                 let default = Positioned::new(default.node.clone().into_value(), default.pos);
                 self.literal(&self.located(&default), &declared);
+            } else if let Some(default) = &def.node.default_value {
+                let default = Positioned::new(default.node.clone().into_value(), default.pos);
+                self.unique_input_fields(&self.located(&default));
             }
             self.directives(&def.node.directives, "VARIABLE_DEFINITION");
         }
@@ -918,7 +1040,7 @@ impl Validator<'_> {
         } else {
             ""
         };
-        self.walk(&op.node.selection_set.node, root);
+        self.walk(&op.node.selection_set, root);
         let mut usages = vec![];
         self.directive_usages(&op.node.directives, &mut usages);
         self.usages(&op.node.selection_set.node, root, &mut usages);
@@ -992,10 +1114,10 @@ impl Validator<'_> {
             }
         }
     }
-    fn referenced_fragments<'a>(
-        &'a self,
-        set: &'a SelectionSet,
-    ) -> Vec<&'a Positioned<async_graphql_parser::types::FragmentDefinition>> {
+    fn referenced_fragments<'v>(
+        &'v self,
+        set: &'v SelectionSet,
+    ) -> Vec<&'v Positioned<async_graphql_parser::types::FragmentDefinition>> {
         let mut sets = vec![set];
         let mut seen = HashSet::new();
         let mut result = vec![];
@@ -1042,11 +1164,34 @@ fn fragment_spreads(
     result
 }
 pub(crate) fn validate_for(doc: &ExecutableDocument, document: &str, http: bool) -> Option<Value> {
+    // async-graphql's Pos resets the column at bare CR without advancing the
+    // line, losing source order and allowing collisions. The original parser
+    // has already admitted this document. A validation-only view replaces bare
+    // CR with LF; CRLF stays intact. Ignored whitespace/comments and block-string
+    // values are equivalent, and ordinary strings cannot contain raw CR.
+    // Never use this view for admission, execution, source spelling or output
+    // locations. Unexpected reparse failure retains the original validation.
+    let diagnostic_doc = diagnostic_line_endings(document)
+        .and_then(|view| crate::graphql_parse::parse_query(&view).ok());
+    let doc = diagnostic_doc.as_ref().unwrap_or(doc);
+    let tokens = tokens(document);
+    let input_doc = match crate::graphql_parse::validation_document(document, doc, &tokens) {
+        Ok(doc) => doc,
+        // Never execute a lossy input AST if its validation view could not be
+        // constructed. The accepted source remains the sole admission input.
+        Err(_) => {
+            return Some(
+                json!({"data":null,"errors":[{"message":"Unable to preserve GraphQL input fields for validation."}]}),
+            );
+        }
+    };
+    let doc = input_doc.as_ref().unwrap_or(doc);
     let mut validator = Validator {
         doc,
-        tokens: tokens(document),
+        tokens: &tokens,
         http,
         out: vec![],
+        overlap: overlap::Overlap::new(doc, &tokens, http),
     };
     // graphql-core visits definition source order, and emits variable-use checks
     // on leaving each operation, before visiting later fragment definitions.
@@ -1074,7 +1219,7 @@ pub(crate) fn validate_for(doc: &ExecutableDocument, document: &str, http: bool)
             );
             validator.directives(&fragment.node.directives, "FRAGMENT_DEFINITION");
             validator.walk(
-                &fragment.node.selection_set.node,
+                &fragment.node.selection_set,
                 fragment.node.type_condition.node.on.node.as_str(),
             );
         }
@@ -1103,6 +1248,25 @@ pub(crate) fn validate_for(doc: &ExecutableDocument, document: &str, http: bool)
         Some(json!({"data":null,"errors":validator.out}))
     }
 }
+
+fn diagnostic_line_endings(document: &str) -> Option<String> {
+    let bytes = document.as_bytes();
+    if !bytes
+        .iter()
+        .enumerate()
+        .any(|(i, c)| *c == b'\r' && bytes.get(i + 1) != Some(&b'\n'))
+    {
+        return None;
+    }
+    let mut view = bytes.to_vec();
+    for (i, c) in view.iter_mut().enumerate() {
+        if *c == b'\r' && bytes.get(i + 1) != Some(&b'\n') {
+            *c = b'\n';
+        }
+    }
+    Some(String::from_utf8(view).expect("ASCII line-ending replacement preserves UTF-8"))
+}
+
 pub(crate) fn parse_error(document: &str, error: &async_graphql_parser::Error) -> Value {
     let positions: Vec<Value> = error
         .positions()
@@ -1144,6 +1308,70 @@ pub(crate) fn parse_error(document: &str, error: &async_graphql_parser::Error) -
 #[cfg(test)]
 mod literal_diagnostic_render_tests {
     use super::*;
+
+    #[test]
+    fn source_prefix_locations_match_frozen_unicode_splitlines() {
+        for (source, expected) in [
+            (
+                "雪😀\r\nx\ry\n\u{2028}z",
+                vec![
+                    (1, 1),
+                    (1, 2),
+                    (1, 3),
+                    (1, 3),
+                    (1, 3),
+                    (2, 2),
+                    (2, 2),
+                    (3, 2),
+                    (3, 2),
+                    (4, 1),
+                    (5, 2),
+                ],
+            ),
+            ("\n\r\n\r", vec![(1, 1), (1, 1), (2, 1), (2, 1), (3, 1)]),
+        ] {
+            let mut position = SourcePosition {
+                current: Pos { line: 1, column: 1 },
+                previous_line_column: 1,
+            };
+            let mut previous = None;
+            let mut actual = vec![(1, 1)];
+            for c in source.chars() {
+                position.advance(c, previous);
+                let p = position.position();
+                actual.push((p.line, p.column));
+                previous = Some(c);
+            }
+            assert_eq!(actual, expected, "{source:?}");
+        }
+        for separator in [
+            '\n', '\r', '\u{b}', '\u{c}', '\u{1c}', '\u{1d}', '\u{1e}', '\u{85}', '\u{2028}',
+            '\u{2029}',
+        ] {
+            let source = format!("#雪😀{separator}x\n{{ bad }}");
+            let last = tokens(&source).pop().unwrap();
+            assert_eq!(last.source_pos, Pos { line: 3, column: 7 });
+        }
+    }
+
+    #[test]
+    fn diagnostic_view_changes_only_bare_cr_and_preserves_block_values() {
+        assert!(diagnostic_line_endings("{\r\nprofile\n}").is_none());
+        let source = "{items(search:\"\"\"雪\r\n 😀\r x\"\"\",first:\r1E+0){nodes{id}}}";
+        let view = diagnostic_line_endings(source).unwrap();
+        assert_eq!(source.len(), view.len());
+        assert!(view.contains("雪\r\n 😀\n x"));
+        let parsed = async_graphql_parser::parse_query(source).unwrap();
+        let normalized = async_graphql_parser::parse_query(&view).unwrap();
+        let value = |doc: &ExecutableDocument| {
+            let (_, operation) = doc.operations.iter().next().unwrap();
+            let Selection::Field(field) = &operation.node.selection_set.node.items[0].node else {
+                panic!("expected field");
+            };
+            field.node.arguments[0].1.node.clone()
+        };
+        assert_eq!(value(&parsed), value(&normalized));
+    }
 
     #[test]
     fn runtime_renderer_retains_variables_and_literal_node_spelling() {

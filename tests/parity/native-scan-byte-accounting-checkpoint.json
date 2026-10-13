@@ -1,0 +1,144 @@
+{
+  "recorded_utc": "2026-10-12T20:52:31.062780+00:00",
+  "scope": "Ordinary no-callback scan scope bytes and actual batch scheduling; bounded disposable Linux development fixtures only",
+  "base_commit": "ccf130ee4fcb63cc601ccb537c1a144c2bd98229",
+  "candidate_crate_source_fence_sha256": "5f04d40fdde83a5513383e23ce269d2dc2a4c06b041229a0ff37e0a84abd42f9",
+  "reference_source_fence_sha256": "1c6f27c662f558e88a87454c5ff52d56c7f380b956a26a400084f0877682775c",
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "artifacts": {
+    ".local-tests/scan-accounting/artifacts/scan_reports-23c83b6736e6ceda": "20909196f04fab319c0106dc0b601f3638140a20faa33b422ea9cb54a7f841a4",
+    ".local-tests/scan-accounting/artifacts/catabolic-legacy-native": "96426316fd72176b3b852f6cb2e646f40c3089f4a2631039d79dbc519fb2e905",
+    ".local-tests/scan-accounting/artifacts/maintenance_orchestration-1e320dc09487de29": "263e37d2aecd33f17d352cd426e03792939f1f6c78ffae54baf1c1187e2f3dcd"
+  },
+  "extension_sha256": "f4afe6b2a2d46a98251d445cc520861ea9d8dc21dbc989627886e67c82cf29c5",
+  "source_fence_algorithm": "sha256(sorted relative path + NUL + sha256(content) + LF)",
+  "source_fence_inputs": "All regular files under crates plus Cargo.toml, Cargo.lock, rust-toolchain.toml; reference all regular files under reference/src; exclude __pycache__",
+  "build": "Pinned env.sh; reused private target; Cargo offline, jobs=1, incremental=0, dev/test debug=0",
+  "python_oracle": "3.14.6",
+  "verification": {
+    "combined_python": {
+      "passed": 38,
+      "known_nonparity_witnesses": 4,
+      "skips": 0,
+      "expected_failures": 0,
+      "log": "combined-final.log"
+    },
+    "final_accounting_after_static_scope_assertions": {
+      "passed": 8,
+      "fixture_configurations": 14,
+      "log": "accounting-final.log"
+    },
+    "runtime": {
+      "report": 3,
+      "maintenance": 5,
+      "log": "runtime-initial.log"
+    },
+    "cli_unit": {
+      "passed": 12,
+      "log": "cli-unit.log"
+    },
+    "publisher_selected": {
+      "runtime": 2,
+      "source_contracts": 3,
+      "log": "publisher-selected.log"
+    },
+    "publisher_paired": {
+      "exact_type_aware_groups": 24,
+      "log": "publisher-paired.log"
+    },
+    "clippy": "passed with -D warnings",
+    "format_lint_whitespace": "passed",
+    "owner_ledger": "fresh",
+    "fence_recheck": "unchanged"
+  },
+  "full_report_diagnostics": {
+    "maintenance_json": 1,
+    "maintenance_machine": 1,
+    "watch_json": 1,
+    "watch_machine": 1,
+    "scan_text": 1,
+    "classification": "Explicit failing diagnostics, not qualification passes",
+    "raw_output_directory": "diagnostics-final"
+  },
+  "preserved_known_differences": [
+    "Actual scope elapsed values can have different encoded lengths, including coincidentally equal lengths; no inequality assumption",
+    "Native minimum_start remains admission-time floor rather than frozen after boundary",
+    "Callback-backed and generated-registry scopes retain prior eager schedule and entry-only byte accounting"
+  ],
+  "independent_review": {
+    "status": "pending",
+    "scope": "Fresh narrow accounting source and artifact replay only"
+  },
+  "limits": [
+    "No broad definitions or filesystem/hardlink/source-access/observation/remount/watcher safety review reopened or closed",
+    "No change to actual publication transaction/revalidation, source trust/ownership/admission, freshness or M6/journal gates",
+    "No generated-registry runtime, arbitrary failure/continuation, installed/release/platform/full-report or milestone qualification",
+    "No real catalogs, managed-output changes, live services, network dependency installs, push, release or default switch"
+  ],
+  "initial_failures_retained": [
+    "Audit-trigger fixture was refused by existing schema validation; replaced by read-only payload reconstruction without changing validation",
+    "Incomplete-scan test initially expected exit 0 instead of actual documented exit 3; fixed test only",
+    "Initial format/lint corrections retained in development tool transcript"
+  ],
+  "changed_sources_sha256": {
+    "crates/catabolic-runtime/tests/scan_reports.rs": "9a6bdfbafc5ff188fbda42919201e4fc5ae4fa20ab8f2702867f52878493716e",
+    "crates/catabolic-store/src/observation.rs": "6cf362fdd1f219f4ef07691e38da64e7baf0232eac650620000b472b73e2c854",
+    "docs/RUST_MIGRATION_PUBLISHER_FACADE.md": "70e30a5f73597d206b691bb6c2debcace9f5e0a332e0335456f448637fe70e5f",
+    "docs/RUST_MIGRATION_SCAN_ACCOUNTING.md": "d22ab5d3b35b2a54898b59016a3add1b0c32f6ecf732e6d335bdc0094ccf0384",
+    "docs/RUST_MIGRATION_SCAN_REPORTS.md": "b401977e38b6a8fba37a313e78545b4b9ca3d21ad5557de2c22cf9741736f469",
+    "scripts/native_publisher_embedding_tests.py": "086aed3c1c778c809a8d4dc2076d5be882f07b61d2de7371f6810cdcd08c6b03",
+    "tests/scan_report_support.py": "5430a3d092058aaccf509b95d3737febb8d97d22823ab622de70cce089c96f2c",
+    "tests/test_rust_scan_accounting.py": "62a61d1b93b23bc79ab4c532e64a783a4e03f32b1091fed8db84d5a1bbd6c8a5",
+    "tests/test_rust_scan_watch_cli.py": "d6c3f850fdd59495ffe466dec95d242b744c86203feb2253ebd813eae7039dd3"
+  },
+  "evidence_directory": ".local-tests/scan-accounting",
+  "evidence_sha256": {
+    "accounting-final.log": "0b132ddf00755cdfec4a425d54cef09d85630d781c209f4da05401fb824f963f",
+    "accounting-initial.log": "f577e6a123d9c0d1d7796b8895857a6ab1c3d474e451b91bce000cb5f7c0450f",
+    "accounting-second.log": "27fa3c95ad411e59ada9df211f9ac38982fbcb2ae5d870e43a16f7d9dc5a5219",
+    "build.log": "4dbd0699c5e7ea0dabf7061d6e537dea7e7c4384a9a5190cd274026d9e34278e",
+    "cli-unit.log": "e2065e893bd83235d145d513f9c157a6f36b9fc8cf8c79acd510a11aaaf0ae2f",
+    "clippy.log": "bc610faf9dd984ce96f411af5c5ae1b21175e0d011f920b4e3a9da7b888e401a",
+    "combined-final.log": "829f263b85444e718999e4ae0b4ec48e483bd13d20856a306984ac226da85eaa",
+    "combined-initial.log": "6cec59f335b0cc69d42ceb33ba3aa2f7ccb44bf74bd91c8a8f9f0bc8db483390",
+    "diagnostics-final/maintenance/json-native.json": "3a506f6815fe4c36436fec88e2e46b89d72b487399866bdba9ab595c3820364e",
+    "diagnostics-final/maintenance/json-native.stderr": "52eb7af6664123ad5114c9860d3c267d9d3c08d63a668878eef790f1f2a0dd6e",
+    "diagnostics-final/maintenance/json-python.json": "2b530607e5fc0d8780db06e3301131369085b5128ec671bfd27ff65eac37ca54",
+    "diagnostics-final/maintenance/json-python.stderr": "52eb7af6664123ad5114c9860d3c267d9d3c08d63a668878eef790f1f2a0dd6e",
+    "diagnostics-final/maintenance/machine-native.json": "ff23ca6d2c01c7e59c66a1f2ff985562a4c564401c5d2fface2f6dcf6f60afc6",
+    "diagnostics-final/maintenance/machine-native.stderr": "52eb7af6664123ad5114c9860d3c267d9d3c08d63a668878eef790f1f2a0dd6e",
+    "diagnostics-final/maintenance/machine-python.json": "c35f9772aa104566d542d346f49fa1f6f1905bc114f0498a47004c066313bc6c",
+    "diagnostics-final/maintenance/machine-python.stderr": "52eb7af6664123ad5114c9860d3c267d9d3c08d63a668878eef790f1f2a0dd6e",
+    "diagnostics-final/maintenance-json.log": "c8b68b5654655c8321f756691ea7abfa96a0b011ec50a0f84d464c9a727c81cb",
+    "diagnostics-final/maintenance-machine.log": "cdb80d674806c6a72fc3023e001daf3002cc4cbc57264fb0d3fc273aa158a8f4",
+    "diagnostics-final/scan/text-native.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diagnostics-final/scan/text-native.stdout": "bed2c4369504355b23dc8fd6bb317a025e1b60c2c3598ce14d09ff1ecd8199d6",
+    "diagnostics-final/scan/text-oracle.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "diagnostics-final/scan/text-oracle.stdout": "8978a68ff90d15943b105443ca46a3116693557332797d9accab15520f151f27",
+    "diagnostics-final/scan-text.log": "ed7e431c6a1126a90e469ea0482fe1c11e0843775d1a13b856793c3ab472ecf5",
+    "diagnostics-final/status.txt": "580c1e680ecf384d01e0741b71035e1301d98655c5d0d3d88a7eab25e1f5a47b",
+    "diagnostics-final/watch/json-native.stderr": "6ff7bcbda31c76fbf39314b9060b967810f172ffb38206ffc0c86b972fa2546a",
+    "diagnostics-final/watch/json-native.stdout": "da0f1f6f5427ff73798cd9bb0bb4a0a70ae7fb443ff69618390bed337f855889",
+    "diagnostics-final/watch/json-oracle.stderr": "d9f44de4125a83833a87147fe2e58d1a814b5ff8cbe51b9ff7c644724b822689",
+    "diagnostics-final/watch/json-oracle.stdout": "9e5ae70a3aff105274bf835aed7f279e2d5d706b2b6df6584e0398ae251ce04f",
+    "diagnostics-final/watch/machine-native.stderr": "fd73b66f7c50dc9d3474220feb1319641cdd7fe2858a4c7a6d03837c956da5af",
+    "diagnostics-final/watch/machine-native.stdout": "e63666e2cd52a9ac4da81794d82c93aa42f31dcc27b717eb625906bf7f6f6bd7",
+    "diagnostics-final/watch/machine-oracle.stderr": "ba072af3d0bef66790f8b6b5047c040907ee94fc19f47d4a440b32779462ec4e",
+    "diagnostics-final/watch/machine-oracle.stdout": "8689c1b908ec918cc572a795eece5f55b5a91eea78386cbd626c75987d2a6f05",
+    "diagnostics-final/watch-json.log": "61d99b95ea77f4fdac322c45727ccb55c98377c90b5f5c23eea01c821c942572",
+    "diagnostics-final/watch-machine.log": "98b8276fe7333e7c8981f0f1d33501293f350b7be047bbb28622ba9e87c6ca13",
+    "extension-build.log": "23ad03e0c1081bd4c8f86bf9f763a1fd681f1de0de1f363560f22843e100492a",
+    "fence-before-review.json": "fdb609bd901c6139a48830de197074e0c7c8ae5b6e6667840d1cc7abee89dc7d",
+    "fence-recheck.log": "30578ca14f8354610f5147bc0193bcc12f8a9cd3950fc0012d0363e4af7d99db",
+    "format-initial.log": "a1e675914f09ed4525aedade9063da6a1adf0463deb432fafcbaad22a64414e7",
+    "ledger.log": "2ce87dc73034b5b8bb87d0fef6ff35c6e852998f01bc35c7c9a2d96d0eb7c920",
+    "lint.log": "4bd8248f4985e327cd636d5b563aa46d1d34db2021498c8d8b37613b35f181d1",
+    "publisher-paired-native.json": "cb06d14653eff5e9eea3a60db7002be1c57f30df6a592cab0fe016fb41f5efbc",
+    "publisher-paired-reference.json": "04a3fead45a274f95c04db1799fa8b4bdb5454566899b43fcf4b86e89075eb5c",
+    "publisher-paired.log": "bd7736954025302c3b323ec72231c99e461a3f3a8fd9ca06037e0382ee97e368",
+    "publisher-selected.log": "98820ca30b9ccf4691ab79a7563f2a5a4aca0dc4f7b8d667046a1db7879569e6",
+    "runtime-initial.log": "2c79ff9d6ae36283b9edb668a249a84c1544a12c4999581993d77bf8164f11ca",
+    "stop-final.log": "db7dc2c681a5ca7dda977211357ee31fa29e678b57ca86a88fe500d069bfed5e",
+    "stop-initial.log": "4235a405dba04b1ddb48f10784b07b80b9e2aace5ca4e5891e475df554cf4123"
+  }
+}

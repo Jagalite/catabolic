@@ -9,6 +9,18 @@ pub fn execute(
     profile: &str,
     request: &Value,
 ) -> Result<Value> {
+    execute_with(store, profile, request, |store, profile, args| {
+        crate::observation::execute(store, profile, "scan", args)
+    })
+}
+
+/// Use the same orchestration with an embedding's publication transport.
+pub fn execute_with(
+    store: &mut catabolic_store::Store,
+    profile: &str,
+    request: &Value,
+    mut observe: impl FnMut(&mut catabolic_store::Store, &str, &Value) -> Result<Value>,
+) -> Result<Value> {
     catabolic_store::mutation::profile(store, profile)?;
     let mut args = request.clone();
     if request["scopes"].as_array().is_some_and(|a| !a.is_empty())
@@ -50,8 +62,13 @@ pub fn execute(
             args.as_object_mut().unwrap().remove(key);
         }
     }
+    if resume {
+        // Public admission above rejected actual scope changes. Do not turn
+        // its normalized empty default into an amendment at the owner boundary.
+        args.as_object_mut().unwrap().remove("exclude");
+    }
     if resume || continuation {
-        return crate::observation::execute(store, profile, "scan", &args);
+        return observe(store, profile, &args);
     }
     let sources = if let Some(source) = request["location"].as_str() {
         vec![source.to_owned()]
@@ -61,6 +78,14 @@ pub fn execute(
             .map(|r| r["id"].as_str().unwrap().to_owned())
             .collect()
     };
+    // Record the actual public request boundary. The native owner retains its
+    // existing (later) admission-time minimum_start floor when reuse is off.
+    args["after"] = json!(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs_f64()
+    );
     let mut scans = vec![];
     let mut observations = vec![];
     let mut complete = true;
@@ -68,7 +93,7 @@ pub fn execute(
     for source in &sources {
         args["source"] = json!(source);
         args["reuse_completed"] = json!(false);
-        let value = crate::observation::execute(store, profile, "scan", &args)?;
+        let value = observe(store, profile, &args)?;
         complete &= value["complete"] == true;
         started += 1;
         if let Some(v) = value["scans"].as_array() {

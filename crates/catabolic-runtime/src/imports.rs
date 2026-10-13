@@ -10,22 +10,13 @@ use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
     ffi::OsString,
-    os::unix::fs::PermissionsExt,
     path::PathBuf,
     sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
 
-fn which(name: &str) -> Option<PathBuf> {
-    std::env::split_paths(&std::env::var_os("PATH")?)
-        .map(|path| path.join(name))
-        .find(|path| {
-            path.metadata()
-                .is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
-        })
-}
 fn applied(mut prepared: Prepared, cancel: &AtomicBool, poll: &mut dyn FnMut()) -> Result<Value> {
-    let program = which(prepared.executable).ok_or_else(|| {
+    let program = imports::executable(prepared.executable).ok_or_else(|| {
         Error(format!(
             "install the official {} CLI before using --apply",
             prepared.executable
@@ -192,4 +183,180 @@ pub fn execute_with_poll(
         return Ok(prepared.report);
     }
     store.detached(|| applied(prepared, cancel, poll))
+}
+
+/// The mapping preview needs the actual Immich credential owner. It never uses
+/// a URL-only substitute, discovers a CLI by launching it, or submits media.
+pub const IDENTITY_WORKER: &str = "__publication-immich-identity-worker";
+const IDENTITY_LIMIT: usize = 1024 * 1024;
+const IDENTITY_INPUT: usize = 256 * 1024;
+const IDENTITY_ERROR: &str = "HTTP worker failed; check endpoint and network";
+fn identity_token() -> Result<String> {
+    let token = std::env::var("IMMICH_API_KEY")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| Error("set credential environment variable IMMICH_API_KEY".into()))?;
+    if token.contains(['\r', '\n']) {
+        return Err(Error("invalid credential value".into()));
+    }
+    Ok(token)
+}
+fn identity_url(destination: &str) -> Result<String> {
+    let base = catabolic_store::exports::http_base(Some(destination))?;
+    let base = base.trim_end_matches('/');
+    Ok(format!(
+        "{base}{}/users/me",
+        if base.ends_with("/api") { "" } else { "/api" }
+    ))
+}
+fn identity_request(destination: &str) -> Result<(String, String)> {
+    let url = identity_url(destination)?;
+    let token = identity_token()?;
+    let budget = catabolic_core::encode(
+        &json!({"url":url,"headers":{"x-api-key":token,"Accept":"application/json"},"method":"GET","maximum":IDENTITY_LIMIT,"timeout":15,"body":null,"structured_errors":true}),
+    );
+    if budget.len() > IDENTITY_INPUT {
+        return Err(Error("HTTP request exceeds input limit".into()));
+    }
+    Ok((url, token))
+}
+fn fetch_identity(destination: &str) -> Result<Value> {
+    use std::io::Read;
+    let (url, token) = identity_request(destination)?;
+    let network = || catabolic_store::consumers::Failure::new("temporarily_failed").error();
+    let bytes: Vec<u8> = token
+        .chars()
+        .map(|c| u8::try_from(u32::from(c)))
+        .collect::<std::result::Result<_, _>>()
+        .map_err(|_| network())?;
+    let mut token = ureq::http::HeaderValue::from_bytes(&bytes).map_err(|_| network())?;
+    token.set_sensitive(true);
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .proxy(None)
+        .max_redirects(0)
+        .max_idle_connections(0)
+        .http_status_as_error(false)
+        .timeout_global(Some(Duration::from_secs(15)))
+        .timeout_connect(Some(Duration::from_secs(10)))
+        .build()
+        .into();
+    let mut response = agent
+        .get(&url)
+        .header("x-api-key", token)
+        .header("Accept", "application/json")
+        .header("Connection", "close")
+        .call()
+        .map_err(|_| network())?;
+    let status = response.status().as_u16();
+    if [301, 302, 303, 307, 308].contains(&status) && response.headers().contains_key("location") {
+        return Err(network());
+    }
+    if !(200..300).contains(&status) {
+        return Err(catabolic_store::consumers::Failure::new(match status {
+            401 | 403 => "unauthorized",
+            429 => "rate_limited",
+            404 => "unavailable",
+            405 | 501 => "unsupported",
+            400 | 412 | 422 => "invalid_configuration",
+            _ => "temporarily_failed",
+        })
+        .error());
+    }
+    let mut bytes = Vec::new();
+    response
+        .body_mut()
+        .as_reader()
+        .take((IDENTITY_LIMIT + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|_| network())?;
+    if bytes.len() > IDENTITY_LIMIT {
+        return Err(network());
+    }
+    let user = crate::consumers::json_wire::decode(&bytes)
+        .map_err(|_| Error("mapping_invalid_import_account_identity".into()))?;
+    let id = user["id"]
+        .as_str()
+        .filter(|id| !id.is_empty() && id.chars().count() <= 128)
+        .ok_or_else(|| Error("mapping_invalid_import_account_identity".into()))?;
+    Ok(json!({"user_id":id}))
+}
+/// Private bounded helper receives only the endpoint. Credentials stay in its
+/// environment and the only successful output is the frozen account identifier.
+pub fn identity_worker_main() {
+    use std::io::{Read, Write};
+    let result = (|| -> Result<Value> {
+        let mut bytes = Vec::new();
+        std::io::stdin()
+            .take((IDENTITY_INPUT + 1) as u64)
+            .read_to_end(&mut bytes)?;
+        if bytes.len() > IDENTITY_INPUT {
+            return Err(Error("HTTP request exceeds input limit".into()));
+        }
+        let value =
+            catabolic_core::decode_json_bytes(&bytes).map_err(|_| Error(IDENTITY_ERROR.into()))?;
+        fetch_identity(
+            value["destination"]
+                .as_str()
+                .ok_or_else(|| Error(IDENTITY_ERROR.into()))?,
+        )
+    })();
+    let value = match result {
+        Ok(identity) => json!({"identity":identity}),
+        Err(error) => json!({"error":error.0}),
+    };
+    let _ = writeln!(std::io::stdout(), "{}", catabolic_core::encode(&value));
+}
+pub fn mapping_identity(
+    destination: &str,
+    executable: &std::path::Path,
+    cancel: &AtomicBool,
+) -> Result<Value> {
+    let checkpoint = || {
+        if cancel.load(Ordering::Acquire) {
+            Err(Error("native legacy CLI interrupted".into()))
+        } else {
+            Ok(())
+        }
+    };
+    checkpoint()?;
+    // Preserve request-size admission before a helper is spawned, including
+    // escaped credential bytes, without transmitting the token in the protocol.
+    identity_request(destination)?;
+    let input = catabolic_core::encode(&json!({"destination":destination}));
+    let output = crate::process::command_output(
+        &[
+            executable.as_os_str(),
+            std::ffi::OsStr::new(IDENTITY_WORKER),
+        ],
+        crate::process::CommandOptions {
+            input_bytes: Some(input.as_bytes()),
+            cancel: Some(cancel),
+            timeout: Duration::from_secs(15),
+            maximum: 4096,
+            ..Default::default()
+        },
+    );
+    checkpoint()?;
+    let output = output.map_err(|error| {
+        Error(
+            match error.state.as_str() {
+                "timeout" => "HTTP request exceeded the elapsed-time limit",
+                _ => IDENTITY_ERROR,
+            }
+            .into(),
+        )
+    })?;
+    if output.returncode != 0 || !output.stderr.is_empty() {
+        return Err(Error(IDENTITY_ERROR.into()));
+    }
+    let value = catabolic_core::decode_json_bytes(&output.stdout)
+        .map_err(|_| Error(IDENTITY_ERROR.into()))?;
+    if let Some(error) = value["error"].as_str() {
+        return Err(Error(error.into()));
+    }
+    let id = value["identity"]["user_id"]
+        .as_str()
+        .filter(|id| !id.is_empty() && id.chars().count() <= 128)
+        .ok_or_else(|| Error(IDENTITY_ERROR.into()))?;
+    Ok(json!({"user_id":id}))
 }

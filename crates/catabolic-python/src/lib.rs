@@ -1,7 +1,15 @@
 mod artifacts_processing;
 mod catalog_refresh;
 mod embedding;
+mod public_access;
 mod public_fallback;
+mod public_http;
+mod public_import_values;
+mod public_imports;
+mod public_layouts;
+mod public_publisher;
+mod public_secret;
+mod public_watchers;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use std::path::Path;
@@ -31,6 +39,10 @@ fn encode_json(raw: &str) -> PyResult<String> {
     let value =
         catabolic_core::decode_json(raw).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     Ok(catabolic_core::encode(&value))
+}
+#[pyfunction]
+fn layout_presets() -> &'static str {
+    include_str!("../../catabolic-store/resources/layouts.json")
 }
 #[pyfunction]
 fn component_revision(raw: &str) -> PyResult<String> {
@@ -100,11 +112,14 @@ fn execute_sql(
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     embedding::register(m)?;
     public_fallback::register(m)?;
+    public_imports::register(m)?;
+    public_http::register(m)?;
     m.add_function(wrap_pyfunction!(version, m)?)?;
     m.add_function(wrap_pyfunction!(register_native_helper, m)?)?;
     m.add_function(wrap_pyfunction!(native_helper, m)?)?;
     m.add_function(wrap_pyfunction!(encode_json, m)?)?;
     m.add_function(wrap_pyfunction!(component_revision, m)?)?;
+    m.add_function(wrap_pyfunction!(layout_presets, m)?)?;
     m.add_function(wrap_pyfunction!(initialize_database, m)?)?;
     m.add_function(wrap_pyfunction!(inspect_database, m)?)?;
     m.add_function(wrap_pyfunction!(upgrade_database, m)?)?;

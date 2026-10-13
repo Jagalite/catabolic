@@ -1,0 +1,91 @@
+{
+  "base_commit": "e3943e2a9098401a251dfccf02413056dc366f30",
+  "commit": "fbc6ee2cf051627bfed594639a3f101ef3c2e537",
+  "scope": "Two exact stale legacy source-contract assertions and in-memory negative witnesses; test-only local commit",
+  "result": {
+    "original_cases_before": {
+      "python314": {
+        "run": 2,
+        "failures": 2
+      },
+      "python311": {
+        "run": 2,
+        "failures": 2
+      }
+    },
+    "controls_after": {
+      "python314": {
+        "run": 16,
+        "passed": 16
+      },
+      "python311": {
+        "run": 16,
+        "passed": 16
+      }
+    },
+    "negative_variant_count": 30,
+    "original_extracted_body_sha256": "5065c8dd4c75f4a93fa0f65a3ab268507ffa7a30009235365726723ea236e781",
+    "exact_historical_scan_evolution_verified": true,
+    "exact_worker_arm_verified": true,
+    "owner_ledger_fresh": true,
+    "ruff_check": true,
+    "ruff_format": true,
+    "git_diff_check": true,
+    "independent_review": "no_blocking_findings",
+    "independent_review_controls": {
+      "python314": 16,
+      "python311": 16,
+      "negative_variants": 30
+    }
+  },
+  "provenance": {
+    "preserved_baseline": "6c5e3f5",
+    "public_resume_request_boundary": "bc762bfc61bd8382e62891c0ddcf185a7880041d",
+    "callback_transport": "a8c5a8ee0aae81e805772906b5fcb3679b90b122",
+    "native_supervised_transport": "4e653d53b89c8d3cacef4097eff950fc8b479017",
+    "downstream_accounting_review_not_reopened": "b6a29eed47e78fc70da2777395648e4fd6d5be5f",
+    "oracle_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "oracle_clean": true,
+    "oracle_interpreter": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+    "runner_interpreters": [
+      "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python3.14",
+      "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/ci-harness/python311-reference/bin/python3.11"
+    ]
+  },
+  "limits": [
+    "Native binary is pinned and checked for existence by these contracts; it is not executed by the source-control tests",
+    "Both runner interpreters deliberately use frozen Python 3.14.6 for the resource generator/oracle",
+    "No production files, ledger metadata, default engine, qualification status or old failed evidence changed",
+    "No builds, network, full aggregate, native runtime, installed, platform or full-surface qualification",
+    "The two denied broad definitions/filesystem safety lanes were not resumed or requalified"
+  ],
+  "retained_setup_missteps": [
+    "The upstream c69859e object is absent locally; preserved baseline6c5e3f5 reproduces the original digest instead",
+    "RUFF_NO_CACHE=1 was rejected; corrected to RUFF_NO_CACHE=true before lint/controls",
+    "Initial commit lacked author identity; commit retried using invocation-local dot <dot@localhost> identity"
+  ],
+  "sha256": {
+    "tests/test_rust_legacy_review.py": "501e1950f67902fd1e2780d5ff0733b78e177493ff39e2ff194b8b4d5473d6c6",
+    "crates/catabolic-runtime/src/public_scan.rs": "95fad2a631eeac8984b7fc116a982c0020391da02920c97131bb9e1d8a937b69",
+    "crates/catabolic-cli/src/legacy/dispatch.rs": "9eef75f7b5c3b397f963653e173cdb00d90bdb55e6b259baf35dbea997577515",
+    "tests/parity/legacy-cli-owners.json": "6c74a35ba9e30191370c5b57087e60ae2c829c813b082e5af9791f410d42a6d0",
+    "crates/catabolic-cli/resources/legacy-cli.json": "cd5909fa9df7e18b5cf591afcfef251c6ce0958d4d93e7821ef37bba4dddc8cc",
+    "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave10/.local-tests/wave10/artifacts/catabolic-legacy-native": "7e9038ab2a6378d606d1338349682abad7c68f3b187e2f433c7e65e8bed33981",
+    ".local-tests/legacy-source-contracts/run-controls.sh": "7064fe2f484966d8362fa337e150fc67d72b60a5b8ef1acceddb6acb408ffcd4",
+    ".local-tests/legacy-source-contracts/failing-python314.log": "07c23660dc5120ccfa04c8a529183bfd3d77f247937bb630646d22f7a83d0414",
+    ".local-tests/legacy-source-contracts/repaired-python314.log": "5a8001027d9b6f7643eb147aa05c764d8a25c465c35e48e575b3b0d3a97f943a",
+    ".local-tests/legacy-source-contracts/failing-python311.log": "5c60f674f730b5f35d29f72f440c155000ed96d6c32369101b46fc43dfdf9dc7",
+    ".local-tests/legacy-source-contracts/controls-python314.log": "d6a623d5f29376511c71afa6c7d343163211a059f9cd12812a19b1acda7db57b",
+    ".local-tests/legacy-source-contracts/accepted-scan-transport.rs": "95fad2a631eeac8984b7fc116a982c0020391da02920c97131bb9e1d8a937b69",
+    ".local-tests/legacy-source-contracts/provenance-check.log": "ccffd54f89fe99951bc8fd6c356ed0a9a0dbbbd6273cc7b3047b2dcb3e69df92",
+    ".local-tests/legacy-source-contracts/accepted-worker-dispatch.rs": "6ac1e959012fef88d8ce9a49a225d23c73289b2758e9d6be663ef14c50e431e9",
+    ".local-tests/legacy-source-contracts/baseline-public_scan.rs": "c315252c0b71b30ab757b7a6d9f910e92efe4dd7ee647ff89f12259cbd2aa243",
+    ".local-tests/legacy-source-contracts/final.patch": "74f8c2e06d9aee594102d9c21cca0b01787a365850da82c5398973173e1dc618",
+    ".local-tests/legacy-source-contracts/artifact-before.sha256": "686b44afd3fd90b95e739a7dc1244918f1917d60a8fdc72472d1398f83dc8fe4",
+    ".local-tests/legacy-source-contracts/accepted-scan-boundary.rs": "cf94e4f8afb9fc80f1c23d077bc0ba544a9ddda4a2a33830c7d3c040f06e406a",
+    ".local-tests/legacy-source-contracts/controls-python311.log": "314d82e24c33b7b337efa495e51aff53eedc7c2082e51c4cef98e177c34934a9",
+    ".local-tests/legacy-source-contracts/original-embedding.rs": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".local-tests/legacy-source-contracts/independent-review-fbc6ee2-20261012T2222Z/review.md": "5fc4f776ca485a5a8479545eca54d3ea5125b48077543e04090799e5abd7406a"
+  },
+  "independent_review_report": ".local-tests/legacy-source-contracts/independent-review-fbc6ee2-20261012T2222Z/review.md"
+}

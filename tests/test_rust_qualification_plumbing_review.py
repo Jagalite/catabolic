@@ -679,7 +679,61 @@ class QualificationShellReview(unittest.TestCase):
             for tool, args in calls
             if tool == "cargo" and "--ignored" in args and "--list" not in args
         ]
-        self.assertEqual(len(exact_executions), 4)
+        expected = [
+            [
+                "test",
+                "--locked",
+                "-p",
+                "catabolic-runtime",
+                "--test",
+                "source_events_independent",
+                "entry_budget_exhaustion_cannot_restart_for_later_sources",
+                "--",
+                "--ignored",
+                "--exact",
+            ],
+            *[
+                [
+                    "test",
+                    "--locked",
+                    "-p",
+                    package,
+                    "--lib",
+                    scenario,
+                    "--",
+                    "--ignored",
+                    "--exact",
+                ]
+                for package, scenario in (
+                    (
+                        "catabolic-runtime",
+                        "document::tests::real_pdf_text_and_page_overflow",
+                    ),
+                    ("catabolic-runtime", "document::tests::real_single_image_ocr"),
+                    (
+                        "catabolic-store",
+                        "artifact_mutation::tests::python_native_publication_intents_recover_in_both_directions",
+                    ),
+                    (
+                        "catabolic-store",
+                        "access_admin::tests::frozen_access_owner_differential",
+                    ),
+                    (
+                        "catabolic-store",
+                        "access_admin::tests::inherited_scalar_cache_confusion_remains_fail_closed_native",
+                    ),
+                )
+            ],
+        ]
+        # Exact identities and multiplicity: adding or deleting any required
+        # fixture must not be hidden by a stale or permissive count assertion.
+        self.assertEqual(exact_executions, expected)
+        listed = [
+            args
+            for tool, args in calls
+            if tool == "cargo" and "--ignored" in args and "--list" in args
+        ]
+        self.assertEqual(listed, [args + ["--list"] for args in expected])
 
     def test_generated_resource_drift_stops_before_cargo_or_artifacts(self):
         for generator in ("graphql_printable", "plex_xml_encodings"):

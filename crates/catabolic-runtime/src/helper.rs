@@ -9,7 +9,7 @@ use std::{
     sync::OnceLock,
 };
 #[derive(Clone)]
-struct Helper {
+pub(crate) struct Helper {
     path: PathBuf,
     identity: (u64, u64, u64, i64, i64, i64, i64),
 }
@@ -58,7 +58,17 @@ pub fn register(path: &Path, expected_sha256: Option<&str>) -> Result<()> {
         .set(Helper { path, identity })
         .map_err(|_| Error("native helper registration raced".into()))
 }
+pub(crate) fn pin(path: &Path) -> Result<Helper> {
+    let path = path.canonicalize()?;
+    let identity = identify(&path)?;
+    Ok(Helper { path, identity })
+}
+
 pub fn executable() -> Result<PathBuf> {
+    executable_with_fallback(None)
+}
+
+pub(crate) fn executable_with_fallback(fallback: Option<&Helper>) -> Result<PathBuf> {
     if let Some(helper) = HELPER.get() {
         if identify(&helper.path)? != helper.identity {
             return Err(Error(
@@ -72,6 +82,14 @@ pub fn executable() -> Result<PathBuf> {
         let path = PathBuf::from(path).canonicalize()?;
         identify(&path)?;
         return Ok(path);
+    }
+    if let Some(helper) = fallback {
+        if identify(&helper.path)? != helper.identity {
+            return Err(Error(
+                "native helper identity changed; restart with the installed artifact".into(),
+            ));
+        }
+        return Ok(helper.path.clone());
     }
     Err(Error("native helper unavailable; install the qualified companion wheel or provide CATABOLIC_NATIVE_BINARY explicitly".into()))
 }

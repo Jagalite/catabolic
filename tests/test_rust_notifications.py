@@ -14,7 +14,6 @@ import subprocess
 import tempfile
 import threading
 import unittest
-import venv
 from collections import Counter
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -269,12 +268,12 @@ class NativeNotificationsTest(unittest.TestCase):
         self.assertEqual(result["deliveries"][0]["state"], "retry")
         self.assertEqual([r[0] for r in received], ["/original"])
 
-    def test_missing_optional_provider_and_bad_urls_require_repair(self):
+    def test_bad_native_provider_urls_require_repair(self):
         self.put()
         self.emit()
         for value, outcome in [
             ("", "credential_unavailable"),
-            ("ntfy://localhost/fake-test-token", "uninstalled"),
+            ("ntfy://127.0.0.1/fake-test-token?verify=no", "invalid_destination"),
             ("json://evil/remote-config", "invalid_destination"),
             ("http://user:secret@localhost/hook", "invalid_destination"),
             ("https://localhost/hook#secret", "invalid_destination"),
@@ -285,7 +284,12 @@ class NativeNotificationsTest(unittest.TestCase):
         ]:
             with self.subTest(value=value):
                 self.native("retry", {"id": "one"})
-                result = self.native("drain", env={"CATABOLIC_TEST_one": value})
+                result = self.native(
+                    "drain",
+                    env={
+                        "CATABOLIC_TEST_one": value,
+                    },
+                )
                 self.assertFalse(result["complete"])
                 self.assertEqual(result["deliveries"][0]["state"], "repair")
                 self.assertEqual(
@@ -553,39 +557,28 @@ class NativeNotificationsTest(unittest.TestCase):
         self.assertEqual(received[0][2]["state"], "cancelled")
         self.assertNotIn("private-title", json.dumps(received))
 
-    def test_optional_apprise_adapter_partial_success_and_redaction(self):
-        environment = self.root / "adapter"
-        venv.EnvBuilder(with_pip=False).create(environment)
-        sites = list((environment / "lib").glob("python*/site-packages"))
-        self.assertEqual(len(sites), 1)
-        (sites[0] / "apprise.py").write_text(
-            "class AppriseAsset:\n"
-            " def __init__(self, **kwargs): pass\n"
-            "class Apprise:\n"
-            " def __init__(self, **kwargs): pass\n"
-            " def add(self, url): self.url = url; return True\n"
-            " def notify(self, **kwargs):\n"
-            "  assert kwargs['title'] == 'Catabolic'\n"
-            "  assert kwargs['body'] == 'A Catabolic projection update was locally verified.'\n"
-            "  print('PRIVATE-' + self.url)\n"
-            "  return 'good' in self.url\n"
-        )
+    def test_native_provider_partial_success_and_redaction(self):
+        base, received = self.receiver(lambda path: 503 if path == "/bad-private/message" else 200)
         self.put("good")
         self.put("bad")
         self.emit()
+        native = base.replace("http://", "gotify://")
         env = {
-            "CATABOLIC_APPRISE_PYTHON": str(environment / "bin/python"),
-            "CATABOLIC_TEST_good": "ntfy://localhost/good-private",
-            "CATABOLIC_TEST_bad": "ntfy://localhost/bad-private",
+            "CATABOLIC_APPRISE_PYTHON": "/does-not-exist/native-providers-ignore-python",
+            "CATABOLIC_TEST_good": native + "/good-private/synthetic-token",
+            "CATABOLIC_TEST_bad": native + "/bad-private/synthetic-token",
         }
         result = self.native("drain", env=env)
-        self.assertEqual(
-            {r["state"] for r in result["deliveries"]}, {"complete", "retry"}
-        )
+        self.assertEqual({r["state"] for r in result["deliveries"]}, {"complete", "retry"})
         self.assertNotIn("private", json.dumps(result))
+        self.assertEqual(len(received), 2)
+        self.assertTrue(all(body["title"] == "Catabolic" for _, _, body in received))
+        self.assertTrue(all(body["message"] == "A Catabolic projection update was locally verified." for _, _, body in received))
+        self.assertNotIn("private-media-title", json.dumps(received))
         self.native("retry", {"id": "bad"})
-        env["CATABOLIC_TEST_bad"] = "ntfy://localhost/good-private"
+        env["CATABOLIC_TEST_bad"] = native + "/good-private/synthetic-token"
         self.assertTrue(self.native("drain", env=env)["complete"])
+        self.assertEqual(len(received), 3)
 
     def test_native_webhook_crud_bearer_auth_and_principal_isolation(self):
         base, received = self.receiver(lambda _: 204)

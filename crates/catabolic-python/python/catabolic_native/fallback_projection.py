@@ -15,18 +15,6 @@ class _PreparedPlan(dict):
         super().__init__(reply["plan"])
         self._store, self._profile, self._token = store, profile, reply["token"]
 
-    def __del__(self):
-        if hasattr(self, "_token"):
-            try:
-                self._store._call(
-                    "fallback",
-                    "projection-drop",
-                    dict(plan_token=self._token),
-                    self._profile,
-                )
-            except Exception:
-                pass
-
 
 class FallbackProjection:
     def __init__(self, app):
@@ -45,10 +33,23 @@ class FallbackProjection:
     def plan(self, catalog, *, manual_failback=False, session=None):
         request, cancelled = _session_request(self.store, self.profile, session)
         request.update(catalog=catalog, manual_failback=bool(manual_failback))
-        reply = self.store._call(
-            "fallback", "projection-plan", request, self.profile, _cancelled=cancelled
-        )
-        return _PreparedPlan(self.store, self.profile, reply)
+        lease = None
+        try:
+            lease = self.store._owner.prepare_fallback(
+                json.dumps(request, allow_nan=False), self.profile, cancelled
+            )
+            reply = json.loads(lease.json())
+            plan = _PreparedPlan(self.store, self.profile, reply)
+            plan._lease = lease
+            return plan
+        except BaseException:
+            if lease is not None:
+                try:
+                    lease.release()
+                except BaseException:
+                    # Cleanup must preserve the original exception object.
+                    pass
+            raise
 
     def run(
         self,

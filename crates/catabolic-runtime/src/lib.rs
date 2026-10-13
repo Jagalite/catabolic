@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 //! Explicit effect boundaries for native Catabolic workflows.
+pub mod maintenance;
 pub mod media;
 pub mod notifications;
 pub mod process;
+pub mod projection;
+pub mod public_watchers;
 
 pub mod api;
 pub mod fallback;
@@ -20,6 +23,7 @@ pub mod document;
 pub mod artifacts;
 pub mod catalog_refresh;
 pub mod consumers;
+pub mod destination_mappings;
 pub mod observation;
 pub mod playback;
 pub mod processors;
@@ -51,3 +55,7 @@ pub mod public_artifacts;
 pub mod source_events;
 
 pub mod public_fallback;
+
+pub mod identify;
+
+pub mod operations;

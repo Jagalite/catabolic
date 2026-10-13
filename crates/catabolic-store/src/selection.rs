@@ -1,9 +1,7 @@
 //! Complete, bounded ID selections evaluated in one caller-owned SQLite snapshot.
+use crate::graphql_parse::parse_query;
 use crate::{Error, Result, Store, api_catalog::Authority, graphql, migration::rows, sql};
-use async_graphql_parser::{
-    parse_query,
-    types::{Field, OperationType, Selection},
-};
+use async_graphql_parser::types::{Field, OperationType, Selection};
 use catabolic_core::encode;
 use serde_json::{Value, json};
 use std::{
@@ -59,6 +57,7 @@ pub struct Evaluation {
     pub http: bool,
     authority: Option<Authority>,
     membership: Option<crate::access::SelectionAdmission>,
+    grant_preflight: Option<crate::access_admin::GrantPreflight>,
     deferred: Option<crate::access::SelectionAdmission>,
     session_limits: bool,
     deadline: Instant,
@@ -85,6 +84,7 @@ impl Evaluation {
             http,
             authority: None,
             membership: None,
+            grant_preflight: None,
             deferred: None,
             session_limits: false,
             deadline: Instant::now() + Duration::from_millis(timeout),
@@ -122,6 +122,7 @@ impl Evaluation {
             http,
             authority: None,
             membership: None,
+            grant_preflight: None,
             deferred: None,
             session_limits: true,
             deadline: Instant::now() + Duration::from_millis(timeout),
@@ -133,6 +134,18 @@ impl Evaluation {
             lending: true,
             cache: BTreeMap::new(),
         }
+    }
+    /// Sealed local administration preflight: HTTP SQL views, local GraphQL.
+    /// The admission cannot be constructed by HTTP/evaluation request dispatch.
+    pub(crate) fn for_access_grant(
+        profile: &str,
+        timeout: u64,
+        maximum: usize,
+        admission: crate::access_admin::GrantPreflight,
+    ) -> Self {
+        let mut evaluation = Self::unbound(profile, timeout, maximum, true);
+        evaluation.grant_preflight = Some(admission);
+        evaluation
     }
     pub(crate) fn set_max_bytes(&mut self, value: usize) {
         self.max_result_bytes = value;
@@ -427,7 +440,7 @@ impl Evaluation {
             }
             self.materialize_authority()?;
         }
-        if self.http && self.authority.is_none() {
+        if self.http && self.authority.is_none() && self.grant_preflight.is_none() {
             let proof = self.membership.as_ref().ok_or_else(|| {
                 Error("GraphQL HTTP evaluation requires authorization context".into())
             })?;

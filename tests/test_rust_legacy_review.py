@@ -39,6 +39,208 @@ BINARY = Path(
 ORACLE = "import pathlib,sys;sys.path.insert(0,sys.argv.pop(1));from catabolic.cli import main;raise SystemExit(main(sys.argv[1:]))"
 
 
+# Exact accepted source evolution, not a new behavioral qualification. Reversing
+# these hunks must still reproduce the original extracted-body digest below.
+# bc762bfc61bd8382e62891c0ddcf185a7880041d: public resume and request boundary.
+SCAN_RESUME = """    if resume {
+        // Public admission above rejected actual scope changes. Do not turn
+        // its normalized empty default into an amendment at the owner boundary.
+        args.as_object_mut().unwrap().remove("exclude");
+    }
+"""
+SCAN_REQUEST_BOUNDARY = """    // Record the actual public request boundary. The native owner retains its
+    // existing (later) admission-time minimum_start floor when reuse is off.
+    args["after"] = json!(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs_f64()
+    );
+"""
+# a8c5a8ee0aae81e805772906b5fcb3679b90b122: shared callback transport.
+SCAN_TRANSPORT = """) -> Result<Value> {
+    execute_with(store, profile, request, |store, profile, args| {
+        crate::observation::execute(store, profile, "scan", args)
+    })
+}
+
+/// Use the same orchestration with an embedding's publication transport.
+pub fn execute_with(
+    store: &mut catabolic_store::Store,
+    profile: &str,
+    request: &Value,
+    mut observe: impl FnMut(&mut catabolic_store::Store, &str, &Value) -> Result<Value>,
+) -> Result<Value> {"""
+# 4e653d53b89c8d3cacef4097eff950fc8b479017: the current executable supplies
+# the native supervised processor transport, not Python or engine fallback.
+RULE_WORKER_ARM = """        "preview" | "apply" | "run" => {
+            if a["worker"].as_str().is_some_and(|v| !v.is_empty()) {
+                return catabolic_runtime::rules::run_external(
+                    Path::new(text(a, "db")),
+                    text(a, "profile"),
+                    text(a, "id"),
+                    &r,
+                    &mut catabolic_runtime::processors::SupervisedTransport {
+                        executable: &std::env::current_exe()?,
+                        cancel,
+                    },
+                    cancel,
+                );
+            }
+            runtime(a, "rules", op, &r)
+        }
+"""
+
+
+def replace_once(case, source, old, new=""):
+    case.assertEqual(source.count(old), 1, "accepted source hunk changed: " + old)
+    return source.replace(old, new, 1)
+
+
+def assert_scan_extraction(case, source):
+    source = replace_once(case, source, SCAN_TRANSPORT, ") -> Result<Value> {")
+    for hunk, following in (
+        (SCAN_RESUME, "    if resume || continuation {"),
+        (SCAN_REQUEST_BOUNDARY, "    let mut scans = vec![];"),
+    ):
+        source = replace_once(case, source, hunk + following, following)
+    for before, after in (
+        (
+            "return observe(store, profile, &args);",
+            'return crate::observation::execute(store, profile, "scan", &args);',
+        ),
+        (
+            "let value = observe(store, profile, &args)?;",
+            'let value = crate::observation::execute(store, profile, "scan", &args)?;',
+        ),
+    ):
+        source = replace_once(case, source, before, after)
+    body = source[source.index("pub fn execute(") :]
+    body = body[body.index("{") :].strip()
+    case.assertEqual(
+        hashlib.sha256(body.encode()).hexdigest(),
+        "5065c8dd4c75f4a93fa0f65a3ab268507ffa7a30009235365726723ea236e781",
+    )
+
+
+NOTIFICATION_HELPER_REGISTRATION = """    if let Err(error) = std::env::current_exe()
+        .map_err(catabolic_store::Error::from)
+        .and_then(|path| catabolic_runtime::notifications::register_provider_helper(&path))
+    {
+        eprintln!("error: {error}");
+        std::process::exit(2);
+    }
+"""
+
+
+def assert_entrypoint_separation(case, relative, source):
+    # Keep the original exclusions everywhere. Only the exact native blocks
+    # below may obtain the current executable; no general exemption exists.
+    if relative == "legacy_main.rs":
+        # Only the exact native notification worker registration at the entry
+        # boundary is allowed. It cannot choose a Python executable or PATH.
+        before = "fn main() {\n" + NOTIFICATION_HELPER_REGISTRATION + "    let mut args ="
+        source = replace_once(case, source, before, "fn main() {\n    let mut args =")
+    case.assertNotRegex(source, r"Command::|helper::register")
+    if relative == "legacy/dispatch.rs":
+        start = source.index("\nfn rule(")
+        end = source.index("\nfn watcher(", start)
+        rule = replace_once(case, source[start:end], RULE_WORKER_ARM)
+        source = source[:start] + rule + source[end:]
+    case.assertNotRegex(source, r"current_exe\(")
+
+
+class LegacySourceContractGuards(unittest.TestCase):
+    """In-memory negative witnesses for the two source checks; no CLI effects."""
+
+    def test_scan_evolution_rejects_missing_changed_and_duplicate_hunks(self):
+        source = (ROOT / "crates/catabolic-runtime/src/public_scan.rs").read_text()
+        for hunk in (SCAN_RESUME, SCAN_REQUEST_BOUNDARY, SCAN_TRANSPORT):
+            for replacement in ("", hunk.replace("    ", "   ", 1), hunk + hunk):
+                with self.subTest(hunk=hunk, replacement=replacement):
+                    with self.assertRaises(AssertionError):
+                        assert_scan_extraction(
+                            self, source.replace(hunk, replacement, 1)
+                        )
+
+    def test_scan_evolution_still_rejects_unrecorded_body_drift(self):
+        source = (ROOT / "crates/catabolic-runtime/src/public_scan.rs").read_text()
+        for before, after in (
+            (
+                'args["reuse_completed"] = json!(false);',
+                'args["reuse_completed"] = json!(true);',
+            ),
+            (
+                "return observe(store, profile, &args);",
+                "return observe(store, profile, request);",
+            ),
+            (
+                "let value = observe(store, profile, &args)?;",
+                "let value = observe(store, profile, request)?;",
+            ),
+        ):
+            with self.subTest(before=before), self.assertRaises(AssertionError):
+                assert_scan_extraction(self, source.replace(before, after, 1))
+        for hunk in (SCAN_RESUME, SCAN_REQUEST_BOUNDARY):
+            with self.subTest(moved_hunk=hunk), self.assertRaises(AssertionError):
+                assert_scan_extraction(self, source.replace(hunk, "", 1) + hunk)
+
+    def test_worker_exception_rejects_changed_moved_and_duplicate_arms(self):
+        relative = "legacy/dispatch.rs"
+        source = (ROOT / "crates/catabolic-cli/src" / relative).read_text()
+        for label, changed in (
+            ("missing", source.replace(RULE_WORKER_ARM, "", 1)),
+            (
+                "changed transport",
+                source.replace(
+                    "executable: &std::env::current_exe()?",
+                    'executable: Path::new("python")',
+                    1,
+                ),
+            ),
+            ("duplicate", source + RULE_WORKER_ARM),
+            ("moved", source.replace(RULE_WORKER_ARM, "", 1) + RULE_WORKER_ARM),
+        ):
+            with self.subTest(label=label), self.assertRaises(AssertionError):
+                assert_entrypoint_separation(self, relative, changed)
+
+    def test_notification_registration_baseline_is_valid(self):
+        relative = "legacy_main.rs"
+        source = (ROOT / "crates/catabolic-cli/src" / relative).read_text()
+        assert_entrypoint_separation(self, relative, source)
+
+    def test_notification_registration_rejects_changed_moved_and_duplicate_blocks(self):
+        relative = "legacy_main.rs"
+        source = (ROOT / "crates/catabolic-cli/src" / relative).read_text()
+        block = NOTIFICATION_HELPER_REGISTRATION
+        for label, changed in (
+            ("missing", source.replace(block, "", 1)),
+            ("changed", source.replace("std::env::current_exe()", 'std::path::PathBuf::from("python")', 1)),
+            ("duplicate", source + block),
+            ("moved", source.replace(block, "", 1) + block),
+            ("extra", source + "std::env::current_exe()"),
+        ):
+            with self.subTest(label=label), self.assertRaises(AssertionError):
+                assert_entrypoint_separation(self, relative, changed)
+
+    def test_entrypoint_exclusions_still_reject_unapproved_calls(self):
+        for relative in (
+            "legacy_main.rs",
+            "legacy/dispatch.rs",
+            "legacy/parser.rs",
+            "legacy/presentation.rs",
+        ):
+            source = (ROOT / "crates/catabolic-cli/src" / relative).read_text()
+            for added in (
+                "Command::new",
+                "helper::register",
+                "std::env::current_exe()",
+            ):
+                with self.subTest(relative=relative, added=added):
+                    with self.assertRaises(AssertionError):
+                        assert_entrypoint_separation(self, relative, source + added)
+
+
 class NativeLegacyIndependentReview(unittest.TestCase):
     def setUp(self):
         for path in (PYTHON, REFERENCE / "catabolic/cli.py", BINARY):
@@ -395,29 +597,19 @@ class NativeLegacyIndependentReview(unittest.TestCase):
         self.assertEqual(len(json.loads(reference.stdout)["data"]["bindings"]), 1050)
 
     def test_scan_extraction_is_same_body(self):
-        original = subprocess.run(
-            [
-                "git",
-                "-C",
-                str(ROOT.parent / "catabolic"),
-                "show",
-                "c69859e:crates/catabolic-python/src/embedding.rs",
-            ],
-            text=True,
-            capture_output=True,
-            check=True,
-        ).stdout
-        original = original[original.index("fn scan(") :]
-        original = original[: original.index("\npub fn register(")]
-        old_body = (
-            original[original.index("{") :]
-            .strip()
-            .replace("catabolic_runtime::observation::", "crate::observation::")
-        )
+        # Preserve the extraction modulo the exact accepted evolution above,
+        # without requiring a deep Git clone. This remains a source contract,
+        # not scan behavior/full-report parity or accounting qualification.
+        # Verified upstream source: Jagalite/catabolic commit
+        # c69859eff3169545fddcb57e7d396744e48c738c,
+        # crates/catabolic-python/src/embedding.rs, Git blob
+        # 14b2f09af481cce56c67b8c3a6aa4635239d6399; full file SHA-256
+        # d4617e91120f56797356aa8bf277c3222a7394e46ff341eea2397abecabc79f7.
+        # Extract fn scan through the next register function, keep its body,
+        # strip outer whitespace, and replace only the moved module prefix
+        # catabolic_runtime::observation:: with crate::observation::.
         new = (ROOT / "crates/catabolic-runtime/src/public_scan.rs").read_text()
-        new_body = new[new.index("pub fn execute(") :]
-        new_body = new_body[new_body.index("{") :].strip()
-        self.assertEqual(old_body, new_body)
+        assert_scan_extraction(self, new)
         forwarding = (ROOT / "crates/catabolic-python/src/embedding.rs").read_text()
         self.assertIn(
             "public_scan::execute(session.store_mut()?, profile, &request)", forwarding
@@ -442,7 +634,7 @@ class NativeLegacyIndependentReview(unittest.TestCase):
             "legacy/presentation.rs",
         ):
             source = (ROOT / "crates/catabolic-cli/src" / relative).read_text()
-            self.assertNotRegex(source, r"Command::|helper::register|current_exe\(")
+            assert_entrypoint_separation(self, relative, source)
         project = (ROOT / "pyproject.toml").read_text()
         self.assertIn('catabolic = "catabolic.cli:main"', project)
         ledger = json.loads((ROOT / "tests/parity/legacy-cli-owners.json").read_text())
@@ -456,6 +648,15 @@ class NativeLegacyIndependentReview(unittest.TestCase):
         }.items():
             self.assertEqual(rows[command]["native_owner"], owner)
             self.assertEqual(rows[command]["owner_mapping"], "entrypoint")
+        self.assertEqual(rows["rule run"]["status"], "partial")
+        self.assertEqual(rows["rule run"]["owner_mapping"], "entrypoint")
+        self.assertEqual(
+            rows["rule run"]["native_owner"],
+            "catabolic_runtime::rules::{dispatch,run_external} -> "
+            "processor_mutation::{claim,job}, "
+            "processors::{dispatch_with_transport,SupervisedTransport}",
+        )
+        self.assertTrue(rows["rule run"]["gap"])
 
     def test_resource_regeneration_is_byte_identical(self):
         output = self.root / "resource.json"

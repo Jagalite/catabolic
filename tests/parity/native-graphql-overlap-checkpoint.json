@@ -1,0 +1,315 @@
+{
+  "status": "passed",
+  "scope": "Named native GraphQL overlapping-field validation contract only, with complete frozen direct/persistent/standalone CLI controls and a fresh independent bounded review",
+  "source_commit": "4563129c6efa38ffd0234784150404af2ead90b5",
+  "base_commit": "becad4575254533196a91ca695e5e958cb451dc1",
+  "implementation_commits": [
+    "b58319fbbf0630003659b544cbb438f38cb54110",
+    "4563129c6efa38ffd0234784150404af2ead90b5"
+  ],
+  "source_clean_at_validation": true,
+  "reference": {
+    "reference_rule_sha256": "e35086ac56adfc61b921f6f1a640f30e5b0643bfbf87bad8e0e60044cdd3095b",
+    "native_base_commit": "becad4575254533196a91ca695e5e958cb451dc1",
+    "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "python": "3.14.6",
+    "graphql_core": "3.2.12",
+    "scope": "Static overlapping fields: source-order reasons/locations, nested merges, fragments, exact arguments, accepted neighbors, error and field-comparison budgets. Historical inputs and previous native responses are retained.",
+    "capture_sha256": "6a0d7d44c5d7a183bf6c7a1264f6d74069dd5fa6e30ec18c21b345d152216755"
+  },
+  "native_environment": {
+    "rust": "1.99.0",
+    "host": "x86_64-unknown-linux-gnu",
+    "cargo_target_dir": "/workspace/scratch/9c9a5a8c3955/catabolic/target",
+    "profile": "release",
+    "locked": true,
+    "offline": true,
+    "jobs": 1,
+    "cache_released": true
+  },
+  "implemented": [
+    "Selection-set entry and definition source ordering",
+    "Local/inline, field/fragment and fragment/fragment conflict comparison with document-wide memoization",
+    "Nested reasons and ordered left/right location chains",
+    "Argument equivalence preserving numeric lexemes, block-string kind, variable identity and list order while sorting object members",
+    "Concrete-object exclusivity with recursive return-type wrapper/scalar checks",
+    "Frozen 250000-comparison budget and 20-error result cap with existing admission and cancellation precedence"
+  ],
+  "controls": {
+    "fixture": "tests/parity/graphql-overlapping-fields.json",
+    "sha256": "875805b3a758821f0c8b71bdbb116f276251a52b24b25ea251784f6c4135196c",
+    "documents": 77,
+    "validation_accepted": 15,
+    "validation_rejected": 62,
+    "historical_witnesses": 9,
+    "native_preflight_schema_contexts": [
+      "local",
+      "http"
+    ],
+    "native_execution": [
+      "direct",
+      "persistent query_only=0",
+      "persistent query_only=1"
+    ],
+    "standalone_cli_surfaces": [
+      "legacy",
+      "companion"
+    ],
+    "complete_responses": true,
+    "scalar_types_checked": true
+  },
+  "checks": {
+    "rust_integration": {
+      "passed": 29,
+      "suites": 8,
+      "log": ".local-tests/overlap/run2/cargo-tests.log"
+    },
+    "rust_graphql_unit_and_authority": {
+      "passed": 12,
+      "log": ".local-tests/overlap/run2/cargo-graphql-lib.log"
+    },
+    "immutable_rust_harness_replays": {
+      "passed": 41,
+      "artifacts": 9,
+      "manifest": ".local-tests/overlap/run2/rust-replay.json",
+      "lib_log": ".local-tests/overlap/run2/lib-graphql.replay.log"
+    },
+    "cli_regressions": {
+      "passed": 25,
+      "failed": 0,
+      "seconds": 399.227,
+      "log": ".local-tests/overlap/run2/cli-tests.log",
+      "printed_matrix_counts": {
+        "overlap": 77,
+        "document": 55,
+        "resolved_overlap_controls": 3,
+        "runtime_completion": 59,
+        "runtime_validation_controls": 5,
+        "parser": 191,
+        "remaining_parser_controls": 5,
+        "source_locations": 58,
+        "literal_diagnostics": 158,
+        "coercion": 182
+      }
+    },
+    "clippy": {
+      "status": "passed",
+      "command": "cargo clippy --offline --locked --release --jobs 1 -p catabolic-store --all-targets -- -D warnings",
+      "log": ".local-tests/overlap/run2/clippy.log"
+    },
+    "rust_format": "passed",
+    "python_focused_lint": "passed",
+    "historical_fixture_preservation": "passed",
+    "diff_check": "passed"
+  },
+  "independent_review": {
+    "verdict": "No correctness findings in scoped ordinary overlap contract",
+    "source_commit": "4563129c6efa38ffd0234784150404af2ead90b5",
+    "fresh_documents": 66,
+    "complete_native_reference_comparisons": 132,
+    "validation_accepted": 17,
+    "validation_rejected": 49,
+    "accepted_execution_detail": "16 successes and one matching existing unknown-tag runtime error on populated catalogs",
+    "final_overlap_harness_passed": 2,
+    "source_oracle_artifacts_stable": true,
+    "catalog_bytes_unchanged": true,
+    "report": ".local-tests/overlap/independent-review/REPORT.md",
+    "summary": ".local-tests/overlap/independent-review/summary.json",
+    "fresh_cases": ".local-tests/overlap/independent-review/fresh-cases.json",
+    "raw_results": ".local-tests/overlap/independent-review/results.json"
+  },
+  "retained_history": {
+    "original_fixture_files_unchanged": [
+      "tests/parity/graphql-document-validation.json",
+      "tests/parity/graphql-runtime-completion.json",
+      "tests/parity/graphql-parser-cases.json",
+      "tests/parity/graphql-validation-remaining-gaps.json"
+    ],
+    "parser_precedence_8": "Complete original independent-review witness and all three responses are embedded in the new fixture",
+    "conflicting_types": "Old generic rejection and exact composed checkpoint12 source0861677 observations remain distinct; frozen validation is name-first for profile versus __schema",
+    "initial_clippy_failure": {
+      "source_commit": "b58319fbbf0630003659b544cbb438f38cb54110",
+      "exit_code": 101,
+      "diagnostic": "clippy::needless_borrow at validation.rs:430",
+      "log": ".local-tests/overlap/run1/clippy.log",
+      "correction_commit": "4563129c6efa38ffd0234784150404af2ead90b5",
+      "initial_rust_tests_passed": 13
+    }
+  },
+  "invariants": [
+    "Conflicts rejected before scope/resolvers; generic compatibility guard retained",
+    "Caller Store transaction, TEMP state, query_only and authorization owner preserved",
+    "Unicode/CR source positions, scalar kinds and error precedence retained",
+    "Existing byte/token/depth/expanded-selection/field/output budgets retained",
+    "No dependency, global serde, configuration, identity or production Python/wrapper changes"
+  ],
+  "limits": [
+    "Bounded overlap correctness qualification, not blanket GraphQL equivalence",
+    "No native HTTP-server end-to-end run in this lane; HTTP-schema native preflight and existing authorized GraphQL unit tests were exercised",
+    "Remaining parser/HTTP/scalar residual defects were not expanded or hidden",
+    "No broad or previously denied safety review, remote/main update, release publication or wrapper acceptance"
+  ],
+  "artifacts": [
+    {
+      "file": ".local-tests/overlap/run2/artifacts/catabolic-legacy-native",
+      "sha256": "c0093ebda9e6dfd749c063cd6e0f811f58ca550a0b439fbcd7553d01f96607b7",
+      "bytes": 36690032
+    },
+    {
+      "file": ".local-tests/overlap/run2/artifacts/catabolic-native",
+      "sha256": "8debba956d74648a453d8eb909b67899f2c07f0e8f7ce1e8b88d45957ba84679",
+      "bytes": 34449448
+    },
+    {
+      "file": ".local-tests/overlap/run2/artifacts/catabolic_store-04423f4eeebcf432",
+      "sha256": "2acac180de7b96116c7d3c90427dc3b1575cfcb4dcd3b74adf821ee3f2ef10af",
+      "bytes": 24230832
+    },
+    {
+      "file": ".local-tests/overlap/run2/artifacts/graphql_document_validation-5059ee090691ab9b",
+      "sha256": "fba362a114e6bff6568bf9074e94b960991228fd9b5ecb4a4141cc7b90de65be",
+      "bytes": 12669376
+    },
+    {
+      "file": ".local-tests/overlap/run2/artifacts/graphql_empty_completion-f63d224fa9816040",
+      "sha256": "ea4142504ab8d895204252c3dcd50f505b331bf5b29f9c6a9bedc2003dbf1bdb",
+      "bytes": 12375808
+    },
+    {
+      "file": ".local-tests/overlap/run2/artifacts/graphql_input_independent-939ee573fbc74252",
+      "sha256": "4c6e79f9ea57a463391d08700e5bf42ccd4c30944e3807f7cd3a48f99a46b0b0",
+      "bytes": 12405688
+    },
+    {
+      "file": ".local-tests/overlap/run2/artifacts/graphql_literal_diagnostics-3a77f03c1bd3eb4d",
+      "sha256": "a367a574ce55dc8e42453c026de08e170abbd4f722c9c55f173ea3ef49e1fd84",
+      "bytes": 11860184
+    },
+    {
+      "file": ".local-tests/overlap/run2/artifacts/graphql_overlapping_fields-85f20278b95f2fd0",
+      "sha256": "a07569e07c0f9ed4663480db586918eb6a5a475438b6f829750a3537188c3361",
+      "bytes": 12634760
+    },
+    {
+      "file": ".local-tests/overlap/run2/artifacts/graphql_parser_cases-8d6babbad3d5e1f8",
+      "sha256": "ec615b026b17313be86529b818f9333a35156924aaa825684ede4632e788cb9a",
+      "bytes": 12793168
+    },
+    {
+      "file": ".local-tests/overlap/run2/artifacts/graphql_runtime_completion-02d64992bed397ef",
+      "sha256": "a58fe9b32cbc204f0486a4da23590c5baf3e73fef1b42a98f2f0d63b877922ab",
+      "bytes": 12569360
+    },
+    {
+      "file": ".local-tests/overlap/run2/artifacts/graphql_source_locations-2595ebfaad75fb51",
+      "sha256": "ea1f9ebb535ff4ba770c86d6f46ad1f63ffaa4e6fafaa96e4e9e6f36e2eea80e",
+      "bytes": 12243080
+    }
+  ],
+  "evidence_sha256": {
+    ".local-tests/overlap/run1/artifacts.sha256": "486db32653a9a42d0fd9c7cc2f673dbc2c8888e25cd995d290bff024123c378c",
+    ".local-tests/overlap/run1/cargo-tests.log": "c3b5bbbd5b8869e636f36c9d2734f5f8bf5df207481b55d5a442eefa35049661",
+    ".local-tests/overlap/run1/clippy.log": "b64d736fe61959e43b9f74d9b1262ed997d59ee3c548f212f627b2db4625f314",
+    ".local-tests/overlap/run1/source-commit.txt": "d9bb2ed4ee7bf2bcd5ebeee04bd44f12be7596761d72df6ab51c580f3d1e94bb",
+    ".local-tests/overlap/run1/source.txt": "2ce65bf14703fc36bf409373e19590d24dbd762d6f2e00c36a0939289362d6ee",
+    ".local-tests/overlap/run2/artifacts-final.sha256": "dbe01dab215de43caf493f6b306b7f659fd2f88e26d82c03e46aa6c13f7ca39e",
+    ".local-tests/overlap/run2/build-cli.log": "66d66281bb9707800368c88391fb2bc37dc5ffde95f6967f6a96fea6c3363fa1",
+    ".local-tests/overlap/run2/cargo-graphql-lib.log": "382325e49846fa8511efe18f16da1bd201b0f0494716d32dc648e589c95edee1",
+    ".local-tests/overlap/run2/cargo-tests.log": "04e057cda3b0f4041d85bab332994755eae0f831c6f5df66715662c29ee08957",
+    ".local-tests/overlap/run2/cli-artifacts.sha256": "fa4e5f607f5c84d0f0c8756403c2361da8920a1e16786fdfa239818e52084158",
+    ".local-tests/overlap/run2/cli-document.json": "31f7c6cb382c9d70da5ed23f8fd2224a994b01e914397c4bb9350b93100ad455",
+    ".local-tests/overlap/run2/cli-literal.json": "9c91395c5a0dbb2158b6d8a430cfe35c487dd799f1384ee26d82378862108c70",
+    ".local-tests/overlap/run2/cli-overlap.json": "c0b57f1aefa012577724b1156de90d3dab3b7adcb9700d714753d84f2ff7064a",
+    ".local-tests/overlap/run2/cli-runtime.json": "fb3721f5a2ab144caf84bd42a034bf7b18c7389bb8ae82a78dceb2256d4bcdc3",
+    ".local-tests/overlap/run2/cli-source.txt": "f1eb1770caec93144b1eaf492479b8c273c086f945a9d62d7f45dfeb57e1baf1",
+    ".local-tests/overlap/run2/cli-tests.log": "66aeb935ad041719834291b114b47de04bed1137d3184aacbf9ad0ebec8f4742",
+    ".local-tests/overlap/run2/clippy.log": "35499c704aaa6febf84f65d6411f58f7e8cdcd5788672079cc5052faf5eb766b",
+    ".local-tests/overlap/run2/fmt.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".local-tests/overlap/run2/graphql_document_validation-5059ee090691ab9b.replay.log": "70f4ffb52ba4d41c44f9a82ea6679fe2a2bc6a14a568fc1e24bc67a7fba1d313",
+    ".local-tests/overlap/run2/graphql_empty_completion-f63d224fa9816040.replay.log": "d7f01df8f25bacc5f87a53713d121d716bedb511f56a9e89eeb1e619b909a09d",
+    ".local-tests/overlap/run2/graphql_input_independent-939ee573fbc74252.replay.log": "936fbc322bd70ebfa98014a26eeff8fd7afa241ee7c5c842be257b1bd8eac851",
+    ".local-tests/overlap/run2/graphql_literal_diagnostics-3a77f03c1bd3eb4d.replay.log": "82cd8727468121b6ddb3a2b62558de79dcabf5505ba6e316aeecf9bc00c09d68",
+    ".local-tests/overlap/run2/graphql_overlapping_fields-85f20278b95f2fd0.replay.log": "1be7e88b1ca965b12c679d39adef2b1902ca5180fae34629bd45a4f564c2d4f8",
+    ".local-tests/overlap/run2/graphql_parser_cases-8d6babbad3d5e1f8.replay.log": "2addb216d9218c3f510907aeab47058a1d985c6414f6ba774e9f909696136bdd",
+    ".local-tests/overlap/run2/graphql_runtime_completion-02d64992bed397ef.replay.log": "278e7ff0c6575f2017efa26203e4d2fd19da5ec6dba377a5e9a4abdf98d9801c",
+    ".local-tests/overlap/run2/graphql_source_locations-2595ebfaad75fb51.replay.log": "3fac96fde730be44ef003ad46a2e7cc476e641312212fb0e52b48c1cb8279a37",
+    ".local-tests/overlap/run2/historical.log": "54f90ae1c9d04c2f6187f388b503ca79a58c0249b39a177d407db1a212a19211",
+    ".local-tests/overlap/run2/lib-artifact.json": "ff4e7cfa1c057f419d8cc0a1ad8d85b9c067e52ce4081b6531e379f8996968d0",
+    ".local-tests/overlap/run2/lib-graphql.replay.log": "720acdefd448230263287bd7da765e5e033a9e34efc1b01ab10fa61c37d8d9e1",
+    ".local-tests/overlap/run2/rust-artifacts.json": "a598d3e3e9d12ed827e30d5c0754c59575bf72313ea690291d32a01f834cebd3",
+    ".local-tests/overlap/run2/rust-replay.json": "145ca73eb0dd3e88e9fd03d353f49f11b3557faf68a2f342e0a816476f8cd1fc",
+    ".local-tests/overlap/run2/source.txt": "fcf6b11a469c376e94f39f52a68d999c5580f3fab53c6689b3a4fe3bc9122b85",
+    ".local-tests/overlap/independent-review/REPORT.md": "4aedeed24b31b8cb1b92b1e6e41056371d9ab9e3751affbeaa34b0fc2a19c61f",
+    ".local-tests/overlap/independent-review/args-duplicate-asymmetric-reversed.json": "1baee43fddbf9c0209438722d536ff1f73f0c172acda2e107e76294a66d667f4",
+    ".local-tests/overlap/independent-review/args-duplicate-last-right-equal.json": "3eb4cb2a0481bed94b163a21823823d30bc12a1349e8a592670363a409a18cb8",
+    ".local-tests/overlap/independent-review/args-duplicate-object-same-order.json": "1b4eefc978c838f33510ad6ab957c4b0714fc7a2f6d85776814c56a9da291339",
+    ".local-tests/overlap/independent-review/args-input-object-differing-null.json": "2020097d4eb1be62ac6b99a8006512913c8463adf60cd4b583479f0926402fa9",
+    ".local-tests/overlap/independent-review/args-input-object-reordered-four.json": "9c3d491cc83b1f976c1b276a764ca7ae005d51f1c6c0e12d3b66d1c8cbc151e4",
+    ".local-tests/overlap/independent-review/args-list-same-string-escapes.json": "05569081a2a9577e717eaeea5184edf1ff7863fad475c8ec142eb3306961d99e",
+    ".local-tests/overlap/independent-review/args-nested-variable-object-order.json": "cdaee2dbf6f326d16156ad52f05ea9f5cc38296622c5e31a835c5c0ece3d6c4d",
+    ".local-tests/overlap/independent-review/args-object-list-canonical-under-unknown-arg.json": "40234214df0f1cb43ef4f00a2280ddf55bc255f792627539484ada380e372e69",
+    ".local-tests/overlap/independent-review/args-object-list-order-conflicts.json": "d1abe026fd87d4c00600c4aa74b2eacc99f36a85657c42b9ea8014ecfc3af7bb",
+    ".local-tests/overlap/independent-review/args-reordered-three.json": "1ba2550b5ac69b7ad00ee7f80659a41405226d75a8813fca4757e27f8678ee50",
+    ".local-tests/overlap/independent-review/args-same-variable-vs-default.json": "077eade0d19550bfc921a34f770b554046e2fab7776f093933573182ae4900be",
+    ".local-tests/overlap/independent-review/args-variables-same-runtime-different-identity.json": "ae735521ca8dbc3e85af38de9fcc9e26e3d35504d5f4a345a449551aea7c9303",
+    ".local-tests/overlap/independent-review/block-backslash-normalizes.json": "c64883b8b7b5e7244f66f6920f89824dd1461750fec721987ad494923c5d11d7",
+    ".local-tests/overlap/independent-review/block-indent-normalizes.json": "2166bb3cf52e12c2c98731d4934f27f2847fc434ea13a4fccd0c5424ad4cb1e1",
+    ".local-tests/overlap/independent-review/block-kind-nested-object-conflicts.json": "904c478528d6ddeae63f26de9b3f57b599b8b76fa1f20820ad19ab5e8084e713",
+    ".local-tests/overlap/independent-review/block-long-normalizes.json": "2966a6bb90928850a77ffe707161017e1d858f24d8d3fa4c876d7c9e5f58ff36",
+    ".local-tests/overlap/independent-review/block-single-space-preserved.json": "e2364d167054577c1d50bacc321cf4c033008ad2ed1adfa1d407caa4d03627b3",
+    ".local-tests/overlap/independent-review/block-triple-quote-same.json": "86b8894166fad112e07675ca02ec09528beb26f3af7d5fe969c50119bf9a13bd",
+    ".local-tests/overlap/independent-review/budget-document-groups-31.json": "93a9f5ab24890503d485dbe32e7af23fa3c06768d4ecb29d5afddd314b7c379d",
+    ".local-tests/overlap/independent-review/budget-document-groups-33.json": "b5946caccd57abb33e8074e8ade16649c625ff26b0892452a058a908651b46a0",
+    ".local-tests/overlap/independent-review/budget-wins-over-earlier-collected-conflict.json": "852de8e1458608984ee062bfea865aab80f761f03e7d02992c6e279606409662",
+    ".local-tests/overlap/independent-review/conflict-rejected-before-invalid-cursor.json": "9bf237ddb2eeaa8feef0446062111b1d3a302a6a85ba2b010102fc8c244e2012",
+    ".local-tests/overlap/independent-review/conflict-rejected-before-page-zero.json": "a405b298ea1dd937ffcad4a3f03c951fecc8a056b2b643ba642809065fa178c3",
+    ".local-tests/overlap/independent-review/conflict-rejected-before-variable-coercion.json": "3422b4268124da9fe766d2e94b04ef885a950dded61b98a9eec1cdff57bb970e",
+    ".local-tests/overlap/independent-review/deep-two-reasons.json": "53656503c40e61a20ba6ce555b0a9a1819f192e832c368551f0336847168ed61",
+    ".local-tests/overlap/independent-review/directives-all-false-still-conflict.json": "5aacab6ee6b2b0ecadb5f8f761f8f4e92de8c87c6e652ba4ba6ead2d27ba5d35",
+    ".local-tests/overlap/independent-review/exclusive-enum-type-conflict.json": "70123fed5f7e03bbcc5e87d5f17c5f3295924ff01f4a4e6991da90f3496c3ea9",
+    ".local-tests/overlap/independent-review/exclusive-inherited-three-level.json": "8798c73076b74ca12c55c8d8bd98146400d41d003bd92e5f7aa4af1be864decf",
+    ".local-tests/overlap/independent-review/exclusive-inherited-wrapper-conflict.json": "500a9ab33cf25fbd3dc8e5e53cbdf3cc263c271b10bac5b9f47cf8a3daa1821f",
+    ".local-tests/overlap/independent-review/exclusive-list-nullability-conflict.json": "2d69bebcfebdfd5b3ef946462295e62002c5894e0bcedd6e63d5b78b649a6bb4",
+    ".local-tests/overlap/independent-review/exclusive-same-return-distinct-name.json": "8db989c18267035dc09142e13bfdc7209021cb291b23011c9a5e4233929e1097",
+    ".local-tests/overlap/independent-review/fragment-cache-strict-then-exclusive.json": "6f08ac30f4f464ed8101a5158e3781f9bf3f4448a325ec6c88c7072d347626b7",
+    ".local-tests/overlap/independent-review/fragment-diamond-conflicts-11.json": "acaee3109df7aeb5ebe9581bd4f45e171e5cbfd32bfdcb277a373be0b4276543",
+    ".local-tests/overlap/independent-review/fragment-diamond-conflicts-12.json": "5969a8251a7be0cbc1a2edc824d176ad3b786048d349ee66b46f7cf93cf138c2",
+    ".local-tests/overlap/independent-review/fragment-diamond-conflicts-13.json": "3a09b46f6c9dfdbbac49cbff1e82e42047a5dde7b4f21d43b0405957b949b9df",
+    ".local-tests/overlap/independent-review/fragment-exclusive-field-cache-upgrade.json": "43a4c8c8b5f2734df5578238123073d444988b6fec9224e1c83096258dc354dc",
+    ".local-tests/overlap/independent-review/fragment-field-cache-diamond.json": "9417cbfc513c17b78ee5db532a94c961f7189caab2f8eba5ceacfb7c468c9b9f",
+    ".local-tests/overlap/independent-review/fragment-pair-global-dedup-deep.json": "d30dbb90fcab12eb0c9724d458693320935e41de95c08c5c6372b3dcb0902550",
+    ".local-tests/overlap/independent-review/fresh-cases.json": "15232dd7de24d7c8ae37f0963faae97fe527f5c2f7569e1fcc07121a8aca00c5",
+    ".local-tests/overlap/independent-review/locations-comments-crlf.json": "c276b6f76f3b13063182e5d61e4921dfb86a086cfca037055008cfa2e3350d7a",
+    ".local-tests/overlap/independent-review/locations-multiline-nested.json": "4b23cf52eb7a3620678af0015c2febd1f08d0662f84e5dab1c4b0d75a0da98b6",
+    ".local-tests/overlap/independent-review/nested-error-cap-locations.json": "4197dc5ec5912c4add43e425b9ffe33328e6131f692bba659d3e9bc26a41fe96",
+    ".local-tests/overlap/independent-review/nested-fragment-and-local.json": "fbe6d74381b2804e42758301491838357a220a2bccaf12fd13b7e096422de5ce",
+    ".local-tests/overlap/independent-review/nested-fragment-internal-after-pair.json": "c518eb9b43b6b93e2cc8fc6eef4458df000ab091a3c62e265fe3ae54cb48aafe",
+    ".local-tests/overlap/independent-review/nested-reversed-definition-locations.json": "0dc92a147f8dd653417b11bb5c5ba47be8a9f650f092e077bc35f22f54c670d1",
+    ".local-tests/overlap/independent-review/number-spelling-26.json": "a680e052c27ff062ac348ce0b2a2490ac4385db03eb642584e62ef10ad26823a",
+    ".local-tests/overlap/independent-review/number-spelling-27.json": "32bf5944fd1fa2bbbcbd43a702073361ee0a5ea9a3cfcb4ee3d93145f3346c80",
+    ".local-tests/overlap/independent-review/number-spelling-28.json": "e1d4f8af17a8e31ab6aab142d73c4820cc44a6980b8fd5d319160085f64f4e11",
+    ".local-tests/overlap/independent-review/number-spelling-29.json": "43f0456205349a6e93f42493e83cab1f56b6d2cc0662fe447317f6919ceca572",
+    ".local-tests/overlap/independent-review/number-spelling-30.json": "ca0c82de9d40d539ccf95868b00a8f726bd1dd4dab685ef679987e325b9dce83",
+    ".local-tests/overlap/independent-review/number-spelling-31.json": "fd851b37777acd24325a9d42a99d4cc5d9db84768a3c1beffe5e99183276fa01",
+    ".local-tests/overlap/independent-review/number-spelling-32.json": "5eb7302712ed5433ebeb7695bf4f1784b6d03046ce06bf3d90f687b9a119b381",
+    ".local-tests/overlap/independent-review/prior-errors-before-later-budget.json": "ca2378eb1cf20d07c314f873a8dcc54c7175d8941eb21dc04642c9e3eea82efd",
+    ".local-tests/overlap/independent-review/results.json": "3e0dfe30bf1cb39899f14996083dcbeff26aaa536191617c443213dde9c3a3c7",
+    ".local-tests/overlap/independent-review/run.log": "6ebe05d640b682ea93b91b2a8492b7963bb39ecd3706084ebecce5ec061dd6e3",
+    ".local-tests/overlap/independent-review/rust-overlap.log": "c37ac11036feba3dab4133e5935d567b837fcf8ed2e97c0f443bf40a021ac785",
+    ".local-tests/overlap/independent-review/source-order-fragment-definitions.json": "fb269fdd0c69d37fd43bd2e1700391ee3b6354dd47369efc6ad62ea3fc8c40bd",
+    ".local-tests/overlap/independent-review/source-order-groups.json": "c77a8a48ceda6ae02e9db51e8001167d961b594999938272fb1a6d60ebd76bae",
+    ".local-tests/overlap/independent-review/source-order-local-inline-fragment.json": "b7576058c5d92df3f1f7fc549e4f11182cbf103f2660817594111fbc97adf941",
+    ".local-tests/overlap/independent-review/source-order-nested-before-unknown.json": "92944d6228ae5cb1e674c6d039100c60b179e498216efc5632d9f037cfc958d0",
+    ".local-tests/overlap/independent-review/source-order-root-overlap-before-child.json": "389f7b1e314120fb04a354754c2da1a9c0dbe1c733cf9ec14a6e1e2be58521c5",
+    ".local-tests/overlap/independent-review/source-order-variable-error-after-overlap.json": "8dc6d9d36f72dd474123c660634a6f20e8447992c14d3174ec831f6223491527",
+    ".local-tests/overlap/independent-review/summary.json": "528beda4b14ccc8bde30595d564256fc2063b49382b184c341d92a113679a5cc",
+    ".local-tests/overlap/independent-review/three-parent-nested-pairs.json": "cb62fb30714e5ecc49bb1924c05522e17eab73755abf0af56a209f47fdd5ece8",
+    ".local-tests/overlap/independent-review/twenty-errors-before-later-budget.json": "ee00e36a43fd5bf9f83f39fdabecc10ca298218c5f070ae0808b5412a9e2d8dd",
+    ".local-tests/overlap/independent-review/twentyone-errors-before-later-budget.json": "229b14e4e3d44fea2665bf39e041354a8b6ecf672720c89dac3ec4a77a4fb189",
+    ".local-tests/overlap/independent-review/valid-aliases-isolate-inputs.json": "da594c460960f129c5ef83086f311815dcee86b9f6f75dd06915be8359f5b969",
+    ".local-tests/overlap/independent-review/valid-fragment-directives-vary.json": "4c0807555670bec71463bf32266ff2ef6ac36a1147b27ac450cefa5d207dac19",
+    ".local-tests/overlap/independent-review/valid-merged-nonempty-record-budget.json": "acf1ec9c0c4f6a7a3c6c3fcc41cc9a44f8b9f70d7dd144c914ff107e15a67e7b",
+    ".local-tests/overlap/independent-review/valid-nested-diamond-nonempty.json": "4707e84416520bf1b04d6709460c4cb1bbf77c486183ce338ce57d1a48f018f2",
+    ".local-tests/overlap/independent-review/valid-repeated-selection-nonempty.json": "feec5a31500a7d74f7ce04403ae07b90629cdba66f2bd5c9a6761e0a4b11b722"
+  }
+}

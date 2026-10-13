@@ -237,8 +237,7 @@ fn string_repr(value: &str) -> String {
 }
 /// Bounded graphql-core inspect for JSON values. Container order is input order;
 /// canonical JSON encoding is deliberately not used for objects or strings.
-#[cfg(test)]
-fn inspect(value: &Value) -> String {
+pub(crate) fn inspect(value: &Value) -> String {
     inspect_at(value, 0, &Order::Scalar)
 }
 fn inspect_at(value: &Value, depth: usize, order: &Order) -> String {

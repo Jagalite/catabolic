@@ -68,14 +68,15 @@ budget. Jellyfin JSON and mapped HTTP responses use the native strict JSON decod
 Credential files are opened without following the final symlink, must be regular,
 current-user-owned, private and single-link files, and have a read limit.
 
-Only non-HTTP optional Apprise destinations retain a Python adapter. The embedded
-MIT-licensed `apprise_worker.py` is derived from the frozen project's
-`src/catabolic/notification_worker.py`; its header records provenance. It runs via
-an isolated, bounded subprocess with a static protocol allowlist and summaries.
-`CATABOLIC_APPRISE_PYTHON` selects the interpreter (default `python3`). Missing
-interpreter/provider is an explicit repair outcome. It does not open a catalog,
-evaluate policy or provide a Python fallback for HTTP. This checkpoint therefore
-does not claim a Python-free optional Apprise installation.
+The native notification path now uses supervised Rust providers for the
+allowlisted Apprise URL dialect. Python is no longer launched by that path;
+the obsolete embedded `apprise_worker.py` is removed. The original frozen worker
+remains reference evidence. See
+[Rust human-notification providers](RUST_MIGRATION_NATIVE_NOTIFICATIONS.md) for
+supported options, deliberately rejected inherited capabilities, native helper
+selection, cancellation/deadline evidence and remaining compatibility gaps.
+The retained Python entry point and its optional dependency installation are
+unchanged; this checkpoint does not assert full Apprise option parity.
 
 OpenAPI compilation resolves only supported local references. JSON Schema uses
 Draft 2020-12, no format checker, and a deny-all external retriever; HTTP/file

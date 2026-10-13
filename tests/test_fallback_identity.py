@@ -5,12 +5,14 @@ import unittest
 from unittest.mock import patch
 
 from catabolic.app import Application
+from catabolic.domain import CatabolicError
 from catabolic.fallback_policies import Policies
 from catabolic.fallback_resolution import Resolver
 from catabolic.program_bundle import Programs
 from catabolic.saved_queries import Queries
 from catabolic.store import Store
 from tests import test_fallback_resolution as fixtures
+from tests.probe_timing import delay_first_probe_start
 
 
 class IdentityTest(unittest.TestCase):
@@ -160,6 +162,42 @@ class IdentityTest(unittest.TestCase):
         live.stdout.close()
 
     def test_profiles_choose_independent_winners(self):
+        self.check_profiles_choose_independent_winners()
+
+    def test_profiles_choose_independent_winners_with_delayed_probe(self):
+        with delay_first_probe_start("main.bin") as observed:
+            self.check_profiles_choose_independent_winners()
+        self.assertEqual(len(observed), 1)
+        self.assertEqual(observed[0]["delayed_children"], 1)
+        self.assertEqual(observed[0]["timeout_ms"], 10000)
+        self.assertEqual(observed[0]["result"], {"usable": True, "reason": None})
+
+    def test_default_probe_timeout_keeps_profile_unresolved(self):
+        policy = self.policy(queries=["main.bin"])
+        definition = Policies(self.store).get(policy)["definition"]
+        definition["budgets"].pop("probe_timeout_ms")
+        policy = Policies(self.store).put("default-deadline-control", definition)["id"]
+        with delay_first_probe_start("main.bin") as observed:
+            result = Resolver(self.app).resolve([{"item_id": self.item}], policy)
+        self.assertEqual(len(observed), 1)
+        self.assertEqual(observed[0]["delayed_children"], 1)
+        self.assertEqual(observed[0]["timeout_ms"], 1000)
+        self.assertEqual(
+            observed[0]["result"], {"usable": False, "reason": "probe_timeout"}
+        )
+        self.assertEqual(result["decisions"][0]["state"], "unresolved")
+        self.assertIsNone(result["decisions"][0]["file_id"])
+        self.assertEqual(result["decisions"][0]["reasons"], ["no_usable_candidate"])
+        self.assertEqual(self.store.rows("SELECT * FROM fallback_entries"), [])
+        self.assertFalse([p for p in self.output.rglob("*") if p.is_symlink()])
+
+    def test_healthy_profile_probe_still_rejects_wrong_plan(self):
+        with self.assertRaisesRegex(CatabolicError, "stale_or_missing_resolution_plan"):
+            self.check_profiles_choose_independent_winners(expected_plan="0" * 64)
+        self.assertEqual(self.store.rows("SELECT * FROM fallback_entries"), [])
+        self.assertFalse([p for p in self.output.rglob("*") if p.is_symlink()])
+
+    def check_profiles_choose_independent_winners(self, *, expected_plan=None):
         import copy
 
         from catabolic.fallback_projection import FallbackProjection
@@ -193,17 +231,28 @@ class IdentityTest(unittest.TestCase):
                     }
                 },
             )["id"]
-            policy = Policies(self.store, app.profile).put(
-                "choice", {"fallbacks": [{"name": "choice", "query_id": query}]}
-            )["id"]
+            definition = {
+                "fallbacks": [{"name": "choice", "query_id": query}],
+                # This fixture tests profile isolation, not healthy interpreter
+                # startup speed. Keep real probes and exact preview/apply IDs.
+                "budgets": {"probe_timeout_ms": 10000},
+            }
+            policy = Policies(self.store, app.profile).put("choice", definition)["id"]
             Layouts(app).put("flat", copy.deepcopy(PRESETS["flat"]))
             projection = FallbackProjection(app)
             projection.bind("global", policy, members, "flat")
             preview = projection.run("global")
+            self.assertTrue(preview["safe"], preview)
+            if expected_plan is not None:
+                self.assertNotEqual(expected_plan, preview["plan_id"])
             self.assertTrue(
-                projection.run("global", apply=True, expected_plan=preview["plan_id"])[
-                    "complete"
-                ]
+                projection.run(
+                    "global",
+                    apply=True,
+                    expected_plan=preview["plan_id"]
+                    if expected_plan is None
+                    else expected_plan,
+                )["complete"]
             )
         rows = self.store.rows(
             "SELECT profile,id,file_id FROM fallback_entries ORDER BY profile"

@@ -1,6 +1,43 @@
 # Catabolic: Python-to-Rust Migration Plan
 
+**Stopped again, 2026-10-13:** The user requested commit/push and a progress
+handoff. See [the current stop status and exact remaining work](RUST_MIGRATION_STOP_2026_10_13.md).
+Implementation is paused. The source and subsequent docs commits are local;
+publication was blocked by missing Git authentication and a cancelled connector
+call. Do not infer a successful push or completed migration from this checkpoint.
+
 **Decision:** Proceed with a staged, compatibility-first rewrite of standalone Catabolic. Use Statelessness to explore, check, and replay Catabolic-owned decision logic. Do not replace Catabolic's persistence, filesystem journal, execution claims, or API contracts with a generic workflow engine.
+
+**Native-first direction, 2026-10-12:** The user wants all Python implementation
+retired except a thin wrapper, with that wrapper worked on last. The standalone
+Rust engine/CLI must have no Python runtime helper, including the optional
+notification provider path. Follow [the revised native-first critical path and
+remaining-work inventory](RUST_MIGRATION_NATIVE_FIRST.md). Existing wrapper work
+and receipts are preserved, but new wheel/public-Python qualification is deferred
+behind native behavior and safety. Frozen Python remains a temporary comparison
+reference; no unverified default switch or deletion is implied.
+
+The [bounded native checkpoint 11](RUST_MIGRATION_NATIVE_CHECKPOINT_11.md)
+integrates supervised Rust notification providers, Rust-only candidate tooling,
+named GraphQL/wire fixes and narrow sidecar refusal. Its bounded native/library
+and standalone-artifact checks passed on `b11666f`; full runtime, platform,
+release and milestone gates remain open. Older installed results are
+retained separately and are not new wrapper prerequisites.
+
+The [next bounded native checkpoint 12](RUST_MIGRATION_NATIVE_CHECKPOINT_12.md)
+integrates reviewed GraphQL parser/document/completion behavior and exact
+supplemental native dependency notices. Its Rust/model and standalone-artifact lanes passed; the combined CLI aggregate
+retains one obsolete-control assertion failure and the separate HTTP journey
+failed at a busy ticket-issuance response. Full checkpoint acceptance remains
+open. Later parser/CLI/CI work is deliberately tracked separately.
+
+The separately frozen [native checkpoint 13](RUST_MIGRATION_NATIVE_CHECKPOINT_13.md)
+composes the reviewed parser expansion, CLI file-admission correction and
+standalone CI wiring. Its Rust/model lanes and 19 composition cases passed;
+the aggregate retained an obsolete conflict assertion and a wrapper-test
+configuration error. Its original failed evidence remains unchanged. Later
+malformed-variable, overlap-rule and coordinated HTTP-fixture changes are tracked
+in [checkpoint 14](RUST_MIGRATION_NATIVE_CHECKPOINT_14.md).
 
 **Prepared:** October 9, 2026  
 **Catabolic baseline:** `453fca983222c6665a48775eef67c489c96b527e`  
@@ -19,13 +56,25 @@ was integrated from `codex/native-public-workflows` and
 `codex/native-remaining-facades`. This is a work-in-progress checkpoint, not a
 release or a declaration that any M4–M11 hard gate has passed.
 
+**Resumed 2026-10-12:** Implementation resumed from the pushed `6c5e3f5` stop
+checkpoint. The historical handoff and failed aggregate remain valid records of
+that source. See [the resumed work log](RUST_MIGRATION_RESUMED_CHECKPOINT.md) for
+fresh source, tooling, correction and qualification evidence. No prior gate is
+promoted by resuming work. The `721b80f` checkpoint ran 1,191 reference tests with
+no failures/errors and one platform skip. The later `24f5f45` checkpoint passed
+selected installed Linux gates on both Python versions, but its full native
+aggregate failed workspace Clippy before executing tests. See the work log for
+the separate failed and passing receipts and the next correction/replay.
+
+The latest passing [full reference replay](RUST_MIGRATION_RESUMED_CHECKPOINT.md#fresh-reference-replay-after-corrections-2026-10-12-2051-utc) ran 1,255 tests with one filesystem-dependent skip. The subsequent 1,271-test replay failed two source-contract/mock-harness controls plus one related error; reviewed corrections await a fresh full replay. The frozen combined native run completed 1,126 methods with three stale source/CI-contract failures, now separately corrected and reviewed; it is not a passing aggregate. A later full reference run completed 1,275 tests with one unresolved fallback-plan error and one platform skip. Cohort seven passed its selected installed Python 3.11 sequence, but its Python 3.14 M9 gate failed one frozen recovery-contention assertion; its original cause remains unknown. Reviewed source and harness corrections require fresh qualification. The work log preserves every failed and passing checkpoint; none closes a milestone hard gate.
+
 ## 1. Executive decision
 
 A Rust rewrite makes sense as an investment in a reusable native catalog engine, predictable resource ownership, native distribution, and explicitly testable lifecycle decisions. It does **not** make sense as a promise that merely changing languages will dramatically accelerate scanning or media processing.
 
 Catabolic already delegates important work to SQLite and external media tools. Its disk-backed scan staging already bounds memory. Much of the benefit must therefore come from better application structure, lower per-record overhead where profiling demonstrates it, and a reusable Rust library—not assumed improvements to FFmpeg or filesystem latency. [S3, S5, S6]
 
-The recommended end state preserves the standalone product, including Python installation and documented Python access. It adds a native Rust library and executable; it does not turn Catabolic into a Motion-only component. Motion could consume the resulting library later, but that is a separate integration project.
+The end state is a standalone Rust product and Rust library with no Python runtime requirement. Preserve documented Python access through a thin wrapper, completed last, rather than retaining a second Python business implementation. The original Python engine is a frozen migration reference only. This does not turn Catabolic into a Motion-only component; Motion integration remains a separate project.
 
 Three rules govern the migration:
 

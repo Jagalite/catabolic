@@ -68,6 +68,11 @@ def verify_installed_wheel(wheel):
             "duplicate wheel members"
         )
         for member in members:
+            assert "__pycache__" not in Path(member.filename).parts and Path(
+                member.filename
+            ).suffix not in {".pyc", ".pyo"}, (
+                "release wheel must not package Python bytecode or cache files"
+            )
             if member.is_dir():
                 continue
             relative = Path(member.filename)
@@ -104,7 +109,12 @@ def verify_installed_wheel(wheel):
             "missing or ambiguous wheel metadata",
             name,
         )
-    for name in ("bin/catabolic-native", "native-helper.json"):
+    for name in (
+        "bin/catabolic-native",
+        "native-helper.json",
+        "bin/catabolic-legacy-native",
+        "legacy-helper.json",
+    ):
         assert "catabolic_native/" + name in hashes, "missing packaged native helper"
     for path in imported.parent.rglob("*"):
         assert not path.is_symlink(), (
@@ -261,6 +271,25 @@ def main():
         == helper_metadata["sha256"]
     ), "supplied native CLI differs from the helper packaged with this extension"
     assert helper_metadata["version"] == native.__version__
+    from catabolic_native.cli import legacy_binary
+
+    legacy_helper = Path(legacy_binary())
+    assert (
+        legacy_helper
+        == Path(native.__file__).resolve().parent / "bin/catabolic-legacy-native"
+    )
+    assert legacy_helper.is_file() and os.access(legacy_helper, os.X_OK)
+    legacy_metadata = json.loads(
+        (legacy_helper.parent.parent / "legacy-helper.json").read_text()
+    )
+    assert legacy_metadata == {
+        "format": 1,
+        "version": native.__version__,
+        "path": "bin/catabolic-legacy-native",
+        "sha256": hashlib.sha256(legacy_helper.read_bytes()).hexdigest(),
+        "source_sha256": helper_metadata["source_sha256"],
+        "build": helper_metadata["build"],
+    }, "packaged legacy helper differs from the paired native build"
     launcher = Path(sys.executable).parent / "catabolic-native"
     assert launcher.is_file(), "installed native launcher missing"
     launched = json.loads(subprocess.check_output([launcher, "--version"], text=True))
@@ -416,48 +445,60 @@ def main():
     with tempfile.TemporaryDirectory(prefix="catabolic-helper-check-") as temporary:
         copied = Path(temporary) / "catabolic_native"
         shutil.copytree(Path(native.__file__).parent, copied)
-        binary = copied / "bin/catabolic-native"
         environment = os.environ | {"PYTHONPATH": temporary}
         environment.pop("CATABOLIC_NATIVE_BINARY", None)
-        saved = binary.read_bytes()
-        for state in ("missing", "changed", "not-executable"):
-            if state == "missing":
-                binary.unlink()
-            elif state == "changed":
-                binary.write_bytes(saved + b"changed")
-            else:
+        for name, accessor in (
+            (
+                "catabolic-native",
+                "from catabolic_native import native_binary as helper",
+            ),
+            (
+                "catabolic-legacy-native",
+                "from catabolic_native.cli import legacy_binary as helper",
+            ),
+        ):
+            binary = copied / "bin" / name
+            saved = binary.read_bytes()
+            for state in ("missing", "changed", "not-executable"):
+                if state == "missing":
+                    binary.unlink()
+                elif state == "changed":
+                    binary.write_bytes(saved + b"changed")
+                else:
+                    binary.write_bytes(saved)
+                    binary.chmod(0o644)
+                check = subprocess.run(
+                    [sys.executable, "-c", accessor + "; helper()"],
+                    cwd=temporary,
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                )
+                assert check.returncode != 0 and "helper" in check.stderr, (
+                    name,
+                    state,
+                    check.stderr,
+                )
                 binary.write_bytes(saved)
-                binary.chmod(0o644)
+                binary.chmod(0o755)
             check = subprocess.run(
-                [sys.executable, "-c", "import catabolic_native"],
+                [
+                    sys.executable,
+                    "-c",
+                    accessor
+                    + "; p=helper(); p.write_bytes(p.read_bytes()+b'changed'); helper()",
+                ],
                 cwd=temporary,
                 env=environment,
                 capture_output=True,
                 text=True,
             )
-            assert check.returncode != 0 and "native helper" in check.stderr, (
-                state,
+            assert check.returncode != 0 and "identity changed" in check.stderr, (
+                name,
                 check.stderr,
             )
             binary.write_bytes(saved)
             binary.chmod(0o755)
-        check = subprocess.run(
-            [
-                sys.executable,
-                "-c",
-                (
-                    "import catabolic_native as n; p=n.native_binary(); "
-                    "p.write_bytes(p.read_bytes()+b'changed'); n.native_binary()"
-                ),
-            ],
-            cwd=temporary,
-            env=environment,
-            capture_output=True,
-            text=True,
-        )
-        assert check.returncode != 0 and "identity changed" in check.stderr, (
-            check.stderr
-        )
     randomizer = random.Random(453)
     values = [0.0, -0.0, 1.0, 1e-5, 1e-4, 1e16, 5e-324, 1.7976931348623157e308]
     values += [
@@ -490,9 +531,11 @@ def main():
         "interchange_versions": [1, 2, 3],
         "packaged_native_helper_sha256": helper_metadata["sha256"],
         "packaged_native_cli_launcher": True,
+        "packaged_legacy_helper_sha256": legacy_metadata["sha256"],
         "installed_pyo3_isolated_observation": True,
         "installed_pyo3_import_interrupt_and_writer_progress": True,
         "missing_changed_nonexecutable_helper_refused": True,
+        "missing_changed_nonexecutable_legacy_helper_refused": True,
         "passed": True,
     }
     args.receipt.write_text(json.dumps(receipt, indent=2) + "\n")

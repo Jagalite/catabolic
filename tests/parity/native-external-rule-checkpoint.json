@@ -1,0 +1,211 @@
+{
+  "artifact_profile": "offline locked Rust 1.99.0 debug build; debug info and incremental compilation disabled",
+  "artifact_sha256": {
+    ".local-target/debug/catabolic-legacy-native": "959cfd078428f152e233ba5d3142d76c7355db3913ac474c805c83b76a6661e1",
+    ".local-target/debug/catabolic-native": "c6dca216590cdc3bbfcca0ee90eb7f1679478941b2603a86cc4fe0f21fad1eeb"
+  },
+  "base_commit": "0f4360901b6096800a3631494a28ae458a8fe18e",
+  "date": "2026-10-12",
+  "focused_rust_checks": {
+    "operation_metadata": 3,
+    "passed": true,
+    "processor_lifecycle_and_transport": 6
+  },
+  "format_version": 1,
+  "full_leaf_parity": false,
+  "historical_attempts_excluded_from_final_evidence": [
+    "initial Rust fixture byte-count off-by-one failure",
+    "initial paired run and diagnostic child-observation failures because this container lacks task/*/children",
+    "minimal Python 3.11 fixture initialization failure due to missing Pydantic; existing full pinned reference environment reused",
+    "pre-API-fix passing paired replay and initial native API option-report corruption witness",
+    "intermediate source-changed paired replays refused by their source fence",
+    "initial Clippy test-comment placement failure"
+  ],
+  "independent_review": {
+    "additional_controls": {
+      "coverage": [
+        "successful pre-existing-file PUT receipt and no-op repeat after terminal completion",
+        "resumed GET receipt without a new generation",
+        "completed job retained before later batch error with later job untouched",
+        "valid receipt rejected after durable cancellation",
+        "valid old-generation receipt rejected after lease replacement",
+        "blocked-response timeout reaps helper and retains reclaimable lease",
+        "UTF-8 worker bounds, whitespace rejection and deferred validation for empty selection"
+      ],
+      "errors": 0,
+      "failures": 0,
+      "skips": 0,
+      "tests": 7,
+      "typed_paired_groups": 12
+    },
+    "baseline": {
+      "errors": 0,
+      "failures": 0,
+      "skips": 0,
+      "tests": 18,
+      "typed_paired_groups": 42
+    },
+    "date": "2026-10-12",
+    "diagnostic_nonparity_witnesses_not_counted_as_parity": 3,
+    "evidence_directory": ".local-tests/external-rule/independent-review-06772",
+    "evidence_file_count": 15,
+    "evidence_file_sha256": {
+      "REVIEW.md": "a8e97ef6b96191a23f2bdb975585efdfc6271d7ed3d676bdc74316be1781221a",
+      "baseline.json": "b97e5e69e7e37c6523436b12b0efc996916ff628aef3c27d215199a085f88598",
+      "baseline.log": "156ae625c7115f37b81e3ec0eb204e07acdc58229a9dfbc7c2e025bd4b29c402",
+      "independent-controls.json": "bac42d3e53b9233289c0a72fb4ba4b0e2449f58fe5a88487afb94bfb4c28e275",
+      "independent-controls.log": "a9831f705ad00bc4964defda9e8ff6ac5943baae02870b9bbccf71d18413d0d7",
+      "independent_controls.py": "6965c93b89db68b24e00cc8f215d8d94aa6293afbe841631c7715d817df476cd",
+      "ledger.log": "881a05f16876669497593c72604a07546a5e61bf140e614a09017edbc828839a",
+      "native-entrypoints.json": "ecd2de71d6028f6afe1d9988a694a17abd0b5f195436d2fd35c9611b3734be03",
+      "sigterm-probe.json": "aab0970b1923786037a04d9311f28064c4808a5eca1009380da0955a2a1e97de",
+      "sigterm_probe.py": "032700b77897ca70c358880fc53c60d79ef950671ff52ec0ddcca4d534b9e62e",
+      "success_probe.json": "ea04695f66ee1211aae0a2ee57b54d0e85e8b750c64d0e27e6fdec840bed8048",
+      "success_probe.py": "f0787bb9c9b8ebf282f2e7161974ec6f43232ff7555606f65915de2666445c93",
+      "transport-differences.json": "fd9d254dc3966dba0162e447c23897e82e0dc50f413c4fa1c4121bed78871444",
+      "unit-artifact.sha256": "1572f41f06c40ba189ab3073be13a3ac50072b6deb11232b4993482e1a72ef48",
+      "unit.log": "cdcedc55426300dd244564fad4d4f50dac7ca67a111b2c5ad5915f8c636d433d"
+    },
+    "full_leaf_parity": false,
+    "installed_artifact_qualified": false,
+    "m6_gate_changed": false,
+    "metadata_entrypoint_pairs": 2,
+    "ownership_ledger_checks": 6,
+    "platform_qualified": false,
+    "preservation_manifest_sha256": "f34b3f8410e8578d4030f378fe4b475e01709e45640cccba1f73890166239eb1",
+    "python": "3.11.15 full frozen-reference environment",
+    "retained_rust_checks": 4,
+    "reviewed_commit": "06772ccccde6b651684db2279bef5eb4f6044146",
+    "scope": "ordinary external-operation admission, immutable metadata, rule-worker orchestration, native API option handling and selected HTTP helper lifetime",
+    "source_and_artifacts_unchanged": true,
+    "successful_receipt_scope": "selected ordinary pre-existing-file PUT/GET/partial cases only; no physical output production or broad receipt/publication/recovery qualification",
+    "total_successful_typed_paired_groups": 56,
+    "verdict": "accepted within documented bounded opt-in partial scope; no new blocking defect found"
+  },
+  "independent_review_passed": true,
+  "installed_wheel_qualified": false,
+  "m6_gate_changed": false,
+  "native_metadata_entrypoint_pairs": [
+    {
+      "entrypoint": "operation-put",
+      "network_requests": [],
+      "passed": true,
+      "typed_full_result_and_catalog_equal": true
+    },
+    {
+      "entrypoint": "media-api",
+      "network_requests": [],
+      "passed": true,
+      "typed_full_result_and_catalog_equal": true
+    }
+  ],
+  "oracle_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "oracle_manifest_sha256": "fbf614179f4c15bf05eca1d8708f4a556717ea6cb056625b2366ce70ecbffd87",
+  "ownership_ledger_checks": {
+    "passed": true,
+    "tests": 6
+  },
+  "paired_runs": {
+    "311": {
+      "errors": 0,
+      "exact_type_aware_paired_groups": 42,
+      "failures": 0,
+      "interpreter_sha256": "0253b01a7f5d96a042a2b9f5e0f5ff5062707a1c75be2b089098e3111cd186d2",
+      "log_sha256": "78c4acab51af75aaa0389a6b8026890bf3c01c709b110628f48ed76c05f1e5c9",
+      "python": "3.11.15 (main, Aug  7 2026, 02:25:55) [Clang 22.1.3 ]",
+      "receipt_sha256": "b97e5e69e7e37c6523436b12b0efc996916ff628aef3c27d215199a085f88598",
+      "skips": 0,
+      "source_and_artifacts_unchanged": true,
+      "tests": 18
+    },
+    "314": {
+      "errors": 0,
+      "exact_type_aware_paired_groups": 42,
+      "failures": 0,
+      "interpreter_sha256": "2f7fff382c9d335d6d63f134b55cb8ced9d0b2e1d47e6f210ad3f059adfa71c1",
+      "log_sha256": "3cde840b585a8024c9889dd0b9d456bbaebf958f97dc96dfa7fb8b34c4baca41",
+      "python": "3.14.6 (main, Aug  4 2026, 18:27:20) [Clang 22.1.3 ]",
+      "receipt_sha256": "8a9a50651cf922e8fcb2b6164403cbba40428960b9f63faba0d10b8097e1a2ea",
+      "skips": 0,
+      "source_and_artifacts_unchanged": true,
+      "tests": 18
+    }
+  },
+  "python_remains_default": true,
+  "release_qualified": false,
+  "remaining_gaps": [
+    "executed HTTP 302 and oversized-response diagnostic nonparity",
+    "executed SIGTERM exit/output/helper-lifetime nonparity",
+    "full transport credential encoding, request budget and other timeout/protocol diagnostics",
+    "existing detached Store contention/reopen scope and flat SQLite exception categories",
+    "receipt outcomes and reuse beyond selected ordinary pre-existing-file PUT/GET/partial cases; physical publication and recovery",
+    "installed/callable packaging, macOS, crash behavior and release rollback",
+    "program-bundle external import remains explicitly refused"
+  ],
+  "retained_log_sha256": {
+    "build-final-source.log": "ffcb418f62fe42dc88f1ee95dae5fb12a3c2578eb38b81cbb624a71640dbb336",
+    "clippy-final.log": "c2aaa026c82ac66db953b374c1f175e3e2794a93b0b590e861785b9347962dfc",
+    "ledger-final-source.log": "067f5c5751ac1cc1565abfd37e80d01b1761b9f47ecd5952bc6f3d0b085d57b8",
+    "native-definition-entrypoints.json": "ecd2de71d6028f6afe1d9988a694a17abd0b5f195436d2fd35c9611b3734be03",
+    "transport-differences.json": "fd9d254dc3966dba0162e447c23897e82e0dc50f413c4fa1c4121bed78871444",
+    "unit-final-source.log": "f6f6c94beb133fc33df4e98883bfa680e37dcc76277d76da674308f55eb0d960"
+  },
+  "scope": "ordinary native external operation metadata and bounded rule run --worker adapters",
+  "signal_nonparity_witnesses": [
+    {
+      "durable_state_equal": true,
+      "frozen": {
+        "helpers_present_after_release": 0,
+        "helpers_present_at_return": 1,
+        "observed_helpers": 1,
+        "returncode": -15,
+        "stderr": "",
+        "stdout": ""
+      },
+      "helpers_present_after_response_release": false,
+      "native": {
+        "helpers_present_after_release": 0,
+        "helpers_present_at_return": 0,
+        "observed_helpers": 1,
+        "returncode": 130,
+        "stderr": "",
+        "stdout": "{\"interface_version\": 1, \"command\": \"rule\", \"operation\": \"run\", \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 130, \"data\": {\"error\": {\"type\": \"KeyboardInterrupt\", \"message\": \"interrupted; inspect jobs and recover pending filesystem operations\"}}}\n"
+      },
+      "parity_claimed": false,
+      "scenario": "CLI interrupted while fake loopback HTTP response is blocked",
+      "signal": "SIGTERM"
+    }
+  ],
+  "source_manifest_algorithm": "SHA256 of compact sorted-key JSON mapping each source-relative path to its SHA256",
+  "source_manifest_file_count": 649,
+  "source_manifest_sha256": "04ced30d84c496174953dd2fe6e5f9a6554ba30d2f837b592bf5b0acae96cd88",
+  "targeted_clippy_passed": true,
+  "transport_nonparity_witnesses": [
+    {
+      "durable_state_equal": true,
+      "errors": {
+        "frozen": "redirect refused; configure the final endpoint explicitly",
+        "native": "HTTP request failed with status 302"
+      },
+      "publication_effects": false,
+      "returncodes": {
+        "frozen": 3,
+        "native": 3
+      },
+      "scenario": "redirect"
+    },
+    {
+      "durable_state_equal": true,
+      "errors": {
+        "frozen": "HTTP response exceeds byte limit",
+        "native": "HTTP response exceeds limit"
+      },
+      "publication_effects": false,
+      "returncodes": {
+        "frozen": 3,
+        "native": 3
+      },
+      "scenario": "oversize"
+    }
+  ]
+}

@@ -19,6 +19,10 @@ catabolic-store.workspace = true
 catabolic-runtime.workspace = true
 catabolic-http.workspace = true
 serde_json.workspace = true
+libc.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

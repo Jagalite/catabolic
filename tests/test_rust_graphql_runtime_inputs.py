@@ -162,9 +162,10 @@ class NativeGraphqlRuntimeInputTest(unittest.TestCase):
                 with self.subTest(document=document, tail=tail):
                     self.compare(["--machine", "graphql", document] + tail)
 
-    def test_explicit_remaining_gap_vectors(self):
-        # This verifies the known differences, not parity. Guarded runtime
-        # vectors must stay exactly pre-fix and must never report success.
+    def test_historical_gap_vectors_now_match_frozen_results(self):
+        # Retain the original failure evidence verbatim. These seven vectors are
+        # now covered by grouped native completion, including both CLI surfaces
+        # in test_rust_graphql_runtime_completion.py.
         path = fixture.ROOT / "tests/parity/graphql-review-remaining-gaps.json"
         for case in json.loads(path.read_text())["cases"]:
             with self.subTest(case=case["name"]):
@@ -177,13 +178,10 @@ class NativeGraphqlRuntimeInputTest(unittest.TestCase):
                 ]
                 reference, native = self.invoke(True, args), self.invoke(False, args)
                 self.assertEqual(json.loads(reference.stdout), case["expected"])
-                self.assertEqual(json.loads(native.stdout), case["observed"])
-                self.assertNotEqual(case["expected"], case["observed"])
-                if case["category"].startswith("guarded-"):
-                    self.assertEqual(case["observed"], case["pre_fix_observed"])
-                    self.assertNotEqual(native.returncode, 0)
-                    self.assertIsNone(case["observed"]["data"]["data"])
-                    self.assertNotIn("extensions", case["observed"]["data"])
+                self.assertEqual(json.loads(native.stdout), case["expected"])
+                self.assertEqual(native.returncode, reference.returncode)
+                self.assertEqual(native.stderr, reference.stderr)
+                self.assertNotEqual(case["expected"], case["pre_fix_observed"])
 
     def test_runtime_null_matrix(self):
         for name, document, variables in runtime_cases():

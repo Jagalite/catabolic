@@ -25,6 +25,74 @@ import unittest
 import zipfile
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
+
+
+def clear_stale_report(argv=None, parser=None):
+    """Invalidate every canonical --report destination before fallible preflight.
+
+    Only --report PATH and --report=PATH opt in; abbreviations are rejected by
+    the full parser. Stop at -- and use that parser's option lexer to distinguish
+    filename values (including version-specific negative numbers) from options.
+    No argv parsing or project imports happen here. Bootstrap copies are checked
+    against this implementation by the receipt-boundary tests.
+    """
+    if parser is None:
+        parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+        parser.add_argument("--report")
+    arguments = sys.argv[1:] if argv is None else argv
+    first_error = None
+    for index, argument in enumerate(arguments):
+        if argument == "--":
+            break
+        if argument == "--report":
+            value = arguments[index + 1] if index + 1 < len(arguments) else ""
+            if parser._parse_optional(value) is not None:
+                continue
+        elif argument.startswith("--report="):
+            value = argument.partition("=")[2]
+        else:
+            continue
+        if value:
+            report = Path(value)
+            for suffix in (None, ".attempt.json"):
+                try:
+                    target = report if suffix is None else report.with_suffix(suffix)
+                    target.unlink(missing_ok=True)
+                except (OSError, ValueError) as error:
+                    if first_error is None:
+                        first_error = error
+    if first_error is not None:
+        raise first_error
+
+
+def argument_parser():
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--wheel", type=Path, help="Exact installed paired release wheel")
+    mode.add_argument(
+        "--dev-wheel",
+        type=Path,
+        help="Exact installed helperless development wheel; never release qualification",
+    )
+    parser.add_argument(
+        "--source-root", type=Path, default=Path(__file__).resolve().parents[1]
+    )
+    parser.add_argument("--inventory", type=Path)
+    parser.add_argument("--build-manifest", type=Path)
+    parser.add_argument("--reference-root", type=Path)
+    parser.add_argument("--reference-python", type=Path)
+    parser.add_argument("--reference-commit")
+    parser.add_argument("--report", type=Path)
+    parser.add_argument("--scenario", choices=("reference", "native"))
+    parser.add_argument("--root", type=Path)
+    return parser
+
+
+# CLI preflight precedes project imports and optimized-mode refusal.
+# Library imports never inspect caller arguments or invalidate their receipts.
+if __name__ == "__main__":
+    clear_stale_report(parser=argument_parser())
 
 PREFIX = "python:catabolic."
 GATE = "native fallback publication is unqualified; only disposable debug fixtures may apply or recover"
@@ -732,6 +800,283 @@ class InstalledFallback(unittest.TestCase):
         del held[-1]
         self.assertTrue(self.f.projection.plan("empty")["safe"])
 
+    def empty_projection(self):
+        self.f.projection.bind(
+            "empty", self.f.policy["id"], self.f.queries["empty-members"], "flat"
+        )
+
+    def assert_full_plan_capacity(self):
+        # Inline empty plans avoid worker scheduling in the capacity witness.
+        with self.store.transaction():
+            held = [self.f.projection.plan("empty") for _ in range(256)]
+            with self.assertRaisesRegex(
+                self.a.Error, "prepared projection handle limit"
+            ):
+                self.f.projection.plan("empty")
+            held.clear()
+
+    def test_prepared_drop_during_callback_releases_capacity(self):
+        self.empty_projection()
+        for inline in (False, True):
+            held = [self.f.projection.plan("empty")]
+            session = self.a.Session(self.store, timeout_ms=60000)
+            calls = []
+
+            def callback(calls=calls, held=held):
+                calls.append(True)
+                held.clear()
+                return False
+
+            def capture(session=session, callback=callback):
+                self.store._call(
+                    "fallback",
+                    "resolver-capture",
+                    dict(
+                        session=session._token,
+                        session_owner_matches=True,
+                        row=self.f.row,
+                        policy=self.f.policy["definition"],
+                        catalog="catalog",
+                    ),
+                    "default",
+                    _cancelled=callback,
+                )
+
+            with self.subTest(inline=inline):
+                if inline:
+                    with self.store.transaction():
+                        capture()
+                else:
+                    capture()
+                self.assertTrue(calls)
+                self.assertFalse(held)
+                self.assert_full_plan_capacity()
+            session.close()
+        held = [self.f.projection.plan("empty")]
+        with self.store.detached():
+            held.clear()
+        self.assert_full_plan_capacity()
+
+    def test_prepared_cancelled_delivery_releases_capacity(self):
+        self.empty_projection()
+        for raises in (False, True):
+            session = self.a.Session(self.store, timeout_ms=60000)
+            sentinel = RuntimeError("prepared reply callback failure")
+            calls = []
+
+            def callback(calls=calls, raises=raises, sentinel=sentinel):
+                calls.append(True)
+                if len(calls) == 1:
+                    # Yield while the empty native plan finishes. The final
+                    # completion poll must own/discard its prepared reply.
+                    time.sleep(0.2)
+                    return False
+                if raises:
+                    raise sentinel
+                return True
+
+            with self.subTest(raises=raises):
+                with self.assertRaises(RuntimeError) as caught:
+                    self.store._call(
+                        "fallback",
+                        "projection-plan",
+                        dict(
+                            catalog="empty",
+                            session=session._token,
+                            session_owner_matches=True,
+                        ),
+                        "default",
+                        _cancelled=callback,
+                    )
+                self.assertEqual(len(calls), 2)
+                if raises:
+                    self.assertIs(caught.exception, sentinel)
+                else:
+                    self.assertEqual(str(caught.exception), "evaluation_cancelled")
+                self.assert_full_plan_capacity()
+            session.close()
+
+    def test_callback_exception_is_latched_and_owner_recovers(self):
+        self.empty_projection()
+        for inline in (False, True):
+            session = self.a.Session(self.store, timeout_ms=60000)
+            sentinel = ValueError("exact live callback exception")
+            calls = []
+
+            def callback(calls=calls, sentinel=sentinel):
+                calls.append(True)
+                raise sentinel
+
+            def capture(session=session, callback=callback, sentinel=sentinel):
+                with self.assertRaises(ValueError) as caught:
+                    self.store._call(
+                        "fallback",
+                        "resolver-capture",
+                        dict(
+                            session=session._token,
+                            session_owner_matches=True,
+                            row=self.f.row,
+                            policy=self.f.policy["definition"],
+                            catalog="catalog",
+                        ),
+                        "default",
+                        _cancelled=callback,
+                    )
+                self.assertIs(caught.exception, sentinel)
+
+            with self.subTest(inline=inline):
+                if inline:
+                    with self.store.transaction():
+                        capture()
+                else:
+                    capture()
+                self.assertEqual(len(calls), 1)
+                self.assert_full_plan_capacity()
+            session.close()
+
+    def test_prepared_python_handoff_failure_releases_with_live_traceback(self):
+        self.empty_projection()
+        projection = self.a.projection
+        function = inspect.unwrap(projection.FallbackProjection.plan)
+        lines, start = inspect.getsourcelines(function)
+        boundaries = {
+            text: start + offset
+            for offset, line in enumerate(lines)
+            if (text := line.strip())
+            in (
+                "reply = json.loads(lease.json())",
+                "plan = _PreparedPlan(self.store, self.profile, reply)",
+                "plan._lease = lease",
+                "return plan",
+            )
+        }
+        self.assertEqual(len(boundaries), 4)
+        retained = []
+        for exception_type in (MemoryError, KeyboardInterrupt):
+            for boundary in ("decode", "allocate", "initialize", *boundaries):
+                sentinel = exception_type("exact prepared handoff failure")
+                observed = []
+
+                def fail(*args, sentinel=sentinel, observed=observed, **kwargs):
+                    observed.append(True)
+                    raise sentinel
+
+                def trace(frame, event, arg, boundary=boundary, fail=fail):
+                    if (
+                        frame.f_code is function.__code__
+                        and event == "line"
+                        and frame.f_lineno == boundaries[boundary]
+                    ):
+                        fail()
+                    return trace
+
+                with self.subTest(exception=exception_type.__name__, boundary=boundary):
+                    original_trace = sys.gettrace()
+                    try:
+                        if boundary == "decode":
+                            with patch.object(projection.json, "loads", fail):
+                                self.f.projection.plan("empty")
+                        elif boundary in ("allocate", "initialize"):
+                            name = "__new__" if boundary == "allocate" else "__init__"
+                            with patch.object(projection._PreparedPlan, name, fail):
+                                self.f.projection.plan("empty")
+                        else:
+                            sys.settrace(trace)
+                            self.f.projection.plan("empty")
+                    except BaseException as caught:
+                        self.assertIs(caught, sentinel)
+                        # Deliberately keep every failed frame and partial mapping.
+                        # Native release must not depend on their destruction.
+                        retained.append(caught)
+                    else:
+                        self.fail("handoff fault did not run")
+                    finally:
+                        sys.settrace(original_trace)
+                    self.assertEqual(observed, [True])
+                    self.assertIsNotNone(retained[-1].__traceback__)
+                    self.assert_full_plan_capacity()
+
+    def test_prepared_native_lease_release_after_close_and_detach(self):
+        self.empty_projection()
+        plan = self.f.projection.plan("empty")
+        with self.store.detached():
+            plan._lease.release()
+            plan._lease.release()
+        self.assert_full_plan_capacity()
+        plan = self.f.projection.plan("empty")
+        self.store.close()
+        plan._lease.release()
+        plan._lease.release()
+
+    def test_session_identity_epoch_precede_callbacks(self):
+        self.empty_projection()
+        for cause in ("token", "profile", "owner", "drop", "epoch"):
+            session = self.a.Session(self.store, timeout_ms=60000)
+            args = dict(
+                catalog="empty", session=session._token, session_owner_matches=True
+            )
+            if cause == "token":
+                args["session"] = "invalid"
+            elif cause == "profile":
+                foreign = self.a.Session(self.store, "alternate")
+                args["session"] = foreign._token
+            elif cause == "owner":
+                args["session_owner_matches"] = False
+            elif cause == "drop":
+                session.close()
+            else:
+                self.store.db.execute("UPDATE observations SET size=size+1")
+            calls = []
+
+            def callback(calls=calls):
+                calls.append(True)
+                raise ValueError("must not mask evaluation ownership")
+
+            message = (
+                "stale_evaluation_snapshot"
+                if cause == "epoch"
+                else "evaluation_session_identity_mismatch"
+            )
+            with self.subTest(cause=cause):
+                for operation, extra in (
+                    ("projection-plan", {}),
+                    (
+                        "resolver-capture",
+                        dict(row=self.f.row, policy=self.f.policy["definition"]),
+                    ),
+                    (
+                        "resolver-resolve",
+                        dict(
+                            entries=[{"item_id": "item"}], policy_id=self.f.policy["id"]
+                        ),
+                    ),
+                ):
+                    with self.assertRaisesRegex(self.a.Error, message):
+                        self.store._call(
+                            "fallback",
+                            operation,
+                            {**args, **extra},
+                            "default",
+                            _cancelled=callback,
+                        )
+                self.assertFalse(calls)
+            session.close()
+        # The thin facade must not eagerly coerce cancellation before native
+        # ownership validation either.
+        session = self.a.Session(self.store)
+        session.close()
+
+        class MustNotPoll:
+            def __bool__(self):
+                raise ValueError("must not coerce cancelled on an invalid session")
+
+        session.cancelled = MustNotPoll()
+        with self.assertRaisesRegex(
+            self.a.Error, "evaluation_session_identity_mismatch"
+        ):
+            self.f.projection.plan("empty", session=session)
+        self.assert_full_plan_capacity()
+
     def test_public_apply_safety_gate_has_no_override(self):
         self.bind()
         plan = self.f.projection.plan("catalog")
@@ -844,6 +1189,12 @@ EXPECTED_TESTS = (
     "test_full_plan_present_and_preview",
     "test_plan_session_budget_and_cancel",
     "test_prepared_token_spoof_mutation_owner_and_drop",
+    "test_prepared_drop_during_callback_releases_capacity",
+    "test_prepared_cancelled_delivery_releases_capacity",
+    "test_callback_exception_is_latched_and_owner_recovers",
+    "test_prepared_python_handoff_failure_releases_with_live_traceback",
+    "test_prepared_native_lease_release_after_close_and_detach",
+    "test_session_identity_epoch_precede_callbacks",
     "test_public_apply_safety_gate_has_no_override",
     "test_configure_validation_and_disabled_empty_tick",
     "test_worker_gate_backoff_and_recovery_refusal",
@@ -973,38 +1324,13 @@ def source_manifest():
 
 
 def main():
+    parser = argument_parser()
+    clear_stale_report(parser=parser)
     if not __debug__ or os.environ.get("PYTHONOPTIMIZE"):
         raise SystemExit(
             "fallback facade qualification requires assertions; do not run with -O or -OO"
         )
-    # An explicitly reused output path must never retain a stale success when
-    # the new attempt fails, including while importing shared gate helpers.
-    receipt_parser = argparse.ArgumentParser(add_help=False)
-    receipt_parser.add_argument("--report", type=Path)
-    receipt_args, _ = receipt_parser.parse_known_args()
-    if receipt_args.report:
-        receipt_args.report.unlink(missing_ok=True)
-        receipt_args.report.with_suffix(".attempt.json").unlink(missing_ok=True)
     qualification = sibling("native_facade_qualification")
-    parser = argparse.ArgumentParser(description=__doc__)
-    mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--wheel", type=Path, help="Exact installed paired release wheel")
-    mode.add_argument(
-        "--dev-wheel",
-        type=Path,
-        help="Exact installed helperless development wheel; never release qualification",
-    )
-    parser.add_argument(
-        "--source-root", type=Path, default=Path(__file__).resolve().parents[1]
-    )
-    parser.add_argument("--inventory", type=Path)
-    parser.add_argument("--build-manifest", type=Path)
-    parser.add_argument("--reference-root", type=Path)
-    parser.add_argument("--reference-python", type=Path)
-    parser.add_argument("--reference-commit")
-    parser.add_argument("--report", type=Path)
-    parser.add_argument("--scenario", choices=("reference", "native"))
-    parser.add_argument("--root", type=Path)
     args = parser.parse_args()
     provenance = sibling("qualify_native_embedding")
     if args.scenario:
@@ -1088,7 +1414,7 @@ def main():
     result = sibling("native_qualification_results").run_required_suite(
         unittest.defaultTestLoader.loadTestsFromTestCase(InstalledFallback),
         {InstalledFallback: EXPECTED_TESTS},
-        expected_count=18,
+        expected_count=24,
     )
     installed_calls = calls.copy()
     from catabolic_native import Store

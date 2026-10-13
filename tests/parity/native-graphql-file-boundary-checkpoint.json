@@ -1,0 +1,136 @@
+{
+  "production_commit": "6957244d184ba9717040852d49a07d077b05d276",
+  "base_commit": "dcb94bf2c3d9872231a88b817f3ca3aa1fbbfbfe",
+  "scope": "one CLI file-read bound; no shared reader or engine change",
+  "author_checks": {
+    "pairs": 55,
+    "matching": 55,
+    "different": 0,
+    "methods": 2,
+    "cli_units": 18,
+    "strict_clippy": true
+  },
+  "author_baseline": {
+    "source": "b11666f5259fb414cacf6653b81f74129e30bfcd",
+    "pairs": 55,
+    "matching": 36,
+    "different": 19,
+    "outcome": "failed parity as expected; preserved"
+  },
+  "independent_review": {
+    "verdict": "No blocking finding in the one-line file admission slice; retained existing malformed-variable diagnostic residuals are not parity.",
+    "commit": "6957244d184ba9717040852d49a07d077b05d276",
+    "base": "dcb94bf2c3d9872231a88b817f3ca3aa1fbbfbfe",
+    "source_tree": "b84f88d4a47e248d63dc4cd4b97ddfa2ea22187c",
+    "scope": "GraphQL preserved CLI --file ordinary UTF-8 file/stdin byte limit and error precedence; one production argument change only.",
+    "primary_replay": {
+      "methods": 2,
+      "seconds": 52.787,
+      "comparisons": 55,
+      "matched": 55,
+      "companion_document_boundary": "passed; distinct engine-limit error retained"
+    },
+    "independent_controls": {
+      "comparisons": 16,
+      "matched": 14,
+      "residuals": 2,
+      "failed_run_preserved": true,
+      "residual": "At exactly 131072 bytes with malformed variable JSON, Python returns JSONDecodeError detailed message; native returns CatabolicError invalid JSON. Both file/stdin."
+    },
+    "residual_confirmation": {
+      "small_document_controls": 2,
+      "small_bytes": 9,
+      "prior_native_comparisons": 4,
+      "prior_matches_current": 4,
+      "result": "Existing prior-native diagnostic behavior; unchanged by file cap."
+    },
+    "static_checks": {
+      "ruff_check": "passed",
+      "ruff_format_check": "passed",
+      "git_diff_check": "passed"
+    },
+    "historical_witness": {
+      "all_nonstatus_fields_preserved": true,
+      "status_change": {
+        "old": "Remaining CLI file-admission wording gap; explicitly not fixed or counted as parity by the document-validation slice.",
+        "new": "Historical CLI file-admission gap preserved verbatim; corrected by the later native file-boundary slice, outside the document-validation checkpoint."
+      }
+    },
+    "saved_baseline_audit": {
+      "comparisons": 55,
+      "matching": 36,
+      "different": 19,
+      "expected_results_and_case_identities_unchanged": true,
+      "full_baseline_suite_independently_rerun": false
+    },
+    "identities": {
+      "before_after_exactly_equal": true,
+      "source_inventory_sha256": "d86ec2937739a93fa4ebd12670d590939ad015ee1ad783684dc682d9f57fcca8",
+      "changed_file_sha256": {
+        "crates/catabolic-cli/src/legacy/dispatch.rs": "414a7f360b9c706c0b12756b9b69c2fda77ed343a72b2b0169d09a360899f793",
+        "docs/RUST_MIGRATION_GRAPHQL_FILE_BOUNDARY.md": "a83269c475f38626233b4296aa785632e5d1d85712b3c5c838e5d9fe31b552fe",
+        "tests/parity/graphql-file-input-remaining-gap.json": "3c599cabd1fedebed7596dd9907c0a087b9a770aa84fa32c65ef13b9a50f2543",
+        "tests/test_rust_graphql_document_validation.py": "d1fc207a0d1e5d4b6a8d9dbb20c1aafd62656e7d44f20daa9ebe4b6125cfc89b",
+        "tests/test_rust_graphql_file_boundary.py": "6b2acdfbe4bc3b5f983ce076da65e110b8860c68a61936dd7ab81f876836c310"
+      },
+      "artifacts": {
+        "catabolic-legacy-native": {
+          "bytes": 75478464,
+          "sha256": "e423bc2562e6a2899cd52647b36ae12e29db0218b6bc84348a98b874a3ced373"
+        },
+        "catabolic-native": {
+          "bytes": 70260480,
+          "sha256": "b2d8e59f39095be0be4e4c279241bc2e02a7ef845d924c56dce965516fc9f8da"
+        }
+      },
+      "oracle_inventory_sha256": "81b697a595556ded943bef59c167314a6ffbbfc68706ed134cfea66afe012cc2",
+      "python": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+        "resolved": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tools/python/cpython-3.14.6-linux-x86_64-gnu/bin/python3.14",
+        "sha256": "2f7fff382c9d335d6d63f134b55cb8ced9d0b2e1d47e6f210ad3f059adfa71c1",
+        "version": "3.14.6 (main, Aug  4 2026, 18:27:20) [Clang 22.1.3 ]"
+      }
+    },
+    "mutations": "Only independent review evidence under .local-tests; production/tracked source and immutable binaries unchanged. All disposable catalogs unchanged during queries.",
+    "limits": [
+      "No broad filesystem/source-access or definitions safety review.",
+      "No network, services, credentials, remote writes, installs or rebuilds.",
+      "18 Rust CLI unit tests, strict all-target CLI Clippy and other author build checks were not independently rerun; author logs were inspected.",
+      "Source/artifact association uses supplied author build receipt and logs; no independent rebuild or reproducibility claim.",
+      "No wrapper, release, installed, platform, invalid-UTF-8, universal-newline or whole-input qualification; no migration milestone closure."
+    ]
+  },
+  "evidence_sha256": {
+    "after.json": "b846a93a2b420fd8a09569fe9c4386f9ac6654c0c73619a24740f2f86f374eba",
+    "after.log": "a8440485468c19956b8360c86f085a84dc4ab9919e131b3715367657d5e9c4c2",
+    "author-receipt.json": "a51be7080da168b6c900162cfc174adc341ddeb67a19b3611ca3cc3f867368c7",
+    "before.json": "45f6a020f9b8bca6d56a2d723c4f3c2a1faf35acb87a7c5f20615c8636cc6cdc",
+    "before.log": "dff03eb6b6ae16bd768b39dac05f39493c5ad7be2826fc4474bbf470ec495636",
+    "build.log": "8a86bf9290be9b63024a16747a01a26acaab07b93daea8fe53ce06b6fe0301d0",
+    "cli-units.log": "995ed8500f8043af21bd0b79b26b97d0f810e4617d9fcef686e492298a18923b",
+    "clippy.log": "20950ac32fc1bca1017493923dc33a9a16e85511a47824fbd2b477443cff5f48",
+    "independent-review/REVIEW.md": "47c0536b8bd37d08acf6c7cdc4f9366ac5a02695ce6211f1761ac7222f936ad6",
+    "independent-review/after.json": "d85146e864ff2a1e0a7c081ac7a6a862785a685261ccbcab900ffbb332804f32",
+    "independent-review/after.log": "5ea9c950f860b6f1eeac5edf52a90a9df77887bce078b249e5d2cd12c096a39e",
+    "independent-review/before.json": "d85146e864ff2a1e0a7c081ac7a6a862785a685261ccbcab900ffbb332804f32",
+    "independent-review/before.log": "5ea9c950f860b6f1eeac5edf52a90a9df77887bce078b249e5d2cd12c096a39e",
+    "independent-review/edge-controls.json": "b4329bdf3e415cefd85bc3f8b3c4143f58368af5d4eba441696d0bef91079646",
+    "independent-review/edge-controls.log": "82843c9d4315aa39c1e08e3d21491c0d95a1af32602f9e22a19470fde2e2467f",
+    "independent-review/edge-controls.py": "8b4d3983a9c37868bf753bd1d17195a86cfdd48d6c3bca10410adc107d7fd00a",
+    "independent-review/evidence-sha256.json": "9e7154cc198172a9fc7c25fade04fd8528f9975fd9502cc80e19cf4f295895da",
+    "independent-review/prior-native-control.json": "ac05fff3f0902d8bf492f1ce128169c6b96c5ad672dfac510a816415e869bc60",
+    "independent-review/prior-native-control.log": "573d548162ab99b9500311d1ead42b9dcc92fda192b55038cd5c9bb344bbe366",
+    "independent-review/prior-native-control.py": "ea0fa5e7800947ac7b5e2c313bb508ec3dbaa07d2adf16fd2d8614d03baa9782",
+    "independent-review/replay.json": "b846a93a2b420fd8a09569fe9c4386f9ac6654c0c73619a24740f2f86f374eba",
+    "independent-review/replay.log": "772be1a954a43979941c58aabae9cbabeb7bd2367e759fc76f9d43883445d8a0",
+    "independent-review/residual-control.json": "037492a75d8f807df518433abf7b71b0f90fc1cc9e25be04106ede0c0bcd66fc",
+    "independent-review/residual-control.log": "1df245b5737e6c9a596f7d0cf8f13389322873b634e28752012432c3a9cc5282",
+    "independent-review/residual-control.py": "4f710b9323b9ad39318f6c808eecb40b4f8d66d82f17290f43b27157c945f3ba",
+    "independent-review/review.json": "5b01fbe4dd734b936f1bfaf04961c23e7332152c88ec05e6a460c5315408d8e1",
+    "independent-review/run-reviewed-tests.sh": "a48426ccd2b4237d9be0e72d4b5fec79ee42adc27380adde7a07952cf9193a9d",
+    "independent-review/snapshot.py": "b244b09ec84a23fc86cb6cfa751ce5ec1d12efe3e32e29444265b3adbe61b41b",
+    "independent-review/static-checks.log": "148d9c1e89127e83a98468462d599f2c20a1083f81176ead6cbf4098e505a852"
+  },
+  "code_and_tests_changed_after_review": false,
+  "note": "This later documentation/receipt commit does not change the reviewed Rust or test code; preserved failures remain failures."
+}

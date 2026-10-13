@@ -117,13 +117,21 @@ fn relative(source: &Path, output: &Path) -> Result<String> {
         .ok_or_else(|| Error("paths must be valid UTF-8".into()))
 }
 
-pub fn publish(
+/// Read-only output/source preflight shared by mapping previews and publication.
+/// The returned descriptors do not create or adopt any destination.
+pub(crate) struct Preflight {
+    destination: PathBuf,
+    directory: File,
+    artifacts: Vec<Value>,
+    sources: BTreeMap<String, PathBuf>,
+}
+pub(crate) fn preflight(
     store: &Store,
     profile: &str,
     document: &Value,
     export: &Value,
     output: &Path,
-) -> Result<Value> {
+) -> Result<Preflight> {
     if !store.writable || !store.owns_writer_lock() {
         return fail("bundle publication requires the catalog writer lock");
     }
@@ -174,6 +182,28 @@ pub fn publish(
             return fail("unknown export source");
         }
     }
+    Ok(Preflight {
+        destination,
+        directory,
+        artifacts,
+        sources,
+    })
+}
+
+pub fn publish(
+    store: &Store,
+    profile: &str,
+    document: &Value,
+    export: &Value,
+    output: &Path,
+) -> Result<Value> {
+    let Preflight {
+        destination,
+        directory,
+        artifacts,
+        sources,
+    } = preflight(store, profile, document, export, output)?;
+    let entries = array(&document["content"]["entries"])?;
     let leaf = destination
         .file_name()
         .and_then(|s| s.to_str())
@@ -226,4 +256,120 @@ pub fn publish(
     Ok(
         json!({"output":destination.to_str(),"format":export["format"],"links":entries.len(),"metadata_files":artifacts.len(),"written":true}),
     )
+}
+
+/// Frozen immutable-bundle comparison. This cannot publish, repair, remove, or
+/// adopt a path. File bytes are read through the existing no-follow owner.
+pub(crate) fn verify(event: &Value) -> Result<bool> {
+    use std::io::Read;
+    let data = &event["data"];
+    let output = Path::new(text(&data["output"])?);
+    let root = match open_root(text(&data["output"])?) {
+        Ok(root) => root,
+        Err(_) => return Ok(false),
+    };
+    let identity_value = |file: &File| -> Result<Value> {
+        let (device, inode) = identity(&file.metadata()?);
+        Ok(json!({"device":device,"inode":inode}))
+    };
+    if event["output_identity"].is_null() || identity_value(&root)? != event["output_identity"] {
+        return Ok(false);
+    }
+    let check = || -> Result<bool> {
+        let directory = open_root(
+            output
+                .parent()
+                .and_then(Path::to_str)
+                .ok_or_else(|| Error("invalid output parent".into()))?,
+        )?;
+        if identity_value(&directory)? != data["parent"] {
+            return Ok(false);
+        }
+        let mut expected = BTreeMap::new();
+        for entry in array(&data["document"]["content"]["entries"])? {
+            let path = text(&entry["path"])?;
+            crate::layout::relative_path(path)?;
+            let source = &data["sources"][text(&entry["file_id"])?];
+            let source_path = Path::new(text(&source["root"])?).join(text(&source["path"])?);
+            expected.insert(
+                path.to_owned(),
+                (
+                    true,
+                    relative(&source_path, output.join(path).parent().unwrap())?,
+                ),
+            );
+        }
+        for artifact in array(&data["export"]["files"])? {
+            let path = text(&artifact["path"])?;
+            crate::layout::relative_path(path)?;
+            expected.insert(
+                path.to_owned(),
+                (false, text(&artifact["content"])?.to_owned()),
+            );
+        }
+        expected.insert(
+            "catalog-manifest.json".into(),
+            (false, encode(&data["document"]) + "\n"),
+        );
+        let mut parents = BTreeSet::new();
+        for path in expected.keys() {
+            let mut path = Path::new(path).parent();
+            while let Some(p) = path.filter(|p| !p.as_os_str().is_empty()) {
+                parents.insert(p.to_path_buf());
+                path = p.parent();
+            }
+        }
+        let mut directories = vec![PathBuf::new()];
+        let mut seen = BTreeSet::new();
+        while let Some(directory) = directories.pop() {
+            if crate::embedding::poll_interrupt() {
+                return Err(Error("evaluation_cancelled".into()));
+            }
+            for entry in std::fs::read_dir(output.join(&directory))? {
+                let entry = entry?;
+                let path = directory.join(entry.file_name());
+                let kind = entry.file_type()?;
+                if kind.is_dir() {
+                    if !parents.contains(&path) {
+                        return Ok(false);
+                    }
+                    directories.push(path);
+                    continue;
+                }
+                let relative = path
+                    .to_str()
+                    .ok_or_else(|| Error("paths must be valid UTF-8".into()))?;
+                let Some((link, value)) = expected.get(relative) else {
+                    return Ok(false);
+                };
+                let (parent, name) = parent(&root, relative, false)?;
+                if *link {
+                    if !kind.is_symlink()
+                        || crate::filesystem_mutation::state(&root, relative)?
+                            != ("link".into(), Some(value.clone()))
+                    {
+                        return Ok(false);
+                    }
+                } else {
+                    let file = open_at(&parent, &name, false)?;
+                    if !file.metadata()?.is_file() || file.metadata()?.len() != value.len() as u64 {
+                        return Ok(false);
+                    }
+                    let mut bytes = Vec::new();
+                    file.take(value.len() as u64 + 1).read_to_end(&mut bytes)?;
+                    if bytes != value.as_bytes() {
+                        return Ok(false);
+                    }
+                }
+                seen.insert(relative.to_owned());
+            }
+        }
+        Ok(seen == expected.keys().cloned().collect()
+            && identity_value(&open_root(text(&data["output"])?)?)? == event["output_identity"])
+    };
+    match check() {
+        Err(error) if error.0 == "evaluation_cancelled" => Err(error),
+        Err(_) => Ok(false),
+        result => result,
+    }
 }

@@ -78,10 +78,13 @@ impl<'a> CatalogQuery<'a> {
             .as_i64()
             .filter(|n| (1..=1000).contains(n))
             .ok_or_else(|| Error("limit must be between 1 and 1000".into()))?;
-        let sort = text(args, "sort", sorts[0].0)?;
+        let sort = get(args, "sort", json!(sorts[0].0));
+        if !sort.is_null() && !sort.is_string() {
+            return Err(Error("sort must be text".into()));
+        }
         let expression = sorts
             .iter()
-            .find(|(k, _)| *k == sort)
+            .find(|(k, _)| Some(*k) == sort.as_str())
             .ok_or_else(|| {
                 Error(format!(
                     "sort must be one of: {}",

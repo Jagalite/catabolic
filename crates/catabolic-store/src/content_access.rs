@@ -14,6 +14,25 @@ use std::{
 fn denied(code: &str) -> Error {
     Error(code.into())
 }
+/// Conservatively refuse recognizable SQLite payloads even after their original
+/// private pathname has disappeared. This is not proof that other bytes are
+/// public: damaged, zeroed, or unfamiliar sidecar headers remain unclassified.
+fn refuse_sqlite_payload(file: &File) -> Result<()> {
+    let mut header = [0u8; 16];
+    let length = file.read_at(&mut header, 0)?;
+    let bytes = &header[..length];
+    // SQLite WAL_MAGIC is big-endian; WalIndexHdr.iVersion is native-endian.
+    // Both wal-index byte orders are private, including copied foreign files.
+    if bytes == b"SQLite format 3\0"
+        || bytes.starts_with(&0x377f0682u32.to_be_bytes())
+        || bytes.starts_with(&0x377f0683u32.to_be_bytes())
+        || bytes.starts_with(&3_007_000u32.to_le_bytes())
+        || bytes.starts_with(&3_007_000u32.to_be_bytes())
+    {
+        return Err(denied("private_content"));
+    }
+    Ok(())
+}
 impl Access {
     /// Reopen the current catalog snapshot for a new authorization boundary.
     /// A previous Access object is never proof of authorization after a wait.
@@ -225,10 +244,7 @@ pub fn with_opened<T>(
 ) -> Result<T> {
     let row = authorize(access, id, revision)?;
     source::with_validated_source(&row, |file| {
-        let mut header = [0u8; 16];
-        if file.read_at(&mut header, 0)? == 16 && header == *b"SQLite format 3\0" {
-            return Err(denied("private_content"));
-        }
+        refuse_sqlite_payload(file)?;
         operation(file, &file.metadata()?)
     })
 }
@@ -518,10 +534,7 @@ pub fn with_transfer<P, T>(
         ticket: ticket.map(str::to_owned),
     };
     source::with_validated_source(&row, |file| {
-        let mut header = [0u8; 16];
-        if file.read_at(&mut header, 0)? == 16 && header == *b"SQLite format 3\0" {
-            return Err(denied("private_content"));
-        }
+        refuse_sqlite_payload(file)?;
         let stat = file.metadata()?;
         let prepared = prepare(&mut access, &stat, &row)?;
         drop(access);
@@ -597,6 +610,135 @@ mod tests {
             Ok(())
         })
         .unwrap_err();
+    }
+    #[test]
+    fn orphaned_catalog_wal_and_shm_aliases_never_reach_content_callbacks() {
+        let (root, access, _, _) = fixture();
+        let database = access.store().path.clone();
+        assert_eq!(
+            access
+                .store()
+                .db
+                .query_row("PRAGMA journal_mode=WAL", [], |r| r.get::<_, String>(0))
+                .unwrap(),
+            "wal"
+        );
+        access.store().db.execute_batch(
+            "INSERT INTO api_principals(id,profile) VALUES ('disposable-private-marker','default');",
+        ).unwrap();
+        let aliases = ["wal", "shm"].map(|kind| {
+            let original = PathBuf::from(format!("{}-{kind}", database.display()));
+            let alias = root.path().join("media").join(format!("alias-{kind}.bin"));
+            std::fs::hard_link(&original, &alias).unwrap();
+            (original, alias)
+        });
+        drop(access);
+        for (original, alias) in &aliases {
+            assert!(
+                !original.exists(),
+                "SQLite did not remove the original sidecar"
+            );
+            assert!(alias.is_file());
+            assert_eq!(alias.metadata().unwrap().nlink(), 1);
+        }
+        let store = Store::open(&database, true, false).unwrap();
+        crate::observation::execute(&store, "default", "scan", &json!({"source":"media"})).unwrap();
+        assert_eq!(
+            store
+                .db
+                .query_row("SELECT count(*) FROM api_private_files", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        let mut access = Access::authenticate(store, "token.secret").unwrap();
+        for (_, alias) in &aliases {
+            let filename = alias.file_name().unwrap().to_str().unwrap();
+            let id = access
+                .store()
+                .db
+                .query_row("SELECT id FROM files WHERE path=?", [filename], |r| {
+                    r.get::<_, String>(0)
+                })
+                .unwrap();
+            let revision = revision_of(access.store(), "default", &id).unwrap();
+            // Names/registration/live-inode guards cannot recognize this orphan.
+            authorize(&mut access, &id, &revision).unwrap();
+            let called = std::cell::Cell::new(false);
+            let result = with_opened(&mut access, &id, &revision, |_, _| {
+                called.set(true);
+                Ok(())
+            });
+            assert_eq!(result.unwrap_err().0, "private_content", "{filename}");
+            assert!(!called.get());
+            let transfer_access = access.current().unwrap();
+            let result = with_transfer(
+                transfer_access,
+                &id,
+                &revision,
+                None,
+                |_, _, _| {
+                    called.set(true);
+                    Ok(())
+                },
+                |_, _, _, ()| {
+                    called.set(true);
+                    Ok(())
+                },
+            );
+            assert_eq!(result.unwrap_err().0, "private_content", "{filename}");
+            assert!(!called.get());
+        }
+    }
+    #[test]
+    fn recognizable_sidecar_prefixes_are_conservative_and_endian_independent() {
+        for prefix in [
+            0x377f0682u32.to_be_bytes(),
+            0x377f0683u32.to_be_bytes(),
+            3_007_000u32.to_le_bytes(),
+            3_007_000u32.to_be_bytes(),
+        ] {
+            for suffix in [b"".as_slice(), b"arbitrary private body".as_slice()] {
+                let file = tempfile::tempfile().unwrap();
+                file.write_all_at(&[prefix.as_slice(), suffix].concat(), 0)
+                    .unwrap();
+                assert_eq!(
+                    refuse_sqlite_payload(&file).unwrap_err().0,
+                    "private_content"
+                );
+            }
+        }
+        // Recognizable headers are denied even when the rest is corrupt. No
+        // claim is made for a missing or modified signature, regardless of size.
+        for bytes in [
+            b"".as_slice(),
+            b"ordinary media",
+            &[0; 128],
+            &[0x37, 0x7f, 0x06],
+        ] {
+            let file = tempfile::tempfile().unwrap();
+            file.write_all_at(bytes, 0).unwrap();
+            refuse_sqlite_payload(&file).unwrap();
+        }
+    }
+    #[test]
+    fn ordinary_content_still_reaches_both_descriptor_callbacks() {
+        let (_root, mut access, id, revision) = fixture();
+        let bytes = with_opened(&mut access, &id, &revision, |file, stat| {
+            read_chunk(file, stat, 0, 10)
+        })
+        .unwrap();
+        assert_eq!(bytes, b"test bytes");
+        let bytes = with_transfer(
+            access,
+            &id,
+            &revision,
+            None,
+            |_, _, _| Ok(()),
+            |file, stat, _, ()| read_chunk(file, stat, 0, 10),
+        )
+        .unwrap();
+        assert_eq!(bytes, b"test bytes");
     }
     #[test]
     fn ranges_are_bounded_and_single() {

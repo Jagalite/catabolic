@@ -1,0 +1,39 @@
+{
+  "scope": "Source-stable full reference replay at343d7e8; failed source-contract/mock-harness controls, not a passing aggregate",
+  "fence": {
+    "command_exit": 1,
+    "source_before": "429a843ab3b4f15769b9cba217a213f401913099a81356ed3147a8dee61f920b",
+    "source_after": "429a843ab3b4f15769b9cba217a213f401913099a81356ed3147a8dee61f920b",
+    "source_unchanged": true,
+    "commit": "343d7e83a8c275dc282cda9b1ac0e6b4a320aaa6",
+    "seconds": 1268.6757698059082,
+    "tests_run": 1271,
+    "result_passed": false,
+    "skips": [
+      {
+        "id": "tests.test_application.CatalogTest.test_default_output_detects_registered_source_case_alias",
+        "reason": "requires a case-insensitive filesystem"
+      }
+    ],
+    "passed": false
+  },
+  "failures": [
+    "tests.test_native_cli_owner_ledger.NativeCliOwnerLedger.test_fallback_worker_records_existing_tick_and_retained_gate",
+    "tests.test_native_legacy_adapter_qualification.LegacyAdapterQualificationControls.test_gate_rejects_each_postflight_mutation_and_keeps_failed_outcomes"
+  ],
+  "errors": [
+    "tests.test_native_legacy_adapter_qualification.LegacyAdapterQualificationControls.test_gate_uses_strict_installed_fences_before_and_after"
+  ],
+  "evidence_sha256": {
+    "reference.log": "945b523f46f5b58a6008daf9706000f367c313cafacb9adeec6d1eb2815d74d0",
+    "reference-results.json": "d3da2aa02fbccb44c24742fa2c050b841bfe2f639ec9ee5cc450a843d61ccb4f",
+    "reference-before.json": "735764a7907ed786da6ccc773da35e0bb90a338d588eca31b38903ec6fd7d08d",
+    "reference-fence.json": "2e804b7e962d4dae9a5e97fd9e6fcca434b6d53470933f06df4e2f628a62fd5b",
+    "reference-wrapper.log": "2e804b7e962d4dae9a5e97fd9e6fcca434b6d53470933f06df4e2f628a62fd5b",
+    "run-reference.py": "7385eded44483f27ee520d919de717289525cd0fcdbe4004d16ddf395a65da08"
+  },
+  "corrections_not_covered_by_this_run": {
+    "signal_ledger": "c0b50f8b6914aa4f81b0340c57c35a294c519ff5",
+    "mock_harness_isolation": "79ce8c9c3072aaed1347abc08081b5990091c772"
+  }
+}

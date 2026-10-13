@@ -58,9 +58,19 @@ Python remains the default; no failure falls back to Python.
    historical rows are refused rather than silently truncated. The frozen owner
    has no corresponding whole-result bound
 4. The shared HTTP adapter adds its existing `Accept: application/json` and
-   `Connection: close` headers. It refuses an over-limit declared Content-Length
-   before consuming the body. Native URL parsing, TLS, DNS, uncommon response
-   statuses and transport diagnostics are not a full urllib compatibility claim
+   `Connection: close` headers. The preserved refresh path encodes credential
+   header values as Latin-1, matching frozen urllib, and rejects code points above
+   255 before network delivery. Other consumer/Plex transports retain their
+   existing native UTF-8 behavior. Remaining control-character admission differences
+   are not qualified; native HTTP header validation is not weakened.
+   It refuses an over-limit declared Content-Length before consuming the body.
+   A 200 response declaring 100 bytes but closing cleanly after one byte is
+   complete in frozen urllib and failed natively. The pinned ureq body reader
+   collapses clean premature EOF and connection reset into the same error; accepting
+   that error would also admit resets, which frozen rejects. Native retains its
+   fail-closed behavior pending a separately scoped transport design. Native URL
+   parsing, TLS, DNS, uncommon response statuses and other transport diagnostics
+   are not a full urllib compatibility claim
 5. Native detached reopening checks catalog identity before acknowledgment. This
    is inherited native Store behavior, not a claim that frozen reopening had the
    same identity fence. No publication-owner qualification is asserted here

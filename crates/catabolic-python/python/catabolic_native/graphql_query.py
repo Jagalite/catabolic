@@ -3,6 +3,7 @@
 import json
 
 from . import _native
+from ._native import SDL as SDL
 from .store import CatabolicError, Store, encode
 
 

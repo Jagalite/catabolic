@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readSync } from "node:fs";
 import createClient from "openapi-fetch";
 import { busyFetch } from "./busy.js";
 import type { paths, components } from "./generated/rest.js";
@@ -28,12 +28,6 @@ assert.equal(caps.data?.version, 1);
 const items = await client.GET("/v1/items", { params: { query: { limit: 1 } } });
 assert.equal(items.data?.data[0]?.id, fixture.state.item_id);
 assert.equal(items.data?.has_more, false);
-const snapshot = await client.POST("/v1/items/snapshots");
-assert.ok(snapshot.data);
-const page = await client.GET("/v1/snapshots/{identifier}", {
-  params: { path: { identifier: snapshot.data.snapshot_id }, query: { limit: 1 } },
-});
-assert.equal(page.data?.data[0]?.id, fixture.state.item_id);
 const variables: CatalogQueryVariables = { first: 1 };
 const graphql = await client.POST("/v1/query/graphql", {
   body: { query: readFileSync(new URL("../catalog.graphql", import.meta.url), "utf8"), variables },
@@ -64,6 +58,21 @@ const result = await client.GET("/v1/rendition-requests/{identifier}", {
 });
 assert.equal(result.data?.state, "ready");
 assert.ok(result.data.result);
+// Native qualification keeps real processing alive through fresh admission.
+// Its private pipe releases snapshot/ticket mutations only after worker reap.
+// Direct client runs without this fixture field retain the ordinary journey.
+if (fixture.phase_fd !== undefined) {
+  console.log(JSON.stringify({ type: "qualification_phase", phase: "processing_ready" }));
+  const release = Buffer.alloc(1);
+  assert.equal(readSync(fixture.phase_fd, release, 0, 1, null), 1);
+  assert.equal(release.toString(), "1");
+}
+const snapshot = await client.POST("/v1/items/snapshots");
+assert.ok(snapshot.data);
+const page = await client.GET("/v1/snapshots/{identifier}", {
+  params: { path: { identifier: snapshot.data.snapshot_id }, query: { limit: 1 } },
+});
+assert.equal(page.data?.data[0]?.id, fixture.state.item_id);
 const ready: components["schemas"]["RenditionResult"] = result.data.result;
 const file = await client.GET("/v1/files/{identifier}", {
   params: { path: { identifier: ready.file_id } },
@@ -103,3 +112,6 @@ const events = await client.GET("/v1/events", { params: { query: { follow: false
 assert.ok(events.data && typeof events.data !== "string");
 assert.ok(events.data.events.some(event => event.state === "ready"));
 console.log("Generated REST and GraphQL clients: authenticated catalog, request, tickets and exact bytes passed.");
+if (fixture.phase_fd !== undefined) {
+  console.log(JSON.stringify({ type: "qualification_phase", phase: "isolated_complete" }));
+}

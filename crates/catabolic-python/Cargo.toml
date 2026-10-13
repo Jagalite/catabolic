@@ -13,6 +13,7 @@ crate-type = ["cdylib"]
 catabolic-core.workspace = true
 catabolic-store.workspace = true
 catabolic-runtime.workspace = true
+catabolic-http.workspace = true
 serde_json.workspace = true
 pyo3.workspace = true
 

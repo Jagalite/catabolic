@@ -11,6 +11,7 @@ use serde_json::Value;
 use std::{io::Read, time::Duration};
 
 pub use catabolic_store::notifications::{Origin, callback_origin};
+mod providers;
 
 pub trait Transport {
     fn deliver(&mut self, lease: &DeliveryLease) -> Outcome;
@@ -128,9 +129,8 @@ impl HttpTransport {
                 && policy::EVENTS.contains(&event)
                 && ["info", "warning", "error"].contains(&level)
             {
-                // Apprise remains an explicitly optional integration adapter;
-                // policy, leases and HTTP delivery are always native.
-                send_apprise(url, envelope, event, level)
+                // Provider URLs retain their frozen dialect, with native transports.
+                send_provider(url, envelope, event, level)
             } else {
                 Outcome::InvalidDestination
             };
@@ -158,7 +158,10 @@ impl HttpTransport {
             .header("Content-Type", "application/json")
             .header("Idempotency-Key", id)
             .header("User-Agent", "Catabolic-Webhook/1")
-            .send(catabolic_core::encode(envelope).as_bytes())
+            // Frozen send() sorts the worker payload before the HTTP worker
+            // uses json.dumps(envelope), including its default ASCII escaping.
+            // Mapped request bodies and the input budget retain their own codec.
+            .send(catabolic_core::encode_with(envelope, true, false).as_bytes())
         {
             Ok(response) if response.status().is_success() => Outcome::Complete,
             Ok(_) | Err(_) => Outcome::TemporarilyFailed,
@@ -166,22 +169,21 @@ impl HttpTransport {
     }
 }
 
-fn send_apprise(url: &str, envelope: &Value, event: &str, level: &str) -> Outcome {
+fn send_provider(url: &str, envelope: &Value, event: &str, level: &str) -> Outcome {
     let payload = catabolic_core::encode(
         &serde_json::json!({"url":url,"event":event,"severity":level,"envelope":envelope}),
     );
     if payload.len() > 16384 {
         return Outcome::InvalidDestination;
     }
-    let python = std::env::var_os("CATABOLIC_APPRISE_PYTHON").unwrap_or_else(|| "python3".into());
-    let arguments = [
-        python,
-        "-I".into(),
-        "-c".into(),
-        include_str!("apprise_worker.py").into(),
-    ];
+    let Ok(executable) = crate::helper::executable_with_fallback(PROVIDER_HELPER.get()) else {
+        return Outcome::Uninstalled;
+    };
     match crate::process::command_output(
-        &arguments,
+        &[
+            executable.as_os_str(),
+            std::ffi::OsStr::new(WORKER_ARGUMENT),
+        ],
         crate::process::CommandOptions {
             timeout: Duration::from_secs(30),
             maximum: 4096,
@@ -190,19 +192,63 @@ fn send_apprise(url: &str, envelope: &Value, event: &str, level: &str) -> Outcom
             ..Default::default()
         },
     ) {
-        Ok(output) => match catabolic_core::decode_json_bytes(&output.stdout)
-            .ok()
-            .and_then(|v| v["status"].as_str().map(str::to_owned))
-            .as_deref()
-        {
-            Some("complete") => Outcome::Complete,
-            Some("uninstalled") => Outcome::Uninstalled,
-            Some("invalid_destination") => Outcome::InvalidDestination,
-            _ => Outcome::TemporarilyFailed,
-        },
+        Ok(output) if output.returncode == 0 && output.stderr.is_empty() => {
+            match catabolic_core::decode_json_bytes(&output.stdout)
+                .ok()
+                .and_then(|v| v["status"].as_str().map(str::to_owned))
+                .as_deref()
+            {
+                Some("complete") => Outcome::Complete,
+                Some("invalid_destination") => Outcome::InvalidDestination,
+                _ => Outcome::TemporarilyFailed,
+            }
+        }
         Err(failure) if failure.state == "unavailable" => Outcome::Uninstalled,
-        Err(_) => Outcome::TemporarilyFailed,
+        _ => Outcome::TemporarilyFailed,
     }
+}
+
+// A standalone preserved CLI may host this one worker without taking over
+// other helpers that require the structured companion. Explicitly selected
+// companions keep priority, and an invalid selection never falls back.
+static PROVIDER_HELPER: std::sync::OnceLock<crate::helper::Helper> = std::sync::OnceLock::new();
+pub fn register_provider_helper(path: &std::path::Path) -> Result<()> {
+    PROVIDER_HELPER
+        .set(crate::helper::pin(path)?)
+        .map_err(|_| Error("notification helper already registered".into()))
+}
+
+pub const WORKER_ARGUMENT: &str = "__notification-provider-worker";
+
+/// Catalog-free native child under the existing process-group supervisor.
+/// Credentials enter on bounded stdin, never argv; only constant status escapes.
+pub fn worker_main() {
+    use std::io::Write;
+    let outcome = (|| {
+        let mut bytes = Vec::new();
+        std::io::stdin().take(16385).read_to_end(&mut bytes).ok()?;
+        if bytes.len() > 16384 {
+            return Some(Outcome::InvalidDestination);
+        }
+        let payload = catabolic_core::decode_json_bytes(&bytes).ok()?;
+        let (Some(url), Some(event), Some(severity)) = (
+            payload["url"].as_str(),
+            payload["event"].as_str(),
+            payload["severity"].as_str(),
+        ) else {
+            return Some(Outcome::InvalidDestination);
+        };
+        if !policy::EVENTS.contains(&event) || !["info", "warning", "error"].contains(&severity) {
+            return Some(Outcome::InvalidDestination);
+        }
+        Some(providers::deliver(url, event, severity))
+    })()
+    .unwrap_or(Outcome::TemporarilyFailed);
+    let _ = writeln!(
+        std::io::stdout(),
+        "{}",
+        serde_json::json!({"status": outcome.code()})
+    );
 }
 impl Transport for HttpTransport {
     fn deliver(&mut self, lease: &DeliveryLease) -> Outcome {

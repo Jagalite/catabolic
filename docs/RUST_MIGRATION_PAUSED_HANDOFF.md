@@ -1,7 +1,8 @@
 # Rust migration: paused implementation handoff
 
-**Stopped:** 2026-10-11 at the user's request. This file supersedes earlier
-progress summaries for current status. The requested action is to preserve and
+**Historical handoff:** stopped 2026-10-11 at the user's request. The
+[October 13 stop handoff](RUST_MIGRATION_STOP_2026_10_13.md) now describes current
+status; the original evidence below remains a historical record. The requested action is to preserve and
 push the work with documentation, not to finish implementation or release it.
 
 **Consolidated feature branch:** `codex/rust-migration-m4-plus`.

@@ -14,11 +14,31 @@ import sys
 import unittest
 from pathlib import Path
 
+try:
+    from .run_native_prerequisite_tests import REQUIRED_CASES, REQUIRED_IDS
+except ImportError:
+    from run_native_prerequisite_tests import REQUIRED_CASES, REQUIRED_IDS
+
 
 class ReferenceLoader(unittest.TestLoader):
     def __init__(self):
         super().__init__()
         self.native_files = []
+        self.native_prerequisite_scenarios = []
+
+    def loadTestsFromTestCase(self, testCaseClass):
+        name = f"{testCaseClass.__module__}.{testCaseClass.__qualname__}"
+        if name in REQUIRED_CASES:
+            methods = self.getTestCaseNames(testCaseClass)
+            if set(methods) != set(REQUIRED_CASES[name]):
+                raise RuntimeError(
+                    f"native prerequisite scenario inventory drift: {name}"
+                )
+            self.native_prerequisite_scenarios.extend(
+                f"{name}.{method}" for method in methods
+            )
+            return self.suiteClass()
+        return super().loadTestsFromTestCase(testCaseClass)
 
     def _match_path(self, path, full_path, pattern):
         # This discovery hook is exercised on the supported Python 3.11/3.14
@@ -54,11 +74,18 @@ def main():
     cases = list(identifiers(suite))
     if not cases or len(cases) != len(set(cases)):
         raise RuntimeError("empty or duplicate Python reference test discovery")
+    if sorted(loader.native_prerequisite_scenarios) != sorted(REQUIRED_IDS):
+        raise RuntimeError(
+            "missing or duplicate required native prerequisite discovery"
+        )
     report = {
         "scope": "Python application tests; native scenarios run in their separate job",
         "python": sys.version,
         "scenarios": cases,
         "native_files_deferred_to_native_job": sorted(loader.native_files),
+        "native_prerequisite_scenarios_deferred_to_installed_job": sorted(
+            loader.native_prerequisite_scenarios
+        ),
         "discovery_only": args.list,
     }
     if args.list:

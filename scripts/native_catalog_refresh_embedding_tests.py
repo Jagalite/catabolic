@@ -28,6 +28,72 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
+
+def clear_stale_report(argv=None, parser=None):
+    """Invalidate every canonical --report destination before fallible preflight.
+
+    Only --report PATH and --report=PATH opt in; abbreviations are rejected by
+    the full parser. Stop at -- and use that parser's option lexer to distinguish
+    filename values (including version-specific negative numbers) from options.
+    No argv parsing or project imports happen here. Bootstrap copies are checked
+    against this implementation by the receipt-boundary tests.
+    """
+    if parser is None:
+        parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+        parser.add_argument("--report")
+    arguments = sys.argv[1:] if argv is None else argv
+    first_error = None
+    for index, argument in enumerate(arguments):
+        if argument == "--":
+            break
+        if argument == "--report":
+            value = arguments[index + 1] if index + 1 < len(arguments) else ""
+            if parser._parse_optional(value) is not None:
+                continue
+        elif argument.startswith("--report="):
+            value = argument.partition("=")[2]
+        else:
+            continue
+        if value:
+            report = Path(value)
+            for suffix in (None, ".attempt.json"):
+                try:
+                    target = report if suffix is None else report.with_suffix(suffix)
+                    target.unlink(missing_ok=True)
+                except (OSError, ValueError) as error:
+                    if first_error is None:
+                        first_error = error
+    if first_error is not None:
+        raise first_error
+
+
+def argument_parser():
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser.add_argument("--scenario", choices=("native", "reference"))
+    parser.add_argument("--root", type=Path)
+    parser.add_argument("--reference-root", type=Path, required=True)
+    parser.add_argument("--reference-python", type=Path)
+    parser.add_argument("--reference-commit")
+    parser.add_argument("--inventory", type=Path)
+    parser.add_argument("--source-root", type=Path)
+    parser.add_argument("--wheel", type=Path)
+    parser.add_argument(
+        "--dev",
+        action="store_true",
+        help="Explicit development artifact; never release qualification",
+    )
+    parser.add_argument("--native-binary", type=Path)
+    parser.add_argument("--legacy-binary", type=Path)
+    parser.add_argument("--build-manifest", type=Path)
+    parser.add_argument("--report", type=Path)
+    return parser
+
+
+# CLI preflight precedes project imports and optimized-mode refusal.
+# Library imports never inspect caller arguments or invalidate their receipts.
+if __name__ == "__main__":
+    clear_stale_report(parser=argument_parser())
+
 if not __debug__ or os.environ.get("PYTHONOPTIMIZE"):
     raise RuntimeError(
         "catalog refresh qualification requires Python assertions; do not use -O, -OO or PYTHONOPTIMIZE"
@@ -936,10 +1002,24 @@ class CatalogRefreshCLI(unittest.TestCase):
         CLI_EVIDENCE["watch_ticks"] = observations["native"]
 
     def test_paired_watch_idle_silent_and_error_continuation(self):
-        observations = {}
+        from catabolic_native import Store
+
+        observations, readiness = {}, {}
         for engine in ("reference", "native"):
+            # A real processed tick proves this owned process reached its
+            # production watch loop. Initial-empty startup timing is a separate
+            # unqualified signal window; elapsed silence cannot prove readiness.
+            with (
+                Store(self.paths[engine], writable=True) as store,
+                store.transaction() as db,
+            ):
+                db.execute(
+                    "INSERT INTO catalog_refresh_queue(profile,catalog) VALUES('default','global')"
+                )
+            started = time.monotonic()
+            command = self.command(engine, ["watch", "--interval", "1"])
             process = subprocess.Popen(
-                self.command(engine, ["watch", "--interval", "1"]),
+                command,
                 cwd=self.root,
                 env=self.environment(engine),
                 stdout=subprocess.PIPE,
@@ -950,12 +1030,65 @@ class CatalogRefreshCLI(unittest.TestCase):
             selector = selectors.DefaultSelector()
             selector.register(process.stdout, selectors.EVENT_READ)
             try:
-                self.assertFalse(
-                    selector.select(1.2), "empty watch produced idle output"
+                self.assertTrue(
+                    selector.select(10),
+                    f"watch did not emit a bounded readiness tick: engine={engine}",
                 )
+                line = process.stdout.readline()
+                self.assertTrue(line, f"watch exited before readiness: engine={engine}")
+                ready = json.loads(line)
+                self.assertEqual(
+                    ready,
+                    {
+                        "processed": 1,
+                        "refreshed": [],
+                        "errors": [],
+                        "pending": 1,
+                        "complete": False,
+                    },
+                    f"unexpected readiness tick: engine={engine}",
+                )
+                with (
+                    Store(self.paths[engine], writable=True) as store,
+                    store.transaction() as db,
+                ):
+                    self.assertEqual(
+                        store.rows(
+                            "SELECT profile,catalog,generation FROM catalog_refresh_queue"
+                        ),
+                        [{"profile": "default", "catalog": "global", "generation": 1}],
+                    )
+                    # setUp gives this disposable row to an active watcher, so
+                    # the tick cannot publish; remove only that owned witness.
+                    db.execute(
+                        "DELETE FROM catalog_refresh_queue WHERE profile='default' AND catalog='global' AND generation=1"
+                    )
+                    self.assertEqual(
+                        store.rows("SELECT * FROM catalog_refresh_queue"), []
+                    )
+                readiness[engine] = {"tick": ready, "remaining_queue": []}
+                self.assertFalse(
+                    selector.select(1.2),
+                    f"empty watch produced idle output: engine={engine}",
+                )
+                signal_elapsed = time.monotonic() - started
                 process.send_signal(signal.SIGINT)
                 stdout, stderr = process.communicate(timeout=10)
-                self.assertEqual(process.returncode, 130)
+                self.assertEqual(
+                    process.returncode,
+                    130,
+                    {
+                        "engine": engine,
+                        "phase": "idle",
+                        "command": command,
+                        "pid": process.pid,
+                        "signal_elapsed_seconds": signal_elapsed,
+                        "readiness": readiness[engine],
+                        "stdout": stdout,
+                        "stderr": stderr,
+                    },
+                )
+                self.assertEqual(stdout, "", f"idle watch output: engine={engine}")
                 observations[engine] = [stdout, stderr, process.returncode]
             finally:
                 selector.close()
@@ -1000,6 +1133,7 @@ class CatalogRefreshCLI(unittest.TestCase):
         # OS/Store open diagnostics are recorded independently, not normalized
         # into a misleading exact value-parity claim.
         CLI_EVIDENCE["idle"] = observations["native"]
+        CLI_EVIDENCE["idle_readiness"] = readiness
         CLI_EVIDENCE["opening_errors_unpaired"] = errors
 
 
@@ -1055,39 +1189,11 @@ def verify_development_wheel(path):
     return hashes
 
 
-def clear_stale_report():
-    # Invalidate a normal attempt before loading even the shared gate helper.
-    # Optimized-mode refusal above deliberately leaves all files untouched.
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--report", type=Path)
-    args, _ = parser.parse_known_args()
-    if args.report:
-        args.report.unlink(missing_ok=True)
-        args.report.with_suffix(".attempt.json").unlink(missing_ok=True)
-
-
 def main():
     global OPTIONS
-    clear_stale_report()
+    parser = argument_parser()
+    clear_stale_report(parser=parser)
     qualification = sibling("native_facade_qualification")
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scenario", choices=("native", "reference"))
-    parser.add_argument("--root", type=Path)
-    parser.add_argument("--reference-root", type=Path, required=True)
-    parser.add_argument("--reference-python", type=Path)
-    parser.add_argument("--reference-commit")
-    parser.add_argument("--inventory", type=Path)
-    parser.add_argument("--source-root", type=Path)
-    parser.add_argument("--wheel", type=Path)
-    parser.add_argument(
-        "--dev",
-        action="store_true",
-        help="Explicit development artifact; never release qualification",
-    )
-    parser.add_argument("--native-binary", type=Path)
-    parser.add_argument("--legacy-binary", type=Path)
-    parser.add_argument("--build-manifest", type=Path)
-    parser.add_argument("--report", type=Path)
     args = parser.parse_args()
     for name, value in vars(args).items():
         if isinstance(value, Path):

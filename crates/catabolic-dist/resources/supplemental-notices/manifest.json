@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-10-12T23:36:38.746129+00:00",
+  "scope": "Five missing dependency notice-text inputs for Catabolic final-b11666f native candidate; source-provenance retrieval only. No full dependency/license audit or release/publishing authorization is implied.",
+  "candidate_inventory": {
+    "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-dist/.local-tests/native-dist/final-b11666f/candidate/licenses/dependencies.json",
+    "sha256": "dd068d5bc64fe70e58c0904963c34febd5da5b97c76017ea122251bfd165e631"
+  },
+  "retrieval_method": "Public official upstream GitHub, using the exact git.sha1 embedded in each cached crate .cargo_vcs_info.json. License contents retrieved as base64, decoded without modification, and verified against upstream Git blob SHA-1 and directory-listed byte count. Package manifests were separately retrieved at the same revision and compared byte-for-byte with each cached Cargo.toml.orig.",
+  "packages": [
+    {
+      "package": "Inflector",
+      "version": "0.11.4",
+      "package_id": "registry+https://github.com/rust-lang/crates.io-index#Inflector@0.11.4",
+      "license_expression": "BSD-2-Clause",
+      "notice_file": "Inflector-0.11.4.LICENSE.txt",
+      "notice_sha256": "03d1bd5bfbee8d44651e7f57faf9e5b4eda4233f0d4eda36a716f2f0533d230b",
+      "notice_bytes": 1270,
+      "upstream_repository": "https://github.com/whatisinternet/inflector",
+      "upstream_revision": "a4a95eac75043f4bffb127c7c8ec886b5b106053",
+      "upstream_path": "LICENSE.md",
+      "source_url": "https://github.com/whatisinternet/Inflector/blob/a4a95eac75043f4bffb127c7c8ec886b5b106053/LICENSE.md",
+      "raw_source_url": "https://raw.githubusercontent.com/whatisinternet/Inflector/a4a95eac75043f4bffb127c7c8ec886b5b106053/LICENSE.md",
+      "upstream_git_blob_sha1": "937b1bd1716746367b4d8703f49b10fd714c62db",
+      "version_revision_evidence": {
+        "cached_package_directory": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tools/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/Inflector-0.11.4",
+        "cached_cargo_toml_sha256": "8fb633b01ea17947fd1f76e0a447b027ddf48c019671f09e39c1338ab715605d",
+        "cached_cargo_toml_orig_sha256": "e048a47a1760e78ea145327d8de218d792ce23f0da8665b7a75ddf56f2bfb92c",
+        "cached_cargo_vcs_info_sha256": "882e6524f5b956dd8a55b2f09c07b0128139240d7a2290bfca5e09e6b33eab21",
+        "git_sha1": "a4a95eac75043f4bffb127c7c8ec886b5b106053",
+        "path_in_vcs": "",
+        "upstream_package_manifest_url": "https://github.com/whatisinternet/Inflector/blob/a4a95eac75043f4bffb127c7c8ec886b5b106053/Cargo.toml",
+        "upstream_package_manifest_git_blob_sha1": "94581571dca290049d0414d552b2ab67d6c08dc2",
+        "upstream_manifest_matches_cached_original_byte_for_byte": true,
+        "cached_package_include": [
+          "**/*.rs",
+          "Cargo.toml",
+          "README.md"
+        ]
+      },
+      "unresolved_ambiguities": [],
+      "license_applicability_evidence": "Exact-version repository-root Cargo.toml declares BSD-2-Clause; LICENSE.md is at the root of that same revision. The cached package include list omits LICENSE.md."
+    },
+    {
+      "package": "jsonschema-regex",
+      "version": "0.58.6",
+      "package_id": "registry+https://github.com/rust-lang/crates.io-index#jsonschema-regex@0.58.6",
+      "license_expression": "MIT",
+      "notice_file": "jsonschema-regex-0.58.6.LICENSE.txt",
+      "notice_sha256": "117829c3ca21efb132d81a44b55363d395ab8eea18526873bc828da4c0e5f038",
+      "notice_bytes": 1075,
+      "upstream_repository": "https://github.com/Stranger6667/jsonschema",
+      "upstream_revision": "55ac1664384793c5d3b20745d3f9c169dfe2c06f",
+      "upstream_path": "LICENSE",
+      "source_url": "https://github.com/Stranger6667/jsonschema/blob/55ac1664384793c5d3b20745d3f9c169dfe2c06f/LICENSE",
+      "raw_source_url": "https://raw.githubusercontent.com/Stranger6667/jsonschema/55ac1664384793c5d3b20745d3f9c169dfe2c06f/LICENSE",
+      "upstream_git_blob_sha1": "20c070f6401feda6f47be1b158f4f5a4a9d14062",
+      "version_revision_evidence": {
+        "cached_package_directory": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tools/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonschema-regex-0.58.6",
+        "cached_cargo_toml_sha256": "0274bed679c5cda4876367818ae5e70d0f33c9d4e7d3c479927ff31b5a33ecca",
+        "cached_cargo_toml_orig_sha256": "0dfc740a2dd8466356f0ef1dd7ce56d795fd67e421d4949379f8b640aad68ba0",
+        "cached_cargo_vcs_info_sha256": "5cdf5be701eb41261e0c7c2598ce2fa1a8c7cbafb704d2ca36e4502204efa5d3",
+        "git_sha1": "55ac1664384793c5d3b20745d3f9c169dfe2c06f",
+        "path_in_vcs": "crates/jsonschema-regex",
+        "upstream_package_manifest_url": "https://github.com/Stranger6667/jsonschema/blob/55ac1664384793c5d3b20745d3f9c169dfe2c06f/crates/jsonschema-regex/Cargo.toml",
+        "upstream_package_manifest_git_blob_sha1": "ce71c219ab1e7a44240024b627963cac638ca79d",
+        "upstream_manifest_matches_cached_original_byte_for_byte": true,
+        "workspace_manifest": {
+          "url": "https://github.com/Stranger6667/jsonschema/blob/55ac1664384793c5d3b20745d3f9c169dfe2c06f/Cargo.toml",
+          "git_blob_sha1": "97e57b8a4663ec929a7cebcb80650d954033b6e6",
+          "sha256": "cc637e24d6a7cc90a0658c4cd4566929e42ec5d5813dcef246d0d3614a21ca98",
+          "declared_workspace_license": "MIT"
+        }
+      },
+      "unresolved_ambiguities": [],
+      "license_applicability_evidence": "Exact-version package Cargo.toml inherits license.workspace; repository root Cargo.toml at the identical revision declares workspace.package.license = MIT. The repository root LICENSE was retrieved at that revision."
+    },
+    {
+      "package": "jsonschema-value",
+      "version": "0.58.6",
+      "package_id": "registry+https://github.com/rust-lang/crates.io-index#jsonschema-value@0.58.6",
+      "license_expression": "MIT",
+      "notice_file": "jsonschema-value-0.58.6.LICENSE.txt",
+      "notice_sha256": "117829c3ca21efb132d81a44b55363d395ab8eea18526873bc828da4c0e5f038",
+      "notice_bytes": 1075,
+      "upstream_repository": "https://github.com/Stranger6667/jsonschema",
+      "upstream_revision": "55ac1664384793c5d3b20745d3f9c169dfe2c06f",
+      "upstream_path": "LICENSE",
+      "source_url": "https://github.com/Stranger6667/jsonschema/blob/55ac1664384793c5d3b20745d3f9c169dfe2c06f/LICENSE",
+      "raw_source_url": "https://raw.githubusercontent.com/Stranger6667/jsonschema/55ac1664384793c5d3b20745d3f9c169dfe2c06f/LICENSE",
+      "upstream_git_blob_sha1": "20c070f6401feda6f47be1b158f4f5a4a9d14062",
+      "version_revision_evidence": {
+        "cached_package_directory": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tools/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/jsonschema-value-0.58.6",
+        "cached_cargo_toml_sha256": "8270a39ed0531eaf4de5ff516df9e09d17d3c2a697b0b428b02673a661f37844",
+        "cached_cargo_toml_orig_sha256": "fc9363e8e19857cdd58db66ce582a24cb0dd3047684955728e67b94b46b7e8cd",
+        "cached_cargo_vcs_info_sha256": "ee8166ff3889517d9b0ff72c62a57bea91d872c2d46160033de2c60340cb06dc",
+        "git_sha1": "55ac1664384793c5d3b20745d3f9c169dfe2c06f",
+        "path_in_vcs": "crates/jsonschema-value",
+        "upstream_package_manifest_url": "https://github.com/Stranger6667/jsonschema/blob/55ac1664384793c5d3b20745d3f9c169dfe2c06f/crates/jsonschema-value/Cargo.toml",
+        "upstream_package_manifest_git_blob_sha1": "fbb9babe98a620a8c012b836cdce46fc4db250a6",
+        "upstream_manifest_matches_cached_original_byte_for_byte": true,
+        "workspace_manifest": {
+          "url": "https://github.com/Stranger6667/jsonschema/blob/55ac1664384793c5d3b20745d3f9c169dfe2c06f/Cargo.toml",
+          "git_blob_sha1": "97e57b8a4663ec929a7cebcb80650d954033b6e6",
+          "sha256": "cc637e24d6a7cc90a0658c4cd4566929e42ec5d5813dcef246d0d3614a21ca98",
+          "declared_workspace_license": "MIT"
+        }
+      },
+      "unresolved_ambiguities": [],
+      "license_applicability_evidence": "Exact-version package Cargo.toml inherits license.workspace; repository root Cargo.toml at the identical revision declares workspace.package.license = MIT. The repository root LICENSE was retrieved at that revision."
+    },
+    {
+      "package": "uuid-simd",
+      "version": "0.8.0",
+      "package_id": "registry+https://github.com/rust-lang/crates.io-index#uuid-simd@0.8.0",
+      "license_expression": "MIT",
+      "notice_file": "uuid-simd-0.8.0.LICENSE.txt",
+      "notice_sha256": "71674605ec4c087fe9eb534e3e4f9e26eb2e4aabcd76a29fd156c6a844d44b3d",
+      "notice_bytes": 1062,
+      "upstream_repository": "https://github.com/Nugine/simd",
+      "upstream_revision": "d74c030d9dc4f3cae02146d1f497ff62726ef09a",
+      "upstream_path": "LICENSE",
+      "source_url": "https://github.com/Nugine/simd/blob/d74c030d9dc4f3cae02146d1f497ff62726ef09a/LICENSE",
+      "raw_source_url": "https://raw.githubusercontent.com/Nugine/simd/d74c030d9dc4f3cae02146d1f497ff62726ef09a/LICENSE",
+      "upstream_git_blob_sha1": "2c7eabb59093ea117d73b20effdd0414f87b2af2",
+      "version_revision_evidence": {
+        "cached_package_directory": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tools/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/uuid-simd-0.8.0",
+        "cached_cargo_toml_sha256": "ec723e989ff2ceff4e2d51c831093fb3e5f5e69f8496afd01bbf6648e37e2464",
+        "cached_cargo_toml_orig_sha256": "c403470724eee7edf65a6596ffb86f12814724cd67d4d34423b77e91a9a148e4",
+        "cached_cargo_vcs_info_sha256": "9235ab068fdb6b50a2b0fdad57df40ed34461ea3a81e7d3a1584962f3f84e5a9",
+        "git_sha1": "d74c030d9dc4f3cae02146d1f497ff62726ef09a",
+        "path_in_vcs": "crates/uuid-simd",
+        "upstream_package_manifest_url": "https://github.com/Nugine/simd/blob/d74c030d9dc4f3cae02146d1f497ff62726ef09a/crates/uuid-simd/Cargo.toml",
+        "upstream_package_manifest_git_blob_sha1": "2a8b4d6764b3286c45fa87dca4ba0b0b66ef3122",
+        "upstream_manifest_matches_cached_original_byte_for_byte": true,
+        "cached_readme_sha256": "7ab240fee8858bc5f779430196578adbddd80dc74725bb37d2ddb5ea590cdb30",
+        "cached_readme_license_link": "../../LICENSE"
+      },
+      "unresolved_ambiguities": [],
+      "license_applicability_evidence": "Exact-version package Cargo.toml declares MIT; its cached README license badge points to ../../LICENSE, resolving from path_in_vcs to the upstream root LICENSE at the same revision."
+    },
+    {
+      "package": "vsimd",
+      "version": "0.8.0",
+      "package_id": "registry+https://github.com/rust-lang/crates.io-index#vsimd@0.8.0",
+      "license_expression": "MIT",
+      "notice_file": "vsimd-0.8.0.LICENSE.txt",
+      "notice_sha256": "71674605ec4c087fe9eb534e3e4f9e26eb2e4aabcd76a29fd156c6a844d44b3d",
+      "notice_bytes": 1062,
+      "upstream_repository": "https://github.com/Nugine/simd",
+      "upstream_revision": "d74c030d9dc4f3cae02146d1f497ff62726ef09a",
+      "upstream_path": "LICENSE",
+      "source_url": "https://github.com/Nugine/simd/blob/d74c030d9dc4f3cae02146d1f497ff62726ef09a/LICENSE",
+      "raw_source_url": "https://raw.githubusercontent.com/Nugine/simd/d74c030d9dc4f3cae02146d1f497ff62726ef09a/LICENSE",
+      "upstream_git_blob_sha1": "2c7eabb59093ea117d73b20effdd0414f87b2af2",
+      "version_revision_evidence": {
+        "cached_package_directory": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tools/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/vsimd-0.8.0",
+        "cached_cargo_toml_sha256": "7a3defd1f3b642bc229a518351f3feb23a69ddaf0349414562edbeeca40d60ad",
+        "cached_cargo_toml_orig_sha256": "cc626a72f9f89509460429bc40702d4b1d65118392790dea3e2cbf852884843d",
+        "cached_cargo_vcs_info_sha256": "b6a479e65704d09745d31e0d86d23ca44ba673b01ddd0da81cc8ba619a92b2aa",
+        "git_sha1": "d74c030d9dc4f3cae02146d1f497ff62726ef09a",
+        "path_in_vcs": "crates/vsimd",
+        "upstream_package_manifest_url": "https://github.com/Nugine/simd/blob/d74c030d9dc4f3cae02146d1f497ff62726ef09a/crates/vsimd/Cargo.toml",
+        "upstream_package_manifest_git_blob_sha1": "513f24596f46c00c81527b439aac33472a0ff078",
+        "upstream_manifest_matches_cached_original_byte_for_byte": true,
+        "cached_readme_sha256": "f0accc1732bf72b4635825e7d55e37b3bfe46c56d3d933bdd88b68787666fba9",
+        "cached_readme_license_link": "../../LICENSE"
+      },
+      "unresolved_ambiguities": [],
+      "license_applicability_evidence": "Exact-version package Cargo.toml declares MIT; its cached README license badge points to ../../LICENSE, resolving from path_in_vcs to the upstream root LICENSE at the same revision."
+    }
+  ],
+  "unresolved_ambiguities": [],
+  "limitations": [
+    "This is limited to the five specified missing text inputs. It does not audit other dependencies, embedded third-party source notices, distribution obligations, or release readiness.",
+    "No archive/download provenance re-audit was performed. Package-to-revision evidence comes from the existing local Cargo cache, corroborated by exact upstream package-manifest matches.",
+    "No frozen source, candidate, registry/cache, lockfile, or prior receipt was changed."
+  ]
+}

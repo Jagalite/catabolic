@@ -5,9 +5,60 @@
 
 import copy
 import json
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import Mock, patch
 
+from scripts.experience_acceptance import Journey
 from scripts.experience_evaluator import evaluate
+
+
+class ExperienceMaintenanceTest(unittest.TestCase):
+    def test_repeat_drains_enabled_catalog_before_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            journey = Journey(Path(directory), "fixture-python")
+            state = {"refresh": 1}
+
+            def cli(*args):
+                if args == ("maintenance", "--catalog", "originals"):
+                    return {
+                        "complete": True,
+                        "stages": [{"stage": "sync", "applied_count": 0}],
+                    }
+                self.assertEqual(args, ("catalog-refresh", "run", "--force"))
+                state["refresh"] = 0
+                return {"complete": True, "pending": 0}
+
+            journey.cli = Mock(side_effect=cli)
+            with patch("scripts.experience_acceptance.snapshot", return_value=state):
+                journey.maintenance("repeat1")
+            self.assertEqual(journey.checkpoints["repeat1"], {"refresh": 0})
+            self.assertEqual(journey.cli.call_count, 2)
+
+    def test_repeat_refuses_incomplete_refresh_and_output_churn(self):
+        journey = Journey(Path("unused-disposable-fixture"), "fixture-python")
+        journey.checkpoint = Mock()
+        maintenance = {
+            "complete": True,
+            "stages": [{"stage": "sync", "applied_count": 0}],
+        }
+        for refresh in (
+            {"complete": False, "pending": 1},
+            {"complete": True, "pending": 1},
+            {"complete": True},
+        ):
+            with self.subTest(refresh=refresh):
+                journey.cli = Mock(side_effect=[maintenance, refresh])
+                with self.assertRaisesRegex(AssertionError, "refresh incomplete"):
+                    journey.maintenance("repeat1")
+                journey.checkpoint.assert_not_called()
+        maintenance["stages"][0]["applied_count"] = 1
+        journey.cli = Mock(return_value=maintenance)
+        with self.assertRaisesRegex(AssertionError, "rewrote outputs"):
+            journey.maintenance("repeat1")
+        self.assertEqual(journey.cli.call_count, 1)
+        journey.checkpoint.assert_not_called()
 
 
 class ExperienceEvaluatorTest(unittest.TestCase):

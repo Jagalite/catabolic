@@ -80,6 +80,29 @@ pub fn prepare(
         digest: seal,
     })
 }
+/// Adapter-only preparation on an already borrowed embedding owner. Unlike
+/// `prepare`, this does not reopen the database or discard uncommitted state.
+/// The same native plan and seal are consumed by the unchanged apply owner.
+pub(crate) fn prepare_evaluated(
+    evaluation: &mut Evaluation,
+    id: &str,
+    catalog: &str,
+    flags: &mut impl FnMut(layout::RunFlag) -> Result<bool>,
+) -> Result<PreparedLayout> {
+    let database_id = evaluation.store().database_id.clone();
+    let profile = evaluation.profile.clone();
+    let generation = epoch(evaluation.store())?;
+    let prepared = layout::prepare_with_flags(evaluation, id, catalog, flags)?;
+    let seal = digest(&database_id, &profile, generation, &prepared);
+    Ok(PreparedLayout {
+        report: prepared.report.clone(),
+        database_id,
+        profile,
+        epoch: generation,
+        prepared,
+        digest: seal,
+    })
+}
 /// Can be nested in a caller transaction that rolls back mappings on a blocked
 /// filesystem preview. The complete mapping set never comes from display JSON.
 pub fn apply(

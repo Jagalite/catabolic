@@ -1,5 +1,6 @@
 //! GraphQL transport over the same native snapshot and catalog query functions.
 pub use crate::graphql_input::InputVariables;
+use crate::graphql_parse::parse_query;
 use crate::{
     Error, Result, Store,
     api_catalog::Authority,
@@ -7,9 +8,9 @@ use crate::{
     query::{CatalogQuery, decode, rendition_conditions, view_sql},
     sql::scalar,
 };
-use async_graphql::{ErrorExtensions, Name, Request, Value as GValue, Variables, dynamic::*};
+use async_graphql::{ErrorExtensions, Request, Variables, dynamic::*};
 use async_graphql_parser::{
-    parse_query, parse_schema,
+    parse_schema,
     types::{BaseType, Selection, SelectionSet, Type, TypeKind, TypeSystemDefinition},
 };
 use catabolic_core::encode;
@@ -27,41 +28,6 @@ thread_local! {
     static PANIC_AFTER_SETUP: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 const SDL: &str = include_str!("../resources/schema.graphql");
-// graphql-core omits undefined input-object fields. List elements instead
-// retain their position as null, and an explicitly supplied null stays null.
-fn omit_undefined(
-    input: &async_graphql_value::Value,
-    value: &mut Value,
-    undefined: &[String],
-) -> bool {
-    use async_graphql_value::Value as Input;
-    match input {
-        Input::Variable(name) => undefined.iter().any(|v| v == name.as_str()),
-        Input::Object(fields) => {
-            if let Some(object) = value.as_object_mut() {
-                for (key, input) in fields {
-                    if let Some(value) = object.get_mut(key.as_str())
-                        && omit_undefined(input, value, undefined)
-                    {
-                        object.remove(key.as_str());
-                    }
-                }
-            }
-            false
-        }
-        Input::List(inputs) => {
-            if let Some(values) = value.as_array_mut() {
-                for (input, value) in inputs.iter().zip(values) {
-                    if omit_undefined(input, value, undefined) {
-                        *value = Value::Null;
-                    }
-                }
-            }
-            false
-        }
-        _ => false,
-    }
-}
 struct Budget;
 impl async_graphql::extensions::ExtensionFactory for Budget {
     fn create(&self) -> Arc<dyn async_graphql::extensions::Extension> {
@@ -102,134 +68,67 @@ impl async_graphql::extensions::Extension for Budget {
         &self,
         ctx: &async_graphql::extensions::ExtensionContext<'_>,
         operation: Option<&str>,
-        next: async_graphql::extensions::NextExecute<'_>,
+        _next: async_graphql::extensions::NextExecute<'_>,
     ) -> async_graphql::Response {
-        let early = {
-            let state = ctx
-                .data_unchecked::<Arc<Mutex<Context>>>()
-                .lock()
-                .expect("query context");
-            state
-                .runtime_inputs
-                .root_error
-                .as_ref()
-                .map(|error| (error.clone(), state.deadline, state.profile.clone()))
+        // The original document has passed strict framework validation here.
+        // Completion is native: async-graphql's dynamic container would invoke
+        // merged fields separately and does not propagate its non-null chain.
+        let state = ctx.data_unchecked::<Arc<Mutex<Context>>>();
+        let (inputs, http) = {
+            let context = state.lock().expect("query context");
+            (context.runtime_inputs.clone(), context.authority.is_some())
         };
-        if let Some((error, deadline, profile)) = early {
-            let response = json!({"data":null,"errors":[error.server_error(vec![])],"extensions":{"interfaceVersion":1,"profile":profile,"records":0}});
-            return serde_json::from_value(early_query_response(response, deadline))
-                .expect("GraphQL response");
-        }
-        next.run(ctx, operation).await
-    }
-    async fn resolve(
-        &self,
-        ctx: &async_graphql::extensions::ExtensionContext<'_>,
-        info: async_graphql::extensions::ResolveInfo<'_>,
-        next: async_graphql::extensions::NextResolve<'_>,
-    ) -> async_graphql::ServerResult<Option<GValue>> {
-        // Poll before taking the resolver mutex, so a Python signal handler
-        // never runs while that mutex is held. SQL leaves compose the same
-        // outer bridge with their SQLite deadline handler.
-        if crate::embedding::poll_interrupt() {
-            return Err(async_graphql::ServerError::new(
-                "query execution interrupted",
-                None,
-            ));
-        }
-        if info.parent_type.starts_with("__") || ["__schema", "__type"].contains(&info.name) {
-            return next.run(ctx, info).await;
-        }
-        let state = ctx
-            .data::<Arc<Mutex<Context>>>()
-            .map_err(|e| e.into_server_error(async_graphql::Pos::default()))?;
-        {
-            let mut context = state.lock().expect("query context");
-            // graphql-core obtains argument values before invoking its resolver
-            // (and budget middleware). A rejected runtime null is not a field
-            // resolution, although cancellation/deadline checks still apply.
-            if context.runtime_inputs.argument_error(info.field).is_none() {
-                context.fields += 1;
-            }
-            if context.fields > 20000 {
-                context.aborted = Some("query field budget exceeded".into());
-            }
-            context.check().map_err(|e| {
-                async_graphql::Error::new(e.to_string())
-                    .extend_with(|_, extensions| extensions.set("code", "LIMIT_EXCEEDED"))
-                    .into_server_error(async_graphql::Pos::default())
-            })?;
-        }
-        let introspection = info.is_for_introspection;
-        let path = info.path_node.to_string_vec();
-        let nullable = !info.return_type.ends_with('!');
-        let error_path: Vec<async_graphql::PathSegment> = serde_json::from_value(
-            serde_json::to_value(info.path_node).expect("GraphQL response path"),
-        )
-        .expect("GraphQL response path segments");
-        {
-            let mut context = state.lock().expect("query context");
-            context.nullability.insert(path.clone(), nullable);
-            if context
-                .null_bubbles
-                .iter()
-                .any(|boundary| path.starts_with(boundary))
-            {
-                return Ok(None);
-            }
-        }
-        let mut result = match next.run(ctx, info).await {
+        let mut execution = Execution {
+            state,
+            inputs: &inputs,
+            http,
+            errors: vec![],
+        };
+        let data = match execution.selection(
+            &Value::Null,
+            "Query",
+            inputs.operation(operation),
+            &mut vec![],
+        ) {
             Ok(value) => value,
-            Err(mut error) => {
-                if let Some(input) = error.source.as_ref().and_then(|source| {
-                    source.downcast_ref::<crate::graphql_runtime_input::Failure>()
-                }) {
-                    error = input.server_error(error_path.clone());
-                }
-                if error.path.is_empty() {
-                    error.path = error_path;
-                }
-                if !nullable {
-                    let mut context = state.lock().expect("query context");
-                    let boundary = (0..path.len())
-                        .rev()
-                        .find(|length| context.nullability.get(&path[..*length]) == Some(&true))
-                        .map(|length| path[..length].to_vec())
-                        .unwrap_or_default();
-                    context.null_bubbles.push(boundary);
-                }
-                return Err(error);
+            Err(error) => {
+                execution.errors.push(error);
+                Value::Null
             }
         };
-        // async-graphql's dynamic container collects child errors without
-        // applying the SDL non-null chain. Preserve graphql-core's nullable
-        // boundary and stop resolving sibling nodes after that boundary failed.
-        if state
-            .lock()
-            .expect("query context")
-            .null_bubbles
-            .contains(&path)
-        {
-            result = Some(GValue::Null);
-        }
-        if introspection && let Some(value) = &result {
-            let mut context = state.lock().expect("query context");
-            let charged = match value {
-                GValue::List(values) => context.records(values.len()),
-                GValue::String(_) => {
-                    context.charge(&serde_json::to_value(value).expect("GraphQL value JSON"))
-                }
-                _ => context.check(),
-            };
-            charged.map_err(|e| {
-                async_graphql::Error::new(e.to_string())
-                    .extend_with(|_, extensions| extensions.set("code", "LIMIT_EXCEEDED"))
-                    .into_server_error(async_graphql::Pos::default())
-            })?;
-        }
-        Ok(result)
+        execution.errors.sort_by(|a, b| {
+            a.locations
+                .cmp(&b.locations)
+                .then_with(|| path_order(&a.path, &b.path))
+                .then_with(|| a.message.cmp(&b.message))
+        });
+        let mut response = async_graphql::Response::new(completed_value(data));
+        response.errors = execution.errors;
+        response
     }
 }
+
+// Both value types own the same serde_json::Number. The generic deserializer
+// rejects i128/u128 and interprets larger arbitrary-precision numbers as private
+// maps, so transfer variants directly instead. JSON scalar contents stay opaque,
+// including ordinary object keys which resemble serde's private representation.
+fn completed_value(value: Value) -> async_graphql::Value {
+    use async_graphql::Value as Graphql;
+    match value {
+        Value::Null => Graphql::Null,
+        Value::Bool(value) => Graphql::Boolean(value),
+        Value::Number(value) => Graphql::Number(value),
+        Value::String(value) => Graphql::String(value),
+        Value::Array(values) => Graphql::List(values.into_iter().map(completed_value).collect()),
+        Value::Object(values) => Graphql::Object(
+            values
+                .into_iter()
+                .map(|(key, value)| (async_graphql::Name::new(key), completed_value(value)))
+                .collect(),
+        ),
+    }
+}
+
 struct Context {
     store: Store,
     profile: String,
@@ -238,12 +137,9 @@ struct Context {
     fields: usize,
     bytes: usize,
     aborted: Option<String>,
-    undefined: Vec<String>,
     authority: Option<Authority>,
-    nullability: BTreeMap<Vec<String>, bool>,
-    null_bubbles: Vec<Vec<String>>,
-    runtime_inputs: crate::graphql_runtime_input::RuntimeInputs,
-    runtime_error_emitted: bool,
+    runtime_inputs: Arc<crate::graphql_runtime_input::RuntimeInputs>,
+    executed: bool,
 }
 impl Context {
     fn authorized_resolve(
@@ -1138,6 +1034,228 @@ impl Context {
         Ok(result)
     }
 }
+// The schema is object-only. Collect each selection set before invoking any of
+// its resolvers; merge by response key and complete the combined child set once.
+// All source access remains in Context::authorized_resolve on the borrowed Store.
+struct Execution<'a> {
+    state: &'a Arc<Mutex<Context>>,
+    inputs: &'a crate::graphql_runtime_input::RuntimeInputs,
+    http: bool,
+    errors: Vec<async_graphql::ServerError>,
+}
+fn path_order(
+    a: &[async_graphql::PathSegment],
+    b: &[async_graphql::PathSegment],
+) -> std::cmp::Ordering {
+    use async_graphql::PathSegment;
+    for (a, b) in a.iter().zip(b) {
+        let ordering = match (a, b) {
+            (PathSegment::Field(a), PathSegment::Field(b)) => a.cmp(b),
+            (PathSegment::Index(a), PathSegment::Index(b)) => a.cmp(b),
+            (PathSegment::Field(_), PathSegment::Index(_)) => std::cmp::Ordering::Less,
+            (PathSegment::Index(_), PathSegment::Field(_)) => std::cmp::Ordering::Greater,
+        };
+        if !ordering.is_eq() {
+            return ordering;
+        }
+    }
+    a.len().cmp(&b.len())
+}
+impl Execution<'_> {
+    fn selection(
+        &mut self,
+        source: &Value,
+        parent: &str,
+        set: &SelectionSet,
+        path: &mut Vec<async_graphql::PathSegment>,
+    ) -> async_graphql::ServerResult<Value> {
+        // Never invoke an outer signal handler while holding the resolver lock.
+        if crate::embedding::poll_interrupt() {
+            return Err(async_graphql::ServerError::new(
+                "query execution interrupted",
+                None,
+            ));
+        }
+        self.state.lock().expect("query context").executed = true;
+        let fields = self
+            .inputs
+            .fields(set, parent)
+            .map_err(|error| error.server_error(path.clone()))?;
+        let mut data = serde_json::Map::new();
+        for field in fields {
+            let name = field.field.node.name.node.as_str();
+            let key = field.field.node.response_key().node.to_string();
+            let definition = crate::graphql_runtime_input::field_def(parent, name, self.http)
+                .expect("strictly validated field");
+            let ty = crate::graphql_runtime_input::field_type(&definition);
+            path.push(async_graphql::PathSegment::Field(key.clone()));
+            let result = self
+                .resolve(parent, source, &field, &definition, path)
+                .and_then(|value| self.complete(value, &ty, parent, &field, path));
+            path.pop();
+            match result {
+                Ok(value) => {
+                    data.insert(key, value);
+                }
+                Err(error) if ty.nullable => {
+                    self.errors.push(error);
+                    data.insert(key, Value::Null);
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(Value::Object(data))
+    }
+    fn error(
+        message: impl Into<String>,
+        field: &crate::graphql_runtime_input::CollectedField,
+        path: &[async_graphql::PathSegment],
+    ) -> async_graphql::ServerError {
+        let mut error = async_graphql::ServerError::new(message, None);
+        error.locations = field.locations.clone();
+        error.path = path.to_vec();
+        error
+    }
+    fn resolve(
+        &self,
+        parent: &str,
+        source: &Value,
+        field: &crate::graphql_runtime_input::CollectedField,
+        definition: &Value,
+        path: &[async_graphql::PathSegment],
+    ) -> async_graphql::ServerResult<Value> {
+        if crate::embedding::poll_interrupt() {
+            return Err(Self::error("query execution interrupted", field, path));
+        }
+        // Argument coercion precedes resolver invocation, authorization and
+        // middleware. The first encountered node supplies a merged field's args.
+        if let Some(error) = self.inputs.argument_error(&field.field.node) {
+            return Err(error.server_error(path.to_vec()));
+        }
+        let args = self.inputs.arguments(&field.field.node, definition);
+        let name = field.field.node.name.node.as_str();
+        let mut context = self.state.lock().expect("query context");
+        context.fields += 1;
+        if context.fields > 20000 {
+            context.aborted = Some("query field budget exceeded".into());
+        }
+        let result = context.check().and_then(|()| {
+            if parent.starts_with("__") || name.starts_with("__") {
+                let value = crate::introspection::resolve(parent, name, source, &args, self.http);
+                // graphql-core's schema type map and deprecated-inclusive maps
+                // return dict views. Count the field, but not list records.
+                let dict_view = parent == "__Schema" && name == "types"
+                    || args["includeDeprecated"] == true
+                        && (parent == "__Type" && matches!(name, "enumValues" | "inputFields")
+                            || parent == "__Field" && name == "args");
+                if let Some(values) = value.as_array().filter(|_| !dict_view) {
+                    context.records(values.len())?;
+                } else if value.is_string() {
+                    context.charge(&value)?;
+                }
+                Ok(value)
+            } else {
+                context.authorized_resolve(parent, name, source, &args)
+            }
+        });
+        result.map_err(|error| {
+            let message = error.to_string();
+            let mut error = Self::error(&message, field, path);
+            if context.authority.is_none() || message != "invalid_cursor" {
+                let code = if context.aborted.is_some() || Instant::now() > context.deadline {
+                    "LIMIT_EXCEEDED"
+                } else if context.authority.is_some()
+                    && [
+                        "field is not authorized",
+                        "filter is not authorized",
+                        "resource is not authorized",
+                    ]
+                    .contains(&message.as_str())
+                {
+                    "FORBIDDEN"
+                } else {
+                    "QUERY_ERROR"
+                };
+                error.extensions = async_graphql::Error::new(message)
+                    .extend_with(|_, extensions| extensions.set("code", code))
+                    .extensions;
+            }
+            error
+        })
+    }
+    fn complete(
+        &mut self,
+        value: Value,
+        ty: &Type,
+        parent: &str,
+        field: &crate::graphql_runtime_input::CollectedField,
+        path: &mut Vec<async_graphql::PathSegment>,
+    ) -> async_graphql::ServerResult<Value> {
+        if crate::embedding::poll_interrupt() {
+            return Err(Self::error("query execution interrupted", field, path));
+        }
+        self.state
+            .lock()
+            .expect("query context")
+            .check()
+            .map_err(|error| Self::error(error.to_string(), field, path))?;
+        if value.is_null() {
+            return if ty.nullable {
+                Ok(Value::Null)
+            } else {
+                Err(Self::error(
+                    format!(
+                        "Cannot return null for non-nullable field {parent}.{}.",
+                        field.field.node.name.node
+                    ),
+                    field,
+                    path,
+                ))
+            };
+        }
+        match &ty.base {
+            BaseType::List(inner) => {
+                let Some(values) = value.as_array() else {
+                    return Err(Self::error(
+                        format!(
+                            "Expected Iterable, but did not find one for field '{parent}.{}'.",
+                            field.field.node.name.node
+                        ),
+                        field,
+                        path,
+                    ));
+                };
+                let mut data = Vec::with_capacity(values.len());
+                for (index, value) in values.iter().enumerate() {
+                    path.push(async_graphql::PathSegment::Index(index));
+                    let completed = self.complete(value.clone(), inner, parent, field, path);
+                    path.pop();
+                    match completed {
+                        Ok(value) => data.push(value),
+                        Err(error) if inner.nullable => {
+                            self.errors.push(error);
+                            data.push(Value::Null);
+                        }
+                        Err(error) => return Err(error),
+                    }
+                }
+                Ok(Value::Array(data))
+            }
+            BaseType::Named(name) if !field.field.node.selection_set.node.items.is_empty() => self
+                .selection(
+                    &value,
+                    name.as_str(),
+                    &field.field.node.selection_set.node,
+                    path,
+                ),
+            BaseType::Named(name) => {
+                crate::graphql_runtime_input::serialize(name.as_str(), value, self.http)
+                    .map_err(|message| Self::error(message, field, path))
+            }
+        }
+    }
+}
+
 fn snake(value: &str) -> String {
     let mut out = String::new();
     for (i, c) in value.chars().enumerate() {
@@ -1157,46 +1275,6 @@ fn type_ref(ty: &Type) -> TypeRef {
         base
     } else {
         TypeRef::NonNull(Box::new(base))
-    }
-}
-fn output(
-    value: Value,
-    ty: &Type,
-    enums: &BTreeSet<String>,
-    objects: &BTreeSet<String>,
-) -> async_graphql::Result<FieldValue<'static>> {
-    if value.is_null() {
-        return Ok(FieldValue::NULL);
-    }
-    match &ty.base {
-        BaseType::List(inner) => Ok(FieldValue::list(
-            value
-                .as_array()
-                .ok_or_else(|| async_graphql::Error::new("expected list result"))?
-                .iter()
-                .cloned()
-                .map(|v| output(v, inner, enums, objects))
-                .collect::<async_graphql::Result<Vec<_>>>()?,
-        )),
-        BaseType::Named(name) if objects.contains(name.as_str()) => {
-            Ok(FieldValue::owned_any(value))
-        }
-        BaseType::Named(name) if enums.contains(name.as_str()) => {
-            Ok(FieldValue::value(GValue::Enum(Name::new(
-                value
-                    .as_str()
-                    .ok_or_else(|| async_graphql::Error::new("expected enum result"))?,
-            ))))
-        }
-        BaseType::Named(name) if name.as_str() == "BigInt" => {
-            Ok(FieldValue::value(GValue::String(
-                value
-                    .as_str()
-                    .map(str::to_owned)
-                    .unwrap_or_else(|| value.to_string()),
-            )))
-        }
-        _ => Ok(FieldValue::value(GValue::from_json(value)?)),
     }
 }
 fn input(value: async_graphql_parser::types::InputValueDefinition) -> InputValue {
@@ -1224,8 +1302,6 @@ fn build_schema(http: bool) -> Result<Schema> {
         String,
         Vec<async_graphql_parser::Positioned<async_graphql_parser::types::FieldDefinition>>,
     > = BTreeMap::new();
-    let mut enums = BTreeSet::new();
-    let mut objects = BTreeSet::new();
     let mut descriptions = BTreeMap::new();
     let mut definitions = vec![];
     for definition in document.definitions {
@@ -1235,23 +1311,22 @@ fn build_schema(http: bool) -> Result<Schema> {
                 descriptions.insert(definition.name.node.to_string(), description.node.clone());
             }
             match &definition.kind {
+                TypeKind::Interface(_) | TypeKind::Union(_) => {
+                    return Err(Error(
+                        "native GraphQL completion requires concrete object types".into(),
+                    ));
+                }
                 TypeKind::Object(obj) => {
-                    objects.insert(definition.name.node.to_string());
                     object_fields
                         .entry(definition.name.node.to_string())
                         .or_default()
                         .extend(obj.fields.clone());
-                }
-                TypeKind::Enum(_) => {
-                    enums.insert(definition.name.node.to_string());
                 }
                 _ => {}
             }
             definitions.push(definition);
         }
     }
-    let enums = Arc::new(enums);
-    let objects = Arc::new(objects);
     let mut builder = Schema::build("Query", None, None)
         .extension(Budget)
         .limit_depth(20)
@@ -1304,123 +1379,10 @@ fn build_schema(http: bool) -> Result<Schema> {
                 continue;
             }
             let name = field.name.node.to_string();
-            let parent = parent.clone();
-            let field_name = name.clone();
-            let ty = field.ty.node.clone();
-            let captured_enums = enums.clone();
-            let captured_objects = objects.clone();
-            let captured_defaults: serde_json::Map<String, Value> = field
-                .arguments
-                .iter()
-                .filter_map(|argument| {
-                    argument.node.default_value.as_ref().map(|value| {
-                        (
-                            argument.node.name.node.to_string(),
-                            serde_json::to_value(&value.node).expect("constant input"),
-                        )
-                    })
-                })
-                .collect();
-            let mut dynamic = Field::new(name, type_ref(&ty), move |ctx| {
-                let parent = parent.clone();
-                let name = field_name.clone();
-                let ty = ty.clone();
-                let enums = captured_enums.clone();
-                let objects = captured_objects.clone();
-                let defaults = captured_defaults.clone();
-                FieldFuture::new(async move {
-                    let state = ctx.data::<Arc<Mutex<Context>>>()?;
-                    let mut state = state
-                        .lock()
-                        .map_err(|_| async_graphql::Error::new("query context poisoned"))?;
-                    if let Some(error) = state.runtime_inputs.argument_error(&ctx.item.node) {
-                        state.runtime_error_emitted = true;
-                        if !ty.nullable {
-                            return Err(async_graphql::Error::new_with_source(error));
-                        }
-                        ctx.add_error(ctx.set_error_path(error.server_error(vec![])));
-                        return Ok(None);
-                    }
-                    let source = ctx
-                        .parent_value
-                        .try_downcast_ref::<Value>()
-                        .cloned()
-                        .unwrap_or(Value::Null);
-                    let mut args = serde_json::Map::new();
-                    for (key, v) in ctx.args.iter() {
-                        let mut value = serde_json::to_value(v.as_value())?;
-                        if let Some(argument) = ctx.item.node.get_argument(key.as_str())
-                            && omit_undefined(&argument.node, &mut value, &state.undefined)
-                        {
-                            if let Some(default) = defaults.get(key.as_str()) {
-                                args.insert(key.to_string(), default.clone());
-                            }
-                            continue;
-                        }
-                        args.insert(key.to_string(), value);
-                    }
-                    let result = match state.authorized_resolve(
-                        &parent,
-                        &name,
-                        &source,
-                        &Value::Object(args),
-                    ) {
-                        Ok(result) => result,
-                        Err(error) => {
-                            let message = error.to_string();
-                            let mut error = async_graphql::Error::new(&message);
-                            if state.authority.is_none() || message != "invalid_cursor" {
-                                error = error.extend_with(|_, extensions| {
-                                    extensions.set(
-                                        "code",
-                                        if state.aborted.is_some()
-                                            || Instant::now() > state.deadline
-                                        {
-                                            "LIMIT_EXCEEDED"
-                                        } else if state.authority.is_some()
-                                            && [
-                                                "field is not authorized",
-                                                "filter is not authorized",
-                                                "resource is not authorized",
-                                            ]
-                                            .contains(&message.as_str())
-                                        {
-                                            "FORBIDDEN"
-                                        } else {
-                                            "QUERY_ERROR"
-                                        },
-                                    )
-                                });
-                            }
-                            if !ty.nullable {
-                                return Err(error);
-                            }
-                            ctx.add_error(
-                                ctx.set_error_path(error.into_server_error(ctx.item.pos)),
-                            );
-                            return Ok(None);
-                        }
-                    };
-                    if result.is_null() {
-                        return Ok(None);
-                    }
-                    if let Some(error) =
-                        state
-                            .runtime_inputs
-                            .completion_error(&ctx.item.node, &result, &ty)
-                    {
-                        if !ty.nullable {
-                            return Err(async_graphql::Error::new_with_source(error));
-                        }
-                        let base = ctx
-                            .set_error_path(async_graphql::ServerError::new("", None))
-                            .path;
-                        ctx.add_error(error.server_error(base));
-                        return Ok(None);
-                    }
-                    Ok(Some(output(result, &ty, &enums, &objects)?))
-                })
-            });
+            // Registered for strict validation only. Budget::execute owns
+            // native field resolution and completion after validation succeeds.
+            let mut dynamic =
+                Field::new(name, type_ref(&field.ty.node), |_| FieldFuture::Value(None));
             for argument in field.arguments {
                 dynamic = dynamic.argument(input(argument.node));
             }
@@ -1433,6 +1395,11 @@ fn build_schema(http: bool) -> Result<Schema> {
     }
     builder.finish().map_err(|e| Error(e.to_string()))
 }
+/// Frozen LOCAL_SDL bytes, without building a schema or opening a catalog.
+pub fn schema_text() -> &'static str {
+    SDL
+}
+
 pub fn description() -> Value {
     json!({"interface_version":1,"schema":SDL,"limits":{"document_bytes":131072,"page_size":1000,"returned_records":10000,"resolved_fields":20000,"depth":20,"result_bytes":8*1024*1024,"default_timeout_ms":5000}})
 }
@@ -1614,7 +1581,12 @@ pub fn validate_before_context(
             json!({"data":null,"errors":[{"message":error.to_string()}]}),
         ));
     }
-    Ok(crate::validation::validate_for(&ast, document, http))
+    if let Some(error) = crate::validation::validate_for(&ast, document, http) {
+        return Ok(Some(error));
+    }
+    Ok(crate::graphql_runtime_input::merged_selection_conflict(
+        &ast, http,
+    ))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1722,24 +1694,8 @@ pub(crate) fn execute_session(
         bytes: 0,
         aborted: None,
         authority,
-        nullability: BTreeMap::new(),
-        null_bubbles: Vec::new(),
-        runtime_inputs,
-        runtime_error_emitted: false,
-        undefined: ast
-            .operations
-            .iter()
-            .filter(|(name, _)| {
-                operation.is_none_or(|selected| name.is_none_or(|name| name.as_str() == selected))
-            })
-            .flat_map(|(_, op)| op.node.variable_definitions.iter())
-            .filter(|v| {
-                v.node.var_type.node.nullable
-                    && v.node.default_value.is_none()
-                    && variables.get(v.node.name.node.as_str()).is_none()
-            })
-            .map(|v| v.node.name.node.to_string())
-            .collect(),
+        runtime_inputs: Arc::new(runtime_inputs),
+        executed: false,
     }));
     // Keep an external context reference so even a resolver panic cannot lose
     // the caller's transaction. All executor borrows end before restoration.
@@ -1812,40 +1768,10 @@ pub(crate) fn execute_session(
             }
         }
 
-        let mut state = state
+        let state = state
             .lock()
             .map_err(|_| Error("query context poisoned".into()))?;
         (|| -> Result<Value> {
-            if state.null_bubbles.iter().any(Vec::is_empty) {
-                result["data"] = Value::Null;
-            }
-            let introspection = crate::introspection::apply_for(
-                &ast,
-                operation,
-                &coerced_variables,
-                &mut result,
-                http,
-                &mut |value| {
-                    state.fields += 1;
-                    if state.fields > 20000 {
-                        state.aborted = Some("query field budget exceeded".into());
-                    }
-                    if let Some(list) = value.as_array() {
-                        state.records(list.len())?;
-                    } else if value.is_string() {
-                        state.charge(value)?;
-                    } else {
-                        state.check()?;
-                    }
-                    Ok(())
-                },
-            );
-            if let Err(error) = introspection
-                && state.aborted.is_none()
-            {
-                return Err(error);
-            }
-
             if state.aborted.is_some() || Instant::now() > state.deadline {
                 return Ok(
                     json!({"data":null,"errors":[{"message":state.aborted.as_deref().unwrap_or("query execution deadline exceeded"),"extensions":{"code":"LIMIT_EXCEEDED"}}]}),
@@ -1854,14 +1780,7 @@ pub(crate) fn execute_session(
             let successful = result
                 .get("errors")
                 .is_none_or(|errors| errors.as_array().is_some_and(Vec::is_empty));
-            // The framework's empty root collection is Null. A successful
-            // read-only operation with every root selection skipped returns an
-            // empty object in graphql-core, with ordinary zero-record metadata.
-            // Error/null-bubble and deadline/abort results never enter this path.
-            if successful && state.fields == 0 && result["data"].is_null() {
-                result["data"] = json!({});
-            }
-            if successful || state.fields > 0 || coercion_error || state.runtime_error_emitted {
+            if successful || state.fields > 0 || coercion_error || state.executed {
                 result["extensions"] =
                     json!({"interfaceVersion":1,"profile":profile,"records":state.nodes});
             }
@@ -1900,6 +1819,74 @@ pub(crate) fn execute_session(
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    #[test]
+    fn completion_handles_nullable_list_items_without_schema_assumptions() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("nullable-items.db");
+        crate::migration::initialize(&path).unwrap();
+        let document = "{alias:item(id:\"x\"){id}}";
+        let ast = parse_query(document).unwrap();
+        let inputs = Arc::new(crate::graphql_runtime_input::RuntimeInputs::new(
+            &ast,
+            &json!({}),
+            None,
+            false,
+            document,
+        ));
+        let state = Arc::new(Mutex::new(Context {
+            store: Store::open(&path, true, false).unwrap(),
+            profile: "default".into(),
+            deadline: Instant::now() + Duration::from_secs(5),
+            nodes: 0,
+            fields: 0,
+            bytes: 0,
+            aborted: None,
+            authority: None,
+            runtime_inputs: inputs.clone(),
+            executed: false,
+        }));
+        let mut execution = Execution {
+            state: &state,
+            inputs: &inputs,
+            http: false,
+            errors: vec![],
+        };
+        let field = inputs
+            .fields(inputs.operation(None), "Query")
+            .unwrap()
+            .remove(0);
+        let mut path = vec![async_graphql::PathSegment::Field("alias".into())];
+        let values = json!([{"id":"x"},null,{"id":null}]);
+        let result = execution
+            .complete(
+                values.clone(),
+                &Type::new("[Item]").unwrap(),
+                "Query",
+                &field,
+                &mut path,
+            )
+            .unwrap();
+        assert_eq!(result, json!([{"id":"x"},null,null]));
+        assert_eq!(execution.errors.len(), 1);
+        assert_eq!(
+            serde_json::to_value(&execution.errors[0]).unwrap()["path"],
+            json!(["alias", 2, "id"])
+        );
+        let error = execution
+            .complete(
+                values,
+                &Type::new("[Item!]").unwrap(),
+                "Query",
+                &field,
+                &mut path,
+            )
+            .unwrap_err();
+        assert_eq!(
+            serde_json::to_value(error).unwrap()["path"],
+            json!(["alias", 1])
+        );
+        assert_eq!(path.len(), 1);
+    }
     #[test]
     fn early_query_response_honors_expired_deadline_and_outer_interrupt() {
         let ordinary = json!({"data":null,"errors":[{"message":"early query error"}]});

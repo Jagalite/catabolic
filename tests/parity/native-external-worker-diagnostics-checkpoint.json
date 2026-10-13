@@ -1,0 +1,207 @@
+{
+  "artifact_profile": "Offline Rust 1.99.0 development build; jobs=1, debug information and incremental compilation disabled",
+  "artifacts": [
+    {
+      "gzip": ".local-tests/external-worker-diagnostics/artifacts/catabolic-legacy-native.gz",
+      "gzip_sha256": "e04f14a5134aee1b9cccb7f52c6438819cabe7643dbfd46b35d25a4aa9c63bb4",
+      "path": "target/debug/catabolic-legacy-native",
+      "sha256": "b5f42a960791abd357e3e86ec811d687f479b0b6260c7460cbc866594dd1e353",
+      "size": 73613088
+    },
+    {
+      "gzip": ".local-tests/external-worker-diagnostics/artifacts/catabolic-native.gz",
+      "gzip_sha256": "b47fe851a22c38a1eebd7e8e70ca52c4f3322a9062f43960b3a58a7e88aa7be1",
+      "path": "target/debug/catabolic-native",
+      "sha256": "6af0f801f2b265a9a94e420df2271b644672bbd952950016f9b39e6ea3be0342",
+      "size": 68758200
+    },
+    {
+      "gzip": ".local-tests/external-worker-diagnostics/artifacts/catabolic_runtime-7d8273c244cc9992.gz",
+      "gzip_sha256": "b731c0d1ae7c14776621a57004237d1e30b80892bba5557a66afd0dc1fd73cff",
+      "path": "target/debug/deps/catabolic_runtime-7d8273c244cc9992",
+      "sha256": "8095588838eea9231440418fb5846ef150e5657998990674c5c3c36832213dad",
+      "size": 64484416
+    }
+  ],
+  "base_commit": "343d7e83a8c275dc282cda9b1ac0e6b4a320aaa6",
+  "cache_reuse": {
+    "executable_paths_preserved": 96,
+    "moved_not_copied": true,
+    "original_receipt_bound_legacy_and_unit_artifacts_verified": true,
+    "restoration_manifest": "../catabolic-legacy-sigterm/.local-tests/legacy-sigterm/preserved-target-artifacts/restoration-manifest.json",
+    "sha256": "1f8ee4a69ae666cf6f40d421864fd6956c652188fabc02f54ad6e215d03146a3",
+    "unique_decompressed_shas": 56
+  },
+  "commands": {
+    "bytes": 1821,
+    "path": ".local-tests/external-worker-diagnostics/commands.txt",
+    "sha256": "4efeeb445cf42cded6b3152c28f896ce430e6159a5ad0872b8234b84337ad6fb"
+  },
+  "coverage": [
+    "PUT and resumed GET redirects with relevant statuses and Location presence/absence",
+    "Relative, empty, network-path, HTTP/HTTPS/FTP, URI fallback, Location precedence and unsupported explicit scheme neighbors",
+    "Successful response neighbors and ordinary nonredirect HTTP status errors",
+    "Valid Content-Length and HTTP/1.1 chunked bodies at 1048575,1048576,1048577 bytes",
+    "Redirect/status errors retain precedence over oversized bodies",
+    "Earlier batch step survives either corrected diagnostic without dispatching later jobs",
+    "Late valid receipt rejected after durable cancellation; no receipt/output/artifact/journal publication",
+    "Writer release, resumed generation, timeout and SIGINT helper cleanup; unchanged disposable source bytes and SQLite integrity/foreign keys"
+  ],
+  "date": "2026-10-12",
+  "diagnostic_comparison": "Exact UTF-8 error bytes, returncode and stderr, plus full typed reports, requests and all durable tables with narrowly validated generated-field normalization",
+  "durable_tables_compared_per_group": 127,
+  "final_author_python314": {
+    "errors": 0,
+    "failures": 0,
+    "python": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+      "sha256": "2f7fff382c9d335d6d63f134b55cb8ced9d0b2e1d47e6f210ad3f059adfa71c1",
+      "version": "Python 3.14.6"
+    },
+    "skips": 0,
+    "source_reference_artifact_fences_stable": true,
+    "tests": 9,
+    "typed_paired_groups": 87
+  },
+  "final_independent_python311": {
+    "errors": 0,
+    "failures": 0,
+    "python": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/ci-harness/python311-reference/bin/python",
+      "sha256": "0253b01a7f5d96a042a2b9f5e0f5ff5062707a1c75be2b089098e3111cd186d2",
+      "version": "Python 3.11.15"
+    },
+    "skips": 0,
+    "source_reference_artifact_fences_stable": true,
+    "tests": 9,
+    "typed_paired_groups": 87
+  },
+  "focused_rust_checks": {
+    "author_built_and_executed": true,
+    "failures": 0,
+    "ignored": 0,
+    "independent_retained_artifact_replay": true,
+    "processor_tests": 6
+  },
+  "format_version": 1,
+  "full_leaf_parity": false,
+  "historical_evidence": [
+    {
+      "kind": "baseline nonparity",
+      "receipt": {
+        "bytes": 18240,
+        "path": ".local-tests/external-worker-diagnostics/baseline-witness.json",
+        "sha256": "79353821019238eab018f36b42093cdef8cfca6f1b8bc2934a9bc6f776ef6719"
+      },
+      "result": "Both documented diagnostic gaps executed against source base; exit statuses and durable states equal"
+    },
+    {
+      "errors": 0,
+      "failures": 4,
+      "fences_stable": true,
+      "kind": "failed invalid-framing fixture",
+      "receipt": {
+        "bytes": 492380,
+        "path": ".local-tests/external-worker-diagnostics/paired-314-http10-failed.json",
+        "sha256": "4a5d42c5e1be29e3eec69d8ab9794dce5c5c8802fba649876af182855692cc5e"
+      },
+      "result": "HTTP/1.0 chunked under/exact-boundary fixture corrected to HTTP/1.1; production transport unchanged",
+      "tests": 9
+    },
+    {
+      "kind": "intermediate fixture success",
+      "receipt": {
+        "bytes": 495100,
+        "path": ".local-tests/external-worker-diagnostics/paired-314-intermediate.json",
+        "sha256": "ab25e6d96dd4ebb9f1735231b22c89c1420621171e0c2121b0fd9af8befae925"
+      },
+      "result": "Passing pre-wrapper/module-rename replay; not final-source evidence"
+    },
+    {
+      "kind": "intermediate independent success",
+      "receipt": {
+        "bytes": 495208,
+        "path": ".local-tests/external-worker-diagnostics/independent-review/author-suite-311.json",
+        "sha256": "a8155c64994c4b80eaff1f1da743e332c34a1f83a89d97a37449654814644806"
+      },
+      "result": "Passing pre-wrapper/module-rename replay; not final-source evidence"
+    }
+  ],
+  "independent_additional_controls": {
+    "coverage": [
+      "resumed GET ordinary relative/network-path/HTTP/HTTPS/FTP and unsupported explicit scheme diagnostics",
+      "redirect or HTTP status diagnostics take precedence over oversized Content-Length and chunked bodies",
+      "earlier batch step survives either corrected diagnostic and later jobs are not dispatched"
+    ],
+    "durable_tables": 127,
+    "errors": 0,
+    "failures": 0,
+    "fences_stable": true,
+    "methods": 3,
+    "skips": 0,
+    "typed_paired_groups": 28
+  },
+  "independent_review": {
+    "accepted": true,
+    "disposition": "accepted within the selected ordinary diagnostic scope; no blocking finding",
+    "evidence_manifest": {
+      "bytes": 2361,
+      "path": ".local-tests/external-worker-diagnostics/independent-review/evidence-manifest.json",
+      "sha256": "509d1f45681998f886aa8f505930c17a657e64ba9027c0df4dfe799d16ba1f7b"
+    },
+    "review": {
+      "bytes": 4864,
+      "path": ".local-tests/external-worker-diagnostics/independent-review/review.json",
+      "sha256": "4608ef77112bf203e5d63a0a10baf54dedc1f1d8d77fdabf59d9714b16ec1f80"
+    }
+  },
+  "installed_artifact_qualified": false,
+  "limits": [
+    "Selected ordinary ASCII Location/URI references only; malformed URL/protocol and unusual header-encoding behavior remain unqualified.",
+    "Existing early advertised Content-Length refusal remains unchanged; clean-EOF, reset and truncated-response equivalence are not established.",
+    "No claim of broader transport/HTTP-security, credential/request-budget, Store/SQLite classification or exhaustive receipt parity.",
+    "No installed artifact, platform, migration, release, physical publication or filesystem/source-safety gate is promoted.",
+    "Previously restricted broad feature and safety review scopes were not retried or bypassed."
+  ],
+  "live_services_or_real_credentials": false,
+  "milestone_gate_closed": false,
+  "other_checks": {
+    "bundled_docs_sync": "passed",
+    "cargo_fmt": "passed",
+    "combined_discovery_unique_ids": 27,
+    "focused_ruff_check_and_format": "passed",
+    "legacy_artifact_required_by_aggregate_admission": true,
+    "runtime_cli_all_target_clippy": "passed"
+  },
+  "production_changes": [
+    "Existing HttpTransport keeps max_redirects(0); selected ordinary 301/302/303/307/308 Location or URI references now use the frozen redirect refusal diagnostic",
+    "Existing Content-Length, bounded-read, supervised-result and dispatch-result guards now use the frozen HTTP response exceeds byte limit diagnostic"
+  ],
+  "pushed_or_released": false,
+  "python_remains_default": true,
+  "raw_evidence_manifest": {
+    "bytes": 9260,
+    "path": ".local-tests/external-worker-diagnostics/evidence-manifest.json",
+    "sha256": "bcdfc344466e71945ab362a2f6768ddbc3ebea794f7d6a2605fee9d1a3d9939c"
+  },
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "reference_tree_fence_sha256": "e0a39bdf4aafb4a30c6a39c73a13ccb0a3086c381a80503acba143796c85b545",
+  "release_qualified": false,
+  "scope": "Selected ordinary external-worker redirect and response-byte-limit diagnostic correction; independent disposable stores and numeric loopback only",
+  "source_sha256": {
+    "crates/catabolic-runtime/src/processors.rs": "9e738a9cd9ec05f37a76314ea0b03037c64581cd87454a3ca82b83975da5326d",
+    "docs/RUST_MIGRATION_EXTERNAL_RULE.md": "884aee0f1f20679f33fcc4e9c9a67aba39048ccf740e407215b1d140fb11fbd4",
+    "docs/RUST_MIGRATION_EXTERNAL_WORKER_DIAGNOSTICS.md": "d1f9b1ad6301ecf8c9393449cfab7f640836ec411461f4fd5fbf3d60e47608e4",
+    "tests/test_rust_legacy_external_worker_diagnostics.py": "e0e5f2cb6f539d19db477a61f8e2d3fc90195b77adbbda551dfa9d46f1f8160f"
+  },
+  "source_tree_fence_sha256": "139b52c1fc2c521f36f105a288ac3402fb99efbb1d806a6ffba0fb5bb3d2f141",
+  "unchanged_owners_and_policies": [
+    "request/credential/source authorization",
+    "response/request budgets and deadline",
+    "redirect refusal",
+    "durable claim/receipt reducers and Store detachment",
+    "retry behavior",
+    "cancellation/helper cleanup",
+    "all migration, publication and default gates"
+  ]
+}

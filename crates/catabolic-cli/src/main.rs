@@ -315,8 +315,10 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         }
         [command, name, definition] if command == "operation-put" => {
             let store = catabolic_store::Store::open(&path, true, false)?;
-            catabolic_runtime::media::put_operation(
+            catabolic_store::mutation::profile(&store, &profile)?;
+            catabolic_runtime::operations::put(
                 &store,
+                &profile,
                 name,
                 &catabolic_core::decode_json(definition)?,
             )
@@ -445,6 +447,10 @@ fn main() {
         std::process::exit(2);
     }
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    if args == [catabolic_runtime::notifications::WORKER_ARGUMENT] {
+        catabolic_runtime::notifications::worker_main();
+        return;
+    }
     if args == ["--stdio"] {
         use std::io::{BufRead, Write};
         for line in std::io::stdin().lock().lines() {

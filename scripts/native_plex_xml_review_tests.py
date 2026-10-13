@@ -20,25 +20,67 @@ import unittest
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-# Refuse before loading fixture code, installed data, or touching a report.
+
+def clear_stale_report(argv=None, parser=None):
+    """Invalidate every canonical --report destination before fallible preflight.
+
+    Only --report PATH and --report=PATH opt in; abbreviations are rejected by
+    the full parser. Stop at -- and use that parser's option lexer to distinguish
+    filename values (including version-specific negative numbers) from options.
+    No argv parsing or project imports happen here. Bootstrap copies are checked
+    against this implementation by the receipt-boundary tests.
+    """
+    if parser is None:
+        parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+        parser.add_argument("--report")
+    arguments = sys.argv[1:] if argv is None else argv
+    first_error = None
+    for index, argument in enumerate(arguments):
+        if argument == "--":
+            break
+        if argument == "--report":
+            value = arguments[index + 1] if index + 1 < len(arguments) else ""
+            if parser._parse_optional(value) is not None:
+                continue
+        elif argument.startswith("--report="):
+            value = argument.partition("=")[2]
+        else:
+            continue
+        if value:
+            report = Path(value)
+            for suffix in (None, ".attempt.json"):
+                try:
+                    target = report if suffix is None else report.with_suffix(suffix)
+                    target.unlink(missing_ok=True)
+                except (OSError, ValueError) as error:
+                    if first_error is None:
+                        first_error = error
+    if first_error is not None:
+        raise first_error
+
+
+def argument_parser():
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--wheel", type=Path)
+    mode.add_argument(
+        "--dev", action="store_true", help="Explicit development-only artifact review"
+    )
+    parser.add_argument("--expected-extension-sha256")
+    parser.add_argument("--report", type=Path)
+    return parser
+
+
+# CLI preflight precedes project imports and optimized-mode refusal.
+# Library imports never inspect caller arguments or invalidate their receipts.
+if __name__ == "__main__":
+    clear_stale_report(parser=argument_parser())
+
 if not __debug__ or os.environ.get("PYTHONOPTIMIZE"):
     raise SystemExit(
         "XML review qualification requires assertions; do not use -O, -OO, or PYTHONOPTIMIZE"
     )
 
-
-def _clear_stale_report():
-    report_parser = argparse.ArgumentParser(add_help=False)
-    report_parser.add_argument("--report", type=Path)
-    report_args, _ = report_parser.parse_known_args()
-    if report_args.report:
-        report_args.report.unlink(missing_ok=True)
-
-
-# A normal CLI import failure must not retain a receipt from an earlier run.
-# Library imports leave the caller's arguments and files alone.
-if __name__ == "__main__":
-    _clear_stale_report()
 
 FIXTURE = Path(__file__).with_name("native_plex_metadata_embedding_tests.py")
 spec = importlib.util.spec_from_file_location("_installed_xml_review_fixture", FIXTURE)
@@ -134,16 +176,8 @@ EXPECTED_TESTS = (
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--wheel", type=Path)
-    mode.add_argument(
-        "--dev", action="store_true", help="Explicit development-only artifact review"
-    )
-    parser.add_argument("--expected-extension-sha256")
-    parser.add_argument("--report", type=Path)
-    # Also protect callers that import the driver and invoke main() directly.
-    _clear_stale_report()
+    parser = argument_parser()
+    clear_stale_report(parser=parser)
     args = parser.parse_args()
     if args.dev and not args.expected_extension_sha256:
         parser.error("--dev requires --expected-extension-sha256")

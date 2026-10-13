@@ -1,0 +1,107 @@
+{
+  "format": 1,
+  "date": "2026-10-12",
+  "platform": "Linux x86_64",
+  "base_commit": "7c0cb4f",
+  "scope": "Four immutable companion-namespace bindings only; no default switch, semantic owner review, full wheel smoke, aggregate M10 closure, CI execution or publication claim",
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "source_sha256": "5ca490a54bb79b77451af8428b72aa181564e5fe9bccf726a97b7070bc23064b",
+  "contract": "tests/parity/public-import-bindings.json",
+  "contract_sha256": "b6b1585c8558a58faaf7a3b0221134bae8378ab5dc6b5573448327c7ad2b3fba",
+  "artifact_directory": ".local-tests/public-imports/release",
+  "release": {
+    "wheel": "catabolic_native-0.2.0-cp311-abi3-manylinux_2_39_x86_64.whl",
+    "wheel_sha256": "b113e6cd50041668ef03d00623ad123a830123cb89fd388c2600b7e0201e15ac",
+    "extension_sha256": "6060be1be132e523b610793a0654cf82d048ea47a4e46eff2c8c780e96a6958a",
+    "native_binary_sha256": "b64e7fea3b642d595d64b25db1c6f80ea109f8586fcd3efce89e20b667b216cd",
+    "legacy_binary_sha256": "4893d8670c8f515031dc893fceb9e9297ab1bcd31f691c8a3e4940be857bb399"
+  },
+  "build_manifest_sha256": "04b1cdaf88e0930bc73a081e5c8e6ab752158c28c135c89d1262731c9cd4c2d9",
+  "runs": [
+    {
+      "report": ".local-tests/public-imports/development-311.json",
+      "report_sha256": "e9713474bad09c553305d9cddf5057e6dd4bd7108daf754b0116666ad2cdb50b",
+      "python": "3.11.15",
+      "development_only": true,
+      "acceptance_tests": 8,
+      "paired_groups": 4,
+      "inventory_rows": 4,
+      "passed_without_skips": true,
+      "installed_extension_sha256": "6060be1be132e523b610793a0654cf82d048ea47a4e46eff2c8c780e96a6958a"
+    },
+    {
+      "report": ".local-tests/public-imports/development-314.json",
+      "report_sha256": "b61381aa1bd15868d374e38ccf7b2293095421c7f63fb783c36ef30270378768",
+      "python": "3.14.6",
+      "development_only": true,
+      "acceptance_tests": 8,
+      "paired_groups": 4,
+      "inventory_rows": 4,
+      "passed_without_skips": true,
+      "installed_extension_sha256": "6060be1be132e523b610793a0654cf82d048ea47a4e46eff2c8c780e96a6958a"
+    },
+    {
+      "report": ".local-tests/public-imports/strict-311.json",
+      "report_sha256": "88866ecf21727e46ccfd94a800d298e967af5509595d807520599b05afa19303",
+      "python": "3.11.15",
+      "development_only": false,
+      "acceptance_tests": 8,
+      "paired_groups": 4,
+      "inventory_rows": 4,
+      "passed_without_skips": true,
+      "installed_extension_sha256": "6060be1be132e523b610793a0654cf82d048ea47a4e46eff2c8c780e96a6958a"
+    },
+    {
+      "report": ".local-tests/public-imports/strict-314.json",
+      "report_sha256": "786b093ce4a070730f636b92b818b5d57393c0307d908f97dd5b6b46243a49b2",
+      "python": "3.14.6",
+      "development_only": false,
+      "acceptance_tests": 8,
+      "paired_groups": 4,
+      "inventory_rows": 4,
+      "passed_without_skips": true,
+      "installed_extension_sha256": "6060be1be132e523b610793a0654cf82d048ea47a4e46eff2c8c780e96a6958a"
+    }
+  ],
+  "source_contracts": [
+    {
+      "python": "3.11.15",
+      "required_cases": 6,
+      "passed_without_skips": true,
+      "log": ".local-tests/public-imports/source-311.log",
+      "log_sha256": "a58290e47fb9c5255c9fa341eb71eaaf4832f0ba11ad59a2936f522e601d1679"
+    },
+    {
+      "python": "3.14.6",
+      "required_cases": 6,
+      "passed_without_skips": true,
+      "log": ".local-tests/public-imports/source-314.log",
+      "log_sha256": "86b905e218cff474b794a91cabf0efc72b29836b2bb941581d7001185317d160"
+    }
+  ],
+  "other_checks": {
+    "generator_check": "passed",
+    "ruff": "passed",
+    "rustfmt": "passed",
+    "git_diff_check": "passed"
+  },
+  "retained_rejected_attempt": {
+    "log": ".local-tests/public-imports/release-311.log",
+    "log_sha256": "2da72b2b4a2ac6746a6195c119d74f3d0b449de5446b88c293dd654b5333761c",
+    "phase": "installed payload identity before test execution",
+    "reason": "uv adds uv_cache.json to dist-info; unchanged strict artifact gate rejects extra installed payload. Final strict runs use separate clean pip installations; no validator exemption was added."
+  },
+  "publication": "local-only",
+  "review_correction": {
+    "finding": "Malformed qualification arguments could leave a prior successful receipt because cleanup followed full argument parsing.",
+    "fix": "Use shared pre-parse cleanup of the requested success and .attempt.json receipts; qualification decisions and product artifacts are unchanged.",
+    "negative_cases": [
+      "missing required arguments",
+      "mutually exclusive modes",
+      "unknown option",
+      "optimized Python -O"
+    ],
+    "prior_receipts": ".local-tests/public-imports/pre-review/",
+    "validation": "All six source cases and all four 8-test/4-pair development/release matrix runs repeated successfully on Python 3.11.15 and 3.14.6."
+  }
+}

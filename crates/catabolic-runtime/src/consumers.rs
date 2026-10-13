@@ -120,6 +120,19 @@ fn credentials(connection: &Value) -> NetworkResult<(String, Option<String>)> {
     }
     Ok((secret, client))
 }
+// Only the preserved refresh adapter follows urllib's Latin-1 header encoding.
+// Do not change modern consumer/Plex token bytes or weaken HTTP header validation.
+fn legacy_refresh_credential(secret: &str) -> NetworkResult<ureq::http::HeaderValue> {
+    let bytes: Vec<u8> = secret
+        .chars()
+        .map(|c| u8::try_from(u32::from(c)))
+        .collect::<std::result::Result<_, _>>()
+        .map_err(|_| Failure::new("unauthorized"))?;
+    let mut value =
+        ureq::http::HeaderValue::from_bytes(&bytes).map_err(|_| Failure::new("unauthorized"))?;
+    value.set_sensitive(true);
+    Ok(value)
+}
 fn retry_after(raw: Option<&str>) -> f64 {
     let Some(raw) = raw else { return 0.0 };
     let raw = raw.trim();
@@ -178,13 +191,21 @@ impl Adapter {
     pub(crate) fn put(&self, route: &str) -> NetworkResult<Vec<u8>> {
         self.request(route, "PUT")
     }
+    /// Whole-DTO metadata updates share the bounded, non-replaying transport.
+    pub(crate) fn post_json(&self, route: &str, body: &[u8]) -> NetworkResult<Vec<u8>> {
+        self.request_bounded(route, "POST", MAXIMUM, false, Some(body))
+    }
+    /// Explicit collection membership removal, with no redirect or retry.
+    pub(crate) fn delete(&self, route: &str) -> NetworkResult<Vec<u8>> {
+        self.request(route, "DELETE")
+    }
     /// Preserved legacy refresh uses the same credentials, redirect policy and
     /// transport, with its historical one-MiB response limit.
     pub(crate) fn legacy_refresh(&self) -> NetworkResult<Vec<u8>> {
-        self.request_bounded("/Library/Refresh", "POST", 1024 * 1024, true)
+        self.request_bounded("/Library/Refresh", "POST", 1024 * 1024, true, None)
     }
     fn request(&self, route: &str, method: &str) -> NetworkResult<Vec<u8>> {
-        self.request_bounded(route, method, MAXIMUM, false)
+        self.request_bounded(route, method, MAXIMUM, false, None)
     }
     fn request_bounded(
         &self,
@@ -192,6 +213,7 @@ impl Adapter {
         method: &str,
         maximum: usize,
         legacy: bool,
+        body: Option<&[u8]>,
     ) -> NetworkResult<Vec<u8>> {
         let (secret, client) = credentials(&self.connection)?;
         let header = if self.plex() {
@@ -222,28 +244,40 @@ impl Adapter {
             }
         }
         // Never forward credentials through a redirect or ambient proxy.
-        let result = if method != "GET" {
+        let result = if matches!(method, "PUT" | "POST") {
             let mut request = if method == "PUT" {
                 self.agent.put(&url)
             } else {
                 self.agent.post(&url)
             }
-            .header("Connection", "close")
-            .header(header, &secret)
-            .header("Accept", accept);
+            .header("Connection", "close");
+            request = if legacy {
+                request.header(header, legacy_refresh_credential(&secret)?)
+            } else {
+                request.header(header, &secret)
+            };
+            request = request.header("Accept", accept);
             if let Some(client) = &client {
                 request = request
                     .header("X-Plex-Client-Identifier", client)
                     .header("X-Plex-Product", "Catabolic");
             }
-            request.send_empty()
+            if let Some(body) = body {
+                request
+                    .header("Content-Type", "application/json")
+                    .send(body)
+            } else {
+                request.send_empty()
+            }
         } else {
-            let mut request = self
-                .agent
-                .get(&url)
-                .header("Connection", "close")
-                .header(header, &secret)
-                .header("Accept", accept);
+            let mut request = if method == "DELETE" {
+                self.agent.delete(&url)
+            } else {
+                self.agent.get(&url)
+            }
+            .header("Connection", "close")
+            .header(header, &secret)
+            .header("Accept", accept);
             if let Some(client) = &client {
                 request = request
                     .header("X-Plex-Client-Identifier", client)
@@ -723,6 +757,23 @@ pub fn after_publication(store: &mut Store, profile: &str, result: &mut Value) -
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn legacy_refresh_credential_uses_latin1_without_loosening_validation() {
+        let header = legacy_refresh_credential("FAKE_é_ONLY").ok().unwrap();
+        assert_eq!(header.as_bytes(), b"FAKE_\xe9_ONLY");
+        assert!(header.is_sensitive());
+        assert!(legacy_refresh_credential("FAKE_☃_ONLY").is_err());
+        for invalid in ["FAKE_\r_ONLY", "FAKE_\n_ONLY", "FAKE_\0_ONLY"] {
+            assert!(legacy_refresh_credential(invalid).is_err());
+        }
+        assert_eq!(
+            legacy_refresh_credential("FAKE_\t_ONLY")
+                .ok()
+                .unwrap()
+                .as_bytes(),
+            b"FAKE_\t_ONLY"
+        );
+    }
     #[test]
     fn retry_delays_and_path_quoting_are_bounded() {
         assert_eq!(retry_after(None), 0.0);

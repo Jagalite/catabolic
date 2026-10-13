@@ -491,3 +491,101 @@ fn public_requests_cannot_supply_fixture_admission_and_plan_uses_session() {
         0
     );
 }
+
+#[test]
+fn release_handle_is_store_local_and_works_during_evaluation_lending() {
+    let mut f = fixture();
+    let mut other = fixture();
+    bind(&mut f);
+    bind(&mut other);
+    let args = json!({"catalog":"global"});
+    let reply = runtime::call(&mut f.session, "default", "projection-plan", &args).unwrap();
+    let foreign = runtime::call(&mut other.session, "default", "projection-plan", &args).unwrap();
+    assert_eq!(reply["token"], foreign["token"]);
+    let released = f.session.fallback_plans().releases();
+    let token = reply["token"].as_u64().unwrap();
+    f.session
+        .with_evaluation("default", &json!({}), 60000, 10000, |_| {
+            released.forget(token)?;
+            released.forget(token)
+        })
+        .unwrap();
+    let check = |reply: &Value| {
+        json!({
+            "plan_token":reply["token"],"plan":reply["plan"],"plan_owner_matches":true
+        })
+    };
+    assert_eq!(
+        f.session
+            .fallback_plans()
+            .checked("default", &check(&reply))
+            .err()
+            .unwrap()
+            .0,
+        "native prepared projection identity mismatch"
+    );
+    assert!(
+        other
+            .session
+            .fallback_plans()
+            .checked("default", &check(&foreign))
+            .is_ok()
+    );
+    assert!(f.session.store().unwrap().owns_writer_lock());
+}
+
+#[test]
+fn release_handle_frees_capacity_while_session_is_detached_or_closed() {
+    let mut f = fixture();
+    bind(&mut f);
+    let reply = runtime::call(
+        &mut f.session,
+        "default",
+        "projection-plan",
+        &json!({"catalog":"global"}),
+    )
+    .unwrap();
+    let check = json!({"plan_token":reply["token"],"plan":reply["plan"],"plan_owner_matches":true});
+    let plan = f
+        .session
+        .fallback_plans()
+        .checked("default", &check)
+        .unwrap();
+    for _ in 1..256 {
+        f.session
+            .fallback_plans()
+            .remember("default", plan.clone())
+            .unwrap();
+    }
+    assert!(
+        f.session
+            .fallback_plans()
+            .remember("default", plan.clone())
+            .is_err()
+    );
+    let released = f.session.fallback_plans().releases();
+    f.session.detach().unwrap();
+    std::thread::spawn(move || released.forget(1))
+        .join()
+        .unwrap()
+        .unwrap();
+    f.session.reconnect().unwrap();
+    let last = f
+        .session
+        .fallback_plans()
+        .remember("default", plan.clone())
+        .unwrap();
+    assert!(
+        f.session
+            .fallback_plans()
+            .remember("default", plan.clone())
+            .is_err()
+    );
+    let released = f.session.fallback_plans().releases();
+    f.session.close().unwrap();
+    released.forget(last["token"].as_u64().unwrap()).unwrap();
+    f.session
+        .fallback_plans()
+        .remember("default", plan)
+        .unwrap();
+}

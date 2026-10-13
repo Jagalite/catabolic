@@ -17,5 +17,7 @@ axum.workspace = true
 tokio.workspace = true
 form_urlencoded.workspace = true
 rusqlite.workspace = true
+http-body-util.workspace = true
+tempfile.workspace = true
 [lints]
 workspace = true

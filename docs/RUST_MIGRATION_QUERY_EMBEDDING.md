@@ -57,12 +57,13 @@ The adapter does not implement the complete frozen EvaluationSession contract:
   outside the JSON facade. Selected tests do not qualify all SQLite errors
 - Full GraphQL document validation is still unqualified. A follow-on production
   pass closes the mixed scalar/list/enum/input-object coercion vectors and the
-  unknown-field plus unused-variable aggregation vector described below. Four
-  further verified static/parser differences remain: overlapping aliased field
-  conflicts, duplicate input fields in defaults, duplicate input fields that
-  cause a variable use to be discarded, and whitespace inside wrapped variable
-  types. Exact replay inputs and frozen/native responses are retained in
-  [`graphql-validation-remaining-gaps.json`](../tests/parity/graphql-validation-remaining-gaps.json)
+  unknown-field plus unused-variable aggregation vector described below. The four
+  named static/parser witnesses are now closed by the bounded
+  [parser](RUST_MIGRATION_GRAPHQL_REVIEW.md#bounded-native-parser-correction) and
+  [document-validation](RUST_MIGRATION_GRAPHQL_DOCUMENT_VALIDATION.md) slices.
+  Historical failing vectors remain in
+  [`graphql-validation-remaining-gaps.json`](../tests/parity/graphql-validation-remaining-gaps.json).
+  Broader overlap diagnostics and full document validation remain unqualified.
 
 ## Generalized GraphQL input checkpoint
 
@@ -144,8 +145,11 @@ corrected additional literal-rendering, runtime nullable-argument/directive, and
 legacy/typed-facade presence cases. It also retained thirteen additional explicit
 parser, location, enum-resolver, field-merging, empty-completion, and introspection-input vectors in
 [`graphql-review-remaining-gaps.json`](../tests/parity/graphql-review-remaining-gaps.json).
-The four residual vectors above remain unchanged; they are not an exhaustive list
-of remaining GraphQL differences. Repeated-field/runtime-null and
+The later bounded parser correction closes the wrapped-variable-type witness
+and two parser witnesses from the additional review. Their original failures
+remain in `graphql-parser-cases.json`; the other three residual static-validation
+vectors above remain unchanged. These are not an exhaustive list of remaining
+GraphQL differences. Repeated-field/runtime-null and
 introspection-owned/runtime-null combinations preserve their pre-fix strict
 errors until their separate execution owners can implement the complete
 contract. No blanket GraphQL parity or final-wheel claim follows from either

@@ -32,13 +32,42 @@ def sibling(name):
     return module
 
 
-def clear_stale_report():
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--report", type=Path)
-    args, _ = parser.parse_known_args()
-    if args.report:
-        args.report.unlink(missing_ok=True)
-        args.report.with_suffix(".attempt.json").unlink(missing_ok=True)
+def clear_stale_report(argv=None, parser=None):
+    """Invalidate every canonical --report destination before fallible preflight.
+
+    Only --report PATH and --report=PATH opt in; abbreviations are rejected by
+    the full parser. Stop at -- and use that parser's option lexer to distinguish
+    filename values (including version-specific negative numbers) from options.
+    No argv parsing or project imports happen here. Bootstrap copies are checked
+    against this implementation by the receipt-boundary tests.
+    """
+    if parser is None:
+        parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+        parser.add_argument("--report")
+    arguments = sys.argv[1:] if argv is None else argv
+    first_error = None
+    for index, argument in enumerate(arguments):
+        if argument == "--":
+            break
+        if argument == "--report":
+            value = arguments[index + 1] if index + 1 < len(arguments) else ""
+            if parser._parse_optional(value) is not None:
+                continue
+        elif argument.startswith("--report="):
+            value = argument.partition("=")[2]
+        else:
+            continue
+        if value:
+            report = Path(value)
+            for suffix in (None, ".attempt.json"):
+                try:
+                    target = report if suffix is None else report.with_suffix(suffix)
+                    target.unlink(missing_ok=True)
+                except (OSError, ValueError) as error:
+                    if first_error is None:
+                        first_error = error
+    if first_error is not None:
+        raise first_error
 
 
 def inventory_rows(inventory, contracts, expected_count):
@@ -124,19 +153,31 @@ def strict_artifact(
 ):
     """Require the whole installed release wheel and same-build external CLIs."""
     import catabolic_native as native
+    from catabolic_native.cli import legacy_binary as packaged_legacy_binary
 
     installed = sibling("qualify_native_wheel").verify_installed_wheel(wheel)
-    assert (
-        "catabolic_native/bin/catabolic-legacy-native"
-        not in installed["installed_payloads_sha256"]
-    ), "release wheel must not package the legacy CLI"
     manifest = json.loads(Path(manifest_path).read_text())
     source = sibling("build_native_wheel").source_digest(source_root)
-    helper = Path(native.native_binary()).resolve()
     package = Path(native.__file__).resolve().parent
-    assert helper == package / "bin/catabolic-native", "not the packaged helper"
-    assert os.access(helper, os.X_OK), "packaged helper is not executable"
-    metadata = json.loads((package / "native-helper.json").read_text())
+    helpers = {
+        "native_binary": (Path(native.native_binary()).resolve(), "native-helper.json"),
+        "legacy_binary": (
+            Path(packaged_legacy_binary()).resolve(),
+            "legacy-helper.json",
+        ),
+    }
+    for name, (helper, _) in helpers.items():
+        binary_name = (
+            "catabolic-native" if name == "native_binary" else "catabolic-legacy-native"
+        )
+        assert helper == package / "bin" / binary_name, (
+            "not the packaged helper",
+            name,
+        )
+        assert helper.is_file() and os.access(helper, os.X_OK), (
+            "packaged helper is not executable",
+            name,
+        )
     expected = {
         "format": 1,
         "profile": "release",
@@ -146,8 +187,9 @@ def strict_artifact(
         "wheel_sha256": digest(wheel),
         "extension_sha256": installed["imported_extension_sha256"],
         "native_binary": "catabolic-native",
-        "native_binary_sha256": digest(helper),
+        "native_binary_sha256": digest(helpers["native_binary"][0]),
         "legacy_binary": "catabolic-legacy-native",
+        "legacy_binary_sha256": digest(helpers["legacy_binary"][0]),
         "build_script_sha256": digest(
             Path(__file__).with_name("build_native_wheel.py")
         ),
@@ -155,14 +197,16 @@ def strict_artifact(
     }
     for key, value in expected.items():
         assert manifest.get(key) == value, ("release build identity mismatch", key)
-    assert metadata == {
-        "format": 1,
-        "version": native.__version__,
-        "path": "bin/catabolic-native",
-        "sha256": expected["native_binary_sha256"],
-        "source_sha256": source,
-        "build": manifest.get("build"),
-    }, "packaged helper provenance differs from the release build"
+    for name, (_helper, manifest_name) in helpers.items():
+        metadata = json.loads((package / manifest_name).read_text())
+        assert metadata == {
+            "format": 1,
+            "version": native.__version__,
+            "path": "bin/" + expected[name],
+            "sha256": expected[name + "_sha256"],
+            "source_sha256": source,
+            "build": manifest.get("build"),
+        }, ("packaged helper provenance differs from the release build", name)
     provenance = manifest["build"]
     assert isinstance(provenance, dict)
     for key in ("scope", "rustc", "cargo", "maturin", "python", "python_executable"):

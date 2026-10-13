@@ -1,5 +1,7 @@
 //! Owns Catabolic's SQLite lifecycle. Opening never creates or upgrades a catalog.
 pub mod access;
+pub mod access_admin;
+pub mod admin_cli;
 pub mod api_catalog;
 pub mod api_events;
 pub mod api_queries;
@@ -12,6 +14,7 @@ pub mod consumers;
 pub mod content_access;
 pub mod curation;
 pub mod definitions;
+pub mod destination_mappings;
 mod document;
 pub mod embedding;
 pub mod estimates;
@@ -24,6 +27,7 @@ pub mod fallback_resolution;
 pub mod filesystem_mutation;
 pub mod graphql;
 mod graphql_input;
+mod graphql_parse;
 mod graphql_runtime_input;
 pub mod hardlink_mutation;
 pub mod http_mappings;
@@ -33,9 +37,11 @@ pub mod interchange;
 mod introspection;
 pub mod item_workflow;
 pub mod layout;
-pub mod legacy_refresh;
 pub mod layout_mutation;
+pub mod legacy_refresh;
+pub mod maintenance;
 pub mod manifest;
+pub mod mapping_history;
 pub mod media_mutation;
 pub mod migration;
 pub mod mime;
@@ -46,11 +52,17 @@ pub mod output_mutation;
 pub mod plans;
 pub mod playback;
 pub mod playback_cache;
+pub mod private_secret;
 pub mod processor_mutation;
 pub mod programs;
+pub mod projection_run;
 pub mod public_components;
 pub mod public_fallback;
+pub mod public_layouts;
+pub mod public_reconcile;
+pub mod public_watchers;
 mod publication;
+pub mod publication_mappings;
 pub mod query;
 pub mod receipt_mutation;
 pub mod remount;
@@ -316,18 +328,25 @@ impl Store {
         savepoint: Option<String>,
         outcome: Result<T>,
     ) -> Result<T> {
+        self.finish_transaction_detailed(savepoint, outcome)
+    }
+    fn finish_transaction_detailed<T, E: From<Error> + std::fmt::Display>(
+        &self,
+        savepoint: Option<String>,
+        outcome: std::result::Result<T, E>,
+    ) -> std::result::Result<T, E> {
         match outcome {
             Ok(value) => {
                 self.transaction_available()?;
                 if self.db.is_autocommit() {
-                    return Err(Error("native transaction was aborted before commit".into()));
+                    return Err(Error("native transaction was aborted before commit".into()).into());
                 }
                 let commit = savepoint
                     .as_ref()
                     .map_or_else(|| "COMMIT".into(), |name| format!("RELEASE {name}"));
                 if let Err(error) = self.db.execute_batch(&commit) {
                     let _ = self.rollback_transaction(savepoint.as_deref());
-                    return Err(error.into());
+                    return Err(Error::from(error).into());
                 }
                 Ok(value)
             }
@@ -336,13 +355,21 @@ impl Store {
                 match rollback {
                     Ok(()) => Err(error),
                     Err(cleanup) => {
-                        Err(Error(format!("{error}; native rollback failed: {cleanup}")))
+                        Err(Error(format!("{error}; native rollback failed: {cleanup}")).into())
                     }
                 }
             }
         }
     }
     pub fn transaction<T>(&self, operation: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
+        self.transaction_detailed(operation)
+    }
+    /// Preserve a private owner's typed failure through the shared transaction
+    /// mechanism. Begin/commit/cleanup failures always come from Store::Error.
+    pub(crate) fn transaction_detailed<T, E: From<Error> + std::fmt::Display>(
+        &self,
+        operation: impl FnOnce(&Connection) -> std::result::Result<T, E>,
+    ) -> std::result::Result<T, E> {
         struct RollbackOnUnwind<'a> {
             store: &'a Store,
             scope: Option<String>,
@@ -364,7 +391,7 @@ impl Store {
             armed: true,
         };
         let outcome = operation(&self.db);
-        let result = self.finish_transaction(scope, outcome);
+        let result = self.finish_transaction_detailed(scope, outcome);
         guard.armed = false;
         result
     }

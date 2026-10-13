@@ -1,0 +1,134 @@
+{
+  "recorded_utc": "2026-10-12T18:32:57.033129+00:00",
+  "scope": "Partial preserved top-level watch CLI; ordinary disposable Linux development fixtures only",
+  "base_commit": "ce3095f49153e9e8cbe7d2e1da56882ca4c12fea",
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "reference_source_fence_sha256": "1c6f27c662f558e88a87454c5ff52d56c7f380b956a26a400084f0877682775c",
+  "source_fence_algorithm": "sha256(sorted path + NUL + sha256(content) + LF)",
+  "candidate_crate_source_fence_sha256": "1e7f49438e3e557276c1455655bf8f288264355936b2885299cbc60681deb718",
+  "source_and_reference_rechecked_unchanged": true,
+  "source_fence_inputs": "All regular files under crates/, Cargo.toml, Cargo.lock and rust-toolchain.toml; full manifest retained in local final-source-before.json",
+  "candidate_executable_sha256": "fb3022040499fd61c4d29b744276b14d6e448db2ff3c6bde825e3c151f60094f",
+  "tested_artifact": ".local-tests/watch-adapter/artifacts/catabolic-legacy-native-final",
+  "python_oracle_version": "Python 3.14.6",
+  "python_harness_versions": [
+    "Python 3.14.6",
+    "Python 3.11.15"
+  ],
+  "rust_toolchain": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "build": "cargo build --offline -p catabolic-cli --bin catabolic-legacy-native; private target, debug=0, incremental=0, jobs=2",
+  "required_watch_suites": {
+    "Python 3.14.6": {
+      "tests": 13,
+      "result": "passed"
+    },
+    "Python 3.11.15": {
+      "tests": 13,
+      "result": "passed"
+    },
+    "classification_per_suite": {
+      "ordinary_paired_checks": 9,
+      "explicit_native_refresh_refusals": 2,
+      "known_scan_nonparity_witnesses": 2
+    },
+    "skips": 0,
+    "expected_failures": 0,
+    "oracle_interpreter": "Both harness runs use pinned Python 3.14.6 oracle processes"
+  },
+  "regressions": {
+    "maintenance_and_legacy_gate": {
+      "tests": 12,
+      "result": "passed",
+      "includes_known_nonparity_witnesses": 2
+    },
+    "runtime_maintenance_metadata": {
+      "tests": 4,
+      "result": "passed"
+    },
+    "legacy_cli_unit_tests": {
+      "tests": 11,
+      "result": "passed"
+    },
+    "owner_ledger": {
+      "tests": 3,
+      "result": "passed"
+    }
+  },
+  "static_checks": [
+    "offline CLI Clippy with warnings denied",
+    "cargo fmt --all -- --check",
+    "Ruff check and format on new harness and ledger generator",
+    "owner ledger --check",
+    "git diff --check"
+  ],
+  "full_result_diagnostics": {
+    "json": {
+      "exit_code": 1,
+      "result": "failed, retained scan-report nonparity"
+    },
+    "machine": {
+      "exit_code": 1,
+      "result": "failed, retained scan-report nonparity"
+    }
+  },
+  "automatic_refresh_fence": "Processing.run receives _refresh=false. Enabled pending work before or after processing calls the public Reconciler gate before automatic refresh planning. Both refusal witnesses assert unchanged mappings, journal, owned links and output bytes.",
+  "failed_attempts_preserved": [
+    "python-1.log",
+    "backlog-diagnostic-1.log",
+    "python-2.log",
+    "cancel-1.log",
+    "refresh-1.log",
+    "cancel-refresh-2.log",
+    "cancel-3.log",
+    "python-3.log",
+    "python311-1.log"
+  ],
+  "superseded_validation": "Earlier final-1 logs use the replaceable target path and are not substituted for final-2 immutable-artifact passes",
+  "known_gaps": [
+    "Forwarded scan coverage/reuse/retry/header/progress/batch/freshness report differences",
+    "Automatic catalog output refresh is refused, not qualified parity",
+    "No full leaf, underlying-owner review, all cancellation-window, installed artifact, macOS, performance, release or M6 qualification"
+  ],
+  "qualification": {
+    "full_leaf_parity": false,
+    "installed_artifact": false,
+    "release": false,
+    "M6": false,
+    "milestone_closed": false,
+    "python_remains_default": true
+  },
+  "changed_source_and_harness_sha256": {
+    "crates/catabolic-cli/src/legacy/dispatch.rs": "740436640946129f1f640cb8a6c6c85ed7500f1da1e110345453a433ad0dd8bf",
+    "crates/catabolic-cli/src/legacy/presentation.rs": "97a5e83a5ff742f0d6e7818870e766c978737d65ff32c2454ebd5072b600eabe",
+    "crates/catabolic-cli/src/legacy/watch.rs": "9f39512938034e350eb410b1803900e170aa05d69aa7b3d68f161a959d89161e",
+    "crates/catabolic-store/src/maintenance.rs": "c79f794bfef9fb12ec9a3c661817c9df592f30139c11af6fe39ef1466c3f67cf",
+    "crates/catabolic-runtime/tests/maintenance_orchestration.rs": "72406cda96bc40f1fa034746c91628106204587ebef313780e7fcfb8ff50962b",
+    "scripts/legacy_cli_owners.py": "28ce3886c178f74871316677ed96b6917ae08325a01271e37d864b538329afb4",
+    "tests/parity/legacy-cli-owners.json": "492167b58a250babb449994125e11be31f94767b286f3811ea196c20cd03bf45",
+    "tests/test_rust_scan_watch_cli.py": "6fd7b0318ff6ab0c71ba4e37434f151f54aa9d58d9c716c75189075fd0b405aa"
+  },
+  "local_evidence_manifest_sha256": "183951952e9ea18d6e6eaf7e588d8da8c5cd6133fd71117d195fe2c9c2fc4421",
+  "final_log_sha256": {
+    "build-5.log": "2bd770eabfda8a2f6ba4fb9e681756ad53e8bdba3d633a2975acd37a20e7fbca",
+    "python-final-2.log": "3eff8dac0257d981217558653bdf0985ff7661f7c7f7f7e5dd0c5fbb3164c172",
+    "python311-final-2.log": "fed8fe778d6df4960255bddf72645d7b31d01cb183dde50f06e2d8538b2283c9",
+    "maintenance-regression-final.log": "5e4ba7f367c517744660abcaa781d64e7bdbec038efc49fdef6a31a17e668e4d",
+    "rust-runtime-final.log": "dbb3c618155148dfb2c0a8e9de1543f10a6a0cae92a4524fac56b2ecf7de97c5",
+    "rust-cli-final.log": "8d488c2dffbbe8f8ec4aa739ed544c4ed46a60d24ac3375f0ea8b44cb3c0b079",
+    "ledger-final.log": "633edeea813d7bcef832f08baf7f242b19631d7fb9655e6d1dbe18f3a5d004e2",
+    "clippy-final.log": "6a770ec88b09aa74ae4e91dccc1f92cdbd29c65c744103d27ae0cf52d391ee02",
+    "static-final-2.log": "83565eea95516f9c51ee909ff79280ede00b1bb285431c374b9e5c366026b7eb",
+    "full-json-final.log": "66149053188f0af798c83d2a280ab6e90c9e44abf107a930795c91b3c34b3adc",
+    "full-machine-final.log": "dec68eb6520c1ec8c6313e7fbbdf9883ed86bc9c5cdbe92289671bf9e5c36975"
+  },
+  "raw_final_diagnostics_sha256": {
+    "full-diagnostics-final/json-native.stderr": "4daa6c9ca20e2943687e9f8b8c76b937b7087da7a53604246d86f323400b052c",
+    "full-diagnostics-final/json-native.stdout": "bff9077683e994778520e56b907f149b33546788faf03f6970ef4f94e5b54c28",
+    "full-diagnostics-final/json-oracle.stderr": "939963fb83f48b13f47772ff0403bb94e8b4d83badd5e5f91bc2b043748ef901",
+    "full-diagnostics-final/json-oracle.stdout": "2e6224a3890732edcbce72d4bf46e5cddbd141ff3370cd09079c06534ffdd763",
+    "full-diagnostics-final/machine-native.stderr": "e824bc370945c22fae69d7c2951a4bf661d5d85b3eb6ea9c7c8cfdbc54a81b0d",
+    "full-diagnostics-final/machine-native.stdout": "431b9aac39ead8b9868e7b09626135dd43c2e1cceda10af9d86edefad63e3a7c",
+    "full-diagnostics-final/machine-oracle.stderr": "2be1f5aac3d35100f053637c7c1a550809c293872a21e944006df264c39f284e",
+    "full-diagnostics-final/machine-oracle.stdout": "1355affa00a1befc15bdf5ffb3603a3a06767b80dc213e041c2828291612c61a"
+  }
+}

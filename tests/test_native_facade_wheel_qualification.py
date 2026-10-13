@@ -98,12 +98,20 @@ class FacadeDriverChecks:
             "source_sha256": self.builder.source_digest(self.source),
             "build": self.provenance,
         }
+        self.legacy_metadata = self.metadata | {
+            "path": "bin/catabolic-legacy-native",
+            "sha256": digest(self.legacy_path.read_bytes()),
+        }
         self.payloads = {
             "catabolic_native/__init__.py": b"# disposable package\n",
             "catabolic_native/_native.so": b"disposable extension",
             "catabolic_native/components.py": b"# disposable adapter\n",
             "catabolic_native/bin/catabolic-native": self.native_path.read_bytes(),
             "catabolic_native/native-helper.json": json.dumps(self.metadata).encode(),
+            "catabolic_native/bin/catabolic-legacy-native": self.legacy_path.read_bytes(),
+            "catabolic_native/legacy-helper.json": json.dumps(
+                self.legacy_metadata
+            ).encode(),
             "catabolic_native-0.2.0.dist-info/WHEEL": b"Wheel-Version: 1.0\n",
             "catabolic_native-0.2.0.dist-info/METADATA": b"Version: 0.2.0\n",
             "catabolic_native-0.2.0.dist-info/entry_points.txt": b"[console_scripts]\ncatabolic-native = catabolic_native:main\n",
@@ -114,7 +122,11 @@ class FacadeDriverChecks:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
         self.helper_path = self.installed / "catabolic_native/bin/catabolic-native"
+        self.legacy_helper_path = (
+            self.installed / "catabolic_native/bin/catabolic-legacy-native"
+        )
         self.helper_path.chmod(0o755)
+        self.legacy_helper_path.chmod(0o755)
         with zipfile.ZipFile(self.wheel, "w") as archive:
             for name, data in self.payloads.items():
                 archive.writestr(name, data)
@@ -144,6 +156,8 @@ class FacadeDriverChecks:
             __file__=str(self.installed / "catabolic_native/_native.so")
         )
         self.native.native_binary = lambda: self.helper_path
+        self.cli = types.ModuleType("catabolic_native.cli")
+        self.cli.legacy_binary = lambda: self.legacy_helper_path
         self.native.Store = types.SimpleNamespace(
             initialize=lambda path: Path(path).write_bytes(b"fixture database")
         )
@@ -262,7 +276,10 @@ class FacadeDriverChecks:
 
         with contextlib.ExitStack() as stack:
             stack.enter_context(
-                patch.dict(sys.modules, {"catabolic_native": self.native})
+                patch.dict(
+                    sys.modules,
+                    {"catabolic_native": self.native, "catabolic_native.cli": self.cli},
+                )
             )
             stack.enter_context(
                 patch.object(
@@ -348,6 +365,8 @@ class FacadeDriverChecks:
         for name in (
             "catabolic_native/bin/catabolic-native",
             "catabolic_native/native-helper.json",
+            "catabolic_native/bin/catabolic-legacy-native",
+            "catabolic_native/legacy-helper.json",
         ):
             del self.payloads[name]
             (self.installed / name).unlink()
@@ -477,20 +496,90 @@ class FacadeDriverChecks:
             self.run_driver()
         self.assertFalse(self.report.exists())
 
-    def test_release_wheel_refuses_packaged_legacy_cli(self):
-        name = "catabolic_native/bin/catabolic-legacy-native"
-        data = self.legacy_path.read_bytes()
-        self.payloads[name] = data
-        (self.installed / name).write_bytes(data)
-        self.distribution.files.append(Path(name))
+    def replace_payloads(self, payloads):
+        for name in self.payloads:
+            path = self.installed / name
+            if name in payloads:
+                path.write_bytes(payloads[name])
+            else:
+                path.unlink(missing_ok=True)
+        self.distribution.files = [Path(name) for name in payloads]
         with zipfile.ZipFile(self.wheel, "w") as archive:
-            for member, payload in self.payloads.items():
-                archive.writestr(member, payload)
+            for name, data in payloads.items():
+                archive.writestr(name, data)
         self.manifest["wheel_sha256"] = digest(self.wheel.read_bytes())
         self.write_manifest()
-        with self.assertRaisesRegex(AssertionError, "must not package the legacy CLI"):
+
+    def test_release_wheel_requires_both_packaged_helpers_and_manifests(self):
+        for name in (
+            "catabolic_native/bin/catabolic-native",
+            "catabolic_native/native-helper.json",
+            "catabolic_native/bin/catabolic-legacy-native",
+            "catabolic_native/legacy-helper.json",
+        ):
+            with self.subTest(missing=name):
+                payloads = self.payloads.copy()
+                del payloads[name]
+                self.replace_payloads(payloads)
+                with self.assertRaisesRegex(
+                    AssertionError, "missing packaged native helper"
+                ):
+                    self.run_driver()
+                self.assertFalse(self.report.exists())
+                self.replace_payloads(self.payloads)
+                self.helper_path.chmod(0o755)
+                self.legacy_helper_path.chmod(0o755)
+
+    def test_packaged_legacy_bytes_and_provenance_cannot_diverge_from_sidecar(self):
+        name = "catabolic_native/legacy-helper.json"
+        cases = [
+            (
+                "binary",
+                "catabolic_native/bin/catabolic-legacy-native",
+                b"unrelated executable",
+            )
+        ]
+        for key in ("format", "version", "path", "sha256", "source_sha256", "build"):
+            metadata = self.legacy_metadata | {key: "wrong"}
+            cases.append((key, name, json.dumps(metadata).encode()))
+        for label, name, value in cases:
+            with self.subTest(field=label):
+                self.replace_payloads(self.payloads | {name: value})
+                with self.assertRaisesRegex(AssertionError, "release build"):
+                    self.run_driver()
+                self.assertFalse(self.report.exists())
+        self.replace_payloads(self.payloads)
+        self.legacy_helper_path.chmod(0o644)
+        with self.assertRaisesRegex(AssertionError, "not executable"):
             self.run_driver()
         self.assertFalse(self.report.exists())
+
+    def test_legacy_accessor_must_return_the_packaged_helper(self):
+        with patch.object(self.cli, "legacy_binary", return_value=self.legacy_path):
+            with self.assertRaisesRegex(AssertionError, "not the packaged helper"):
+                self.run_driver()
+        self.assertFalse(self.report.exists())
+
+    def test_release_verifier_refuses_packaged_python_caches(self):
+        for name in (
+            "catabolic_native/__pycache__/access.cpython-314.pyc",
+            "catabolic_native/__pycache__/unrelated.txt",
+            "catabolic_native/subpackage/__pycache__/",
+            "catabolic_native/legacy.pyc",
+            "catabolic_native/legacy.pyo",
+        ):
+            with self.subTest(name=name):
+                with zipfile.ZipFile(self.wheel, "w") as archive:
+                    for member, payload in self.payloads.items():
+                        archive.writestr(member, payload)
+                    archive.writestr(name, b"unqualified cache")
+                self.manifest["wheel_sha256"] = digest(self.wheel.read_bytes())
+                self.write_manifest()
+                with self.assertRaisesRegex(
+                    AssertionError, "must not package Python bytecode or cache files"
+                ):
+                    self.run_driver()
+                self.assertFalse(self.report.exists())
 
     def test_release_manifest_identity_fields_are_required(self):
         for key in (
@@ -591,8 +680,7 @@ class FacadeDriverChecks:
             self.assertFalse(self.report.exists())
             self.strict.assert_not_called()
 
-    def test_all_optimized_entry_modes_refuse_before_import_or_receipt(self):
-        marker = self.report.read_bytes()
+    def test_all_optimized_entry_modes_clear_receipts_before_import(self):
         for flags, optimize in (
             (["-O"], None),
             (["-OO"], None),
@@ -604,6 +692,9 @@ class FacadeDriverChecks:
             env.pop("PYTHONOPTIMIZE", None)
             if optimize is not None:
                 env["PYTHONOPTIMIZE"] = optimize
+            self.report.write_text("stale success")
+            attempt = self.report.with_suffix(".attempt.json")
+            attempt.write_text("stale attempt")
             run = subprocess.run(
                 [
                     sys.executable,
@@ -620,10 +711,17 @@ class FacadeDriverChecks:
             self.assertIn("requires", run.stderr)
             self.assertIn("assertions", run.stderr)
             self.assertEqual(run.stdout, "")
-            self.assertEqual(self.report.read_bytes(), marker)
+            self.assertFalse(self.report.exists())
+            self.assertFalse(attempt.exists())
 
 
 class ComponentPolicyWheelChecks(FacadeDriverChecks, unittest.TestCase):
+    def test_source_manifest_accepts_equivalent_checkout_alias(self):
+        alias = self.root / "checkout-alias"
+        alias.symlink_to(self.source.resolve(), target_is_directory=True)
+        aliased = load(alias / "scripts" / self.filename)
+        self.assertEqual(aliased.source_manifest(), self.driver.source_manifest())
+
     filename = "native_component_policy_embedding_tests.py"
     classname = "InstalledComponentPolicies"
     test_count, group_count, row_count = 13, 37, 10
@@ -716,7 +814,14 @@ class PairedBuilderChecks(unittest.TestCase):
         self.manifest.write_text('{"passed": true, "stale": true}')
 
     def run_builder(
-        self, *, mutate=None, missing=None, maturin="maturin 1.13.1", include_legacy=False
+        self,
+        *,
+        mutate=None,
+        missing=None,
+        maturin="maturin 1.13.1",
+        wheel_missing=None,
+        wheel_change=None,
+        extra_payload=None,
     ):
         self.commands = []
 
@@ -747,14 +852,21 @@ class PairedBuilderChecks(unittest.TestCase):
                 )
             wheel = Path(command[command.index("--out") + 1]) / "fixture.whl"
             with zipfile.ZipFile(wheel, "w") as archive:
-                archive.write(
-                    self.package / "bin/catabolic-native",
-                    "catabolic_native/bin/catabolic-native",
-                )
-                archive.write(
-                    self.package / "native-helper.json",
-                    "catabolic_native/native-helper.json",
-                )
+                for name in (
+                    "bin/catabolic-native",
+                    "native-helper.json",
+                    "bin/catabolic-legacy-native",
+                    "legacy-helper.json",
+                ):
+                    if name == wheel_missing:
+                        continue
+                    path = self.package / name
+                    if wheel_change and name == wheel_change[0]:
+                        if wheel_change[1] == "mode":
+                            path.chmod(0o644)
+                        else:
+                            path.write_bytes(wheel_change[1])
+                    archive.write(path, "catabolic_native/" + name)
                 archive.writestr(
                     "catabolic_native/_native.abi3.so", b"fixture native extension"
                 )
@@ -762,11 +874,8 @@ class PairedBuilderChecks(unittest.TestCase):
                     "catabolic_native-0.2.0.dist-info/entry_points.txt",
                     "[console_scripts]\ncatabolic-native = catabolic_native:main\n",
                 )
-                if include_legacy:
-                    archive.write(
-                        self.legacy,
-                        "catabolic_native/bin/catabolic-legacy-native",
-                    )
+                if extra_payload:
+                    archive.writestr(extra_payload, b"disposable payload")
             if mutate:
                 mutate()
             return subprocess.CompletedProcess(command, 0)
@@ -803,6 +912,8 @@ class PairedBuilderChecks(unittest.TestCase):
             "wheel_sha256",
             "native_helper_sha256",
             "native_helper_bytes",
+            "legacy_helper_sha256",
+            "legacy_helper_bytes",
             "publication",
         ):
             self.assertIn(field, result)
@@ -821,15 +932,34 @@ class PairedBuilderChecks(unittest.TestCase):
                 manifest["extension_sha256"],
                 digest(archive.read("catabolic_native/_native.abi3.so")),
             )
-            self.assertNotIn(
-                "catabolic_native/bin/catabolic-legacy-native", archive.namelist()
-            )
-            self.assertEqual(
-                json.loads(archive.read("catabolic_native/native-helper.json"))[
-                    "build"
-                ],
-                manifest["build"],
-            )
+            for helper, filename, field in (
+                ("catabolic-native", "native-helper.json", "native_binary_sha256"),
+                (
+                    "catabolic-legacy-native",
+                    "legacy-helper.json",
+                    "legacy_binary_sha256",
+                ),
+            ):
+                self.assertEqual(
+                    digest(archive.read("catabolic_native/bin/" + helper)),
+                    manifest[field],
+                )
+                self.assertTrue(
+                    archive.getinfo("catabolic_native/bin/" + helper).external_attr
+                    >> 16
+                    & 0o111
+                )
+                self.assertEqual(
+                    json.loads(archive.read("catabolic_native/" + filename)),
+                    {
+                        "format": 1,
+                        "version": "0.2.0",
+                        "path": "bin/" + helper,
+                        "sha256": manifest[field],
+                        "source_sha256": manifest["source_sha256"],
+                        "build": manifest["build"],
+                    },
+                )
         self.assertEqual(manifest["publication"], "local-only")
 
     def test_missing_cli_or_wrong_toolchain_cannot_retain_success_sidecar(self):
@@ -843,11 +973,65 @@ class PairedBuilderChecks(unittest.TestCase):
             self.run_builder(maturin="maturin 0.0.0")
         self.assertFalse(self.manifest.exists())
 
-    def test_packaged_legacy_cli_cannot_emit_success_sidecar(self):
-        with self.assertRaisesRegex(SystemExit, "must not package the legacy CLI"):
-            self.run_builder(include_legacy=True)
-        self.assertFalse(self.manifest.exists())
-        self.assertEqual(list(self.out.glob("*.whl")), [])
+    def test_missing_packaged_helper_or_manifest_cannot_emit_success_sidecar(self):
+        for name in (
+            "bin/catabolic-native",
+            "native-helper.json",
+            "bin/catabolic-legacy-native",
+            "legacy-helper.json",
+        ):
+            self.manifest.write_text('{"passed": true}')
+            with (
+                self.subTest(missing=name),
+                self.assertRaisesRegex(SystemExit, "exactly one"),
+            ):
+                self.run_builder(wheel_missing=name)
+            self.assertFalse(self.manifest.exists())
+            self.assertEqual(list(self.out.glob("*.whl")), [])
+
+    def test_changed_packaged_bytes_modes_and_metadata_cannot_emit_success_sidecar(
+        self,
+    ):
+        for name, value, error in (
+            ("bin/catabolic-native", b"changed", "differs from the Cargo artifact"),
+            (
+                "bin/catabolic-legacy-native",
+                b"changed",
+                "differs from the Cargo artifact",
+            ),
+            ("bin/catabolic-native", "mode", "executable permissions"),
+            ("bin/catabolic-legacy-native", "mode", "executable permissions"),
+            ("native-helper.json", b"{}", "manifest differs"),
+            ("legacy-helper.json", b"{}", "manifest differs"),
+        ):
+            self.manifest.write_text('{"passed": true}')
+            with (
+                self.subTest(payload=name, value=value),
+                self.assertRaisesRegex(SystemExit, error),
+            ):
+                self.run_builder(wheel_change=(name, value))
+            self.assertFalse(self.manifest.exists())
+            self.assertEqual(list(self.out.glob("*.whl")), [])
+
+    def test_python_cache_payload_cannot_emit_success_sidecar(self):
+        for name in (
+            "catabolic_native/__pycache__/access.cpython-314.pyc",
+            "catabolic_native/__pycache__/unrelated.txt",
+            "catabolic_native/subpackage/__pycache__/",
+            "catabolic_native/legacy.pyc",
+            "catabolic_native/legacy.pyo",
+        ):
+            with self.subTest(name=name):
+                self.manifest.write_text('{"passed": true}')
+                with self.assertRaisesRegex(SystemExit, "Python bytecode or cache"):
+                    self.run_builder(extra_payload=name)
+                self.assertFalse(self.manifest.exists())
+                self.assertEqual(list(self.out.glob("*.whl")), [])
+
+    def test_similar_noncache_data_is_not_misclassified(self):
+        result = self.run_builder(extra_payload="catabolic_native/data.pyc.txt")
+        self.assertEqual(result["publication"], "local-only")
+        self.assertTrue(self.manifest.is_file())
 
     def test_source_builder_or_cli_changes_during_build_refuse(self):
         for path in (self.source, self.script, self.native, self.legacy):

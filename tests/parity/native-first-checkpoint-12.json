@@ -1,0 +1,507 @@
+{
+  "format": 1,
+  "status": "unqualified-checkpoint-with-passing-native-and-artifact-lanes-and-retained-failures",
+  "source_commit": "08616773d48c8f50233575438c4e83801845b899",
+  "aggregate": {
+    "source_commit": "08616773d48c8f50233575438c4e83801845b899",
+    "source_digest": "59d8843f0533655e5dd5dc8c34017bf53bd9771637e7df11c693134a0793c465",
+    "source_after_digest": "59d8843f0533655e5dd5dc8c34017bf53bd9771637e7df11c693134a0793c465",
+    "source_stable": true,
+    "oracle_stable": true,
+    "fixture_stable": true,
+    "client_stable": true,
+    "command_exit": 1,
+    "seconds": 969.1641334910018,
+    "passed": false,
+    "scope": "Native Rust crates excluding catabolic-python, exact seven required ignored fixtures, lifecycle/playback models, composed GraphQL CLI behavior, generated reference tables, native loopback HTTP/generated-client journey",
+    "cargo_test_summary_count": 62,
+    "cargo_passing_executions": 582,
+    "summaries": [
+      "test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.99s",
+      "test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 17 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.03s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 124 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 10.19s",
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 17.32s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.30s",
+      "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 37.99s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.80s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s",
+      "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.39s",
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.81s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.66s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 300.05s",
+      "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.42s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.98s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.13s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 45.14s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.02s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s",
+      "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.86s",
+      "test result: ok. 7 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 3.38s",
+      "test result: ok. 186 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 46.02s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.08s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.81s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.97s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.93s",
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.97s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.14s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s",
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.03s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.03s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.77s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.51s",
+      "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.95s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.68s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.92s",
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 98.53s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.88s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 1.91s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 125 filtered out; finished in 0.12s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 125 filtered out; finished in 0.23s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 188 filtered out; finished in 1.38s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 188 filtered out; finished in 4.84s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 188 filtered out; finished in 2.33s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.43s"
+    ],
+    "artifacts": {
+      "catabolic-dist": {
+        "sha256": "64aaa7d159c2c70d7082f204be25b8290e48c83517422df453affb4310ea429b",
+        "bytes": 2730568
+      },
+      "catabolic-http-experimental": {
+        "sha256": "9d4f0f30242dfd18d9a8e91cffba1e16aac8bf8be6dc867fcce7d0fcafe22a91",
+        "bytes": 49275912
+      },
+      "catabolic-legacy-native": {
+        "sha256": "25956bf3d54f82b7e31aef4ca3b7dcb74f4d8d47355c9f13589e71a1ea2354aa",
+        "bytes": 74974912
+      },
+      "catabolic-native": {
+        "sha256": "0c70d07cde30acc8480cd3ea80a61bfddf7bfc4ecd80e27cc0b73eae4afd60d1",
+        "bytes": 69752304
+      },
+      "catabolic-verification": {
+        "sha256": "adb88d57d8e66e35531149749967b6d4f232d995f85126f8b9c1dedaee86020b",
+        "bytes": 2639136
+      },
+      "legacy_parse": {
+        "sha256": "272e2b01a41dae6fd233a5e28dfc28fb4c2a642e5e4d4306f1c6b5357b5d21af",
+        "bytes": 3838192
+      }
+    },
+    "runner_sha256": "e1fe3600901e198c337052e8b38247dc11dc7dd0b082c5d857aeea577dcbfdbe",
+    "log_sha256": "6bb8e0eafa385d3d31bda12338f145cf707dc701fbda03f5dcce289d1f2a0d53",
+    "limitations": [
+      "Not standalone release-artifact qualification; separate receipt required",
+      "No new wrapper/wheel gate",
+      "No whole-contract/platform/full milestone qualification"
+    ]
+  },
+  "artifact_acceptance": {
+    "format": 1,
+    "recorded_utc": "2026-10-13T00:43:27.891666+00:00",
+    "checkpoint": "native-checkpoint12-standalone-artifact-only",
+    "status": "passed-bounded-artifact-acceptance-candidate-remains-unqualified",
+    "bounded_artifact_acceptance_passed": true,
+    "source_commit": "08616773d48c8f50233575438c4e83801845b899",
+    "source_sha256": "0d85fb6ad72282f4b751fe67ede795a88daee6acb452a32cc334508c1c2cb1e8",
+    "candidate": "/workspace/scratch/9c9a5a8c3955/catabolic-native-checkpoint12/final-0861677/candidate",
+    "manifest_sha256": "af75aa96b89466b86bb9a2871f5c1b679af6f2d4dca7203ad78fe0c349c06d8e",
+    "binaries": {
+      "bin/catabolic": {
+        "sha256": "01fd2a191242176d2178e0599f8042428d482582f9dcc64dc9c901a296ff169c",
+        "bytes": 36563840,
+        "executable": true
+      },
+      "bin/catabolic-native": {
+        "sha256": "87a4acf93271c9cd2459d0f43dfee1ce04c16cb096afc6115cc0d26e932e05b9",
+        "bytes": 34322928,
+        "executable": true
+      }
+    },
+    "safe_smoke": {
+      "passed": 8,
+      "python_path_denied": true,
+      "python_attempts": 0
+    },
+    "staged_provider_replay": {
+      "passed": 8,
+      "failed": 0,
+      "ignored": 0,
+      "environment_cleared": true,
+      "release_profile_harness": true
+    },
+    "supplemental_notices": {
+      "exact_ignored_test_executed": true,
+      "packages": 5,
+      "notice_text_gaps_in_dependency_records": []
+    },
+    "output_safety_gate": {
+      "refusal_cases": 30,
+      "gate": "closed",
+      "oracle_commit": "453fca983222c6665a48775eef67c489c96b527e",
+      "same_process_origin_replay_passed": true,
+      "verified_frozen_reference_catabolic_module_origins": 61
+    },
+    "negative_controls": {
+      "passed": 16,
+      "restored_copy_verified": true
+    },
+    "payload_files": 365,
+    "source_inventory_files": 314,
+    "dependency_records": {
+      "total": 198,
+      "registry": 193,
+      "workspace_project_license": 5,
+      "registry_notice_text_gaps": 0
+    },
+    "source_stable": true,
+    "oracle_stable": true,
+    "old_b116_evidence_unchanged": true,
+    "independent_review": {
+      "status": "passed-independent-narrow-artifact-evidence-review",
+      "artifact_assertions": 190,
+      "origin_addendum_assertions": 88,
+      "preserved_verifier_invocations": 1,
+      "runtime_tests_rerun_by_reviewer": 0,
+      "blocking_findings": []
+    },
+    "links": {
+      "readme": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-checkpoint12/README-0861677.txt",
+        "sha256": "2b350e39a069d897a03cf223b78a144ff8b2ee37371adc1e330da830c2b5e364",
+        "bytes": 3226
+      },
+      "original_summary": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-checkpoint12/final-0861677/verification-summary.json",
+        "sha256": "be528afa78934df6790e3a753221732138dde47f43f5d514babb19100c901adb",
+        "bytes": 2153
+      },
+      "original_inventory": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-checkpoint12/final-0861677/SHA256SUMS",
+        "sha256": "91ed04e540a46ffe89355a02f095f04e5b695fd65b4e0cc35e04aa6dc8cffa2d",
+        "bytes": 63886
+      },
+      "origin_addendum_inventory": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-checkpoint12/final-0861677/ADDENDUM_SHA256SUMS",
+        "sha256": "f1182bf7634f96c577255fe433ee0a2bab3fd4e9452c257cf8b96598d417774e",
+        "bytes": 558
+      },
+      "origin_receipt": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-checkpoint12/final-0861677/output-gate-origin-replay.json",
+        "sha256": "6fc44dab425bc8ef125f0227be8a7e04db39e82abe0ba1e62c7c34f6d40110f9",
+        "bytes": 25580
+      },
+      "review_report": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-checkpoint12/review-0861677/REVIEW.md",
+        "sha256": "a9dabfdadab45fa9de017f1ccfba8f1b93eddf54c73922551645108f99e3d326",
+        "bytes": 9926
+      },
+      "review_receipt": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-checkpoint12/review-0861677/review-receipt.json",
+        "sha256": "101c8652faa71005342011ed3a222a6a02a06cc3b00c2b637e409522c7c3b9cf",
+        "bytes": 4331
+      },
+      "review_inventory": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-checkpoint12/review-0861677/SHA256SUMS",
+        "sha256": "4b7a0fb57d6e53aef783c6124261559d80881714028882f1f804e8d77e2c8160",
+        "bytes": 811
+      },
+      "orchestration_runner": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-checkpoint12/tools/run_checkpoint12.py",
+        "sha256": "ccc7f636f83ea7f019739464251ce66e415f1c9e8f382e4bc5280d29a20a0683",
+        "bytes": 19477
+      },
+      "orchestration_log": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-checkpoint12/run-0861677.log",
+        "sha256": "d292a2c3a5aefea41873be0e4d337c47192f3a568d0ba15d50cef335776169fe",
+        "bytes": 6713
+      }
+    },
+    "release_qualified": false,
+    "python_free_runtime_accepted": false,
+    "license_audit_complete": false,
+    "scope": "Exact local standalone native artifact and bounded evidence only; not overall checkpoint/native-workspace/CLI/HTTP-journey acceptance",
+    "remaining_limits": [
+      "Full runtime and CLI/provider parity remain unqualified",
+      "Dependency/license audit incomplete despite five repaired text inputs",
+      "M6 dangerous output/recovery and native HTTP gates remain closed",
+      "No macOS/other architecture, reproducible-build or hostile-directory claim",
+      "No publish, release, default switch or stable C ABI",
+      "Outer PATH sentinels do not attest arbitrary absolute interpreters or all child environments",
+      "Both denied broad review lanes remain blocked; neither repeated nor substituted"
+    ]
+  },
+  "remaining_checks": {
+    "source_commit": "08616773d48c8f50233575438c4e83801845b899",
+    "status": "failed",
+    "command_exit": 1,
+    "seconds": 7.624776969998493,
+    "identities_stable": true,
+    "scope": "Generated reference tables/docs and ordinary native loopback HTTP/generated client skipped after aggregate CLI failure; this does not change failed aggregate status",
+    "original_aggregate_passed": false,
+    "runner_sha256": "fead4d1c98e0500ad43720423e9b3d02c7dfc17af77fd5cafde3191c3e4b1786",
+    "log_sha256": "2fa8f4ac4d5a2fdc786499c6003a9888fea89f031e26417ac12a46a24664bc7d"
+  },
+  "composed_conflict_control": {
+    "source_commit": "08616773d48c8f50233575438c4e83801845b899",
+    "case": {
+      "name": "conflicting-types",
+      "document": "{same:profile same:__schema{queryType{name}}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Fields 'same' conflict because 'profile' and '__schema' are different fields. Use different aliases on the fields to fetch both if this was intentional.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                },
+                {
+                  "line": 1,
+                  "column": 15
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "native": {
+        "code": 2,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "error",
+          "exit_code": 2,
+          "data": {
+            "data": null,
+            "errors": [
+              {
+                "message": "Fields 'same' conflict within merged selections. Use different aliases on the fields to fetch both if this was intentional.",
+                "locations": [
+                  {
+                    "line": 1,
+                    "column": 2
+                  },
+                  {
+                    "line": 1,
+                    "column": 15
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "status": "Conservative compatibility guard; complete overlap-rule diagnostics remain unqualified"
+    },
+    "results": {
+      "reference": {
+        "code": 2,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "error",
+          "exit_code": 2,
+          "data": {
+            "data": null,
+            "errors": [
+              {
+                "message": "Fields 'same' conflict because 'profile' and '__schema' are different fields. Use different aliases on the fields to fetch both if this was intentional.",
+                "locations": [
+                  {
+                    "line": 1,
+                    "column": 2
+                  },
+                  {
+                    "line": 1,
+                    "column": 15
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "legacy": {
+        "code": 2,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "error",
+          "exit_code": 2,
+          "data": {
+            "data": null,
+            "errors": [
+              {
+                "message": "Fields 'same' conflict because 'profile' and '__schema' are different fields. Use different aliases on the fields to fetch both if this was intentional.",
+                "locations": [
+                  {
+                    "line": 1,
+                    "column": 2
+                  },
+                  {
+                    "line": 1,
+                    "column": 15
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "companion": {
+        "code": 0,
+        "stderr": "",
+        "stdout": {
+          "data": null,
+          "errors": [
+            {
+              "locations": [
+                {
+                  "column": 2,
+                  "line": 1
+                },
+                {
+                  "column": 15,
+                  "line": 1
+                }
+              ],
+              "message": "Fields 'same' conflict because 'profile' and '__schema' are different fields. Use different aliases on the fields to fetch both if this was intentional."
+            }
+          ]
+        }
+      }
+    },
+    "legacy_now_matches_frozen": true,
+    "companion_now_matches_frozen": true,
+    "catalogs_unchanged": true,
+    "artifact_sha256": {
+      "CATABOLIC_NATIVE_BINARY": "0c70d07cde30acc8480cd3ea80a61bfddf7bfc4ecd80e27cc0b73eae4afd60d1",
+      "CATABOLIC_LEGACY_BINARY": "25956bf3d54f82b7e31aef4ca3b7dcb74f4d8d47355c9f13589e71a1ea2354aa"
+    },
+    "original_aggregate_status": "failed; old generic non-parity assertion preserved"
+  },
+  "cli_artifact_fence": {
+    "scope": "Before composed CLI/HTTP phase only; not a retrospective artifact fence for earlier Cargo tests",
+    "artifacts_unchanged": true,
+    "oracle_python_unchanged": true,
+    "before_receipt_sha256": "b59b6d2a921f7d7b73a3fbf7ac9aabe5e937c90780406751945c9e5c576249eb",
+    "after": {
+      "artifacts": {
+        "catabolic-dist": "64aaa7d159c2c70d7082f204be25b8290e48c83517422df453affb4310ea429b",
+        "catabolic-http-experimental": "9d4f0f30242dfd18d9a8e91cffba1e16aac8bf8be6dc867fcce7d0fcafe22a91",
+        "catabolic-legacy-native": "25956bf3d54f82b7e31aef4ca3b7dcb74f4d8d47355c9f13589e71a1ea2354aa",
+        "catabolic-native": "0c70d07cde30acc8480cd3ea80a61bfddf7bfc4ecd80e27cc0b73eae4afd60d1",
+        "catabolic-verification": "adb88d57d8e66e35531149749967b6d4f232d995f85126f8b9c1dedaee86020b",
+        "legacy_parse": "272e2b01a41dae6fd233a5e28dfc28fb4c2a642e5e4d4306f1c6b5357b5d21af"
+      },
+      "oracle_python_sha256": "2f7fff382c9d335d6d63f134b55cb8ced9d0b2e1d47e6f210ad3f059adfa71c1"
+    },
+    "aggregate_passed": false,
+    "http_not_reached_in_aggregate": true
+  },
+  "http_busy_disposable_state": {
+    "source_commit": "08616773d48c8f50233575438c4e83801845b899",
+    "scope": "Read-only counts in failed disposable fixture only; no general mutation replay-safety conclusion",
+    "ticket_table_counts": {
+      "api_tickets": 0
+    },
+    "database_sha256_before": "8eb8d73373fc06950358d80bf948ee46ff079a25ce29debc925f0efb1fff7bcd",
+    "database_sha256_after": "8eb8d73373fc06950358d80bf948ee46ff079a25ce29debc925f0efb1fff7bcd",
+    "original_http_attempt": "failed at ticket issuance with 503 catalog_busy; no blind request retry"
+  },
+  "models": {
+    "lifecycle": "graph exhausted: 52 states, 364 transitions, zero skipped checks",
+    "playback": "production playback graph exhausted: 5 states, 1200 transitions, zero skipped checks"
+  },
+  "evidence": {
+    "aggregate": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-checkpoint/result.json",
+      "sha256": "e6ec2e87f3685c30fce9850b4384aa852fd6ed402a4ae671e47500fe2916a1e2"
+    },
+    "aggregate_log": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-checkpoint/native.log",
+      "sha256": "6bb8e0eafa385d3d31bda12338f145cf707dc701fbda03f5dcce289d1f2a0d53"
+    },
+    "composed_cli_log": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-checkpoint/composed-graphql.log",
+      "sha256": "02697357b61ac8316ff7a1d92272044956a12c294c1a2ae834133e9de9e1577a"
+    },
+    "artifact_acceptance": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-native-checkpoint12/qualification-0861677.json",
+      "sha256": "8309ba110ae9db140eb71d2e7fa9fe4dd8fe93d04e91c4ff882f5338f53629bd"
+    },
+    "remaining_run": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-remaining/run.py",
+      "sha256": "df5ee558d9430d708e8b80b657c4f9f80e0a6cf2a87ffd59fc708438af07562a"
+    },
+    "remaining_log": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-remaining/run.log",
+      "sha256": "2fa8f4ac4d5a2fdc786499c6003a9888fea89f031e26417ac12a46a24664bc7d"
+    },
+    "http_log": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-checkpoint/native-http.log",
+      "sha256": "1ae2e177f33e83077783069c5a8bfb0ba93742e32f42df45804fdce709b92733"
+    },
+    "http_incomplete_report": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-http-journey/report.json",
+      "sha256": "9f52b4f56acfaa723155c4ee25377f5e860b5d5c2c8319e6865ee810522df879"
+    },
+    "fixture_provenance": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-fixture-provenance.json",
+      "sha256": "c9cf3cdb5ffc8394a313f3cd5e771e9b94f5a5880741ac65923cff95ce2ce468"
+    },
+    "client_provenance": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave12/.local-tests/wave12/native-http-client/provenance.json",
+      "sha256": "5ec546b17e03138598f8863ab59fd2099f05f7d77245654f2b4ce71dbce198cf"
+    }
+  },
+  "release_qualified": false,
+  "native_checkpoint_accepted": false,
+  "m4_m11_complete": false,
+  "explanation": [
+    "582 Rust passing executions across62 summaries and7 exact mandatory fixtures; native fmt/Clippy/build/models passed",
+    "Original8-method CLI run failed1 obsolete guarded-conflict expectation; exact follow-up shows both native CLIs now equal frozen Python for this control",
+    "Original aggregate stopped before generated checks and HTTP; separate unchanged-source generated checks passed, HTTP attempt failed at ticket issuance with503 catalog_busy",
+    "No mutation was blindly replayed; read-only failed-fixture inspection found0 api_tickets and unchanged database bytes, without asserting general retry safety",
+    "Artifact-only acceptance passed independently and does not turn the failed aggregate/HTTP journey into a pass"
+  ]
+}

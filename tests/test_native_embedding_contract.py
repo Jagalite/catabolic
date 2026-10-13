@@ -14,6 +14,104 @@ ROOT = Path(__file__).resolve().parents[1]
 FACADE = ROOT / "crates/catabolic-python/python/catabolic_native"
 
 
+def require_sqlite_exception_only(tree, filename):
+    """Accept fixed exception-type references, never an engine capability."""
+    expected_type, expected_count = {
+        "cli.py": ("CatabolicError, OSError, sqlite3.Error, ValueError", 2),
+        "scan_execution.py": ("OSError, CatabolicError, sqlite3.Error", 1),
+    }[filename]
+    imports = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Import)
+        and [(alias.name, alias.asname) for alias in node.names] == [("sqlite3", None)]
+    ]
+    if len(imports) != 1:
+        raise AssertionError("expected one unaliased sqlite3 exception import")
+    # Restrict the reviewed literal facade style. This regression guard is not
+    # a sandbox or a proof about arbitrary Python metaprogramming.
+    dynamic_names = {
+        "globals",
+        "locals",
+        "vars",
+        "eval",
+        "exec",
+        "__import__",
+        "__builtins__",
+    }
+    expected_getattr = ast.dump(ast.parse("getattr(sys, name)", mode="eval").body)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id in dynamic_names:
+            raise AssertionError(
+                "dynamic namespace access is outside this facade contract"
+            )
+        if isinstance(node, ast.alias) and (
+            node.name in dynamic_names
+            or node.name.split(".")[0] in {"builtins", "importlib"}
+        ):
+            raise AssertionError(
+                "dynamic namespace import is outside this facade contract"
+            )
+        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] in {
+            "builtins",
+            "importlib",
+        }:
+            raise AssertionError(
+                "dynamic namespace import is outside this facade contract"
+            )
+        if isinstance(node, ast.Attribute) and node.attr in dynamic_names | {
+            "modules",
+            "__dict__",
+            "__globals__",
+        }:
+            raise AssertionError(
+                "dynamic namespace attribute is outside this facade contract"
+            )
+        if isinstance(node, ast.Name) and node.id == "getattr":
+            calls = [
+                call
+                for call in ast.walk(tree)
+                if isinstance(call, ast.Call)
+                and call.func is node
+                and filename == "cli.py"
+                and ast.dump(call) == expected_getattr
+            ]
+            if len(calls) != 1:
+                raise AssertionError("unsupported dynamic attribute access")
+        for field, value in ast.iter_fields(node):
+            if value == "sqlite3" and not (
+                isinstance(node, ast.Name)
+                and field == "id"
+                or node is imports[0].names[0]
+                and field == "name"
+            ):
+                raise AssertionError(
+                    "sqlite3 string access or rebinding is not an exception type"
+                )
+    expected = (
+        ast.parse(f"try: pass\nexcept ({expected_type}): pass").body[0].handlers[0].type
+    )
+    allowed = [
+        node
+        for handler in ast.walk(tree)
+        if isinstance(handler, ast.ExceptHandler)
+        and handler.type is not None
+        and ast.dump(handler.type) == ast.dump(expected)
+        for node in ast.walk(handler.type)
+        if isinstance(node, ast.Name) and node.id == "sqlite3"
+    ]
+    uses = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name) and node.id == "sqlite3"
+    ]
+    if len(uses) != expected_count or set(uses) != set(allowed):
+        raise AssertionError(
+            "sqlite3 may only identify the fixed owner exception handlers"
+        )
+    return imports[0]
+
+
 class NativeEmbeddingInventory(unittest.TestCase):
     def test_preserved_rows_have_matching_signatures(self):
         inventory = json.loads((ROOT / "tests/parity/python-api.json").read_text())
@@ -59,7 +157,15 @@ class NativeEmbeddingInventory(unittest.TestCase):
 
     def test_facades_do_not_import_legacy_business_logic_or_sqlite(self):
         for path in FACADE.glob("*.py"):
-            for node in ast.walk(ast.parse(path.read_text())):
+            tree = ast.parse(path.read_text())
+            exception_import = (
+                require_sqlite_exception_only(tree, path.name)
+                if path.name in ("cli.py", "scan_execution.py")
+                else None
+            )
+            for node in ast.walk(tree):
+                if node is exception_import:
+                    continue
                 if isinstance(node, ast.Import):
                     imported = [alias.name for alias in node.names]
                 elif isinstance(node, ast.ImportFrom):
@@ -86,6 +192,54 @@ class NativeEmbeddingInventory(unittest.TestCase):
                     ),
                     str(path),
                 )
+
+    def test_sqlite_exception_imports_cannot_supply_engine_or_escape(self):
+        for filename in ("cli.py", "scan_execution.py"):
+            source = (FACADE / filename).read_text()
+            require_sqlite_exception_only(ast.parse(source), filename)
+            for mutation in (
+                "sqlite3.connect('fixture.sqlite3')",
+                "sqlite3.Connection('fixture.sqlite3')",
+                "sqlite3.Cursor(None)",
+                "getattr(sqlite3, 'connect')",
+                "engine = sqlite3",
+                "sqlite3 = object()",
+                "sqlite3.Error('outside handler')",
+                "globals()['sqlite3'].connect(':memory:')",
+                "locals()['sqlite3'].connect(':memory:')",
+                "vars()['sqlite3'].connect(':memory:')",
+                "globals()['sqlite' + '3'].connect(':memory:')",
+                "import os as sqlite3",
+                "try: pass\nexcept Exception as sqlite3: pass",
+                "def shadow(sqlite3): pass",
+                "def sqlite3(): pass",
+                "from builtins import globals as namespace; namespace()['sqlite' + '3'].connect(':memory:')",
+                "import sys; sys.modules['sqlite' + '3'].connect(':memory:')",
+                "import importlib; importlib.import_module('sqlite' + '3')",
+                "import builtins as dynamic; dynamic.globals()['sqlite' + '3']",
+                "getter = getattr",
+                "getattr(sys, 'modules')",
+            ):
+                with (
+                    self.subTest(facade=filename, mutation=mutation),
+                    self.assertRaises(AssertionError),
+                ):
+                    require_sqlite_exception_only(
+                        ast.parse(source + "\n" + mutation), filename
+                    )
+            for replacement in (
+                "sqlite3.connect('fixture.sqlite3')",
+                "getattr(sqlite3, 'Error')",
+                "sqlite3.OperationalError",
+            ):
+                with (
+                    self.subTest(facade=filename, handler=replacement),
+                    self.assertRaises(AssertionError),
+                ):
+                    require_sqlite_exception_only(
+                        ast.parse(source.replace("sqlite3.Error", replacement, 1)),
+                        filename,
+                    )
 
     def test_refresh_sqlite_exception_alias_is_handler_only(self):
         tree = ast.parse((FACADE / "catalog_refresh.py").read_text())

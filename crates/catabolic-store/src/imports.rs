@@ -42,6 +42,42 @@ pub fn suffix(path: &str) -> String {
         .unwrap_or_default()
 }
 
+/// One recorded occurrence and its validated descriptor revision, shared with
+/// publication mapping previews. This never stages or copies source bytes.
+pub fn source_snapshot(store: &Store, profile: &str, file: &Value) -> Result<Value> {
+    let mut snapshot = crate::media_mutation::snapshot(store, profile, text(file, "id")?)?;
+    if ["location", "path", "status", "size", "mtime_ns"]
+        .iter()
+        .any(|key| {
+            crate::exports::python_text(&snapshot[key]) != crate::exports::python_text(&file[key])
+        })
+    {
+        return Err(Error(
+            "import source changed or disagrees with inventory; rescan before importing".into(),
+        ));
+    }
+    let revision = crate::source::validate(&snapshot)?;
+    snapshot["ctime_ns"] = revision["ctime_ns"].clone();
+    Ok(snapshot)
+}
+
+/// Read-only discovery; never launches the official application.
+pub fn executable(name: &str) -> Option<std::path::PathBuf> {
+    use std::os::unix::ffi::OsStrExt;
+    let path = std::env::var_os("PATH").unwrap_or_else(|| "/bin:/usr/bin".into());
+    std::env::split_paths(&path)
+        .map(|directory| directory.join(name))
+        .find(|path| {
+            let Ok(name) = std::ffi::CString::new(path.as_os_str().as_bytes()) else {
+                return false;
+            };
+            // SAFETY: the NUL-terminated path remains live. access only checks the
+            // current user's execute permission; no application is launched.
+            let executable = unsafe { libc::access(name.as_ptr(), libc::X_OK) } == 0;
+            executable && path.metadata().is_ok_and(|m| m.is_file())
+        })
+}
+
 pub fn prepare(store: &Store, profile: &str, request: &Value) -> Result<Prepared> {
     let target = text(request, "target")?;
     if !matches!(target, "calibre" | "calibre-web" | "immich") {
@@ -132,21 +168,7 @@ pub fn prepare(store: &Store, profile: &str, request: &Value) -> Result<Prepared
     }
     let mut actions = vec![];
     for decision in &mut decisions {
-        let mut snapshot =
-            crate::media_mutation::snapshot(store, profile, text(&decision.file, "id")?)?;
-        if ["location", "path", "status", "size", "mtime_ns"]
-            .iter()
-            .any(|key| {
-                crate::exports::python_text(&snapshot[key])
-                    != crate::exports::python_text(&decision.file[key])
-            })
-        {
-            return Err(Error(
-                "import source changed or disagrees with inventory; rescan before importing".into(),
-            ));
-        }
-        let revision = crate::source::validate(&snapshot)?;
-        snapshot["ctime_ns"] = revision["ctime_ns"].clone();
+        let snapshot = source_snapshot(store, profile, &decision.file)?;
         actions.push(json!({"file_id":decision.file["id"],"item_id":decision.item["id"],"source":Path::new(text(&snapshot,"root")?).join(text(&snapshot,"path")?),"size":decision.file["size"]}));
         decision.snapshot = snapshot;
     }

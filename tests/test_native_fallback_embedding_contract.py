@@ -83,8 +83,8 @@ class FallbackFacadeContracts(unittest.TestCase):
 
     def test_required_installed_cases_and_pairs_are_fixed_not_skipping(self):
         module = gate()
-        self.assertEqual(len(module.EXPECTED_TESTS), 18)
-        self.assertEqual(len(set(module.EXPECTED_TESTS)), 18)
+        self.assertEqual(len(module.EXPECTED_TESTS), 24)
+        self.assertEqual(len(set(module.EXPECTED_TESTS)), 24)
         self.assertEqual(
             set(module.EXPECTED_TESTS),
             {
@@ -103,7 +103,7 @@ class FallbackFacadeContracts(unittest.TestCase):
         for unsafe in ("skipTest", "unittest.skip", "SkipTest", "expectedFailure"):
             self.assertNotIn(unsafe, source)
         self.assertIn("run_required_suite", source)
-        self.assertIn("expected_count=18", source)
+        self.assertIn("expected_count=24", source)
         self.assertIn(
             "qualification.paired_groups(reference, native, EXPECTED_GROUPS, 27)",
             source,
@@ -152,7 +152,11 @@ class FallbackFacadeContracts(unittest.TestCase):
         source = (FACADE / "fallback_projection.py").read_text()
         self.assertIn("plan._store is self.store", source)
         self.assertIn("plan._profile == self.profile", source)
-        self.assertIn('"projection-drop"', source)
+        self.assertIn("self.store._owner.prepare_fallback(", source)
+        self.assertIn("plan._lease = lease", source)
+        self.assertIn("except BaseException:", source)
+        self.assertIn("lease.release()", source)
+        self.assertNotIn("def __del__", source)
         owner = (ROOT / "crates/catabolic-store/src/public_fallback.rs").read_text()
         self.assertIn('args["plan_owner_matches"] != true', owner)
         self.assertIn('plan.full_plan() != &args["plan"]', owner)
@@ -173,6 +177,8 @@ class FallbackFacadeContracts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             report = Path(directory) / "report.json"
             report.write_text("prior evidence")
+            attempt = report.with_suffix(".attempt.json")
+            attempt.write_text("prior attempt")
             result = subprocess.run(
                 [sys.executable, "-I", str(SCRIPT), "--report", str(report)],
                 env={**os.environ, "PYTHONOPTIMIZE": "1"},
@@ -181,7 +187,8 @@ class FallbackFacadeContracts(unittest.TestCase):
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("do not run with -O or -OO", result.stderr)
-            self.assertEqual(report.read_text(), "prior evidence")
+            self.assertFalse(report.exists())
+            self.assertFalse(attempt.exists())
 
     def test_build_manifest_binds_current_source_wheel_extension(self):
         module = gate()

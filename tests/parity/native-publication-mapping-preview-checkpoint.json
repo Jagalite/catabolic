@@ -1,0 +1,115 @@
+{
+  "qualification": "local-partial-v2-folder-preview-only",
+  "source_commit": "c91355c99f7fdc5bcd39fdd7006f1bfd878851b1",
+  "source_sha256": "ba0ddba8323c1f83cb551734541c37b26b351c17b71d04224e0a50806542dedd",
+  "binary": "/workspace/scratch/9c9a5a8c3955/catabolic-publication-preview/target/debug/catabolic-legacy-native",
+  "binary_sha256": "1574f97e22af7cfee7a0950c6ea851378c1e5532ef80ff56c0614ce58f0b96ca",
+  "harness_sha256": {
+    "scripts/qualify_publication_mapping_preview.py": "2964ca82e9b62e03007ad0c6ee341a457c0d3e377a101b538c7cba2d22911ede",
+    "scripts/build_native_wheel.py": "6c6a1df62f52feaac6cfb20aecb177d4834119c9dec48da13797c73268fa9023",
+    "tests/__init__.py": "57721be24eef9ace6eed72ff8af90756624024eebb638a9be4b705b72b0a4309",
+    "tests/test_rust_publication_mapping_preview.py": "5de9ecabe4edc44a1e4ecd6466b7a122577956e5d2c9b510614a83d8db51b467",
+    "tests/test_rust_legacy_review.py": "3351e81aca689e6125f5950556512a2e7057b29fbbc8ebaa87b61f77c0a113dc",
+    "tests/test_rust_legacy_mapping_history.py": "f48b607f776d2dc41208ffa5717a63597fcc3b41f2485a7769d755ed35f09609",
+    "tests/test_rust_legacy_projection.py": "b4f0cb8c7fc45633144510d54fbe63169187af55d507df1ae9c72fe433b1334d"
+  },
+  "loaded_selection": {
+    "test_rust_publication_mapping_preview.py": {
+      "BINARY": "/workspace/scratch/9c9a5a8c3955/catabolic-publication-preview/target/debug/catabolic-legacy-native",
+      "REFERENCE": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/reference/src",
+      "PYTHON": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python"
+    },
+    "test_rust_legacy_review.py": {
+      "BINARY": "/workspace/scratch/9c9a5a8c3955/catabolic-publication-preview/target/debug/catabolic-legacy-native",
+      "REFERENCE": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/rust-migration/reference/src",
+      "PYTHON": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python"
+    },
+    "oracle_program_sha256": "cf5550f50e59e097b9cf1282cea388fff9f2c1738c1b1bae10cc41821f3e1770"
+  },
+  "reference": "453fca983222c6665a48775eef67c489c96b527e",
+  "reference_python": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+  "reference_python_version": "3.14.6",
+  "rust_commands": [
+    [
+      "cargo",
+      "build",
+      "--locked",
+      "--offline",
+      "-p",
+      "catabolic-cli",
+      "--bin",
+      "catabolic-legacy-native"
+    ],
+    [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "catabolic-store",
+      "--lib",
+      "publication_mappings::tests"
+    ],
+    [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "catabolic-store",
+      "--lib",
+      "mapping_history::tests"
+    ]
+  ],
+  "logs": [
+    {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-publication-preview/.local-tests/publication-preview/qualification-0.log",
+      "sha256": "076910c912e2695fb7ed7362f447c84c366997c60c98013affa59142931cbe81"
+    },
+    {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-publication-preview/.local-tests/publication-preview/qualification-1.log",
+      "sha256": "868ed3390856f00aaa005181809231670657cf8e2df297b2554ab1d023e7ab0e"
+    },
+    {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-publication-preview/.local-tests/publication-preview/qualification-2.log",
+      "sha256": "e50ed7f1346cc1c56c1434fa3626c07a482b6b71bf2db9c2edd70223661d1e0d"
+    },
+    {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-publication-preview/.local-tests/publication-preview/legacy-gate-regressions.log",
+      "sha256": "312f7fafd7b97eefa9a78f075a745bc3f80ccfa2ff62ced93bf59451c0d01733"
+    }
+  ],
+  "rust_adapter_tests_passed": 5,
+  "rust_history_regressions_passed": 7,
+  "legacy_gate_regression_command": [
+    "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+    "-m",
+    "unittest",
+    "tests.test_rust_legacy_projection.NativeLegacyProjectionTest.test_unimplemented_owners_stay_closed",
+    "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_destination_versions_stay_explicitly_unavailable",
+    "-v"
+  ],
+  "legacy_gate_regressions_passed": 2,
+  "tests": [
+    "test_all_seventeen_presets_use_complete_selection",
+    "test_complete_file_association_and_paginated_graphql_selections",
+    "test_definition_and_option_scalar_admission",
+    "test_empty_query_guard_and_allow_empty_plans_rollback",
+    "test_nonfolder_preview_gates_and_apply_recover_no_effects",
+    "test_pending_history_order_and_other_profile_isolation",
+    "test_populated_complete_plan_and_repeat_rollback",
+    "test_query_revision_and_definition_options_pin_plan",
+    "test_unknown_query_catalog_and_foreign_projection_errors"
+  ],
+  "cases_passed": 9,
+  "skipped": 0,
+  "expected_failures": 0,
+  "refusal_only": [
+    "v2 apply",
+    "v2 recovery",
+    "v2 export preview",
+    "v2 import preview"
+  ],
+  "publication_qualified": false,
+  "python_default_unchanged": true
+}

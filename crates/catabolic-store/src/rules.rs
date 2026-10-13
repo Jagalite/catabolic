@@ -22,6 +22,16 @@ pub fn registered_jobs(store: &Store, rule: &str) -> Result<std::collections::BT
         .query_map([rule], |row| row.get(0))?
         .collect::<std::result::Result<_, _>>()?)
 }
+pub fn registered_processor_jobs(
+    store: &Store,
+    rule: &str,
+) -> Result<std::collections::BTreeSet<String>> {
+    Ok(store
+        .db
+        .prepare("SELECT job_id FROM rule_processor_jobs WHERE rule_id=?")?
+        .query_map([rule], |row| row.get(0))?
+        .collect::<std::result::Result<_, _>>()?)
+}
 pub fn enabled_rules(store: &Store, profile: &str) -> Result<Vec<Value>> {
     crate::migration::rows(
         &store.db,

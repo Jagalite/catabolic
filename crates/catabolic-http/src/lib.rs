@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 // SPDX-License-Identifier: MIT
 //! Opt-in authenticated contract 1.7.0 transport. Never a Python fallback.
+pub mod asgi;
 mod content;
 mod events;
 mod limits;
@@ -11,4 +12,7 @@ mod server;
 pub use server::{ServerConfig, serve, serve_listener};
 
 mod worker;
-pub use worker::{interruptible, worker};
+pub use worker::{
+    InterruptSignal, InterruptibleOutcome, interruptible, interruptible_detailed,
+    interruptible_with_signal, worker,
+};

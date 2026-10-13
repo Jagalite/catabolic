@@ -131,10 +131,18 @@ def generate():
     source = Path(owner.__file__).resolve()
     # The caller must supply the immutable frozen checkout; report its exact
     # source hash rather than silently substituting this working tree.
-    if ROOT in source.parents:
+    if source.is_relative_to((ROOT / "src").resolve()):
         raise RuntimeError("Put the frozen reference src first on PYTHONPATH")
+    reference = source.parents[2]
+    git_root = Path(
+        subprocess.check_output(
+            ["git", "-C", str(reference), "rev-parse", "--show-toplevel"], text=True
+        ).strip()
+    ).resolve()
+    if git_root != reference:
+        raise RuntimeError("Frozen reference must have its own Git root")
     revision = subprocess.check_output(
-        ["git", "-C", str(source.parents[2]), "rev-parse", "HEAD"], text=True
+        ["git", "-C", str(reference), "rev-parse", "HEAD"], text=True
     ).strip()
     if revision != REVISION:
         raise RuntimeError("Wrong frozen reference revision: " + revision)
@@ -142,7 +150,7 @@ def generate():
         [
             "git",
             "-C",
-            str(source.parents[2]),
+            str(reference),
             "show",
             f"{REVISION}:src/catabolic/consumer_adapters.py",
         ]

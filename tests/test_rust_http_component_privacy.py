@@ -334,7 +334,17 @@ class NativeHTTPComponentPrivacyTest(unittest.TestCase):
     def test_natural_token_expiry_during_component_probe_reauthenticates(self):
         self.authority_during_probe(expire=True)
 
-    def authority_during_probe(self, *, expire):
+    def test_delayed_request_reaches_component_probe_before_natural_expiry(self):
+        self.authority_during_probe(expire=True, request_delay=1.25)
+
+    def test_token_expired_before_request_never_starts_component_probe(self):
+        self.authority_during_probe(
+            expire=True, request_delay=1.25, expire_before_request=True
+        )
+
+    def authority_during_probe(
+        self, *, expire, request_delay=0.0, expire_before_request=False
+    ):
         from catabolic import fallback_resolution
 
         video = self.video("PRIVATE-VIDEO.mkv", True)
@@ -350,7 +360,9 @@ class NativeHTTPComponentPrivacyTest(unittest.TestCase):
         helper.chmod(0o700)
         jobs = self.store.rows("SELECT * FROM processing_jobs ORDER BY id")
         definition = Policies(self.store).get(self.policy(video))["definition"]
-        definition["budgets"]["probe_timeout_ms"] = 5000
+        # Leave room for helper startup and the intentional natural-expiry wait.
+        # Neither the production clock nor the timeout outcome is replaced.
+        definition["budgets"]["probe_timeout_ms"] = 10000
         policy = Policies(self.store).put("revocation-probe", definition)["id"]
         self.start_http(policy, [video], helper=helper)
         route = f"/v1/items/{self.item}/resolve"
@@ -373,47 +385,83 @@ class NativeHTTPComponentPrivacyTest(unittest.TestCase):
                     db.execute("UPDATE api_tokens SET revoked=1")
 
         def expire_soon(path):
-            expires = time.time() + 0.8
+            # The old 0.8-second window could expire before request admission.
+            # Preserve it only in the explicit early-refusal control below.
+            expires = time.time() + (0.8 if expire_before_request else 5.0)
             with Store(path, writable=True) as store:
                 with store.transaction() as db:
                     db.execute("UPDATE api_tokens SET expires=?", (expires,))
             return expires
 
         probe = fallback_resolution.probe
+        oracle_probe_starts = []
         oracle_expires = expire_soon(self.oracle_database) if expire else None
 
         def change_before_probe(*args, **kwargs):
+            oracle_probe_starts.append(time.time())
+            self.assertFalse(expire_before_request, "expired token reached probe")
             if expire:
+                self.assertLess(
+                    oracle_probe_starts[-1],
+                    oracle_expires,
+                    "oracle token expired before the controlled probe began",
+                )
                 time.sleep(max(0, oracle_expires - time.time()) + 0.03)
             else:
                 revoke(self.oracle_database)
             return probe(*args, **kwargs)
 
         with patch.object(fallback_resolution, "probe", change_before_probe):
+            time.sleep(request_delay)
             expected = self.oracle.post(route, headers=self.headers, json=payload)
+        self.assertEqual(
+            bool(oracle_probe_starts),
+            not expire_before_request,
+            "oracle must enter the controlled probe for in-probe revalidation",
+        )
         native_expires = expire_soon(self.database) if expire else None
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(
-                self.client.post, route, headers=self.headers, json=payload
+
+        def native_request():
+            time.sleep(request_delay)
+            return self.client.post(
+                route, headers=self.headers, json=payload, timeout=30
             )
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(native_request)
             try:
-                deadline = time.monotonic() + 5
-                while (
-                    not started.exists()
-                    and not future.done()
-                    and time.monotonic() < deadline
-                ):
-                    time.sleep(0.005)
-                self.assertTrue(
-                    started.exists(), "native probe did not reach detached helper"
-                )
-                if expire:
-                    time.sleep(max(0, native_expires - time.time()) + 0.03)
+                if expire_before_request:
+                    future.result(timeout=30)
+                    self.assertFalse(started.exists(), "expired token reached probe")
                 else:
-                    revoke(self.database)
+                    deadline = time.monotonic() + 10
+                    while (
+                        not started.exists()
+                        and not future.done()
+                        and time.monotonic() < deadline
+                    ):
+                        time.sleep(0.005)
+                    if not started.exists() and future.done():
+                        response = future.result()
+                        self.fail(
+                            "native request returned before the controlled probe: "
+                            f"HTTP {response.status_code}: {response.text}"
+                        )
+                    self.assertTrue(
+                        started.exists(), "native probe did not reach detached helper"
+                    )
+                    if expire:
+                        self.assertLess(
+                            started.stat().st_mtime,
+                            native_expires,
+                            "native token expired before the controlled probe began",
+                        )
+                        time.sleep(max(0, native_expires - time.time()) + 0.03)
+                    else:
+                        revoke(self.database)
             finally:
                 release.touch()
-            actual = future.result(timeout=10)
+            actual = future.result(timeout=30)
         self.assertEqual(expected.status_code, 401 if expire else 409, expected.text)
         self.assertEqual(actual.status_code, expected.status_code, actual.text)
         actual_body, expected_body = actual.json(), expected.json()

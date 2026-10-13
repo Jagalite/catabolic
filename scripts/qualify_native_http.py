@@ -9,6 +9,7 @@ This is evidence for the opt-in backend, not production/default enablement.
 """
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -36,6 +37,147 @@ def artifact_hashes(binary, client):
             if path.is_file()
         }
     return result
+
+
+def stop_owned_worker(worker):
+    """Reap this fixture's writer before non-replayable HTTP operations."""
+    if worker.poll() is not None:
+        raise RuntimeError("native worker exited before fixture isolation")
+    worker.terminate()
+    code = worker.wait(timeout=10)
+    if code != 0:
+        raise RuntimeError(f"native worker shutdown failed: {code}")
+    return {
+        "phase": "after_processing_ready_before_snapshot_and_ticket",
+        "pid": worker.pid,
+        "returncode": code,
+        "reaped": True,
+    }
+
+
+def check_writer_contention(root, request):
+    """Exercise admission contention separately, without replaying a mutation.
+
+    Store::open takes this advisory writer lock before connecting to SQLite.
+    This deliberately rejected request uses a sentinel file, never the rendered
+    file used in the journey. The check makes no claim about other busy errors.
+    Python only controls the disposable fixture lock; native HTTP serves it.
+    """
+    with (root / "catalog.sqlite3.lock").open("r+b") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        try:
+            code, problem = request(
+                "/v1/content-access",
+                {
+                    "file_id": "qualification-contended-admission",
+                    "revision": "never-replayed",
+                },
+            )
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+    assert code == 503, problem
+    assert problem["code"] == "catalog_busy" and problem["retryable"] is True, problem
+    return {"phase": "forced_writer_admission", "status": code, "complete": True}
+
+
+def run_generated_client(client, fixture, root, env, isolate, phases, timeout=30):
+    """Release the client's mutation phase only after acknowledged worker reap.
+
+    Credentials still enter through stdin. A separate inherited pipe carries
+    one acknowledgement byte, never credentials. Output is preserved even when
+    the client, phase protocol, shutdown, or deadline fails.
+    """
+    command = ["node", str(client.resolve())]
+    stdout_path = root / "generated-client.stdout"
+    stderr_path = root / "generated-client.stderr"
+    read_fd, write_fd = os.pipe()
+    fixture = {**fixture, "phase_fd": read_fd}
+    process = None
+    failure = None
+    deadline = time.monotonic() + timeout
+    expected = ["processing_ready", "isolated_complete"]
+    try:
+        with stdout_path.open("wb") as stdout, stderr_path.open("wb") as stderr:
+            process = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stdout=stdout,
+                stderr=stderr,
+                pass_fds=(read_fd,),
+                cwd=root,
+                env=env,
+            )
+            os.close(read_fd)
+            read_fd = None
+            process.stdin.write(json.dumps(fixture).encode())
+            process.stdin.close()
+            consumed = 0
+            exited = False
+            while True:
+                if time.monotonic() >= deadline:
+                    raise subprocess.TimeoutExpired(command, timeout)
+                lines = stdout_path.read_text(errors="replace").splitlines(
+                    keepends=True
+                )
+                for line in lines[consumed:]:
+                    if not line.endswith("\n"):
+                        break
+                    consumed += 1
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if (
+                        not isinstance(event, dict)
+                        or event.get("type") != "qualification_phase"
+                    ):
+                        continue
+                    phase = event.get("phase")
+                    if len(phases) >= len(expected) or phase != expected[len(phases)]:
+                        raise RuntimeError("generated client phase order is invalid")
+                    phases.append(phase)
+                    if phase == "processing_ready":
+                        receipt = isolate()
+                        if receipt.get("reaped") is not True:
+                            raise RuntimeError("worker reap was not acknowledged")
+                        if time.monotonic() >= deadline:
+                            raise subprocess.TimeoutExpired(command, timeout)
+                        os.write(write_fd, b"1")
+                        os.close(write_fd)
+                        write_fd = None
+                if process.poll() is not None:
+                    if exited:
+                        break
+                    # Drain once after observing exit: the final marker may
+                    # have been written between our read and this poll.
+                    exited = True
+                    continue
+                time.sleep(0.01)
+            if process.returncode == 0 and phases != expected:
+                raise RuntimeError("generated client phase acknowledgement is missing")
+    except BaseException as error:
+        failure = error
+    finally:
+        for descriptor in (read_fd, write_fd):
+            if descriptor is not None:
+                os.close(descriptor)
+        if process is not None:
+            if process.stdin is not None and not process.stdin.closed:
+                process.stdin.close()
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=10)
+    stdout = stdout_path.read_text(errors="replace")
+    stderr = stderr_path.read_text(errors="replace")
+    if isinstance(failure, subprocess.TimeoutExpired):
+        raise subprocess.TimeoutExpired(command, timeout, output=stdout, stderr=stderr)
+    if failure is not None:
+        raise failure
+    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
 
 
 BOOTSTRAP = r"""
@@ -141,6 +283,9 @@ def main():
     commands = 0
     busy_retries = 0
     busy_attempts = []
+    worker_isolation = None
+    contention_check = None
+    generated_phases = []
 
     def request(path, body=None, *, authorized=True, headers=None):
         nonlocal commands, busy_retries
@@ -240,6 +385,11 @@ def main():
         processes.append(child)
         return child
 
+    def isolate_worker():
+        nonlocal worker_isolation
+        worker_isolation = stop_owned_worker(worker)
+        return worker_isolation
+
     def wait_ready():
         deadline = time.monotonic() + 20
         while time.monotonic() < deadline:
@@ -252,9 +402,9 @@ def main():
             time.sleep(0.1)
         raise RuntimeError("HTTP server or worker did not become ready")
 
-    server = start("serve")
-    worker = start("worker")
     try:
+        server = start("serve")
+        worker = start("worker")
         wait_ready()
         assert request("/v1/me", authorized=False)[0] == 401
         code, query = request(
@@ -285,49 +435,27 @@ def main():
             assert code == 200, result
             if result["state"] == "ready":
                 break
-            if result["state"] == "failed":
-                request(demand["status_url"] + "/retry", {})
+            assert result["state"] != "failed", result
             time.sleep(0.1)
         assert result["state"] == "ready", result
         ready = result["result"]
-        code, ticket = request(
-            "/v1/content-access",
-            {"file_id": ready["file_id"], "revision": ready["revision"]},
-        )
-        assert code == 200, ticket
-        code, data = request(
-            ticket["content_path"], authorized=False, headers={"Range": "bytes=0-7"}
-        )
-        assert code == 206 and data == b"\x89PNG\r\n\x1a\n"
-        assert (
-            request(
-                f"/v1/files/{state['source_file_id']}/content?revision={state['source_revision']}"
-            )[0]
-            == 404
-        )
-        code, events = request("/v1/events?cursor=" + replay)
-        assert code == 200 and any(e["state"] == "ready" for e in events["events"]), (
-            events
-        )
         generated_busy_attempts = []
         if args.generated_client:
             timed_out = False
+            generated_error = None
             try:
-                generated = subprocess.run(
-                    ["node", str(args.generated_client.resolve())],
-                    input=json.dumps(
-                        {
-                            "base": base,
-                            "token": token,
-                            "state": state,
-                            "query_id": query_id,
-                        }
-                    ),
-                    text=True,
-                    capture_output=True,
-                    cwd=root,
-                    env=env,
-                    timeout=30,
+                generated = run_generated_client(
+                    args.generated_client,
+                    {
+                        "base": base,
+                        "token": token,
+                        "state": state,
+                        "query_id": query_id,
+                    },
+                    root,
+                    env,
+                    isolate_worker,
+                    generated_phases,
                 )
             except subprocess.TimeoutExpired as error:
                 timed_out = True
@@ -335,6 +463,14 @@ def main():
                 # partial client evidence before producing the incomplete report.
                 generated = subprocess.CompletedProcess(
                     error.cmd, 124, error.stdout or "", error.stderr or ""
+                )
+            except (RuntimeError, OSError) as error:
+                generated_error = str(error)
+                generated = subprocess.CompletedProcess(
+                    ["node", str(args.generated_client.resolve())],
+                    1,
+                    (root / "generated-client.stdout").read_text(errors="replace"),
+                    (root / "generated-client.stderr").read_text(errors="replace"),
                 )
             stdout = (
                 generated.stdout.decode(errors="replace")
@@ -366,9 +502,15 @@ def main():
                             "commands": commands,
                             "catalog_busy_attempts": busy_attempts,
                             "generated_client_busy_attempts": generated_busy_attempts,
+                            "generated_client_phases": generated_phases,
+                            "worker_isolation": worker_isolation,
+                            "contention_check": contention_check,
                             "error": "generated_client_timed_out"
                             if timed_out
+                            else "generated_client_phase_failed"
+                            if generated_error
                             else "generated_client_failed",
+                            "phase_error": generated_error,
                         },
                         indent=2,
                     )
@@ -377,6 +519,38 @@ def main():
                 raise RuntimeError(
                     "generated client failed; preserved output and busy evidence"
                 )
+        # Processing/restart is exercised with the real worker. Ticket issuance,
+        # transfer and generated-client mutations then run without our background
+        # heartbeat racing them. Never broaden replay safety to make this pass.
+        if worker_isolation is None:
+            worker_isolation = stop_owned_worker(worker)
+        before_commands, before_busy = commands, len(busy_attempts)
+        contention_check = check_writer_contention(root, request)
+        assert commands == before_commands + 1
+        assert len(busy_attempts) == before_busy + 1
+        assert busy_attempts[-1]["retried"] is False
+        busy_attempts[-1]["phase"] = contention_check["phase"]
+        contention_check["attempts"] = 1
+        contention_check["retried"] = False
+        code, ticket = request(
+            "/v1/content-access",
+            {"file_id": ready["file_id"], "revision": ready["revision"]},
+        )
+        assert code == 200, ticket
+        code, data = request(
+            ticket["content_path"], authorized=False, headers={"Range": "bytes=0-7"}
+        )
+        assert code == 206 and data == b"\x89PNG\r\n\x1a\n"
+        assert (
+            request(
+                f"/v1/files/{state['source_file_id']}/content?revision={state['source_revision']}"
+            )[0]
+            == 404
+        )
+        code, events = request("/v1/events?cursor=" + replay)
+        assert code == 200 and any(e["state"] == "ready" for e in events["events"]), (
+            events
+        )
         artifacts_after = artifact_hashes(Path(native), args.generated_client)
         if artifacts_before != artifacts_after:
             (root / "report.json").write_text(
@@ -395,6 +569,9 @@ def main():
             "catalog_busy_attempts": busy_attempts,
             "generated_client_busy_attempts": generated_busy_attempts,
             "generated_client": bool(args.generated_client),
+            "generated_client_phases": generated_phases,
+            "worker_isolation": worker_isolation,
+            "contention_check": contention_check,
             "fixture_python": interpreter,
             "native_cli": native,
             "artifacts": artifacts_before,
@@ -409,6 +586,11 @@ def main():
                 "saved_selection",
                 "durable_rendition",
                 "server_worker_restart",
+                "worker_isolated_after_ready",
+                "generated_client_phased_isolation"
+                if args.generated_client
+                else "python_only_isolation",
+                "separate_writer_admission_contention",
                 "opaque_ticket",
                 "exact_range",
                 "original_denied",
@@ -426,6 +608,9 @@ def main():
                         "complete": False,
                         "commands": commands,
                         "catalog_busy_attempts": busy_attempts,
+                        "generated_client_phases": generated_phases,
+                        "worker_isolation": worker_isolation,
+                        "contention_check": contention_check,
                         "error": "qualification_failed",
                     },
                     indent=2,
@@ -441,7 +626,7 @@ def main():
                     process.wait(timeout=10)
                 except subprocess.TimeoutExpired:
                     process.kill()
-                    process.wait()
+                    process.wait(timeout=10)
         for log in logs:
             log.close()
 

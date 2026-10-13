@@ -291,7 +291,9 @@ dependencies = [
  "catabolic-http",
  "catabolic-runtime",
  "catabolic-store",
+ "libc",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -304,6 +306,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "catabolic-dist"
+version = "0.2.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+]
+
+[[package]]
 name = "catabolic-http"
 version = "0.2.0"
 dependencies = [
@@ -313,8 +326,10 @@ dependencies = [
  "catabolic-store",
  "form_urlencoded",
  "futures",
+ "http-body-util",
  "rusqlite",
  "serde_json",
+ "tempfile",
  "tokio",
  "uuid",
 ]
@@ -324,6 +339,7 @@ name = "catabolic-python"
 version = "0.2.0"
 dependencies = [
  "catabolic-core",
+ "catabolic-http",
  "catabolic-runtime",
  "catabolic-store",
  "pyo3",
@@ -334,6 +350,7 @@ dependencies = [
 name = "catabolic-runtime"
 version = "0.2.0"
 dependencies = [
+ "base64 0.22.1",
  "catabolic-core",
  "catabolic-store",
  "chrono",
@@ -341,11 +358,13 @@ dependencies = [
  "num-bigint",
  "roxmltree",
  "rusqlite",
+ "rustls",
  "serde_json",
  "sha2",
  "tempfile",
  "ureq",
  "uuid",
+ "webpki-roots",
 ]
 
 [[package]]

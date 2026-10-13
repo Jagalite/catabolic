@@ -6,6 +6,10 @@ import sys
 from pathlib import Path
 
 from . import _native
+from . import scan_execution as scan_execution
+from . import watchers as watchers
+from . import source_events as source_events
+from .watchers import Watchers as Watchers
 from . import access as access
 from . import content_access as content_access
 from . import fallback_projection as fallback_projection
@@ -19,6 +23,7 @@ from .item_workflow import ItemWorkflow as ItemWorkflow
 from .media_catalog import MediaCatalog as MediaCatalog
 from .processing import Processing as Processing
 from .query import CatalogQuery as CatalogQuery
+from .reconcile import Reconciler as Reconciler
 from .saved_queries import Queries as Queries
 from .store import CatabolicError as CatabolicError
 from .store import NativeCommandHandle as NativeCommandHandle

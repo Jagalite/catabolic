@@ -1,0 +1,236 @@
+{
+  "schema": 1,
+  "recorded_utc": "2026-10-12T21:40:18Z",
+  "scope": "Local selected mapping-events complete-subject presentation and its Store companion only; no full-leaf, installed, milestone, platform or release qualification",
+  "base_commit": "343d7e83a8c275dc282cda9b1ac0e6b4a320aaa6",
+  "initial_source_commit": "9212df8177cdad69028c185e53b1ad93999bfe3b",
+  "qualified_source_commit": "7f3c3f25ac4c0ca4501f740aee2896f371c663e7",
+  "source_snapshot_sha256": "739d91722acb06619ab4a2216dfa1bb99245f1f795a39d2bbe58a03b28d9aafb",
+  "artifact": {
+    "path": "target/debug/catabolic-legacy-native",
+    "sha256": "3a88f0da275151203e60e8657074c55502f0ddb3e885ba77da0032cd2714ab66"
+  },
+  "preserved_artifacts": {
+    "source_commit": "7f3c3f25ac4c0ca4501f740aee2896f371c663e7",
+    "artifacts": [
+      {
+        "path": "target/debug/catabolic-legacy-native",
+        "sha256": "3a88f0da275151203e60e8657074c55502f0ddb3e885ba77da0032cd2714ab66",
+        "bytes": 73966176,
+        "archive": ".local-tests/mapping-order/artifacts/3a88f0da275151203e60e8657074c55502f0ddb3e885ba77da0032cd2714ab66.gz",
+        "archive_sha256": "b9b1885b9f1a8981672fc65a405afe729e4be499f274294c7ed2d7cf5e6fc538",
+        "mode": "0755"
+      },
+      {
+        "path": "target/debug/deps/catabolic_legacy_native-d4f7ddf6dd0b2ea4",
+        "sha256": "7cc244e5a581d4db5e82a7920d2cab5b8a67f0db5c9c978f27fa2371ea5b8700",
+        "bytes": 28536968,
+        "archive": ".local-tests/mapping-order/artifacts/7cc244e5a581d4db5e82a7920d2cab5b8a67f0db5c9c978f27fa2371ea5b8700.gz",
+        "archive_sha256": "c781ee50e8e3d22ce45da020b3a636f1541086749e1b9b6c8414869e02de2101",
+        "mode": "0755"
+      },
+      {
+        "path": "target/debug/deps/catabolic_store-11b57663c905a265",
+        "sha256": "461752d5f645dd88f6bf0fc2f909bf233ad6ac54314d5b42e49f8834404a91dd",
+        "bytes": 47027240,
+        "archive": ".local-tests/mapping-order/artifacts/461752d5f645dd88f6bf0fc2f909bf233ad6ac54314d5b42e49f8834404a91dd.gz",
+        "archive_sha256": "3cc74325aae75c2fe9bad2ae78ba5965273b55c3df007ceb42945abb1020d9c0",
+        "mode": "0755"
+      }
+    ]
+  },
+  "toolchain": {
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1",
+    "python314": "Python 3.14.6",
+    "python311": "Python 3.11.15",
+    "cargo": "offline --locked; jobs1; dev/test debug0; incremental0; exclusively transferred inactive bundle-preview target; no new cache"
+  },
+  "oracle": {
+    "commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "verification": "All518 inventory resources verified by qualifier; frozen archive is not an available Git tree in this checkout",
+    "evidence": {
+      "path": ".local-tests/mapping-order/frozen-reference-source.json",
+      "sha256": "ced2eaf1630f99a93011196ce0a4e49bc1c33a99282971599b6ee29a93838d62",
+      "bytes": 57388
+    }
+  },
+  "python314": {
+    "test_methods": 17,
+    "result": "passed",
+    "path": ".local-tests/mapping-order/python-corrected.log",
+    "sha256": "ee5a13567ddc05b2946423f5fbf6d6a3e80650d6083e9037cdfc9095ee8d48a0",
+    "bytes": 3400
+  },
+  "python311": {
+    "test_methods": 7,
+    "result": "passed",
+    "path": ".local-tests/mapping-order/python311-corrected.log",
+    "sha256": "aa02205d53ae36ba0c6967413ce0ad989e55f3bc4fff3392e9103e2191094637",
+    "bytes": 1500
+  },
+  "rust_units": [
+    {
+      "count": 10,
+      "result": "passed",
+      "path": ".local-tests/mapping-order/store-tests-corrected.log",
+      "sha256": "27c1d809d5d71a57e6045611ac7fcebcccb7e35609b44e840dc05e85df80de86",
+      "bytes": 1179
+    },
+    {
+      "count": 18,
+      "result": "passed",
+      "path": ".local-tests/mapping-order/all-cli-units.log",
+      "sha256": "2128808709720f32aec0263a5f3833fcf9a1753942e11f4586e7bced31ce5969",
+      "bytes": 1909
+    }
+  ],
+  "paired_scope": "Six new order methods comprise75 exact regular process comparisons and3 real-SIGINT pairs in each selected Python; existing11 history methods include filter/cap/queue/recovery/admission.3.11 also runs existing omitted-db method.",
+  "commands": [
+    "cargo build -p catabolic-cli --bin catabolic-legacy-native --locked --offline",
+    "cargo test -p catabolic-store --lib mapping_history:: --locked --offline",
+    "cargo test -p catabolic-cli --bin catabolic-legacy-native --locked --offline",
+    "python -m unittest tests.test_rust_legacy_mapping_event_order tests.test_rust_legacy_mapping_history -v",
+    "python311 -m unittest tests.test_rust_legacy_mapping_event_order tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_missing_database_admission -v",
+    "cargo clippy -p catabolic-cli --bin catabolic-legacy-native --locked --offline --no-deps -- -D warnings",
+    "cargo clippy -p catabolic-store --lib --locked --offline --no-deps -- -D warnings",
+    "cargo fmt --all -- --check",
+    "python -m ruff check tests/test_rust_legacy_mapping_event_order.py tests/test_rust_legacy_mapping_history.py tests/test_native_cli_owner_ledger.py scripts/legacy_cli_owners.py",
+    "python scripts/legacy_cli_owners.py --check"
+  ],
+  "checks": [
+    {
+      "path": ".local-tests/mapping-order/build-corrected.log",
+      "sha256": "fe3d49358ef9f9f6c1b06ee92528735939e07fe8dc9e3a0d9e93c58abed515b4",
+      "bytes": 179
+    },
+    {
+      "path": ".local-tests/mapping-order/clippy-corrected.log",
+      "sha256": "e3d6d8efa9c54ba95977e4810fcefc7468ddb2527658f463efda895efa656de0",
+      "bytes": 179
+    },
+    {
+      "path": ".local-tests/mapping-order/store-clippy-corrected.log",
+      "sha256": "f1d0e587f4eaf9c5f6803d3e9210c0e1b536942252f03191c763f7b78b97cc4a",
+      "bytes": 60
+    },
+    {
+      "path": ".local-tests/mapping-order/rustfmt-corrected.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".local-tests/mapping-order/ruff-corrected.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "bytes": 19
+    },
+    {
+      "path": ".local-tests/mapping-order/ruff-format.log",
+      "sha256": "177f260a5645724013185e4b140c7045cc39e56c0c97b120f5cb23599f85f0de",
+      "bytes": 26
+    },
+    {
+      "path": ".local-tests/mapping-order/ledger-generation-corrected.log",
+      "sha256": "2ce87dc73034b5b8bb87d0fef6ff35c6e852998f01bc35c7c9a2d96d0eb7c920",
+      "bytes": 63
+    },
+    {
+      "path": ".local-tests/mapping-order/ledger-focused-corrected.log",
+      "sha256": "344f513e75aa59f6471469c5574f494fefc2423fd02e294c8663abd3dfb39c01",
+      "bytes": 420
+    },
+    {
+      "path": ".local-tests/mapping-order/artifact-before.txt",
+      "sha256": "97dbce7391c5883e0573d3c69477b99f226d6617d1a2b4e927b70263f0748575",
+      "bytes": 165
+    },
+    {
+      "path": ".local-tests/mapping-order/artifact-after.txt",
+      "sha256": "97dbce7391c5883e0573d3c69477b99f226d6617d1a2b4e927b70263f0748575",
+      "bytes": 165
+    }
+  ],
+  "discovery_preflight": {
+    "result": "passed",
+    "python": "3.14.6",
+    "unique_scenarios": 1132,
+    "imports_verified": 244,
+    "scenarios_executed": 0,
+    "new_order_ids": 6,
+    "history_ids": 11,
+    "source_fenced_but_unregistered_unchanged_helper": "refused; admission unchanged",
+    "evidence": {
+      "path": ".local-tests/mapping-order/discovery-314.json",
+      "sha256": "849ca2a4ec18810f86b30e5da0d72188acd93bc10b8515a60849aadec7b6d80b",
+      "bytes": 211431
+    },
+    "script": {
+      "path": ".local-tests/mapping-order/discovery-preflight.py",
+      "sha256": "f0740356043ce402e07736281046afd07228f798a7e965d0eb6b98653e48f27e",
+      "bytes": 3620
+    }
+  },
+  "review": {
+    "result": "no remaining actionable findings",
+    "evidence": {
+      "path": ".local-tests/mapping-order/review/review.json",
+      "sha256": "4a2f3cef96bccd69a9132bd2b98899c707149654e891ad759a8056657ff8721d",
+      "bytes": 6285
+    },
+    "independent_logs": "Retained excerpts are explicitly transcribed from terminal-tool output, not original full process logs",
+    "limits": [
+      "Rust unit tests and producer logs were inspected, not independently rebuilt or rerun.",
+      "Extreme depth-510 expected-success probe encountered frozen Python text renderer RecursionError. This is an unqualified edge, not a newly attributed regression, and is excluded from passing evidence.",
+      "Independent terminal output was captured by execution tools rather than redirected. Retained .txt files are explicitly labeled excerpts transcribed from those tool responses; full original process logs were not saved.",
+      "Product source was not modified. This retention step ran no tests. Disposable fixtures were cleaned by their test cleanup."
+    ]
+  },
+  "retained_failures": [
+    {
+      "source": "9212df8",
+      "artifact": "5a60abe0e4dbce313580cc13edd072ea91a02326ef3b3ab56829b6508e0718f3",
+      "result": "16/17 Python3.14 methods passed; omitted-db diagnostic failed",
+      "resolution": "7f3c3f2 retains original dispatch for empty db; final complete replay passes",
+      "log": {
+        "path": ".local-tests/mapping-order/python-final.log",
+        "sha256": "ee16a02a4cdab96c700686509179439e496fe84e89294d54f7efcef9e1a92f0a",
+        "bytes": 4520
+      },
+      "artifact_preservation": {
+        "path": ".local-tests/mapping-order/failed-artifact.json",
+        "sha256": "23eeb24ae01dc514345b9128dfc5dd44faadd5606b1c8fc575317bdc7eb71ef1",
+        "bytes": 555
+      }
+    },
+    {
+      "scope": "Unrelated base ledger test",
+      "result": "5/6 pass; SIGTERM differences literal assertion remains stale at base343d7e8",
+      "resolution": "Not changed in this branch; separate parent correction",
+      "log": {
+        "path": ".local-tests/mapping-order/ledger-tests-known-baseline-failure.log",
+        "sha256": "e2eb74ffb50cbe6ae2cb6da7bc553c61505c7e10029b153a66afdd81ee15574a",
+        "bytes": 2201
+      }
+    },
+    {
+      "scope": "Optional Python3.11 full native discovery",
+      "result": "Blocked before execution by missing httpx/fastapi dependencies in provided reference interpreter",
+      "resolution": "No installs, skips or admission relaxation; Python3.14 full discovery passes",
+      "log": {
+        "path": ".local-tests/mapping-order/discovery311.log",
+        "sha256": "ab4667aea5e37afad695001d05f9e6d61ab64b031d12b9a34008c206fe0a5996",
+        "bytes": 9185
+      }
+    }
+  ],
+  "remaining_gaps": [
+    "Malformed-subject, duplicate top-level subject-id and missing-summary-field exception/diagnostic parity",
+    "Broader catalog/path admission and extreme-depth frozen text recursion edge; depth510 is not passing parity evidence",
+    "Full-leaf, callable/installed-artifact, platform and release qualification"
+  ],
+  "gates": {
+    "python_remains_default": true,
+    "M6_fail_closed_unchanged": true,
+    "milestones_closed": [],
+    "previously_denied_broad_reviews_retried": false
+  }
+}

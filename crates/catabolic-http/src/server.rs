@@ -54,6 +54,9 @@ pub(crate) struct App {
     pub config: ServerConfig,
     pub limits: Arc<Limits>,
     pub requests: Arc<tokio::sync::Semaphore>,
+    // An experimental in-process transport keeps its disposable catalog alive
+    // until all route and stream owners release this state.
+    pub _fixture: Option<Arc<crate::asgi::DisposableCatalog>>,
 }
 pub fn serve(path: &Path, config: ServerConfig) -> Result<()> {
     let listener = TcpListener::bind((config.host.as_str(), config.port))?;
@@ -66,25 +69,8 @@ pub fn serve_listener(path: &Path, config: ServerConfig, listener: TcpListener) 
                 .into(),
         ));
     }
-    if config
-        .allowed_hosts
-        .iter()
-        .chain(&config.origins)
-        .any(|v| v.contains('*'))
-    {
-        return Err(Error("HTTP hosts and CORS origins must be explicit".into()));
-    }
-    if config.streams == 0 || config.per_principal == 0 || config.rate == 0 {
-        return Err(Error("invalid HTTP limits".into()));
-    }
-    drop(Store::open(path, false, false)?);
+    let state = application(path, config, None)?;
     listener.set_nonblocking(true)?;
-    let state = Arc::new(App {
-        database: path.to_owned(),
-        limits: Limits::new(config.streams, config.per_principal, config.rate),
-        config,
-        requests: Arc::new(tokio::sync::Semaphore::new(64)),
-    });
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .max_blocking_threads(32)
@@ -101,6 +87,31 @@ pub fn serve_listener(path: &Path, config: ServerConfig, listener: TcpListener) 
                 .await
                 .map_err(|e| Error(e.to_string()))
         })
+}
+pub(crate) fn application(
+    path: &Path,
+    config: ServerConfig,
+    fixture: Option<Arc<crate::asgi::DisposableCatalog>>,
+) -> Result<Arc<App>> {
+    if config
+        .allowed_hosts
+        .iter()
+        .chain(&config.origins)
+        .any(|v| v.contains('*'))
+    {
+        return Err(Error("HTTP hosts and CORS origins must be explicit".into()));
+    }
+    if config.streams == 0 || config.per_principal == 0 || config.rate == 0 {
+        return Err(Error("invalid HTTP limits".into()));
+    }
+    drop(Store::open(path, false, false)?);
+    Ok(Arc::new(App {
+        database: path.to_owned(),
+        limits: Limits::new(config.streams, config.per_principal, config.rate),
+        config,
+        _fixture: fixture,
+        requests: Arc::new(tokio::sync::Semaphore::new(64)),
+    }))
 }
 fn header<'a>(h: &'a HeaderMap, key: &str) -> Option<&'a str> {
     h.get(key).and_then(|v| v.to_str().ok())
@@ -121,7 +132,7 @@ fn redirect_url(url: &str) -> String {
     }
     result
 }
-async fn handle(State(app): State<Arc<App>>, request: Request) -> Response<Body> {
+pub(crate) async fn handle(State(app): State<Arc<App>>, request: Request) -> Response<Body> {
     let method = request.method().as_str().to_owned();
     let headers = request.headers().clone();
     let mut response = handle_inner(app.clone(), request)

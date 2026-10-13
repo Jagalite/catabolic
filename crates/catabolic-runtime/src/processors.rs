@@ -7,6 +7,80 @@ use catabolic_store::{Error, Result, Store, processor_mutation as storage};
 use serde_json::{Value, json};
 use std::{io::Read, time::Duration};
 const MAX_RESPONSE: usize = 1024 * 1024;
+pub const WORKER_ARGUMENT: &str = "__processor-http-worker";
+
+/// Private native transport helper. The existing process supervisor bounds DNS,
+/// TLS, body reads and cancellation, and reaps this worker before returning.
+pub fn worker_main() {
+    use base64::Engine;
+    use std::io::Write;
+    let result = (|| -> Result<Vec<u8>> {
+        let mut bytes = Vec::new();
+        std::io::stdin().take(262145).read_to_end(&mut bytes)?;
+        if bytes.len() > 262144 {
+            return Err(Error("HTTP request exceeds input limit".into()));
+        }
+        HttpTransport.request(&catabolic_core::decode_json_bytes(&bytes)?)
+    })();
+    let result = match result {
+        Ok(bytes) => json!({"bytes":base64::engine::general_purpose::STANDARD.encode(bytes)}),
+        Err(error) => json!({"error":error.0}),
+    };
+    let _ = writeln!(std::io::stdout(), "{}", catabolic_core::encode(&result));
+}
+
+pub struct SupervisedTransport<'a> {
+    pub executable: &'a std::path::Path,
+    pub cancel: &'a std::sync::atomic::AtomicBool,
+}
+impl Transport for SupervisedTransport<'_> {
+    fn request(&mut self, request: &Value) -> Result<Vec<u8>> {
+        use base64::Engine;
+        use std::{ffi::OsStr, sync::atomic::Ordering};
+        let input = catabolic_core::encode(request);
+        if input.len() > 262144 {
+            return Err(Error("HTTP request exceeds input limit".into()));
+        }
+        let timeout = request["timeout"]
+            .as_u64()
+            .filter(|v| (1..=60).contains(v))
+            .ok_or_else(|| Error("HTTP timeout must be 1..60 seconds".into()))?;
+        let result = crate::process::command_output(
+            &[self.executable.as_os_str(), OsStr::new(WORKER_ARGUMENT)],
+            crate::process::CommandOptions {
+                input_bytes: Some(input.as_bytes()),
+                cancel: Some(self.cancel),
+                timeout: Duration::from_secs(timeout),
+                maximum: 2 * MAX_RESPONSE,
+                ..Default::default()
+            },
+        );
+        if self.cancel.load(Ordering::Acquire)
+            || result.as_ref().is_err_and(|e| e.state == "cancelled")
+        {
+            return Err(Error("native legacy CLI interrupted".into()));
+        }
+        let failed = || Error("HTTP worker failed; check endpoint and network".into());
+        if result.as_ref().is_err_and(|error| error.state == "timeout") {
+            return Err(Error("HTTP request exceeded the elapsed-time limit".into()));
+        }
+        let result = result.map_err(|_| failed())?;
+        if result.returncode != 0 || !result.stderr.is_empty() {
+            return Err(failed());
+        }
+        let result = catabolic_core::decode_json_bytes(&result.stdout).map_err(|_| failed())?;
+        if let Some(error) = result["error"].as_str() {
+            return Err(Error(error.to_owned()));
+        }
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(result["bytes"].as_str().ok_or_else(failed)?)
+            .map_err(|_| failed())?;
+        if bytes.len() > MAX_RESPONSE {
+            return Err(Error("HTTP response exceeds byte limit".into()));
+        }
+        Ok(bytes)
+    }
+}
 
 pub trait Transport {
     fn request(&mut self, request: &Value) -> Result<Vec<u8>>;
@@ -79,6 +153,21 @@ impl Transport for HttpTransport {
             }
             _ => return Err(Error("invalid processor HTTP method".into())),
         };
+        // The transport still refuses every redirect. Match the frozen worker's
+        // presentation only when its redirect handler would receive this normal
+        // Location/URI reference; other HTTP statuses keep their status error.
+        if [301, 302, 303, 307, 308].contains(&response.status().as_u16())
+            && response
+                .headers()
+                .get("Location")
+                .or_else(|| response.headers().get("URI"))
+                .and_then(|value| value.to_str().ok())
+                .is_some_and(redirect_handler_reference)
+        {
+            return Err(Error(
+                "redirect refused; configure the final endpoint explicitly".into(),
+            ));
+        }
         if !response.status().is_success() {
             return Err(Error(format!(
                 "HTTP request failed with status {}",
@@ -92,7 +181,7 @@ impl Transport for HttpTransport {
             .and_then(|v| v.parse::<u64>().ok())
             .is_some_and(|n| n > MAX_RESPONSE as u64)
         {
-            return Err(Error("HTTP response exceeds limit".into()));
+            return Err(Error("HTTP response exceeds byte limit".into()));
         }
         let mut bytes = Vec::new();
         response
@@ -102,11 +191,29 @@ impl Transport for HttpTransport {
             .read_to_end(&mut bytes)
             .map_err(|_| failed())?;
         if bytes.len() > MAX_RESPONSE {
-            return Err(Error("HTTP response exceeds limit".into()));
+            return Err(Error("HTTP response exceeds byte limit".into()));
         }
         Ok(bytes)
     }
 }
+// This chooses a diagnostic, never an endpoint to contact. urllib's frozen
+// redirect handler accepts relative references and HTTP(S)/FTP schemes, and
+// reports other schemes as ordinary HTTP status failures before NoRedirect.
+fn redirect_handler_reference(location: &str) -> bool {
+    let location = location.trim_start_matches(|c: char| c <= ' ');
+    let Some((scheme, _)) = location.split_once(':') else {
+        return true;
+    };
+    let has_scheme = scheme.starts_with(|c: char| c.is_ascii_alphabetic())
+        && scheme
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'+' | b'-' | b'.'));
+    !has_scheme
+        || ["http", "https", "ftp"]
+            .iter()
+            .any(|expected| scheme.eq_ignore_ascii_case(expected))
+}
+
 pub fn dispatch_with_transport(
     store: &mut Store,
     profile: &str,
@@ -149,7 +256,7 @@ pub fn dispatch_with_transport(
     let request = json!({"url":format!("{}/jobs/{}/{}",config["endpoint"].as_str().unwrap(),id,row["generation"]),"method":if row["state"]=="leased"{"PUT"}else{"GET"},"body":if row["state"]=="leased"{body}else{Value::Null},"timeout":config["timeout"],"credential_env":config["credential_env"]});
     let raw = store.detached(|| transport.request(&request))?;
     if raw.len() > MAX_RESPONSE {
-        return Err(Error("HTTP response exceeds limit".into()));
+        return Err(Error("HTTP response exceeds byte limit".into()));
     }
     let response = catabolic_core::decode_json_bytes(&raw)
         .map_err(|_| Error("processor returned invalid JSON".into()))?;
@@ -217,6 +324,56 @@ mod tests {
         net::TcpListener,
         os::unix::fs::MetadataExt,
     };
+    #[test]
+    fn supervised_cancellation_reaps_helper_before_returning() {
+        use std::{
+            os::unix::fs::PermissionsExt,
+            sync::{
+                Arc,
+                atomic::{AtomicBool, Ordering},
+            },
+        };
+        let root = tempfile::tempdir().unwrap();
+        let executable = root.path().join("helper");
+        let pid_file = root.path().join("pid");
+        std::fs::write(
+            &executable,
+            format!(
+                "#!/bin/sh\nprintf '%s' \"$$\" > '{}'\nsleep 60\n",
+                pid_file.display()
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let token = cancel.clone();
+        let child = std::thread::spawn(move || {
+            SupervisedTransport {
+                executable: &executable,
+                cancel: &token,
+            }
+            .request(&json!({"timeout":60}))
+        });
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while !pid_file.exists() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let pid: libc::pid_t = std::fs::read_to_string(pid_file).unwrap().parse().unwrap();
+        cancel.store(true, Ordering::Release);
+        assert_eq!(
+            child.join().unwrap().unwrap_err().0,
+            "native legacy CLI interrupted"
+        );
+        let mut status = 0;
+        // SAFETY: pid is our disposable direct child; status is writable and
+        // WNOHANG never waits on an unrelated process.
+        let waited = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+        assert_eq!(waited, -1);
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::ECHILD)
+        );
+    }
     struct Fixture {
         dir: tempfile::TempDir,
         store: Store,
@@ -316,10 +473,16 @@ mod tests {
     #[test]
     fn changed_source_prevents_dispatch_and_bad_responses_leave_lease_retryable() {
         let mut f = Fixture::new("http://127.0.0.1:9");
-        for raw in [
-            b"NaN".to_vec(),
-            b"{\"state\":\"unexpected\"}".to_vec(),
-            vec![b' '; MAX_RESPONSE + 1],
+        for (raw, message) in [
+            (b"NaN".to_vec(), "processor returned invalid JSON"),
+            (
+                b"{\"state\":\"unexpected\"}".to_vec(),
+                "processor returned an invalid job state",
+            ),
+            (
+                vec![b' '; MAX_RESPONSE + 1],
+                "HTTP response exceeds byte limit",
+            ),
         ] {
             let mut reply = Reply {
                 raw,
@@ -327,7 +490,7 @@ mod tests {
                 cancel: false,
                 calls: 0,
             };
-            assert!(f.run(&mut reply).is_err());
+            assert_eq!(f.run(&mut reply).unwrap_err().0, message);
             assert_eq!(
                 storage::job(&f.store, "default", f.lease["id"].as_str().unwrap()).unwrap()["state"],
                 "leased"
@@ -425,8 +588,26 @@ mod tests {
     }
     #[test]
     fn real_http_does_not_follow_redirects_or_accept_oversize_bodies() {
-        for response in ["HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:9/secret\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_owned(),format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",MAX_RESPONSE+1)]{
-            let listener=TcpListener::bind("127.0.0.1:0").unwrap();let endpoint=format!("http://{}",listener.local_addr().unwrap());let server=std::thread::spawn(move||{let(socket,_)=listener.accept().unwrap();let(mut socket,_,_)=incoming(socket);socket.write_all(response.as_bytes()).unwrap();});let request=json!({"url":endpoint,"method":"GET","timeout":2});assert!(HttpTransport.request(&request).is_err());server.join().unwrap();
+        for (response, expected) in [
+            (
+                "HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:9/secret\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_owned(),
+                "redirect refused; configure the final endpoint explicitly",
+            ),
+            (
+                format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", MAX_RESPONSE + 1),
+                "HTTP response exceeds byte limit",
+            ),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let endpoint = format!("http://{}", listener.local_addr().unwrap());
+            let server = std::thread::spawn(move || {
+                let (socket, _) = listener.accept().unwrap();
+                let (mut socket, _, _) = incoming(socket);
+                socket.write_all(response.as_bytes()).unwrap();
+            });
+            let request = json!({"url":endpoint,"method":"GET","timeout":2});
+            assert_eq!(HttpTransport.request(&request).unwrap_err().0, expected);
+            server.join().unwrap();
         }
     }
     #[test]

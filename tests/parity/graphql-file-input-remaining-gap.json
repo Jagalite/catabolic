@@ -1,0 +1,52 @@
+{
+  "status": "Historical CLI file-admission gap preserved verbatim; corrected by the later native file-boundary slice, outside the document-validation checkpoint.",
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "reference_python": "3.14.6",
+  "name": "legacy-graphql-file-byte-limit-wording",
+  "surface": "graphql --file -",
+  "document_prefix": "query($f:RenditionFilter={current:true,current:false}){renditions(matching:$f){nodes}}",
+  "trailing_ascii_spaces": 130987,
+  "document_bytes": 131073,
+  "document_sha256": "93f66d77d7b332cd6d0656eb008419faf8121a79435cd6d877b41366a29fffd1",
+  "variables": {},
+  "expected": {
+    "code": 2,
+    "stderr": "",
+    "stdout": {
+      "interface_version": 1,
+      "command": "graphql",
+      "operation": null,
+      "profile": "default",
+      "outcome": "error",
+      "exit_code": 2,
+      "data": {
+        "error": {
+          "message": "input exceeds 131072 bytes",
+          "type": "CatabolicError"
+        }
+      }
+    }
+  },
+  "observed": {
+    "code": 2,
+    "stderr": "",
+    "stdout": {
+      "interface_version": 1,
+      "command": "graphql",
+      "operation": null,
+      "profile": "default",
+      "outcome": "error",
+      "exit_code": 2,
+      "data": {
+        "error": {
+          "message": "query document must be at most 131072 bytes",
+          "type": "CatabolicError"
+        }
+      }
+    }
+  },
+  "baseline": {
+    "source_commit": "b11666f5259fb414cacf6653b81f74129e30bfcd",
+    "artifact_sha256": "cad859c4e7061f7bc1a7803f06417073a37c28d0b33e69d0e2db0ce54e484801"
+  }
+}

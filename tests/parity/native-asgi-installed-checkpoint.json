@@ -1,0 +1,78 @@
+{
+  "format": 1,
+  "scope": "Installed-ASGI gate/source controls and development fixture replay only",
+  "strict_installed_qualification": false,
+  "production_http_qualified": false,
+  "paired_python311_qualified": false,
+  "base_commit": "e49a481",
+  "mandatory_installed_lanes": {
+    "full": {
+      "python": "3.14.6",
+      "adapter_methods": 15,
+      "smoke_methods": 6,
+      "required_successes": 21
+    },
+    "minimal": {
+      "python": "3.11",
+      "smoke_methods": 6,
+      "required_successes": 6
+    }
+  },
+  "author_control_tests": {
+    "python314": {
+      "gate_discovery_artifact": 46,
+      "receipt_boundary": 14
+    },
+    "python311": {
+      "gate_discovery_artifact": 46,
+      "receipt_boundary": 14
+    }
+  },
+  "debug_fixture_replay": {
+    "development_only": true,
+    "wheel_sha256": "f740f9f67809d37e6023d157acec8b061ffd59246a80889d861db4c7eca299ce",
+    "extension_sha256": "16b05ce5edca611a72480adaf576f85b67e265c138ce86b507f527cd029988e4",
+    "python314_successes": 21,
+    "python311_smoke_successes": 6,
+    "strict_gate_refusal": "Reviewed debug wheel does not contain catabolic_native.cli or packaged release helpers; different pre-integration source"
+  },
+  "offline_dependency_export": {
+    "verified_cached_runtime_archives": 7,
+    "required_total_archives": 18,
+    "missing_http_archive_names": [
+      "fastapi",
+      "uvicorn",
+      "httpx",
+      "httpcore",
+      "annotated-doc",
+      "click",
+      "h11",
+      "starlette",
+      "anyio",
+      "idna",
+      "certifi"
+    ],
+    "required_versions_and_sha256": "requirements/http-test.lock",
+    "network_downloads_performed": false
+  },
+  "ci_routing_executed": false,
+  "remaining": [
+    "Unified same-source complete release artifact has not been built or tested by this task",
+    "Eleven exact HTTP wheel archives are absent; strict full replay is blocked",
+    "CI cache export and both mandatory installed lanes are wired but unexecuted",
+    "Production constructor, underlying owner-review gates, macOS and complete migration acceptance remain open"
+  ],
+  "source_files_sha256": {
+    "scripts/native_asgi_dependencies.py": "828111d9d64c7cd917545463e0677209032a5cb25cf0084d719c82fedc91725a",
+    "scripts/native_asgi_installed_tests.py": "91ea08e305ace141593b999de23e98d97ce29b965d4d656b18c2a7096d5c77ed",
+    "scripts/native_asgi_scenarios.py": "d8864fa16f50e462e8d2063f8fb640c3f4cfc5ef16e3d7cf3e6f36045d893999",
+    "scripts/qualify_native_mutations.py": "2786a51289ae47de96dae9a755fd0d88aa60c140efe5a967f7ff0b4849f1fc96",
+    "scripts/check-native-mutations.sh": "28d68e987bec91c5fae954f8c85a30c441ef68c5fe4f8f933629a19dbbb297fc",
+    ".github/workflows/native-qualification.yml": "634636d2c3c0c310b0f59a41ff73121d8adeb7649d8f45a8d36e7b44edb9a9c9",
+    "tests/test_native_asgi_discovery.py": "ff60d0a02fc6065467ec914241892238b07a570e1f14b1fb80d45d1255310757",
+    "tests/test_native_asgi_installed_qualification.py": "536762bf1ce01fa596c6328d5059c3103278c8ed541d18e9a62fa6767edf248e",
+    "tests/test_native_qualification_receipts.py": "458e83d1e7e73e77842995c578557d713553b57c59bab45a0c59ff65d40b7f8e",
+    "tests/test_rust_artifact_build.py": "090c7a271259b9f6909540727e882788bd3c6f1f48578014b76c6671f5129988"
+  },
+  "local_evidence_directory": ".local-tests/asgi-gate"
+}

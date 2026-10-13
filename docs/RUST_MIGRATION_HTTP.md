@@ -16,6 +16,12 @@ The opt-in CLI is `catabolic-native --db DATABASE api serve
 addresses, wildcard hosts/origins, and zero limits. The standalone
 `catabolic-http-experimental` binary exists only for disposable qualification.
 
+A real in-process Python ASGI adapter now exists only behind a freshly minted
+disposable-catalog capability. Ordinary path-based `create_app` still refuses;
+remote/missing peers and forwarding headers refuse before callbacks or route
+effects. It does not enable production HTTP or complete the preserved constructor
+row. See [the partial ASGI checkpoint](RUST_MIGRATION_ASGI_FIXTURES.md).
+
 `catabolic-native --db DATABASE api worker` selects the combined native worker;
 `--once` performs one step. Its single `.api-worker` lock protects playback
 recovery and work selection. Heartbeat/pruning precede playback, then rendition
@@ -166,7 +172,9 @@ findings. This qualification is scoped to the experimental loopback backend.
 
 - Private, unregistered, orphaned database-sidecar aliases are an explicit
   unresolved content-release blocker. Registered aliases and normal live
-  database sidecars passing tests do not close this gap.
+  database sidecars passing tests do not close this gap. The bounded
+  [recognizable WAL/SHM prefix refusal](RUST_MIGRATION_PRIVATE_SIDECAR_HEADERS.md)
+  also leaves damaged/unrecognizable orphaned sidecars unqualified.
 - Component-policy logical demand deliberately retains the frozen requirement
   for explicit local component packaging admission. Package resolution itself has
   a separate independent-catalog HTTP privacy gate, including child-order and

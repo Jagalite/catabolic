@@ -1,0 +1,175 @@
+{
+  "format": 1,
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "oracle_python": "3.14.6",
+  "inventory_sha256": "15867d844241b71ae1029448c5f1c5ebc56eb857ac74e013d26c7cdcb3183869",
+  "scope": "Four immutable companion-namespace values only; no Python default replacement or callable/SQL/schema behavior qualification",
+  "oracle_imports": {
+    "catabolic": {
+      "file": "src/catabolic/__init__.py",
+      "sha256": "e2e5051b5e9aa0043354ed1438d9c10deeeba94e9b97264a18855289e61aa3ff"
+    },
+    "catabolic.app": {
+      "file": "src/catabolic/app.py",
+      "sha256": "adc8c5ca6f9c131c9b228276925ccf52e58328e3d51c7fe512f0521727debf8b"
+    },
+    "catabolic.catalog_state": {
+      "file": "src/catabolic/catalog_state.py",
+      "sha256": "9e29246fa17721d858eda83db05ea06cf1dbe1c4b8c6f540367999ea6b07e846"
+    },
+    "catabolic.component_sql": {
+      "file": "src/catabolic/component_sql.py",
+      "sha256": "e738a2bc352b4fb3e2308dde95ca94612970294f32e5bd3d10e1fd47cf90d0f9"
+    },
+    "catabolic.curation": {
+      "file": "src/catabolic/curation.py",
+      "sha256": "b5ea028732b12f32f0057360b8df8782e7b91b81ef95e5989bf5ce0ee965b6f6"
+    },
+    "catabolic.database_io": {
+      "file": "src/catabolic/database_io.py",
+      "sha256": "b2383da2d86e75a831e0ec7020cd2f7fd8c7cdd4cf5f6b11def2a1a7f58708fb"
+    },
+    "catabolic.documentation": {
+      "file": "src/catabolic/documentation.py",
+      "sha256": "bdd4f5c7aaf6471b3d80157baa68db446c277f4b3c4c72157cdad79e3b531d8f"
+    },
+    "catabolic.domain": {
+      "file": "src/catabolic/domain.py",
+      "sha256": "fd4b9ef5e6c2fe0044e1dfa34420b2631ea4cce7ee747e33ef1de10bf0b6da52"
+    },
+    "catabolic.fallback_models": {
+      "file": "src/catabolic/fallback_models.py",
+      "sha256": "a80a1ad175e07a469a04f72443469f887f7562307ccdc7260a541d3e3eb7ac79"
+    },
+    "catabolic.filesystem": {
+      "file": "src/catabolic/filesystem.py",
+      "sha256": "82067a2251372ef8818fd68c1cfddcd444c5982377c9b4eebdcbf0b59563b50e"
+    },
+    "catabolic.graphql_query": {
+      "file": "src/catabolic/graphql_query.py",
+      "sha256": "ad777c33fa425193930acfba881794490cd643dcd535976531f09a55dad5fb24"
+    },
+    "catabolic.http": {
+      "file": "src/catabolic/http/__init__.py",
+      "sha256": "e130f14b703db13c2e838b3dc64d01d33198c854f269c357afbc285dc87c0466"
+    },
+    "catabolic.http.contract": {
+      "file": "src/catabolic/http/contract.py",
+      "sha256": "9f9b2f96bc2d553debb4c3e8792b90c160cc35bc0b9367f95aee53996646f630"
+    },
+    "catabolic.http.models": {
+      "file": "src/catabolic/http/models.py",
+      "sha256": "af56dab6271c0239d1af8a978264a4db62afcf8d7daef4f7142e9ff910783541"
+    },
+    "catabolic.item_workflow": {
+      "file": "src/catabolic/item_workflow.py",
+      "sha256": "5ce37d9923a4a1715f98524ecd6814f2cf40683f43228dc7bf4bcdf4adbf358e"
+    },
+    "catabolic.media": {
+      "file": "src/catabolic/media.py",
+      "sha256": "be71480e44b6c67a19d4243babab1c583784d63f3274032f5456381cc26233bc"
+    },
+    "catabolic.media_catalog": {
+      "file": "src/catabolic/media_catalog.py",
+      "sha256": "982af8143baa030e14aaeaece6025890f331080cb5660cb53929ec7b994e2227"
+    },
+    "catabolic.migration": {
+      "file": "src/catabolic/migration.py",
+      "sha256": "17cf1d3fecc6a2b60542370fb7663c72f08fcc28392beb993d62a4a930196d96"
+    },
+    "catabolic.outputs": {
+      "file": "src/catabolic/outputs.py",
+      "sha256": "ea8f0d2008fa72489fd7fb117d74352357d6b2bf440748ec925fd3e20b70f620"
+    },
+    "catabolic.query": {
+      "file": "src/catabolic/query.py",
+      "sha256": "347007b0437dae7a58763d754c640e2f654a8d51d81937d5264ee32e3c6e49db"
+    },
+    "catabolic.revision_evidence": {
+      "file": "src/catabolic/revision_evidence.py",
+      "sha256": "1c2d953633025fa7836d828a1ee1832c125c3cc4e71c8df18c40928862db04e8"
+    },
+    "catabolic.source_access": {
+      "file": "src/catabolic/source_access.py",
+      "sha256": "6571febc3d9787bedb95580f53a043a214b3c5f8011b82d9e5294a72139bbbc3"
+    },
+    "catabolic.store": {
+      "file": "src/catabolic/store.py",
+      "sha256": "bdda51dc1bb74a56932f09ee0a8516105b1dbf64c000151a20132bfe9c7b67ee"
+    },
+    "catabolic.tagging": {
+      "file": "src/catabolic/tagging.py",
+      "sha256": "3409df6484fb9bfa8cd636f7197f771bb933feb4bd6d5709536ee13571fd9ebf"
+    }
+  },
+  "rows": [
+    {
+      "id": "python:catabolic.component_sql.OCCURRENCES_SQL",
+      "classification": "preserve-repository-import-binding",
+      "source": "src/catabolic/component_sql.py",
+      "source_sha256": "e738a2bc352b4fb3e2308dde95ca94612970294f32e5bd3d10e1fd47cf90d0f9",
+      "value": {
+        "type": "str",
+        "typed_value_sha256": "617818b47e306e3e7a8cad9819718c3d0f8197c50d6a3fb06dbf02fbfdf5259e",
+        "utf8_bytes": 5425,
+        "utf8_sha256": "1e8ba992aa8b97f8bf8281f1c02a9d37250bf416296ab3a696875fd6e389ca77"
+      },
+      "native_owner": {
+        "resource": "crates/catabolic-store/resources/reference.json",
+        "selector": "views[name=catalog_component_occurrences].sql"
+      }
+    },
+    {
+      "id": "python:catabolic.documentation.TOPICS",
+      "classification": "preserve-repository-import-binding",
+      "source": "src/catabolic/documentation.py",
+      "source_sha256": "bdd4f5c7aaf6471b3d80157baa68db446c277f4b3c4c72157cdad79e3b531d8f",
+      "value": {
+        "type": "tuple",
+        "typed_value_sha256": "e18dca5613f1e34af3ad6c07b9f7e14d3b0ae972d7bc41f7188fee49babf96cf",
+        "rows": 49,
+        "row_type": "tuple",
+        "row_width": 4,
+        "element_type": "str"
+      },
+      "native_owner": {
+        "resource": "crates/catabolic-python/src/public_import_values.rs",
+        "selector": "TOPICS"
+      }
+    },
+    {
+      "id": "python:catabolic.graphql_query.SDL",
+      "classification": "preserve-repository-import-binding",
+      "source": "src/catabolic/graphql_query.py",
+      "source_sha256": "ad777c33fa425193930acfba881794490cd643dcd535976531f09a55dad5fb24",
+      "value": {
+        "type": "str",
+        "typed_value_sha256": "ba08a6e09beb50ac9d10a5f759270adbe49e8efa67dde6500e62727916f2cb97",
+        "utf8_bytes": 7803,
+        "utf8_sha256": "b1f4ea4aa6c41f6ac8c062aa0c5fe8807aa07682fe77dd2b55147b45a76ba84e"
+      },
+      "native_owner": {
+        "resource": "crates/catabolic-store/resources/schema.graphql",
+        "selector": "utf8_bytes[0:7803]",
+        "resource_sha256": "327de5b35a6aaa087f1956ba4a8fe5eb5f03d0f0797b143c85a0e9cc04b8df89",
+        "resource_utf8_bytes": 7921
+      }
+    },
+    {
+      "id": "python:catabolic.http.contract.VERSION",
+      "classification": "preserve-repository-import-binding",
+      "source": "src/catabolic/http/contract.py",
+      "source_sha256": "9f9b2f96bc2d553debb4c3e8792b90c160cc35bc0b9367f95aee53996646f630",
+      "value": {
+        "type": "str",
+        "typed_value_sha256": "4e061e7ca5ebfb8b02936343a6815ada1c3127fff182102d46e71d6b646d6e95",
+        "utf8_bytes": 5,
+        "utf8_sha256": "2c1940937d13777dc0f2c5a890921ff13e98b91a9e9d443a42651d8d0d8b448d"
+      },
+      "native_owner": {
+        "resource": "crates/catabolic-python/src/public_import_values.rs",
+        "selector": "HTTP_CONTRACT_VERSION"
+      }
+    }
+  ]
+}
