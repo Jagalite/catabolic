@@ -8,7 +8,7 @@ use catabolic_runtime::{
 use catabolic_store::notifications::Outcome;
 use serde_json::{Value, json};
 use std::{
-    io::{Read, Write},
+    io::{self, Read, Write},
     net::{TcpListener, TcpStream},
     path::Path,
     sync::{
@@ -41,6 +41,37 @@ fn payload(url: &str) -> String {
         &json!({"url":url,"event":"job_completed","severity":"info","envelope":{"id":"fixture","subject":"must-never-be-forwarded"}}),
     )
 }
+fn accept_with_timeout(listener: &TcpListener, timeout: Duration) -> io::Result<TcpStream> {
+    listener.set_nonblocking(true)?;
+    let started = Instant::now();
+    loop {
+        match listener.accept() {
+            Ok((stream, _)) => {
+                stream.set_nonblocking(false)?;
+                return Ok(stream);
+            }
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                ) => {}
+            Err(error) => return Err(error),
+        }
+        let remaining = timeout.saturating_sub(started.elapsed());
+        if remaining.is_zero() {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "native notification worker did not connect to the owned loopback fixture",
+            ));
+        }
+        std::thread::sleep(remaining.min(Duration::from_millis(10)));
+    }
+}
+#[track_caller]
+fn accept_worker(listener: &TcpListener) -> TcpStream {
+    accept_with_timeout(listener, Duration::from_secs(3))
+        .expect("required notification worker connection was not observed")
+}
 fn request(stream: &mut TcpStream) -> Vec<u8> {
     stream
         .set_read_timeout(Some(Duration::from_secs(3)))
@@ -67,6 +98,23 @@ fn request(stream: &mut TcpStream) -> Vec<u8> {
     data
 }
 #[test]
+fn loopback_fixture_times_out_without_a_worker_connection() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let (sender, receiver) = std::sync::mpsc::channel();
+    let server = std::thread::spawn(move || {
+        sender
+            .send(accept_with_timeout(&listener, Duration::from_millis(50)).map(|_| ()))
+            .unwrap();
+    });
+    let error = receiver
+        .recv_timeout(Duration::from_secs(3))
+        .expect("loopback fixture did not finish its accept deadline")
+        .unwrap_err();
+    assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+    assert!(error.to_string().contains("did not connect"));
+    server.join().unwrap();
+}
+#[test]
 fn both_native_executables_dispatch_bounded_provider_protocol() {
     for binary in [native(), legacy()] {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -75,7 +123,7 @@ fn both_native_executables_dispatch_bounded_provider_protocol() {
             listener.local_addr().unwrap()
         );
         let server = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
+            let mut stream = accept_worker(&listener);
             let bytes = request(&mut stream);
             stream
                 .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
@@ -115,7 +163,7 @@ fn cancellation_kills_stalled_http_and_prevents_later_fanout() {
     let cancel = Arc::new(AtomicBool::new(false));
     let trigger = cancel.clone();
     let server = std::thread::spawn(move || {
-        let (mut stream, _) = listener.accept().unwrap();
+        let mut stream = accept_worker(&listener);
         request(&mut stream);
         trigger.store(true, Ordering::Release);
         let mut byte = [0];
@@ -150,7 +198,7 @@ fn cancellation_kills_stalled_smtp_banner() {
     let cancel = Arc::new(AtomicBool::new(false));
     let trigger = cancel.clone();
     let server = std::thread::spawn(move || {
-        let (mut stream, _) = listener.accept().unwrap();
+        let mut stream = accept_worker(&listener);
         stream
             .set_read_timeout(Some(Duration::from_secs(3)))
             .unwrap();
@@ -174,7 +222,7 @@ fn outer_deadline_reaps_native_http_worker_and_all_its_resources() {
         listener.local_addr().unwrap()
     );
     let server = std::thread::spawn(move || {
-        let (mut stream, _) = listener.accept().unwrap();
+        let mut stream = accept_worker(&listener);
         request(&mut stream);
         let mut byte = [0];
         assert_eq!(stream.read(&mut byte).unwrap(), 0);
@@ -274,7 +322,7 @@ fn standalone_and_companion_drains_keep_durable_partial_receipts_without_python(
             let mut result = vec![];
             let mut bad = false;
             for _ in 0..3 {
-                let (mut stream, _) = listener.accept().unwrap();
+                let mut stream = accept_worker(&listener);
                 let bytes = request(&mut stream);
                 let text = String::from_utf8(bytes).unwrap();
                 let code = if text.starts_with("POST /bad/") && !bad {
@@ -462,7 +510,7 @@ fn replaced_standalone_fallback_is_rejected_before_a_second_delivery() {
     let address = listener.local_addr().unwrap();
     let target = executable.clone();
     let server = std::thread::spawn(move || {
-        let (mut stream, _) = listener.accept().unwrap();
+        let mut stream = accept_worker(&listener);
         request(&mut stream);
         let replacement = target.with_extension("replaced");
         std::fs::copy("/bin/false", &replacement).unwrap();

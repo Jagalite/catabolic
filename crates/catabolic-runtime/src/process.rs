@@ -572,6 +572,15 @@ struct ProcessGroup {
     retired: bool,
 }
 
+#[cfg(any(target_os = "macos", test))]
+fn only_leader_in_snapshot(
+    bytes: libc::c_int,
+    members: &[libc::pid_t; 2],
+    leader: libc::pid_t,
+) -> bool {
+    bytes == std::mem::size_of::<libc::pid_t>() as libc::c_int && members[0] == leader
+}
+
 impl ProcessGroup {
     fn new(child: Child) -> Self {
         Self {
@@ -606,17 +615,65 @@ impl ProcessGroup {
     }
 
     fn retire(&mut self) -> io::Result<ExitStatus> {
-        if !self.retired {
+        self.retire_with(|pgid| {
             // SAFETY: setsid made the unreaped leader PID our private PGID. It
             // cannot be reused until the following wait reaps that leader.
-            let result = unsafe { libc::killpg(self.child.id() as libc::pid_t, libc::SIGKILL) };
-            if result == -1 {
-                let error = io::Error::last_os_error();
-                if error.raw_os_error() != Some(libc::ESRCH) {
-                    return Err(error);
-                }
+            if unsafe { libc::killpg(pgid, libc::SIGKILL) } == -1 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(())
             }
+        })
+    }
+
+    fn retire_with(
+        &mut self,
+        kill_group: impl FnOnce(libc::pid_t) -> io::Result<()>,
+    ) -> io::Result<ExitStatus> {
+        if !self.retired
+            && let Err(error) = kill_group(self.child.id() as libc::pid_t)
+            && !self.finished_group_error(&error)
+        {
+            // Preserve a real signalling failure, but do not leave an
+            // already-exited leader as a zombie. Never block waiting
+            // for a live process whose termination was denied.
+            if self.exited().unwrap_or(false) {
+                let _ = self.reap();
+            }
+            return Err(error);
         }
+        self.reap()
+    }
+
+    fn finished_group_error(&self, error: &io::Error) -> bool {
+        if error.raw_os_error() == Some(libc::ESRCH) {
+            return true;
+        }
+        #[cfg(target_os = "macos")]
+        if error.raw_os_error() == Some(libc::EPERM) && self.exited().unwrap_or(false) {
+            // XNU killpg filters zombies and reports EPERM when none of the
+            // remaining group members can be signalled. Leader exit alone
+            // cannot distinguish that from an unsignalable live descendant.
+            // The locked kernel snapshot must contain only our pinned leader;
+            // extra members, truncation and query failures all fail closed.
+            const PROC_PGRP_ONLY: u32 = 2;
+            let mut members: [libc::pid_t; 2] = [0; 2];
+            // SAFETY: members is a writable PID array and the unreaped child
+            // reserves the queried group identity throughout this snapshot.
+            let bytes = unsafe {
+                libc::proc_listpids(
+                    PROC_PGRP_ONLY,
+                    self.child.id(),
+                    members.as_mut_ptr().cast(),
+                    std::mem::size_of_val(&members) as libc::c_int,
+                )
+            };
+            return only_leader_in_snapshot(bytes, &members, self.child.id() as libc::pid_t);
+        }
+        false
+    }
+
+    fn reap(&mut self) -> io::Result<ExitStatus> {
         loop {
             match self.child.wait() {
                 Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
@@ -647,6 +704,92 @@ mod tests {
 
     fn shell(script: &str, options: CommandOptions<'_>) -> Result<CommandOutput, CommandFailure> {
         command_output(&["/bin/sh", "-c", script], options)
+    }
+
+    fn isolated_group(script: &str) -> ProcessGroup {
+        let mut command = Command::new("/bin/sh");
+        command
+            .args(["-c", script])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        // SAFETY: setsid is async-signal-safe and only changes this fixture
+        // child's group. No parent group can be targeted by its cleanup.
+        unsafe {
+            command.pre_exec(|| {
+                if libc::setsid() == -1 {
+                    Err(io::Error::last_os_error())
+                } else {
+                    Ok(())
+                }
+            });
+        }
+        ProcessGroup::new(command.spawn().unwrap())
+    }
+
+    fn await_leader_exit(group: &ProcessGroup) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !group.exited().unwrap() {
+            assert!(Instant::now() < deadline, "fixture leader failed to exit");
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    #[test]
+    fn successful_command_reaps_its_exited_group_leader() {
+        let output = shell("printf '%s' \"$$\"; exit 0", CommandOptions::default()).unwrap();
+        assert_eq!(output.returncode, 0);
+        let pid = std::str::from_utf8(&output.stdout)
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert_reaped(pid);
+    }
+
+    #[test]
+    fn group_snapshot_requires_exactly_the_owned_leader() {
+        let width = std::mem::size_of::<libc::pid_t>() as libc::c_int;
+        assert!(only_leader_in_snapshot(width, &[42, 0], 42));
+        assert!(!only_leader_in_snapshot(0, &[42, 0], 42));
+        assert!(!only_leader_in_snapshot(-1, &[42, 0], 42));
+        assert!(!only_leader_in_snapshot(width - 1, &[42, 0], 42));
+        assert!(!only_leader_in_snapshot(width, &[43, 0], 42));
+        assert!(!only_leader_in_snapshot(width * 2, &[42, 43], 42));
+    }
+
+    #[test]
+    fn permission_denial_for_a_live_group_is_preserved() {
+        let mut group = isolated_group("exec /bin/sleep 30");
+        let pid = group.child.id() as libc::pid_t;
+        let error = group
+            .retire_with(|_| Err(io::Error::from_raw_os_error(libc::EPERM)))
+            .unwrap_err();
+        assert_eq!(error.raw_os_error(), Some(libc::EPERM));
+        assert!(!group.retired);
+        assert!(!group.exited().unwrap());
+        group.retire().unwrap();
+        assert_reaped(pid);
+    }
+
+    #[test]
+    fn signalling_failure_still_reaps_an_exited_leader() {
+        let mut group = isolated_group("exit 0");
+        let pid = group.child.id() as libc::pid_t;
+        await_leader_exit(&group);
+        let error = group
+            .retire_with(|_| Err(io::Error::from_raw_os_error(libc::EACCES)))
+            .unwrap_err();
+        assert_eq!(error.raw_os_error(), Some(libc::EACCES));
+        assert_reaped(pid);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn darwin_permission_denial_is_not_excused_with_a_surviving_descendant() {
+        let mut group = isolated_group("/bin/sleep 30 >/dev/null 2>&1 & exit 0");
+        await_leader_exit(&group);
+        assert!(!group.finished_group_error(&io::Error::from_raw_os_error(libc::EPERM)));
+        group.retire().unwrap();
     }
 
     #[test]
