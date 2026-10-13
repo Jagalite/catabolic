@@ -67,10 +67,11 @@ pub fn run(
     interval: Duration,
     cancel: Arc<AtomicBool>,
 ) -> Result<Value> {
-    #[cfg(not(target_os = "linux"))]
-    return Err(Error(
-        "native API worker parent-death supervision is unqualified on this platform".into(),
-    ));
+    if !cfg!(target_os = "linux") {
+        return Err(Error(
+            "native API worker parent-death supervision is unqualified on this platform".into(),
+        ));
+    }
     // Frozen admission resolves the path before the singleton, but validates
     // the profile only inside a short writable owner. Contention must retain
     // its precedence over an unknown profile, without weakening reopen checks.
@@ -186,6 +187,26 @@ pub fn execute(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(not(target_os = "linux"))]
+    #[test]
+    fn unsupported_platform_refuses_before_opening_catalog_or_supervisor() {
+        let root = tempfile::tempdir().unwrap();
+        for once in [false, true] {
+            let error = run(
+                &root.path().join("missing.sqlite3"),
+                "missing",
+                once,
+                Duration::ZERO,
+                Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap_err();
+            assert_eq!(
+                error.0,
+                "native API worker parent-death supervision is unqualified on this platform"
+            );
+            assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 0);
+        }
+    }
     #[test]
     fn checked_owner_keeps_identity_and_profile_validation() {
         let root = tempfile::tempdir().unwrap();
