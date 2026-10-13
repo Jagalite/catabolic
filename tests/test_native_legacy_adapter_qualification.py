@@ -262,6 +262,18 @@ print(json.dumps({'count': len(ids), 'unique': len(set(ids)), 'modules': list(mo
             text=True,
             timeout=30,
         )
+        if not Path("/proc/self/task").exists():
+            # The mandatory Linux process-tree witness must fail closed here;
+            # importing fixtures does not qualify unavailable product scenarios.
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn(
+                "RuntimeError: legacy fixture method is skipped: "
+                "tests.test_rust_legacy_external_rule.NativeLegacyExternalRuleTest."
+                "test_interrupt_reaps_http_child_and_leaves_reclaimable_durable_lease",
+                result.stderr,
+            )
+            self.assertEqual(result.stdout, "")
+            return
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         evidence = json.loads(result.stdout)
         self.assertEqual(evidence["count"], 105)

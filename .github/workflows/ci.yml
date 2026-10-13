@@ -41,7 +41,11 @@ jobs:
       - run: python scripts/audit_dependencies.py --report dependency-audit.json
       # Native scenarios have explicit compiler/helper prerequisites and run in
       # native-qualification.yml. This preserves every original Python test.
-      - run: python scripts/run_reference_tests.py --report python-unit-results.json
+      - name: Run Python reference tests with a physical temporary root
+        run: |
+          reference_tmp=$(mktemp -d "$RUNNER_TEMP/catabolic-reference-tests.XXXXXX")
+          reference_tmp=$(cd "$reference_tmp" && pwd -P)
+          TMPDIR="$reference_tmp" python scripts/run_reference_tests.py --report python-unit-results.json
       - run: ruff check src tests scripts
       - run: ruff format --check src tests scripts
       - run: catabolic spec check

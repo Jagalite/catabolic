@@ -822,8 +822,14 @@ mod tests {
                             Err(e) => panic!("fixture accept: {e}"),
                         }
                     };
+                    // Accepted sockets inherit nonblocking mode on macOS.
+                    // Requests and replies use bounded blocking I/O here.
+                    socket.set_nonblocking(false).unwrap();
                     socket
                         .set_read_timeout(Some(Duration::from_secs(5)))
+                        .unwrap();
+                    socket
+                        .set_write_timeout(Some(Duration::from_secs(5)))
                         .unwrap();
                     let mut bytes = Vec::new();
                     let mut buffer = [0u8; 4096];

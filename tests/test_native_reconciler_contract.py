@@ -5,6 +5,7 @@
 import argparse
 import ast
 import contextlib
+import errno
 import importlib.util
 import io
 import json
@@ -208,7 +209,12 @@ class ReconcilerReceiptBoundaries(unittest.TestCase):
                     try:
                         run = self.run_gate([*self.arguments, "--report"], flags=flags)
                         self.assertNotEqual(run.returncode, 0)
-                        self.assertIn("IsADirectoryError", run.stderr)
+                        # Directory unlink uses EISDIR on Linux and EPERM on macOS.
+                        self.assertRegex(
+                            run.stderr,
+                            rf"(?m)^(IsADirectoryError: \[Errno {errno.EISDIR}\]|"
+                            rf"PermissionError: \[Errno {errno.EPERM}\])",
+                        )
                         self.assertIn(str(blocked), run.stderr)
                         self.assertEqual(marker.read_text(), "not a receipt")
                         for report in self.reports:
@@ -219,6 +225,47 @@ class ReconcilerReceiptBoundaries(unittest.TestCase):
                     finally:
                         marker.unlink()
                         blocked.rmdir()
+
+    def test_first_cleanup_error_is_preserved_after_all_later_targets(self):
+        spec = importlib.util.spec_from_file_location("receipt_error_gate", self.script)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        unlink = Path.unlink
+        for numbers in ((errno.EISDIR, errno.EPERM), (errno.EPERM, errno.EISDIR)):
+            with self.subTest(first_errno=numbers[0]):
+                self.seed()
+                errors = {
+                    report: OSError(number, os.strerror(number), str(report))
+                    for report, number in zip(self.reports, numbers, strict=True)
+                }
+
+                def fail_blocked_paths(path, *args, errors=errors, **kwargs):
+                    if path in errors:
+                        raise errors[path]
+                    return unlink(path, *args, **kwargs)
+
+                last = self.root / "last.json"
+                last.write_text("old success")
+                last.with_suffix(".attempt.json").write_text("old attempt")
+                with (
+                    patch.object(Path, "unlink", fail_blocked_paths),
+                    self.assertRaises(OSError) as caught,
+                ):
+                    module.clear_stale_report(
+                        [*self.arguments, "--report", str(last)],
+                        parser=module.argument_parser(),
+                    )
+                self.assertIs(caught.exception, errors[self.reports[0]])
+                for report in self.reports:
+                    self.assertEqual(report.read_text(), "old success")
+                    self.assertFalse(report.with_suffix(".attempt.json").exists())
+                self.assertFalse(last.exists())
+                self.assertFalse(last.with_suffix(".attempt.json").exists())
+                self.assertEqual(self.unrequested.read_text(), "old success")
+                self.assertEqual(
+                    self.unrequested.with_suffix(".attempt.json").read_text(),
+                    "old attempt",
+                )
 
     def test_adversarial_filenames_follow_the_actual_full_parser(self):
         spec = importlib.util.spec_from_file_location(

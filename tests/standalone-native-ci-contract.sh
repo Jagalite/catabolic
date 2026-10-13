@@ -37,6 +37,10 @@ export FIXTURE_LOG="$work/calls.log"
 export PATH="$work/bin:$PATH"
 export CARGO_TARGET_DIR="$work/target"
 export FIXTURE_MODE=pass
+# A lexical incoming temp path must not leak into any runner child.
+mkdir "$work/inherited-temp"
+ln -s "$work/inherited-temp" "$work/inherited-temp-alias"
+export TMPDIR="$work/inherited-temp-alias"
 cat > "$work/bin/git" <<'STUB'
 #!/usr/bin/env bash
 set -eu
@@ -64,6 +68,11 @@ cat > "$work/bin/cargo" <<'STUB'
 #!/usr/bin/env bash
 set -eu
 printf 'cargo %s\n' "$*" >> "$FIXTURE_LOG"
+if [ "${TMPDIR:-}" != "$FIXTURE_RUN/tmp" ] || [ ! -d "$TMPDIR" ] ||
+    [ "$(cd "$TMPDIR" && pwd -P)" != "$TMPDIR" ]; then
+    echo 'fixture Cargo requires a physical run-owned TMPDIR' >&2
+    exit 86
+fi
 notice=supplemental::tests::stage_five_notices_from_existing_offline_cache
 providers=(
     both_native_executables_dispatch_bounded_provider_protocol
@@ -171,6 +180,7 @@ run_case() {
     printf 'passed contract case: %s\n' "$1"
 }
 run_case pass pass
+[ "$(cat "$FIXTURE_RUN/evidence/tmpdir.txt")" = "$FIXTURE_RUN/tmp" ]
 [ -s "$FIXTURE_RUN/candidate.tar" ]
 [ "$(grep -c 'cargo test .*native_notification_providers .* -- --exact --test-threads=1' "$FIXTURE_LOG")" -eq 8 ]
 # A repeat must refuse the existing directory without changing its old receipt.
@@ -178,6 +188,14 @@ before=$(shasum -a 256 "$FIXTURE_RUN/evidence/result.json")
 if bash "$driver" "$work/source" "$FIXTURE_RUN" > "$work/stale.stdout" 2> "$work/stale.stderr"; then exit 1; fi
 [ "$(shasum -a 256 "$FIXTURE_RUN/evidence/result.json")" = "$before" ]
 printf '%s\n' 'passed contract case: stale-run-refused'
+# Removing the export must fail in a child, not merely a textual comparison.
+original_driver=$driver
+sed '/^export TMPDIR=/d' "$driver" > "$work/missing-tempdir-runner.sh"
+driver="$work/missing-tempdir-runner.sh"
+run_case missing-tempdir fail
+grep -Fx 'fixture Cargo requires a physical run-owned TMPDIR' "$FIXTURE_RUN/evidence/preflight.stderr"
+jq -e '.last_stage == "preflight"' "$FIXTURE_RUN/evidence/result.json" > /dev/null
+driver=$original_driver
 for failure in missing-toolchain wrong-rust dirty-source git-list-failure clippy-failure skipped-dist missing-notice skipped-notice notice-failure missing-preparer prepare-failure missing-manifest wrong-anchor verify-failure smoke-failure missing-smoke invalid-smoke missing-provider skipped-provider provider-failure missing-final-archive; do
     run_case "$failure" fail
 done

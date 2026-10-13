@@ -234,7 +234,9 @@ fn outer_deadline_reaps_native_http_worker_and_all_its_resources() {
         process::CommandOptions {
             input_bytes: Some(input.as_bytes()),
             maximum: 4096,
-            timeout: Duration::from_millis(200),
+            // Leave room for pre-exec descriptor cleanup before the worker connects.
+            // The owned request/EOF checks and two-second command wall bound remain.
+            timeout: Duration::from_secs(1),
             ..Default::default()
         },
     )
@@ -446,7 +448,7 @@ fn configured_companion_failures_never_fall_back_to_the_standalone_worker() {
         let path = if selected == "missing" {
             root.path().join("missing-helper")
         } else {
-            Path::new("/bin/false").to_path_buf()
+            Path::new("/usr/bin/false").to_path_buf()
         };
         let output = std::process::Command::new(legacy())
             .current_dir(root.path())
@@ -513,7 +515,7 @@ fn replaced_standalone_fallback_is_rejected_before_a_second_delivery() {
         let mut stream = accept_worker(&listener);
         request(&mut stream);
         let replacement = target.with_extension("replaced");
-        std::fs::copy("/bin/false", &replacement).unwrap();
+        std::fs::copy("/usr/bin/false", &replacement).unwrap();
         std::fs::rename(replacement, &target).unwrap();
         stream
             .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")

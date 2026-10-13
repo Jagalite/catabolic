@@ -942,7 +942,9 @@ mod tests {
         let error = shell(
             "printf '%s\\n' \"$$\"; sleep 30",
             CommandOptions {
-                timeout: Duration::from_millis(100),
+                // The inherited descriptor limit can require substantial
+                // pre-exec work; allow startup before testing timeout/reaping.
+                timeout: Duration::from_secs(1),
                 ..CommandOptions::default()
             },
         )
@@ -959,31 +961,50 @@ mod tests {
 
     #[test]
     fn cancellation_retires_a_running_command() {
+        let directory = tempfile::tempdir().unwrap();
+        let pid_file = directory.path().join("pid");
         let cancel = AtomicBool::new(false);
-        thread::scope(|scope| {
-            scope.spawn(|| {
-                thread::sleep(Duration::from_millis(75));
+        let mut pid: Option<libc::pid_t> = None;
+        let mut on_poll = || {
+            let raw = match fs::read_to_string(&pid_file) {
+                Ok(raw) => raw,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+                Err(error) => {
+                    return Err(CommandFailure::from_io("cannot read fixture PID", error));
+                }
+            };
+            // A terminating newline proves the shell published its full PID.
+            // The command's deadline bounds readiness; never cancel on a timer
+            // that may expire during inherited-descriptor setup before exec.
+            if let Some(raw) = raw.strip_suffix('\n') {
+                pid = Some(raw.parse().map_err(|error| {
+                    CommandFailure::new("failed", format!("invalid fixture PID: {error}"))
+                })?);
                 cancel.store(true, Ordering::Release);
-            });
-            let start = Instant::now();
-            let error = shell(
-                "printf '%s\\n' \"$$\"; sleep 30",
-                CommandOptions {
-                    cancel: Some(&cancel),
-                    timeout: Duration::from_secs(3),
-                    ..CommandOptions::default()
-                },
-            )
-            .unwrap_err();
-            assert_eq!(error.state, "cancelled");
-            assert!(start.elapsed() < Duration::from_secs(2));
-            let pid = std::str::from_utf8(&error.stdout)
-                .unwrap()
-                .trim()
-                .parse()
-                .unwrap();
-            assert_reaped(pid);
-        });
+            }
+            Ok(())
+        };
+        let argv = [
+            OsStr::new("/bin/sh"),
+            OsStr::new("-c"),
+            OsStr::new("printf '%s\\n' \"$$\" > \"$1\"; sleep 30"),
+            OsStr::new("fixture"),
+            pid_file.as_os_str(),
+        ];
+        let start = Instant::now();
+        let error = command_output(
+            &argv,
+            CommandOptions {
+                cancel: Some(&cancel),
+                on_poll: Some(&mut on_poll),
+                timeout: Duration::from_secs(3),
+                ..CommandOptions::default()
+            },
+        )
+        .unwrap_err();
+        assert_eq!(error.state, "cancelled");
+        assert!(start.elapsed() < Duration::from_secs(2));
+        assert_reaped(pid.expect("running fixture must publish its PID before cancellation"));
     }
 
     #[test]
@@ -1247,7 +1268,7 @@ mod tests {
         assert_eq!(std::env::current_dir().unwrap(), before);
         assert!(
             command_output(
-                &["/bin/true"],
+                &["/usr/bin/true"],
                 CommandOptions {
                     cwd_fd: Some(-1),
                     ..CommandOptions::default()
@@ -1258,7 +1279,7 @@ mod tests {
         let file = tempfile::tempfile().unwrap();
         assert_eq!(
             command_output(
-                &["/bin/true"],
+                &["/usr/bin/true"],
                 CommandOptions {
                     cwd_fd: Some(file.as_raw_fd()),
                     ..CommandOptions::default()

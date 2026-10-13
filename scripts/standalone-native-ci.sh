@@ -39,6 +39,11 @@ finish() {
 trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+# Fixtures must inherit a physical parent: macOS /var aliases otherwise fail
+# intentional no-follow source/output admission before the behavior under test.
+mkdir "$run/tmp"
+export TMPDIR="$run/tmp"
+printf '%s\n' "$TMPDIR" > "$evidence/tmpdir.txt"
 step() {
     stage=$1
     shift
