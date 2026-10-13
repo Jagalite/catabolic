@@ -11,6 +11,7 @@ options. Bootstrap copies intentionally avoid imports of fallible project code.
 import argparse
 import ast
 import contextlib
+import errno
 import importlib.util
 import io
 import os
@@ -342,7 +343,12 @@ class ReceiptBoundaries(unittest.TestCase):
                                 flags=flags,
                             )
                             self.assertNotEqual(run.returncode, 0)
-                            self.assertIn("IsADirectoryError", run.stderr)
+                            # Directory unlink reports EISDIR on Linux and EPERM
+                            # on macOS; both must retain the directory and fail.
+                            self.assertRegex(
+                                run.stderr,
+                                r"(?m)^(IsADirectoryError|PermissionError):",
+                            )
                             self.assertIn(str(blocked), run.stderr)
                             self.assertEqual(marker.read_text(), "not a receipt")
                             for requested in self.reports:
@@ -374,7 +380,7 @@ class ReceiptBoundaries(unittest.TestCase):
         last = self.root / "last.json"
         last.write_text("old success")
         last.with_suffix(".attempt.json").write_text("old attempt")
-        with self.assertRaises(IsADirectoryError) as caught:
+        with self.assertRaises((IsADirectoryError, PermissionError)) as caught:
             clear([*self.explicit_reports(), "--report", str(last), "--report"])
         self.assertEqual(caught.exception.filename, str(self.reports[0]))
         self.assertFalse(last.exists())
@@ -383,6 +389,47 @@ class ReceiptBoundaries(unittest.TestCase):
             self.assertTrue(report.is_dir())
             self.assertFalse(report.with_suffix(".attempt.json").exists())
         self.assertEqual(self.unrequested.read_text(), "old success")
+
+    def test_first_cleanup_error_is_preserved_for_each_directory_error_kind(self):
+        clear = load(SCRIPTS / SHARED).clear_stale_report
+        unlink = Path.unlink
+        for first_errno, later_errno in (
+            (errno.EISDIR, errno.EPERM),
+            (errno.EPERM, errno.EISDIR),
+        ):
+            with self.subTest(first_errno=first_errno):
+                self.seed()
+                errors = {
+                    report: OSError(number, os.strerror(number), str(report))
+                    for report, number in zip(
+                        self.reports, (first_errno, later_errno), strict=True
+                    )
+                }
+
+                def fail_blocked_paths(path, *args, errors=errors, **kwargs):
+                    if path in errors:
+                        raise errors[path]
+                    return unlink(path, *args, **kwargs)
+
+                last = self.root / "last.json"
+                last.write_text("old success")
+                last.with_suffix(".attempt.json").write_text("old attempt")
+                with (
+                    patch.object(Path, "unlink", fail_blocked_paths),
+                    self.assertRaises(OSError) as caught,
+                ):
+                    clear([*self.explicit_reports(), "--report", str(last)])
+                self.assertIs(caught.exception, errors[self.reports[0]])
+                for report in self.reports:
+                    self.assertEqual(report.read_text(), "old success")
+                    self.assertFalse(report.with_suffix(".attempt.json").exists())
+                self.assertFalse(last.exists())
+                self.assertFalse(last.with_suffix(".attempt.json").exists())
+                self.assertEqual(self.unrequested.read_text(), "old success")
+                self.assertEqual(
+                    self.unrequested.with_suffix(".attempt.json").read_text(),
+                    "old attempt",
+                )
 
     def test_filename_lexing_matches_each_full_parser_on_both_python_versions(self):
         candidates = (

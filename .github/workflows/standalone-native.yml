@@ -30,7 +30,6 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
       CARGO_BUILD_JOBS: '1'
-      CARGO_TARGET_DIR: ${{ runner.temp }}/standalone-native-target
       RUSTUP_TOOLCHAIN: '1.99.0'
     defaults:
       run:
@@ -41,6 +40,7 @@ jobs:
           persist-credentials: false
       - name: Reserve fresh evidence before setup
         run: |
+          printf 'CARGO_TARGET_DIR=%s/standalone-native-target\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
           mkdir "$RUNNER_TEMP/standalone-native"
           printf '%s\n' 'not-run; no runtime, platform or release qualification' > "$RUNNER_TEMP/standalone-native/setup-status.txt"
       - name: Set up exact Rust and fetch locked Cargo dependencies

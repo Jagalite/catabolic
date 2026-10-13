@@ -6,23 +6,26 @@ set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd -P)
 driver="$repo/scripts/standalone-native-ci.sh"
 work=$(mktemp -d "${TMPDIR:-/tmp}/catabolic-ci-contract.XXXXXX")
+# The runner resolves paths physically (including macOS /var -> /private/var).
+work=$(cd "$work" && pwd -P)
 # Every run is left inspectable in this owned scratch directory; no data is deleted.
 printf 'Contract scratch: %s\n' "$work"
 # Conservative literal workflow contract: any YAML/control-flow change requires
 # deliberate re-review of this digest. This is not a general YAML interpreter.
 workflow_matches() {
-    [ "$(shasum -a 256 "$1" | cut -d ' ' -f 1)" = 1756ffe0989019f770a634d909eebeeaa1196c88eb294acddd29e35588ad8085 ]
+    [ "$(shasum -a 256 "$1" | cut -d ' ' -f 1)" = 75f6c1552c067f44de4a8aa25b9368291c44ea97a0d16f648c108f0420c71b44 ]
 }
 workflow="$repo/.github/workflows/standalone-native.yml"
 workflow_matches "$workflow"
 # These witnesses keep the contract meaningful when workflow wiring is changed.
-for mutation in skip-runner suppress-failure wrapper-dependency unpin-action drop-evidence; do
+for mutation in skip-runner suppress-failure wrapper-dependency unpin-action drop-evidence drop-target-directory; do
     case "$mutation" in
         skip-runner) sed 's/run: bash scripts\/standalone-native-ci.sh/run: echo scripts\/standalone-native-ci.sh/' "$workflow";;
         suppress-failure) sed 's/    timeout-minutes: 90/    continue-on-error: true/' "$workflow";;
         wrapper-dependency) sed 's/    timeout-minutes: 90/    needs: installed/' "$workflow";;
         unpin-action) sed 's/actions\/checkout@d23441a48e516b6c34aea4fa41551a30e30af803/actions\/checkout@main/' "$workflow";;
         drop-evidence) sed 's/if: always()/if: success()/' "$workflow";;
+        drop-target-directory) sed '/CARGO_TARGET_DIR=/d' "$workflow";;
     esac > "$work/workflow-$mutation.yml"
     if workflow_matches "$work/workflow-$mutation.yml"; then echo "workflow mutation accepted: $mutation" >&2; exit 1; fi
     printf 'passed workflow contract: %s\n' "$mutation"
