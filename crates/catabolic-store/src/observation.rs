@@ -1040,6 +1040,12 @@ pub trait PublisherFactory: Send {
         binding: Value,
     ) -> Result<Box<dyn PublisherCallbacks>>;
 }
+// statvfs block counts and fragment sizes have platform-dependent widths.
+// Convert both to byte-counter width before multiplication can saturate.
+fn available_bytes(blocks: impl Into<u64>, fragment_size: impl Into<u64>) -> u64 {
+    blocks.into().saturating_mul(fragment_size.into())
+}
+
 struct Scan {
     context: Arc<PublicationContext>,
     publisher: Publisher,
@@ -1153,12 +1159,9 @@ impl Scan {
         if unsafe { libc::fstatvfs(parent.as_raw_fd(), &mut stats) } != 0 {
             return Err(std::io::Error::last_os_error().into());
         }
-        self.statistics
-            .temporary_free_bytes
-            .set(Some(stats.f_bavail.saturating_mul(stats.f_frsize)));
-        if stats.f_bavail.saturating_mul(stats.f_frsize)
-            < limits["minimum_free_bytes"].as_u64().unwrap()
-        {
+        let free_bytes = available_bytes(stats.f_bavail, stats.f_frsize);
+        self.statistics.temporary_free_bytes.set(Some(free_bytes));
+        if free_bytes < limits["minimum_free_bytes"].as_u64().unwrap() {
             return Err(Error("temporary_storage_low".into()));
         }
         Ok(())
@@ -1683,7 +1686,7 @@ impl Publication {
         let result = (|| {
             let (parent, leaf) = crate::filesystem_mutation::parent(root, path, false)?;
             let (mode, mut stamp) = stat_at(&parent, &leaf)?;
-            if mode != libc::S_IFREG {
+            if u64::from(mode) != u64::from(libc::S_IFREG) {
                 return Err(Error("generated artifact is not a regular file".into()));
             }
             stamp.as_object_mut().unwrap().remove("ctime_ns");
@@ -2655,6 +2658,15 @@ fn scan_result(
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn available_space_widens_block_counts_before_saturating_bytes() {
+        assert_eq!(available_bytes(u32::MAX, 4096u64), 17_592_186_040_320);
+        assert_eq!(available_bytes(u32::MAX, 4096u32), 17_592_186_040_320);
+        assert_eq!(available_bytes(u64::MAX, 4096u64), u64::MAX);
+        assert_eq!(available_bytes(0u32, u64::MAX), 0);
+    }
+
     fn catalog() -> (tempfile::TempDir, Store, std::path::PathBuf) {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("catalog.sqlite3");

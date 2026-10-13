@@ -827,7 +827,7 @@ pub fn usable_metadata(store: &Store, profile: &str, artifact: &Value) -> Result
         let root = owned_root(store, profile, &artifact["binding"])?;
         let revision = source::validate(&artifact["publication_snapshot"])?;
         let (st, named) = fs::stat_at(&root, text(artifact, "path")?)?;
-        if st & libc::S_IFMT != libc::S_IFREG
+        if u64::from(st) & u64::from(libc::S_IFMT) != u64::from(libc::S_IFREG)
             || named != revision
             || named["size"] != artifact["size"]
             || named["device"] != artifact["device"]
