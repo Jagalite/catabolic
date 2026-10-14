@@ -1,6 +1,12 @@
 # Native-first completion and Python retirement
 
-**Current status:** [resumed on macOS on October 13](RUST_MIGRATION_MACOS_RESUMED_2026_10_13.md).
+**Current direction, October 13:** Design the reusable native catalog now and
+continue implementation on `codex/rust-migration-m4-plus`. The
+[native catalog plan](CATABOLIC_NATIVE_CATALOG_DESIGN.md) governs new semantics,
+explicit schema upgrade and the next implementation sequence. Python remains a
+thin-wrapper-last target. This changes sequencing, not safety or evidence gates.
+
+**Latest recorded native qualification:** [resumed on macOS on October 13](RUST_MIGRATION_MACOS_RESUMED_2026_10_13.md).
 The `f8c2759` native CLI lane passes all 28 selected methods and both lifecycle
 and playback models pass. Its completed full aggregate has failures. The
 `cd70ac7` fixture and CI portability repairs pass the selected Python and shell
@@ -55,6 +61,31 @@ Two current distinctions matter:
 
 ## Ordered native critical path
 
+1. **Prove native hosting (R0).** Define the small supported lifecycle/error
+   contract and qualify Motion's aligned SQLite/toolchain dependency graph through
+   Kyoto, including real scan/cancellation/reopen and native helper identity.
+2. **Prove catalog semantics before schema changes (R1).** Exercise the chosen
+   version-item composition through actual component/fallback owners, stable
+   timelines, alternative multipart representations and revision-pinned intervals.
+3. **Implement the versioned catalog foundation (R2–R4).** Add explicit schema
+   upgrades, atomic command receipts, contributions/pins, reviewed merge/split,
+   host scope admission, ranked search and restore-aware invalidation.
+4. **Qualify execution and cutover (R5–R6).** Account for actual worker lifetimes;
+   rehearse resumable identity-preserving import and Motion's application reference
+   reconciliation, then qualify one-owner activation. No live cutover is implied
+   by writing this plan.
+5. **Complete native product and wrapper gates (R7).** Close the still-required
+   behavior, safety/recovery, HTTP, standalone artifact and platform gates below.
+   Finish the thin Python wrapper and default transition last.
+
+See the catalog plan for dependencies and acceptance cases. Its package gates
+qualify catalog adoption; they do not replace full migration/release qualification.
+
+## Retained native completion work
+
+The former ordered list is retained as work scope and historical evidence. Its
+ordering is superseded by the catalog critical path above.
+
 1. **Eliminate the Python runtime provider path.** The reviewed native slice implements the allowlisted
    notification destinations in Rust: ntfy, Gotify, Discord, Telegram and SMTP,
    including their secure variants. Reuse the native notification state/retry
@@ -102,7 +133,7 @@ Two current distinctions matter:
 
 **Product work:** remaining provider options and named native
 behavior/lifecycle contracts; safe real publication/recovery; production HTTP
-content protection; final native-default distribution transition. No full parity
+content protection; the catalog extensions and upgrade in R0–R6; final native-default distribution transition. No full parity
 claim follows from the current 242-route owner ledger.
 
 **Test infrastructure:** three stale source/CI assertions have reviewed fixes;
