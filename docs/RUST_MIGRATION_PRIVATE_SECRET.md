@@ -125,8 +125,9 @@ python scripts/native_private_secret_tests.py \
   class difference, retaining message and effects. CLI I/O failures similarly
   use the legacy native CatabolicError envelope, not exact Python OSError text
 - CLI ordinary absolute/relative paths and `~/` with HOME are supported. Named
-  `~user` expansion is explicitly refused, and the HOME-unset passwd fallback
-  is not implemented. The Python adapter itself uses Pathlib's normal expansion
+  `~user` expansion and the HOME-unset passwd fallback were closed in track D;
+  see "Track D: complete pathlib expansion" below. The Python adapter itself
+  uses Pathlib's normal expansion
 - Non-UTF-8 filesystem paths and device/inode integer overflow fail without
   lossy catalog registration, but exact Python exception parity is unqualified.
   Embedded-NUL path diagnostics, custom encoder monkeypatches, callback reentry,
@@ -156,3 +157,35 @@ all sixteen reference/native control and correction subcases pass after repair.
 The three existing normal/error CLI fixtures are retained. This correction
 changes no transaction ordering or effect policy and does not qualify the
 previously listed gaps.
+
+## Track D: complete pathlib expansion (October 16)
+
+`api token-create` and `token-rotate` now reproduce frozen
+`Path(filename).expanduser().absolute()` for the `--output` path:
+
+- POSIX parsing keeps an exact leading `//` root, drops empty and `.` parts and
+  keeps `..` unresolved.
+- `~` uses HOME when it is set, even when empty (an empty or `/` HOME yields
+  `/`); when HOME is unset it falls back to the passwd home of the real user ID.
+- `~user` uses the passwd entry for that user. A relative home is made absolute
+  against the current directory.
+- An unknown user, a failed passwd lookup, or a home that itself begins with
+  `~` leaves the component unexpanded, which pathlib refuses with
+  `RuntimeError: Could not determine home directory.` This happens after token
+  issuance, as in Python: the token row persists, no file is written and a
+  rotated token is not revoked.
+
+Frozen Python leaves that `RuntimeError` unhandled, printing a traceback with exit
+status 1. Native keeps exit status 1, the `RuntimeError` class and the message,
+and uses the structured CLI error presentation (machine envelope on stdout, JSON
+error on stderr, or `error: <message>`), with no traceback. This follows the
+approved [mapping-runtime errors v2](NATIVE_RETIREMENT_DECISIONS_2026_10_16.md)
+contract as precedent. It is a recorded difference from frozen Python,
+**pending user confirmation**.
+
+`test_rust_legacy_private_secret.py` adds two paired methods: named-user,
+HOME-unset, empty and relative HOME expansion for create and rotate (all writes
+stay inside the disposable fixture through `..` components), and both
+unexpandable cases in all three output modes, comparing token, private-file and
+audit state with frozen Python. Rust unit tests cover the parser and
+unknown-user refusal.

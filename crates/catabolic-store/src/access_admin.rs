@@ -65,6 +65,9 @@ impl AccessFailure {
 pub enum Failure {
     Access(AccessFailure),
     Native(Error),
+    /// A source-selected frozen Python exception class raised by the CLI
+    /// boundary itself (never inferred from message text).
+    Boundary(crate::DetailedError),
 }
 pub type DetailedResult<T> = std::result::Result<T, Failure>;
 impl std::fmt::Display for Failure {
@@ -72,6 +75,7 @@ impl std::fmt::Display for Failure {
         match self {
             Self::Access(error) => f.write_str(error.code()),
             Self::Native(error) => error.fmt(f),
+            Self::Boundary(error) => error.fmt(f),
         }
     }
 }
@@ -91,6 +95,7 @@ impl From<Failure> for Error {
         match error {
             Failure::Access(error) => Error(error.code().into()),
             Failure::Native(error) => error,
+            Failure::Boundary(error) => error.into_error(),
         }
     }
 }

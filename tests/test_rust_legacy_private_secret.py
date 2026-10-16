@@ -4,6 +4,8 @@
 
 import hashlib
 import json
+import os
+import pwd
 import re
 import sqlite3
 import time
@@ -192,6 +194,167 @@ class LegacyPrivateSecret(unittest.TestCase):
                                     (1,),
                                 )
                         old = identifier
+
+    def run_with_env(self, env, engine, arguments, prefix=None):
+        saved, self.env = self.env, env
+        try:
+            return self.run_cli(engine, arguments, prefix=prefix)
+        finally:
+            self.env = saved
+
+    def test_named_user_home_unset_and_unusual_home_expansion(self):
+        # Frozen pathlib expands `~user` through passwd, falls back to the
+        # passwd home when HOME is unset, maps an empty HOME to `/`, and
+        # keeps `..` unresolved. `..` steps keep every write in this fixture.
+        account = pwd.getpwuid(os.getuid())
+        climb = "../" * len(Path(account.pw_dir).parts)
+        unset = {k: v for k, v in self.env.items() if k != "HOME"}
+        (self.root / "relative-home").mkdir()
+        for engine in (True, False):
+            folder = self.prepare(engine)
+            folder.mkdir()
+            inside = str(folder).lstrip("/")
+            cases = {
+                "named-user": (
+                    self.env,
+                    f"~{account.pw_name}/{climb}{inside}/FAKE-named.json",
+                    f"{account.pw_dir.rstrip('/')}/{climb}{inside}/FAKE-named.json",
+                ),
+                "home-unset": (
+                    unset,
+                    f"~/{climb}{inside}/FAKE-unset.json",
+                    f"{account.pw_dir.rstrip('/')}/{climb}{inside}/FAKE-unset.json",
+                ),
+                "home-empty": (
+                    dict(self.env, HOME=""),
+                    f"~/{inside}/FAKE-empty.json",
+                    f"/{inside}/FAKE-empty.json",
+                ),
+                "home-relative": (
+                    dict(self.env, HOME="relative-home"),
+                    f"~/FAKE-relative-{int(engine)}.json",
+                    f"{self.root}/relative-home/FAKE-relative-{int(engine)}.json",
+                ),
+            }
+            old = None
+            for name, (env, argument, expected) in cases.items():
+                for operation in ("token-create", "token-rotate"):
+                    with self.subTest(engine=engine, case=name, operation=operation):
+                        target = Path(expected)
+                        if operation == "token-rotate":
+                            argument = argument.replace(".json", "-rotated.json")
+                            target = Path(expected.replace(".json", "-rotated.json"))
+                        extra = ("--grant", "fake-grant") if old is None else ()
+                        result = self.run_with_env(
+                            env,
+                            engine,
+                            ["api", operation, old or "fixture", "--output", argument]
+                            + list(extra),
+                        )
+                        self.assertEqual(
+                            json.loads(result.stdout)["data"]["credential_file"],
+                            expected
+                            if operation == "token-create"
+                            else expected.replace(".json", "-rotated.json"),
+                        )
+                        old = self.verify_saved(engine, result, target)
+                old = None
+
+    def test_unexpandable_home_raises_runtime_error_after_issue(self):
+        missing = "~catabolic-no-such-user-fixture/FAKE.json"
+        cases = (
+            ("unknown-user", self.env, missing),
+            ("tilde-home", dict(self.env, HOME="~fixture"), "~/FAKE.json"),
+        )
+        snapshots = {True: [], False: []}
+        for engine in (True, False):
+            self.prepare(engine)
+            first = self.root / f"FAKE-first-{int(engine)}.json"
+            old = self.verify_saved(
+                engine,
+                self.invoke(
+                    engine, "token-create", "fixture", first, "--grant", "fake-grant"
+                ),
+                first,
+            )
+            for name, env, argument in cases:
+                for operation, subject, extra in (
+                    ("token-create", "fixture", ("--grant", "fake-grant")),
+                    ("token-rotate", old, ()),
+                ):
+                    for prefix in (["--machine"], ["--json"], []):
+                        with self.subTest(
+                            engine=engine, case=name, operation=operation, prefix=prefix
+                        ):
+                            result = self.run_with_env(
+                                env,
+                                engine,
+                                ["api", operation, subject, "--output", argument]
+                                + list(extra),
+                                prefix=prefix,
+                            )
+                            self.assertEqual(result.returncode, 1, result.stderr)
+                            message = "Could not determine home directory."
+                            if engine:
+                                # Frozen Python leaves pathlib's exception
+                                # unhandled; its traceback text is the class
+                                # and message the native envelope preserves.
+                                self.assertEqual(result.stdout, "")
+                                self.assertTrue(
+                                    result.stderr.endswith(
+                                        f"RuntimeError: {message}\n"
+                                    ),
+                                    result.stderr,
+                                )
+                            elif prefix == ["--machine"]:
+                                envelope = json.loads(result.stdout)
+                                self.assertEqual(result.stderr, "")
+                                self.assertEqual(envelope["exit_code"], 1)
+                                self.assertEqual(envelope["outcome"], "error")
+                                self.assertEqual(
+                                    envelope["data"],
+                                    {
+                                        "error": {
+                                            "type": "RuntimeError",
+                                            "message": message,
+                                        }
+                                    },
+                                )
+                            elif prefix == ["--json"]:
+                                self.assertEqual(result.stdout, "")
+                                self.assertEqual(
+                                    json.loads(result.stderr),
+                                    {
+                                        "error": {
+                                            "type": "RuntimeError",
+                                            "message": message,
+                                        }
+                                    },
+                                )
+                            else:
+                                self.assertEqual(result.stdout, "")
+                                self.assertEqual(result.stderr, f"error: {message}\n")
+                            with closing(sqlite3.connect(self.paths[engine])) as db:
+                                snapshots[engine].append(
+                                    {
+                                        "tokens": db.execute(
+                                            "SELECT principal,grants,revoked FROM api_tokens ORDER BY rowid"
+                                        ).fetchall(),
+                                        "private": db.execute(
+                                            "SELECT count(*) FROM api_private_files"
+                                        ).fetchone()[0],
+                                        "audit": db.execute(
+                                            "SELECT action FROM api_audit ORDER BY id"
+                                        ).fetchall(),
+                                    }
+                                )
+            self.assertFalse((self.root / "~catabolic-no-such-user-fixture").exists())
+            self.assertFalse((self.root / "~").exists())
+        self.assertEqual(snapshots[True], snapshots[False])
+        # Each refusal follows token issuance and never revokes the old token.
+        self.assertEqual(len(snapshots[True][-1]["tokens"]), 2 + 1 + 12)
+        self.assertTrue(all(row[2] == 0 for row in snapshots[True][-1]["tokens"]))
+        self.assertEqual(snapshots[True][-1]["private"], 1)
 
     def test_unknown_rotation_and_invalid_configuration_have_no_file(self):
         destination = self.root / "FAKE-never-written.json"

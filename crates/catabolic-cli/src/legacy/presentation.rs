@@ -1174,6 +1174,7 @@ pub fn admin_error(a: &Value, error: catabolic_store::access_admin::Failure) -> 
             error_with_access(a, catabolic_store::Error(error.code().into()), true)
         }
         catabolic_store::access_admin::Failure::Native(error) => self::error(a, error),
+        catabolic_store::access_admin::Failure::Boundary(error) => boundary_error(a, error),
     }
 }
 /// Render a Python text-stream failure using the preserved CLI envelope owner.

@@ -183,6 +183,7 @@ fn native(scenario: &Value) -> Value {
                         Some(401)
                     }
                     Failure::Native(_) => None,
+                    Failure::Boundary(error) => panic!("unexpected boundary class: {error}"),
                 };
                 json!({"error":error.to_string(),"status":status})
             }
@@ -1305,6 +1306,7 @@ fn typed_transaction_preserves_failure_and_cleanup_provenance() {
     match failure {
         Failure::Native(error) => assert!(error.0.contains("native rollback failed")),
         Failure::Access(_) => panic!("cleanup failure retained a business tag"),
+        Failure::Boundary(_) => panic!("cleanup failure acquired a boundary class"),
     }
     assert!(store.finish_transaction(outer, Ok(())).is_err());
     assert!(matches!(

@@ -80,6 +80,7 @@ pub fn call(
             Ok(json!({"error": {"code": error.code(), "status": error.status()}}))
         }
         Err(access_admin::Failure::Native(error)) => Err(error),
+        Err(access_admin::Failure::Boundary(error)) => Err(error.into_error()),
     }
 }
 

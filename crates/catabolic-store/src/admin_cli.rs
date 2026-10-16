@@ -40,7 +40,7 @@ pub fn execute_detailed(
                 &args["grant"],
                 &args["ttl"],
             )?;
-            save_issued(store, text(args, "output"), &issued).map_err(Into::into)
+            save_issued(store, text(args, "output"), &issued)
         }
         "token-rotate" => {
             let store = session.store()?;
@@ -64,38 +64,127 @@ pub fn execute_detailed(
     }
 }
 
-fn save_issued(store: &Store, filename: &str, issued: &Value) -> Result<Value> {
-    use std::{
-        io::Write,
-        path::{Component, Path, PathBuf},
+/// Frozen pathlib's POSIX split: an exact leading `//` is a distinct root,
+/// while one or three-plus separators are `/`. Empty and `.` parts vanish;
+/// `..` is retained and nothing is resolved.
+fn pathlib_parse(path: &[u8]) -> (&'static [u8], Vec<Vec<u8>>) {
+    let root: &'static [u8] = if path.starts_with(b"//") && !path.starts_with(b"///") {
+        b"//"
+    } else if path.starts_with(b"/") {
+        b"/"
+    } else {
+        b""
     };
-    // Pathlib normalizes separators and '.' before expanduser. Expand only the
-    // complete leading '~' component, so '~//...' cannot turn the remaining
-    // suffix into an absolute path that discards HOME during join.
-    let normalized: PathBuf = Path::new(filename)
-        .components()
-        .filter(|part| !matches!(part, Component::CurDir))
+    let parts = path
+        .split(|byte| *byte == b'/')
+        .filter(|part| !part.is_empty() && *part != b".")
+        .map(<[u8]>::to_vec)
         .collect();
-    let expanded = if let Ok(relative) = normalized.strip_prefix("~") {
-        let home = std::env::var_os("HOME")
-            .ok_or_else(|| Error("could not determine home directory".into()))?;
-        PathBuf::from(home).join(relative)
-    } else if normalized.as_os_str().as_encoded_bytes().starts_with(b"~") {
-        return Err(Error(
-            "named-user home expansion is not yet qualified in native credential output".into(),
-        ));
-    } else {
-        normalized
-    };
-    // Path components remove dot/trailing separators without resolving symlinks
-    // or collapsing '..', matching pathlib's ordinary absolute path boundary.
-    let path: PathBuf = if expanded.is_absolute() {
-        expanded
-    } else {
-        std::env::current_dir()?.join(expanded)
+    (root, parts)
+}
+
+/// The passwd home of a named user, or of the real user ID for `None`.
+/// Every lookup failure is Python's `KeyError`, which leaves `~` unexpanded.
+fn passwd_home(name: Option<&[u8]>) -> Option<Vec<u8>> {
+    let name = name.map(std::ffi::CString::new).transpose().ok()?;
+    let mut buffer = vec![0 as libc::c_char; 4096];
+    loop {
+        // SAFETY: zeroed passwd is a valid out-parameter; the buffer and
+        // CString outlive the call, and the result is copied before reuse.
+        let mut entry: libc::passwd = unsafe { std::mem::zeroed() };
+        let mut found: *mut libc::passwd = std::ptr::null_mut();
+        // SAFETY: every pointer refers to live storage sized as passed, and
+        // the name is a NUL-terminated CString.
+        let status = unsafe {
+            match &name {
+                Some(name) => libc::getpwnam_r(
+                    name.as_ptr(),
+                    &mut entry,
+                    buffer.as_mut_ptr(),
+                    buffer.len(),
+                    &mut found,
+                ),
+                None => libc::getpwuid_r(
+                    libc::getuid(),
+                    &mut entry,
+                    buffer.as_mut_ptr(),
+                    buffer.len(),
+                    &mut found,
+                ),
+            }
+        };
+        if status == libc::ERANGE && buffer.len() < 1 << 20 {
+            buffer.resize(buffer.len() * 2, 0);
+            continue;
+        }
+        if status != 0 || found.is_null() || entry.pw_dir.is_null() {
+            return None;
+        }
+        // SAFETY: a successful lookup stores a NUL-terminated pw_dir in buffer.
+        return Some(
+            unsafe { std::ffi::CStr::from_ptr(entry.pw_dir) }
+                .to_bytes()
+                .to_vec(),
+        );
     }
-    .components()
-    .collect();
+}
+
+/// `Path(filename).expanduser().absolute()` from frozen Python 3.14 pathlib.
+/// `Ok(None)` is its `RuntimeError("Could not determine home directory.")`.
+fn pathlib_expanded_absolute(filename: &str) -> Result<Option<std::path::PathBuf>> {
+    use std::os::unix::ffi::{OsStrExt, OsStringExt};
+    let (mut root, mut parts) = pathlib_parse(filename.as_bytes());
+    if root.is_empty() && parts.first().is_some_and(|part| part.starts_with(b"~")) {
+        let first = parts.remove(0);
+        // posixpath.expanduser on the first component alone: HOME (even empty)
+        // for bare `~`, else the passwd entry; named users use getpwnam.
+        let home = if first == b"~" {
+            match std::env::var_os("HOME") {
+                Some(home) => Some(home.as_bytes().to_vec()),
+                None => passwd_home(None),
+            }
+        } else {
+            passwd_home(Some(&first[1..]))
+        };
+        let mut home = home.unwrap_or(first);
+        while home.last() == Some(&b'/') {
+            home.pop();
+        }
+        if home.is_empty() {
+            home.push(b'/');
+        }
+        if home.starts_with(b"~") {
+            return Ok(None);
+        }
+        let (home_root, mut home_parts) = pathlib_parse(&home);
+        home_parts.append(&mut parts);
+        (root, parts) = (home_root, home_parts);
+    }
+    if root.is_empty() {
+        let cwd = std::env::current_dir()?;
+        let (cwd_root, mut cwd_parts) = pathlib_parse(cwd.as_os_str().as_bytes());
+        cwd_parts.append(&mut parts);
+        (root, parts) = (cwd_root, cwd_parts);
+    }
+    let mut path = root.to_vec();
+    path.extend(parts.join(&b'/'));
+    Ok(Some(std::ffi::OsString::from_vec(path).into()))
+}
+
+fn save_issued(
+    store: &Store,
+    filename: &str,
+    issued: &Value,
+) -> access_admin::DetailedResult<Value> {
+    use std::{io::Write, path::Path};
+    let Some(path) = pathlib_expanded_absolute(filename)? else {
+        // Frozen Python raises this after token issuance; its traceback is
+        // replaced by the structured runtime-class presentation.
+        let message = "Could not determine home directory.".to_owned();
+        return Err(access_admin::Failure::Boundary(
+            crate::DetailedError::mapping_runtime(Error(message.clone()), "RuntimeError", message),
+        ));
+    };
     let payload = format!(
         "{{\"token_id\": {}, \"token\": {}, \"expires\": {}}}",
         catabolic_core::encode_with(&issued["token_id"], true, false),
@@ -188,5 +277,55 @@ fn local(store: &Store, profile: &str, operation: &str, args: &Value) -> Result<
             Ok(json!({"operation_id": id, "recipe_id": recipe, "location": location}))
         }
         _ => Err(Error("unsupported local administration operation".into())),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pathlib_split_keeps_double_root_and_parent_parts() {
+        let parts = |raw: &str| {
+            let (root, parts) = pathlib_parse(raw.as_bytes());
+            (
+                String::from_utf8(root.to_vec()).unwrap(),
+                parts
+                    .into_iter()
+                    .map(|part| String::from_utf8(part).unwrap())
+                    .collect::<Vec<_>>(),
+            )
+        };
+        assert_eq!(
+            parts("//h/./a//b/"),
+            ("//".into(), vec!["h".into(), "a".into(), "b".into()])
+        );
+        assert_eq!(
+            parts("///h/../a"),
+            ("/".into(), vec!["h".into(), "..".into(), "a".into()])
+        );
+        assert_eq!(
+            parts("./~//x"),
+            (String::new(), vec!["~".into(), "x".into()])
+        );
+        assert_eq!(parts(""), (String::new(), vec![]));
+    }
+
+    #[test]
+    fn absolute_and_unknown_named_user_paths() {
+        assert_eq!(
+            pathlib_expanded_absolute("//h/./x").unwrap(),
+            Some(std::path::PathBuf::from("//h/x"))
+        );
+        assert_eq!(
+            pathlib_expanded_absolute("/a/~b/../c").unwrap(),
+            Some(std::path::PathBuf::from("/a/~b/../c"))
+        );
+        // An unknown user leaves `~name` unexpanded, which pathlib refuses.
+        assert_eq!(
+            pathlib_expanded_absolute("~catabolic-no-such-user-fixture/x").unwrap(),
+            None
+        );
+        assert!(passwd_home(Some(b"catabolic\0nul")).is_none());
     }
 }
