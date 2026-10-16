@@ -121,6 +121,151 @@ pub fn manifest_path(path: &Path) -> Result<Value> {
     Ok(value)
 }
 
+fn is_digest(value: &Value) -> bool {
+    value["columns"]
+        .as_array()
+        .is_some_and(|columns| !columns.is_empty() && columns.iter().all(Value::is_string))
+        && value["rows"].is_u64()
+        && value["sha256"].as_str().is_some_and(|digest| {
+            digest.len() == 64
+                && digest
+                    .bytes()
+                    .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        })
+        && value.as_object().is_some_and(|object| object.len() == 3)
+}
+
+/// Reject a manifest that is incomplete, mistyped or does not match its own
+/// fingerprint. Comparing partial evidence could otherwise report missing
+/// identities as preserved.
+pub fn validate(manifest: &Value) -> std::result::Result<(), String> {
+    let object = manifest
+        .as_object()
+        .ok_or_else(|| "manifest is not an object".to_owned())?;
+    if manifest["contract"] != CONTRACT {
+        return Err(format!("contract is not {CONTRACT}"));
+    }
+    let expected: &[&str] = &[
+        "catalog",
+        "contract",
+        "database_id",
+        "fingerprint",
+        "history",
+        "legacy_identity_evidence",
+        "raw_database_id",
+        "schema",
+        "sequences",
+        "tables",
+    ];
+    let mut keys = object
+        .keys()
+        .map(String::as_str)
+        .filter(|key| *key != "database")
+        .collect::<Vec<_>>();
+    keys.sort_unstable();
+    if keys != expected {
+        return Err(format!("fields are {keys:?}, expected {expected:?}"));
+    }
+    if object.get("database").is_some_and(|path| !path.is_string()) {
+        return Err("database is not a path string".into());
+    }
+    let schema = manifest["schema"]
+        .as_u64()
+        .filter(|schema| *schema >= 1)
+        .ok_or_else(|| "schema is not a positive integer".to_owned())?;
+    let database_id = manifest["database_id"]
+        .as_str()
+        .ok_or_else(|| "database_id is not a string".to_owned())?;
+    if uuid::Uuid::parse_str(database_id)
+        .ok()
+        .map(|id| id.to_string())
+        .as_deref()
+        != Some(database_id)
+    {
+        return Err("database_id is not a canonical UUID".into());
+    }
+    let raw = manifest["raw_database_id"]
+        .as_str()
+        .ok_or_else(|| "raw_database_id is not a string".to_owned())?;
+    if uuid::Uuid::parse_str(raw)
+        .ok()
+        .map(|id| id.to_string())
+        .as_deref()
+        != Some(database_id)
+    {
+        return Err("raw_database_id does not identify database_id".into());
+    }
+    let native = schema >= u64::from(migration::FIRST_NATIVE_SCHEMA_VERSION);
+    let catalog = &manifest["catalog"];
+    if native {
+        let complete = catalog.as_object().is_some_and(|object| object.len() == 3)
+            && catalog["catalog_id"].is_string()
+            && catalog["incarnation"].is_string()
+            && catalog["generation"].is_i64();
+        if !complete {
+            return Err("native catalog identity is missing or incomplete".into());
+        }
+    } else if !catalog.is_null() {
+        return Err("a legacy schema has no native catalog identity".into());
+    }
+    let history = manifest["history"]
+        .as_array()
+        .ok_or_else(|| "history is not an array".to_owned())?;
+    let expected_history = if schema >= 2 { schema as usize } else { 0 };
+    if history.len() != expected_history {
+        return Err(format!(
+            "history has {} entries for schema {schema}",
+            history.len()
+        ));
+    }
+    for (index, entry) in history.iter().enumerate() {
+        let complete = entry.as_object().is_some_and(|object| object.len() == 5)
+            && entry["version"].as_u64() == Some(index as u64 + 1)
+            && ["filename", "checksum", "origin", "applied_at"]
+                .iter()
+                .all(|field| entry[*field].is_string());
+        if !complete {
+            return Err(format!("history entry {} is incomplete", index + 1));
+        }
+    }
+    let tables = manifest["tables"]
+        .as_object()
+        .ok_or_else(|| "tables is not an object".to_owned())?;
+    for required in ["meta", "identities", "items", "files"] {
+        if !tables.contains_key(required) {
+            return Err(format!("tables lacks {required}"));
+        }
+    }
+    if let Some((name, _)) = tables.iter().find(|(_, digest)| !is_digest(digest)) {
+        return Err(format!("table digest for {name} is incomplete"));
+    }
+    let sequences = manifest["sequences"]
+        .as_object()
+        .ok_or_else(|| "sequences is not an object".to_owned())?;
+    if let Some((name, _)) = sequences.iter().find(|(_, seq)| !seq.is_i64()) {
+        return Err(format!("sequence {name} is not an integer"));
+    }
+    let legacy = &manifest["legacy_identity_evidence"];
+    if legacy.as_object().is_none_or(|object| object.len() != 2)
+        || !is_digest(&legacy["identities"])
+    {
+        return Err("legacy identity evidence is incomplete".into());
+    }
+    let baseline = &legacy["native_baseline"];
+    let has_baseline = schema >= 34;
+    if has_baseline && !is_digest(baseline) || !has_baseline && !baseline.is_null() {
+        return Err("native legacy identity baseline does not match the schema".into());
+    }
+    let mut unsigned = manifest.clone();
+    let unsigned_object = unsigned.as_object_mut().expect("object checked above");
+    unsigned_object.remove("database");
+    let fingerprint = unsigned_object.remove("fingerprint");
+    if fingerprint.as_ref().and_then(Value::as_str) != Some(sha256(encode(&unsigned)).as_str()) {
+        return Err("fingerprint does not match the manifest contents".into());
+    }
+    Ok(())
+}
+
 fn difference(
     differences: &mut Vec<Value>,
     kind: &str,
@@ -135,19 +280,14 @@ fn difference(
 /// captured afterwards. New tables, sequences and history entries are allowed;
 /// any added, removed or changed key in an existing table, or any changed
 /// existing sequence or history row, is reported. Schema downgrades are only
-/// differences here; restore admission is a separate decision.
+/// differences here; restore admission is a separate decision. Both manifests
+/// must first pass `validate`; incomplete evidence is never compared.
 pub fn diff(before: &Value, after: &Value) -> Value {
     let mut differences = Vec::new();
     let null = Value::Null;
-    for manifest in [before, after] {
-        if manifest["contract"] != CONTRACT {
-            difference(
-                &mut differences,
-                "contract",
-                "contract",
-                &json!(CONTRACT),
-                &manifest["contract"],
-            );
+    for (subject, manifest) in [("before", before), ("after", after)] {
+        if let Err(reason) = validate(manifest) {
+            differences.push(json!({"kind":"invalid_manifest","subject":subject,"reason":reason}));
         }
     }
     if !differences.is_empty() {

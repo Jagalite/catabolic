@@ -210,26 +210,126 @@ fn native_catalog_identity_and_contract_mismatches_are_reported() {
     let mut rotated = manifest.clone();
     rotated["catalog"]["incarnation"] = json!("0".repeat(32));
     rotated["catalog"]["generation"] = json!(99);
-    assert_eq!(kinds(&manifest, &rotated), vec![]);
+    assert_eq!(kinds(&manifest, &sign(rotated)), vec![]);
     let mut changed = manifest.clone();
     changed["catalog"]["catalog_id"] = json!("2ff334d9-68fc-44b9-aa39-e9635593ccaa");
     assert_eq!(
-        kinds(&manifest, &changed),
+        kinds(&manifest, &sign(changed)),
         vec![pair("catalog_id", "catalog_id")]
     );
+    // A schema-34+ manifest without its native baseline is incomplete evidence.
     let mut dropped = manifest.clone();
     dropped["legacy_identity_evidence"]["native_baseline"] = Value::Null;
     assert_eq!(
-        kinds(&manifest, &dropped),
-        vec![pair(
-            "legacy_identity_evidence",
-            "catalog_legacy_identity_evidence"
-        )]
+        kinds(&manifest, &sign(dropped)),
+        vec![pair("invalid_manifest", "after")]
     );
     let mut foreign = manifest.clone();
     foreign["contract"] = json!("other");
     assert_eq!(
-        kinds(&manifest, &foreign),
-        vec![pair("contract", "contract")]
+        kinds(&manifest, &sign(foreign)),
+        vec![pair("invalid_manifest", "after")]
     );
+}
+
+/// Recompute a fingerprint so a test isolates one deliberate change.
+fn sign(mut manifest: Value) -> Value {
+    let object = manifest.as_object_mut().unwrap();
+    object.remove("database");
+    object.remove("fingerprint");
+    let fingerprint = catabolic_core::sha256(catabolic_core::encode(&manifest));
+    manifest["fingerprint"] = json!(fingerprint);
+    manifest
+}
+
+#[test]
+fn incomplete_or_unsigned_manifests_are_never_compared() {
+    let (root, path) = populated();
+    let legacy = identity_manifest::manifest_path(&path).unwrap();
+    identity_manifest::validate(&legacy).unwrap();
+    // A file round trip keeps the fingerprint valid.
+    let file = root.path().join("manifest.json");
+    fs::write(&file, serde_json::to_vec_pretty(&legacy).unwrap()).unwrap();
+    let reread = catabolic_core::decode_json_bytes(&fs::read(&file).unwrap()).unwrap();
+    identity_manifest::validate(&reread).unwrap();
+    assert_eq!(kinds(&legacy, &reread), vec![]);
+
+    // The reviewer's case: contract and schemas only.
+    let bare_before = json!({"contract":identity_manifest::CONTRACT,"schema":32});
+    let bare_after = json!({"contract":identity_manifest::CONTRACT,"schema":NATIVE_SCHEMA_VERSION});
+    assert_eq!(
+        kinds(&bare_before, &bare_after),
+        vec![
+            pair("invalid_manifest", "before"),
+            pair("invalid_manifest", "after")
+        ]
+    );
+    assert!(
+        identity_manifest::require_preserved(&bare_before, &bare_after)
+            .unwrap_err()
+            .0
+            .contains("invalid_manifest")
+    );
+
+    let mut cases: Vec<(&str, Value)> = Vec::new();
+    for field in [
+        "history",
+        "tables",
+        "sequences",
+        "database_id",
+        "raw_database_id",
+        "legacy_identity_evidence",
+        "catalog",
+        "fingerprint",
+    ] {
+        let mut missing = legacy.clone();
+        missing.as_object_mut().unwrap().remove(field);
+        cases.push((field, sign_unless(field, missing)));
+    }
+    let mut empty_history = legacy.clone();
+    empty_history["history"] = json!([]);
+    cases.push(("empty history", sign(empty_history)));
+    let mut null_id = legacy.clone();
+    null_id["database_id"] = Value::Null;
+    cases.push(("null database_id", sign(null_id)));
+    let mut no_items = legacy.clone();
+    no_items["tables"].as_object_mut().unwrap().remove("items");
+    cases.push(("missing items digest", sign(no_items)));
+    let mut bad_digest = legacy.clone();
+    bad_digest["tables"]["files"]["sha256"] = json!("short");
+    cases.push(("malformed digest", sign(bad_digest)));
+    let mut bad_sequence = legacy.clone();
+    bad_sequence["sequences"]["api_events"] = json!("2");
+    cases.push(("string sequence", sign(bad_sequence)));
+    let mut legacy_catalog = legacy.clone();
+    legacy_catalog["catalog"] = json!({"catalog_id":"x","incarnation":"y","generation":0});
+    cases.push(("legacy with catalog", sign(legacy_catalog)));
+    let mut extra = legacy.clone();
+    extra["unexpected"] = json!(true);
+    cases.push(("unknown field", sign(extra)));
+    // Changing evidence without re-signing breaks the fingerprint.
+    let mut unsigned = legacy.clone();
+    unsigned["tables"]["items"]["rows"] = json!(3);
+    cases.push(("unsigned change", unsigned));
+    for (label, manifest) in cases {
+        assert!(identity_manifest::validate(&manifest).is_err(), "{label}");
+        assert_eq!(
+            kinds(&legacy, &manifest),
+            vec![pair("invalid_manifest", "after")],
+            "{label}"
+        );
+        assert_eq!(
+            kinds(&manifest, &legacy),
+            vec![pair("invalid_manifest", "before")],
+            "{label}"
+        );
+    }
+}
+
+fn sign_unless(field: &str, manifest: Value) -> Value {
+    if field == "fingerprint" {
+        manifest
+    } else {
+        sign(manifest)
+    }
 }

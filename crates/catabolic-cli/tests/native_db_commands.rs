@@ -411,6 +411,36 @@ fn identity_manifest_and_diff_commands_report_preservation() {
         ),
         "identity preservation failed",
     );
+    // Incomplete manifests are refused rather than compared as preserved.
+    let bare_before = root.path().join("bare-before.json");
+    let bare_after = root.path().join("bare-after.json");
+    fs::write(
+        &bare_before,
+        br#"{"contract":"catabolic-identity-manifest-v1","schema":32}"#,
+    )
+    .unwrap();
+    fs::write(
+        &bare_after,
+        format!(
+            r#"{{"contract":"catabolic-identity-manifest-v1","schema":{}}}"#,
+            migration::NATIVE_SCHEMA_VERSION
+        ),
+    )
+    .unwrap();
+    refused(
+        &cli(
+            &path,
+            &[
+                "db",
+                "identity-diff",
+                "--before",
+                bare_before.to_str().unwrap(),
+                "--after",
+                bare_after.to_str().unwrap(),
+            ],
+        ),
+        "invalid_manifest",
+    );
 }
 
 #[test]
