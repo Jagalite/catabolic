@@ -995,8 +995,10 @@ pub fn complete_evaluation(
     let store = &*store;
     store.transaction(|db| {
         if admit_event {
-            let chain = transition(db, profile, name, id)?;
-            let admitted = chain.iter().try_fold(false, |found, run| {
+            // An unchanged chain root completes without a notification.
+            let chain = transition(db, profile, name, id)?.unwrap_or_default();
+            let admitted = chain.is_empty()
+                || chain.iter().try_fold(false, |found, run| {
                 let key = crate::notifications::event_id(profile, "watcher_changed", &json!([run]));
                 Ok::<_, Error>(
                     found
@@ -1030,48 +1032,65 @@ pub fn complete_evaluation(
         )
     })
 }
-/// The retry chain of a planned reaction, from `run` back to its immutable
-/// transition (the last element): follow each planned run's recorded
-/// `retry_of`, stopping at the first run whose evaluation changed. Every run in
-/// the chain planned while the previous one's reaction was still pending, so
-/// they all deliver one change; an event admitted under any of them (including
-/// a frozen Python retry's own identity) is that change's notification.
-/// Missing or unreadable links fail closed instead of minting a new identity.
+/// The retry chain of a planned reaction, from `run` back to the run whose
+/// evaluation changed (the last element). Each planned run records `retry_of`,
+/// the pending reaction it replaced, in both the frozen and native protocols.
+/// Every run in the chain planned while the previous one's reaction was still
+/// pending, so they all deliver that one change. An event admitted under any of
+/// them (including a frozen Python retry's own identity) is its notification.
+///
+/// `Ok(None)` means the chain ends at an unchanged run that replaced no pending
+/// reaction: the previous change was already delivered and completed, so there
+/// is nothing to notify. Missing rows, non-planned phases, a `changed` that is
+/// not a boolean, a `retry_of` that is neither null nor text, cycles and
+/// over-long chains fail closed instead of minting a new identity. Only the
+/// three needed fields are extracted, through one cached statement.
 fn transition(
     db: &rusqlite::Connection,
     profile: &str,
     watcher: &str,
     run: &str,
-) -> Result<Vec<String>> {
+) -> Result<Option<Vec<String>>> {
     const MAX_CHAIN: usize = 100_000;
+    type Fields = (
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    );
+    let unresolved = || Error("watcher_transition_unresolved".into());
+    let mut statement = db.prepare_cached(
+        "SELECT CASE WHEN json_type(r,'$.phase')='text' THEN json_extract(r,'$.phase') END,json_type(r,'$.evaluation.changed'),json_type(r,'$.retry_of'),CASE WHEN json_type(r,'$.retry_of')='text' THEN json_extract(r,'$.retry_of') END FROM (SELECT CASE WHEN json_valid(result) THEN result END AS r FROM watcher_runs WHERE id=? AND profile=? AND watcher=?)",
+    )?;
     let mut chain = vec![];
+    let mut visited = BTreeSet::new();
     let mut current = run.to_owned();
-    for _ in 0..MAX_CHAIN {
+    while chain.len() < MAX_CHAIN {
+        if !visited.insert(current.clone()) {
+            return Err(unresolved());
+        }
         chain.push(current.clone());
-        let result: Option<String> = db
-            .query_row(
-                "SELECT result FROM watcher_runs WHERE id=? AND profile=? AND watcher=?",
-                params![current, profile, watcher],
-                |r| r.get(0),
-            )
+        let (phase, changed, link_type, link): Fields = statement
+            .query_row(params![current, profile, watcher], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+            })
             .optional()?
-            .flatten();
-        let result = result
-            .map(|text| decode_json(&text))
-            .transpose()?
-            .ok_or_else(|| Error("watcher_transition_unresolved".into()))?;
-        if result["phase"] != "planned" {
-            return Err(Error("watcher_transition_unresolved".into()));
+            .ok_or_else(unresolved)?;
+        if phase.as_deref() != Some("planned") {
+            return Err(unresolved());
         }
-        if result["evaluation"]["changed"] == true {
-            return Ok(chain);
+        match changed.as_deref() {
+            Some("true") => return Ok(Some(chain)),
+            Some("false") => (),
+            _ => return Err(unresolved()),
         }
-        match result["retry_of"].as_str() {
-            Some(previous) => current = previous.to_owned(),
-            None => return Ok(chain),
+        match (link_type.as_deref(), link) {
+            (Some("null"), _) => return Ok(None),
+            (Some("text"), Some(previous)) => current = previous,
+            _ => return Err(unresolved()),
         }
     }
-    Err(Error("watcher_transition_unresolved".into()))
+    Err(unresolved())
 }
 /// Crash-injection hook compiled only into debug/test builds. It never alters
 /// watcher completion semantics in release binaries.

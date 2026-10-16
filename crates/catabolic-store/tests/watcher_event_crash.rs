@@ -58,6 +58,13 @@ fn watcher_crash_worker() {
 /// Commits one changed evaluation's plan, then exits abruptly before watcher
 /// completion and recovers the dead owner. Returns the retained planned run.
 fn crash_before_completion() -> (tempfile::TempDir, std::path::PathBuf, Value) {
+    let (root, path) = fixture();
+    let crashed = crash_worker(&path);
+    (root, path, crashed)
+}
+
+/// A disposable catalog with one item and an enabled-for-run event watcher.
+fn fixture() -> (tempfile::TempDir, std::path::PathBuf) {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("catalog.db");
     migration::initialize(&path).unwrap();
@@ -79,8 +86,7 @@ fn crash_before_completion() -> (tempfile::TempDir, std::path::PathBuf, Value) {
         .unwrap();
         watcher::execute(&store, "default", "put", &json!({"name":"changes","definition":{"plan":{"kind":"query","query_id":query["id"]},"reaction":"event"}})).unwrap();
     }
-    let crashed = crash_worker(&path);
-    (root, path, crashed)
+    (root, path)
 }
 
 /// Runs the watcher in a separate process that exits at the old crash window
@@ -203,4 +209,104 @@ fn event_committed_under_an_unchanged_legacy_retry_identity_is_not_repeated() {
     let second = crash_worker(&path);
     legacy_event(&path, &second["pending_reaction"]);
     retry_admits_exactly_one(&path);
+}
+
+#[test]
+fn completed_change_then_crashed_unchanged_run_then_unchanged_run_admits_nothing() {
+    let (_root, path) = fixture();
+    {
+        // A evaluates a change, delivers it and completes.
+        let mut store = Store::open(&path, true, false).unwrap();
+        let first = run(&mut store);
+        assert_eq!(first["complete"], true, "{first}");
+        assert_eq!(first["evaluation"]["changed"], true, "{first}");
+        assert_eq!(notifications(&store), 1);
+    }
+    // B evaluates unchanged with no pending reaction, persists its own
+    // pending_reaction and crashes before completion.
+    let second = crash_worker(&path);
+    let store = Store::open(&path, true, false).unwrap();
+    let planned: String = store
+        .db
+        .query_row(
+            "SELECT result FROM watcher_runs WHERE id=?",
+            [second["pending_reaction"].as_str().unwrap()],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let planned: Value = serde_json::from_str(&planned).unwrap();
+    assert_eq!(planned["evaluation"]["changed"], false, "{planned}");
+    assert_eq!(planned["retry_of"], Value::Null, "{planned}");
+    drop(store);
+    // C is also unchanged: nothing new is notified, and the chain completes.
+    let mut store = Store::open(&path, true, false).unwrap();
+    let third = run(&mut store);
+    assert_eq!(third["complete"], true, "{third}");
+    assert_eq!(third["evaluation"]["changed"], false, "{third}");
+    assert_eq!(notifications(&store), 1);
+    let finished = watcher::execute(&store, "default", "get", &json!({"name":"changes"})).unwrap();
+    assert!(finished["pending_reaction"].is_null(), "{finished}");
+}
+
+/// Rewrites one planned run's recorded result, as a damaged catalog might.
+fn rewrite(path: &Path, run: &Value, expression: &str) {
+    let store = Store::open(path, true, false).unwrap();
+    let sql = format!("UPDATE watcher_runs SET result={expression} WHERE id=?1");
+    assert_eq!(store.db.execute(&sql, [run.as_str().unwrap()]).unwrap(), 1);
+}
+
+/// A retry over an unresolvable chain fails closed promptly, admits nothing
+/// and leaves the reaction pending.
+fn retry_fails_closed(path: &Path) {
+    let mut store = Store::open(path, true, false).unwrap();
+    let started = std::time::Instant::now();
+    let retry = run(&mut store);
+    let elapsed = started.elapsed();
+    assert_eq!(retry["complete"], false, "{retry}");
+    assert_eq!(retry["error"], "watcher_transition_unresolved", "{retry}");
+    assert!(elapsed < std::time::Duration::from_secs(2), "{elapsed:?}");
+    assert_eq!(notifications(&store), 0);
+    let row = watcher::execute(&store, "default", "get", &json!({"name":"changes"})).unwrap();
+    assert!(!row["pending_reaction"].is_null(), "{row}");
+}
+
+#[test]
+fn self_linked_and_mutually_linked_chains_fail_closed_quickly() {
+    let (_root, path, first) = crash_before_completion();
+    rewrite(
+        &path,
+        &first["pending_reaction"],
+        "json_set(result,'$.evaluation.changed',json('false'),'$.retry_of',id)",
+    );
+    retry_fails_closed(&path);
+
+    let (_root, path, first) = crash_before_completion();
+    let second = crash_worker(&path);
+    rewrite(
+        &path,
+        &first["pending_reaction"],
+        &format!(
+            "json_set(result,'$.evaluation.changed',json('false'),'$.retry_of','{}')",
+            second["pending_reaction"].as_str().unwrap()
+        ),
+    );
+    retry_fails_closed(&path);
+}
+
+#[test]
+fn missing_or_malformed_comparison_and_link_fields_fail_closed() {
+    for expression in [
+        "json_remove(result,'$.evaluation.changed')",
+        "json_set(result,'$.evaluation.changed','yes')",
+        "json_set(result,'$.evaluation.changed',json('false'),'$.retry_of',7)",
+        "json_remove(json_set(result,'$.evaluation.changed',json('false')),'$.retry_of')",
+        "json_set(result,'$.phase','observing')",
+        "json_set(result,'$.phase',3)",
+        "'{not json'",
+        "NULL",
+    ] {
+        let (_root, path, first) = crash_before_completion();
+        rewrite(&path, &first["pending_reaction"], expression);
+        retry_fails_closed(&path);
+    }
 }

@@ -176,22 +176,52 @@ engine corrects it without a schema change:
   transaction. A crash can no longer separate them.
 - Every planned run records `retry_of` (the `pending_reaction` it replaced),
   in both the frozen and native protocols. Before admitting, the native engine
-  follows that chain back from the current run to the first run whose
-  evaluation changed. All runs in the chain deliver that one change. If an
-  event was already admitted under any of their identities, nothing is
-  emitted. Otherwise the event uses the identity of the run whose evaluation
-  changed. A retry that sees a newer change starts a new chain and is still
-  notified. A missing or unreadable link fails closed
-  (`watcher_transition_unresolved`) rather than minting a new identity.
+  follows that chain back from the current run:
+  - **The chain reaches a run whose evaluation changed.** All runs in the chain
+    deliver that one change. If an event was already admitted under any of
+    their identities, nothing is emitted. Otherwise the event uses the
+    identity of the run whose evaluation changed.
+  - **The chain ends at an unchanged run with no `retry_of`.** The previous
+    change was already delivered and its run completed. The retry completes
+    without emitting anything.
+  - **A retry sees a newer change.** It starts a new chain and is notified.
+- The walk reads only the phase, the `changed` flag and the link, through one
+  cached statement, and it tracks the runs it has visited. Each of these fails
+  closed with `watcher_transition_unresolved`:
+  - a missing run row, or a result that is not valid JSON;
+  - a phase other than the text `planned`;
+  - a `changed` flag that is not a boolean;
+  - a `retry_of` that is neither null nor text;
+  - a cycle;
+  - a chain longer than 100,000 runs.
+
+  The run then fails without emitting, and the reaction stays pending.
+
+### What is guaranteed
+
+Native admission emits at most one `watcher_changed` event for each change.
+That holds across crashes and retries when the retry chain consists of
+well-formed planned runs. This includes chains that began under the frozen
+Python protocol. A damaged chain never produces a notification: the watcher
+then needs repair.
+
+The guarantee covers only events admitted by the native engine. While frozen
+Python itself runs the retries, it can still emit duplicates. The stored
+`pending_reaction` value is unchanged, because it is observable reference
+state.
+
+### Tests
 
 The debug-only crash hook `CATABOLIC_TEST_WATCHER_CRASH_AT=before_finish`
 exits the process at the old crash window. The test
-`crates/catabolic-store/tests/watcher_event_crash.rs` covers four cases:
+`crates/catabolic-store/tests/watcher_event_crash.rs` covers these cases:
 
 - a native crash followed by a retry;
 - a retry after a split-protocol commit;
 - a legacy commit, then a native retry that crashes, then a successful retry;
-- an event committed under an unchanged legacy retry's own identity.
-
-The stored `pending_reaction` value is unchanged, because it is observable
-reference state.
+- an event committed under an unchanged legacy retry's own identity;
+- a completed change, then an unchanged run that crashes, then an unchanged
+  run, which together admit no new event;
+- self-linked and mutually linked chains, which fail closed within two
+  seconds;
+- missing or malformed comparison, link and phase fields, and results that are not JSON.
