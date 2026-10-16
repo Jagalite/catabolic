@@ -18,6 +18,7 @@ from catabolic.domain import CatabolicError
 from catabolic.fallback_policies import Policies
 from catabolic.operations import Operations
 from catabolic.outputs import Outputs
+from catabolic.processors import Processors
 from catabolic.program_bundle import Programs
 from catabolic.rules import Rules
 from catabolic.saved_queries import Queries
@@ -228,6 +229,37 @@ class NativeProgramsTest(unittest.TestCase):
         with Store(path, writable=True) as store:
             self.assertFalse(Rules(Application(store)).get(rule)["enabled"])
             Rules(Application(store)).enable(rule, True)
+        before = path.read_bytes()
+        self.assertEqual(result, self.differential_import(path, args))
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_external_processor_import_binds_local_processor(self):
+        bundle = self.bundle("external")
+        path = self.destination()
+        bindings = {"catalogs": {"query": "target"}}
+        # Missing binding, then a binding to an absent local processor, both
+        # refuse atomically with the frozen owner's diagnostics.
+        self.error(path, bundle, bindings=bindings)
+        bindings["processors"] = {"worker": "local-worker"}
+        self.error(path, bundle, bindings=bindings)
+        with Store(path, writable=True) as store:
+            Processors(Application(store)).put(
+                "local-worker", {"endpoint": "http://localhost:8888"}
+            )
+        args = {"value": bundle, "bindings": bindings}
+        before = path.read_bytes()
+        preview = self.differential_import(path, {**args, "dry_run": True})
+        self.assertTrue(preview["preview_ids_ephemeral"])
+        self.assertEqual(path.read_bytes(), before)
+        result = self.differential_import(path, args)
+        operation = next(iter(result["references"]["operations"].values()))
+        with Store(path) as store:
+            row = store.rows(
+                "SELECT definition,operation_kind FROM processing_recipes WHERE id=?",
+                (operation,),
+            )[0]
+        self.assertEqual(row["operation_kind"], "external")
+        self.assertEqual(json.loads(row["definition"])["operation"], "local-worker")
         before = path.read_bytes()
         self.assertEqual(result, self.differential_import(path, args))
         self.assertEqual(path.read_bytes(), before)

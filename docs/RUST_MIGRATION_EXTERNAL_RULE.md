@@ -167,7 +167,8 @@ These ownership differences were not silently replaced with another Store owner.
 
 Receipt outcomes and reuse beyond the selected successful CLI cases,
 installed-wheel/callable packaging, macOS, process crashes, rollback/release
-qualification and exhaustive malformed definition behavior remain unqualified. Program-bundle external imports retain their prior explicit refusal.
+qualification and exhaustive malformed definition behavior remain unqualified. Program-bundle external imports retained their prior explicit refusal at this
+checkpoint; track D (below) removed it.
 Filesystem/publication gates and the separate paused/restricted review scopes
 are unchanged. The ownership ledger therefore keeps both new leaves `partial`.
 The narrow independent review above does not promote either leaf to full parity
@@ -181,3 +182,15 @@ standalone TERM exit/no-new-output presentation for rule `--worker`, fallback
 worker and top-level watch only after existing native cleanup finishes. Private
 Python callable and shared HTTP signal behavior remain unchanged. This does not
 close the other documented gaps or promote any leaf or migration gate.
+
+## Track D: program import kinds (October 16)
+
+**Program import kinds.** Frozen `program import` admits every operation kind
+through the ordinary `Operations.put` owner. The native import previously
+accepted analysis and render operations through two narrower owners and
+refused external processors. It now uses `catabolic_runtime::operations::put`,
+the same frozen-sequence owner as `operation put`, for every kind, after
+binding the processor name. A differential test imports the external program
+bundle with a missing processor binding, a binding to an absent local processor,
+a dry run, a real import and an idempotent repeat, comparing returned references
+and every definition table with frozen Python.

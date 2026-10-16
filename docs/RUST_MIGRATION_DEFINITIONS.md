@@ -132,7 +132,8 @@ other owners must be resolved before claiming an integrated clean gate.
   fail explicitly before pretending to evaluate or publish them.
 - Watcher imports can admit only families supported by the native watcher owner;
   a roundtrip of a query/report watcher does not qualify processing, HTTP or
-  projection reactions. External-operation import depends on the external owner.
+  projection reactions. External-operation import now uses the external owner
+  (track D; see [external rule](RUST_MIGRATION_EXTERNAL_RULE.md)).
 - Metadata export adapters (XSPF, OPDS, NFO), non-overwriting export bundles,
   official-application import adapters and complete target descriptors remain open.
 - Exact Pydantic structural diagnostic text for plan/component models is not yet

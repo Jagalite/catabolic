@@ -563,19 +563,9 @@ pub fn execute_ordered(
             profile,
             request,
             order,
-            |name, definition| match definition["kind"].as_str() {
-                Some("analysis") => crate::media::put_operation(&store, name, definition),
-                Some("render") => crate::artifacts::recipe(
-                    &store,
-                    name,
-                    required(definition, "operation")?,
-                    definition.get("options").unwrap_or(&serde_json::json!({})),
-                    definition["output_definition_id"].as_str(),
-                ),
-                _ => Err(Error(
-                    "native external processor import is not yet supported".into(),
-                )),
-            },
+            // Frozen program import admits every operation kind, including
+            // external processors, through the ordinary `Operations.put` owner.
+            |name, definition| crate::operations::put(&store, profile, name, definition),
         ),
         "fallback-policy" => {
             catabolic_store::fallback_mutation::execute(&store, profile, operation, request)
