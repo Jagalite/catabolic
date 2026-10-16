@@ -395,3 +395,90 @@ fn profile_generations_are_isolated_by_subscription_snapshot() {
         0
     );
 }
+
+/// Restores a disposable fixture directory's mode so the tempdir can be removed.
+struct Locked(PathBuf);
+impl Drop for Locked {
+    fn drop(&mut self) {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(&self.0, fs::Permissions::from_mode(0o755));
+    }
+}
+impl Locked {
+    fn new(path: PathBuf) -> Self {
+        use std::os::unix::fs::PermissionsExt;
+        fs::create_dir(&path).unwrap();
+        fs::write(path.join("hidden.txt"), "hidden").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o000)).unwrap();
+        Self(path)
+    }
+    fn unlock(&self) {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&self.0, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+}
+
+#[test]
+fn degraded_coverage_is_reported_without_redirtying_every_poll() {
+    // SAFETY: geteuid has no arguments or side effects.
+    if unsafe { libc::geteuid() } == 0 {
+        eprintln!("skipped: permission-denied subtrees are readable by root");
+        return;
+    }
+    let f = Fixture::new();
+    let locked = Locked::new(f.source.join("locked"));
+    let mut monitor = f.monitor();
+    let first = f.poll(&mut monitor);
+    assert_eq!(first["invalidated"][0]["source"], "media", "{first}");
+    assert_eq!(first["unavailable_sources"], json!(["media"]), "{first}");
+    assert_eq!(first["complete"], false, "{first}");
+    let degraded = f.generation();
+    // Longer than several reconnect retries: incomplete coverage stays visible,
+    // but no new change means no new durable generation.
+    let deadline = Instant::now() + Duration::from_millis(2500);
+    while Instant::now() < deadline {
+        let report = f.poll(&mut monitor);
+        assert_eq!(report["complete"], false, "{report}");
+        assert_eq!(report["unavailable_sources"], json!(["media"]), "{report}");
+        assert_eq!(report["invalidated"], json!([]), "{report}");
+        assert_eq!(f.generation(), degraded, "{report}");
+    }
+    // Registration stops at the first failure, so only the root registration
+    // is certain. An actual event there still invalidates (a directory change
+    // may also require one full rebuild), and then the generation is stable.
+    fs::write(f.source.join("root-change.txt"), "covered change").unwrap();
+    f.changed(&mut monitor);
+    let deadline = Instant::now() + Duration::from_millis(1500);
+    while Instant::now() < deadline {
+        assert_eq!(f.poll(&mut monitor)["complete"], false);
+    }
+    let changed = f.generation();
+    assert!(changed > degraded);
+    let deadline = Instant::now() + Duration::from_millis(2500);
+    while Instant::now() < deadline {
+        let report = f.poll(&mut monitor);
+        assert_eq!(report["complete"], false, "{report}");
+        assert_eq!(report["invalidated"], json!([]), "{report}");
+    }
+    assert_eq!(f.generation(), changed);
+    // Restored coverage is a transition: one invalidation, then completeness.
+    locked.unlock();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let report = f.poll(&mut monitor);
+        if report["complete"] == true && report["invalidated"] == json!([]) {
+            assert_eq!(report["unavailable_sources"], json!([]), "{report}");
+            break;
+        }
+        assert!(Instant::now() < deadline, "coverage not restored: {report}");
+    }
+    // The mode change itself may also be delivered as an ordinary hint.
+    let restored = f.generation();
+    assert!(restored > changed, "restoration must invalidate");
+    for _ in 0..5 {
+        assert_eq!(f.poll(&mut monitor)["complete"], true);
+    }
+    assert_eq!(f.generation(), restored);
+    fs::write(f.source.join("locked/hidden.txt"), "now covered").unwrap();
+    f.changed(&mut monitor);
+}

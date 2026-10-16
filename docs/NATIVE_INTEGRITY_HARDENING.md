@@ -120,6 +120,44 @@ and still accept effects.
 A moved directory is reported as `output directory moved during operation`.
 An effect that has already landed outside the root is reported, not undone.
 
+## Degraded event coverage no longer re-dirties every poll (FS7)
+
+Native event monitoring could leave a source only partly subscribed. Causes
+include a permission-denied subtree, the five-second registration deadline,
+the watch or entry budget, or a missing root. Earlier builds re-reported that
+source on every kernel wait, and every rebuild retry invalidated every source
+again. Each 50 ms supervisor pulse advanced the durable dirty generation and
+the watchers' pending generations, which fenced active scans even though
+nothing had changed.
+
+`crates/catabolic-runtime/src/source_events.rs` now keeps degraded coverage as
+session state, with the time each source was last invalidated:
+
+- **Transitions invalidate once.** These are a source that newly loses
+  coverage (a failed registration or a disconnected root) and a degraded source
+  whose coverage is restored. The backend clears a disconnected root's pin, so
+  the disconnection is reported once.
+- **Actual events still invalidate.** These are kernel hints in covered parts,
+  lost or truncated intake, stream errors, configuration changes and rebuilds
+  that directory changes require. Each of these still invalidates every source,
+  as before.
+- **Restoration retries do not invalidate.** Retries start at the existing
+  one-second delay and double up to 30 seconds. The old subscriptions stay
+  installed until the new set is registered, and are then drained, so a source
+  that was covered loses no hint in the overlap.
+- **Periodic reconciliation is bounded.** A degraded source is invalidated again
+  at most once every 30 seconds, the frozen polling `watch` default interval.
+  `source_events::invalidate_with_reconciliation` does this only after a scan
+  has claimed the current generation, and only when no scan at that generation
+  is still queued or running under a live lease. Each reconciliation scan can
+  therefore finish while coverage stays degraded. An unclaimed generation is
+  never advanced again. These results report `reason: degraded_coverage`.
+
+Monitoring stays fail-closed. While any source is degraded, the report keeps
+`complete: false`, `reconnecting: true`, `degraded_coverage: true` and the
+source in `unavailable_sources`. The supervisor's report therefore stays
+incomplete.
+
 ## Watcher events are admitted atomically with completion (FS8)
 
 The frozen Python reference and earlier native builds commit a `watcher_changed`

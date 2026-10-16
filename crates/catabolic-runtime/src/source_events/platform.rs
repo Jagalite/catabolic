@@ -120,6 +120,7 @@ impl Backend {
                 Ok(())
             })();
             if result.is_err() {
+                // Reported once as a coverage transition by the session.
                 this.unavailable.insert(index);
             }
         }
@@ -174,22 +175,28 @@ impl Backend {
         }
         // A directory subscription follows its inode through a rename. The
         // pathname check detects a disconnected/replaced configured root even
-        // if that kernel's queue did not emit a usable self event.
+        // if that kernel's queue did not emit a usable self event. Only the
+        // transition is reported: the root pin is then cleared, and the source
+        // stays in `unavailable` (degraded coverage) until a rebuild restores
+        // it. Degraded sources are never re-reported on later waits (FS7).
         for (index, source) in self.sources.iter().enumerate() {
+            let Some(pinned) = self.roots[index] else {
+                continue;
+            };
             let current = open_root(&source.root)
                 .and_then(|f| Ok((f.metadata()?.dev(), f.metadata()?.ino())))
                 .ok();
-            if current != self.roots[index] || current.is_none() {
+            if current != Some(pinned) {
                 batch.sources.insert(index);
                 batch.rebuild = true;
                 batch.lost = true;
+                self.roots[index] = None;
                 self.unavailable.insert(index);
             }
         }
         if batch.lost {
             batch.sources.extend(0..self.sources.len());
         }
-        batch.sources.extend(self.unavailable.iter().copied());
         Ok(batch)
     }
 }

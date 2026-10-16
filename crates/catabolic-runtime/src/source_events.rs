@@ -4,7 +4,7 @@
 //! reducers. Event receipt never creates inventory, proves absence or publishes.
 use catabolic_store::{
     Error, Result, Store,
-    source_events::{Snapshot, invalidate, snapshot},
+    source_events::{Snapshot, invalidate_with_reconciliation, snapshot},
 };
 use serde_json::{Value, json};
 use std::{
@@ -49,6 +49,17 @@ fn busy(error: &Error) -> bool {
     error.0.contains("another Catabolic writer") || error.0.contains("database is locked")
 }
 
+/// Degraded-coverage reconciliation interval. It matches the frozen polling
+/// `watch` default (`--interval 30`), which rescans every source each cycle.
+/// A degraded source is re-invalidated at most this often, and only after the
+/// previous reconciliation scan is no longer in flight.
+const DEGRADED_RECONCILIATION: Duration = Duration::from_secs(30);
+/// Subscription-restoration retries while coverage is degraded start at the
+/// existing one-second rebuild delay and double up to the reconciliation
+/// interval.
+const DEGRADED_RETRY_INITIAL: Duration = Duration::from_secs(1);
+const DEGRADED_RETRY_MAX: Duration = DEGRADED_RECONCILIATION;
+
 pub struct MonitorSession {
     path: PathBuf,
     snapshot: Snapshot,
@@ -58,6 +69,12 @@ pub struct MonitorSession {
     rebuild: bool,
     retry_at: Instant,
     last_error: Option<String>,
+    /// Sources with incomplete subscription coverage, each with the time of
+    /// its last full-source invalidation. Coverage transitions invalidate
+    /// once; while degraded, only bounded reconciliation invalidates (FS7).
+    degraded: BTreeMap<String, Instant>,
+    degraded_retry: Duration,
+    reconciliation: Duration,
 }
 impl MonitorSession {
     /// No writer session is held during subscription setup or kernel waits.
@@ -79,6 +96,9 @@ impl MonitorSession {
                 rebuild: true,
                 retry_at: Instant::now(),
                 last_error: None,
+                degraded: BTreeMap::new(),
+                degraded_retry: DEGRADED_RETRY_INITIAL,
+                reconciliation: DEGRADED_RECONCILIATION,
             };
             result.reconnect()?;
             Ok(result)
@@ -86,14 +106,79 @@ impl MonitorSession {
     }
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn reconnect(&mut self) -> Result<()> {
-        // Install before invalidating: any gap during old/new registrations is
-        // conservatively covered by the fresh full-source generation.
-        self.backend = Some(platform::Backend::new(&self.snapshot.sources)?);
+        // A required rebuild (initial, lost events, directory changes, stream
+        // errors, configuration changes) invalidates every current source: any
+        // gap during old/new registrations is conservatively covered by the
+        // fresh full-source generation. A retry made only to restore degraded
+        // coverage keeps the old subscriptions installed until the new set is
+        // registered, then drains them, so covered sources lose no hint in the
+        // overlap and need no new generation.
+        let required = self.rebuild || self.backend.is_none();
+        let backend = platform::Backend::new(&self.snapshot.sources)?;
+        let old = self.backend.replace(backend);
+        let now = Instant::now();
+        if required {
+            for source in &self.snapshot.sources {
+                self.dirty.mark(&source.name)?;
+            }
+            for stamp in self.degraded.values_mut() {
+                *stamp = now;
+            }
+        } else if let Some(mut old) = old {
+            let all = 0..self.snapshot.sources.len();
+            let indices: Vec<usize> = match old.wait(Duration::ZERO) {
+                Ok(batch) if !batch.lost => batch.sources.into_iter().collect(),
+                _ => all.collect(),
+            };
+            for index in indices {
+                if let Some(source) = self.snapshot.sources.get(index) {
+                    self.dirty.mark(&source.name)?;
+                }
+            }
+        }
         self.rebuild = false;
-        self.retry_at = Instant::now() + Duration::from_secs(1);
         self.last_error = None;
-        for source in &self.snapshot.sources {
-            self.dirty.mark(&source.name)?;
+        self.sync_coverage(now)?;
+        self.retry_at = now
+            + if self.degraded.is_empty() {
+                self.degraded_retry = DEGRADED_RETRY_INITIAL;
+                Duration::from_secs(1)
+            } else {
+                let delay = self.degraded_retry;
+                self.degraded_retry = (delay * 2).min(DEGRADED_RETRY_MAX);
+                delay
+            };
+        Ok(())
+    }
+    /// Invalidate coverage transitions exactly once: a source newly missing
+    /// subscriptions, or a degraded source whose coverage was restored.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn sync_coverage(&mut self, now: Instant) -> Result<()> {
+        let backend = self
+            .backend
+            .as_ref()
+            .ok_or_else(|| Error("native event monitor disconnected".into()))?;
+        let current: std::collections::BTreeSet<String> = backend
+            .unavailable
+            .iter()
+            .filter_map(|i| self.snapshot.sources.get(*i))
+            .map(|s| s.name.clone())
+            .collect();
+        let restored: Vec<String> = self
+            .degraded
+            .keys()
+            .filter(|name| !current.contains(*name))
+            .cloned()
+            .collect();
+        for name in restored {
+            self.degraded.remove(&name);
+            self.dirty.mark(&name)?;
+        }
+        for name in current {
+            if !self.degraded.contains_key(&name) {
+                self.dirty.mark(&name)?;
+                self.degraded.insert(name, now);
+            }
         }
         Ok(())
     }
@@ -127,10 +212,12 @@ impl MonitorSession {
                 self.dirty
                     .pending
                     .retain(|name, _| self.snapshot.sources.iter().any(|s| s.name == *name));
+                self.degraded
+                    .retain(|name, _| self.snapshot.sources.iter().any(|s| s.name == *name));
                 self.rebuild = true;
                 self.retry_at = Instant::now();
             }
-            if self.rebuild && Instant::now() >= self.retry_at {
+            if (self.rebuild || !self.degraded.is_empty()) && Instant::now() >= self.retry_at {
                 self.reconnect()?;
             }
             let deadline = Instant::now() + wait.min(Duration::from_secs(30));
@@ -178,18 +265,36 @@ impl MonitorSession {
                     }
                 }
             }
+            // Root disconnections found by this wait are coverage transitions.
+            self.sync_coverage(Instant::now())?;
             cancelled(cancel, poll)?;
             let batch = self.dirty.pending.clone();
             let names = batch.keys().cloned().collect::<Vec<_>>();
+            let now = Instant::now();
+            let reconcile: Vec<String> = self
+                .degraded
+                .iter()
+                .filter(|(name, at)| {
+                    now.duration_since(**at) >= self.reconciliation && !batch.contains_key(*name)
+                })
+                .map(|(name, _)| name.clone())
+                .collect();
             let mut invalidated = vec![];
             let mut catalog_busy = false;
-            if !names.is_empty() {
-                match Store::open(&self.path, true, false)
-                    .and_then(|store| invalidate(&store, &self.snapshot, &names))
-                {
+            if !names.is_empty() || !reconcile.is_empty() {
+                match Store::open(&self.path, true, false).and_then(|store| {
+                    invalidate_with_reconciliation(&store, &self.snapshot, &names, &reconcile)
+                }) {
                     Ok(result) => {
                         invalidated = result;
                         self.dirty.acknowledge(&batch);
+                        // Invalidated, or still served by an unfinished
+                        // reconciliation: the next check is one interval away.
+                        for name in names.iter().chain(&reconcile) {
+                            if let Some(stamp) = self.degraded.get_mut(name) {
+                                *stamp = now;
+                            }
+                        }
                     }
                     Err(error) if busy(&error) => catalog_busy = true,
                     Err(error) if error.0 == "stale_native_event_snapshot" => {
@@ -200,19 +305,14 @@ impl MonitorSession {
                 }
             }
             let backend = self.backend.as_ref().unwrap();
-            let unavailable: Vec<_> = backend
-                .unavailable
-                .iter()
-                .filter_map(|i| self.snapshot.sources.get(*i))
-                .map(|s| s.name.clone())
-                .collect();
-            if !unavailable.is_empty() {
-                self.rebuild = true;
-            }
+            // Degraded coverage stays visible and incomplete; restoration is
+            // retried on a bounded backoff without re-invalidating.
+            let unavailable: Vec<_> = self.degraded.keys().cloned().collect();
+            let reconnecting = self.rebuild || !unavailable.is_empty();
             let complete =
                 !self.rebuild && !lost && unavailable.is_empty() && self.dirty.pending.is_empty();
             Ok(
-                json!({"complete":complete,"coverage":"hints_only","invalidated":invalidated,"pending_sources":self.dirty.pending.keys().collect::<Vec<_>>(),"unavailable_sources":unavailable,"lost_events":lost,"reconnecting":self.rebuild,"catalog_busy":catalog_busy,"registrations":backend.registrations(),"error":self.last_error}),
+                json!({"complete":complete,"coverage":"hints_only","invalidated":invalidated,"pending_sources":self.dirty.pending.keys().collect::<Vec<_>>(),"unavailable_sources":unavailable,"degraded_coverage":!unavailable.is_empty(),"lost_events":lost,"reconnecting":reconnecting,"catalog_busy":catalog_busy,"registrations":backend.registrations(),"error":self.last_error}),
             )
         }
     }
@@ -318,5 +418,130 @@ mod tests {
         assert!(dirty.pending.is_empty());
         dirty.sequence = u64::MAX;
         assert!(dirty.mark("media").is_err());
+    }
+
+    /// Disposable catalog whose only source has a permission-denied subtree.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    struct Degraded {
+        _root: tempfile::TempDir,
+        path: PathBuf,
+        locked: PathBuf,
+    }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    impl Drop for Degraded {
+        fn drop(&mut self) {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&self.locked, std::fs::Permissions::from_mode(0o755));
+        }
+    }
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    impl Degraded {
+        fn new() -> Option<Self> {
+            use std::os::unix::fs::PermissionsExt;
+            // SAFETY: geteuid has no arguments or side effects.
+            if unsafe { libc::geteuid() } == 0 {
+                eprintln!("skipped: permission-denied subtrees are readable by root");
+                return None;
+            }
+            let root = tempfile::tempdir().unwrap();
+            let path = root.path().join("catalog.db");
+            let source = root.path().join("source");
+            let locked = source.join("locked");
+            std::fs::create_dir_all(&locked).unwrap();
+            std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+            catabolic_store::migration::initialize(&path).unwrap();
+            let store = Store::open(&path, true, false).unwrap();
+            catabolic_store::observation::execute(
+                &store,
+                "default",
+                "bind",
+                &json!({"source":"media","root":source}),
+            )
+            .unwrap();
+            Some(Self {
+                _root: root,
+                path,
+                locked,
+            })
+        }
+        fn generation(&self) -> i64 {
+            Store::open(&self.path, false, false)
+                .unwrap()
+                .db
+                .query_row(
+                    "SELECT dirty_generation FROM observation_sources WHERE profile='default' AND source='media'",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap()
+        }
+        fn execute(&self, sql: &str, generation: i64) {
+            Store::open(&self.path, true, false)
+                .unwrap()
+                .db
+                .execute(sql, [generation])
+                .unwrap();
+        }
+        /// Polls through more than one reconciliation interval.
+        fn polls(&self, session: &mut MonitorSession) -> Vec<Value> {
+            let deadline = Instant::now() + session.reconciliation * 3;
+            let mut reports = vec![];
+            while Instant::now() < deadline {
+                let report = session
+                    .poll(
+                        Duration::from_millis(20),
+                        &AtomicBool::new(false),
+                        &mut || {},
+                    )
+                    .unwrap();
+                assert_eq!(report["complete"], false, "{report}");
+                assert_eq!(report["degraded_coverage"], true, "{report}");
+                assert_eq!(report["unavailable_sources"], json!(["media"]), "{report}");
+                reports.push(report);
+            }
+            reports
+        }
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    #[test]
+    fn degraded_reconciliation_is_periodic_bounded_and_never_fences_inflight_scans() {
+        let Some(f) = Degraded::new() else {
+            return;
+        };
+        let mut session = MonitorSession::new(&f.path, "default").unwrap();
+        session.reconciliation = Duration::from_millis(200);
+        let reports = f.polls(&mut session);
+        // The degraded transition invalidated once. No scan has claimed that
+        // generation, so reconciliation does not advance it again.
+        assert_eq!(reports[0]["invalidated"][0]["source"], "media");
+        let transition = f.generation();
+        assert_eq!(transition, 1);
+        assert!(reports[1..].iter().all(|r| r["invalidated"] == json!([])));
+        // A queued reconciliation scan at the current generation is never fenced.
+        f.execute("INSERT INTO observation_jobs(id,profile,source,compatibility,exclusions,dirty_generation,generation,state,requested_at) VALUES('first','default','media','fixture','[]',?1,1,'queued',0)", transition);
+        f.polls(&mut session);
+        assert_eq!(f.generation(), transition);
+        // So is a running scan under a live lease.
+        f.execute("UPDATE observation_jobs SET state='running',lease_until=4102444800 WHERE id='first' AND dirty_generation=?1", transition);
+        f.polls(&mut session);
+        assert_eq!(f.generation(), transition);
+        // Once it finishes, the next interval requests one more reconciliation,
+        // then waits for a scan to claim the new generation.
+        f.execute("UPDATE observation_jobs SET state='complete',lease_until=0 WHERE id='first' AND dirty_generation=?1", transition);
+        let reports = f.polls(&mut session);
+        assert_eq!(f.generation(), transition + 1);
+        let reconciled: Vec<_> = reports
+            .iter()
+            .flat_map(|r| r["invalidated"].as_array().unwrap().clone())
+            .collect();
+        assert_eq!(
+            reconciled,
+            vec![json!({"source":"media","reason":"degraded_coverage","coverage":"full_source"})]
+        );
+        // An expired running lease no longer counts as in flight.
+        f.execute("INSERT INTO observation_jobs(id,profile,source,compatibility,exclusions,dirty_generation,generation,state,requested_at,lease_until) VALUES('second','default','media','fixture','[]',?1,2,'running',0,1)", transition + 1);
+        f.polls(&mut session);
+        assert_eq!(f.generation(), transition + 2);
     }
 }

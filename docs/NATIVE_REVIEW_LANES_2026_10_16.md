@@ -58,7 +58,7 @@ against frozen Python.
 | FS4 | P0 | Unrecognized orphaned private sidecars (rollback journals, zeroed headers) remain serveable (`content_access.rs:20,199`). This blocker was already known. | open |
 | FS5 | P1 | Recovery that finds the intended postcondition skips the parent-directory sync before acknowledging (`filesystem_mutation.rs:1342`, `hardlink_mutation.rs:564`). | fixed: ancestry is fsynced before every acknowledgement |
 | FS6 | P1 | A pinned directory descriptor moved outside the owned root stays usable. Source validation reopens the leaf through the old parent (`filesystem_mutation.rs:283`, `source.rs:217`). | fixed: containment re-walked after effects and reads |
-| FS7 | P1 | Incomplete event subscriptions re-dirty sources on every poll, which fences progressing scans (`source_events/platform.rs:122,192`, `source_events.rs:187`). | open |
+| FS7 | P1 | Incomplete event subscriptions re-dirty sources on every poll, which fences progressing scans (`source_events/platform.rs:122,192`, `source_events.rs:187`). | fixed: coverage transitions invalidate once; degraded sources reconcile every 30 s, only after the previous scan finishes; see [hardening](NATIVE_INTEGRITY_HARDENING.md) |
 | FS8 | P1 | Watcher notifications duplicate when the process crashes between event commit and `finish` (`watcher.rs:987,1018`). Python shares this. | fixed: event admission commits with `finish`; an unchanged retry reuses the planned run identity; see [hardening](NATIVE_INTEGRITY_HARDENING.md) |
 
 The lane also proposed a protected-namespace replace/remove protocol for the

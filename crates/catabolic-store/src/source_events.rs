@@ -108,16 +108,32 @@ pub fn snapshot(store: &Store, profile: &str) -> Result<Snapshot> {
 /// bindings/policies/catalog identity reject the entire old batch; the runtime
 /// rebuilds subscriptions and invalidates the newly captured source set.
 pub fn invalidate(store: &Store, expected: &Snapshot, names: &[String]) -> Result<Vec<Value>> {
-    store.transaction(|_| {
+    invalidate_with_reconciliation(store, expected, names, &[])
+}
+
+/// [`invalidate`] plus bounded reconciliation of sources whose event coverage
+/// is degraded (FS7). A degraded source is invalidated again only after a scan
+/// has claimed its current dirty generation and no scan at that generation is
+/// still queued or holding a live lease. Each reconciliation scan can therefore
+/// finish while coverage stays degraded, and an unconsumed generation is never
+/// advanced again. Reconciliation results carry `reason: degraded_coverage`.
+pub fn invalidate_with_reconciliation(
+    store: &Store,
+    expected: &Snapshot,
+    names: &[String],
+    degraded: &[String],
+) -> Result<Vec<Value>> {
+    store.transaction(|db| {
         if store.database_id != expected.database_id
             || snapshot(store, &expected.profile)? != *expected
         {
             return Err(Error("stale_native_event_snapshot".into()));
         }
         let allowed: BTreeSet<_> = expected.sources.iter().map(|s| s.name.as_str()).collect();
+        let events: BTreeSet<_> = names.iter().map(String::as_str).collect();
         let mut result = vec![];
-        for name in names.iter().collect::<BTreeSet<_>>() {
-            if !allowed.contains(name.as_str()) {
+        for name in &events {
+            if !allowed.contains(name) {
                 return Err(Error("unknown_native_event_source".into()));
             }
             result.push(crate::observation::execute(
@@ -127,6 +143,36 @@ pub fn invalidate(store: &Store, expected: &Snapshot, names: &[String]) -> Resul
                 &json!({"source":name}),
             )?);
         }
+        let degraded: BTreeSet<_> = degraded.iter().map(String::as_str).collect();
+        for name in degraded.difference(&events) {
+            if !allowed.contains(name) {
+                return Err(Error("unknown_native_event_source".into()));
+            }
+            if !reconciliation_due(db, &expected.profile, name)? {
+                continue;
+            }
+            let mut value = crate::observation::execute(
+                store,
+                &expected.profile,
+                "dirty",
+                &json!({"source":name}),
+            )?;
+            if value["reason"] == "event" {
+                value["reason"] = json!("degraded_coverage");
+            }
+            result.push(value);
+        }
         Ok(result)
     })
+}
+
+/// True once the current generation was claimed by a scan and none at that
+/// generation is still queued or running under a live lease.
+fn reconciliation_due(db: &rusqlite::Connection, profile: &str, source: &str) -> Result<bool> {
+    let now = crate::filesystem_mutation::now();
+    Ok(db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM observation_jobs j JOIN observation_sources s USING(profile,source) WHERE j.profile=?1 AND j.source=?2 AND j.dirty_generation>=s.dirty_generation) AND NOT EXISTS(SELECT 1 FROM observation_jobs j JOIN observation_sources s USING(profile,source) WHERE j.profile=?1 AND j.source=?2 AND j.dirty_generation>=s.dirty_generation AND (j.state='queued' OR (j.state='running' AND j.lease_until>?3)))",
+        rusqlite::params![profile, source, now],
+        |row| row.get(0),
+    )?)
 }
