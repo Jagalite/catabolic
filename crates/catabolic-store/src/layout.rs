@@ -172,10 +172,11 @@ pub fn validate(definition: &Value) -> Result<()> {
             );
         }
     }
-    if !matches!(
-        definition["normalization"].as_str().unwrap_or("portable"),
-        "portable" | "ascii"
-    ) {
+    // Only an absent field defaults; Python rejects a supplied null or non-string.
+    if definition
+        .get("normalization")
+        .is_some_and(|v| !matches!(v.as_str(), Some("portable" | "ascii")))
+    {
         return fail("normalization must be portable or ascii");
     }
     if let Some(selection) = definition.get("selection") {
@@ -256,11 +257,13 @@ pub fn validate(definition: &Value) -> Result<()> {
             {
                 return fail("relation aliases must be unique lowercase names");
             }
-            if !aliases.contains(selector["from"].as_str().unwrap_or("item"))
-                || !matches!(
-                    selector["direction"].as_str().unwrap_or("outgoing"),
-                    "outgoing" | "incoming"
-                )
+            // Absent fields default; supplied null or non-string values are rejected.
+            let from = selector.get("from").map_or(Some("item"), Value::as_str);
+            let direction = selector
+                .get("direction")
+                .map_or(Some("outgoing"), Value::as_str);
+            if !from.is_some_and(|from| aliases.contains(from))
+                || !matches!(direction, Some("outgoing" | "incoming"))
             {
                 return fail(
                     "relation selector needs an earlier source alias and a valid direction",
@@ -271,6 +274,9 @@ pub fn validate(definition: &Value) -> Result<()> {
             }
             vocabulary(&selector["kind"], "relationships", "relationship kind")?;
             if selector.get("target_kind").is_some() {
+                if !selector["target_kind"].is_string() {
+                    return fail("target_kind must be a media kind string");
+                }
                 vocabulary(&selector["target_kind"], "kinds", "media kind")?;
             }
             aliases.insert(alias);
@@ -1269,5 +1275,60 @@ mod tests {
         assert_eq!(preference_index(&parsed("[1, 720.0]"), &preferred), 0);
         assert_eq!(preference_index(&parsed("1.0"), &preferred), 2);
         assert_eq!(preference_index(&parsed("\"720\""), &preferred), 3);
+    }
+
+    fn layout(rule: Value) -> Value {
+        let mut rule_value = json!({"name":"r","path":"{item.title}"});
+        rule_value
+            .as_object_mut()
+            .unwrap()
+            .extend(rule.as_object().unwrap().clone());
+        json!({"version":1,"rules":[rule_value]})
+    }
+    fn refusal(definition: &Value) -> String {
+        validate(definition).unwrap_err().0
+    }
+
+    #[test]
+    fn supplied_wrong_types_are_refused_and_only_absent_fields_default() {
+        let mut definition = layout(json!({}));
+        validate(&definition).unwrap();
+        for normalization in [json!(null), json!(1), json!(["ascii"]), json!(false)] {
+            definition["normalization"] = normalization;
+            assert_eq!(
+                refusal(&definition),
+                "normalization must be portable or ascii"
+            );
+        }
+        definition["normalization"] = json!("ascii");
+        validate(&definition).unwrap();
+        let selector = |extra: Value| {
+            let mut selector = json!({"alias":"parent","kind":"part_of"});
+            selector
+                .as_object_mut()
+                .unwrap()
+                .extend(extra.as_object().unwrap().clone());
+            layout(json!({"relations":[selector]}))
+        };
+        validate(&selector(json!({}))).unwrap();
+        validate(&selector(json!({"from":"item","direction":"incoming"}))).unwrap();
+        for extra in [
+            json!({"from":null}),
+            json!({"from":5}),
+            json!({"from":["item"]}),
+            json!({"direction":null}),
+            json!({"direction":1}),
+            json!({"direction":true}),
+        ] {
+            assert_eq!(
+                refusal(&selector(extra.clone())),
+                "relation selector needs an earlier source alias and a valid direction",
+                "{extra}"
+            );
+        }
+        assert_eq!(
+            refusal(&selector(json!({"target_kind":5}))),
+            "target_kind must be a media kind string"
+        );
     }
 }
