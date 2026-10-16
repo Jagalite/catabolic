@@ -673,8 +673,10 @@ fn backup(
         ancestor = ancestor.parent().unwrap();
     }
     let mut parent = ancestor.canonicalize()?;
+    let mut missing = vec![];
     for part in suffix.into_iter().rev() {
         parent.push(part);
+        missing.push(parent.clone());
     }
     let directory = parent.join(format!(
         "v{}-to-v{}-{}",
@@ -695,8 +697,22 @@ fn backup(
             "backup directory cannot contain the active database".into(),
         ));
     }
-    std::os::unix::fs::DirBuilderExt::mode(std::fs::DirBuilder::new().recursive(true), 0o700)
-        .create(&parent)?;
+    // Create each missing ancestor individually and fsync the directory that
+    // received its entry, so a verified backup never depends on an unsynced name.
+    for created in &missing {
+        match std::os::unix::fs::DirBuilderExt::mode(&mut std::fs::DirBuilder::new(), 0o700)
+            .create(created)
+        {
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists && created.is_dir() => {
+            }
+            result => result?,
+        }
+        fsync(
+            created
+                .parent()
+                .expect("created backup ancestor has a parent"),
+        )?;
+    }
     std::os::unix::fs::DirBuilderExt::mode(&mut std::fs::DirBuilder::new(), 0o700)
         .create(&directory)?;
     fsync(&parent)?;
