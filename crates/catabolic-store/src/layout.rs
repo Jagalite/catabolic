@@ -1,6 +1,7 @@
 //! Read-only layout evaluation. This module records no definitions or mappings.
 use crate::{
     Error, Result, Store,
+    destination_mappings::equal as python_equal,
     migration::{reference, rows},
     query::{decode, name},
     selection::Evaluation,
@@ -1021,6 +1022,30 @@ pub(crate) fn score_cmp(a: &[(u8, f64)], b: &[(u8, f64)]) -> std::cmp::Ordering 
     }
     a.len().cmp(&b.len())
 }
+// Copy policies compare decoded JSON with Python equality (`==`, `in`,
+// `list.index`): True == 1 == 1.0, and integers compare with floats exactly
+// without rounding a large integer through f64. Stored definitions and their
+// canonical digests are unchanged.
+fn requirement_met(value: &Value, wanted: &Value) -> bool {
+    !value.is_null()
+        && if value.is_array() {
+            array(value).iter().any(|v| python_equal(v, wanted))
+        } else {
+            python_equal(value, wanted)
+        }
+}
+fn preference_index(value: &Value, preferred: &[Value]) -> usize {
+    let candidates = if value.is_array() {
+        array(value)
+    } else {
+        std::slice::from_ref(value)
+    };
+    candidates
+        .iter()
+        .filter_map(|v| preferred.iter().position(|r| python_equal(r, v)))
+        .min()
+        .unwrap_or(preferred.len())
+}
 pub(crate) fn rank(
     store: &Store,
     profile: &str,
@@ -1051,14 +1076,7 @@ pub(crate) fn rank(
     let mut failed = vec![];
     if let Some(required) = definition["require"].as_object() {
         for (key, wanted) in required {
-            let value = values.get(key.as_str()).unwrap_or(&Value::Null);
-            if value.is_null()
-                || if value.is_array() {
-                    !array(value).contains(wanted)
-                } else {
-                    value != wanted
-                }
-            {
+            if !requirement_met(values.get(key.as_str()).unwrap_or(&Value::Null), wanted) {
                 failed.push(key.clone());
             }
         }
@@ -1072,17 +1090,7 @@ pub(crate) fn rank(
             .get(rule["field"].as_str().unwrap_or(""))
             .unwrap_or(&Value::Null);
         if rule.get("values").is_some() {
-            let candidates = if value.is_array() {
-                array(value).to_vec()
-            } else {
-                vec![value.clone()]
-            };
-            let index = candidates
-                .iter()
-                .filter_map(|v| array(&rule["values"]).iter().position(|r| r == v))
-                .min()
-                .unwrap_or(array(&rule["values"]).len());
-            score.push((0, index as f64));
+            score.push((0, preference_index(value, array(&rule["values"])) as f64));
         } else if value.is_null() {
             score.push((1, 0.0));
         } else {
@@ -1209,4 +1217,57 @@ pub fn copy_filter(
         attached,
         json!({"configured":true,"definition":definition,"decisions":decisions,"safe":blockers.is_empty(),"blockers":blockers}),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use catabolic_core::decode_json;
+
+    fn parsed(raw: &str) -> Value {
+        decode_json(raw).unwrap()
+    }
+
+    #[test]
+    fn copy_policy_comparisons_use_python_equality() {
+        for (value, wanted) in [
+            ("1080", "1080.0"),
+            ("1080.0", "1080"),
+            ("true", "1"),
+            ("1", "true"),
+            ("false", "0"),
+            ("true", "1.0"),
+            ("1e3", "1000"),
+            ("9007199254740992", "9007199254740992.0"),
+            (
+                "123456789012345678901234567890",
+                "123456789012345678901234567890",
+            ),
+            ("[\"eng\", 1]", "true"),
+            ("[2160.0]", "2160"),
+            (r#"{"a":[1]}"#, r#"{"a":[1.0]}"#),
+        ] {
+            assert!(
+                requirement_met(&parsed(value), &parsed(wanted)),
+                "{value} == {wanted}"
+            );
+        }
+        for (value, wanted) in [
+            ("9007199254740993", "9007199254740992.0"),
+            ("\"1\"", "1"),
+            ("null", "null"),
+            ("1.5", "1"),
+            ("[]", "1"),
+        ] {
+            assert!(
+                !requirement_met(&parsed(value), &parsed(wanted)),
+                "{value} != {wanted}"
+            );
+        }
+        let preferred = [parsed("720"), parsed("2160"), parsed("true")];
+        assert_eq!(preference_index(&parsed("2160.0"), &preferred), 1);
+        assert_eq!(preference_index(&parsed("[1, 720.0]"), &preferred), 0);
+        assert_eq!(preference_index(&parsed("1.0"), &preferred), 2);
+        assert_eq!(preference_index(&parsed("\"720\""), &preferred), 3);
+    }
 }
