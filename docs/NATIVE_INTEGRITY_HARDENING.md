@@ -119,3 +119,30 @@ and still accept effects.
 
 A moved directory is reported as `output directory moved during operation`.
 An effect that has already landed outside the root is reported, not undone.
+
+## Watcher events are admitted atomically with completion (FS8)
+
+The frozen Python reference and earlier native builds commit a `watcher_changed`
+event in one transaction and complete the run in another. A crash between the
+two leaves `pending_reaction` set. The retry then emits again under its own
+run ID, so notification deduplication (keyed by profile, event and run
+identity) cannot merge the two. This defect is shared with Python. The native
+engine corrects it without a schema change:
+
+- `watcher::complete_evaluation` now admits the event and runs `finish`
+  (the run row, completion generation, cleared `pending_reaction`) in one
+  transaction. A crash can no longer separate them.
+- A retry that sees no newer change reuses the planned run's ID
+  (`pending_reaction`) as the event's identity. An event that an earlier
+  process committed under the split protocol is then deduplicated. A retry
+  that does see a newer change keeps its own identity and is still notified.
+
+The debug-only crash hook `CATABOLIC_TEST_WATCHER_CRASH_AT=before_finish`
+exits the process at the old crash window. The test
+`crates/catabolic-store/tests/watcher_event_crash.rs` covers both the native
+crash and recovery from a split-protocol commit.
+
+A remaining limit: suppose a Python-side crash is followed by native retries
+that each fail again before `finish`. Each such attempt overwrites
+`pending_reaction`, so a later retry can still emit one extra event. The stored
+value is unchanged on purpose, because it is observable reference state.

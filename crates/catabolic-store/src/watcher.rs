@@ -984,23 +984,53 @@ pub fn complete_evaluation(
     if value["reaction"] == "projection" && reaction["complete"] != true {
         return Err(Error("projection_reaction_incomplete".into()));
     }
-    if value["reaction"] == "event" && (changed || !row["pending_reaction"].is_null()) {
-        store.transaction(|db| {
-            crate::notifications::emit(db, profile, "watcher_changed", "info", name, &json!([id]))?;
-            Ok(())
-        })?;
+    let admit_event =
+        value["reaction"] == "event" && (changed || !row["pending_reaction"].is_null());
+    // Event admission and watcher completion commit in one transaction, so a
+    // crash cannot leave an admitted event behind a retained pending reaction
+    // (FS8). A retry with no newer change reuses the planned run's transition
+    // identity, deduplicating an event that an earlier process committed before
+    // finishing (frozen Python and earlier native builds split the two).
+    let store = &*store;
+    store.transaction(|db| {
+        if admit_event {
+            let transition = if changed {
+                id
+            } else {
+                row["pending_reaction"].as_str().unwrap_or(id)
+            };
+            crate::notifications::emit(
+                db,
+                profile,
+                "watcher_changed",
+                "info",
+                name,
+                &json!([transition]),
+            )?;
+        }
+        fault("before_finish")?;
+        finish(
+            store,
+            profile,
+            name,
+            row,
+            value,
+            id,
+            generation,
+            now,
+            json!({"run_id":id,"definition_id":row["definition_id"],"observations":evidence,"evaluation":comparison,"reaction":reaction,"complete":true}),
+        )
+    })
+}
+/// Crash-injection hook compiled only into debug/test builds. It never alters
+/// watcher completion semantics in release binaries.
+fn fault(stage: &str) -> Result<()> {
+    #[cfg(debug_assertions)]
+    if std::env::var("CATABOLIC_TEST_WATCHER_CRASH_AT").as_deref() == Ok(stage) {
+        std::process::exit(86);
     }
-    finish(
-        store,
-        profile,
-        name,
-        row,
-        value,
-        id,
-        generation,
-        now,
-        json!({"run_id":id,"definition_id":row["definition_id"],"observations":evidence,"evaluation":comparison,"reaction":reaction,"complete":true}),
-    )
+    let _ = stage;
+    Ok(())
 }
 #[allow(clippy::too_many_arguments)]
 fn finish(

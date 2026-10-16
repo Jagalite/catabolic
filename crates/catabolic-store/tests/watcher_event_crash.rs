@@ -1,0 +1,156 @@
+// SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+// SPDX-License-Identifier: MIT
+//! Watcher event admission and completion across an abrupt process exit (FS8).
+//! The crash hook exists only in debug builds.
+#![cfg(debug_assertions)]
+use catabolic_store::{Store, definitions, migration, watcher};
+use serde_json::{Value, json};
+use std::path::Path;
+
+fn run(store: &mut Store) -> Value {
+    watcher::run(
+        store,
+        "default",
+        "changes",
+        "manual",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs_f64(),
+        &mut |_, request| panic!("query plans observe no sources here: {request}"),
+        &mut |store, context| {
+            let evaluated = watcher::evaluate(store, "default", &context.definition["plan"])?;
+            watcher::complete_evaluation(
+                store,
+                "default",
+                &context,
+                &evaluated,
+                &mut |_, _, _, _| Ok(Value::Null),
+            )
+        },
+    )
+    .unwrap()
+}
+
+fn notifications(store: &Store) -> i64 {
+    store
+        .db
+        .query_row(
+            "SELECT count(*) FROM consumer_events WHERE event='watcher_changed'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap()
+}
+
+// The parent test launches only this helper in a separate process. The crash
+// hook exits before destructors, so no commit or rollback runs in-process.
+#[test]
+fn watcher_crash_worker() {
+    let Ok(path) = std::env::var("CATABOLIC_WATCHER_CRASH_DB") else {
+        return;
+    };
+    let mut store = Store::open(Path::new(&path), true, false).unwrap();
+    run(&mut store);
+    panic!("the configured crash hook did not terminate the worker");
+}
+
+/// Commits one changed evaluation's plan, then exits abruptly before watcher
+/// completion and recovers the dead owner. Returns the retained planned run.
+fn crash_before_completion() -> (tempfile::TempDir, std::path::PathBuf, Value) {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("catalog.db");
+    migration::initialize(&path).unwrap();
+    {
+        let store = Store::open(&path, true, false).unwrap();
+        store
+            .db
+            .execute(
+                "INSERT INTO items(id,kind,metadata) VALUES('one','movie','{}')",
+                [],
+            )
+            .unwrap();
+        let query = definitions::query_put(
+            &store,
+            "default",
+            "changes",
+            &json!({"selection":{"language":"sql","query":"SELECT id AS item_id FROM items"}}),
+        )
+        .unwrap();
+        watcher::execute(&store, "default", "put", &json!({"name":"changes","definition":{"plan":{"kind":"query","query_id":query["id"]},"reaction":"event"}})).unwrap();
+    }
+    // Concurrent Cargo invocations can unlink the running test executable.
+    let executor = tempfile::tempdir().unwrap();
+    let executable = executor.path().join("watcher-crash-worker");
+    #[cfg(target_os = "linux")]
+    let loaded = std::path::PathBuf::from("/proc/self/exe");
+    #[cfg(not(target_os = "linux"))]
+    let loaded = std::env::current_exe().unwrap();
+    std::fs::copy(loaded, &executable).unwrap();
+    let output = std::process::Command::new(&executable)
+        .args(["--exact", "watcher_crash_worker", "--nocapture"])
+        .env("CATABOLIC_WATCHER_CRASH_DB", &path)
+        .env("CATABOLIC_TEST_WATCHER_CRASH_AT", "before_finish")
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(86),
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let store = Store::open(&path, true, false).unwrap();
+    let crashed = watcher::execute(&store, "default", "get", &json!({"name":"changes"})).unwrap();
+    assert!(!crashed["active_run"].is_null(), "{crashed}");
+    assert_eq!(crashed["pending_reaction"], crashed["active_run"]);
+    let recovered = watcher::execute(&store, "default", "recover", &json!({})).unwrap();
+    assert_eq!(recovered["recovered"], json!([crashed["active_run"]]));
+    (root, path, crashed)
+}
+
+fn retry_admits_exactly_one(path: &Path) {
+    let mut store = Store::open(path, true, false).unwrap();
+    let retry = run(&mut store);
+    assert_eq!(retry["complete"], true, "{retry}");
+    assert_eq!(retry["evaluation"]["changed"], false, "{retry}");
+    // The planned reaction is still delivered, exactly once.
+    assert_eq!(notifications(&store), 1);
+    let finished = watcher::execute(&store, "default", "get", &json!({"name":"changes"})).unwrap();
+    assert!(finished["pending_reaction"].is_null(), "{finished}");
+    assert!(finished["active_run"].is_null(), "{finished}");
+    // A later unchanged run admits nothing further.
+    let unchanged = run(&mut store);
+    assert_eq!(unchanged["complete"], true, "{unchanged}");
+    assert_eq!(notifications(&store), 1);
+}
+
+#[test]
+fn event_notification_is_admitted_once_across_crash_before_completion() {
+    let (_root, path, _) = crash_before_completion();
+    retry_admits_exactly_one(&path);
+}
+
+#[test]
+fn retry_deduplicates_event_committed_by_split_admission_protocol() {
+    let (_root, path, crashed) = crash_before_completion();
+    {
+        // Reproduce the frozen Python (and earlier native) split protocol: the
+        // planned run's event committed in its own transaction before the crash.
+        let store = Store::open(&path, true, false).unwrap();
+        store
+            .transaction(|db| {
+                catabolic_store::notifications::emit(
+                    db,
+                    "default",
+                    "watcher_changed",
+                    "info",
+                    "changes",
+                    &json!([crashed["pending_reaction"]]),
+                )
+            })
+            .unwrap();
+        assert_eq!(notifications(&store), 1);
+    }
+    retry_admits_exactly_one(&path);
+}
