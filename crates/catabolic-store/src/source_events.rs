@@ -166,12 +166,14 @@ pub fn invalidate_with_reconciliation(
     })
 }
 
-/// True once the current generation was claimed by a scan and none at that
-/// generation is still queued or running under a live lease.
+/// True once a scan actually claimed the current generation (left `queued`)
+/// and no scan at that generation is still in flight: running under a live
+/// lease, or queued with active demand. A queued job whose requests were all
+/// cancelled is abandoned; it neither blocks nor counts as a claim.
 fn reconciliation_due(db: &rusqlite::Connection, profile: &str, source: &str) -> Result<bool> {
     let now = crate::filesystem_mutation::now();
     Ok(db.query_row(
-        "SELECT EXISTS(SELECT 1 FROM observation_jobs j JOIN observation_sources s USING(profile,source) WHERE j.profile=?1 AND j.source=?2 AND j.dirty_generation>=s.dirty_generation) AND NOT EXISTS(SELECT 1 FROM observation_jobs j JOIN observation_sources s USING(profile,source) WHERE j.profile=?1 AND j.source=?2 AND j.dirty_generation>=s.dirty_generation AND (j.state='queued' OR (j.state='running' AND j.lease_until>?3)))",
+        "SELECT EXISTS(SELECT 1 FROM observation_jobs j JOIN observation_sources s USING(profile,source) WHERE j.profile=?1 AND j.source=?2 AND j.dirty_generation>=s.dirty_generation AND j.state<>'queued') AND NOT EXISTS(SELECT 1 FROM observation_jobs j JOIN observation_sources s USING(profile,source) WHERE j.profile=?1 AND j.source=?2 AND j.dirty_generation>=s.dirty_generation AND ((j.state='queued' AND EXISTS(SELECT 1 FROM observation_requests r WHERE r.job_id=j.id AND r.profile=j.profile AND r.state='active')) OR (j.state='running' AND j.lease_until>?3)))",
         rusqlite::params![profile, source, now],
         |row| row.get(0),
     )?)

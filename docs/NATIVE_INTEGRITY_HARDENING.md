@@ -148,10 +148,14 @@ session state, with the time each source was last invalidated:
 - **Periodic reconciliation is bounded.** A degraded source is invalidated again
   at most once every 30 seconds, the frozen polling `watch` default interval.
   `source_events::invalidate_with_reconciliation` does this only after a scan
-  has claimed the current generation, and only when no scan at that generation
-  is still queued or running under a live lease. Each reconciliation scan can
-  therefore finish while coverage stays degraded. An unclaimed generation is
-  never advanced again. These results report `reason: degraded_coverage`.
+  has actually claimed the current generation (its job left `queued`). It also
+  requires that no scan at that generation is still in flight. In flight means
+  running under a live lease, or queued with at least one active (not
+  cancelled) request. A queued job whose requests were all cancelled is
+  abandoned: it neither blocks reconciliation nor counts as a claim. Each
+  reconciliation scan can therefore finish while coverage stays degraded. An
+  unclaimed generation is never advanced again. These results report
+  `reason: degraded_coverage`.
 
 Monitoring stays fail-closed. While any source is degraded, the report keeps
 `complete: false`, `reconnecting: true`, `degraded_coverage: true` and the

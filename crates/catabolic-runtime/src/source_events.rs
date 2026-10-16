@@ -518,8 +518,11 @@ mod tests {
         let transition = f.generation();
         assert_eq!(transition, 1);
         assert!(reports[1..].iter().all(|r| r["invalidated"] == json!([])));
-        // A queued reconciliation scan at the current generation is never fenced.
+        // A queued reconciliation scan with active demand is never fenced,
+        // even beside another scan that already completed at this generation.
+        f.execute("INSERT INTO observation_jobs(id,profile,source,compatibility,exclusions,dirty_generation,generation,state,requested_at) VALUES('claimed','default','media','fixture','[]',?1,10,'complete',0)", transition);
         f.execute("INSERT INTO observation_jobs(id,profile,source,compatibility,exclusions,dirty_generation,generation,state,requested_at) VALUES('first','default','media','fixture','[]',?1,1,'queued',0)", transition);
+        f.execute("INSERT INTO observation_requests(id,profile,source,requester,guarantees,job_id,state,created_at) SELECT 'demand','default','media','watcher:fixture','{}','first','active',0 WHERE ?1>0", transition);
         f.polls(&mut session);
         assert_eq!(f.generation(), transition);
         // So is a running scan under a live lease.
@@ -543,5 +546,14 @@ mod tests {
         f.execute("INSERT INTO observation_jobs(id,profile,source,compatibility,exclusions,dirty_generation,generation,state,requested_at,lease_until) VALUES('second','default','media','fixture','[]',?1,2,'running',0,1)", transition + 1);
         f.polls(&mut session);
         assert_eq!(f.generation(), transition + 2);
+        // A queued job whose only request was cancelled is abandoned: alone it
+        // is no claim, and it never blocks once another scan completes.
+        f.execute("INSERT INTO observation_jobs(id,profile,source,compatibility,exclusions,dirty_generation,generation,state,requested_at) VALUES('abandoned','default','media','fixture','[]',?1,3,'queued',0)", transition + 2);
+        f.execute("INSERT INTO observation_requests(id,profile,source,requester,guarantees,job_id,state,created_at) SELECT 'cancelled','default','media','watcher:abandoned','{}','abandoned','cancelled',0 WHERE ?1>0", transition + 2);
+        f.polls(&mut session);
+        assert_eq!(f.generation(), transition + 2);
+        f.execute("INSERT INTO observation_jobs(id,profile,source,compatibility,exclusions,dirty_generation,generation,state,requested_at) VALUES('later','default','media','fixture','[]',?1,4,'complete',0)", transition + 2);
+        f.polls(&mut session);
+        assert_eq!(f.generation(), transition + 3);
     }
 }
