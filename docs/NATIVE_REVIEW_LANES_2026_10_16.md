@@ -37,12 +37,12 @@ Python.
 
 | ID | Sev | Finding | Status |
 | --- | --- | --- | --- |
-| BD1 | P1 | Bundle import walks keys in sorted order, while Python walks them in insertion order. Revision assignment for same-named records therefore differs (`programs.rs:669`). | open |
-| BD2 | P1 | Copy-policy requirements and preferences use JSON `Value` equality, not Python numeric equality. For example, `1080` and `1080.0` compare unequal (`layout.rs:1055,1082`). | open |
-| BD3 | P1 | Package-policy bundles omit `package.requirements[].fallbacks[]` queries and `package.operation_id`, and don't remap them (`programs.rs:212,359`). Python shares this defect, which contradicts the documented dependency-closed bundles. | open |
-| BD4 | P2 | Supplied layout options of the wrong type (for example, null `normalization` or boolean `direction`) silently become defaults (`layout.rs:174,258`). | open |
-| BD5 | P2 | Inline SQL layout admission does not validate parameter names (`layout.rs:180`, `selection.rs:1251`). | open |
-| BD6 | P2 | Integer formatting rejects metadata integers outside `i64` that Python renders (`layout.rs:341`). | open |
+| BD1 | P1 | Bundle import walks keys in sorted order, while Python walks them in insertion order. Revision assignment for same-named records therefore differs (`programs.rs:669`). | fixed: `2009b0d` |
+| BD2 | P1 | Copy-policy requirements and preferences use JSON `Value` equality, not Python numeric equality. For example, `1080` and `1080.0` compare unequal (`layout.rs:1055,1082`). | fixed: `82d1306` |
+| BD3 | P1 | Package-policy bundles omit `package.requirements[].fallbacks[]` queries and `package.operation_id`, and don't remap them (`programs.rs:212,359`). Python shares this defect, which contradicts the documented dependency-closed bundles. | fixed: `3a655a9` |
+| BD4 | P2 | Supplied layout options of the wrong type (for example, null `normalization` or boolean `direction`) silently become defaults (`layout.rs:174,258`). | fixed: `0d0d6f6` |
+| BD5 | P2 | Inline SQL layout admission does not validate parameter names (`layout.rs:180`, `selection.rs:1251`). | fixed: `4799291` |
+| BD6 | P2 | Integer formatting rejects metadata integers outside `i64` that Python renders (`layout.rs:341`). | fixed: `1626ea3` |
 
 ## Filesystem lane
 

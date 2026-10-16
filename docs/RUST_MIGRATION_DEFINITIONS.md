@@ -66,8 +66,9 @@ contract above. The native owner therefore deliberately differs from frozen Pyth
 
 Frozen Python importing a natively exported package bundle behaves as it does
 for its own export: the extra records are imported but its policy keeps foreign
-references. This was requested by review finding BD3 (2026-10-16). It is a
-documented semantic difference from frozen Python, not a parity claim. The
+references. This fixes review finding BD3 (2026-10-16). The user's instruction that
+day to fix the review findings approves it as a semantic difference from frozen
+Python, not a parity claim. The
 `programs` unit tests cover cross-catalog closure and literal older references.
 
 Bundle and binding objects are traversed in source insertion order, as frozen
