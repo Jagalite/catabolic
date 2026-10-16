@@ -95,15 +95,27 @@ fn run(mut args: Vec<String>) -> Result<Value> {
     let mut plan_out = None;
     let mut plan_in = None;
     let mut assertions = Vec::new();
+    let mut compared = (None, None);
     if lifecycle {
         plan_out = argument(&mut args, "--out")?.map(PathBuf::from);
         plan_in = argument(&mut args, "--plan")?.map(PathBuf::from);
         while let Some(assertion) = argument(&mut args, "--assert-quiescent")? {
             assertions.push(assertion);
         }
+        compared = (
+            argument(&mut args, "--before")?.map(PathBuf::from),
+            argument(&mut args, "--after")?.map(PathBuf::from),
+        );
         let sub = args.get(1).map(String::as_str);
-        if plan_out.is_some() && sub != Some("native-plan") {
-            return Err(Error("--out is only accepted by db native-plan".into()));
+        if plan_out.is_some() && !matches!(sub, Some("native-plan" | "identity-manifest")) {
+            return Err(Error(
+                "--out is only accepted by db native-plan and db identity-manifest".into(),
+            ));
+        }
+        if (compared.0.is_some() || compared.1.is_some()) && sub != Some("identity-diff") {
+            return Err(Error(
+                "--before and --after are only accepted by db identity-diff".into(),
+            ));
         }
         if (plan_in.is_some() || !assertions.is_empty()) && sub != Some("native-upgrade") {
             return Err(Error(
@@ -339,6 +351,24 @@ fn run(mut args: Vec<String>) -> Result<Value> {
                 backup.as_deref(),
                 &|stage, _, version| failure(stage, version),
             )
+        }
+        [command, sub] if command == "db" && sub == "identity-manifest" => {
+            let manifest = catabolic_store::identity_manifest::manifest_path(&path)?;
+            if let Some(out) = plan_out {
+                write_new_file(&out, &manifest)?;
+            }
+            Ok(manifest)
+        }
+        [command, sub] if command == "db" && sub == "identity-diff" => {
+            let (Some(before), Some(after)) = compared else {
+                return Err(Error(
+                    "db identity-diff requires --before MANIFEST.json and --after MANIFEST.json"
+                        .into(),
+                ));
+            };
+            let (before, after) = (read_json_file(&before)?, read_json_file(&after)?);
+            catabolic_store::identity_manifest::require_preserved(&before, &after)?;
+            Ok(catabolic_store::identity_manifest::diff(&before, &after))
         }
         [command, sub] if command == "db" && sub == "snapshot" => {
             let path = catabolic_store::database_path(Path::new(&path))?;
@@ -583,7 +613,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             )
         }
         _ => Err(Error(
-            "supported commands: init, db inspect, db upgrade, db snapshot, db native-inspect, db native-plan, db native-upgrade, encode, --version"
+            "supported commands: init, db inspect, db upgrade, db snapshot, db native-inspect, db native-plan, db native-upgrade, db identity-manifest, db identity-diff, encode, --version"
                 .into(),
         )),
     }

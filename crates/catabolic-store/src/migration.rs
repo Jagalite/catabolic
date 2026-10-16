@@ -351,7 +351,7 @@ pub fn rows(db: &Connection, sql: &str, args: &[rusqlite::types::Value]) -> Resu
     })?
     .collect::<std::result::Result<Vec<_>, _>>()?)
 }
-fn digest_table(db: &Connection, table: &str, columns: &[String]) -> Result<Value> {
+pub(crate) fn digest_table(db: &Connection, table: &str, columns: &[String]) -> Result<Value> {
     digest_table_where(db, table, columns, "")
 }
 // Predicate is an internal static SQL constant, never caller input.

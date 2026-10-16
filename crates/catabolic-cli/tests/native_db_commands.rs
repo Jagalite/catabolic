@@ -151,7 +151,7 @@ fn lifecycle_options_are_refused_outside_their_commands() {
     let out = root.path().join("plan.json");
     refused(
         &cli(&path, &["db", "upgrade", "--out", out.to_str().unwrap()]),
-        "--out is only accepted by db native-plan",
+        "--out is only accepted by db native-plan and db identity-manifest",
     );
     refused(
         &cli(
@@ -337,4 +337,78 @@ fn pending_work_and_wal_mode_are_refused_by_the_cli() {
     args.extend(QUIESCENT);
     refused(&cli(&path, &args), "requires rollback-journal mode");
     assert_eq!(migration::inspect(&path, true).unwrap()["schema"], 32);
+}
+
+#[test]
+fn identity_manifest_and_diff_commands_report_preservation() {
+    let (root, path) = catalog();
+    let before = root.path().join("before.json");
+    let outcome = cli(
+        &path,
+        &["db", "identity-manifest", "--out", before.to_str().unwrap()],
+    );
+    assert_eq!(outcome.code, Some(0), "{}", outcome.stderr);
+    assert_eq!(outcome.stdout["contract"], "catabolic-identity-manifest-v1");
+    let written: Value = serde_json::from_slice(&fs::read(&before).unwrap()).unwrap();
+    assert_eq!(written["fingerprint"], outcome.stdout["fingerprint"]);
+    refused(
+        &cli(
+            &path,
+            &["db", "identity-manifest", "--out", before.to_str().unwrap()],
+        ),
+        "cannot create",
+    );
+    refused(
+        &cli(
+            &path,
+            &["db", "identity-diff", "--before", before.to_str().unwrap()],
+        ),
+        "requires --before MANIFEST.json and --after MANIFEST.json",
+    );
+    refused(
+        &cli(
+            &path,
+            &["db", "native-inspect", "--before", before.to_str().unwrap()],
+        ),
+        "only accepted by db identity-diff",
+    );
+
+    let plan = plan(root.path(), &path, "plan.json");
+    let mut args = vec!["db", "native-upgrade", "--plan", plan.to_str().unwrap()];
+    args.extend(QUIESCENT);
+    assert_eq!(cli(&path, &args).code, Some(0));
+    let after = root.path().join("after.json");
+    let outcome = cli(
+        &path,
+        &["db", "identity-manifest", "--out", after.to_str().unwrap()],
+    );
+    assert_eq!(outcome.stdout["schema"], migration::NATIVE_SCHEMA_VERSION);
+    let preserved = cli(
+        &path,
+        &[
+            "db",
+            "identity-diff",
+            "--before",
+            before.to_str().unwrap(),
+            "--after",
+            after.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(preserved.code, Some(0), "{}", preserved.stderr);
+    assert_eq!(preserved.stdout["preserved"], true);
+    // Reversing the comparison is a downgrade and must be refused explicitly.
+    refused(
+        &cli(
+            &path,
+            &[
+                "db",
+                "identity-diff",
+                "--before",
+                after.to_str().unwrap(),
+                "--after",
+                before.to_str().unwrap(),
+            ],
+        ),
+        "identity preservation failed",
+    );
 }

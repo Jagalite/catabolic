@@ -44,6 +44,7 @@ mod graphql_runtime_input;
 pub mod hardlink_mutation;
 pub mod http_mappings;
 pub mod http_operations;
+pub mod identity_manifest;
 pub mod imports;
 pub mod interchange;
 mod introspection;
