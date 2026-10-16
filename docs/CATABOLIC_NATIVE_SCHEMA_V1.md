@@ -389,3 +389,53 @@ Preserve all old SQL/resources/signatures and schema-32 defaults. None of these
 artifacts closes a frozen ledger gate or authorizes Motion integration, external
 actions, commits, pushes, or publication. Final integrated source hashes are
 recorded by the integration receipt, after all owners finish their changes.
+
+## 11. Schema 38 review guards
+
+Migration `038_native_review_guards.sql` (native signature
+`native-schema-38.json`) closes schema-review findings SC1–SC5 of e8f0c52.
+Migrations 033–037 are released, checksummed in `schema_migrations` and pinned by
+their per-version signatures, so schema 38 is purely additive: new triggers, one
+new table, no rebuilt or rewritten historical DDL, no existing-row mutation and
+no generation change. `python3 scripts/native_catalog_review_guards_schema.py
+--check` reproduces the signature and
+`tests/parity/native-review-guards/schema-manifest.json`. Native catalogs reach
+schema 38 only through the explicit `plan_native`/`upgrade_native` path (from any
+native 33–37 or legacy 32 catalog); frozen Python still refuses every schema
+above 32.
+
+- **SC1, suppression subjects.** Item/file tag-suppression heads cascade with
+  their subject, but suppression history is retained. As with identity pins, a
+  subject that has a suppression head is now managed until an explicit
+  retirement owner exists: deleting it, `REPLACE` (a delete under the required
+  `recursive_triggers=ON`) and rekeying abort with
+  `catalog_tag_suppression_subject_retirement_required`. A subject whose heads
+  were already cascaded away before the upgrade cannot be recreated (or rekeyed
+  into) under the same ID (`catalog_tag_suppression_subject_history_retained`),
+  because its next decision would restart at revision 1 and collide with the
+  retained history. Upserts of existing subjects are unaffected.
+- **SC2, metadata provenance receipts.** SQLite cannot add a foreign key to the
+  existing `catalog_metadata_subjects`/`catalog_metadata_history` tables without
+  a rebuild. Insert triggers instead record each distinct command key once in
+  the immutable `catalog_metadata_receipt_obligations` table, whose composite
+  `DEFERRABLE INITIALLY DEFERRED` foreign key must resolve to
+  `catalog_command_receipts` at COMMIT. Receipts are permanent, so a satisfied
+  obligation stays satisfied. The migration backfills obligations from existing
+  rows; an orphaned key makes the migration's full foreign-key check fail and
+  the upgrade roll back. Obligations do not advance the catalog generation.
+- **SC3, receipt sealing.** The schema-33 `catalog_*_revisions_uncommitted`
+  rule now also covers metadata subjects/history, identity-pin revisions,
+  tag-suppression revisions, tag merges, and logical and version retirements.
+  Each refuses an INSERT whose command key already has a receipt
+  (`catalog_committed_history_sealed`); receipt-last owners are unaffected.
+- **SC4, execution cleanup witness.** Schema 36's terminal-state CHECK evaluates
+  NULL, which SQLite accepts, for a quiescent row with a NULL `cleanup_kind`.
+  NULL-safe INSERT/UPDATE triggers require the complete witness
+  (`cleanup_kind IS 'builtin_no_child_v1'`, zero obligations and retirements,
+  released capacity and `sealed_at`) for every non-owned row. Full validation of
+  every native catalog at schema 36 or later rejects any persisted terminal row
+  without that witness. This blocks native planning, upgrade and backup
+  verification of a damaged catalog.
+- **SC5, backup durability.** Native and legacy upgrades now create each missing
+  backup ancestor individually (mode 0700) and fsync the directory containing
+  each new entry before writing the verified backup.
