@@ -449,3 +449,64 @@ fn convert_journal_command_unblocks_a_wal_catalog_for_a_fresh_plan() {
     assert_eq!(outcome.code, Some(0), "{}", outcome.stderr);
     assert_eq!(outcome.stdout["schema"], migration::NATIVE_SCHEMA_VERSION);
 }
+
+#[test]
+fn dry_run_is_refused_by_commands_that_do_not_implement_it() {
+    let (root, path) = catalog();
+    let plan = plan(root.path(), &path, "plan.json");
+    let writer = connect(&path, true).unwrap();
+    writer.pragma_update(None, "journal_mode", "WAL").unwrap();
+    drop(writer);
+    let before = fs::read(&path).unwrap();
+    let backups = root.path().join("backups");
+    let mut upgrade = vec![
+        "db",
+        "native-upgrade",
+        "--dry-run",
+        "--plan",
+        plan.to_str().unwrap(),
+        "--backup-dir",
+        backups.to_str().unwrap(),
+    ];
+    upgrade.extend(QUIESCENT);
+    let manifest = root.path().join("manifest.json");
+    let out = root.path().join("dry-plan.json");
+    for args in [
+        upgrade,
+        vec!["db", "convert-journal", "--to", "delete", "--dry-run"],
+        vec![
+            "--dry-run",
+            "db",
+            "native-plan",
+            "--out",
+            out.to_str().unwrap(),
+        ],
+        vec![
+            "db",
+            "identity-manifest",
+            "--out",
+            manifest.to_str().unwrap(),
+            "--dry-run",
+        ],
+        vec!["db", "native-inspect", "--dry-run"],
+        vec!["init", "--dry-run"],
+    ] {
+        refused(
+            &cli(&path, &args),
+            "--dry-run is only implemented by db upgrade",
+        );
+    }
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert_eq!(
+        cli(&path, &["db", "native-inspect"]).stdout["journal_mode"],
+        "wal"
+    );
+    assert!(!backups.exists());
+    assert!(!out.exists());
+    assert!(!manifest.exists());
+    // The implemented legacy dry run remains a read-only preview.
+    let preview = cli(&path, &["db", "upgrade", "--dry-run"]);
+    assert_eq!(preview.code, Some(0), "{}", preview.stderr);
+    assert_eq!(preview.stdout["dry_run"], true);
+    assert_eq!(fs::read(&path).unwrap(), before);
+}

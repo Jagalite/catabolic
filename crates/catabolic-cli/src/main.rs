@@ -132,6 +132,13 @@ fn run(mut args: Vec<String>) -> Result<Value> {
     let variables = argument(&mut args, "--variables")?.unwrap_or_else(|| "{}".into());
     let operation = argument(&mut args, "--operation-name")?;
     let profile = argument(&mut args, "--profile")?.unwrap_or_else(|| "default".into());
+    // Only the legacy upgrade implements a read-only dry run. Every other
+    // command would silently perform its real effect, so refuse it before any.
+    if dry_run && !args.starts_with(&["db".into(), "upgrade".into()]) {
+        return Err(Error(
+            "--dry-run is only implemented by db upgrade; use db native-inspect or db native-plan for a read-only native preview".into(),
+        ));
+    }
     if args.starts_with(&["api".into(), "worker".into()]) {
         let once = flag(&mut args, "--once");
         let interval = argument(&mut args, "--interval")?
