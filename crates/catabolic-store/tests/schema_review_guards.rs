@@ -366,6 +366,181 @@ fn sc1_heads_cascaded_before_schema38_cannot_be_recreated_after_upgrade() {
         .unwrap();
 }
 
+// SC2 ----------------------------------------------------------------------
+
+fn raw_subject(db: &Connection, store: &Store, op: &str) -> rusqlite::Result<()> {
+    let raw: String = db.query_row("SELECT metadata FROM items WHERE id='item-a'", [], |r| {
+        r.get(0)
+    })?;
+    db.execute(
+        "INSERT INTO catalog_metadata_permits(item_id,incarnation) VALUES('item-a',?)",
+        [store.catalog_incarnation.as_deref().unwrap()],
+    )?;
+    db.execute(
+        "INSERT INTO catalog_metadata_subjects(item_id,contract_version,schema_fingerprint,policies_json,legacy_raw_json,command_catalog_id,command_host_namespace,command_operation_id,admitted_at_us) VALUES('item-a',1,?,'[{}]',?,?,?,?,0)",
+        params![FINGERPRINT, raw, store.database_id, HOST, op],
+    )?;
+    // Search admission requires every managed subject to have a projection.
+    db.execute(
+        "INSERT INTO catalog_metadata_projection(item_id,schema_fingerprint,resolution_json,effective_json) VALUES('item-a',?,'{}','{}')",
+        [FINGERPRINT],
+    )?;
+    Ok(())
+}
+fn raw_history(db: &Connection, store: &Store, op: &str) -> rusqlite::Result<()> {
+    db.execute(
+        "INSERT INTO catalog_metadata_history(item_id,namespace,record_id,revision,source_kind,schema_fingerprint,fields_json,evidence_json,raw_mutation_json,command_catalog_id,command_host_namespace,command_operation_id,admitted_at_us) VALUES('item-a','local.guard','record',1,'local',?,'{}','{}','{}',?,?,?,0)",
+        params![FINGERPRINT, store.database_id, HOST, op],
+    )?;
+    Ok(())
+}
+fn end_permit(db: &Connection) -> rusqlite::Result<()> {
+    db.execute("DELETE FROM catalog_metadata_permits", [])?;
+    Ok(())
+}
+fn raw_receipt(db: &Connection, store: &Store, op: &str) -> rusqlite::Result<()> {
+    let generation = generation(db);
+    db.execute(
+        "INSERT INTO catalog_command_receipts(catalog_id,host_namespace,operation_id,contract_version,canonicalization_version,payload_digest,admission_incarnation,expected_generation,committed_generation,committed_at_us,retain_until_us,result_state,result_json) VALUES(?,?,?,1,1,?,?,?,?,1,2,'full','{}')",
+        params![store.database_id, HOST, op, FINGERPRINT, store.catalog_incarnation.as_deref().unwrap(), generation, generation],
+    )?;
+    Ok(())
+}
+/// The Store owner flushes native search work before COMMIT, so a failure here
+/// is the guard under test rather than an unflushed search barrier.
+fn raw_transaction(
+    store: &Store,
+    work: impl FnOnce(&Connection) -> rusqlite::Result<()>,
+) -> catabolic_store::Result<()> {
+    store.transaction(|db| work(db).map_err(Into::into))
+}
+
+#[test]
+fn sc2_schema37_accepts_metadata_provenance_without_a_receipt() {
+    let f = Fixture::new(37);
+    raw_transaction(&f.store, |db| {
+        raw_subject(db, &f.store, "orphan")?;
+        end_permit(db)
+    })
+    .unwrap();
+    assert_eq!(
+        count(
+            &f.store.db,
+            "SELECT count(*) FROM catalog_metadata_subjects"
+        ),
+        1
+    );
+    // Upgrading such a catalog backfills the obligation and fails closed.
+    drop(f.store);
+    let error = upgrade(&f.path, None).unwrap_err().to_string();
+    assert!(error.contains("foreign-key"), "{error}");
+    let store = Store::open(&f.path, false, false).unwrap();
+    assert_eq!(store.schema_version, 37);
+    drop(f.root);
+}
+
+#[test]
+fn sc2_schema38_metadata_subjects_and_history_require_a_committed_receipt() {
+    let f = Fixture::new(38);
+    let db = &f.store.db;
+    let orphan = raw_transaction(&f.store, |db| {
+        raw_subject(db, &f.store, "orphan-subject")?;
+        end_permit(db)
+    })
+    .unwrap_err()
+    .to_string();
+    assert!(orphan.contains("FOREIGN KEY constraint failed"), "{orphan}");
+    let orphan = raw_transaction(&f.store, |db| {
+        raw_subject(db, &f.store, "receipted")?;
+        raw_history(db, &f.store, "orphan-history")?;
+        end_permit(db)?;
+        raw_receipt(db, &f.store, "receipted")
+    })
+    .unwrap_err()
+    .to_string();
+    assert!(orphan.contains("FOREIGN KEY constraint failed"), "{orphan}");
+    assert_eq!(
+        count(db, "SELECT count(*) FROM catalog_metadata_subjects"),
+        0
+    );
+    assert_eq!(
+        count(
+            db,
+            "SELECT count(*) FROM catalog_metadata_receipt_obligations"
+        ),
+        0
+    );
+    // Receipt-last commands satisfy the deferred obligation.
+    raw_transaction(&f.store, |db| {
+        raw_subject(db, &f.store, "receipted")?;
+        raw_history(db, &f.store, "receipted")?;
+        end_permit(db)?;
+        raw_receipt(db, &f.store, "receipted")
+    })
+    .unwrap();
+    assert_eq!(
+        count(
+            db,
+            "SELECT count(*) FROM catalog_metadata_receipt_obligations WHERE command_operation_id='receipted'"
+        ),
+        1
+    );
+    for statement in [
+        "DELETE FROM catalog_metadata_receipt_obligations",
+        "UPDATE catalog_metadata_receipt_obligations SET command_operation_id='x'",
+    ] {
+        let message = error(db.execute(statement, []));
+        assert!(
+            message.contains("catalog_metadata_receipt_obligation"),
+            "{statement}: {message}"
+        );
+    }
+    migration::validate(db, true).unwrap();
+}
+
+#[test]
+fn sc2_schema38_real_metadata_command_records_its_receipt_obligation() {
+    let f = Fixture::new(38);
+    let mutation = MetadataMutation {
+        contract_version: 1,
+        change: MetadataChange::Initialize {
+            subject: "item-a".into(),
+            policies: vec![PolicyField {
+                field: "title".into(),
+                value_type: PolicyValueType::String,
+                nullable: true,
+                normalization: PolicyNormalization::Exact,
+            }],
+        },
+    };
+    let request = envelope(
+        &f.store,
+        "metadata-init",
+        json!({"operation":"metadata","mutation":mutation}),
+    );
+    let grant = MetadataAuthority {
+        host_namespace: HOST.into(),
+        subject: "item-a".into(),
+        access: MetadataAccess::Initialize,
+    };
+    let outcome = commands::execute_with_authority(
+        &f.store,
+        &request,
+        CatalogAuthority::new(base()).with_metadata(&grant),
+        policy(),
+    )
+    .unwrap();
+    committed(&outcome);
+    assert_eq!(
+        count(
+            &f.store.db,
+            "SELECT count(*) FROM catalog_metadata_receipt_obligations o JOIN catalog_command_receipts r ON r.catalog_id=o.command_catalog_id AND r.host_namespace=o.command_host_namespace AND r.operation_id=o.command_operation_id WHERE o.command_operation_id='metadata-init'"
+        ),
+        1
+    );
+    migration::validate(&f.store.db, true).unwrap();
+}
+
 // SC5 ----------------------------------------------------------------------
 
 #[test]

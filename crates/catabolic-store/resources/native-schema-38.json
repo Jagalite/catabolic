@@ -536,6 +536,11 @@
   ],
   [
     "table",
+    "catalog_metadata_receipt_obligations",
+    "CREATE TABLE catalog_metadata_receipt_obligations ( command_catalog_id TEXT NOT NULL, command_host_namespace TEXT NOT NULL, command_operation_id TEXT NOT NULL, PRIMARY KEY(command_catalog_id,command_host_namespace,command_operation_id), FOREIGN KEY(command_catalog_id,command_host_namespace,command_operation_id) REFERENCES catalog_command_receipts(catalog_id,host_namespace,operation_id) DEFERRABLE INITIALLY DEFERRED ) WITHOUT ROWID"
+  ],
+  [
+    "table",
     "catalog_metadata_sources",
     "CREATE TABLE catalog_metadata_sources ( item_id TEXT NOT NULL, namespace TEXT NOT NULL CHECK(length(CAST(namespace AS BLOB)) BETWEEN 1 AND 256), record_id TEXT NOT NULL CHECK(length(CAST(record_id AS BLOB)) BETWEEN 1 AND 256), source_kind TEXT NOT NULL CHECK(source_kind IN ('local','provider','scan','legacy_import')), revision INTEGER NOT NULL CHECK(typeof(revision)='integer' AND revision>=1), schema_fingerprint TEXT NOT NULL, fields_json TEXT NOT NULL CHECK(json_valid(fields_json) AND json_type(fields_json)='object' AND length(CAST(fields_json AS BLOB))<=65536), evidence_json TEXT NOT NULL CHECK(json_valid(evidence_json) AND json_type(evidence_json)='object' AND length(CAST(evidence_json AS BLOB))<=8192), PRIMARY KEY(item_id,namespace,record_id), FOREIGN KEY(item_id,schema_fingerprint) REFERENCES catalog_metadata_subjects(item_id,schema_fingerprint) ON DELETE RESTRICT, FOREIGN KEY(item_id,namespace,record_id,revision) REFERENCES catalog_metadata_history(item_id,namespace,record_id,revision) ON DELETE RESTRICT, CHECK(source_kind!='legacy_import' OR (namespace='catabolic.legacy_import.v1' AND record_id='items.metadata')), CHECK(namespace!='catabolic.legacy_import.v1' OR source_kind='legacy_import') )"
   ],
@@ -3646,6 +3651,11 @@
   ],
   [
     "trigger",
+    "catalog_metadata_history_receipt_obligation",
+    "CREATE TRIGGER catalog_metadata_history_receipt_obligation AFTER INSERT ON catalog_metadata_history BEGIN INSERT INTO catalog_metadata_receipt_obligations(command_catalog_id,command_host_namespace,command_operation_id) SELECT NEW.command_catalog_id,NEW.command_host_namespace,NEW.command_operation_id WHERE NOT EXISTS(SELECT 1 FROM catalog_metadata_receipt_obligations WHERE command_catalog_id=NEW.command_catalog_id AND command_host_namespace=NEW.command_host_namespace AND command_operation_id=NEW.command_operation_id); END"
+  ],
+  [
+    "trigger",
     "catalog_metadata_history_update",
     "CREATE TRIGGER catalog_metadata_history_update BEFORE UPDATE ON catalog_metadata_history BEGIN SELECT RAISE(ABORT,'metadata history is immutable'); END"
   ],
@@ -3691,6 +3701,16 @@
   ],
   [
     "trigger",
+    "catalog_metadata_receipt_obligation_no_delete",
+    "CREATE TRIGGER catalog_metadata_receipt_obligation_no_delete BEFORE DELETE ON catalog_metadata_receipt_obligations BEGIN SELECT RAISE(ABORT,'catalog_metadata_receipt_obligation_retained'); END"
+  ],
+  [
+    "trigger",
+    "catalog_metadata_receipt_obligation_no_update",
+    "CREATE TRIGGER catalog_metadata_receipt_obligation_no_update BEFORE UPDATE ON catalog_metadata_receipt_obligations BEGIN SELECT RAISE(ABORT,'catalog_metadata_receipt_obligation_immutable'); END"
+  ],
+  [
+    "trigger",
     "catalog_metadata_source_delete",
     "CREATE TRIGGER catalog_metadata_source_delete BEFORE DELETE ON catalog_metadata_sources BEGIN SELECT RAISE(ABORT,'metadata source heads must remain revisioned, including empty heads'); END"
   ],
@@ -3713,6 +3733,11 @@
     "trigger",
     "catalog_metadata_subject_insert",
     "CREATE TRIGGER catalog_metadata_subject_insert BEFORE INSERT ON catalog_metadata_subjects BEGIN SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM catalog_metadata_permits p JOIN catalog_state s ON s.id=1 AND s.incarnation=p.incarnation WHERE p.item_id=NEW.item_id) THEN RAISE(ABORT,'metadata subject requires typed owner') END; SELECT CASE WHEN NEW.legacy_raw_json IS NOT (SELECT metadata FROM items WHERE id=NEW.item_id) THEN RAISE(ABORT,'metadata initialization must preserve exact current bytes') END; END"
+  ],
+  [
+    "trigger",
+    "catalog_metadata_subject_receipt_obligation",
+    "CREATE TRIGGER catalog_metadata_subject_receipt_obligation AFTER INSERT ON catalog_metadata_subjects BEGIN INSERT INTO catalog_metadata_receipt_obligations(command_catalog_id,command_host_namespace,command_operation_id) SELECT NEW.command_catalog_id,NEW.command_host_namespace,NEW.command_operation_id WHERE NOT EXISTS(SELECT 1 FROM catalog_metadata_receipt_obligations WHERE command_catalog_id=NEW.command_catalog_id AND command_host_namespace=NEW.command_host_namespace AND command_operation_id=NEW.command_operation_id); END"
   ],
   [
     "trigger",

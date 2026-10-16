@@ -43,14 +43,52 @@
     "crates/catabolic-store/resources/migrations/035_native_search.sql": "b2b68911dc9cdf60b6a318a3671996a6675779004c80102c34ba0d816a13ac56",
     "crates/catabolic-store/resources/migrations/036_native_execution_cleanup.sql": "f729bf358d866cdb42daeb9cd984127b71ca420af0127e7ff8944234cf99087f",
     "crates/catabolic-store/resources/migrations/037_native_observation_companions.sql": "a6faf6ec36622efcdeb70275b759ad60e3db1fb931f2e9c50041f8a496d791d7",
-    "crates/catabolic-store/resources/migrations/038_native_review_guards.sql": "90a4ee95058acf60a6accdead9252a660057d3a8ca64dc3875e77c7540b166c1",
+    "crates/catabolic-store/resources/migrations/038_native_review_guards.sql": "079b6d779080858a8a620b0b0fc535e43a04bd6a5ccebdd27c7c0d27b766a544",
     "crates/catabolic-store/resources/native-schema-37.json": "35c77c61ae4143407d96c59bdb3ad22e821dc01c7a9eca78e32a3cccc4de14d6"
   },
-  "signature_sha256": "54b8be2aa0c24ed112982f90f9fba918f70546c859a0997ab19c5682e76a0616",
+  "signature_sha256": "604d414b4c167d66b0e997d42c831a38635f638945b2b5c6801f0803e94e1cef",
   "historical_ddl_preserved": true,
   "migration_generation_preserved": true,
-  "new_tables": {},
+  "new_tables": {
+    "catalog_metadata_receipt_obligations": [
+      {
+        "name": "command_catalog_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "command_host_namespace",
+        "type": "TEXT",
+        "pk": 2
+      },
+      {
+        "name": "command_operation_id",
+        "type": "TEXT",
+        "pk": 3
+      }
+    ]
+  },
   "new_objects": [
+    [
+      "table",
+      "catalog_metadata_receipt_obligations"
+    ],
+    [
+      "trigger",
+      "catalog_metadata_history_receipt_obligation"
+    ],
+    [
+      "trigger",
+      "catalog_metadata_receipt_obligation_no_delete"
+    ],
+    [
+      "trigger",
+      "catalog_metadata_receipt_obligation_no_update"
+    ],
+    [
+      "trigger",
+      "catalog_metadata_subject_receipt_obligation"
+    ],
     [
       "trigger",
       "catalog_tag_suppression_file_subject_delete_guard"

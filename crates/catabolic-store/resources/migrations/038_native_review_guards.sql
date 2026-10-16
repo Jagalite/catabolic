@@ -42,3 +42,36 @@ CREATE TRIGGER catalog_tag_suppression_file_subject_rekey_target_guard BEFORE UP
  WHEN NEW.id IS NOT OLD.id
  AND EXISTS(SELECT 1 FROM catalog_tag_suppression_revisions WHERE subject_type='file' AND subject_id=NEW.id)
  BEGIN SELECT RAISE(ABORT,'catalog_tag_suppression_subject_history_retained'); END;
+
+-- SC2. Metadata subjects/history carry a command key without a receipt FK.
+-- Each distinct key is recorded once in an immutable obligation row whose
+-- deferred composite FK must resolve to a committed receipt at COMMIT. Receipt
+-- keys are permanent, so a satisfied obligation stays satisfied. Existing
+-- provenance is backfilled; an orphan makes the migration's foreign-key check
+-- fail closed. Obligations are derived provenance, not catalog-visible state,
+-- so they deliberately do not advance generation.
+CREATE TABLE catalog_metadata_receipt_obligations (
+ command_catalog_id TEXT NOT NULL,
+ command_host_namespace TEXT NOT NULL,
+ command_operation_id TEXT NOT NULL,
+ PRIMARY KEY(command_catalog_id,command_host_namespace,command_operation_id),
+ FOREIGN KEY(command_catalog_id,command_host_namespace,command_operation_id)
+  REFERENCES catalog_command_receipts(catalog_id,host_namespace,operation_id) DEFERRABLE INITIALLY DEFERRED
+) WITHOUT ROWID;
+INSERT INTO catalog_metadata_receipt_obligations(command_catalog_id,command_host_namespace,command_operation_id)
+ SELECT command_catalog_id,command_host_namespace,command_operation_id FROM catalog_metadata_subjects
+ UNION SELECT command_catalog_id,command_host_namespace,command_operation_id FROM catalog_metadata_history;
+CREATE TRIGGER catalog_metadata_receipt_obligation_no_update BEFORE UPDATE ON catalog_metadata_receipt_obligations
+ BEGIN SELECT RAISE(ABORT,'catalog_metadata_receipt_obligation_immutable'); END;
+CREATE TRIGGER catalog_metadata_receipt_obligation_no_delete BEFORE DELETE ON catalog_metadata_receipt_obligations
+ BEGIN SELECT RAISE(ABORT,'catalog_metadata_receipt_obligation_retained'); END;
+CREATE TRIGGER catalog_metadata_subject_receipt_obligation AFTER INSERT ON catalog_metadata_subjects
+ BEGIN INSERT INTO catalog_metadata_receipt_obligations(command_catalog_id,command_host_namespace,command_operation_id)
+  SELECT NEW.command_catalog_id,NEW.command_host_namespace,NEW.command_operation_id
+  WHERE NOT EXISTS(SELECT 1 FROM catalog_metadata_receipt_obligations WHERE command_catalog_id=NEW.command_catalog_id
+   AND command_host_namespace=NEW.command_host_namespace AND command_operation_id=NEW.command_operation_id); END;
+CREATE TRIGGER catalog_metadata_history_receipt_obligation AFTER INSERT ON catalog_metadata_history
+ BEGIN INSERT INTO catalog_metadata_receipt_obligations(command_catalog_id,command_host_namespace,command_operation_id)
+  SELECT NEW.command_catalog_id,NEW.command_host_namespace,NEW.command_operation_id
+  WHERE NOT EXISTS(SELECT 1 FROM catalog_metadata_receipt_obligations WHERE command_catalog_id=NEW.command_catalog_id
+   AND command_host_namespace=NEW.command_host_namespace AND command_operation_id=NEW.command_operation_id); END;
