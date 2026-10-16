@@ -333,3 +333,97 @@ fn sign_unless(field: &str, manifest: Value) -> Value {
         sign(manifest)
     }
 }
+
+/// Omissions survive a recomputed fingerprint, so the table and key inventory
+/// and sequence completeness are checked against the declared schema itself.
+#[test]
+fn resigned_omissions_from_the_inventory_are_rejected() {
+    let (root, path) = populated();
+    connect(&path, true)
+        .unwrap()
+        .execute_batch("INSERT INTO item_files(id,file_id,item_id,role,origin) VALUES('assoc-a','file-a','item-a','primary','explicit')")
+        .unwrap();
+    let before = identity_manifest::manifest_path(&path).unwrap();
+    identity_manifest::validate(&before).unwrap();
+    assert_eq!(before["tables"]["item_files"]["rows"], 1);
+
+    // The reviewer's case: drop item_files from "before", re-sign, and compare
+    // with a genuine "after" whose item_files rows were deleted.
+    let mut omitted = before.clone();
+    omitted["tables"]
+        .as_object_mut()
+        .unwrap()
+        .remove("item_files");
+    let omitted = sign(omitted);
+    let deleted = copy(root.path(), &path, "deleted.sqlite3");
+    connect(&deleted, true)
+        .unwrap()
+        .execute_batch("DELETE FROM item_files")
+        .unwrap();
+    let after = identity_manifest::manifest_path(&deleted).unwrap();
+    assert_eq!(
+        kinds(&omitted, &after),
+        vec![pair("invalid_manifest", "before")]
+    );
+    assert_eq!(
+        kinds(&before, &after),
+        vec![pair("table_keys", "item_files")]
+    );
+
+    let mut cases: Vec<(&str, Value)> = Vec::new();
+    let mut ghost = before.clone();
+    ghost["tables"]["ghost"] = before["tables"]["items"].clone();
+    cases.push(("unexpected table", ghost));
+    let mut rekeyed = before.clone();
+    rekeyed["tables"]["items"]["columns"] = json!(["rowid"]);
+    cases.push(("wrong key columns", rekeyed));
+    let mut no_sequence = before.clone();
+    no_sequence["sequences"]
+        .as_object_mut()
+        .unwrap()
+        .remove("api_events");
+    cases.push(("sequence omitted for a table with rows", no_sequence));
+    let mut foreign_sequence = before.clone();
+    foreign_sequence["sequences"]["items"] = json!(1);
+    cases.push((
+        "sequence for a table without AUTOINCREMENT",
+        foreign_sequence,
+    ));
+    let mut unknown_schema = before.clone();
+    unknown_schema["schema"] = json!(NATIVE_SCHEMA_VERSION + 1);
+    cases.push(("unsupported schema", unknown_schema));
+    for (label, manifest) in cases {
+        let manifest = sign(manifest);
+        assert!(identity_manifest::validate(&manifest).is_err(), "{label}");
+        assert_eq!(
+            kinds(&manifest, &before),
+            vec![pair("invalid_manifest", "before")],
+            "{label}"
+        );
+    }
+
+    // The native inventory, including derived search tables, is enforced too.
+    let native = root.path().join("native.sqlite3");
+    migration::initialize_native(&native).unwrap();
+    let manifest = identity_manifest::manifest_path(&native).unwrap();
+    identity_manifest::validate(&manifest).unwrap();
+    for table in [
+        "item_files",
+        "catalog_state",
+        "catalog_legacy_identity_evidence",
+    ] {
+        let mut omitted = manifest.clone();
+        assert!(
+            omitted["tables"]
+                .as_object_mut()
+                .unwrap()
+                .remove(table)
+                .is_some(),
+            "{table}"
+        );
+        assert!(
+            identity_manifest::validate(&sign(omitted)).is_err(),
+            "{table}"
+        );
+    }
+}

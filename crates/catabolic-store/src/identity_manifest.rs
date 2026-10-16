@@ -121,6 +121,56 @@ pub fn manifest_path(path: &Path) -> Result<Value> {
     Ok(value)
 }
 
+/// Expected tables of one schema version: key columns as `manifest` derives
+/// them, and whether the table uses AUTOINCREMENT. Built once per version by
+/// creating the frozen schema signature's tables in a private in-memory
+/// database, so a manifest cannot omit or rename a table or its key.
+type Inventory = std::collections::BTreeMap<String, (Vec<String>, bool)>;
+
+fn expected_inventory(schema: u32) -> std::result::Result<Inventory, String> {
+    use std::{collections::BTreeMap, sync::Mutex};
+    static CACHE: Mutex<BTreeMap<u32, Inventory>> = Mutex::new(BTreeMap::new());
+    if let Some(found) = CACHE.lock().expect("inventory cache").get(&schema) {
+        return Ok(found.clone());
+    }
+    let signature = if (1..=migration::SCHEMA_VERSION).contains(&schema) {
+        &migration::reference()["schemas"][schema.to_string()]
+    } else {
+        migration::native_reference_at(schema)
+            .ok_or_else(|| format!("schema {schema} is not a supported schema"))?
+    };
+    let build = || -> Result<Inventory> {
+        let db = Connection::open_in_memory()?;
+        crate::components::install(&db)?;
+        let mut inventory = Inventory::new();
+        for entry in signature.as_array().into_iter().flatten() {
+            let (Some("table"), Some(name), Some(sql)) =
+                (entry[0].as_str(), entry[1].as_str(), entry[2].as_str())
+            else {
+                continue;
+            };
+            // Virtual tables create their shadow tables themselves.
+            if !table_exists(&db, name)? {
+                db.execute_batch(sql)?;
+            }
+            if name != "schema_migrations" {
+                let autoincrement = sql.to_ascii_uppercase().contains("AUTOINCREMENT");
+                inventory.insert(name.to_owned(), (key_columns(&db, name)?, autoincrement));
+            }
+        }
+        Ok(inventory)
+    };
+    let inventory = build().map_err(|error| format!("schema {schema} inventory: {error}"))?;
+    if inventory.is_empty() {
+        return Err(format!("schema {schema} has no table signature"));
+    }
+    CACHE
+        .lock()
+        .expect("inventory cache")
+        .insert(schema, inventory.clone());
+    Ok(inventory)
+}
+
 fn is_digest(value: &Value) -> bool {
     value["columns"]
         .as_array()
@@ -231,19 +281,49 @@ pub fn validate(manifest: &Value) -> std::result::Result<(), String> {
     let tables = manifest["tables"]
         .as_object()
         .ok_or_else(|| "tables is not an object".to_owned())?;
-    for required in ["meta", "identities", "items", "files"] {
-        if !tables.contains_key(required) {
-            return Err(format!("tables lacks {required}"));
-        }
+    let inventory =
+        expected_inventory(u32::try_from(schema).map_err(|_| "schema is out of range")?)?;
+    if !tables
+        .keys()
+        .collect::<std::collections::BTreeSet<_>>()
+        .eq(&inventory.keys().collect())
+    {
+        let missing = inventory
+            .keys()
+            .filter(|name| !tables.contains_key(*name))
+            .collect::<Vec<_>>();
+        let unexpected = tables
+            .keys()
+            .filter(|name| !inventory.contains_key(*name))
+            .collect::<Vec<_>>();
+        return Err(format!(
+            "table inventory does not match schema {schema}: missing {missing:?}, unexpected {unexpected:?}"
+        ));
     }
-    if let Some((name, _)) = tables.iter().find(|(_, digest)| !is_digest(digest)) {
-        return Err(format!("table digest for {name} is incomplete"));
+    for (name, digest) in tables {
+        if !is_digest(digest) || digest["columns"] != json!(inventory[name].0) {
+            return Err(format!(
+                "table key digest for {name} is incomplete or has the wrong key"
+            ));
+        }
     }
     let sequences = manifest["sequences"]
         .as_object()
         .ok_or_else(|| "sequences is not an object".to_owned())?;
-    if let Some((name, _)) = sequences.iter().find(|(_, seq)| !seq.is_i64()) {
-        return Err(format!("sequence {name} is not an integer"));
+    for (name, seq) in sequences {
+        if !seq.is_i64() || !inventory.get(name).is_some_and(|(_, auto)| *auto) {
+            return Err(format!(
+                "sequence {name} is not an AUTOINCREMENT table's integer"
+            ));
+        }
+    }
+    // A row in an AUTOINCREMENT table proves sqlite_sequence recorded it.
+    for (name, (_, autoincrement)) in &inventory {
+        if *autoincrement && tables[name]["rows"] != 0 && !sequences.contains_key(name) {
+            return Err(format!(
+                "sequence for {name} is missing although the table has rows"
+            ));
+        }
     }
     let legacy = &manifest["legacy_identity_evidence"];
     if legacy.as_object().is_none_or(|object| object.len() != 2)
