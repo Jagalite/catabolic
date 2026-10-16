@@ -57,6 +57,14 @@ pub fn interruptible_detailed<T: Send + 'static>(
     supervise(operation).map(|(result, _signal)| result)
 }
 
+/// `interruptible_detailed`, also retaining the selected shutdown signal for
+/// callers that own their process exit policy.
+pub fn interruptible_detailed_with_signal<T: Send + 'static>(
+    operation: impl FnOnce(Arc<AtomicBool>) -> T + Send + 'static,
+) -> Result<(T, Option<InterruptSignal>)> {
+    supervise(operation)
+}
+
 fn supervise<T: Send + 'static>(
     operation: impl FnOnce(Arc<AtomicBool>) -> T + Send + 'static,
 ) -> Result<(T, Option<InterruptSignal>)> {

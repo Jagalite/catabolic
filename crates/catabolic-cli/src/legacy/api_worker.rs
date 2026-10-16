@@ -8,7 +8,7 @@ use std::{path::Path, sync::atomic::Ordering, time::Duration};
 
 pub fn run(path: &Path, profile: &str, once: bool) -> Result<Value> {
     let (path, profile) = (path.to_owned(), profile.to_owned());
-    catabolic_http::interruptible(move |cancel| {
+    crate::signals::interruptible(move |cancel| {
         let result = catabolic_runtime::http_worker::run(
             &path,
             &profile,

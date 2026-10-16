@@ -108,7 +108,10 @@ class ConsumerWatchTest(unittest.TestCase):
         start = time.monotonic()
         process.send_signal(signum)
         stdout, stderr = process.communicate(timeout=5)
-        self.assertEqual(process.returncode, 130, (stdout, stderr))
+        # Frozen Python installs no TERM handler: TERM exits by the signal with
+        # no new output. Native does the same after its cleanup has finished.
+        expected = -signal.SIGTERM if signum == signal.SIGTERM else 130
+        self.assertEqual(process.returncode, expected, (stdout, stderr))
         self.assertLess(time.monotonic() - start, 5)
         return stdout.decode(), stderr.decode()
 
@@ -508,9 +511,12 @@ bind(sys.argv[2], 'default', 'movies', 'fixture', 'global', '', '/fixture/Movies
         self.interrupt_and_restart(consumer=False)
 
     def test_native_sigterm_during_idle_releases_writer(self):
-        process = self.start(False, interval=60)
-        self.line(process)
-        self.stop(process, signal.SIGTERM)
+        outcomes = []
+        for reference in (True, False):
+            process = self.start(reference, interval=60)
+            self.line(process)
+            outcomes.append(self.stop(process, signal.SIGTERM))
+        self.assertEqual(outcomes, [("", ""), ("", "")])
         self.assert_writer_available(self.native)
 
     def native_inflight_sigterm(self, consumer):
@@ -536,11 +542,7 @@ bind(sys.argv[2], 'default', 'movies', 'fixture', 'global', '', '/fixture/Movies
         tick_pid, command = children[0].strip().split(maxsplit=1)
         self.assertIn("__legacy-consumer-watch-tick", command)
         self.assert_writer_available(self.native)
-        stdout, stderr = self.stop(process, signal.SIGTERM)
-        self.assertEqual(stderr, "")
-        envelope = json.loads(stdout)
-        self.assertEqual(envelope["exit_code"], 130)
-        self.assertEqual(envelope["data"]["error"]["type"], "KeyboardInterrupt")
+        self.assertEqual(self.stop(process, signal.SIGTERM), ("", ""))
         self.assertTrue(self.closed.wait(5), "SIGTERM left the tick socket open")
         reaped = subprocess.run(
             ["ps", "-p", tick_pid, "-o", "pid=,stat="],

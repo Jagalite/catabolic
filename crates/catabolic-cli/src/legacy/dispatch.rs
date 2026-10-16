@@ -411,7 +411,7 @@ pub fn dispatch_with_cancel(a: &Value, cancel: &std::sync::atomic::AtomicBool) -
             if !a["budgets"].is_null(){r["budgets"]=file(a,"budgets",1024*1024)?;}
             set(&mut r,"scopes","scope");set(&mut r,"continue_id","continue_request");
             let path=path.to_owned();let profile=profile.to_owned();
-            catabolic_http::interruptible(move|cancel|{
+            crate::signals::interruptible(move|cancel|{
                 let check=cancel.clone();
                 let result=catabolic_store::embedding::with_interrupt_check(move||check.load(std::sync::atomic::Ordering::Acquire),||{
                     let mut store=Store::open(&path,true,false)?;
@@ -634,7 +634,7 @@ fn consumer(a: &Value) -> Result<Value> {
         r["mappings"] = file(a, "map", 65536)?;
         let path = Path::new(text(a, "db")).to_owned();
         let profile = text(a, "profile").to_owned();
-        return catabolic_http::interruptible(move |cancel| {
+        return crate::signals::interruptible(move |cancel| {
             catabolic_runtime::api::execute_plex_import_with_poll(
                 &path,
                 &profile,
@@ -647,7 +647,7 @@ fn consumer(a: &Value) -> Result<Value> {
     if op == "metadata-match" {
         let path = Path::new(text(a, "db")).to_owned();
         let profile = text(a, "profile").to_owned();
-        return catabolic_http::interruptible(move |cancel| {
+        return crate::signals::interruptible(move |cancel| {
             catabolic_runtime::api::execute_plex_match_with_poll(
                 &path,
                 &profile,
@@ -737,7 +737,7 @@ fn artifact(a: &Value) -> Result<Value> {
     let profile = text(a, "profile").to_owned();
     if matches!(op, "enqueue" | "run" | "recover") {
         let operation = op.to_owned();
-        return catabolic_http::interruptible(move |cancel| {
+        return crate::signals::interruptible(move |cancel| {
             let mut store = Store::open(&path, true, false)?;
             let result = catabolic_runtime::public_artifacts::execute(
                 &mut store,
@@ -785,7 +785,7 @@ fn processing(a: &Value) -> Result<Value> {
     }
     let path = Path::new(text(a, "db")).to_owned();
     let profile = text(a, "profile").to_owned();
-    catabolic_http::interruptible(move |cancel| {
+    crate::signals::interruptible(move |cancel| {
         let mut store = Store::open(&path, true, false)?;
         let check = cancel.clone();
         let result = catabolic_store::embedding::with_interrupt_check(
@@ -821,7 +821,7 @@ fn supervise(a: &Value) -> Result<Value> {
     let request = a.clone();
     let path = Path::new(text(a, "db")).to_owned();
     let profile = text(a, "profile").to_owned();
-    catabolic_http::interruptible(move |cancel| {
+    crate::signals::interruptible(move |cancel| {
         let result = catabolic_runtime::source_events::supervise_with_poll(
             &path,
             &profile,
@@ -1072,7 +1072,7 @@ fn export(a: &Value) -> Result<Value> {
         set(&mut r, "target", "name");
         let path = Path::new(text(a, "db")).to_owned();
         let profile = text(a, "profile").to_owned();
-        return catabolic_http::interruptible(move |cancel| {
+        return crate::signals::interruptible(move |cancel| {
             catabolic_runtime::api::execute_import_with_poll(
                 &path,
                 &profile,

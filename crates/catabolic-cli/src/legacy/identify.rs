@@ -8,7 +8,7 @@ use std::path::Path;
 
 pub fn execute(args: &Value) -> Result<Value> {
     let args = args.clone();
-    catabolic_http::interruptible(move |cancel| {
+    crate::signals::interruptible(move |cancel| {
         let mut store = Store::open(Path::new(text(&args, "db")), args["apply"] == true, false)?;
         let checked = cancel.clone();
         catabolic_store::embedding::with_interrupt_check(

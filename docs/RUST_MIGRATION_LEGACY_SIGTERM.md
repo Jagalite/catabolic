@@ -82,7 +82,8 @@ schedule, signals before supervisor installation or after dispatch, all repeated
 signal orderings, inherited ignored/masked signal policies, panic paths,
 uninterruptible kernel work, or every receipt acceptance window. SIGKILL cannot
 perform cleanup. Non-Unix and installed/release artifacts are not qualified.
-Other legacy command families retain their existing signal presentation.
+At this checkpoint other legacy command families retained their existing signal
+presentation; the track D alignment below extends the boundary to all of them.
 
 The underlying fallback apply/recovery and watch automatic-refresh refusals,
 external HTTP diagnostic differences, and scan-report gaps remain unchanged.
@@ -113,3 +114,42 @@ checks pass. The immutable legacy executable SHA-256 is
 `bc98a3d6bbfa0938d642656a77702934642fee43059b8911359fcc660641e772`.
 The [tracked checkpoint](../tests/parity/native-legacy-sigterm-checkpoint.json)
 contains exact source, artifact, reference and evidence hashes.
+
+## Track D: every standalone legacy family (October 16)
+
+Frozen Python installs no TERM handler anywhere in the CLI, so every command
+exits by the signal (`-15`) with no new output. The legacy executable now
+applies the selected boundary above to every supervised family instead of
+three: GraphQL, query and inbox, projection previews/execution and mapping
+operations (including `mapping-events`), maintenance, identify, refresh and
+catalog refresh, `api worker`, `consumer watch`, and the other dispatch-owned
+supervisors. Each uses the additive `catabolic_http::interruptible_detailed_with_signal`
+or the existing `interruptible_with_signal`; the shared `interruptible` APIs used
+by HTTP and the companion CLI are unchanged. The executable-only Plex signal
+guard (Plex login/import/matching/metadata) now also records whether its first
+signal was TERM, so those owners exit by TERM after their cleanup as well.
+
+Cleanup still finishes before termination: helpers are reaped, ticks joined,
+writers and singletons released. SIGINT presentation (`KeyboardInterrupt`/130)
+and the private Python callable transport's acknowledged 130 result are
+unchanged. Unsupervised commands never installed a handler and already exited
+by the default TERM disposition.
+
+Native-only tests that previously asserted a `KeyboardInterrupt`/130 envelope for
+TERM now assert the frozen `(-15, "", "")` presentation while keeping their
+native cleanup and restart checks: `api worker` in all three output modes, and
+consumer watch idle and in-flight TERM. The idle consumer-watch case now also
+runs the frozen oracle and requires the same presentation. A legacy unit mode
+covers the typed wrapper through repeated TERM/INT during held cleanup.
+
+Local macOS arm64 results for this change (Kyoto build of the workspace, then
+the test executables run directly): the legacy unit executable passes all 34
+functions, including the new typed-wrapper TERM mode; catabolic-http passes 3;
+the Plex login runtime tests pass 9. `test_rust_legacy_fallback_worker` passes
+all 10 methods, and the consumer-watch idle TERM method passes with both the
+frozen oracle and native returning `(-15, "", "")`. Not runnable on macOS, and
+failing before any signal is sent for reasons unrelated to this change: every
+`api worker` method (native refuses with "parent-death supervision is
+unqualified on this platform"), the two in-flight consumer-watch TERM methods
+(the harness uses Linux `ps --ppid`) and `test_rust_legacy_sigterm` (it observes
+helpers through `/proc`). Those need the Linux lane.

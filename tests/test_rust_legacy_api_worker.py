@@ -250,13 +250,13 @@ class LegacyApiWorker(unittest.TestCase):
                 native = self.interrupted(False, prefix, signal.SIGINT)
                 self.assertEqual(native, oracle)
                 self.assertEqual(native[0], 130)
-        # The native supervisor explicitly treats SIGTERM as graceful interrupt.
-        # Frozen Python SIGTERM is not handled, so this is native-only evidence.
-        native = self.interrupted(False, ["--machine"], signal.SIGTERM)
-        self.assertEqual(native[0], 130)
-        self.assertEqual(
-            json.loads(native[1])["data"]["error"]["type"], "KeyboardInterrupt"
-        )
+        # Frozen Python installs no TERM handler, so it exits by TERM with no
+        # output. Native matches that presentation only after its cleanup; the
+        # cleanup and immediate restart checks above remain native-only.
+        for prefix in ([], ["--json"], ["--machine"]):
+            with self.subTest(prefix=prefix, signal="TERM"):
+                native = self.interrupted(False, prefix, signal.SIGTERM)
+                self.assertEqual(native, (-signal.SIGTERM, "", ""))
 
 
 if __name__ == "__main__":

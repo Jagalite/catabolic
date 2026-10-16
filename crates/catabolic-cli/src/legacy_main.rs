@@ -145,7 +145,7 @@ fn deliver(output: parser::Output, callable: bool, parse_exit: bool) -> ! {
 fn execute(args: &serde_json::Value) -> failure::Result<serde_json::Value> {
     if args["command"] == "graphql" {
         let args = args.clone();
-        return catabolic_http::interruptible_detailed(move |cancel| {
+        return signals::interruptible_detailed(move |cancel| {
             let check = cancel.clone();
             let result = catabolic_store::embedding::with_interrupt_check(
                 move || check.load(std::sync::atomic::Ordering::Acquire),
@@ -176,7 +176,6 @@ fn execute(args: &serde_json::Value) -> failure::Result<serde_json::Value> {
             ))
     {
         let args = args.clone();
-        let external_rule = args["command"] == "rule";
         let operation = move |cancel: std::sync::Arc<std::sync::atomic::AtomicBool>| {
             let check = cancel.clone();
             let result = catabolic_store::embedding::with_interrupt_check(
@@ -191,12 +190,9 @@ fn execute(args: &serde_json::Value) -> failure::Result<serde_json::Value> {
                 result
             }
         };
-        if external_rule {
-            signals::interruptible(operation)
-        } else {
-            catabolic_http::interruptible(operation)
-        }
-        .map_err(Into::into)
+        // Every standalone family exits by TERM after cleanup, as frozen
+        // Python (which installs no TERM handler) does.
+        signals::interruptible(operation).map_err(Into::into)
     } else {
         dispatch::dispatch_detailed(args)
     }

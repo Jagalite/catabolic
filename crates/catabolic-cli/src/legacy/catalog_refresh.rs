@@ -81,7 +81,7 @@ pub fn execute(args: &Value) -> Result<Value> {
         None
     };
     let args = args.clone();
-    catabolic_http::interruptible(move |cancel| {
+    crate::signals::interruptible(move |cancel| {
         loop {
             if cancel.load(Ordering::Acquire) {
                 return Err(interrupted());

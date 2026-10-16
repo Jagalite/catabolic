@@ -306,7 +306,7 @@ fn mapping_failure(error: DetailedError) -> super::failure::Failure {
 pub fn execute(args: &Value) -> super::failure::Result<parser::Output> {
     let (sender, sidecar) = mpsc::sync_channel(1);
     let owned = args.clone();
-    let result = catabolic_http::interruptible_detailed(move |cancel| {
+    let result = crate::signals::interruptible_detailed(move |cancel| {
         let check = cancel.clone();
         let result = catabolic_store::embedding::with_interrupt_check(
             move || check.load(Ordering::Acquire),

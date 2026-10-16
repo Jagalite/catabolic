@@ -14,5 +14,5 @@ pub use server::{ServerConfig, serve, serve_listener};
 mod worker;
 pub use worker::{
     InterruptSignal, InterruptibleOutcome, interruptible, interruptible_detailed,
-    interruptible_with_signal, worker,
+    interruptible_detailed_with_signal, interruptible_with_signal, worker,
 };

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 // SPDX-License-Identifier: MIT
-//! Selected standalone legacy commands preserve TERM only after native cleanup.
+//! Standalone legacy commands preserve TERM only after native cleanup. Frozen
+//! Python installs no TERM handler, so every command family exits by the
+//! signal with no new output; native owners first finish their cleanup.
 use catabolic_store::Result;
 use serde_json::Value;
 #[cfg(unix)]
@@ -10,22 +12,38 @@ use std::sync::{Arc, atomic::AtomicBool};
 #[cfg(unix)]
 static TERMINATED: AtomicBool = AtomicBool::new(false);
 
+fn record(signal: Option<catabolic_http::InterruptSignal>) {
+    #[cfg(unix)]
+    if signal == Some(catabolic_http::InterruptSignal::Terminate) && !crate::transport::active() {
+        TERMINATED.store(true, Ordering::Release);
+    }
+    #[cfg(not(unix))]
+    let _ = signal;
+}
+
 pub fn interruptible(
     operation: impl FnOnce(Arc<AtomicBool>) -> Result<Value> + Send + 'static,
 ) -> Result<Value> {
     let outcome = catabolic_http::interruptible_with_signal(operation)?;
-    #[cfg(unix)]
-    if outcome.signal == Some(catabolic_http::InterruptSignal::Terminate)
-        && !crate::transport::active()
-    {
-        TERMINATED.store(true, Ordering::Release);
-    }
+    record(outcome.signal);
     outcome.result
+}
+
+/// `interruptible` for typed command results.
+pub fn interruptible_detailed<T: Send + 'static>(
+    operation: impl FnOnce(Arc<AtomicBool>) -> T + Send + 'static,
+) -> Result<T> {
+    let (result, signal) = catabolic_http::interruptible_detailed_with_signal(operation)?;
+    record(signal);
+    Ok(result)
 }
 
 pub fn finish() {
     #[cfg(unix)]
-    if TERMINATED.load(Ordering::Acquire) {
+    if TERMINATED.load(Ordering::Acquire)
+        // Plex executable owners use their own process signal guard.
+        || (catabolic_runtime::plex_login::cli_terminated() && !crate::transport::active())
+    {
         // All selected command owners have returned before this process-only
         // boundary. Keep the signal handler installed throughout their cleanup,
         // including repeated signals. The private Python transport never enters
@@ -80,6 +98,8 @@ mod tests {
         };
         let result = if mode == "legacy" {
             interruptible(operation)
+        } else if mode == "legacy-typed" {
+            interruptible_detailed(operation).unwrap()
         } else if mode == "typed" {
             catabolic_http::interruptible_detailed(operation).unwrap()
         } else {
@@ -114,7 +134,7 @@ mod tests {
     #[test]
     fn repeated_signals_wait_for_cleanup_and_shared_api_keeps_its_result() {
         use std::os::unix::process::ExitStatusExt;
-        for mode in ["legacy", "shared", "typed"] {
+        for mode in ["legacy", "legacy-typed", "shared", "typed"] {
             let directory = tempfile::tempdir().unwrap();
             let mut child = OwnedChild(
                 Command::new(std::env::current_exe().unwrap())
@@ -144,7 +164,7 @@ mod tests {
                 assert!(Instant::now() < deadline, "fixture did not finish");
                 thread::sleep(Duration::from_millis(5));
             };
-            if mode == "legacy" {
+            if mode.starts_with("legacy") {
                 assert_eq!(status.signal(), Some(libc::SIGTERM));
             } else {
                 assert!(status.success());

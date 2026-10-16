@@ -8,7 +8,7 @@ use std::{path::Path, sync::atomic::Ordering};
 
 pub fn execute(args: &Value) -> Result<Value> {
     let args = args.clone();
-    catabolic_http::interruptible(move |cancel| {
+    crate::signals::interruptible(move |cancel| {
         let mut store = Store::open(Path::new(text(&args, "db")), true, false)?;
         catabolic_store::mutation::profile(&store, text(&args, "profile"))?;
         let check = cancel.clone();

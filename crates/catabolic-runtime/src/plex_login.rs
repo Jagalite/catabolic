@@ -571,9 +571,19 @@ pub fn execute(operation: &str, request: &Value) -> StoreResult<Value> {
 // Embedders retain their own handlers and use execute_with_poll instead.
 static CLI_SIGNAL_OWNER: std::sync::Mutex<()> = std::sync::Mutex::new(());
 static CLI_INTERRUPTED: AtomicBool = AtomicBool::new(false);
-extern "C" fn cli_interrupted(_signal: libc::c_int) {
-    // A lock-free atomic store is the only operation in this signal handler.
+static CLI_TERMINATED: AtomicBool = AtomicBool::new(false);
+extern "C" fn cli_interrupted(signal: libc::c_int) {
+    // Lock-free atomics are the only operations in this signal handler. TERM
+    // is retained only when it is the first signal, matching the supervisor.
+    if signal == libc::SIGTERM && !CLI_INTERRUPTED.load(Ordering::Acquire) {
+        CLI_TERMINATED.store(true, Ordering::Release);
+    }
     CLI_INTERRUPTED.store(true, Ordering::Release);
+}
+/// Whether the executable signal guard's first signal was TERM. The legacy
+/// CLI uses this to exit by TERM after the Plex owner has finished cleanup.
+pub fn cli_terminated() -> bool {
+    CLI_TERMINATED.load(Ordering::Acquire)
 }
 struct CliSignalGuard {
     previous: Vec<(libc::c_int, libc::sigaction)>,
@@ -635,6 +645,7 @@ pub(crate) fn with_cli_signals(
         .lock()
         .map_err(|_| catabolic_store::Error("Plex login signal owner unavailable".into()))?;
     CLI_INTERRUPTED.store(false, Ordering::Release);
+    CLI_TERMINATED.store(false, Ordering::Release);
     let _signals = CliSignalGuard::install()?;
     let result = operation(&CLI_INTERRUPTED);
     checkpoint(&CLI_INTERRUPTED).map_err(|_| catabolic_store::Error(interrupted.into()))?;

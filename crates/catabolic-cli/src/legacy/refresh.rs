@@ -9,7 +9,7 @@ use std::path::Path;
 pub fn execute(args: &Value) -> Result<Value> {
     if text(args, "operation") == "run" {
         let args = args.clone();
-        return catabolic_http::interruptible(move |cancel| {
+        return crate::signals::interruptible(move |cancel| {
             let mut store = Store::open(Path::new(text(&args, "db")), true, false)?;
             let checked = cancel.clone();
             catabolic_store::embedding::with_interrupt_check(

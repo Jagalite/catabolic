@@ -126,7 +126,7 @@ pub fn execute(args: &Value) -> Result<Value> {
     }
     let executable = std::env::current_exe()?;
     let args = args.clone();
-    catabolic_http::interruptible(move |cancel| {
+    crate::signals::interruptible(move |cancel| {
         loop {
             if cancel.load(Ordering::Acquire) {
                 return Err(interrupted());
