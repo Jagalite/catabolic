@@ -34,6 +34,12 @@ fn write_new_file(path: &Path, value: &Value) -> Result<()> {
     file.write_all(serde_json::to_string_pretty(value)?.as_bytes())?;
     file.write_all(b"\n")?;
     file.sync_all()?;
+    // The new directory entry is durable only once its directory is synced.
+    let absolute = std::path::absolute(path)?;
+    let parent = absolute
+        .parent()
+        .ok_or_else(|| Error(format!("{} has no parent directory", path.display())))?;
+    std::fs::File::open(parent)?.sync_all()?;
     Ok(())
 }
 /// Read a bounded JSON operator artifact without following a final symlink.
