@@ -650,6 +650,45 @@
         "unavailable-effects"
       ],
       "evidence_scope": "Exact1541-input primary source:66 import methods including10 new matrix methods/88 disposable catalogs;17 Python controls; strict lint, format, schema checks and unchanged input fence. No full aggregate/release closure."
+    },
+    {
+      "id": "ordinary-profile-admission-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "User-approved 2026-10-16: ordinary native CatalogQuery reads reject unknown profiles before returning catalog data; no legacy-compatible read entrypoint. Known profiles and scoped host/HTTP admission retain their contracts.",
+      "migration_rule": "No catalog data rewrite; callers must select an existing profile. This is an approved semantic difference, not legacy parity.",
+      "mapped_frozen_rows": [
+        "cli:item list"
+      ],
+      "fixtures": [
+        "docs/NATIVE_RETIREMENT_DECISIONS_2026_10_16.md",
+        "crates/catabolic-store/tests/retirement_contracts.rs"
+      ],
+      "evidence_revision": null,
+      "status": "pending",
+      "required_evidence_slots": [
+        "current-native-aggregate",
+        "r7-installed-surface"
+      ]
+    },
+    {
+      "id": "mapping-runtime-errors-v2",
+      "disposition": "versioned_change",
+      "replacement_contract": "User-approved 2026-10-16: mapping-events nonobject/duplicate-id/missing-summary runtime failures retain frozen exception class, message and exit 1 in the native CLI envelope without a traceback. Decoder errors and successful reads remain unchanged.",
+      "migration_rule": "No catalog data rewrite; legacy Rust Error text is retained through additive source-selected provenance. Historical capture bytes are unchanged.",
+      "mapped_frozen_rows": [
+        "cli:projection mapping-events"
+      ],
+      "fixtures": [
+        "docs/NATIVE_RETIREMENT_DECISIONS_2026_10_16.md",
+        "tests/test_native_mapping_runtime_v2.py",
+        "crates/catabolic-store/tests/retirement_contracts.rs"
+      ],
+      "evidence_revision": null,
+      "status": "pending",
+      "required_evidence_slots": [
+        "current-native-aggregate",
+        "r7-installed-surface"
+      ]
     }
   ],
   "frozen_ledger_sha256": "677b7df3467e6e7d5b340c84620c4713af62b9051b78a57b2e190f12419e4a45",

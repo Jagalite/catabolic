@@ -354,11 +354,19 @@ mod tests {
             }
             .request(&json!({"timeout":60}))
         });
+        // The shell creates the file before printf writes it; wait for the PID.
         let deadline = std::time::Instant::now() + Duration::from_secs(5);
-        while !pid_file.exists() && std::time::Instant::now() < deadline {
+        let pid: libc::pid_t = loop {
+            let written = std::fs::read_to_string(&pid_file).unwrap_or_default();
+            if let Ok(pid) = written.parse() {
+                break pid;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "helper did not record its PID"
+            );
             std::thread::sleep(Duration::from_millis(10));
-        }
-        let pid: libc::pid_t = std::fs::read_to_string(pid_file).unwrap().parse().unwrap();
+        };
         cancel.store(true, Ordering::Release);
         assert_eq!(
             child.join().unwrap().unwrap_err().0,

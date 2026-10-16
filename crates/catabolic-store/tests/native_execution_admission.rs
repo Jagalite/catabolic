@@ -67,7 +67,10 @@ fn native_expired_live_worker_refuses_prepare_and_direct_start_without_signaling
 #[test]
 fn verified_direct_child_exit_still_requires_missing_descendant_and_birth_identity_reconciliation()
 {
-    let mut child = Command::new("/bin/true").spawn().unwrap();
+    let mut child = Command::new("/bin/sh")
+        .args(["-c", "exit 0"])
+        .spawn()
+        .unwrap();
     let pid = child.id();
     assert!(child.wait().unwrap().success());
     // SAFETY: signal zero only tests absence after our retained Child was reaped.

@@ -1,5 +1,12 @@
 # Native-first completion and Python retirement
 
+**October 16 continuation:** The user selected strict unknown-profile reads and
+structured mapping-runtime errors without tracebacks. See the
+[approved retirement decisions](NATIVE_RETIREMENT_DECISIONS_2026_10_16.md) for the
+bounded replacement contracts and remaining default-switch gates, and the
+[macOS resume evidence](NATIVE_TAKEOVER_MACOS_RESUME.md) for the failed aggregate
+and separately validated fixture repairs.
+
 **Current direction, October 13:** Design the reusable native catalog now and
 continue implementation on `codex/rust-migration-m4-plus`. The
 [native catalog plan](CATABOLIC_NATIVE_CATALOG_DESIGN.md) governs new semantics,

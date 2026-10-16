@@ -219,6 +219,9 @@ impl Fixture {
         fallback_mutation::put(self.store(), "default", "composition", &json!({
             "fallbacks":[{"name":"all","query_id":primary}],
             "within_tier":{"tie_break":"file_id"},"failback":{"mode":"immediate"},
+            // Candidate-evidence query timeouts are swallowed as unavailable
+            // evidence, so parallel debug runs need the maximum fixture budget.
+            "budgets":{"query_timeout_ms":30000},
             "package":{"publication":if subtitles {"sidecars"} else {"selected_only"},"requirements":requirements}
         })).unwrap()["id"].as_str().unwrap().to_owned()
     }

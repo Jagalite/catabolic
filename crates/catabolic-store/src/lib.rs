@@ -159,7 +159,13 @@ enum ErrorProvenance {
     Ordinary,
     UnhashableSortDictionary,
     UnhashableSortList,
-    MappingSubjectJson { raw: String },
+    MappingSubjectJson {
+        raw: String,
+    },
+    MappingRuntime {
+        class: &'static str,
+        message: String,
+    },
 }
 
 pub type DetailedResult<T> = std::result::Result<T, DetailedError>;
@@ -180,6 +186,22 @@ impl DetailedError {
         match &self.provenance {
             ErrorProvenance::MappingSubjectJson { raw } => Some(raw),
             _ => None,
+        }
+    }
+
+    /// Source-selected CLI runtime diagnostic. Legacy Rust errors retain their
+    /// original text; this versioned presentation never synthesizes a traceback.
+    pub fn mapping_runtime_diagnostic(&self) -> Option<(&'static str, &str)> {
+        match &self.provenance {
+            ErrorProvenance::MappingRuntime { class, message } => Some((class, message)),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn mapping_runtime(error: Error, class: &'static str, message: String) -> Self {
+        Self {
+            error,
+            provenance: ErrorProvenance::MappingRuntime { class, message },
         }
     }
 

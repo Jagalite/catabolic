@@ -1169,7 +1169,10 @@ mod tests {
             let result = command_output(
                 &argv,
                 CommandOptions {
-                    timeout: Duration::from_millis(250),
+                    // Parallel platform runs can spend more than 250 ms just
+                    // starting the shell. Exercise a running descendant, not
+                    // a timeout before the first heartbeat exists.
+                    timeout: Duration::from_secs(5),
                     ..CommandOptions::default()
                 },
             );

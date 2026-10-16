@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: MIT
 """Stored mapping subject syntax diagnostics on disposable catalogs only.
 
-Exact process envelopes cover the preserved CLI boundary, not Python exception
-attributes or the separate unhandled TypeError/KeyError traceback contract.
+Syntax envelopes retain the preserved CLI boundary. Runtime v2 explicitly
+replaces unhandled TypeError/KeyError tracebacks with the approved envelope;
+public Python exception attributes remain outside this suite.
 """
 
 import base64
@@ -242,7 +243,7 @@ class NativeLegacyMappingJsonDiagnosticsTest(unittest.TestCase):
                     )
                 self.assert_unchanged(before)
 
-    def test_unhandled_nonobject_duplicate_id_and_summary_errors_remain_residuals(self):
+    def test_runtime_v2_preserves_exception_and_exit_without_traceback(self):
         for raw in ("null", "[]", '"text"', "true", "17", '{"id":"forged"}', "{}"):
             with self.subTest(subject=raw):
                 self.seed(raw)
@@ -256,14 +257,11 @@ class NativeLegacyMappingJsonDiagnosticsTest(unittest.TestCase):
                         old, new = [self.run_cli(flag, args) for flag in (True, False)]
                         self.assertEqual((old.returncode, old.stdout), (1, b""))
                         self.assertIn(b"Traceback (most recent call last)", old.stderr)
-                        self.assertEqual(new.returncode, 2)
-                        message = (
-                            "mapping history event is missing owner"
-                            if raw == "{}"
-                            else "mapping history subject contains an id"
-                            if raw == '{"id":"forged"}'
-                            else "mapping history subject must be a JSON object"
+                        self.assertEqual(new.returncode, 1)
+                        kind, message = (
+                            old.stderr.decode().splitlines()[-1].split(": ", 1)
                         )
+                        self.assertNotIn(b"Traceback", new.stdout + new.stderr)
                         if mode:
                             if mode == ["--machine"]:
                                 payload = json.loads(new.stdout)["data"]
@@ -273,7 +271,7 @@ class NativeLegacyMappingJsonDiagnosticsTest(unittest.TestCase):
                                 self.assertEqual(new.stdout, b"")
                             self.assertEqual(
                                 payload["error"],
-                                {"type": "CatabolicError", "message": message},
+                                {"type": kind, "message": message},
                             )
                         else:
                             self.assertEqual(new.stdout, b"")

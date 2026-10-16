@@ -20,18 +20,40 @@ use std::{
 fn native() -> &'static Path {
     static BINARY: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
     BINARY.get_or_init(|| {
-        std::env::var_os("CATABOLIC_NOTIFICATION_TEST_NATIVE_BIN")
+        let binary = std::env::var_os("CATABOLIC_NOTIFICATION_TEST_NATIVE_BIN")
             .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| env!("CARGO_BIN_EXE_catabolic-native").into())
+            .unwrap_or_else(|| env!("CARGO_BIN_EXE_catabolic-native").into());
+        warm(binary)
     })
 }
 fn legacy() -> &'static Path {
     static BINARY: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
     BINARY.get_or_init(|| {
-        std::env::var_os("CATABOLIC_NOTIFICATION_TEST_LEGACY_BIN")
+        let binary = std::env::var_os("CATABOLIC_NOTIFICATION_TEST_LEGACY_BIN")
             .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| env!("CARGO_BIN_EXE_catabolic-legacy-native").into())
+            .unwrap_or_else(|| env!("CARGO_BIN_EXE_catabolic-legacy-native").into());
+        warm(binary)
     })
+}
+/// macOS can spend about a second on the first launch of a newly linked
+/// executable. Pay that once, untimed, so the worker deadlines below measure
+/// supervision rather than host first-launch policy checks.
+fn warm(binary: std::path::PathBuf) -> std::path::PathBuf {
+    // `{}` is refused as an invalid destination before any network activity.
+    let warmed = process::command_output(
+        &[binary.as_os_str(), std::ffi::OsStr::new(WORKER_ARGUMENT)],
+        process::CommandOptions {
+            input_bytes: Some(b"{}"),
+            maximum: 4096,
+            timeout: Duration::from_secs(30),
+            ..Default::default()
+        },
+    );
+    assert!(
+        !matches!(&warmed, Err(e) if e.state == "timeout"),
+        "notification worker warm-up exceeded its bound"
+    );
+    binary
 }
 fn register() {
     catabolic_runtime::helper::register(native(), None).unwrap();
@@ -216,6 +238,8 @@ fn cancellation_kills_stalled_smtp_banner() {
 }
 #[test]
 fn outer_deadline_reaps_native_http_worker_and_all_its_resources() {
+    // Resolve (and warm) the worker before any accept or wall-clock deadline.
+    let binary = native();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!(
         "gotify://{}/synthetic?rto=30",
@@ -230,7 +254,7 @@ fn outer_deadline_reaps_native_http_worker_and_all_its_resources() {
     let input = payload(&url);
     let start = Instant::now();
     let failure = process::command_output(
-        &[native().as_os_str(), std::ffi::OsStr::new(WORKER_ARGUMENT)],
+        &[binary.as_os_str(), std::ffi::OsStr::new(WORKER_ARGUMENT)],
         process::CommandOptions {
             input_bytes: Some(input.as_bytes()),
             maximum: 4096,

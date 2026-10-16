@@ -284,7 +284,12 @@ mod tests {
             );
         }
         assert!(!marker.exists());
-        assert!(crate::process::command_output(&["/bin/true"], Default::default()).is_ok());
+        // Use the same portable shell as the refused launch above; true is not
+        // installed at /bin/true on macOS.
+        let restored =
+            crate::process::command_output(&["/bin/sh", "-c", "exit 0"], Default::default())
+                .unwrap();
+        assert_eq!(restored.returncode, 0);
     }
     #[test]
     #[cfg(target_os = "linux")]

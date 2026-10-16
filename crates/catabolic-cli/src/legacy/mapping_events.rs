@@ -300,7 +300,7 @@ fn mapping_failure(error: DetailedError) -> super::failure::Failure {
     }
     // Syntax-valid decoder refusals (e.g. depth, nonfinite, surrogates) keep
     // their original native error. No accepted value is replaced or bypassed.
-    error.into_error().into()
+    error.into()
 }
 
 pub fn execute(args: &Value) -> super::failure::Result<parser::Output> {

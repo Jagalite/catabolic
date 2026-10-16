@@ -891,11 +891,32 @@ fn acyclic_lineage_depth_is_bounded_before_frozen_normalization() {
         TrustedComponentsRead::whole_occurrences(vec!["primary".into()], vec![Audio], vec![Codec])
             .unwrap(),
     );
-    let (mut s, cap) = admitted(&f, &h, vec![grant]);
-    assert_eq!(get(&mut s, &cap, &h, "a").unwrap()["scoped_total"], 0);
+    // The depth bound, not wall-clock admission, is under test. A 33-link debug
+    // chain can exceed the shared five-second fixture budget in parallel runs,
+    // so admission and both reads use the maximum budget.
+    let long = || ReadBudget::new(Duration::from_secs(60), 1000).unwrap();
+    let mut s = ScopedReadSession::open(&f.path).unwrap();
+    let cap = s
+        .admit_host_scope(
+            TrustedHostReadGrant::new(h.clone(), "default".into(), vec![grant], vec![]).unwrap(),
+            &lease(&h),
+            long(),
+        )
+        .unwrap();
+    let mut get = |item: &str| {
+        s.read_host_scope(
+            &cap,
+            lease(&h),
+            ScopeReadRequest::GetComponents(item.into()),
+            long(),
+        )
+        .map(|output| output.deliver(Clone::clone))
+        .unwrap()
+    };
+    assert_eq!(get("a")["scoped_total"], 0);
     // The same validated chain is useful below the explicit depth bound.
     assert_eq!(
-        get(&mut s, &cap, &h, "chain2").unwrap()["components"][0]["fields"],
+        get("chain2")["components"][0]["fields"],
         json!({"codec":"aac"})
     );
 }

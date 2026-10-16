@@ -1251,10 +1251,23 @@ mod tests {
         let trigger = Arc::clone(&cancel);
         let pids = Arc::new(Mutex::new(Vec::<u32>::new()));
         let worker_pids = Arc::clone(&pids);
-        let started = Instant::now();
+        let readiness = [
+            f._dir.path().join("worker-0.ready"),
+            f._dir.path().join("worker-1.ready"),
+        ];
+        let worker_readiness = readiness.clone();
+        let next_worker = AtomicUsize::new(0);
         let signal = std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(200));
+            // Cancel actual running children, not workers still being admitted
+            // on a loaded host. Always cancel on timeout so failure is bounded.
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while !readiness.iter().all(|path| path.is_file()) && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            let ready = readiness.iter().all(|path| path.is_file());
+            let started = Instant::now();
             trigger.store(true, Ordering::Relaxed);
+            (ready, started)
         });
         let result = run_with_processor(
             &mut f.store,
@@ -1263,8 +1276,15 @@ mod tests {
             cancel,
             move |_job, cancel| {
                 // Actual bounded local tools exercise process cancellation and reaping.
+                let ready = &worker_readiness[next_worker.fetch_add(1, Ordering::SeqCst)];
                 let result = crate::process::command_output(
-                    &["/bin/sh", "-c", "echo $$; exec sleep 20"],
+                    &[
+                        "/bin/sh",
+                        "-c",
+                        "echo $$; printf ready > \"$1\"; exec sleep 20",
+                        "fixture",
+                        ready.to_str().unwrap(),
+                    ],
                     crate::process::CommandOptions {
                         cancel: Some(cancel),
                         ..Default::default()
@@ -1278,7 +1298,8 @@ mod tests {
                 json!({"state":"cancelled","data":{},"error":"processing cancelled"})
             },
         );
-        signal.join().unwrap();
+        let (ready, started) = signal.join().unwrap();
+        assert!(ready, "both child processes must start before cancellation");
         assert!(result.is_err());
         assert!(started.elapsed() < Duration::from_secs(5));
         let pids = pids.lock().unwrap();

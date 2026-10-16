@@ -449,7 +449,16 @@ fn reviewed_component_extraction_publishes_exact_stream_and_lineage() {
         .join(artifact["path"].as_str().unwrap());
     let mut bytes = fs::read(&output).unwrap();
     bytes[0] ^= 1;
+    let published = fs::metadata(&output).unwrap().modified().unwrap();
     fs::write(&output, &bytes).unwrap();
+    // HFS+ records one-second timestamps, so a same-size rewrite within that
+    // second keeps the published revision. Make the later write observable.
+    fs::File::options()
+        .write(true)
+        .open(&output)
+        .unwrap()
+        .set_modified(published + std::time::Duration::from_secs(2))
+        .unwrap();
     assert!(!storage::usable_metadata(&f.store, "default", &artifact).unwrap());
 }
 #[test]

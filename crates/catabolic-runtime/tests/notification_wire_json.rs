@@ -41,6 +41,9 @@ fn paired(envelope: Value, mapped: bool) -> Vec<u8> {
                 }
                 Err(error) => panic!("{error}"),
             };
+            // macOS accepted sockets inherit the listener's nonblocking flag;
+            // Linux sockets do not. The bounded read below needs blocking IO.
+            socket.set_nonblocking(false).unwrap();
             socket
                 .set_read_timeout(Some(Duration::from_secs(5)))
                 .unwrap();

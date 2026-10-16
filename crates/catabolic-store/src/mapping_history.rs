@@ -52,14 +52,35 @@ fn history_with_subject_detailed(
             .ok_or_else(|| Error("mapping history subject must be JSON text".into()))?;
         let subject = catabolic_core::decode_json(raw)
             .map_err(|error| DetailedError::mapping_subject_parse(error, raw))?;
-        let mut event = subject
-            .as_object()
-            .cloned()
-            .ok_or_else(|| Error("mapping history subject must be a JSON object".into()))?;
+        let mut event = subject.as_object().cloned().ok_or_else(|| {
+            let kind = match &subject {
+                Value::Null => "NoneType",
+                Value::Bool(_) => "bool",
+                Value::String(_) => "str",
+                Value::Array(_) => "list",
+                Value::Number(number) => {
+                    if number.to_string().contains(['.', 'e', 'E']) {
+                        "float"
+                    } else {
+                        "int"
+                    }
+                }
+                Value::Object(_) => unreachable!(),
+            };
+            DetailedError::mapping_runtime(
+                Error("mapping history subject must be a JSON object".into()),
+                "TypeError",
+                format!("dict() argument after ** must be a mapping, not {kind}"),
+            )
+        })?;
         // The frozen dict(id=..., **subject) refuses a duplicate ID, rather than
         // trusting a stored subject to replace the durable event identity.
         if event.insert("id".into(), row["id"].clone()).is_some() {
-            return Err(Error("mapping history subject contains an id".into()).into());
+            return Err(DetailedError::mapping_runtime(
+                Error("mapping history subject contains an id".into()),
+                "TypeError",
+                "dict() got multiple values for keyword argument 'id'".into(),
+            ));
         }
         if selected_subject.is_none()
             && identifier.is_some_and(|identifier| row["id"] == identifier)
@@ -113,15 +134,19 @@ pub fn events_with_subject_detailed(
 ) -> DetailedResult<(Value, Option<String>)> {
     let identifier = identifier.filter(|id| !id.is_empty());
     let (history, subject) = history_with_subject_detailed(&store, profile, identifier)?;
-    Ok((select_events(history, identifier)?, subject))
+    Ok((select_events_detailed(history, identifier)?, subject))
 }
 
 fn select_events(history: Vec<Value>, identifier: Option<&str>) -> Result<Value> {
+    select_events_detailed(history, identifier).map_err(Into::into)
+}
+
+fn select_events_detailed(history: Vec<Value>, identifier: Option<&str>) -> DetailedResult<Value> {
     if let Some(identifier) = identifier.filter(|id| !id.is_empty()) {
         return history
             .into_iter()
             .find(|event| event["id"] == identifier)
-            .ok_or_else(|| Error("unknown mapping event".into()));
+            .ok_or_else(|| Error("unknown mapping event".into()).into());
     }
     let truncated = history.len() > 100;
     let mut events = Vec::new();
@@ -131,10 +156,13 @@ fn select_events(history: Vec<Value>, identifier: Option<&str>) -> Result<Value>
         for key in ["id", "owner", "key", "state", "plan_id"] {
             summary.insert(
                 key.into(),
-                event
-                    .get(key)
-                    .cloned()
-                    .ok_or_else(|| Error(format!("mapping history event is missing {key}")))?,
+                event.get(key).cloned().ok_or_else(|| {
+                    DetailedError::mapping_runtime(
+                        Error(format!("mapping history event is missing {key}")),
+                        "KeyError",
+                        format!("'{key}'"),
+                    )
+                })?,
             );
         }
         events.push(Value::Object(summary));

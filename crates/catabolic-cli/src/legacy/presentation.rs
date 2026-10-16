@@ -1157,6 +1157,9 @@ pub fn legacy_error(a: &Value, error: super::failure::Failure) -> Output {
 /// Detailed catalog failures retain source-selected class without altering
 /// ordinary administrative, interruption or consumer presentation.
 pub fn boundary_error(a: &Value, error: catabolic_store::DetailedError) -> Output {
+    if let Some((class, message)) = error.mapping_runtime_diagnostic() {
+        return python_error_with_code(a, json!({"type": class, "message": message}), 1);
+    }
     match error.class() {
         catabolic_store::ErrorClass::CatabolicError => self::error(a, error.into_error()),
         catabolic_store::ErrorClass::TypeError => python_error(
@@ -1175,16 +1178,20 @@ pub fn admin_error(a: &Value, error: catabolic_store::access_admin::Failure) -> 
 }
 /// Render a Python text-stream failure using the preserved CLI envelope owner.
 pub fn python_error(a: &Value, error: Value) -> Output {
+    python_error_with_code(a, error, 2)
+}
+
+fn python_error_with_code(a: &Value, error: Value, code: i32) -> Output {
     let value = json!({"error":error});
     if a["machine"] == true {
         Output {
-            code: 2,
-            stdout: format!("{}\n", json_text(&envelope(a, value, 2), None, true, 0)),
+            code,
+            stdout: format!("{}\n", json_text(&envelope(a, value, code), None, true, 0)),
             stderr: String::new(),
         }
     } else {
         Output {
-            code: 2,
+            code,
             stdout: String::new(),
             stderr: if json_output(a) {
                 format!("{}\n", json_text(&value, None, true, 0))
