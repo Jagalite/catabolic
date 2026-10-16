@@ -298,6 +298,24 @@ pub(crate) fn parent(root: &File, path: &str, create: bool) -> Result<(File, Str
     }
     Ok((fd, parts.last().unwrap().to_string()))
 }
+/// Durably sync the root and every existing directory on a root-relative
+/// path's chain. Recovery that finds an intended postcondition must still
+/// complete directory syncs an interrupted predecessor may have skipped.
+pub(crate) fn sync_ancestry(root: &File, path: &str) -> Result<()> {
+    crate::layout::relative_path(path)?;
+    root.sync_all()?;
+    let parts: Vec<_> = path.split('/').collect();
+    let mut fd = root.try_clone()?;
+    for component in &parts[..parts.len() - 1] {
+        fd = match open_at(&fd, component, true) {
+            Ok(fd) => fd,
+            Err(e) if e.0.contains("No such file or directory") => return Ok(()),
+            Err(e) => return Err(e),
+        };
+        fd.sync_all()?;
+    }
+    Ok(())
+}
 pub(crate) fn identity(metadata: &Metadata) -> (u64, u64) {
     (metadata.dev(), metadata.ino())
 }
@@ -490,34 +508,38 @@ pub(crate) fn owner_state(root: &File, expected: &Value) -> Result<&'static str>
         Err(e) => Err(Error(format!("unsafe output ownership marker: {e}"))),
     }
 }
+/// Claim an empty output by creating its ownership marker exclusively.
+///
+/// Native claims never create a temporary name, so there is nothing to clean
+/// up by pathname: a pathname check cannot pin an inode before unlink, and a
+/// substituted foreign file would be deleted. A legacy `.catabolic-claim-ID`
+/// temporary left by an interrupted Python or earlier native claim is never
+/// deleted; it is preserved for inspection. A crash while writing leaves an
+/// incomplete marker, which ownership checks refuse rather than repair.
 pub(crate) fn claim_output(root: &File, expected: &Value, id: &str) -> Result<()> {
     let temporary = format!(".catabolic-claim-{id}");
     if state_at(root, MARKER)?.0 != "absent" {
         owner_state(root, expected)?;
-        if state_at(root, &temporary)?.0 != "absent" {
-            remove_claim(root, &temporary)?;
-        }
+        // An interrupted predecessor may have written or published the marker
+        // without syncing; make both durable before acknowledging the claim.
+        open_at(root, MARKER, false)?.sync_all()?;
+        root.sync_all()?;
         return Ok(());
     }
-    let mut names = Vec::new();
-    entries(root, |name| {
-        names.push(name.to_string());
-        Ok(names.len() < 3)
+    if state_at(root, &temporary)?.0 != "absent" {
+        return Err(Error(format!(
+            "interrupted ownership claim left {temporary}; inspect and remove it before retrying"
+        )));
+    }
+    let mut empty = true;
+    entries(root, |_| {
+        empty = false;
+        Ok(false)
     })?;
-    if names.iter().any(|n| n == MARKER) {
-        owner_state(root, expected)?;
-        if names.contains(&temporary) {
-            remove_claim(root, &temporary)?;
-        }
-        return Ok(());
-    }
-    if names.iter().any(|n| n != &temporary) {
+    if !empty {
         return Err(Error("only an empty output can be claimed".into()));
     }
-    if names.contains(&temporary) {
-        remove_claim(root, &temporary)?;
-    }
-    let name = cstring(&temporary)?;
+    let name = cstring(MARKER)?;
     // SAFETY: valid directory/name; O_EXCL and O_NOFOLLOW prevent overwrite and symlink following.
     let fd = unsafe {
         libc::openat(
@@ -534,30 +556,8 @@ pub(crate) fn claim_output(root: &File, expected: &Value, id: &str) -> Result<()
     let mut file = unsafe { File::from_raw_fd(fd) };
     writeln!(file, "{}", encode(expected))?;
     file.sync_all()?;
-    let marker = cstring(MARKER)?;
-    // SAFETY: names/descriptor remain live; linkat without follow flags publishes without overwrite.
-    if unsafe {
-        libc::linkat(
-            root.as_raw_fd(),
-            name.as_ptr(),
-            root.as_raw_fd(),
-            marker.as_ptr(),
-            0,
-        )
-    } < 0
-    {
-        return Err(std::io::Error::last_os_error().into());
-    }
-    root.sync_all()?;
-    unlink(root, &temporary)?;
     root.sync_all()?;
     Ok(())
-}
-fn remove_claim(root: &File, name: &str) -> Result<()> {
-    if !open_at(root, name, false)?.metadata()?.is_file() {
-        return Err(Error("claim recovery file was changed externally".into()));
-    }
-    unlink(root, name)
 }
 
 /// Preview or execute native symlink reconciliation. Unsupported modes are
@@ -1415,6 +1415,7 @@ fn execute_operation_context(
             }
             _ => return Err(Error(format!("unknown journal operation: {kind}"))),
         }
+        sync_ancestry(&root, path)?;
     }
     failpoint(args, "after_filesystem")?;
     context.store().transaction(|db|{
@@ -1536,6 +1537,11 @@ fn recover_locked_context(
                         let name = format!(".catabolic-link-{}", op["id"].as_str().unwrap());
                         let (s, t) = state_at(&parent, &name)?;
                         if s != "absent" {
+                            // Removing the temporary link is a destructive leaf
+                            // effect; refuse before it unless the gate allows it.
+                            if !symlink_leaf_allowed(kind, args) {
+                                return Err(Error(SYMLINK_RACE_GATE.into()));
+                            }
                             if s != "link" || t.as_deref() != op["target"].as_str() {
                                 return Err(Error(
                                     "replacement recovery link changed externally".into(),
@@ -1785,6 +1791,58 @@ fn verify_context(
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn leaves(dir: &std::path::Path) -> Vec<String> {
+        let mut names = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect::<Vec<_>>();
+        names.sort();
+        names
+    }
+    #[test]
+    fn claims_never_delete_temporaries_and_create_only_the_marker() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = File::open(dir.path()).unwrap();
+        let expected = json!({"profile":"default","catalog":"main"});
+        claim_output(&root, &expected, "1").unwrap();
+        assert_eq!(leaves(dir.path()), [MARKER]);
+        assert_eq!(owner_state(&root, &expected).unwrap(), "owned");
+        // Recovery of an already published claim keeps a legacy temporary.
+        std::fs::write(
+            dir.path().join(".catabolic-claim-1"),
+            b"unrelated user data",
+        )
+        .unwrap();
+        claim_output(&root, &expected, "1").unwrap();
+        assert_eq!(leaves(dir.path()), [".catabolic-claim-1", MARKER]);
+        assert_eq!(
+            std::fs::read(dir.path().join(".catabolic-claim-1")).unwrap(),
+            b"unrelated user data"
+        );
+    }
+    #[test]
+    fn interrupted_claims_are_preserved_for_inspection() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = File::open(dir.path()).unwrap();
+        let expected = json!({"profile":"default","catalog":"main"});
+        // A legacy interrupted claim (or a substituted foreign file) is never
+        // deleted, even when its bytes are an empty or partial marker.
+        for bytes in [&b""[..], b"{\"pro", b"unrelated user data"] {
+            std::fs::write(dir.path().join(".catabolic-claim-1"), bytes).unwrap();
+            let error = claim_output(&root, &expected, "1").unwrap_err();
+            assert!(error.0.contains("inspect and remove it"), "{error:?}");
+            assert_eq!(leaves(dir.path()), [".catabolic-claim-1"]);
+            assert_eq!(
+                std::fs::read(dir.path().join(".catabolic-claim-1")).unwrap(),
+                bytes
+            );
+        }
+        // An incomplete native marker fails closed rather than being repaired.
+        std::fs::remove_file(dir.path().join(".catabolic-claim-1")).unwrap();
+        std::fs::write(dir.path().join(MARKER), b"{\"pro").unwrap();
+        assert!(claim_output(&root, &expected, "1").is_err());
+        assert_eq!(std::fs::read(dir.path().join(MARKER)).unwrap(), b"{\"pro");
+    }
     fn catalog() -> (
         tempfile::TempDir,
         Store,

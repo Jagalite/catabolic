@@ -817,8 +817,9 @@ fn check(artifact: &Value, root: &File, leaf: &str, cancel: &AtomicBool) -> Resu
     }
     Ok(before)
 }
-/// Read-only revision/ownership check for access snapshots. It does not hash
-/// bytes, acquire a writer session, or detach the caller's SQLite snapshot.
+/// Read-only revision/ownership check for access snapshots. It does not
+/// acquire a writer session or detach the caller's SQLite snapshot. Bytes are
+/// hashed only on coarse-timestamp filesystems, where metadata cannot prove them.
 pub fn usable_metadata(store: &Store, profile: &str, artifact: &Value) -> Result<bool> {
     let result: Result<()> = (|| {
         if !artifact["publication_snapshot"].is_object() {
@@ -835,7 +836,13 @@ pub fn usable_metadata(store: &Store, profile: &str, artifact: &Value) -> Result
         {
             return Err(Error("artifact publication revision changed".into()));
         }
-        Ok(())
+        let leaf = text(artifact, "path")?;
+        crate::layout::relative_path(leaf)?;
+        let file = fs::open_at(&root, leaf, false)?;
+        if fs::version(&file.metadata()?) != named {
+            return Err(Error("artifact publication revision changed".into()));
+        }
+        crate::timestamps::verify_if_coarse(&file, text(artifact, "sha256")?)
     })();
     Ok(result.is_ok())
 }

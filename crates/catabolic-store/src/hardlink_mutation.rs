@@ -309,6 +309,9 @@ fn retention(
             "retention operation directory crossed a filesystem boundary".into(),
         ));
     }
+    // Retained entries may have been renamed in before a crash skipped syncs.
+    fd.sync_all()?;
+    child.sync_all()?;
     Ok(Some(child))
 }
 fn retained(store: &Store, profile: &str, root: &File, op: &Value) -> Result<bool> {
@@ -578,6 +581,9 @@ fn execute_with(
         }
         _ => return Err(Error(format!("unknown hardlink operation: {kind}"))),
     }
+    // Complete directory syncs an interrupted predecessor may have skipped
+    // before acknowledging, even when the postcondition was already observed.
+    fs::sync_ancestry(&root, path)?;
     fs::failpoint(args, "after_filesystem")?;
     store.transaction(|db|{
         if was_retained{record_retention(db,profile,op)?;}
@@ -621,6 +627,9 @@ pub fn cancel_obsolete(store: &Store, profile: &str, op: &Value, force: bool) ->
             return Ok(false);
         }
     }
+    // A retention rename may have preceded a crash that skipped the source
+    // parent's sync; complete it before ownership and journal are cleared.
+    fs::sync_ancestry(&root, field(op, "path")?)?;
     store.transaction(|db| {
         if was_retained {
             record_retention(db, profile, op)?;

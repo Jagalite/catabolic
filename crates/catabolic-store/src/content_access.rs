@@ -3,7 +3,7 @@
 //! Current-grant, revision-pinned content admission and descriptor-owned reads.
 use crate::{Error, Result, Store, access::Access, migration::rows, source};
 use catabolic_core::{encode, sha256};
-use rusqlite::params;
+use rusqlite::{OptionalExtension, params};
 use serde_json::{Value, json};
 use std::{
     fs::File,
@@ -236,6 +236,8 @@ fn authorize_snapshot(access: &mut Access, id: &str, revision: &str) -> Result<V
 }
 /// The descriptor cannot outlive the validated callback. Before/after identity,
 /// source root, ctime and named-entry checks also run for successful transfers.
+/// Callers inspect metadata only; delivered bytes go through `with_transfer`,
+/// which also proves generated outputs on coarse-timestamp filesystems.
 pub fn with_opened<T>(
     access: &mut Access,
     id: &str,
@@ -247,6 +249,23 @@ pub fn with_opened<T>(
         refuse_sqlite_payload(file)?;
         operation(file, &file.metadata()?)
     })
+}
+/// Ready generated outputs carry a recorded digest. On coarse-timestamp
+/// filesystems it, rather than the metadata revision, proves the bytes served.
+/// Sources have no recorded digest and keep the metadata revision contract.
+fn artifact_digest(store: &Store, id: &str) -> Result<Option<String>> {
+    Ok(store
+        .db
+        .prepare("SELECT sha256 FROM processing_artifacts WHERE file_id=? AND state='ready'")?
+        .query_row([id], |r| r.get(0))
+        .optional()?)
+}
+fn verify_artifact_bytes(file: &File, digest: Option<&str>) -> Result<()> {
+    match digest {
+        Some(digest) => crate::timestamps::verify_if_coarse(file, digest)
+            .map_err(|_| denied("revision_mismatch")),
+        None => Ok(()),
+    }
 }
 /// RFC byte range behavior frozen by the Python API: a single bytes range;
 /// unsupported units are ignored, suffixes clamp, and huge integers are bounded.
@@ -523,6 +542,7 @@ pub fn with_transfer<P, T>(
     deliver: impl FnOnce(&File, &std::fs::Metadata, TransferEvidence, P) -> Result<T>,
 ) -> Result<T> {
     let row = authorize(&mut access, id, revision)?;
+    let digest = artifact_digest(access.store(), id)?;
     let evidence = TransferEvidence {
         path: access.store().path.clone(),
         database_id: access.store().database_id.clone(),
@@ -538,6 +558,10 @@ pub fn with_transfer<P, T>(
         let stat = file.metadata()?;
         let prepared = prepare(&mut access, &stat, &row)?;
         drop(access);
+        // Digest verification runs after catalog ownership is released and
+        // before any byte is delivered. A rewrite made while streaming is not
+        // fenced; the after-transfer revision check reports it as an error.
+        verify_artifact_bytes(file, digest.as_deref())?;
         deliver(file, &stat, evidence, prepared)
     })
 }
@@ -545,6 +569,27 @@ pub fn with_transfer<P, T>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn coarse_timestamp_artifacts_are_served_only_with_their_recorded_digest() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("output.bin");
+        std::fs::write(&path, b"generated").unwrap();
+        let file = File::open(&path).unwrap();
+        let digest = format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(b"generated"));
+        let wrong = "0".repeat(64);
+        crate::timestamps::with_forced_granularity(true, || {
+            verify_artifact_bytes(&file, Some(&digest)).unwrap();
+            assert_eq!(
+                verify_artifact_bytes(&file, Some(&wrong)).unwrap_err().0,
+                "revision_mismatch"
+            );
+            // Sources have no recorded digest and keep the metadata contract.
+            verify_artifact_bytes(&file, None).unwrap();
+        });
+        crate::timestamps::with_forced_granularity(false, || {
+            verify_artifact_bytes(&file, Some(&wrong)).unwrap();
+        });
+    }
     fn fixture() -> (tempfile::TempDir, Access, String, String) {
         let root = tempfile::tempdir().unwrap();
         let media = root.path().join("media");

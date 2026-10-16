@@ -5,6 +5,7 @@
 use catabolic_runtime::{artifacts, rendering};
 use catabolic_store::{
     Store, artifact_mutation as storage, media_mutation as claims, migration, observation,
+    timestamps,
 };
 use rusqlite::params;
 use serde_json::{Value, json};
@@ -442,6 +443,21 @@ fn reviewed_component_extraction_publishes_exact_stream_and_lineage() {
     assert!(storage::usable_metadata(&f.store, "default", &artifact).unwrap());
     assert!(!f.store.db.is_autocommit());
     f.store.db.execute_batch("ROLLBACK").unwrap();
+    // Coarse-timestamp filesystems prove published bytes by the recorded digest;
+    // fine-grained filesystems keep the metadata-only revision contract.
+    let mut forged = artifact.clone();
+    forged["sha256"] = json!("0".repeat(64));
+    timestamps::with_forced_granularity(true, || {
+        let computed = timestamps::digests_computed();
+        assert!(storage::usable_metadata(&f.store, "default", &artifact).unwrap());
+        assert!(timestamps::digests_computed() > computed);
+        assert!(!storage::usable_metadata(&f.store, "default", &forged).unwrap());
+    });
+    timestamps::with_forced_granularity(false, || {
+        let computed = timestamps::digests_computed();
+        assert!(storage::usable_metadata(&f.store, "default", &forged).unwrap());
+        assert_eq!(timestamps::digests_computed(), computed);
+    });
     let output = f
         .dir
         .path()
