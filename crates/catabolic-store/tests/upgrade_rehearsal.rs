@@ -223,7 +223,7 @@ fn restore(directory: &Path, target: &Path, baseline: &Baseline) {
     );
 }
 
-/// The schema-37 limitations that remain after a committed native upgrade.
+/// The latest-native-schema limitations that remain after a committed native upgrade.
 /// Each is a specific refusal; none of them changes the upgraded catalog.
 fn assert_post_upgrade_limitations(path: &Path) {
     let before = fs::read(path).unwrap();

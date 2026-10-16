@@ -246,6 +246,7 @@ fn native_upgrade_failpoint_rolls_back_then_the_approved_plan_commits() {
     let plan = plan(root.path(), &path, "plan.json");
     let backups = root.path().join("backups");
     let before = fs::read(&path).unwrap();
+    let failpoint = format!("upgrade:before_commit:{}", migration::NATIVE_SCHEMA_VERSION);
     let mut args = vec![
         "db",
         "native-upgrade",
@@ -254,12 +255,12 @@ fn native_upgrade_failpoint_rolls_back_then_the_approved_plan_commits() {
         "--backup-dir",
         backups.to_str().unwrap(),
         "--migration-failpoint",
-        "upgrade:before_commit:37",
+        &failpoint,
     ];
     args.extend(QUIESCENT);
     refused(
         &cli(&path, &args),
-        "injected migration failure: upgrade:before_commit:37",
+        &format!("injected migration failure: {failpoint}"),
     );
     assert_eq!(fs::read(&path).unwrap(), before);
     let failed = fs::read_dir(&backups)

@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 # SPDX-License-Identifier: MIT
-"""Frozen Python rollback check for the explicit native schema-37 upgrade.
+"""Frozen Python rollback check for the explicit native schema-38 upgrade.
 
 The native CLI upgrades a disposable schema-32 catalog with a verified backup.
 The backup snapshot is restored to a new path after its manifest SHA-256 is
 checked, and frozen Python must read it (``db status`` and ``status``). Frozen
-Python must refuse the upgraded schema-37 file without changing it. This is a
+Python must refuse the upgraded schema-38 file without changing it. This is a
 rollback-to-backup check, not a downgrade: writes made after the upgrade are
 not carried back.
 
@@ -26,6 +26,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+# The latest native target. Frozen Python supports schemas 1 through 32.
+NATIVE_SCHEMA = 38
 REQUIRED = (
     "CATABOLIC_PYTHON_ORACLE",
     "CATABOLIC_PYTHON_REFERENCE",
@@ -120,7 +122,7 @@ class NativeUpgradeRollbackTest(unittest.TestCase):
         plan = database.parent / "plan.json"
         planned = self.native_json(database, "db", "native-plan", "--out", str(plan))
         self.assertEqual(planned["from_schema"], 32)
-        self.assertEqual(planned["to_schema"], 37)
+        self.assertEqual(planned["to_schema"], NATIVE_SCHEMA)
         report = self.native_json(
             database,
             "db",
@@ -132,7 +134,7 @@ class NativeUpgradeRollbackTest(unittest.TestCase):
             *QUIESCENT,
         )
         self.assertTrue(report["upgraded"])
-        self.assertEqual(report["schema"], 37)
+        self.assertEqual(report["schema"], NATIVE_SCHEMA)
         return report
 
     def test_restored_backup_is_read_by_frozen_python(self):
@@ -170,13 +172,13 @@ class NativeUpgradeRollbackTest(unittest.TestCase):
                     result = self.frozen(database, *command)
                     self.assertNotEqual(result.returncode, 0, command)
                     self.assertIn(
-                        "unsupported database schema 37",
+                        f"unsupported database schema {NATIVE_SCHEMA}",
                         result.stdout + result.stderr,
                         command,
                     )
                 self.assertEqual(sha256(database), before)
                 inspected = self.native_json(database, "db", "native-inspect")
-                self.assertEqual(inspected["schema"], 37)
+                self.assertEqual(inspected["schema"], NATIVE_SCHEMA)
 
 
 if __name__ == "__main__":

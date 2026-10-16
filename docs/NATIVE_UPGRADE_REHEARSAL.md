@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT
 
 This covers Track B items 1–5 of the
 [native retirement work plan](NATIVE_RETIREMENT_WORK_PLAN.md): the operator
-commands for the explicit schema-32 to schema-37 upgrade, the identity
+commands for the explicit schema-32 to schema-38 upgrade, the identity
 checker, the rehearsal harness, offline journal conversion and the recorded
 post-upgrade limitations. These are development tools and tests. Passing them
 does not qualify the upgrade, close a retirement gate or authorize upgrading a
@@ -19,6 +19,9 @@ implemented here.
 All commands belong to the `catabolic-native` executable and print one JSON
 value. Global options come first, as in `catabolic-native --db PATH db ...`.
 A refusal prints `catabolic: <reason>` on stderr and exits with status 2.
+Only the legacy `db upgrade` implements `--dry-run`; every other command
+refuses it before doing anything. Plan and manifest files are fsynced, with
+their directory, before success is reported.
 
 | Command | Purpose |
 | --- | --- |
@@ -67,7 +70,12 @@ Catalogs older than schema 32 are first upgraded with the existing
 - the `identities` rows, and the schema-34 `catalog_legacy_identity_evidence`
   baseline when present.
 
-`diff` reports each changed `database_id`, `catalog_id`, history prefix,
+`diff` first validates both manifests: the exact field set and types, a
+canonical database ID, history contiguous up to the schema, a native catalog
+identity exactly for native schemas, well-formed digests for the core tables,
+the schema-34 baseline exactly from schema 34, and the fingerprint. An
+incomplete, mistyped or unsigned manifest is reported as `invalid_manifest`
+and nothing else is compared. It then reports each changed `database_id`, `catalog_id`, history prefix,
 table key set, sequence and legacy evidence entry, plus schema downgrades.
 New tables, sequences and history rows are allowed. Incarnation and
 generation may change. The key digests do not look at non-key values; the
@@ -100,27 +108,27 @@ For each fixture the harness:
 5. Checks the backup receipt status and the SHA-256 of the backup snapshot.
    The receipt must embed the approved plan.
 6. Resumes with a fresh plan. After a committed exit the old plan is refused.
-   It then checks schema 37, history, preservation and the identity diffs
+   It then checks schema 38, history, preservation and the identity diffs
    against both the schema-32 and the original manifests.
 7. Restores the committed backup, and the interrupted attempt's backup, to
    new paths. It verifies the manifest SHA-256 before and after the copy, and
    that `inspect` reports schema 32 with the original manifest fingerprint.
 
 The boundaries are the migration checkpoints, with the version passed at each.
-The matrix has 26 entries:
+The matrix has 30 entries:
 
 | Boundary | Versions | Schema after exit | Receipt status | Rehearsal clone left |
 | --- | --- | --- | --- | --- |
 | `upgrade:after_backup` | 32 | 32 | `backup_verified` | no |
-| `rehearsal:before_migration`, `rehearsal:after_migration` | 33–37 | 32 | `backup_verified` | yes |
-| `rehearsal:before_commit`, `rehearsal:after_commit` | 37 | 32 | `backup_verified` | yes |
+| `rehearsal:before_migration`, `rehearsal:after_migration` | 33–38 | 32 | `backup_verified` | yes |
+| `rehearsal:before_commit`, `rehearsal:after_commit` | 38 | 32 | `backup_verified` | yes |
 | `upgrade:after_rehearsal` | 32 | 32 | `rehearsed` | no |
-| `upgrade:before_migration`, `upgrade:after_migration` | 33–37 | 32 | `rehearsed` | no |
-| `upgrade:before_commit` | 37 | 32 | `rehearsed` | no |
-| `upgrade:after_commit` | 37 | 37 | `rehearsed` | no |
+| `upgrade:before_migration`, `upgrade:after_migration` | 33–38 | 32 | `rehearsed` | no |
+| `upgrade:before_commit` | 38 | 32 | `rehearsed` | no |
+| `upgrade:after_commit` | 38 | 38 | `rehearsed` | no |
 
 Two results are worth noting. An exit after the live commit leaves the
-receipt at `rehearsed`, although the catalog is at schema 37; the schema
+receipt at `rehearsed`, although the catalog is at schema 38; the schema
 version and history are authoritative. A killed rehearsal leaves its
 `rehearsal-*` clone inside the backup directory for the operator to remove.
 
@@ -128,8 +136,8 @@ version and history are authoritative. A killed rehearsal leaves its
 upgrades a frozen-initialized catalog, and the retained schema-32 fixture when
 present, with the native CLI. It restores the verified backup to a new path,
 and frozen Python must read the restored copy with `db status` and `status`
-without changing its bytes. Frozen Python must then refuse the schema-37 file
-with `unsupported database schema 37` and leave it unchanged. The test needs
+without changing its bytes. Frozen Python must then refuse the schema-38 file
+with `unsupported database schema 38` and leave it unchanged. The test needs
 `CATABOLIC_PYTHON_ORACLE`, `CATABOLIC_PYTHON_REFERENCE` and
 `CATABOLIC_NATIVE_CLI`, and skips with the missing names otherwise.
 
@@ -138,17 +146,19 @@ with `unsupported database schema 37` and leave it unchanged. The test needs
 Native upgrade refuses WAL catalogs: it needs a real SQLite EXCLUSIVE lock,
 and WAL mode does not exclude readers. `db convert-journal --to delete` takes
 the native lifecycle lease and the Catabolic writer lock. It refuses if
-another process holds any WAL-index lock in the `-shm` file, then validates
-and digests the catalog. Next it checkpoints with `TRUNCATE` and switches to
+another process holds any WAL-index lock in the `-shm` file. It then opens
+the catalog in SQLite's EXCLUSIVE locking mode and takes the database lock
+before reading anything, and holds it until verification ends, so a process
+arriving after the probe is refused rather than able to commit. Under that
+lock it validates and digests the catalog, checkpoints with `TRUNCATE` and switches to
 DELETE without waiting on locks. Finally it requires identical contents and
 no remaining `-wal` file. Committed WAL frames left by a killed writer are
 kept. A catalog already in rollback-journal mode is reported unchanged.
 Converting to WAL is refused. A plan made before conversion no longer
 matches, so a fresh plan is required.
 
-The lock probe sees other processes on the same host only. It cannot see
-connections inside the converting process, or users on another host of a
-network filesystem. The operator's offline statement still applies.
+The lock probe and SQLite's locks cover processes on the same host only. They
+do not cover users on another host of a network filesystem. The operator's offline statement still applies.
 
 ## Post-upgrade write limitations
 
@@ -157,10 +167,10 @@ frozen Python check. None of them changes the upgraded catalog.
 
 | Limitation | Refusal |
 | --- | --- |
-| Legacy recovery admission on schema 37 (`Store::open` for recovery) | `native catalog recovery requires separately qualified recovery admission` |
+| Legacy recovery admission on schema 38 (`Store::open` for recovery) | `native catalog recovery requires separately qualified recovery admission` |
 | Legacy upgrade path on a native catalog | `native catalogs cannot be downgraded by the legacy upgrade path` |
-| Frozen Python on schema 37 (`db status`, `status`) | `unsupported database schema 37` |
-| Native schemas newer than 37 | `unsupported native schema target 38` |
+| Frozen Python on schema 38 (`db status`, `status`) | `unsupported database schema 38` |
+| Native schemas newer than 38 | `unsupported native schema target 39` |
 | Reusing a consumed or stale plan | `native upgrade plan or inputs changed; inspect and approve a fresh native plan` |
 | Native upgrade of a WAL catalog | `native upgrade requires rollback-journal mode for a real SQLite exclusive lock; found wal` |
 | Converting a catalog to WAL | `unsupported journal conversion target "wal"` |
