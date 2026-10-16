@@ -96,6 +96,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
     let mut plan_in = None;
     let mut assertions = Vec::new();
     let mut compared = (None, None);
+    let mut journal_target = None;
     if lifecycle {
         plan_out = argument(&mut args, "--out")?.map(PathBuf::from);
         plan_in = argument(&mut args, "--plan")?.map(PathBuf::from);
@@ -106,7 +107,11 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             argument(&mut args, "--before")?.map(PathBuf::from),
             argument(&mut args, "--after")?.map(PathBuf::from),
         );
+        journal_target = argument(&mut args, "--to")?;
         let sub = args.get(1).map(String::as_str);
+        if journal_target.is_some() && sub != Some("convert-journal") {
+            return Err(Error("--to is only accepted by db convert-journal".into()));
+        }
         if plan_out.is_some() && !matches!(sub, Some("native-plan" | "identity-manifest")) {
             return Err(Error(
                 "--out is only accepted by db native-plan and db identity-manifest".into(),
@@ -370,6 +375,11 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             catabolic_store::identity_manifest::require_preserved(&before, &after)?;
             Ok(catabolic_store::identity_manifest::diff(&before, &after))
         }
+        [command, sub] if command == "db" && sub == "convert-journal" => {
+            let target = journal_target
+                .ok_or_else(|| Error("db convert-journal requires --to delete".into()))?;
+            catabolic_store::journal_conversion::convert(&path, &target)
+        }
         [command, sub] if command == "db" && sub == "snapshot" => {
             let path = catabolic_store::database_path(Path::new(&path))?;
             let db = catabolic_store::connect(&path, false)?;
@@ -613,7 +623,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             )
         }
         _ => Err(Error(
-            "supported commands: init, db inspect, db upgrade, db snapshot, db native-inspect, db native-plan, db native-upgrade, db identity-manifest, db identity-diff, encode, --version"
+            "supported commands: init, db inspect, db upgrade, db snapshot, db native-inspect, db native-plan, db native-upgrade, db identity-manifest, db identity-diff, db convert-journal, encode, --version"
                 .into(),
         )),
     }

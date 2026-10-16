@@ -412,3 +412,40 @@ fn identity_manifest_and_diff_commands_report_preservation() {
         "identity preservation failed",
     );
 }
+
+#[test]
+fn convert_journal_command_unblocks_a_wal_catalog_for_a_fresh_plan() {
+    let (root, path) = catalog();
+    let writer = connect(&path, true).unwrap();
+    writer.pragma_update(None, "journal_mode", "WAL").unwrap();
+    drop(writer);
+    refused(
+        &cli(&path, &["db", "convert-journal"]),
+        "requires --to delete",
+    );
+    refused(
+        &cli(&path, &["db", "convert-journal", "--to", "wal"]),
+        "unsupported journal conversion target",
+    );
+    refused(
+        &cli(&path, &["db", "native-inspect", "--to", "delete"]),
+        "--to is only accepted by db convert-journal",
+    );
+    assert_eq!(
+        cli(&path, &["db", "native-inspect"]).stdout["journal_mode"],
+        "wal"
+    );
+    let converted = cli(&path, &["db", "convert-journal", "--to", "delete"]);
+    assert_eq!(converted.code, Some(0), "{}", converted.stderr);
+    assert_eq!(converted.stdout["converted"], true);
+    assert_eq!(converted.stdout["from_journal_mode"], "wal");
+    assert_eq!(converted.stdout["journal_mode"], "delete");
+    let again = cli(&path, &["db", "convert-journal", "--to", "delete"]);
+    assert_eq!(again.stdout["converted"], false);
+    let plan = plan(root.path(), &path, "plan.json");
+    let mut args = vec!["db", "native-upgrade", "--plan", plan.to_str().unwrap()];
+    args.extend(QUIESCENT);
+    let outcome = cli(&path, &args);
+    assert_eq!(outcome.code, Some(0), "{}", outcome.stderr);
+    assert_eq!(outcome.stdout["schema"], migration::NATIVE_SCHEMA_VERSION);
+}

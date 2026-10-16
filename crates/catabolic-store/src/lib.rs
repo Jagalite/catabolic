@@ -49,6 +49,7 @@ pub mod imports;
 pub mod interchange;
 mod introspection;
 pub mod item_workflow;
+pub mod journal_conversion;
 pub mod layout;
 pub mod layout_mutation;
 pub mod legacy_refresh;
