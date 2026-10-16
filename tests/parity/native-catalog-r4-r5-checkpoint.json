@@ -1,0 +1,244 @@
+{
+  "format_version": 1,
+  "package": "R4-scoped-relationships-and-R5-admission-cleanup-v1",
+  "status": "Focused native relationship/helper/admission and schema36 builtin cleanup; R4/R5/R7 and release incomplete",
+  "recorded_at_utc": "2026-10-14T20:29:43.222455+00:00",
+  "baseline_commit": "9e887bcf217acd25e20bfcf9f65026be7d18e33d",
+  "source": {
+    "manifest": "tests/parity/native-catalog-r4-r5-source-manifest.json",
+    "canonical_files_sha256": "dc145444e2b975ec5b3e382858cc03be25128dbab057e12a4d1a34a6b691e52a",
+    "file_count": 787,
+    "unchanged_before_after": true,
+    "scope": "All crate sources/resources/tests, Cargo configuration, Python schema/audit tooling and fixture provenance; qualification receipts excluded"
+  },
+  "runner": {
+    "rust": "1.99.0",
+    "platform": "Linux x86_64",
+    "kind": "Standard Cargo authorized exception; not Kyoto",
+    "python_oracle": "3.14.6",
+    "target_isolation": "Main-only central target; preparations use dedicated targets",
+    "profile": "debug0 incremental0"
+  },
+  "artifact": {
+    "path": ".local-tests/catalog-r5/catabolic-native-qualified",
+    "sha256": "52aff85101f750a9401c5b787d35f291d92212a6bf09d10e2d0fd54933819a89",
+    "tests": "Five separately executed exact ignored-test selectors, one passing execution each"
+  },
+  "runs": {
+    "relations-scope": {
+      "log": ".local-tests/catalog-r5/relations-scope.log",
+      "sha256": "da49a59653553a49f36506d935847136b511c3319800a25dd2991c7c91796238",
+      "passed": true,
+      "passing_executions": 62,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "relations-writer": {
+      "log": ".local-tests/catalog-r5/relations-writer.log",
+      "sha256": "ad6ee3190d00e67cc1eab0f6133269f8cb49c11bf479c87cbd3f5df5f3653773",
+      "passed": true,
+      "passing_executions": 25,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "store-admission": {
+      "log": ".local-tests/catalog-r5/store-admission.log",
+      "sha256": "5d45442455ed0aed0823657ec78fbb00d43341d33fa7c7583402634589e471d2",
+      "passed": true,
+      "passing_executions": 30,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 3
+    },
+    "cleanup-faults": {
+      "log": ".local-tests/catalog-r5/cleanup-faults.log",
+      "sha256": "4e957a1c956324dd43d8cf883059dca2c9121f4647e492a07f9a9054c4725473",
+      "passed": true,
+      "passing_executions": 6,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "pool": {
+      "log": ".local-tests/catalog-r5/pool.log",
+      "sha256": "7f6f7d6a67f02ba504bd3ac1f078bf23a837c60a916968012121ef43332c489b",
+      "passed": true,
+      "passing_executions": 9,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "runtime-fences": {
+      "log": ".local-tests/catalog-r5/runtime-fences.log",
+      "sha256": "52375ad96ee8af595553b631ff0de1d516336f7035ed813d9225177acfc2d818",
+      "passed": true,
+      "passing_executions": 37,
+      "failed_executions": 0,
+      "ignored_entries": 7,
+      "harness_summaries": 6
+    },
+    "clippy": {
+      "log": ".local-tests/catalog-r5/clippy.log",
+      "sha256": "19df9e27431b154e1d896b48c9e507ade2cad5b305af6be1d4b998fea22ed951",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "format": {
+      "log": ".local-tests/catalog-r5/format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "helper-build": {
+      "log": ".local-tests/catalog-r5/helper-build.log",
+      "sha256": "31abfda95c379613569efaf2d7c9ad89c3def3b574b9b2450838c36659a26ebb",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "helper-native34": {
+      "log": ".local-tests/catalog-r5/helper-native34.log",
+      "sha256": "b95ab59c13a7d08e9f0249c86fcf5140f9a3a7c21580c6a8662be64119b24690",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "helper-native36": {
+      "log": ".local-tests/catalog-r5/helper-native36.log",
+      "sha256": "37883c962bb7f0f5cece6a6393872932431feece75c732622bc7cd5234309972",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "helper-companion34": {
+      "log": ".local-tests/catalog-r5/helper-companion34.log",
+      "sha256": "4c5bfec58e52a51c21691f2f05f64a9dfedd184b5c0f8c2d7885abb2549e965d",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "helper-companion36": {
+      "log": ".local-tests/catalog-r5/helper-companion36.log",
+      "sha256": "c76b74fba9e466aeec3fe422c024610726fda01d0a26e2b9d882d957bea9f2fb",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "helper-legacy32": {
+      "log": ".local-tests/catalog-r5/helper-legacy32.log",
+      "sha256": "c60ad14c65ddef065d51ff1f3c1f815b35a6fd8847814d3ecc19e68d4bd1b0eb",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "python-schema": {
+      "log": ".local-tests/catalog-r5/python-schema.log",
+      "sha256": "1e64cddc547fafd8f2d2e5d2accefb5d47b2d196336b784c23eefa5a23dcabac",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0,
+      "passing_tests": 51,
+      "note": "Existing CPython3.14.6 ResourceWarnings remain visible; no warning-free claim. Exception-safe generator cleanup is a separate prepared slice."
+    },
+    "search-index-latest-qualified": {
+      "log": ".local-tests/catalog-r5/search-index-latest-qualified.log",
+      "sha256": "82a1f833525209ad1cd0251575f9ee4a9eab72b5fcc51c0bf93a40e03dc52d0e",
+      "passed": true,
+      "source_cohort": "adoption_source",
+      "passing_executions": 17,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "latest-fixture-schema-check": {
+      "log": ".local-tests/catalog-r5/latest-fixture-schema-check.log",
+      "sha256": "5d2bfe1fdbcf01c5bbee0938a01573634a745a3e974b71b0e5865cdbbc079157",
+      "passed": true,
+      "source_cohort": "adoption_source",
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "latest-fixture-clippy": {
+      "log": ".local-tests/catalog-r5/latest-fixture-clippy.log",
+      "sha256": "55bfd114941c2417231048000cb48f4f96c00f792a6e920420d33d2fcb272e38",
+      "passed": true,
+      "source_cohort": "adoption_source",
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "latest-fixture-format": {
+      "log": ".local-tests/catalog-r5/latest-fixture-format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true,
+      "source_cohort": "adoption_source",
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    }
+  },
+  "qualified_contracts": [
+    "Scoped active-edge relationships with explicit per-kind authority at both live endpoints, field intersection, scoped counts/facets/recursive paths and authenticated surface-bound cursors",
+    "Native helper incarnation/schema/catalog/device/inode envelope and no legacy-command fallback for native catalogs",
+    "Exact retained child/permit ownership through cancellation, close, bounded wait and reconnect failure",
+    "Schema36 newly acquired claim/lifetime atomicity and closed builtin sniff/hash/verify cleanup after exact join and capacity return",
+    "UUID-checking source snapshots excluded from builtin no-child capability without weakening existing source validation",
+    "Expired native claims, malformed claims, stale helper output and witness/query bypasses refused"
+  ],
+  "remaining": [
+    "Private writer supports34/35 only; separate36 finalizer expansion is pending",
+    "Two historical pre-protocol actual-helper rejection cases remain ignored and are not relabeled by current ordinary tests",
+    "Observation durable companion cleanup, complete reopen inventory, shared host gate and two-real-consumer tests are separate in-progress slices",
+    "No general orphan/descendant/process-group recovery; Drop still can block; synchronous media run and post-worker publication are outside the builtin witness",
+    "Independent schema/definition/filesystem reviews remain incomplete and were not retried or reassigned",
+    "WAL cutover/controlled restore/destructive publication/interval effects remain fail-closed where unqualified",
+    "Full current-source workspace aggregate, standalone artifacts, thin wrapper and supported-platform gates remain open",
+    "Actual Motion composition/reference migration/two-owner activation deferred by user direction"
+  ],
+  "M0_M11_gate_closures": [],
+  "adoption_source": {
+    "manifest": "tests/parity/native-catalog-r4-r5-adoption-source-manifest.json",
+    "canonical_files_sha256": "29425f4d52b53cada5319aa34d56cb02ba5bcfbbdb4a5bc080b36a76f8a1dd6a",
+    "file_count": 787,
+    "unchanged_before_after": true,
+    "delta_from_primary_source": [
+      "crates/catabolic-store/tests/native_search_index.rs"
+    ],
+    "note": "Only a versioned latest-target test changed. The174-test Rust and51-control Python cohorts above retain their original source, not relabeled as a current full aggregate. Production source and rebuilt helper inputs are unchanged."
+  },
+  "initial_failures": [
+    {
+      "log": ".local-tests/catalog-r5/search-index-initial.log",
+      "sha256": "602200b3455a74d63f97985c1d053faa4fe245089c0ef436214fc7f70e94af80",
+      "passing_executions": 16,
+      "failed_executions": 1,
+      "reason": "Existing public latest-target migration fixture expected35 after target advanced to36. Versioned name and NATIVE_SCHEMA_VERSION assertion preserve all preservation/generation/search assertions; complete17-test index suite reran."
+    }
+  ]
+}

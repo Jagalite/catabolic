@@ -6,10 +6,66 @@ use serde_json::{Value, json};
 
 #[test]
 fn frozen_parser_cases_preserve_execution_preflight_and_the_owner() {
-    let fixture: Value = serde_json::from_str(include_str!(
+    let mut fixture: Value = serde_json::from_str(include_str!(
         "../../../tests/parity/graphql-parser-cases.json"
     ))
     .unwrap();
+    let addition: Value = serde_json::from_str(include_str!(
+        "../../../tests/parity/graphql-braced-unicode-cases.json"
+    ))
+    .unwrap();
+    let missing: Value = serde_json::from_str(include_str!(
+        "../../../tests/parity/graphql-missing-argument-cases.json"
+    ))
+    .unwrap();
+    assert_eq!(addition["contract"], "native-graphql-braced-unicode-v1");
+    assert_eq!(
+        missing["contract"],
+        "native-graphql-missing-argument-value-v1"
+    );
+    let retained = fixture["remaining_parser_controls"].as_array().unwrap();
+    let corrected_names = missing["corrected_historical_controls"].as_array().unwrap();
+    assert_eq!(corrected_names.len(), 4);
+    assert_eq!(retained.len(), 5);
+    for name in corrected_names {
+        assert_eq!(
+            retained.iter().filter(|case| &case["name"] == name).count(),
+            1
+        );
+    }
+    let corrected_missing: Vec<_> = retained
+        .iter()
+        .filter(|case| corrected_names.contains(&case["name"]))
+        .cloned()
+        .collect();
+    assert_eq!(corrected_missing.len(), 4);
+    fixture["catalogs"]
+        .as_object_mut()
+        .unwrap()
+        .extend(addition["catalogs"].as_object().unwrap().clone());
+    let corrected = fixture["remaining_parser_controls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == addition["corrected_historical_control"])
+        .expect("retained historical braced Unicode witness")
+        .clone();
+    fixture["cases"]
+        .as_array_mut()
+        .unwrap()
+        .extend(addition["cases"].as_array().unwrap().iter().cloned());
+    // Keep the original non-parity recording untouched; current execution now
+    // compares this one named witness with its frozen oracle response.
+    fixture["cases"].as_array_mut().unwrap().push(corrected);
+    fixture["cases"]
+        .as_array_mut()
+        .unwrap()
+        .extend(missing["cases"].as_array().unwrap().iter().cloned());
+    fixture["cases"]
+        .as_array_mut()
+        .unwrap()
+        .extend(corrected_missing);
+    assert_eq!(fixture["cases"].as_array().unwrap().len(), 250);
     let root = tempfile::tempdir().unwrap();
     for (catalog_name, catalog) in fixture["catalogs"].as_object().unwrap() {
         let path = root.path().join(format!("{catalog_name}.db"));
@@ -103,11 +159,17 @@ fn frozen_parser_cases_preserve_execution_preflight_and_the_owner() {
 }
 
 #[test]
-fn malformed_parser_controls_remain_explicit_non_parity_evidence() {
+fn corrected_missing_value_controls_retain_historical_non_parity_evidence() {
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../tests/parity/graphql-parser-cases.json"
     ))
     .unwrap();
+    let missing: Value = serde_json::from_str(include_str!(
+        "../../../tests/parity/graphql-missing-argument-cases.json"
+    ))
+    .unwrap();
+    let corrected = missing["corrected_historical_controls"].as_array().unwrap();
+    assert_eq!(corrected.len(), 4);
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("controls.db");
     migration::initialize(&path).unwrap();
@@ -116,12 +178,17 @@ fn malformed_parser_controls_remain_explicit_non_parity_evidence() {
     owner.store().unwrap().db.execute_batch(
         "PRAGMA query_only=OFF; BEGIN; CREATE TEMP TABLE parser_control_marker(value); INSERT INTO parser_control_marker VALUES(53)",
     ).unwrap();
-    for case in fixture["remaining_parser_controls"].as_array().unwrap() {
+    for case in fixture["remaining_parser_controls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|case| corrected.contains(&case["name"]))
+    {
         let document = case["document"].as_str().unwrap();
         let native = &case["native"]["stdout"]["data"];
         assert_ne!(
             native, &case["expected"]["data"],
-            "{} is not a remaining gap",
+            "{} must retain the pre-fix native/oracle discrepancy",
             case["name"]
         );
         assert_eq!(
@@ -134,15 +201,15 @@ fn malformed_parser_controls_remain_explicit_non_parity_evidence() {
                 5000
             )
             .unwrap(),
-            *native,
-            "{}; malformed execution control",
+            case["expected"]["data"],
+            "{}; corrected historical execution control",
             case["name"],
         );
         for http in [false, true] {
             assert_eq!(
                 graphql::validate_before_context(document, &case["variables"], 5000, http).unwrap(),
-                Some(native.clone()),
-                "{}; malformed preflight http={http}",
+                Some(case["expected"]["data"].clone()),
+                "{}; corrected historical preflight http={http}",
                 case["name"],
             );
         }
@@ -161,8 +228,8 @@ fn malformed_parser_controls_remain_explicit_non_parity_evidence() {
                         &json!({"document":document,"variables":case["variables"]})
                     )
                     .unwrap(),
-                *native,
-                "{}; malformed persistent query_only={query_only}",
+                case["expected"]["data"],
+                "{}; corrected historical persistent query_only={query_only}",
                 case["name"],
             );
             assert!(owner.in_transaction().unwrap());
@@ -255,6 +322,8 @@ fn transformed_queries_keep_original_budgets_and_cancelled_owner() {
     for args in [
         json!({"document":"query($n:Int=1 @skip(if:true)){items(first:$n){nodes{id}}}"}),
         json!({"document":"query($n:Int=$bad){items(first:$n){nodes{id}}}"}),
+        json!({"document":"{items(first:)} query($x:Int=$bad){profile}"}),
+        json!({"document":"query($x:Int=1 @skip(if:true)){items(first:)}"}),
     ] {
         let expected = owner.query_call("default", "graphql", &args).unwrap();
         let observed = embedding::with_interrupt_check(
@@ -346,5 +415,46 @@ fn variable_boundary_adapter_preserves_original_preflight_limits() {
         .unwrap_err()
         .to_string()
         .contains("timeout-ms must be between 1 and 60000")
+    );
+}
+
+#[test]
+fn braced_unicode_adapter_preserves_original_preflight_limits() {
+    let prefix = r#"query($id:ID="\u{1F600}")"#;
+    let deep = format!(
+        "{prefix}{{{}profile{}}}",
+        "item{".repeat(21),
+        "}".repeat(21)
+    );
+    assert_eq!(
+        graphql::validate_before_context(&deep, &json!({}), 5000, false)
+            .unwrap()
+            .unwrap()["errors"][0]["message"],
+        "query depth exceeds 20"
+    );
+    let too_many = format!("{prefix}{{{}}}", "profile ".repeat(4000));
+    assert!(
+        graphql::validate_before_context(&too_many, &json!({}), 5000, false)
+            .unwrap()
+            .unwrap()["errors"][0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Document contains more than 4000 tokens")
+    );
+    // Replacing each nine-byte escape with one scalar would fit the parser view,
+    // but the original request must still fail the 128 KiB document limit.
+    let too_large = format!(r#"{{item(id:"{}"){{id}}}}"#, r"\u{1F600}".repeat(15000));
+    assert!(
+        graphql::validate_before_context(&too_large, &json!({}), 5000, false)
+            .unwrap_err()
+            .to_string()
+            .contains("query document must be at most 131072 bytes")
+    );
+    assert_eq!(
+        catabolic_store::selection::graphql_contract(
+            r#"query($after:String){items(after:$after,search:"\u{1F600}"){nodes{id}pageInfo{hasNextPage endCursor}}}"#
+        )
+        .unwrap(),
+        ("item_id".to_owned(), "items".to_owned()),
     );
 }

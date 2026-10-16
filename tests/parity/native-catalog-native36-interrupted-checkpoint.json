@@ -1,0 +1,53 @@
+{
+  "format_version": 1,
+  "package": "native36-interrupted-aggregate-and-exact-build",
+  "recorded_at_utc": "2026-10-14T21:45:28.612583+00:00",
+  "aggregate_status": "interrupted; no full pass",
+  "interruption": {
+    "status": "interrupted",
+    "recorded_at_utc": "2026-10-14T21:44:47.366754+00:00",
+    "reason": "Recovered tool reports both aggregate session34441 and queued optin session22818 unknown; no exit or completion marker exists. Log stops mid native_search_identity_paths suite.",
+    "aggregate_passed": false,
+    "source_verified_at_recovery": true,
+    "source_files_sha256": "3c080ddcf36c486c32ed2b2fd09fba6dd7ec7aca68dca408ffee40c32e2d11d4",
+    "completed_harness_summaries": 60,
+    "completed_passing_executions": 1083,
+    "reported_failed_executions": 0,
+    "reported_ignored_entries": 21,
+    "log_sha256": "db57017f1367300bdf1e2cc0066227cdaac43b5ec5f835c4838dcedf41c6e2a2",
+    "unexecuted_or_unproven": [
+      "remaining aggregate suites",
+      "all queued optins and actual helper build",
+      "models command/lint/final fences"
+    ],
+    "source_manifest": "/workspace/shared/catalog-native36-aggregate-evidence/source-before.json"
+  },
+  "source": {
+    "git_head": "e657c2e66662f91fd905d4b27dc51645e17c2d97",
+    "manifest": "tests/parity/native-catalog-native36-interrupted-source-manifest.json",
+    "files_sha256": "3c080ddcf36c486c32ed2b2fd09fba6dd7ec7aca68dca408ffee40c32e2d11d4",
+    "file_count": 1494,
+    "unchanged_during_recovered_build": true
+  },
+  "recovered_build": {
+    "status": "passed",
+    "runner": "offline locked Cargo1.99.0; Linux; dedicated main-only target; debug0 incremental0",
+    "artifacts": {
+      ".local-tests/catalog-native36-build-recovery/catabolic-verification-qualified": "edee9989c716ca008c21163d1b9a55c29e6311fc87e9986ae1e42ea757552e3b",
+      ".local-tests/catalog-native36-build-recovery/catabolic-legacy-native-qualified": "f994075a4ff5f71f102bf28d216c8c99406d71f296a2db262a2cdea805fad6f1",
+      ".local-tests/catalog-native36-build-recovery/catabolic-native-qualified": "4280752e6bc97de8aa1c8f587816ffda19c0bbb456603c9ff758d0ddb022e837"
+    },
+    "logs": {
+      ".local-tests/catalog-native36-build-recovery/source-after.log": "004db2008dea538273b2ae58545b470e6a5baa7d2c401c4afc954298c2b722df",
+      ".local-tests/catalog-native36-build-recovery/source-before.log": "004db2008dea538273b2ae58545b470e6a5baa7d2c401c4afc954298c2b722df",
+      ".local-tests/catalog-native36-build-recovery/build.log": "651162947797ca25d5b7126f06ad63407ef77a1b7f9b61b0ee991a8330657e7f"
+    }
+  },
+  "limits": [
+    "Completed harness summaries are partial executions, not a completed aggregate",
+    "No queued optin or final aggregate model/lint result exists for the interrupted attempt",
+    "Recovered build establishes exact artifact/source identity only",
+    "Final integrated37 source requires fresh full qualification; all M0-M11 gates remain open"
+  ],
+  "M0_M11_gate_closures": []
+}

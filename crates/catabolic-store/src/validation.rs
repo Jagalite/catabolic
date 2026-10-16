@@ -137,6 +137,21 @@ impl SourcePosition {
     }
 }
 
+/// Frozen diagnostic coordinates for a UTF-8 prefix, without tokenizing it.
+/// This does not affect lexical admission, token counts, or parser precedence.
+pub(crate) fn source_position(prefix: &str) -> Pos {
+    let mut position = SourcePosition {
+        current: Pos { line: 1, column: 1 },
+        previous_line_column: 1,
+    };
+    let mut previous = None;
+    for c in prefix.chars() {
+        position.advance(c, previous);
+        previous = Some(c);
+    }
+    position.position()
+}
+
 pub(crate) fn tokens(source: &str) -> Vec<Token> {
     let offsets: Vec<usize> = source
         .char_indices()
@@ -1268,14 +1283,38 @@ fn diagnostic_line_endings(document: &str) -> Option<String> {
 }
 
 pub(crate) fn parse_error(document: &str, error: &async_graphql_parser::Error) -> Value {
-    let positions: Vec<Value> = error
+    let mut positions: Vec<Value> = error
         .positions()
         .map(|p| json!({"line":p.line,"column":p.column}))
         .collect();
     let message = match error {
-        async_graphql_parser::Error::Syntax { message, start, .. }
-            if message.contains("expected selection") =>
-        {
+        async_graphql_parser::Error::Syntax {
+            message,
+            start,
+            end,
+        } if message.contains("expected selection") => {
+            // Rejected parser views fall back to the original source. Pest's
+            // EOF position counts Unicode scalars, with LF/CRLF line breaks
+            // and bare CR as a column. Prove this error is exactly at EOF
+            // before translating that diagnostic to the frozen splitlines
+            // coordinate. Do not reclassify earlier syntax errors or spans.
+            let parser_eof = document.chars().fold(Pos { line: 1, column: 1 }, |p, c| {
+                if c == '\n' {
+                    Pos {
+                        line: p.line + 1,
+                        column: 1,
+                    }
+                } else {
+                    Pos {
+                        column: p.column + 1,
+                        ..p
+                    }
+                }
+            });
+            if end.is_none() && *start == parser_eof {
+                let eof = source_position(document);
+                positions = vec![json!({"line":eof.line,"column":eof.column})];
+            }
             let suffix = document
                 .lines()
                 .nth(start.line - 1)
@@ -1385,5 +1424,68 @@ mod literal_diagnostic_render_tests {
             render_input(document, &field.node.arguments[0].1),
             r#"[{zz: $v, aa: -0, bb: 1E+0, cc: "\b\f\u008A", dd: """text"""}]"#,
         );
+    }
+}
+
+#[cfg(test)]
+mod eof_diagnostic_tests {
+    use super::*;
+
+    #[test]
+    fn only_proven_selection_eof_coordinates_are_translated() {
+        let source = "#雪😀\r\n{profile\r\n";
+        let position = Pos { line: 3, column: 1 };
+        for (message, start, end, expected) in [
+            (
+                "expected selection",
+                position,
+                None,
+                vec![json!({"line":2,"column":9})],
+            ),
+            (
+                "expected selection",
+                Pos { line: 2, column: 1 },
+                None,
+                vec![json!({"line":2,"column":1})],
+            ),
+            (
+                "expected selection",
+                position,
+                Some(position),
+                vec![json!({"line":3,"column":1}); 2],
+            ),
+            (
+                "expected value",
+                position,
+                None,
+                vec![json!({"line":3,"column":1})],
+            ),
+        ] {
+            let error = async_graphql_parser::Error::Syntax {
+                message: message.into(),
+                start,
+                end,
+            };
+            assert_eq!(
+                parse_error(source, &error)["errors"][0]["locations"],
+                json!(expected)
+            );
+        }
+    }
+
+    #[test]
+    fn actual_framework_eof_positions_map_original_unicode_source() {
+        for separator in ["\n", "\r", "\r\n"] {
+            for tail in ["".to_owned(), separator.into(), separator.repeat(3)] {
+                let source = format!("#雪😀{separator}{{profile{tail}");
+                let error = crate::graphql_parse::parse_query(&source).unwrap_err();
+                let position = source_position(&source);
+                assert_eq!(
+                    parse_error(&source, &error),
+                    json!({"data":null,"errors":[{"message":"Syntax Error: Expected Name, found <EOF>.","locations":[{"line":position.line,"column":position.column}]}]}),
+                    "{source:?}",
+                );
+            }
+        }
     }
 }

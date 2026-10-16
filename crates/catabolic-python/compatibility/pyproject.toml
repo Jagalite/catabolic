@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "catabolic-native-compat"
+version = "0.2.0"
+description = "Explicit opt-in Catabolic import and console forwarding candidate"
+requires-python = ">=3.11"
+dependencies = ["catabolic-native==0.2.0"]
+readme = "README.md"
+
+[project.scripts]
+catabolic = "catabolic.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["python"]
+include = ["catabolic", "catabolic.*"]
+namespaces = false

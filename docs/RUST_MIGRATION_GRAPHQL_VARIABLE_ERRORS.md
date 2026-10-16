@@ -1,5 +1,10 @@
 # Legacy GraphQL variable JSON diagnostics
 
+This page records the original syntax-diagnostic checkpoint. The subsequent
+[version-one variable admission adapter](RUST_MIGRATION_GRAPHQL_VARIABLE_ADMISSION.md)
+qualifies the seven non-syntax residuals below with separate, versioned assertions;
+the original checkpoint and its historical residual evidence remain unchanged.
+
 This narrow CLI change closes the ordinary malformed `graphql --variables`
 diagnostic gap retained by the [file-admission review](RUST_MIGRATION_GRAPHQL_FILE_BOUNDARY.md).
 The frozen Python 3.14.6 CLI reports `JSONDecodeError`, its syntax message, and

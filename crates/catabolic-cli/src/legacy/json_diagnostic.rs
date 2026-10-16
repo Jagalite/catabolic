@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 // SPDX-License-Identifier: MIT
-//! Syntax-only diagnostics for the frozen legacy CLI's JSON variable argument.
+//! Syntax-only diagnostics for the frozen legacy CLI's JSON input boundaries.
 //! This does not construct values, normalize numeric tokens, or replace the
 //! companion decoder. Accepted values still belong to the existing decoder.
 #[derive(Debug, PartialEq, Eq)]

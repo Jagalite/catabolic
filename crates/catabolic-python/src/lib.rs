@@ -1,4 +1,5 @@
 mod artifacts_processing;
+mod catalog_inspection;
 mod catalog_refresh;
 mod embedding;
 mod public_access;
@@ -10,14 +11,24 @@ mod public_layouts;
 mod public_publisher;
 mod public_secret;
 mod public_watchers;
-use pyo3::exceptions::PyRuntimeError;
+use pyo3::exceptions::{PyRuntimeError, PyTypeError};
 use pyo3::prelude::*;
 use std::path::Path;
 
 fn result(value: catabolic_store::Result<serde_json::Value>) -> PyResult<String> {
     value
         .map(|v| v.to_string())
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))
+}
+fn detailed_result(value: catabolic_store::DetailedResult<serde_json::Value>) -> PyResult<String> {
+    value
+        .map(|v| v.to_string())
+        .map_err(|error| match error.class() {
+            catabolic_store::ErrorClass::CatabolicError => {
+                PyRuntimeError::new_err(error.to_string())
+            }
+            catabolic_store::ErrorClass::TypeError => PyTypeError::new_err(error.to_string()),
+        })
 }
 #[pyfunction]
 fn version() -> &'static str {
@@ -111,6 +122,7 @@ fn execute_sql(
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     embedding::register(m)?;
+    catalog_inspection::register(m)?;
     public_fallback::register(m)?;
     public_imports::register(m)?;
     public_http::register(m)?;
@@ -143,9 +155,10 @@ fn catalog_query(
 ) -> PyResult<String> {
     let request =
         catabolic_core::decode_json(options).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-    result(py.detach(|| {
+    detailed_result(py.detach(|| {
         let store = catabolic_store::Store::open(Path::new(path), false, false)?;
-        catabolic_store::query::CatalogQuery::new(&store, profile)?.execute(entity, &request)
+        catabolic_store::query::CatalogQuery::new(&store, profile)?
+            .execute_detailed(entity, &request)
     }))
 }
 #[pyfunction]

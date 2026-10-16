@@ -1,6 +1,7 @@
 //! GraphQL transport over the same native snapshot and catalog query functions.
 pub use crate::graphql_input::InputVariables;
 use crate::graphql_parse::parse_query;
+use crate::operation_budget::{BudgetCharge, OperationBudget};
 use crate::{
     Error, Result, Store,
     api_catalog::Authority,
@@ -17,6 +18,7 @@ use catabolic_core::encode;
 use rusqlite::types::Value as SqlValue;
 use serde_json::{Value, json};
 use std::{
+    cell::Cell,
     collections::{BTreeMap, BTreeSet},
     path::Path,
     sync::{Arc, Mutex, OnceLock},
@@ -129,7 +131,53 @@ fn completed_value(value: Value) -> async_graphql::Value {
     }
 }
 
+/// Exact bounded-execution evidence, kept out of frozen GraphQL responses.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ExecutionFailure {
+    WorkBudget,
+    ByteBudget,
+    Timeout,
+    Cancelled,
+}
+fn operation_failure(failure: crate::selection::EvaluationFailure) -> ExecutionFailure {
+    use crate::selection::EvaluationFailure as E;
+    match failure {
+        E::ByteBudget => ExecutionFailure::ByteBudget,
+        E::Timeout => ExecutionFailure::Timeout,
+        E::Cancelled => ExecutionFailure::Cancelled,
+        _ => ExecutionFailure::WorkBudget,
+    }
+}
+fn operation_charge(
+    charge: BudgetCharge,
+    evidence: &Arc<Mutex<Option<ExecutionFailure>>>,
+) -> Result<()> {
+    if let Some(budget) = OperationBudget::current() {
+        budget.charge_without_poll(charge).map_err(|cause| {
+            record_failure(evidence, operation_failure(cause));
+            Error("operation budget exhausted".into())
+        })?;
+    }
+    Ok(())
+}
+fn record_failure(evidence: &Arc<Mutex<Option<ExecutionFailure>>>, failure: ExecutionFailure) {
+    if let Some(budget) = OperationBudget::current() {
+        use crate::selection::EvaluationFailure as E;
+        budget.record_failure(match failure {
+            ExecutionFailure::ByteBudget => E::ByteBudget,
+            ExecutionFailure::Timeout => E::Timeout,
+            ExecutionFailure::Cancelled => E::Cancelled,
+            ExecutionFailure::WorkBudget => E::WorkBudget,
+        });
+    }
+    evidence
+        .lock()
+        .expect("GraphQL failure lock")
+        .get_or_insert(failure);
+}
+
 struct Context {
+    failure: Arc<Mutex<Option<ExecutionFailure>>>,
     store: Store,
     profile: String,
     deadline: Instant,
@@ -454,7 +502,9 @@ impl Context {
         Ok(json!({"hits":result,"next_after":next,"match":"all normalized words"}))
     }
     fn check(&self) -> Result<()> {
+        operation_charge(BudgetCharge::default(), &self.failure)?;
         if Instant::now() > self.deadline {
+            record_failure(&self.failure, ExecutionFailure::Timeout);
             return Err(Error("query execution deadline exceeded".into()));
         }
         if let Some(error) = &self.aborted {
@@ -463,17 +513,35 @@ impl Context {
         Ok(())
     }
     fn charge(&mut self, value: &Value) -> Result<()> {
+        operation_charge(
+            BudgetCharge {
+                bytes: encode(value).len(),
+                values: 1,
+                ..Default::default()
+            },
+            &self.failure,
+        )?;
         if !value.is_null() {
             self.bytes += encode(value).len();
         }
         if self.bytes > 8 * 1024 * 1024 {
+            record_failure(&self.failure, ExecutionFailure::ByteBudget);
             self.aborted = Some("query output budget exceeded".into());
         }
         self.check()
     }
     fn records(&mut self, count: usize) -> Result<()> {
+        operation_charge(
+            BudgetCharge {
+                values: count,
+                work: count,
+                ..Default::default()
+            },
+            &self.failure,
+        )?;
         self.nodes += count;
         if self.nodes > 10000 {
+            record_failure(&self.failure, ExecutionFailure::WorkBudget);
             self.aborted = Some("query record budget exceeded".into());
         }
         self.check()
@@ -1071,6 +1139,10 @@ impl Execution<'_> {
     ) -> async_graphql::ServerResult<Value> {
         // Never invoke an outer signal handler while holding the resolver lock.
         if crate::embedding::poll_interrupt() {
+            record_failure(
+                &self.state.lock().expect("query context").failure,
+                ExecutionFailure::Cancelled,
+            );
             return Err(async_graphql::ServerError::new(
                 "query execution interrupted",
                 None,
@@ -1125,6 +1197,10 @@ impl Execution<'_> {
         path: &[async_graphql::PathSegment],
     ) -> async_graphql::ServerResult<Value> {
         if crate::embedding::poll_interrupt() {
+            record_failure(
+                &self.state.lock().expect("query context").failure,
+                ExecutionFailure::Cancelled,
+            );
             return Err(Self::error("query execution interrupted", field, path));
         }
         // Argument coercion precedes resolver invocation, authorization and
@@ -1137,6 +1213,7 @@ impl Execution<'_> {
         let mut context = self.state.lock().expect("query context");
         context.fields += 1;
         if context.fields > 20000 {
+            record_failure(&context.failure, ExecutionFailure::WorkBudget);
             context.aborted = Some("query field budget exceeded".into());
         }
         let result = context.check().and_then(|()| {
@@ -1192,6 +1269,10 @@ impl Execution<'_> {
         path: &mut Vec<async_graphql::PathSegment>,
     ) -> async_graphql::ServerResult<Value> {
         if crate::embedding::poll_interrupt() {
+            record_failure(
+                &self.state.lock().expect("query context").failure,
+                ExecutionFailure::Cancelled,
+            );
             return Err(Self::error("query execution interrupted", field, path));
         }
         self.state
@@ -1483,11 +1564,21 @@ fn check_document(document: &async_graphql_parser::types::ExecutableDocument) ->
 }
 // Operation selection and scalar rejection can finish before a resolver exists.
 // They still participate in the same deadline and outer interruption bridge.
+#[cfg(test)]
 fn early_query_response(result: Value, deadline: Instant) -> Value {
+    early_query_response_classified(result, deadline, &Arc::new(Mutex::new(None)))
+}
+fn early_query_response_classified(
+    result: Value,
+    deadline: Instant,
+    failure: &Arc<Mutex<Option<ExecutionFailure>>>,
+) -> Value {
     if crate::embedding::poll_interrupt() {
+        record_failure(failure, ExecutionFailure::Cancelled);
         return json!({"data":null,"errors":[{"message":"query execution interrupted"}]});
     }
     if Instant::now() > deadline {
+        record_failure(failure, ExecutionFailure::Timeout);
         return json!({"data":null,"errors":[{"message":"query execution deadline exceeded","extensions":{"code":"LIMIT_EXCEEDED"}}]});
     }
     result
@@ -1570,7 +1661,13 @@ pub fn validate_before_context(
         return Err(Error("variables exceed input budget".into()));
     }
     if let Some(error) = crate::document::token_limit(document, 4000) {
-        return Ok(Some(error));
+        // This bounded, iterative cursor can report only the versioned early
+        // syntax boundaries. The full recursive AST parser stays after admission.
+        return Ok(Some(
+            crate::graphql_parse::before_token_limit(document, 4000).map_or(error, |error| {
+                crate::validation::parse_error(document, &error)
+            }),
+        ));
     }
     let ast = match parse_query(document) {
         Ok(ast) => ast,
@@ -1618,6 +1715,50 @@ pub(crate) fn execute_session(
     operation: Option<&str>,
     timeout_ms: u64,
 ) -> Result<Value> {
+    execute_session_classified(
+        slot,
+        authority,
+        document,
+        profile,
+        variables,
+        operation,
+        timeout_ms,
+        &Cell::new(None),
+    )
+}
+
+/// Add refusal evidence without changing diagnostics, response JSON or Store ownership.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn execute_session_classified(
+    slot: &mut Option<Store>,
+    authority: Option<Authority>,
+    document: &str,
+    profile: &str,
+    variables: impl Into<InputVariables>,
+    operation: Option<&str>,
+    timeout_ms: u64,
+    failure: &Cell<Option<ExecutionFailure>>,
+) -> Result<Value> {
+    failure.set(None);
+    let evidence = Arc::new(Mutex::new(None));
+    let result = execute_session_inner(
+        slot, authority, document, profile, variables, operation, timeout_ms, &evidence,
+    );
+    failure.set(*evidence.lock().expect("GraphQL failure lock"));
+    result
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_session_inner(
+    slot: &mut Option<Store>,
+    authority: Option<Authority>,
+    document: &str,
+    profile: &str,
+    variables: impl Into<InputVariables>,
+    operation: Option<&str>,
+    timeout_ms: u64,
+    failure: &Arc<Mutex<Option<ExecutionFailure>>>,
+) -> Result<Value> {
     let input_variables = variables.into();
     let variables = &input_variables.value;
     let store = slot
@@ -1648,15 +1789,17 @@ pub(crate) fn execute_session(
         None => operations.len() == 1,
     };
     if operation.is_none() && operations.len() > 1 {
-        return Ok(early_query_response(
+        return Ok(early_query_response_classified(
             json!({"data":null,"errors":[{"message":"Must provide operation name if query contains multiple operations."}],"extensions":{"interfaceVersion":1,"profile":profile,"records":0}}),
             deadline,
+            failure,
         ));
     }
     if !selected_exists && let Some(selected) = operation {
-        return Ok(early_query_response(
+        return Ok(early_query_response_classified(
             json!({"data":null,"errors":[{"message":format!("Unknown operation named '{selected}'.")}],"extensions":{"interfaceVersion":1,"profile":profile,"records":0}}),
             deadline,
+            failure,
         ));
     }
     let selected_operation = operations
@@ -1669,9 +1812,10 @@ pub(crate) fn execute_session(
     let (coerced_variables, errors) =
         crate::graphql_input::variables(&selected_operation.node, &input_variables);
     if !errors.is_empty() {
-        return Ok(early_query_response(
+        return Ok(early_query_response_classified(
             json!({"data":null,"errors":errors,"extensions":{"interfaceVersion":1,"profile":profile,"records":0}}),
             deadline,
+            failure,
         ));
     }
     let runtime_inputs = crate::graphql_runtime_input::RuntimeInputs::new(
@@ -1686,6 +1830,7 @@ pub(crate) fn execute_session(
         .db
         .pragma_query_value(None, "query_only", |row| row.get(0))?;
     let state = Arc::new(Mutex::new(Context {
+        failure: Arc::clone(failure),
         store: slot.take().expect("checked GraphQL Store"),
         profile: profile.into(),
         deadline,
@@ -1706,9 +1851,32 @@ pub(crate) fn execute_session(
                 .map_err(|_| Error("query context poisoned".into()))?;
             crate::sql::setup(&context.store.db)?;
             context.store.db.pragma_update(None, "query_only", true)?;
+            let interrupted = Arc::clone(failure);
+            let vm_budget = OperationBudget::current();
             context.store.db.progress_handler(
                 1000,
-                Some(move || crate::embedding::poll_interrupt() || Instant::now() >= deadline),
+                Some(move || {
+                    if let Some(cause) = vm_budget.as_ref().and_then(|budget| {
+                        budget
+                            .charge(BudgetCharge {
+                                work: 1000,
+                                ..Default::default()
+                            })
+                            .err()
+                    }) {
+                        record_failure(&interrupted, operation_failure(cause));
+                        return true;
+                    }
+                    if vm_budget.is_none() && crate::embedding::poll_interrupt() {
+                        record_failure(&interrupted, ExecutionFailure::Cancelled);
+                        true
+                    } else if Instant::now() >= deadline {
+                        record_failure(&interrupted, ExecutionFailure::Timeout);
+                        true
+                    } else {
+                        false
+                    }
+                }),
             )?;
         }
         #[cfg(test)]
@@ -1773,6 +1941,9 @@ pub(crate) fn execute_session(
             .map_err(|_| Error("query context poisoned".into()))?;
         (|| -> Result<Value> {
             if state.aborted.is_some() || Instant::now() > state.deadline {
+                if state.aborted.is_none() {
+                    record_failure(failure, ExecutionFailure::Timeout);
+                }
                 return Ok(
                     json!({"data":null,"errors":[{"message":state.aborted.as_deref().unwrap_or("query execution deadline exceeded"),"extensions":{"code":"LIMIT_EXCEEDED"}}]}),
                 );
@@ -1784,7 +1955,16 @@ pub(crate) fn execute_session(
                 result["extensions"] =
                     json!({"interfaceVersion":1,"profile":profile,"records":state.nodes});
             }
+            operation_charge(
+                BudgetCharge {
+                    bytes: encode(&result).len(),
+                    values: 1,
+                    ..Default::default()
+                },
+                failure,
+            )?;
             if encode(&result).len() > 8 * 1024 * 1024 {
+                record_failure(failure, ExecutionFailure::ByteBudget);
                 return Ok(
                     json!({"data":null,"errors":[{"message":"query output budget exceeded","extensions":{"code":"LIMIT_EXCEEDED"}}]}),
                 );
@@ -1834,6 +2014,7 @@ pub(crate) mod tests {
             document,
         ));
         let state = Arc::new(Mutex::new(Context {
+            failure: Arc::new(Mutex::new(None)),
             store: Store::open(&path, true, false).unwrap(),
             profile: "default".into(),
             deadline: Instant::now() + Duration::from_secs(5),

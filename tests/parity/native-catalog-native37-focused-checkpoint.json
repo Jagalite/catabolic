@@ -1,0 +1,409 @@
+{
+  "format_version": 1,
+  "package": "R4-R5-R6-native37-integrated-focused",
+  "recorded_at_utc": "2026-10-14T22:05:34.274901+00:00",
+  "baseline_commit": "d87b47428da1b68269c9fda692588ec3cd9dcbed",
+  "source": {
+    "manifest": "tests/parity/native-catalog-native37-focused-source-manifest.json",
+    "files_sha256": "39513fb95ace36cac3fb8c7102703955883f81110c18dd1513657184df3cff28",
+    "file_count": 1517,
+    "unchanged_before_after_original_and_corrected_tail": true
+  },
+  "runner": "Standard offline locked Cargo1.99.0 Linux x86_64; debug0 incremental0 jobs2; CPython3.14.6 frozen oracle",
+  "status": "focused_checks_passed_with_retained_failed_runner_and_separate_corrected_tail",
+  "full_aggregate_passed": false,
+  "passing_rust_executions": 311,
+  "python_schema_and_audit_methods": 100,
+  "parser_cli_methods": 1,
+  "parser_cli_full_envelope_parity_cases": 222,
+  "parser_remaining_explicit_nonparity_controls": 4,
+  "runs": {
+    "audit": {
+      "log": ".local-tests/catalog-native37-focused/audit.log",
+      "sha256": "b2f7cc50fb6ba2cd77bb38bbc13d663d5e5827f95b9f80f75bc67472ae61cf7f",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "clippy": {
+      "log": ".local-tests/catalog-native37-focused/clippy.log",
+      "sha256": "f9fb300b9d62bc9a63d195b21e3c89b3f985626d0a0c961c1341e9f7c7f167ec",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "format": {
+      "log": ".local-tests/catalog-native37-focused/format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "helper-build": {
+      "log": ".local-tests/catalog-native37-focused/helper-build.log",
+      "sha256": "3464235ae78775c3a2942053d8685d767b26f2e6571a209c1250331e68ead11b",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "helper-fence": {
+      "log": ".local-tests/catalog-native37-focused/helper-fence.log",
+      "sha256": "5e07e4bfb5895de5cba769350c85192a08dd4681f2b83dc9a03346e49ea3cde9",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "optin-native34_real_helper_scan_cancel_drain_and_reopen": {
+      "log": ".local-tests/catalog-native37-focused/optin-native34_real_helper_scan_cancel_drain_and_reopen.log",
+      "sha256": "cfe229086de3c514f589c4b6909c17947f76751a3463204b88d385ddfb64f0a7",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-native35_and36_two_real_consumers_preserve_the_shared_scan_after_one_cancel": {
+      "log": ".local-tests/catalog-native37-focused/optin-native35_and36_two_real_consumers_preserve_the_shared_scan_after_one_cancel.log",
+      "sha256": "9f1f390d6419e29fb05f41c71a000be21076cefb0997a6f23b0c6539781dda90",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-native36_real_helper_scan_cancel_drain_and_reopen": {
+      "log": ".local-tests/catalog-native37-focused/optin-native36_real_helper_scan_cancel_drain_and_reopen.log",
+      "sha256": "899b637d070289e0097eeb713c264429ff41efc13c716a469f9a1d54a8695c5a",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-native37_actual_scanned_occurrence_activates_draft_identity_without_clearing_owner": {
+      "log": ".local-tests/catalog-native37-focused/optin-native37_actual_scanned_occurrence_activates_draft_identity_without_clearing_owner.log",
+      "sha256": "f839f50ef83c10cffaa8aecf139a006ad88bf3be0a1843223acad22e6cff6b26",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-native37_child_exit_without_parent_seal_and_changed_claim_remain_unresolved": {
+      "log": ".local-tests/catalog-native37-focused/optin-native37_child_exit_without_parent_seal_and_changed_claim_remain_unresolved.log",
+      "sha256": "dc676fce5ee89356e8829868bbefdfe70efd91db80fe8436978b9fb56a1dfbf9",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-native37_exact_companion_seals_and_reopened_host_admits_supported_scan": {
+      "log": ".local-tests/catalog-native37-focused/optin-native37_exact_companion_seals_and_reopened_host_admits_supported_scan.log",
+      "sha256": "4a6b6588c59b0098260d3c8d0280de366de031c087339146f8aee341c9473619",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-native37_mispackaged_old_helper_cannot_fallback_or_seal": {
+      "log": ".local-tests/catalog-native37-focused/optin-native37_mispackaged_old_helper_cannot_fallback_or_seal.log",
+      "sha256": "336b3133c0cbec2035e38c5fa026eb9cf5d2ac9f5663bcb710f90640a3827228",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-native37_observation_witness_never_waives_changed_claim_or_unrelated_work": {
+      "log": ".local-tests/catalog-native37-focused/optin-native37_observation_witness_never_waives_changed_claim_or_unrelated_work.log",
+      "sha256": "c48248ae136c3f4ae68c98df9aedd6e831b9b336e2baf02d43bb309bcace3121",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-native37_pre_shared_helper_rejects_join_command_before_catalog_open": {
+      "log": ".local-tests/catalog-native37-focused/optin-native37_pre_shared_helper_rejects_join_command_before_catalog_open.log",
+      "sha256": "97ea92ed3e82552cfd17a7235a6d4e37930ed8255bfeb61510ed3a30269a8eca",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-native37_publication_writer_contention_exhausts_fixed_bound_without_replacement": {
+      "log": ".local-tests/catalog-native37-focused/optin-native37_publication_writer_contention_exhausts_fixed_bound_without_replacement.log",
+      "sha256": "8ee3b0d8830cdecf2df87ed10eaa87e84023766950e65920398b1ea96b66ca7f",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-native37_shared_demand_seal_does_not_discharge_the_live_owner": {
+      "log": ".local-tests/catalog-native37-focused/optin-native37_shared_demand_seal_does_not_discharge_the_live_owner.log",
+      "sha256": "eca514f71bd968f2f8f6fcb3b126181baffce0f3e3af1f530e6e0fe3c81bc32e",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-native37_two_authorized_hosts_join_exact_owned_scan_and_cancel_only_one_demand": {
+      "log": ".local-tests/catalog-native37-focused/optin-native37_two_authorized_hosts_join_exact_owned_scan_and_cancel_only_one_demand.log",
+      "sha256": "6d41a201c9d4f37be9b74b8c415b7fd915e270b479e24e2ef224c0e22600a330",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-native37_uuid_checking_cohort_is_refused_without_reservation_or_policy_change": {
+      "log": ".local-tests/catalog-native37-focused/optin-native37_uuid_checking_cohort_is_refused_without_reservation_or_policy_change.log",
+      "sha256": "c8e014834ec1453f6389afb52127a831c1b045a16289a73f2f3fed5eda8b916b",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-real_native_helper_scan_cancel_drain_and_reopen": {
+      "log": ".local-tests/catalog-native37-focused/optin-real_native_helper_scan_cancel_drain_and_reopen.log",
+      "sha256": "ca8a25250dfa5e506e55e5a352d3f9977e4757b110a8cb1e61c65b396b15a28c",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-real_scan_child_drain_does_not_erase_terminal_observation_ownership_native35_and36": {
+      "log": ".local-tests/catalog-native37-focused/optin-real_scan_child_drain_does_not_erase_terminal_observation_ownership_native35_and36.log",
+      "sha256": "270f46911e731c9877ffa8486090c2320c63013266bfdbeef6302eb7c6a6fc42",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-rebuilt_helper_accepts_schema36_watcher_and_fallback_protocols": {
+      "log": ".local-tests/catalog-native37-focused/optin-rebuilt_helper_accepts_schema36_watcher_and_fallback_protocols.log",
+      "sha256": "af79a3002490cc660fafd21cf8924a02fd61b83c10d70ec04b7c16a55f4ca939",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "parser-cli-corrected": {
+      "log": ".local-tests/catalog-native37-focused/parser-cli-corrected.log",
+      "sha256": "90c883a4455923a20f27c88c853961d325d6857ae27017d3ff82fcde4fc63794",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "parser-cli": {
+      "log": ".local-tests/catalog-native37-focused/parser-cli.log",
+      "sha256": "18eb53ee23496794243a36c4c6eede271e3bc84e2d829d1cd5fe1fc156072d86",
+      "exit_code": 1,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "python-controls": {
+      "log": ".local-tests/catalog-native37-focused/python-controls.log",
+      "sha256": "35f5d7b18bd79115babd558aba751714824bd95999c2f0bf0bfae606be60bcce",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "runtime-owners": {
+      "log": ".local-tests/catalog-native37-focused/runtime-owners.log",
+      "sha256": "0fab652ed6d97ba68127ed7cc14c18e903a918be439fee7cb375cb7bf86efdbd",
+      "exit_code": 0,
+      "passing_rust_executions": 34,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 14,
+      "rust_harness_summaries": 9
+    },
+    "schema33": {
+      "log": ".local-tests/catalog-native37-focused/schema33.log",
+      "sha256": "5d2bfe1fdbcf01c5bbee0938a01573634a745a3e974b71b0e5865cdbbc079157",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "schema37": {
+      "log": ".local-tests/catalog-native37-focused/schema37.log",
+      "sha256": "eeb2894a56fc3d69bdb3a594e36a8868e61240b235ad894b1eea3f7fb8125357",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "scope": {
+      "log": ".local-tests/catalog-native37-focused/scope.log",
+      "sha256": "9f5e7c3c3a75e592dbe6f8e3701f970fad3310ff5333262d0b0153b005f490da",
+      "exit_code": 0,
+      "passing_rust_executions": 100,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "source-after": {
+      "log": ".local-tests/catalog-native37-focused/source-after.log",
+      "sha256": "5016c03e3e6964964528a874220b13abc5b8566d1d5b2aa110407bdbd05b85c5",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "store-owners": {
+      "log": ".local-tests/catalog-native37-focused/store-owners.log",
+      "sha256": "fb772ba27e2f1aaba1c3020385e465f907063124f0f5f30aa03d9c0bbd446f68",
+      "exit_code": 0,
+      "passing_rust_executions": 86,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 3,
+      "rust_harness_summaries": 5
+    },
+    "tail-source-after": {
+      "log": ".local-tests/catalog-native37-focused/tail-source-after.log",
+      "sha256": "5016c03e3e6964964528a874220b13abc5b8566d1d5b2aa110407bdbd05b85c5",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "tail-source-before": {
+      "log": ".local-tests/catalog-native37-focused/tail-source-before.log",
+      "sha256": "5016c03e3e6964964528a874220b13abc5b8566d1d5b2aa110407bdbd05b85c5",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "writer": {
+      "log": ".local-tests/catalog-native37-focused/writer.log",
+      "sha256": "dc87fdd2337d0b408c991ce8eb02cb963488539dd43b27e6ce9a5bd6b94c2938",
+      "exit_code": 0,
+      "passing_rust_executions": 75,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    }
+  },
+  "helpers": {
+    "CATABOLIC_HOST_TEST_HELPER": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/catalog-native37-focused/catabolic-native-qualified",
+      "sha256": "72c82ae199aadcee99928089f0b4c1f8a211d7d3c3219cc46a325396650f6cd7"
+    },
+    "CATABOLIC_LEGACY_BINARY": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/catalog-native37-focused/catabolic-legacy-native-qualified",
+      "sha256": "ec4bfa6991b84d0556b00ae8712beba18cb6116ffd797309410c8b77665e58a7"
+    },
+    "CATABOLIC_OLD_HOST_TEST_HELPER": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/catalog-r3/catabolic-native",
+      "sha256": "acd2277c28ca8cac0a7ca241cde60d2311b72d6f1cc25f43c6ecdafd8aa08aca"
+    },
+    "CATABOLIC_PRE_SHARED_HELPER": {
+      "path": "/workspace/shared/catalog-r5-companion-preparation/catabolic-closed37-before-shared-command",
+      "sha256": "7b6296165b7d19aca4dac9dac83f801751c74bc8ca92e56b17dd41808890725e"
+    }
+  },
+  "adopted_patches": {
+    "recorded_at_utc": "2026-10-14T21:46:30.380253+00:00",
+    "baseline": "d87b47428da1b68269c9fda692588ec3cd9dcbed",
+    "patches": [
+      {
+        "path": "/workspace/shared/catalog-r5-companion-preparation/combined-candidate37-v2.patch",
+        "sha256": "7461b7f365d393e28a2113084134a932d639972640908d8b7e5fc1a90cf10067",
+        "options": []
+      },
+      {
+        "path": "/workspace/shared/catalog-r4-schema37-qualification/deliverables/r4-schema37-06/r4-schema37-06.patch",
+        "sha256": "6888c04b85d811a3ce59829a08952cb28f829516bc31a6e13fcd18e0692159ee",
+        "options": []
+      },
+      {
+        "path": "/workspace/shared/catalog-r6-companion-activation/import-companion37.patch",
+        "sha256": "3c82009ab862fa7f5accb895c0d9be43c6cfa4957976fff17fe5314d97bc0329",
+        "options": [
+          "--exclude=crates/catabolic-store/src/lib.rs"
+        ]
+      },
+      {
+        "path": "/workspace/shared/catalog-r4-component37-qualification/deliverables/r4-components-07-schema37/r4-components-07-schema37.patch",
+        "sha256": "bbc0295e2090c228b66b70ebcb7522b10593557a8f694d0e16d206a283bf741d",
+        "options": []
+      },
+      {
+        "path": "/workspace/shared/catalog-r5-negative-lifecycle/negative-lifecycle-addendum.patch",
+        "sha256": "75852de361a64a67dcbd70e9240f102393244d6b7601af897f1714ad28c40a43",
+        "options": []
+      },
+      {
+        "path": "/workspace/shared/catalog-schema37-reproduction/deliverables/schema37-reproduction.patch",
+        "sha256": "597e16e035aafc700f3a63d1065a0f74ec35865858860185be31e3eef3907ca6",
+        "options": []
+      },
+      {
+        "path": "/workspace/shared/catalog-r7-product-preparation/graphql-braced-unicode/native-graphql-braced-unicode.patch",
+        "sha256": "a79366d2e6f7d816687aab59bb0491baa28b489f7a3c1f7b659e20f1a7e114e0",
+        "options": []
+      }
+    ],
+    "overlap_resolution": "R6 lib.rs hunk only sorts native module exports; R4 slice06 already sorts them and names schema37 helper, so redundant hunk omitted after exact resulting-order assertion"
+  },
+  "retained_failures": [
+    {
+      "log": ".local-tests/catalog-native37-focused/parser-cli.log",
+      "outcome": "Original runner exited1 because CATABOLIC_NATIVE_BINARY was omitted; no parser case executed. Replayed only affected parser/lint/fmt/fences with explicit exact archived companion on unchanged source. Original command remains failed."
+    },
+    {
+      "log": ".local-tests/catalog-native37-adoption/audit.log",
+      "outcome": "Initial ledger retained a deleted historical helper path; replaced with exact historical source-manifest reference and explicit version mapping before runtime qualification."
+    },
+    {
+      "log": ".local-tests/catalog-native37-focused/preflight-source-inventory-failure.json",
+      "outcome": "Initial source capture saw the still-indexed deliberately removed schema36 test helper; staged intended rename/additions before capture; no runtime test began."
+    }
+  ],
+  "qualified_boundaries": [
+    "Exact closed-companion schema37 reservation and parent-sealed retained-child evidence, shared-demand cleanup and old-helper refusal",
+    "Private writer schemas34\u201337, scoped component lineage authority, recorded whole-occurrence facts and retained result-delivery leases",
+    "Actual schema37 scanned import uses exact cleanup witness with conjunctive complete inventory/per-job/pending-work gates; ownership records are not cleared",
+    "Read-only schema37 reproduction checker; immutable schema33 outputs and frozen ledger preserved"
+  ],
+  "remaining": [
+    "Persisted restart/mixed-owner addendum and parser/variable followups are separate source changes awaiting primary integration",
+    "Full current seven-crate aggregate, supported standalone/installed/platform and M0\u2013M11 release qualification remain open",
+    "Independent staged033/schema and broad definition/filesystem reviews remain blocked and have not been retried or reassigned",
+    "Native WAL/controlled restore/destructive publication/interval effects remain unavailable where unqualified",
+    "Motion source changes/testing, actual external reference migration and combined-owner deployment remain deferred"
+  ],
+  "M0_M11_gate_closures": []
+}

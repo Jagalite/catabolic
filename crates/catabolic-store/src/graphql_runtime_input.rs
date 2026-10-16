@@ -497,6 +497,38 @@ fn default_value(text: &str) -> Value {
         .clone()
 }
 
+/// Classify a recorded string only for GraphQL Int output completion. The frozen
+/// Python serializer uses int(str), including Nd digits and single underscores
+/// between digits, with its default 4300-digit cap. Keep only the magnitude needed
+/// for i32 classification, and validate the whole spelling even after overflow.
+/// This is not an arbitrary-precision parser or GraphQL input coercion.
+fn recorded_int_string(raw: &str) -> Option<i128> {
+    let trimmed = raw.trim();
+    let negative = trimmed.starts_with('-');
+    let body = trimmed.strip_prefix(['+', '-']).unwrap_or(trimmed);
+    let mut digits = 0_u32;
+    let mut previous_digit = false;
+    let mut magnitude = 0_i128;
+    for character in body.chars() {
+        if character == '_' && previous_digit {
+            previous_digit = false;
+            continue;
+        }
+        let digit = catabolic_core::python_decimal::decimal_digit(character)?;
+        digits += 1;
+        if digits > 4300 {
+            return None;
+        }
+        // i32::MIN has magnitude i32::MAX + 1, so retain one more sentinel.
+        magnitude = (magnitude * 10 + i128::from(digit)).min(i128::from(i32::MAX) + 2);
+        previous_digit = true;
+    }
+    if !previous_digit {
+        return None;
+    }
+    Some(if negative { -magnitude } else { magnitude })
+}
+
 /// Complete native scalar/enum leaves without relaxing the schema's output
 /// contract. JSON remains opaque; BigInt intentionally uses a decimal string.
 pub(crate) fn serialize(name: &str, value: Value, http: bool) -> Result<Value, String> {
@@ -547,7 +579,7 @@ pub(crate) fn serialize(name: &str, value: Value, http: bool) -> Result<Value, S
                             .filter(|n| n.is_finite() && n.fract() == 0.0)
                             .map(|n| n as i128)
                     }),
-                Value::String(s) => s.trim().parse::<i128>().ok(),
+                Value::String(s) => recorded_int_string(s),
                 _ => None,
             }
             .ok_or_else(|| fail("Int cannot represent non-integer value: "))?;
@@ -667,4 +699,60 @@ pub(crate) fn merged_selection_conflict(ast: &ExecutableDocument, http: bool) ->
         }
     }
     None
+}
+
+#[cfg(test)]
+mod recorded_int_tests {
+    use super::{recorded_int_string, serialize};
+    use serde_json::{Value, json};
+
+    #[test]
+    fn recorded_integer_output_is_bounded_without_changing_other_scalar_branches() {
+        for http in [false, true] {
+            for (raw, expected) in [
+                ("0", 0),
+                ("+1", 1),
+                ("-1", -1),
+                ("  12\t", 12),
+                ("2147483647", i32::MAX),
+                ("-2147483648", i32::MIN),
+                ("1_000", 1000),
+                ("١٢٣", 123),
+                ("00000000000000000000000000000000000000000001", 1),
+            ] {
+                assert_eq!(serialize("Int", json!(raw), http), Ok(json!(expected)));
+            }
+            for raw in ["2147483648", "-2147483649", "9".repeat(100).as_str()] {
+                assert!(
+                    serialize("Int", json!(raw), http)
+                        .unwrap_err()
+                        .starts_with("Int cannot represent non 32-bit signed integer value: ")
+                );
+            }
+            for value in [json!(true), json!(false), json!(1), json!(1.0)] {
+                assert!(serialize("Int", value, http).is_ok());
+            }
+            for value in [Value::Null, json!(1.5), json!([]), json!({})] {
+                assert!(
+                    serialize("Int", value, http)
+                        .unwrap_err()
+                        .starts_with("Int cannot represent non-integer value: ")
+                );
+            }
+            assert_eq!(serialize("JSON", json!("١٢٣"), http), Ok(json!("١٢٣")));
+            assert_eq!(
+                serialize("BigInt", json!("1_000"), http),
+                Ok(json!("1_000"))
+            );
+            assert_eq!(
+                serialize("String", json!("1_000"), http),
+                Ok(json!("1_000"))
+            );
+            assert!(serialize("Float", json!("1_000"), http).is_err());
+        }
+        assert_eq!(recorded_int_string(&"0".repeat(4300)), Some(0));
+        assert_eq!(recorded_int_string(&"0".repeat(4301)), None);
+        assert_eq!(recorded_int_string(&format!("{}x", "9".repeat(4300))), None);
+        assert_eq!(recorded_int_string(&format!("{}_", "9".repeat(4300))), None);
+    }
 }

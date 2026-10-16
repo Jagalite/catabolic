@@ -232,7 +232,7 @@ fn cancellation_with_merged_and_introspection_inputs_keeps_owner_reusable() {
 }
 
 #[test]
-fn shared_query_sort_null_changes_without_relaxing_other_input_types() {
+fn shared_query_sort_diagnostics_match_frozen_historical_witnesses() {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("sort.db");
     migration::initialize(&path).unwrap();
@@ -243,26 +243,23 @@ fn shared_query_sort_null_changes_without_relaxing_other_input_types() {
     ))
     .unwrap();
     for case in fixture["cases"].as_array().unwrap() {
-        let result = query.execute("items", &case["args"]);
+        let result = query.execute_detailed("items", &case["args"]);
         if let Some(data) = case["expected"].get("data") {
             assert_eq!(result.unwrap(), *data);
         } else {
-            let sort = case["args"].get("sort");
-            let prior_non_text = sort.is_some_and(|sort| !sort.is_string() && !sort.is_null());
-            let expected = if prior_non_text {
-                "sort must be text"
-            } else {
-                case["expected"]["error"].as_str().unwrap()
-            };
+            let error = result.unwrap_err();
             assert_eq!(
-                result.unwrap_err().to_string(),
-                expected,
+                error.to_string(),
+                case["expected"]["error"],
                 "{}",
                 case["args"]
             );
-            if prior_non_text {
-                assert_ne!(case["expected"]["error"], expected);
-            }
+            assert_eq!(
+                error.class().as_str(),
+                case["expected"]["type"],
+                "{}",
+                case["args"]
+            );
         }
     }
 }
@@ -317,7 +314,7 @@ fn collection_limits_and_mid_completion_cancellation_keep_owner() {
 }
 
 #[test]
-fn arbitrary_recorded_scalar_outputs_remain_explicit_differences() {
+fn arbitrary_recorded_scalar_outputs_match_retained_reference() {
     let (_root, path) = fixture();
     let cases: Value = serde_json::from_str(include_str!(
         "../../../tests/parity/graphql-runtime-scalar-remaining.json"
@@ -339,8 +336,8 @@ fn arbitrary_recorded_scalar_outputs_remain_explicit_differences() {
             5000,
         )
         .unwrap();
-        assert_eq!(result, case["native"]["stdout"]["data"]);
-        assert_ne!(result, case["reference"]["stdout"]["data"]);
+        assert_eq!(result, case["reference"]["stdout"]["data"]);
+        assert_ne!(case["native"], case["reference"]);
         assert_ne!(case["baseline"], case["reference"]);
     }
 }

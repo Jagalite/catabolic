@@ -211,7 +211,7 @@ pub fn execute(args: &Value) -> Result<Value> {
                 // Cycle results already have a frozen object-order registry
                 // entry. Prefix this command's progress field locally instead
                 // of adding a heuristic that could reorder unrelated data.
-                let body = super::super::presentation::json_text(&report, None, true, 0);
+                let body = super::super::presentation::scan_watch_cycle_text(&report);
                 super::super::transport::write(
                     "stderr",
                     &format!(

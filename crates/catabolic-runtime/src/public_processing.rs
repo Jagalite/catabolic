@@ -272,7 +272,29 @@ struct Pending {
     started_at: String,
     physical: String,
     buckets: Vec<String>,
-    thread: Option<JoinHandle<()>>,
+    thread: Option<JoinHandle<Result<WorkerOutcome>>>,
+    cleanup: Option<crate::execution_cleanup::CompletedBuiltin>,
+    capacity_reserved: bool,
+}
+impl Pending {
+    fn join(&mut self) -> Result<Option<Value>> {
+        let Some(thread) = self.thread.take() else {
+            return Ok(None);
+        };
+        let WorkerOutcome { value, cleanup } = thread
+            .join()
+            .map_err(|_| Error("processing worker panicked".into()))??;
+        self.cleanup = cleanup;
+        Ok(Some(value))
+    }
+    fn release_capacity(&mut self, buckets: &mut BTreeMap<String, usize>) {
+        if self.capacity_reserved {
+            for bucket in &self.buckets {
+                *buckets.get_mut(bucket).expect("owned capacity bucket") -= 1;
+            }
+            self.capacity_reserved = false;
+        }
+    }
 }
 struct Pool {
     cancel: Arc<AtomicBool>,
@@ -282,9 +304,9 @@ impl Pool {
     fn stop_and_join(&mut self) {
         self.cancel.store(true, Ordering::Relaxed);
         for task in self.pending.values_mut() {
-            if let Some(thread) = task.thread.take() {
-                let _ = thread.join();
-            }
+            // Preserve evidence returned by the exact joined worker even if
+            // cancellation discarded its channel notification or publication.
+            let _ = task.join();
         }
     }
 }
@@ -388,10 +410,57 @@ fn queued_candidates(
     }
 }
 
+#[cfg(test)]
+type TestProcessor = dyn Fn(&Value, &AtomicBool) -> Value + Send + Sync;
+enum Processor {
+    Native,
+    #[cfg(test)]
+    CancelBuiltin,
+    #[cfg(test)]
+    PanicBuiltin,
+    #[cfg(test)]
+    SpawnFailure,
+    #[cfg(test)]
+    Injected(Arc<TestProcessor>),
+}
+impl Processor {
+    fn process(&self, job: &Value, cancel: &AtomicBool) -> Value {
+        match self {
+            Self::Native => media::process(job, cancel),
+            #[cfg(test)]
+            Self::CancelBuiltin | Self::PanicBuiltin | Self::SpawnFailure => {
+                media::process(job, cancel)
+            }
+            #[cfg(test)]
+            Self::Injected(processor) => processor(job, cancel),
+        }
+    }
+    fn cleanup(
+        &self,
+        store: &Store,
+        claim: &storage::Claim,
+        job: &Value,
+    ) -> Result<Option<crate::execution_cleanup::OwnedBuiltin>> {
+        match self {
+            Self::Native => crate::execution_cleanup::OwnedBuiltin::capture(store, claim, job),
+            #[cfg(test)]
+            Self::CancelBuiltin | Self::PanicBuiltin | Self::SpawnFailure => {
+                crate::execution_cleanup::OwnedBuiltin::capture(store, claim, job)
+            }
+            #[cfg(test)]
+            Self::Injected(_) => Ok(None),
+        }
+    }
+}
+struct WorkerOutcome {
+    value: Value,
+    cleanup: Option<crate::execution_cleanup::CompletedBuiltin>,
+}
 fn run(store: &mut Store, profile: &str, args: &Value, cancel: Arc<AtomicBool>) -> Result<Value> {
-    run_with_processor(store, profile, args, cancel, media::process)
+    run_owned_processor(store, profile, args, cancel, Processor::Native)
 }
 
+#[cfg(test)]
 fn run_with_processor<F>(
     store: &mut Store,
     profile: &str,
@@ -402,6 +471,21 @@ fn run_with_processor<F>(
 where
     F: Fn(&Value, &AtomicBool) -> Value + Send + Sync + 'static,
 {
+    run_owned_processor(
+        store,
+        profile,
+        args,
+        cancel,
+        Processor::Injected(Arc::new(processor)),
+    )
+}
+fn run_owned_processor(
+    store: &mut Store,
+    profile: &str,
+    args: &Value,
+    cancel: Arc<AtomicBool>,
+    processor: Processor,
+) -> Result<Value> {
     let processor = Arc::new(processor);
     let job_ids = ids(args, "job_ids")?;
     let retries = integer(
@@ -481,7 +565,7 @@ where
         ""
     };
     let scope_json = job_ids.as_ref().map(|v| catabolic_core::encode(&json!(v)));
-    let (send, receive) = mpsc::channel::<(String, Result<Value>)>();
+    let (send, receive) = mpsc::channel::<String>();
     let mut pool = Pool {
         cancel: Arc::clone(&cancel),
         pending: BTreeMap::new(),
@@ -522,6 +606,7 @@ where
                         let started_at = catabolic_store::mutation::timestamp()?;
                         let physical = physical_key(&job);
                         let claim = storage::start(store, profile, &id, media::now())?;
+                        let cleanup = processor.cleanup(store, &claim, &job)?;
                         let cached = cache
                             .iter()
                             .find(|(key, _)| key == &physical)
@@ -542,29 +627,85 @@ where
                                 physical,
                                 buckets: device.clone(),
                                 thread: None,
+                                cleanup: None,
+                                capacity_reserved: false,
                             },
                         );
-                        let thread = std::thread::Builder::new()
-                            .name("catabolic-processing".into())
-                            .spawn(move || {
-                                let outcome =
-                                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                                        crate::process::with_cancellation(
-                                            Arc::clone(&worker_cancel),
-                                            || {
-                                                cached.unwrap_or_else(|| {
-                                                    processor(&job, &worker_cancel)
-                                                })
-                                            },
-                                        )
-                                    }))
-                                    .map_err(|_| Error("processing worker panicked".into()));
-                                let _ = sender.send((worker_id, outcome));
-                            })?;
+                        // Builder::spawn consumes its closure on failure. Keep
+                        // the unstarted plan in an exclusive slot so that only
+                        // a definite no-thread result can recover its ownership.
+                        let cleanup = Arc::new(std::sync::Mutex::new(cleanup));
+                        let worker_cleanup = Arc::clone(&cleanup);
+                        #[cfg(test)]
+                        let spawn_failure = matches!(processor.as_ref(), Processor::SpawnFailure);
+                        let work = move || {
+                            let cleanup = worker_cleanup.lock().expect("owned cleanup plan").take();
+                            let outcome =
+                                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                    crate::process::with_cancellation(
+                                        Arc::clone(&worker_cancel),
+                                        || {
+                                            if let Some(owned) = cleanup {
+                                                #[cfg(test)]
+                                                match processor.as_ref() {
+                                                    Processor::CancelBuiltin => {
+                                                        worker_cancel.store(true, Ordering::Relaxed)
+                                                    }
+                                                    Processor::PanicBuiltin => panic!(
+                                                        "injected builtin panic before completion"
+                                                    ),
+                                                    _ => {}
+                                                }
+                                                let (value, completed) =
+                                                    owned.execute(&job, &worker_cancel, cached);
+                                                WorkerOutcome {
+                                                    value,
+                                                    cleanup: Some(completed),
+                                                }
+                                            } else {
+                                                WorkerOutcome {
+                                                    value: cached.unwrap_or_else(|| {
+                                                        processor.process(&job, &worker_cancel)
+                                                    }),
+                                                    cleanup: None,
+                                                }
+                                            }
+                                        },
+                                    )
+                                }))
+                                .map_err(|_| Error("processing worker panicked".into()));
+                            // The JoinHandle owns the outcome and cleanup
+                            // proof. The channel is only a wake-up signal.
+                            let _ = sender.send(worker_id);
+                            outcome
+                        };
+                        let builder =
+                            std::thread::Builder::new().name("catabolic-processing".into());
+                        #[cfg(test)]
+                        let spawned = if spawn_failure {
+                            drop(work);
+                            Err(std::io::Error::other("injected worker spawn failure"))
+                        } else {
+                            builder.spawn(work)
+                        };
+                        #[cfg(not(test))]
+                        let spawned = builder.spawn(work);
+                        let thread = match spawned {
+                            Ok(thread) => thread,
+                            Err(error) => {
+                                if let Ok(mut plan) = cleanup.lock() {
+                                    pool.pending.get_mut(&id).unwrap().cleanup = plan.take().map(
+                                        crate::execution_cleanup::OwnedBuiltin::without_worker,
+                                    );
+                                }
+                                return Err(error.into());
+                            }
+                        };
                         pool.pending.get_mut(&id).unwrap().thread = Some(thread);
                         for bucket in device {
                             *buckets.entry(bucket.clone()).or_default() += 1;
                         }
+                        pool.pending.get_mut(&id).unwrap().capacity_reserved = true;
                         submitted += 1;
                         available -= 1;
                         if available == 0 || submitted == limit {
@@ -591,17 +732,14 @@ where
                 })?;
             cancelled(&cancel)?;
             renew_pending(store, &pool, &mut last_heartbeat)?;
-            if let Some((id, result)) = completed {
+            if let Some(id) = completed {
                 let task = pool
                     .pending
                     .get_mut(&id)
                     .ok_or_else(|| Error("unknown processing worker".into()))?;
-                if let Some(thread) = task.thread.take() {
-                    thread
-                        .join()
-                        .map_err(|_| Error("processing worker panicked".into()))?;
-                }
-                let result = result?;
+                let result = task
+                    .join()?
+                    .ok_or_else(|| Error("processing worker already joined".into()))?;
                 let state = storage::complete(
                     store,
                     profile,
@@ -618,11 +756,12 @@ where
                         cache.pop_front();
                     }
                 }
-                for bucket in &task.buckets {
-                    *buckets.get_mut(bucket).unwrap() -= 1;
-                }
+                task.release_capacity(&mut buckets);
                 *counts.entry(state).or_default() += 1;
-                pool.pending.remove(&id);
+                let mut task = pool.pending.remove(&id).unwrap();
+                if let Some(cleanup) = task.cleanup.take() {
+                    cleanup.release_capacity().seal(store)?;
+                }
             }
         }
         let mut params = vec![profile.to_owned().into()];
@@ -643,12 +782,21 @@ where
             Ok(())
         });
         pool.stop_and_join();
-        if store.owns_writer_lock() {
-            for task in pool.pending.values() {
-                let _ = storage::release(store, &task.claim);
+        // Only joined builtin workers carry a proof. Drop each Pending and
+        // return its exact buckets before sealing; lost joins and external
+        // operations remain unproven regardless of their database state.
+        for (_, mut task) in std::mem::take(&mut pool.pending) {
+            task.release_capacity(&mut buckets);
+            if store.owns_writer_lock() {
+                if let Some(cleanup) = task.cleanup.take() {
+                    // A failed seal stays fail-closed in the durable admission
+                    // guard. Preserve the original operation/cancellation error.
+                    let _ = cleanup.release_capacity().seal(store);
+                } else {
+                    let _ = storage::release(store, &task.claim);
+                }
             }
         }
-        pool.pending.clear();
     }
     let report = result?;
     if args.get("_refresh").is_none_or(truthy) {
@@ -691,11 +839,18 @@ mod tests {
     }
     impl Fixture {
         fn new() -> Self {
+            Self::with_schema(32)
+        }
+        fn with_schema(schema: u32) -> Self {
             let dir = tempfile::tempdir().unwrap();
             let path = dir.path().join("catalog.db");
             let root = dir.path().join("source");
             fs::create_dir(&root).unwrap();
-            migration::initialize(&path).unwrap();
+            if schema == 32 {
+                migration::initialize(&path).unwrap();
+            } else {
+                migration::initialize_native_at(&path, schema).unwrap();
+            }
             let store = Store::open(&path, true, false).unwrap();
             let r = root.metadata().unwrap();
             store.transaction(|db| {
@@ -756,6 +911,118 @@ mod tests {
                 .map(|v| v.as_str().unwrap().into())
                 .collect()
         }
+    }
+
+    #[test]
+    fn native_cancel_drain_preserves_exact_joined_builtin_cleanup() {
+        let mut f = Fixture::with_schema(36);
+        f.file("a", None);
+        let jobs = f.enqueue();
+        let error = run_owned_processor(
+            &mut f.store,
+            "default",
+            &json!({"_refresh":false,"workers":1,"per_device":1}),
+            Arc::new(AtomicBool::new(false)),
+            Processor::CancelBuiltin,
+        )
+        .unwrap_err();
+        assert!(error.0.contains("processing cancelled"));
+        assert_eq!(f.store.db.query_row("SELECT count(*) FROM native_execution_lifetimes WHERE state='quiescent' AND capacity_released=1", [], |r|r.get::<_,i64>(0)).unwrap(), 1);
+        assert_eq!(
+            f.store
+                .db
+                .query_row(
+                    "SELECT lease_until FROM execution_claims WHERE job_id=?",
+                    [&jobs[0]],
+                    |r| r.get::<_, f64>(0)
+                )
+                .unwrap(),
+            0.0
+        );
+        // The abandoned running row can be recovered only because its exact
+        // owned worker joined and sealed, even though this host PID is live.
+        let result = f.call("run", json!({"_refresh":false,"workers":1,"per_device":1}));
+        assert_eq!(result["processed"], 1);
+        assert_eq!(
+            f.store
+                .db
+                .query_row(
+                    "SELECT generation FROM execution_claims WHERE job_id=?",
+                    [&jobs[0]],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            2
+        );
+    }
+
+    #[test]
+    fn native_spawn_failure_seals_only_the_exact_never_started_builtin() {
+        let mut f = Fixture::with_schema(36);
+        f.file("a", None);
+        let jobs = f.enqueue();
+        assert!(
+            run_owned_processor(
+                &mut f.store,
+                "default",
+                &json!({"_refresh":false}),
+                Arc::new(AtomicBool::new(false)),
+                Processor::SpawnFailure
+            )
+            .unwrap_err()
+            .0
+            .contains("spawn failure")
+        );
+        assert_eq!(f.store.db.query_row("SELECT count(*) FROM native_execution_lifetimes WHERE state='quiescent' AND capacity_released=1", [], |r|r.get::<_,i64>(0)).unwrap(), 1);
+        let result = f.call("run", json!({"_refresh":false}));
+        assert_eq!(result["processed"], 1);
+        assert_eq!(
+            f.store
+                .db
+                .query_row(
+                    "SELECT generation FROM execution_claims WHERE job_id=?",
+                    [&jobs[0]],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            2
+        );
+    }
+
+    #[test]
+    fn native_panic_drain_never_mints_cleanup_from_a_joined_thread_alone() {
+        let mut f = Fixture::with_schema(36);
+        f.file("a", None);
+        f.enqueue();
+        assert!(
+            run_owned_processor(
+                &mut f.store,
+                "default",
+                &json!({"_refresh":false}),
+                Arc::new(AtomicBool::new(false)),
+                Processor::PanicBuiltin
+            )
+            .unwrap_err()
+            .0
+            .contains("panicked")
+        );
+        assert_eq!(
+            f.store
+                .db
+                .query_row(
+                    "SELECT count(*) FROM native_execution_lifetimes WHERE state='quiescent'",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            storage::prepare_run_admitted(&f.store, "default", None, media::now(), 0, 1)
+                .unwrap_err()
+                .code,
+            storage::AdmissionErrorCode::BusyWorker
+        );
     }
 
     #[test]

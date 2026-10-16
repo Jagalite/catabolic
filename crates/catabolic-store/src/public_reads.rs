@@ -329,7 +329,12 @@ pub fn processing(store: &Store, profile: &str, operation: &str, args: &Value) -
         _ => Err(Error("unknown processing read operation".into())),
     }
 }
-fn fact(store: &Store, profile: &str, file: &str, operation: &str) -> Result<Option<Value>> {
+pub(crate) fn fact(
+    store: &Store,
+    profile: &str,
+    file: &str,
+    operation: &str,
+) -> Result<Option<Value>> {
     let mut rows = bounded_rows(
         store,
         "SELECT * FROM file_facts WHERE profile=? AND file_id=? AND operation=?",

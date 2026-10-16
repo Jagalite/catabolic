@@ -3,7 +3,7 @@
 //! Isolated native source probes. An unreaped helper retains its durable slot,
 //! even after timeout; source reads never run in the caller's SQLite session.
 use catabolic_store::{
-    Error, Result,
+    Error, Result, Store,
     fallback_resolution::{self, ProbeSlot},
 };
 use serde_json::{Value, json};
@@ -79,8 +79,22 @@ fn retire(mut child: Child, path: &Path, database_id: &str, slot: ProbeSlot) -> 
         std::thread::sleep(Duration::from_millis(2));
     }
 }
+pub const NATIVE_PROBE_COMMAND: &str = "native-fallback-probe-v1";
+pub fn probe_check_v1(request: &Value) -> Result<Value> {
+    crate::helper_fence::require(request)?;
+    probe_check(request)
+}
 pub fn probe_check(request: &Value) -> Result<Value> {
-    fallback_resolution::probe_check(request)
+    request["snapshots"]
+        .as_array()
+        .filter(|v| (1..=65).contains(&v.len()))
+        .ok_or_else(|| Error("probe_snapshot_limit".into()))?;
+    let path = request["database"]
+        .as_str()
+        .ok_or_else(|| Error("invalid fallback probe request".into()))?;
+    let store = Store::open(Path::new(path), false, false)?;
+    crate::helper_fence::check(&store, request)?;
+    fallback_resolution::probe_check_with_store(&store, request)
 }
 pub fn probe(
     path: &Path,
@@ -96,10 +110,15 @@ pub fn probe(
     {
         return Err(Error("invalid fallback probe bounds".into()));
     }
-    let input = catabolic_core::encode(
-        &json!({"database":path,"database_id":database_id,"profile":profile,"snapshots":snapshots}),
-    )
-    .into_bytes();
+    let mut request =
+        json!({"database":path,"database_id":database_id,"profile":profile,"snapshots":snapshots});
+    let store = Store::open(path, false, false)?;
+    if store.database_id != database_id {
+        return Err(Error("catalog replaced during fallback probe".into()));
+    }
+    let native = crate::helper_fence::write(&store, &mut request)?.is_some();
+    drop(store);
+    let input = catabolic_core::encode(&request).into_bytes();
     if input.len() > 1024 * 1024 {
         return Err(Error("fallback probe input exceeds 1 MiB".into()));
     }
@@ -110,7 +129,14 @@ pub fn probe(
     };
     let mut command = Command::new(executable);
     command
-        .args(["fallback-probe", "check"])
+        .args([
+            if native {
+                NATIVE_PROBE_COMMAND
+            } else {
+                "fallback-probe"
+            },
+            "check",
+        ])
         .env_clear()
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

@@ -1,0 +1,104 @@
+{
+  "contract": "native-graphql-source-location-syntax-controls-v1",
+  "provenance": {
+    "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "python": "3.14.6",
+    "graphql_core": "3.2.12",
+    "historical_source_location_fixture_sha256": "5c44c955ec98a7434f0303a1cfd88f3f4adcfd47cafc878ab43fa037907bf30b",
+    "missing_argument_fixture_sha256": "a2b17e3a34c68cc8391a1552012fee1bd3776bf85948d393f2623eb20ddcbfd9",
+    "existing_correction_commit": "e3d24354ca8915db13dc3f2b9925fe67dc9ca093"
+  },
+  "scope": "Versioned current assertions for the three existing LF/CR/CRLF missing-argument syntax controls, already corrected by native-graphql-missing-argument-value-v1. The original fixture and all six historical responses remain unchanged; the three token-budget differences remain explicit non-parity controls. No production parser change.",
+  "cases": [
+    {
+      "historical_control": "lf-syntax-admission-unchanged",
+      "document": "{items(first:\n){nodes{id}}}",
+      "expected": {
+        "code": 2,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "error",
+          "exit_code": 2,
+          "data": {
+            "data": null,
+            "errors": [
+              {
+                "message": "Syntax Error: Unexpected ')'.",
+                "locations": [
+                  {
+                    "line": 1,
+                    "column": 14
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "historical_control": "cr-syntax-admission-unchanged",
+      "document": "{items(first:\r){nodes{id}}}",
+      "expected": {
+        "code": 2,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "error",
+          "exit_code": 2,
+          "data": {
+            "data": null,
+            "errors": [
+              {
+                "message": "Syntax Error: Unexpected ')'.",
+                "locations": [
+                  {
+                    "line": 1,
+                    "column": 14
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "historical_control": "crlf-syntax-admission-unchanged",
+      "document": "{items(first:\r\n){nodes{id}}}",
+      "expected": {
+        "code": 2,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "error",
+          "exit_code": 2,
+          "data": {
+            "data": null,
+            "errors": [
+              {
+                "message": "Syntax Error: Unexpected ')'.",
+                "locations": [
+                  {
+                    "line": 1,
+                    "column": 14
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

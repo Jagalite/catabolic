@@ -1,0 +1,30 @@
+{
+  "files": [
+    {
+      "bytes": 613,
+      "path": "Cargo.toml.in",
+      "sha256": "56435fd373ee563b6dc6f9c2f88ce0fe75324a04d6ba7f6fff0c3ca041b2c875"
+    },
+    {
+      "bytes": 138444,
+      "path": "Cargo.lock",
+      "sha256": "6ffde651c7ce0a0d927896ba62700d9c9422a065f2469a781cc01e9e1ce2973d"
+    },
+    {
+      "bytes": 4846,
+      "path": "prepare.py",
+      "sha256": "fcb06bd58c8f3fc60ed4aa4ba92307db255ef3e279ddc01fd7dcd3df3b70f0de"
+    },
+    {
+      "bytes": 9611,
+      "path": "src/main.rs",
+      "sha256": "684c89b9749b73cb5a35347ed4503a784fa7085386549b5bf63e4c26eaf20739"
+    },
+    {
+      "bytes": 174,
+      "path": "sqlx-sqlite-libsqlite3-sys.patch",
+      "sha256": "16d5d508309df6bb30b4a603bd7a1045fe6f3702528d269b076a251f2a99b7a8"
+    }
+  ],
+  "fixture_asset_manifest_sha256": "fc595f2879fffce95564287044f952918d2be7eee7ebb53882f5c3b94cd283c0"
+}

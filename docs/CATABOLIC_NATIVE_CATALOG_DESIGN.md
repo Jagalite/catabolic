@@ -91,8 +91,9 @@ The unchanged dependency graphs cannot link together: Catabolic pins
 `rusqlite 0.40.2` / `libsqlite3-sys 0.38.2`, whereas the reviewed Motion graph uses
 `sqlx 0.8.6` / `libsqlite3-sys 0.30.1`. Both SQLite sys crates declare `links=sqlite3`.
 Motion owns alignment of its dependencies and its toolchain minimum with
-Catabolic's Rust 1.99 requirement. The first executable gate proves one combined
-graph. Catabolic is not downgraded by assumption. A process transport is a
+Catabolic's Rust 1.99 requirement. External integration must eventually prove one
+combined graph; the sequencing amendment below defers that proof while Catabolic
+implementation proceeds. Catabolic is not downgraded by assumption. A process transport is a
 contingency requiring an explicit design amendment if native alignment fails.
 Native helper executables remain allowed, with explicit path/digest registration;
 embedding does not promise every effect occurs in the host process.
@@ -402,6 +403,11 @@ Extend the existing compatibility ledger with `preserve`, `adapt`,
 and evidence revision. Do not mark an intentional change as differential parity
 or remove a release requirement by relabeling it deferred.
 
+The additive [catalog contract ledger](../tests/parity/native-catalog-contract-ledger.json)
+maps these dispositions to the frozen ledger without rewriting historical
+qualification. `python3 scripts/catalog_contract_audit.py` checks references and
+planning status; a successful audit is not behavioral or release qualification.
+
 ## Motion import and cutover
 
 This is separate from upgrading an existing Catabolic database. Motion exports a
@@ -435,14 +441,27 @@ is not a lossless rollback.
 
 ## Implementation sequence and acceptance gates
 
+**Sequencing amendment, 2026-10-14:** the user explicitly directed “no motion
+changes, and no need to test with motion now. All changes to catabloic comes
+first.” Continue Catabolic R0–R7 implementation and local qualification without
+waiting for Motion dependency adoption or combined-host testing. Do not edit or
+test Motion in this phase. R1 depends on the locally qualified Catabolic host
+contract, not the deferred external composition gate. Its real-owner identity
+fixture still precedes R2 schema implementation. R6 may implement and qualify
+Catabolic import and handoff contracts using bounded fixtures, but actual Motion
+reference migration, two-owner activation and external integration acceptance
+remain unqualified. Record these as deferred evidence, never passing gates.
+This changes sequencing only: retain external integration obligations and every
+applicable M0–M11 safety, compatibility, recovery and release requirement.
+
 Work stays on `codex/rust-migration-m4-plus`. Each package lands as a reviewable
 slice with exact source/artifact evidence. Package labels below are new work
 tracking, not replacements for the existing M0–M11 release gates.
 
 | Package | Dependencies and owner | Deliverable and exit evidence |
 | --- | --- | --- |
-| R0 Native host proof | First; Catabolic facade, Motion dependency owner | Minimal supported features and lifecycle/error example; Kyoto-built combined host opens, reads, mutates, scans, cancels, drains and reopens without Python/HTTP; helper identity recorded |
-| R1 Identity contract fixture | R0; core/store/components/fallback | Two cuts; equivalent and unknown encodes; two alternative two-part versions without mixed selection; one revision/two episode intervals; rejected overlap; exact-revision components and partial-coverage refusal. Prove version-item composition and legacy mapping before DDL |
+| R0 Native host proof | First; Catabolic facade; external composition deferred | Minimal supported features and lifecycle/error example; supported Rust host opens, reads, mutates, scans, cancels, drains and reopens without Python/HTTP; helper identity recorded; combined Motion graph remains deferred |
+| R1 Identity contract fixture | Local R0 host contract; core/store/components/fallback | Two cuts; equivalent and unknown encodes; two alternative two-part versions without mixed selection; one revision/two episode intervals; rejected overlap; exact-revision components and partial-coverage refusal. Prove version-item composition and legacy mapping before DDL |
 | R2 Schema and command foundation | R1; store/migration/core | New migrations, entity revisions, generation/incarnation, receipt transaction and expiry tombstones. Clone upgrade and interruption tests preserve IDs/history; stale/duplicate/conflicting commands cannot partially apply |
 | R3 Contributions and curation | R2; core/store | Resolver, tag suppression, pins, merge/split previews and mappings; stale refresh rejection, local override removal, aliases, phantom affected-set changes and lost-reply recovery |
 | R4 Scoped reads and search | R2; access/query/search, Motion authorization adapter | Host lease/admission, scoped detail/counts/facets/search/cursors; revocation and hidden-item isolation, external edits, restore/reopen, deterministic relevance and explicit timeout/budget outcomes |
@@ -468,11 +487,16 @@ platform subset, with all safety gates relevant to that subset satisfied.
 | 6 Import/cutover | R6 | Stable identities, every application reference, resume/repeat and single-owner recovery |
 | 7 Background work | R5 | Actual worker lifetime, shared cancellation, resource recovery and stale output refusal |
 
-All Rust build, check, formatting and test work must run through
-`/Volumes/seed1/Projects/kyoto/kyoto.py`, using its current supported invocation.
-Freeze source/input manifests before a run and retain toolchain, platform, helper
-and artifact identities with results. Do not invent new Kyoto commands in advance
-of checking that interface. This documentation change itself needs no Rust build.
+The original qualification route uses `/Volumes/seed1/Projects/kyoto/kyoto.py`
+with its current supported invocation. **Runner amendment, 2026-10-14:** the user
+explicitly authorized continuing with standard Rust in the current cloud workspace,
+without Kyoto or a Codex task thread. Rust 1.99.0 remains the required toolchain;
+this changes the execution route, not the acceptance obligations or platform scope.
+Record each run's actual runner, freeze source/input manifests, and retain toolchain,
+platform, helper and artifact identities with results. Do not label standard Cargo
+runs as Kyoto evidence. Kyoto remains an available route where explicitly selected;
+inspect its current interface before using it.
+
 
 Pure decision fixtures and bounded models exercise the production functions.
 Report explored states/transitions and bounds; separately exercise real SQLite
@@ -481,6 +505,60 @@ For each package record contract case, test entrypoint, source/artifact identity
 platform, outcome and remaining limitation. Focused tests qualify their case, not
 the full workspace or another platform. Run the required full aggregate at the
 integrated release checkpoint and retain all failed runs as evidence.
+
+## Implementation evidence and current limits
+
+The R0 host boundary and R1 whole-version composition have separate frozen
+receipts in `tests/parity/native-catalog-r0-checkpoint.json` and
+`tests/parity/native-catalog-r1-checkpoint.json`. Those receipts remain tied to
+that source, not to subsequent schema changes.
+
+R2 local foundation evidence is recorded in
+`tests/parity/native-catalog-r2-checkpoint.json`; independent schema review remains
+incomplete. The implementation extends the existing migration, Store, Session, curation,
+component and fallback owners. See
+[`CATABOLIC_NATIVE_FOUNDATION_V1.md`](CATABOLIC_NATIVE_FOUNDATION_V1.md) for opt-in
+schema admission and durable command boundaries, and
+[`CATABOLIC_NATIVE_SCHEMA_V1.md`](CATABOLIC_NATIVE_SCHEMA_V1.md) for reproducible
+additive SQL and preservation tests. Legacy defaults remain schema 32; native
+schemas33–36 remain explicitly supported versions. Schema37 is the current
+opt-in integration target for exact closed-companion cleanup, extending the
+separately preserved schema36 builtin cleanup and schema35 search storage. Receipt retention and storage limits are explicit host
+policy, without silent key eviction or an implicit duration.
+
+R3 integration is described in
+[`CATABOLIC_NATIVE_CURATION_V1.md`](CATABOLIC_NATIVE_CURATION_V1.md). Additive
+migration 034, contribution resolution, tag suppression/merge, accepted identity
+pins and reviewed logical replacement extend these owners. Schema33 stays frozen;
+its pinned admission regressions remain. Latest-target migration/crash fixtures
+now explicitly target schema34; this is a versioned target replacement, not a
+claim that the R2 source receipt qualifies newer code. The schema34 preservation
+exception only appends exact revision-1 legacy-identity evidence baselines to the
+invalidation index while preserving every prior row and catalog generation.
+The final frozen R3 aggregate passed 871 tests with zero failures and nine opt-in
+entries across 64 harnesses. All seven applicable opt-in cases passed separately;
+two fork helpers ran through their passing wrappers. Exact source, toolchain,
+initial failures and limitations are recorded in
+`tests/parity/native-catalog-r3-checkpoint.json`. This qualifies the bounded
+curation slice, not every populated relocation contract or a milestone closure.
+
+R4 derived search storage is recorded separately in
+`tests/parity/native-catalog-r4-search-checkpoint.json`. The frozen schema35 Store
+suite passed604 test executions with zero failures across40 harness summaries;
+five ignored entries remain separate obligations. Schema reproduction/audit51
+Python tests, formatting, Ruff and strict core/store/runtime all-target Clippy
+passed. The preceding full core/store/runtime attempt failed three obsolete
+latest-target fixture assertions; those assertions and their per-migration crash
+boundaries were versioned and the complete Store suite reran. That is not a new
+full-workspace pass. Scoped FTS/cursor/private-writer integration and all release
+gates remain outstanding for this storage checkpoint.
+
+The independent staged schema review remains incomplete after its recorded
+platform error. It has not been retried or reassigned, and implementation tests
+do not clear it. Native WAL cutover and controlled restore publication remain
+unavailable in this slice. Focused development results do not close R2, R7 or any
+M0–M11 gate. External Motion composition and application cutover remain deferred
+under the Catabolic-first amendment above.
 
 ## Remaining decisions and deferred work
 
@@ -504,6 +582,109 @@ publication/recovery safety, production HTTP protection and platform qualificati
 from the native migration remain separate outstanding work. Previously blocked
 review lanes remain blocked; this plan does not bypass them or enable their paths.
 
-The next implementation action is **R0**: land the narrow supported host contract
-and fixture, then prove Motion's combined dependency graph through Kyoto before
-expanding the schema.
+The current implementation continues **R4–R7** from the source-bound checkpoints
+above. The R4 search-storage increment adds schema35; scoped matching/cursor and
+private-writer integration follow before R4 can be qualified as a whole. External
+Motion work remains deferred under the Catabolic-first amendment.
+
+
+R4 private scoped search/cursor and writer evidence is recorded in
+`tests/parity/native-catalog-r4-boundary-checkpoint.json`:114 focused Rust test
+executions and 51 Python schema/audit tests passed with unchanged enumerated source.
+Strict all-target Clippy and formatting passed. Schema34/35 private writer admits
+bounded COMMIT callbacks with durable-result semantics; it refuses newer schemas
+pending separate qualification and does not promise hard real-time filesystem I/O.
+Relationship adapters and the full integrated aggregate remain separate work.
+
+The next integrated relationship/worker slice is recorded in
+`tests/parity/native-catalog-r4-r5-checkpoint.json`. Its frozen source passed 174
+focused Rust test executions and 51 Python controls, including five separately
+executed real-helper cases. A broader search-index run then exposed a stale
+latest-target assertion expecting 35. The failure is retained; its versioned
+34-to-latest fixture preserves every existing preservation/generation/search
+assertion, and all 17 search-index tests passed on that separately frozen final
+fixture source. These are distinct source cohorts, not a full current-source
+aggregate. The native admission/closed builtin cleanup contract and exclusions
+are described in [`CATABOLIC_NATIVE_WORKER_ADMISSION_V1.md`](CATABOLIC_NATIVE_WORKER_ADMISSION_V1.md).
+Scoped relationship details/counts/facets/recursive paths are now bounded native
+surfaces; broad file/history/provenance adapters remain denied. Shared native host
+admission, complete companion cleanup/reopen recovery, schema36 private-writer
+expansion, import and final artifact/platform qualification remain separate work.
+
+The subsequent common-gate/import checkpoint is
+`tests/parity/native-catalog-r6-checkpoint.json`: 285 focused Rust executions and
+71 Python schema/tooling controls passed against 1,479 unchanged Git-visible input
+files. This includes eight explicitly executed current/archived helper cases,
+actual two-consumer cancellation, 24 populated schema36 private-writer upgrade
+cases, and bounded typed import activation/rollback/replay through existing owners.
+Native hosts now require their exact shared authorization gate. The private writer
+admits schemas34–36; schema37 remains refused pending separate qualification.
+Import V1/V2 adds no schema. Real scanned-source activation still refuses retained
+native34–36 observation pointers; positive companion cleanup, required remaining
+read adapters, public cross-owner composition and final artifacts remain separate
+work. This focused receipt is not a full workspace or release pass.
+
+## Current native37 integration checkpoint
+
+The schema37 worker/read/writer/import and scoped component slices are integrated
+in the primary checkout. Its exact frozen focused receipt is
+`tests/parity/native-catalog-native37-focused-checkpoint.json`: 311 Rust test
+executions, 100 Python schema/audit controls, 222 parser-envelope parity cases
+and four retained parser nonparity controls. Sixteen helper opt-ins executed
+individually. Strict all-target Clippy, formatting and every source/helper fence
+passed. The original orchestration command failed at a missing parser-helper
+environment variable; its failure is retained, followed by a separate corrected
+parser/lint/format tail on the same unchanged 1,517 inputs. This is focused
+evidence, not the required full aggregate. Schema37 adds exact closed-companion reservation
+and parent-sealed retained-child exit evidence, plus a schema-derived admission
+contract and explicit borrowed-owner shared join. It does not adopt old workers
+or infer cleanup from terminal state, PID absence or lease expiry. The private
+writer's actual36-to37 matrix is explicitly versioned; historical35-to36 evidence
+and fresh34/35/36 controls remain distinct.
+
+The already committed membership/current-provenance and whole-file fact receipts
+are `native-catalog-r4-details-checkpoint.json` and
+`native-catalog-r4-physical-checkpoint.json` under `tests/parity`. Current component
+reads add an explicit whole-occurrence purpose and require authority over all
+relevant lineage endpoints. File/component facts are recorded physical facts,
+not logical episode measurements, live availability, media access or effect
+authority. Search weights still require deferred pinned external relevance
+evidence. Controlled restore/incarnation publication and complete cross-process
+quiescence qualification remain unavailable.
+
+Scanned-source import can use only exact schema37 cleanup witnesses alongside
+the existing pending-work, complete inventory and per-job gates. The next integrated
+addendum adds mixed-owner crash fixtures and explicit persisted restart admission
+through `HostSession::open_after_import_cutover`; see
+[`CATABOLIC_NATIVE_IMPORT_RESTART_V1.md`](CATABOLIC_NATIVE_IMPORT_RESTART_V1.md).
+Its primary-checkout receipt is
+`tests/parity/native-catalog-native37-followups-checkpoint.json`: 203 Rust
+executions and two complete CLI matrix methods passed on 1,531 unchanged inputs.
+The matrices cover 250 parser envelopes and 242 variable-admission comparisons.
+Both actual persisted-restart helper cases ran explicitly. Strict Clippy, format,
+Python lint and all source/helper fences passed. Ordinary `open_authorized` does
+not automatically enforce an external cutover checkpoint.
+The optional read-only Python inspection/planning seam has separate historical
+installed-wheel cohorts and is not yet an adopted typed host binding.
+
+The clean schema36 seven-crate aggregate was interrupted during recovery after
+1083 completed passing executions and no reported failures; it has no terminal
+result and is not a passing aggregate. Its retained receipt is
+`tests/parity/native-catalog-native36-interrupted-checkpoint.json`. A subsequent
+source-fenced exact binary build succeeded but does not complete those tests.
+The final integrated source still requires a fresh complete aggregate, all
+applicable opt-ins, artifacts and supported installed/platform gates. No M0–M11
+obligation or blocked independent review is waived.
+
+
+The V2 import representation/contribution matrix is now integrated without new
+production or schema owners. Its exact primary receipt is
+`tests/parity/native-catalog-native37-final-controls-checkpoint.json`: 66 import
+methods, including ten new matrix methods across 88 disposable native34–37
+catalogs, and 17 Python integrity/audit controls passed on 1,541 unchanged inputs.
+The portable variable regression retains mandatory recorded historical outputs
+and live current-native/oracle calls; its full standard-entrypoint replay remains
+part of the next native/Python aggregate. See
+[`CATABOLIC_NATIVE_IMPORT_REPRESENTATIONS_V2.md`](CATABOLIC_NATIVE_IMPORT_REPRESENTATIONS_V2.md).
+Unrepresentable history remains unresolved/refused, and no external reference
+migration or release/default transition is implied.

@@ -162,6 +162,12 @@ pub fn command_output<S: AsRef<OsStr>>(
     argv: &[S],
     mut options: CommandOptions<'_>,
 ) -> Result<CommandOutput, CommandFailure> {
+    if crate::execution_cleanup::no_child_scope_active() {
+        return Err(CommandFailure::new(
+            "failed",
+            "native builtin execution cannot spawn tools",
+        ));
+    }
     if caller_cancelled()
         || options
             .cancel

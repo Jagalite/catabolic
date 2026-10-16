@@ -14,6 +14,149 @@ use serde_json::{Value, json};
 use std::fs::File;
 
 pub const LEASE_SECONDS: f64 = 60.0;
+pub const NATIVE_CLEANUP_SCHEMA_VERSION: u32 = 36;
+
+/// Native execution admission never treats an expired lease as worker exit.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AdmissionErrorCode {
+    BusyWorker,
+    ReconciliationRequired,
+    Internal,
+}
+#[derive(Debug)]
+pub struct AdmissionError {
+    pub code: AdmissionErrorCode,
+    pub job_id: Option<String>,
+    pub message: String,
+}
+impl std::fmt::Display for AdmissionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+impl std::error::Error for AdmissionError {}
+impl From<Error> for AdmissionError {
+    fn from(error: Error) -> Self {
+        Self {
+            code: AdmissionErrorCode::Internal,
+            job_id: None,
+            message: error.to_string(),
+        }
+    }
+}
+impl From<rusqlite::Error> for AdmissionError {
+    fn from(error: rusqlite::Error) -> Self {
+        Error::from(error).into()
+    }
+}
+impl From<AdmissionError> for Error {
+    fn from(error: AdmissionError) -> Self {
+        Error(error.to_string())
+    }
+}
+fn admission_error(id: &str, code: AdmissionErrorCode, message: &str) -> AdmissionError {
+    AdmissionError {
+        code,
+        job_id: Some(id.into()),
+        message: message.into(),
+    }
+}
+
+/// Existing records contain a PID but no process birth identity, retained Child
+/// handle, or descendant-exit proof. Signal zero is refusal evidence only. Even
+/// ESRCH cannot authorize restart recovery: the original owner's descendants may
+/// outlive it. A future explicit reconciliation owner must establish their exit.
+/// This guard performs no process adoption, signaling, or durable-state changes.
+fn cleanup_supported(db: &Connection) -> Result<bool> {
+    let schema: u32 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    Ok(schema >= NATIVE_CLEANUP_SCHEMA_VERSION
+        && crate::migration::is_supported_native_schema(schema))
+}
+
+pub(crate) fn has_cleanup_witness(db: &Connection, id: &str) -> Result<bool> {
+    if !cleanup_supported(db)? {
+        return Ok(false);
+    }
+    let claim: Option<(i64, i64, String, String, String)> = db
+        .query_row(
+            "SELECT generation,attempt,token,snapshot,options FROM execution_claims WHERE job_id=?",
+            [id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            },
+        )
+        .optional()?;
+    let Some((generation, attempt, token, snapshot, options)) = claim else {
+        return Ok(false);
+    };
+    Ok(db.query_row("SELECT EXISTS(SELECT 1 FROM native_execution_lifetimes l JOIN catalog_state c ON c.id=1 AND c.catalog_id=l.catalog_id AND c.incarnation=l.incarnation WHERE l.job_id=? AND l.generation=? AND l.attempt=? AND l.claim_token_digest=? AND l.snapshot_digest=? AND l.options_digest=? AND l.protocol_version=1 AND l.state='quiescent' AND l.cleanup_kind='builtin_no_child_v1' AND l.child_obligations=0 AND l.verified_retirements=0 AND l.capacity_released=1 AND l.sealed_at IS NOT NULL)",params![id,generation,attempt,sha256(token),sha256(snapshot),sha256(options)],|row|row.get(0))?)
+}
+fn native_admission(db: &Connection, id: &str) -> std::result::Result<(), AdmissionError> {
+    let schema: u32 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    if !crate::migration::is_supported_native_schema(schema) {
+        return Ok(());
+    }
+    if has_cleanup_witness(db, id)? {
+        return Ok(());
+    }
+    let (phase, attempts): (String, i64) = db.query_row(
+        "SELECT state,attempts FROM processing_jobs WHERE id=?",
+        [id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+    let pid: Option<SqlValue> = db
+        .query_row(
+            "SELECT worker_pid FROM execution_claims WHERE job_id=?",
+            [id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    let Some(pid) = pid else {
+        return if phase == "queued" && attempts == 0 {
+            Ok(())
+        } else {
+            Err(admission_error(
+                id,
+                AdmissionErrorCode::ReconciliationRequired,
+                "native execution ownership requires reconciliation before admission",
+            ))
+        };
+    };
+    Err(unresolved_worker(
+        id,
+        match pid {
+            SqlValue::Integer(pid) => Some(pid),
+            _ => None,
+        },
+    ))
+}
+/// A PID can refuse admission but cannot prove restart ownership or cleanup.
+pub(crate) fn unresolved_worker(id: &str, pid: Option<i64>) -> AdmissionError {
+    if let Some(pid) = pid
+        && (1..=i64::from(i32::MAX)).contains(&pid)
+    {
+        // SAFETY: signal zero observes existence and never terminates a process.
+        let alive = unsafe { libc::kill(pid as i32, 0) } == 0;
+        if alive || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM) {
+            return admission_error(
+                id,
+                AdmissionErrorCode::BusyWorker,
+                "native execution has a live or reused recorded process; reconciliation required",
+            );
+        }
+    }
+    admission_error(
+        id,
+        AdmissionErrorCode::ReconciliationRequired,
+        "native execution exit cannot be proven from its durable PID record",
+    )
+}
 
 #[derive(Clone, Debug)]
 pub struct Claim {
@@ -130,6 +273,15 @@ pub(crate) fn acquire(
     now: f64,
     recover_attempt: Option<i64>,
 ) -> Result<Claim> {
+    acquire_admitted(db, id, now, recover_attempt).map_err(Error::from)
+}
+fn acquire_admitted(
+    db: &Connection,
+    id: &str,
+    now: f64,
+    recover_attempt: Option<i64>,
+) -> std::result::Result<Claim, AdmissionError> {
+    native_admission(db, id)?;
     let input = match recover_attempt {
         Some(attempt) => Input::Recover {
             now,
@@ -147,7 +299,7 @@ pub(crate) fn acquire(
         until,
     } = decide(db, id, now, input)?
     else {
-        return Err(Error("invalid execution acquire effect".into()));
+        return Err(Error("invalid execution acquire effect".into()).into());
     };
     let (snapshot, options): (String, String) = db.query_row(
         "SELECT snapshot,options FROM processing_jobs WHERE id=?",
@@ -169,6 +321,10 @@ pub(crate) fn acquire(
         options,
     };
     db.execute("INSERT OR REPLACE INTO execution_claims(job_id,generation,token,worker_pid,attempt,lease_until,snapshot,options) VALUES (?,?,?,?,?,?,?,?)", params![id,claim.generation,claim.token,claim.worker_pid,claim.attempt,claim.lease_until,claim.snapshot,claim.options])?;
+    let schema: u32 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    if crate::migration::is_supported_native_schema(schema) && cleanup_supported(db)? {
+        db.execute("INSERT INTO native_execution_lifetimes(catalog_id,incarnation,job_id,generation,attempt,claim_token_digest,snapshot_digest,options_digest,runtime_owner_nonce,protocol_version) SELECT catalog_id,incarnation,?,?,?,?,?,?,?,1 FROM catalog_state WHERE id=1",params![id,claim.generation,claim.attempt,sha256(&claim.token),sha256(&claim.snapshot),sha256(&claim.options),uuid::Uuid::new_v4().simple().to_string()])?;
+    }
     Ok(claim)
 }
 
@@ -242,8 +398,17 @@ pub fn get_job(store: &Store, profile: &str, id: &str) -> Result<Value> {
     Ok(result)
 }
 pub fn start(store: &Store, profile: &str, id: &str, now: f64) -> Result<Claim> {
+    start_admitted(store, profile, id, now).map_err(Error::from)
+}
+/// Typed native admission outcome; legacy admission semantics are unchanged.
+pub fn start_admitted(
+    store: &Store,
+    profile: &str,
+    id: &str,
+    now: f64,
+) -> std::result::Result<Claim, AdmissionError> {
     validate_now(now)?;
-    store.transaction(|db| {
+    store.transaction_detailed(|db| {
         let operation: String = db
             .query_row(
                 "SELECT operation FROM processing_jobs WHERE id=? AND profile=?",
@@ -255,9 +420,10 @@ pub fn start(store: &Store, profile: &str, id: &str, now: f64) -> Result<Claim> 
         if !["sniff", "hash", "verify", "probe", "decode", "text"].contains(&operation.as_str()) {
             return Err(Error(
                 "only queued or abandoned native analysis jobs can be started".into(),
-            ));
+            )
+            .into());
         }
-        let claim = acquire(db, id, now, None)?;
+        let claim = acquire_admitted(db, id, now, None)?;
         db.execute(
             "UPDATE processing_jobs SET state='running',attempts=? WHERE id=?",
             params![claim.attempt, id],
@@ -310,10 +476,19 @@ pub fn cancel(store: &Store, profile: &str, id: &str) -> Result<Value> {
     })
 }
 pub fn retry(store: &Store, profile: &str, id: &str) -> Result<Value> {
-    store.transaction(|db| {
+    retry_admitted(store, profile, id).map_err(Error::from)
+}
+/// Manual retry uses the same exact typed native admission gate.
+pub fn retry_admitted(
+    store: &Store,
+    profile: &str,
+    id: &str,
+) -> std::result::Result<Value, AdmissionError> {
+    store.transaction_detailed(|db| {
         let pending_artifact = db.query_row("SELECT EXISTS(SELECT 1 FROM processing_artifacts WHERE job_id=? AND profile=? AND state IN ('planned','writing','validating','publishing'))",params![id,profile],|r| r.get::<_,bool>(0))?;
-        if !db.query_row("SELECT EXISTS(SELECT 1 FROM processing_jobs WHERE id=? AND profile=?)",params![id,profile],|r|r.get::<_,bool>(0))? { return Err(rejected(Rejection::NotRetryable)); }
-        let Effect::Requeue = decide(db,id,0.0,Input::Retry { pending_artifact })? else { return Err(Error("invalid retry effect".into())); };
+        if !db.query_row("SELECT EXISTS(SELECT 1 FROM processing_jobs WHERE id=? AND profile=?)",params![id,profile],|r|r.get::<_,bool>(0))? { return Err(rejected(Rejection::NotRetryable).into()); }
+        native_admission(db,id)?;
+        let Effect::Requeue = decide(db,id,0.0,Input::Retry { pending_artifact })? else { return Err(Error("invalid retry effect".into()).into()); };
         db.execute("UPDATE processing_jobs SET state='queued',error=NULL,finished_at=NULL WHERE id=? AND profile=?",params![id,profile])?;
         Ok(json!({"queued":id}))
     })
@@ -487,22 +662,35 @@ pub fn prepare_run(
     retry_transient: u32,
     limit: usize,
 ) -> Result<usize> {
+    prepare_run_admitted(store, profile, job_ids, now, retry_transient, limit).map_err(Error::from)
+}
+/// Typed refusal is preserved through rollback. Native restart recovery remains
+/// fail-closed until an explicit owner can prove exit beyond a durable PID.
+pub fn prepare_run_admitted(
+    store: &Store,
+    profile: &str,
+    job_ids: Option<&[String]>,
+    now: f64,
+    retry_transient: u32,
+    limit: usize,
+) -> std::result::Result<usize, AdmissionError> {
     validate_now(now)?;
     let scope = if job_ids.is_some() {
         " AND j.id IN (SELECT value FROM json_each(?))"
     } else {
         ""
     };
-    store.transaction(|db| {
+    store.transaction_detailed(|db| {
         let mut args = vec![SqlValue::Real(now), profile.to_owned().into(), i64::from(retry_transient).into()];
         if let Some(ids) = job_ids { args.push(catabolic_core::encode(&json!(ids)).into()); }
         args.push((limit.min(1000) as i64).into());
         let due = rows(db, &format!("SELECT j.id FROM processing_retry_queue a JOIN processing_jobs j ON j.id=a.job_id WHERE a.retry_after<=? AND a.profile=? AND j.operation!='render' AND j.attempts=a.attempt AND j.attempts<=? AND j.state IN ('failed','timeout'){scope} ORDER BY a.retry_after,a.job_id LIMIT ?"), &args)?;
         for row in &due {
             let id = row["id"].as_str().unwrap();
+            native_admission(db, id)?;
             let pending_artifact = db.query_row("SELECT EXISTS(SELECT 1 FROM processing_artifacts WHERE job_id=? AND state IN ('planned','writing','validating','publishing'))", [id], |r| r.get::<_,bool>(0))?;
             let Effect::Requeue = decide(db, id, now, Input::Retry { pending_artifact })? else {
-                return Err(Error("invalid retry effect".into()));
+                return Err(Error("invalid retry effect".into()).into());
             };
             db.execute("DELETE FROM processing_retry_queue WHERE job_id=?", [id])?;
             db.execute("UPDATE processing_jobs SET state='queued',finished_at=NULL WHERE id=?", [id])?;
@@ -514,6 +702,7 @@ pub fn prepare_run(
             let abandoned = rows(db, &format!("SELECT j.id FROM processing_jobs j WHERE j.profile=? AND j.id>? AND j.state='running' AND j.operation!='render'{scope} ORDER BY j.id LIMIT 1000"), &args)?;
             for row in &abandoned {
                 let id = row["id"].as_str().unwrap();
+                native_admission(db, id)?;
                 let state = observation(db, id, now)?;
                 match execution::reduce(&state, &Input::Reclaim { now }) {
                     Ok(Effect::Requeue) => {
@@ -521,8 +710,8 @@ pub fn prepare_run(
                         db.execute("UPDATE processing_jobs SET state='queued' WHERE id=?", [id])?;
                     }
                     Err(Rejection::LiveOwner) => {}
-                    Err(error) => return Err(rejected(error)),
-                    _ => return Err(Error("invalid reclaim effect".into())),
+                    Err(error) => return Err(rejected(error).into()),
+                    _ => return Err(Error("invalid reclaim effect".into()).into()),
                 }
                 after = id.to_owned();
             }

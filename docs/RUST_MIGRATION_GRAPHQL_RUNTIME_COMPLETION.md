@@ -60,13 +60,18 @@ Scalar/enum leaves are checked by native completion. JSON remains opaque and
 BigInt remains a string. The final transport conversion transfers JSON variants
 directly, sharing the underlying arbitrary-precision Number type without a serde
 deserializer round-trip. This preserves wide integers and ordinary reserved-looking
-object keys. Existing native bounded value inspection is reused for output diagnostics. Two explicit raw-recorded-state Int controls (`1_000` and `١٢٣` stored as
-relationship positions) remain in `graphql-runtime-scalar-remaining.json`.
+object keys. Existing native bounded value inspection is reused for output diagnostics.
+The two historical raw-recorded-state Int controls (`1_000` and `١٢٣` stored as
+relationship positions) remain unchanged in `graphql-runtime-scalar-remaining.json`.
 Frozen Python serializes them as integers; immutable native source b11666f
-returned raw strings, and current native completion rejects them. The baseline
-artifact hash and all three complete outcomes are retained. No ordinary public
-mutation path was demonstrated, and no catalog canonicalization is changed.
-This is retained compatibility debt, not ordinary API parity evidence.
+returned raw strings, and source 00950e7 rejected them. Those complete outcomes
+and artifact identities remain historical evidence. The additive
+`graphql-recorded-int-v1.json` replacement now covers both witnesses and 40
+additional bounded output-completion cases. The existing Python consumer checks
+that historical evidence is preserved and compares current responses to the
+frozen reference. See [recorded Int output completion](RUST_GRAPHQL_RECORDED_INT_OUTPUT.md).
+No ordinary public mutation path was demonstrated, and catalog canonicalization
+and input coercion are unchanged.
 
 An independent review also found accepted bare-CR documents could produce
 colliding framework AST positions, allowing one runtime argument plan to overwrite
@@ -91,7 +96,7 @@ integers, arbitrary JSON keys, finite floats and output-budget rejection. No
 workspace serde features or catalog JSON canonicalization changed. The same-owner
 regression also checks cancellation, reuse and large opaque JSON budget rejection.
 
-## Conservative overlap guard and remaining differences
+## Historical overlap guard and versioned diagnostic replacements
 
 The expanded controls found that framework validation could permit incompatible
 nested aliases across repeated parent fields, and differing arguments across a
@@ -102,20 +107,30 @@ with different names or arguments. Static `skip`/`include` conditions cannot mak
 such conflicting fields valid. The original document-byte, token, expanded-field
 and depth bounds apply before this traversal.
 
-This guard does **not** implement the complete GraphQL overlapping-fields
-validation rule or its diagnostic ordering and nested reason chains. Five
-separate controls retain full frozen and current guarded responses. Complete
-cross-fragment/nested/argument conflict diagnostics remain a named implementation
-gap. Earlier validation/parser residuals are not converted to parity evidence.
-The parallel document-validation slice's own residual baselines remain historical
-and must be checked again on the composed source.
+At that original snapshot, this guard did not implement the complete
+GraphQL overlapping-fields validation rule, diagnostic ordering or nested reason
+chains. Five controls retain those historical guarded responses unchanged.
+The later native overlap rule and its 77-case fixture separately replace all
+five, along with the three earlier document-validation overlap controls; see
+[checkpoint 14](RUST_MIGRATION_NATIVE_CHECKPOINT_14.md) and
+`tests/parity/native-graphql-overlap-checkpoint.json`. Current source 00950e7
+also replays all 77 complete frozen responses through both CLI surfaces.
+The old generic failures therefore remain historical controls rather than named
+current failures. This bounded replacement does not imply complete GraphQL or
+platform qualification, and unrelated residuals require their own evidence.
 
 The shared `CatalogQuery::page` fix treats explicit null sort as an invalid member
 of the available sort set. Omitted/default/valid text behavior is unchanged.
-Non-null numeric, boolean and object sorts retain their prior native `sort must
-be text` rejection. `graphql-runtime-sort-controls.json` separately records eight
-frozen direct-query results and the current native outcomes; three non-text
-controls remain explicit diagnostic differences.
+At the original snapshot, non-null numeric, boolean and object sorts retained the
+prior native `sort must be text` rejection. `graphql-runtime-sort-controls.json`
+records eight frozen direct-query results and those then-current native outcomes;
+three non-text controls were recorded as explicit diagnostic differences.
+
+The separately versioned `catalog-query-sort-diagnostics-v1.json` follow-up now
+replaces the numeric/boolean expectations through the same `CatalogQuery::page`
+owner. The historical fixture above and its native outcomes remain unchanged.
+The dictionary TypeError remains explicit non-parity; no error-boundary taxonomy
+is changed. See `RUST_MIGRATION_CATALOG_SORT_DIAGNOSTICS.md` for the bounded scope.
 
 ## Verification and limits
 

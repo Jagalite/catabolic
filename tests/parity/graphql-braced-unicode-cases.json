@@ -1,0 +1,1193 @@
+{
+  "contract": "native-graphql-braced-unicode-v1",
+  "provenance": {
+    "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "python": "3.14.6",
+    "graphql_core": "3.2.12",
+    "frozen_reference_unchanged": true,
+    "historical_parser_fixture_sha256": "47d0dec9c9948c58819ecc0457c81d0cce99e24cd1f54229d7e3394e6cc5b908"
+  },
+  "catalogs": {
+    "braced": {
+      "item_ids": [
+        "item-\u0000-end",
+        "item-\b-end",
+        "item-\t-end",
+        "item-\n-end",
+        "item-\r-end",
+        "item-\u001f-end",
+        "item-\"-end",
+        "item-A-end",
+        "item-A\ud83d\ude00-end",
+        "item-\\-end",
+        "item-\u007f-end",
+        "item-\u00a0-end",
+        "item-\ud7ff-end",
+        "item-\ue000-end",
+        "item-\uffff-end",
+        "item-\ud800\udc00-end",
+        "item-\ud83d\ude00-end",
+        "item-\udbff\udfff-end",
+        "literal-\\u{1F600}"
+      ]
+    }
+  },
+  "cases": [
+    {
+      "name": "scalar-0",
+      "document": "{item(id:\"item-\\u{0}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\u0000-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-8",
+      "document": "{item(id:\"item-\\u{8}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\b-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-9",
+      "document": "{item(id:\"item-\\u{9}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\t-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-A",
+      "document": "{item(id:\"item-\\u{A}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\n-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-D",
+      "document": "{item(id:\"item-\\u{D}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\r-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-1F",
+      "document": "{item(id:\"item-\\u{1F}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\u001f-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-22",
+      "document": "{item(id:\"item-\\u{22}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\"-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-5C",
+      "document": "{item(id:\"item-\\u{5C}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\\-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-7F",
+      "document": "{item(id:\"item-\\u{7F}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\u007f-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-A0",
+      "document": "{item(id:\"item-\\u{A0}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\u00a0-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-D7FF",
+      "document": "{item(id:\"item-\\u{D7FF}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\ud7ff-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-E000",
+      "document": "{item(id:\"item-\\u{E000}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\ue000-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-FFFF",
+      "document": "{item(id:\"item-\\u{FFFF}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\uffff-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-10000",
+      "document": "{item(id:\"item-\\u{10000}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\ud800\udc00-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-1F600",
+      "document": "{item(id:\"item-\\u{1F600}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\ud83d\ude00-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-10FFFF",
+      "document": "{item(id:\"item-\\u{10FFFF}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\udbff\udfff-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-00000041",
+      "document": "{item(id:\"item-\\u{00000041}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-A-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "scalar-0001f600",
+      "document": "{item(id:\"item-\\u{0001f600}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\ud83d\ude00-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "default-value",
+      "document": "query($id:ID=\"item-\\u{1f600}-end\"){item(id:$id){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-\ud83d\ude00-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "adjacent-escapes",
+      "document": "{item(id:\"item-\\u{41}\\u{1F600}-end\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "item-A\ud83d\ude00-end"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "literal-backslash",
+      "document": "{item(id:\"literal-\\\\u{1F600}\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "literal-\\u{1F600}"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "block-string",
+      "document": "{item(id:\"\"\"literal-\\u{1F600}\"\"\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "literal-\\u{1F600}"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "comment-only",
+      "document": "# \\u{1F600}\n{profile}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "profile": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "following-error-location",
+      "document": "{ item(id:\"item-\\u{1F600}-end\") { missing } }",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Cannot query field 'missing' on type 'Item'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 35
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Cannot query field 'missing' on type 'Item'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 35
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Cannot query field 'missing' on type 'Item'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 35
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "integer-literal-diagnostic",
+      "document": "{ items(first:\"\\u{31}\") {nodes{id}} }",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Int cannot represent non-integer value: \"1\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 15
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Int cannot represent non-integer value: \"1\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 15
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Int cannot represent non-integer value: \"1\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 15
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "invalid-empty",
+      "document": "{item(id:\"\\u{}\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{}'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{}'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{}'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "invalid-G",
+      "document": "{item(id:\"\\u{G}\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{G'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{G'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{G'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "invalid-D800",
+      "document": "{item(id:\"\\u{D800}\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{D800}'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{D800}'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{D800}'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "invalid-110000",
+      "document": "{item(id:\"\\u{110000}\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{110000}'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{110000}'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{110000}'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "invalid-000000041",
+      "document": "{item(id:\"\\u{000000041}\"){id}}",
+      "variables": {},
+      "catalog": "braced",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{000000041'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{000000041'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\u{000000041'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "corrected_historical_control": "valid-braced-unicode-control",
+  "scope": "Bounded lexical-view Unicode compatibility; historical parser residual fixture remains unchanged"
+}

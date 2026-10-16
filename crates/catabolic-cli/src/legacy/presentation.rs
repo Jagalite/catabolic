@@ -4,6 +4,9 @@
 use super::dispatch::text;
 use super::parser::Output;
 use serde_json::{Value, json};
+#[path = "scan_presentation.rs"]
+mod scan_presentation;
+use scan_presentation::Context as ScanContext;
 pub(super) fn py(value: &Value) -> String {
     match value {
         Value::Null => "None".into(),
@@ -691,7 +694,7 @@ fn order(value: &Value) -> Vec<&str> {
     keys
 }
 pub fn json_text(v: &Value, indent: Option<usize>, ascii: bool, depth: usize) -> String {
-    json_text_ordered(v, indent, ascii, depth, false, false)
+    json_text_ordered(v, indent, ascii, depth, false, false, ScanContext::Other)
 }
 fn persisted_definition(v: &Value, key: &str) -> bool {
     key == "definition"
@@ -706,6 +709,7 @@ fn json_text_ordered(
     depth: usize,
     canonical: bool,
     id_first: bool,
+    scan: ScanContext,
 ) -> String {
     fn quoted(s: &str, ascii: bool) -> String {
         let s = serde_json::to_string(s).unwrap();
@@ -750,13 +754,24 @@ fn json_text_ordered(
             '[',
             ']',
             a.iter()
-                .map(|v| json_text_ordered(v, indent, ascii, depth + 1, canonical, false))
+                .map(|v| {
+                    json_text_ordered(
+                        v,
+                        indent,
+                        ascii,
+                        depth + 1,
+                        canonical,
+                        false,
+                        scan.element(v),
+                    )
+                })
                 .collect(),
         ),
         Value::Object(_) => wrap(
             '{',
             '}',
-            ordered_keys(v, canonical, id_first)
+            scan.keys(v)
+                .unwrap_or_else(|| ordered_keys(v, canonical, id_first))
                 .iter()
                 .map(|k| {
                     format!(
@@ -769,12 +784,16 @@ fn json_text_ordered(
                             depth + 1,
                             canonical || persisted_definition(v, k),
                             false,
+                            scan.field(v, k),
                         )
                     )
                 })
                 .collect(),
         ),
-        Value::Number(_) => catabolic_core::encode(v),
+        Value::Number(_) => scan
+            .number(v)
+            .map(str::to_owned)
+            .unwrap_or_else(|| catabolic_core::encode(v)),
         _ => v.to_string(),
     }
 }
@@ -793,22 +812,36 @@ fn ordered_keys(value: &Value, canonical: bool, id_first: bool) -> Vec<&str> {
     }
 }
 fn render(value: &Value, indent: usize) -> String {
-    render_ordered(value, indent, false, false)
+    render_ordered(value, indent, false, false, ScanContext::Other)
 }
-fn render_ordered(value: &Value, indent: usize, canonical: bool, id_first: bool) -> String {
+fn render_ordered(
+    value: &Value,
+    indent: usize,
+    canonical: bool,
+    id_first: bool,
+    scan: ScanContext,
+) -> String {
     let prefix = " ".repeat(indent);
     match value {
-        Value::Object(_) => ordered_keys(value, canonical, id_first)
+        Value::Object(_) => scan
+            .keys(value)
+            .unwrap_or_else(|| ordered_keys(value, canonical, id_first))
             .iter()
             .map(|key| {
                 let child = &value[key];
                 if child.is_object() || child.is_array() {
                     format!(
                         "{prefix}{key}:\n{}",
-                        render_ordered(child, indent + 2, canonical, false)
+                        render_ordered(child, indent + 2, canonical, false, scan.field(value, key))
                     )
                 } else {
-                    format!("{prefix}{key}: {}", py(child))
+                    format!(
+                        "{prefix}{key}: {}",
+                        scan.field(value, key)
+                            .number(child)
+                            .map(str::to_owned)
+                            .unwrap_or_else(|| py(child))
+                    )
                 }
             })
             .collect::<Vec<_>>()
@@ -823,7 +856,13 @@ fn render_ordered(value: &Value, indent: usize, canonical: bool, id_first: bool)
                         if child.is_object() || child.is_array() {
                             format!(
                                 "{prefix}-\n{}",
-                                render_ordered(child, indent + 2, canonical, false)
+                                render_ordered(
+                                    child,
+                                    indent + 2,
+                                    canonical,
+                                    false,
+                                    scan.element(child)
+                                )
                             )
                         } else {
                             format!("{prefix}- {}", py(child))
@@ -966,6 +1005,10 @@ fn envelope(a: &Value, v: Value, code: i32) -> Value {
     };
     json!({"interface_version":1,"command":a["command"],"operation":operation,"profile":a["profile"],"outcome":if code==0{"success"}else if code==3{"incomplete"}else{"error"},"exit_code":code,"data":v})
 }
+/// A watch cycle is a known command report, including its stderr progress copy.
+pub fn scan_watch_cycle_text(report: &Value) -> String {
+    json_text_ordered(report, None, true, 0, false, false, ScanContext::Cycle)
+}
 pub fn consumer_watch_line(a: &Value, report: Value) -> String {
     let code = if report["complete"] == true { 0 } else { 3 };
     let value = if a["machine"] == true {
@@ -1017,8 +1060,11 @@ pub fn success(a: &Value, value: Value) -> Output {
     }
 
     let code = exit_code(a, &value);
+    let scan = ScanContext::command(a);
     let stdout = if a["machine"] == true {
-        format!("{}\n", json_text(&envelope(a, value, code), None, false, 0))
+        let body = json_text_ordered(&value, None, false, 0, false, false, scan);
+        let template = json_text(&envelope(a, Value::Null, code), None, false, 0);
+        format!("{}{body}}}\n", template.strip_suffix("null}").unwrap())
     } else if a["command"] == "maintenance" && !json_output(a) {
         format!("{}\n", maintenance_report(&value))
     } else if a["command"] == "rule"
@@ -1038,13 +1084,20 @@ pub fn success(a: &Value, value: Value) -> Output {
             if a["command"] == "spec" && a["operation"] == "schema" {
                 serde_json::to_string_pretty(&value).unwrap()
             } else {
-                json_text(&value, Some(2), false, 0)
+                json_text_ordered(&value, Some(2), false, 0, false, false, scan)
             }
         )
     } else if a["command"] == "query" && value.get("rows").is_some() {
         format!("{}\n", table(&value))
     } else {
-        format!("{}\n", render(&value, 0))
+        format!(
+            "{}\n",
+            if scan == ScanContext::Other {
+                render(&value, 0)
+            } else {
+                render_ordered(&value, 0, false, false, scan)
+            }
+        )
     };
     Output {
         code,
@@ -1088,11 +1141,27 @@ pub fn roundtrip_success(a: &Value, body: String) -> Output {
 pub fn legacy_error(a: &Value, error: super::failure::Failure) -> Output {
     match error {
         super::failure::Failure::Detailed(error) => admin_error(a, error),
+        super::failure::Failure::Boundary(error) => boundary_error(a, error),
+        super::failure::Failure::Variable(error) => python_error(
+            a,
+            json!({"type": error.kind(), "message": error.to_string()}),
+        ),
         super::failure::Failure::Json(error) => python_error(
             a,
             json!({
                 "type": "JSONDecodeError", "message": error.to_string()
             }),
+        ),
+    }
+}
+/// Detailed catalog failures retain source-selected class without altering
+/// ordinary administrative, interruption or consumer presentation.
+pub fn boundary_error(a: &Value, error: catabolic_store::DetailedError) -> Output {
+    match error.class() {
+        catabolic_store::ErrorClass::CatabolicError => self::error(a, error.into_error()),
+        catabolic_store::ErrorClass::TypeError => python_error(
+            a,
+            json!({"type": error.class().as_str(), "message": error.to_string()}),
         ),
     }
 }
@@ -1625,6 +1694,104 @@ mod adapter_order_tests {
                 "lease_until"
             ]
         );
+    }
+
+    #[test]
+    fn dictionary_type_provenance_reaches_cli_without_message_spoofing() {
+        use catabolic_store::{Store, migration, query::CatalogQuery};
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("sort-type.db");
+        migration::initialize(&path).unwrap();
+        let store = Store::open(&path, false, false).unwrap();
+        let query = CatalogQuery::new(&store, "default").unwrap();
+        let message = "cannot use 'dict' as a dict key (unhashable type: 'dict')";
+        for (machine, json_output) in [(false, false), (false, true), (true, false)] {
+            let args = json!({"command":"items","operation":"list","profile":"default","machine":machine,"json":json_output});
+            for (failure, expected_type) in [
+                (
+                    query
+                        .execute_detailed("items", &json!({"sort":{}}))
+                        .unwrap_err(),
+                    "TypeError",
+                ),
+                (
+                    catabolic_store::Error(message.into()).into(),
+                    "CatabolicError",
+                ),
+            ] {
+                let output = legacy_error(&args, failure.into());
+                assert_eq!(output.code, 2);
+                if machine || json_output {
+                    let data = json!({"error":{"message":message,"type":expected_type}});
+                    if machine {
+                        assert_eq!(
+                            output.stdout,
+                            format!("{}\n", json_text(&envelope(&args, data, 2), None, true, 0))
+                        );
+                        assert_eq!(output.stderr, "");
+                    } else {
+                        assert_eq!(output.stdout, "");
+                        assert_eq!(
+                            output.stderr,
+                            format!("{}\n", json_text(&data, None, true, 0))
+                        );
+                    }
+                } else {
+                    assert_eq!(output.stdout, "");
+                    assert_eq!(output.stderr, format!("error: {message}\n"));
+                }
+            }
+        }
+        assert!(query.execute("items", &json!({"sort":"id"})).is_ok());
+    }
+
+    #[test]
+    fn list_type_provenance_reaches_cli_without_message_spoofing() {
+        use catabolic_store::{Store, migration, query::CatalogQuery};
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("sort-type.db");
+        migration::initialize(&path).unwrap();
+        let store = Store::open(&path, false, false).unwrap();
+        let query = CatalogQuery::new(&store, "default").unwrap();
+        let message = "cannot use 'list' as a dict key (unhashable type: 'list')";
+        for (machine, json_output) in [(false, false), (false, true), (true, false)] {
+            let args = json!({"command":"items","operation":"list","profile":"default","machine":machine,"json":json_output});
+            for (failure, expected_type) in [
+                (
+                    query
+                        .execute_detailed("items", &json!({"sort":[{"nested":[]}]}))
+                        .unwrap_err(),
+                    "TypeError",
+                ),
+                (
+                    catabolic_store::Error(message.into()).into(),
+                    "CatabolicError",
+                ),
+            ] {
+                let output = legacy_error(&args, failure.into());
+                assert_eq!(output.code, 2);
+                if machine || json_output {
+                    let data = json!({"error":{"message":message,"type":expected_type}});
+                    if machine {
+                        assert_eq!(
+                            output.stdout,
+                            format!("{}\n", json_text(&envelope(&args, data, 2), None, true, 0))
+                        );
+                        assert_eq!(output.stderr, "");
+                    } else {
+                        assert_eq!(output.stdout, "");
+                        assert_eq!(
+                            output.stderr,
+                            format!("{}\n", json_text(&data, None, true, 0))
+                        );
+                    }
+                } else {
+                    assert_eq!(output.stdout, "");
+                    assert_eq!(output.stderr, format!("error: {message}\n"));
+                }
+            }
+        }
+        assert!(query.execute("items", &json!({"sort":"id"})).is_ok());
     }
 
     #[test]

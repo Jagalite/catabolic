@@ -23,9 +23,7 @@ chrono.workspace = true
 num-bigint.workspace = true
 rustls.workspace = true
 webpki-roots.workspace = true
+rusqlite.workspace = true
 
 [lints]
 workspace = true
-
-[dev-dependencies]
-rusqlite.workspace = true

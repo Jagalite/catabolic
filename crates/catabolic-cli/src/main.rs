@@ -143,7 +143,14 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         ));
     }
     match args.as_slice() {
-        [command, action] if command == "fallback-probe" && action == "check" => {
+        [command, action]
+            if [
+                "fallback-probe",
+                catabolic_runtime::fallback::NATIVE_PROBE_COMMAND,
+            ]
+            .contains(&command.as_str())
+                && action == "check" =>
+        {
             use std::io::Read;
             let mut input = Vec::new();
             std::io::stdin()
@@ -153,13 +160,24 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             if input.len() > 1024 * 1024 {
                 return Err(Error("fallback probe input exceeds 1 MiB".into()));
             }
-            let value = catabolic_runtime::fallback::probe_check(
-                &catabolic_core::decode_json_bytes(&input)?,
-            )?;
+            let request = catabolic_core::decode_json_bytes(&input)?;
+            let value = if command == catabolic_runtime::fallback::NATIVE_PROBE_COMMAND {
+                catabolic_runtime::fallback::probe_check_v1(&request)?
+            } else {
+                catabolic_runtime::fallback::probe_check(&request)?
+            };
             if value.to_string().len() >= 64 * 1024 {
                 return Err(Error("fallback probe response exceeds 64 KiB".into()));
             }
             Ok(value)
+        }
+        [command, name] if command == catabolic_runtime::watchers::NATIVE_WORKER_COMMAND => {
+            catabolic_runtime::watchers::worker_v1(
+                &path,
+                &profile,
+                name,
+                &catabolic_core::decode_json(&options)?,
+            )
         }
         [command, name] if command == "watcher-worker" => {
             catabolic_runtime::watchers::worker_with_options(
@@ -167,6 +185,27 @@ fn run(mut args: Vec<String>) -> Result<Value> {
                 &profile,
                 name,
                 &catabolic_core::decode_json(&options)?,
+            )
+        }
+        [command, payload] if command == catabolic_runtime::observation::SHARED_WORKER_COMMAND => {
+            catabolic_runtime::observation::shared_worker_v1(
+                &path,
+                &profile,
+                &catabolic_core::decode_json(payload)?,
+            )
+        }
+        [command, payload] if command == catabolic_runtime::observation::CLOSED_WORKER_COMMAND => {
+            catabolic_runtime::observation::worker_v2(
+                &path,
+                &profile,
+                &catabolic_core::decode_json(payload)?,
+            )
+        }
+        [command, payload] if command == catabolic_runtime::observation::NATIVE_WORKER_COMMAND => {
+            catabolic_runtime::observation::worker_v1(
+                &path,
+                &profile,
+                &catabolic_core::decode_json(payload)?,
             )
         }
         [command, payload] if command == "observation-worker" => {

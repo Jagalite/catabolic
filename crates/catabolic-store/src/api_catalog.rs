@@ -76,40 +76,60 @@ impl Authority {
         }
     }
     pub fn cursor(&self, scope: &Value, after: &str) -> Result<String> {
-        let body = encode(&json!([self.fingerprint, scope, after]));
-        let mut mac = Hmac::<Sha256>::new_from_slice(&self.key)
-            .map_err(|_| Error("invalid_cursor".into()))?;
-        mac.update(body.as_bytes());
-        let mut raw = mac.finalize().into_bytes().to_vec();
-        raw.extend(body.as_bytes());
-        Ok(URL_SAFE.encode(raw))
+        authenticated_cursor(&self.key, &self.fingerprint, scope, after)
     }
     pub fn after(&self, scope: &Value, cursor: Option<&str>) -> Result<String> {
-        let Some(cursor) = cursor.filter(|s| !s.is_empty()) else {
-            return Ok(String::new());
-        };
-        let invalid = || Error("invalid_cursor".into());
-        if cursor.len() > 4096 {
-            return Err(invalid());
-        }
-        let raw = URL_SAFE.decode(cursor).map_err(|_| invalid())?;
-        if raw.len() < 32 {
-            return Err(invalid());
-        }
-        let (sig, body) = raw.split_at(32);
-        let mut mac = Hmac::<Sha256>::new_from_slice(&self.key).map_err(|_| invalid())?;
-        mac.update(body);
-        mac.verify_slice(sig).map_err(|_| invalid())?;
-        let value = catabolic_core::decode_json_bytes(body).map_err(|_| invalid())?;
-        if value.as_array().is_none_or(|a| a.len() != 3)
-            || value[0] != self.fingerprint
-            || value[1] != *scope
-        {
-            return Err(invalid());
-        }
-        value[2].as_str().map(str::to_owned).ok_or_else(invalid)
+        authenticated_cursor_after(&self.key, &self.fingerprint, scope, cursor)
     }
 }
+/// Shared authenticated cursor codec. Keep this exact wire representation for
+/// existing API/GraphQL clients; callers supply independently trusted binding
+/// and secret material. A cursor is a continuation token, never an authority.
+pub(crate) fn authenticated_cursor(
+    key: &[u8],
+    fingerprint: &str,
+    scope: &Value,
+    after: &str,
+) -> Result<String> {
+    let body = encode(&json!([fingerprint, scope, after]));
+    let mut mac =
+        Hmac::<Sha256>::new_from_slice(key).map_err(|_| Error("invalid_cursor".into()))?;
+    mac.update(body.as_bytes());
+    let mut raw = mac.finalize().into_bytes().to_vec();
+    raw.extend(body.as_bytes());
+    Ok(URL_SAFE.encode(raw))
+}
+pub(crate) fn authenticated_cursor_after(
+    key: &[u8],
+    fingerprint: &str,
+    scope: &Value,
+    cursor: Option<&str>,
+) -> Result<String> {
+    let Some(cursor) = cursor.filter(|s| !s.is_empty()) else {
+        return Ok(String::new());
+    };
+    let invalid = || Error("invalid_cursor".into());
+    if cursor.len() > 4096 {
+        return Err(invalid());
+    }
+    let raw = URL_SAFE.decode(cursor).map_err(|_| invalid())?;
+    if raw.len() < 32 {
+        return Err(invalid());
+    }
+    let (sig, body) = raw.split_at(32);
+    let mut mac = Hmac::<Sha256>::new_from_slice(key).map_err(|_| invalid())?;
+    mac.update(body);
+    mac.verify_slice(sig).map_err(|_| invalid())?;
+    let value = catabolic_core::decode_json_bytes(body).map_err(|_| invalid())?;
+    if value.as_array().is_none_or(|a| a.len() != 3)
+        || value[0] != fingerprint
+        || value[1] != *scope
+    {
+        return Err(invalid());
+    }
+    value[2].as_str().map(str::to_owned).ok_or_else(invalid)
+}
+
 fn strings(v: Option<&Value>) -> Result<Vec<String>> {
     match v {
         None => Ok(vec![]),
@@ -577,4 +597,41 @@ pub fn capabilities(
     Ok(
         json!({"version":1,"schema":access.store().schema_version,"read_only":read_only,"processing_admission":!read_only&&ready&&permission,"worker_ready":ready,"operations":operations,"playback":{"admission":!read_only&&ready&&permission&&hls,"profiles":profiles,"segment_seconds":2,"seeking":"produced_segments"},"limits":{"page_size":1000,"streams":streams,"streams_per_principal":per_principal,"stream_buffer_bytes":65536,"requests_per_minute":rate},"content":{"ranges":"single","etag":"weak_revision","in_place_mutation":"abort_remaining_transfer"}}),
     )
+}
+
+#[cfg(test)]
+mod cursor_codec_tests {
+    use super::*;
+    #[test]
+    fn extracted_codec_preserves_legacy_wire_bytes_and_empty_start() {
+        let scope = json!({"resource":"items","limit":1});
+        let token = authenticated_cursor(b"key", "fp", &scope, "a").unwrap();
+        assert_eq!(
+            token,
+            "cdCTWivDsZ5NkcUoPZnYH0ZMrOs4V_86zv5W7syvr9JbImZwIiwgeyJsaW1pdCI6IDEsICJyZXNvdXJjZSI6ICJpdGVtcyJ9LCAiYSJd"
+        );
+        assert_eq!(
+            authenticated_cursor_after(b"key", "fp", &scope, Some(&token)).unwrap(),
+            "a"
+        );
+        assert_eq!(
+            authenticated_cursor_after(b"key", "fp", &scope, None).unwrap(),
+            ""
+        );
+        assert_eq!(
+            authenticated_cursor_after(b"key", "fp", &scope, Some("")).unwrap(),
+            ""
+        );
+        assert!(authenticated_cursor_after(b"other", "fp", &scope, Some(&token)).is_err());
+        assert!(authenticated_cursor_after(b"key", "other", &scope, Some(&token)).is_err());
+        assert!(
+            authenticated_cursor_after(
+                b"key",
+                "fp",
+                &json!({"resource":"items","limit":2}),
+                Some(&token)
+            )
+            .is_err()
+        );
+    }
 }

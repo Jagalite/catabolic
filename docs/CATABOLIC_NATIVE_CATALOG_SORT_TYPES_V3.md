@@ -1,0 +1,15 @@
+# Catalog list-sort diagnostics, v3
+
+This bounded change adds private `UnhashableSortList` provenance to the additive `DetailedError` path. The existing `page_detailed` array check now produces the frozen Python 3.14.6 `TypeError` text: `cannot use 'list' as a dict key (unhashable type: 'list')`. Limit validation, method-specific filters, profile admission, and later descending/cursor checks keep their existing order. No generic array admission rule or GraphQL behavior is broadened.
+
+The legacy public `Error(pub String)` is unchanged, including tuple construction and destructuring, function-valued construction, `.0`, `Display`, `Debug`, and concrete type identity. Legacy query APIs explicitly erase details. Existing persistent/stateless PyO3 and CLI detailed boundaries handle the new provenance with the same class conversion used for dictionaries. Exact diagnostic text alone never creates provenance; ordinary errors and SQLite failures with identical text remain ordinary errors.
+
+## Versioned evidence and residuals
+
+Historical v1/v2 and the original GraphQL sort fixture remain byte-for-byte unchanged. The additive v3 contract contains 25 historical v2 cases plus 63 expanded default-profile cases for the three known sort-supporting methods: items, files, and mappings. Twenty-four expanded witnesses and two historical witnesses promote the old ordinary list error to the exact frozen TypeError; 39 expanded cases remain unchanged. Arrays cover empty, singleton, multiple, nested-list, nested-dictionary, and mixed shapes. Invalid limits and catalog/filter inputs retain precedence, while lists precede descending/cursor diagnostics.
+
+Six separately captured unknown-profile cases remain explicit residuals: native constructor admission reports the unknown profile before the frozen owner reaches list or limit validation. Four historical unsupported-sort-keyword captures for tags, taggings, associations, and relationships are retained separately; they do not establish sort support for those methods. Ordinary stateless domain errors retain RuntimeError, while persistent ordinary domain errors retain CatabolicError. Companion failures retain exit 2 and stderr text, without a Python exception-class transport claim.
+
+The selected canonical consumer compares full return-code/stdout/stderr envelopes for 94 cases on frozen, persistent native, stateless native, and companion boundaries. Owner recovery controls retain a transaction and temporary sentinel across failures, prove no unexpected total-change increments, recover successfully, and reject exact-message spoofing. The new list owner scenario requires an explicitly supplied extension artifact. The native direct page regression verifies the private typed origin after limit validation and legacy error compatibility.
+
+This is isolated development-artifact qualification, not an installed-wheel, full aggregate, platform, release, destructive/WAL/restore, or publication claim. The nonbreaking detailed-error base is a separate dependency and must be terminal-qualified at the reconciled source identity before adopting this patch.

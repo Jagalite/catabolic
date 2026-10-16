@@ -123,7 +123,84 @@ fn record(db: &Connection, table: &str, id: &str) -> Result<Value> {
     .next()
     .ok_or_else(|| Error(format!("unknown {table} ID: {id}")))
 }
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ItemPutErrorCode {
+    InvalidInput,
+    Conflict,
+    Internal,
+}
+#[derive(Debug)]
+pub struct ItemPutError {
+    pub code: ItemPutErrorCode,
+    pub error: Error,
+}
+
 pub fn item_put(store: &Store, args: &Value) -> Result<Value> {
+    item_put_typed(store, args).map_err(|error| error.error)
+}
+impl From<Error> for ItemPutError {
+    fn from(error: Error) -> Self {
+        Self {
+            code: ItemPutErrorCode::Internal,
+            error,
+        }
+    }
+}
+impl From<rusqlite::Error> for ItemPutError {
+    fn from(error: rusqlite::Error) -> Self {
+        Error::from(error).into()
+    }
+}
+impl std::fmt::Display for ItemPutError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.error.fmt(f)
+    }
+}
+/// Same mutation owner, with origin-based classifications for native hosts.
+pub fn item_put_typed(store: &Store, args: &Value) -> std::result::Result<Value, ItemPutError> {
+    validate_item_input(args).map_err(|error| ItemPutError {
+        code: ItemPutErrorCode::InvalidInput,
+        error,
+    })?;
+    let kind = args["kind"].as_str().unwrap();
+    let metadata = &args["metadata"];
+    let identities = get(args, "identities", json!({}));
+    let identities = identities.as_object().unwrap();
+    let supplied = args["id"].as_str();
+    let id = store.transaction_detailed::<_, ItemPutError>(|db| {
+        let mut matches = BTreeSet::new();
+        for (namespace, value) in identities {
+            for row in rows(db, "SELECT item_id FROM identities WHERE namespace=? AND value=?", &[namespace.clone().into(), value.as_str().unwrap().to_owned().into()])? {
+                matches.insert(row["item_id"].as_str().unwrap().to_owned());
+            }
+        }
+        if matches.len() > 1 || supplied.is_some_and(|id| !id.is_empty() && !matches.is_empty() && !matches.contains(id)) {
+            return Err(ItemPutError { code: ItemPutErrorCode::Conflict, error: Error("supplied identities refer to different media items".into()) });
+        }
+        let actual = supplied.filter(|s| !s.is_empty()).map(str::to_owned).or_else(|| matches.into_iter().next()).unwrap_or_else(|| Uuid::new_v4().to_string());
+        let existing = rows(db, "SELECT kind FROM items WHERE id=?", &[actual.clone().into()])?;
+        if existing.first().is_some_and(|row| row["kind"] != kind) {
+            return Err(ItemPutError { code: ItemPutErrorCode::Conflict, error: Error("an existing item's kind cannot change".into()) });
+        }
+        let metadata_json = crate::catalog_metadata_store::legacy_item_put_metadata(db, &actual, metadata)
+            .map_err(|error| ItemPutError {
+                code: match error.code {
+                    crate::catalog_metadata_store::MetadataStoreErrorCode::ManagedWriteBlocked => ItemPutErrorCode::Conflict,
+                    _ => ItemPutErrorCode::Internal,
+                },
+                error: error.error,
+            })?;
+        db.execute("INSERT INTO items VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET metadata=excluded.metadata", params![actual, kind, metadata_json])?;
+        for (namespace, value) in identities {
+            db.execute("INSERT INTO identities VALUES (?,?,?) ON CONFLICT(namespace,value) DO NOTHING", params![namespace, value.as_str().unwrap(), actual])?;
+        }
+        Ok(actual)
+    })?;
+    Ok(
+        json!({"id":id,"kind":kind,"metadata":metadata,"identities":rows(&store.db,"SELECT namespace,value FROM identities WHERE item_id=? ORDER BY namespace,value",&[id.clone().into()])?}),
+    )
+}
+pub(crate) fn validate_item_input(args: &Value) -> Result<()> {
     let kind = text(args, "kind")?;
     vocabulary(kind, "media kind")?;
     let metadata = &args["metadata"];
@@ -144,20 +221,7 @@ pub fn item_put(store: &Store, args: &Value) -> Result<Value> {
             return fail("identity values must be nonempty strings");
         }
     }
-    let id=store.transaction(|db|{
-        let mut matches=BTreeSet::new();
-        for (namespace,value) in identities{for row in rows(db,"SELECT item_id FROM identities WHERE namespace=? AND value=?",&[namespace.clone().into(),value.as_str().unwrap().to_owned().into()])?{matches.insert(row["item_id"].as_str().unwrap().to_owned());}}
-        if matches.len()>1||supplied.is_some_and(|id|!id.is_empty()&&!matches.is_empty()&&!matches.contains(id)){return fail("supplied identities refer to different media items");}
-        let actual=supplied.filter(|s|!s.is_empty()).map(str::to_owned).or_else(||matches.into_iter().next()).unwrap_or_else(||Uuid::new_v4().to_string());
-        let existing=rows(db,"SELECT kind FROM items WHERE id=?",&[actual.clone().into()])?;
-        if existing.first().is_some_and(|r|r["kind"]!=kind){return fail("an existing item's kind cannot change");}
-        db.execute("INSERT INTO items VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET metadata=excluded.metadata",params![actual,kind,encode(metadata)])?;
-        for (namespace,value) in identities{db.execute("INSERT INTO identities VALUES (?,?,?) ON CONFLICT(namespace,value) DO NOTHING",params![namespace,value.as_str().unwrap(),actual])?;}
-        Ok(actual)
-    })?;
-    Ok(
-        json!({"id":id,"kind":kind,"metadata":metadata,"identities":rows(&store.db,"SELECT namespace,value FROM identities WHERE item_id=? ORDER BY namespace,value",&[id.clone().into()])?}),
-    )
+    Ok(())
 }
 pub fn associate_in_transaction(
     store: &Store,
@@ -227,6 +291,13 @@ pub fn associate_in_transaction(
     db.execute("INSERT INTO item_files(id,file_id,item_id,role,part,metadata,origin,active) VALUES (?,?,?,?,?,?,?,1) ON CONFLICT(id) DO UPDATE SET part=excluded.part,metadata=excluded.metadata,origin=excluded.origin,active=1",params![id,file,item,role,scalar(&part)?,metadata,origin])?;
     components::index_file(db, profile, file, false)?;
     Ok(id)
+}
+pub(crate) fn validate_file_read_role(role: &str) -> Result<()> {
+    vocabulary(role, "file role")
+}
+/// Share the existing relationship vocabulary with trusted scoped read masks.
+pub(crate) fn validate_relationship_read_kind(kind: &str) -> Result<()> {
+    vocabulary(kind, "relationship kind")
 }
 fn relationship(kind: &str, source: &str, target: &str, position: &Value) -> Result<()> {
     vocabulary(kind, "relationship kind")?;

@@ -45,6 +45,13 @@ impl PlanReleases {
     }
 }
 impl Plans {
+    /// Retire all handles without reusing their monotonic tokens or replacing
+    /// the release registry held by existing adapters.
+    pub(crate) fn invalidate(&mut self) -> Result<()> {
+        self.releases.values()?.clear();
+        Ok(())
+    }
+
     pub fn releases(&self) -> PlanReleases {
         self.releases.clone()
     }

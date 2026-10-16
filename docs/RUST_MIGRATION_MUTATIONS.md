@@ -181,6 +181,17 @@ scripts/check-native-mutations.sh
   --wheel /path/to/catabolic_native.whl --receipt /path/to/receipt.json
 ```
 
+The mutation shell runner forwards its selected `CATABOLIC_QUALIFICATION_PYTHON`
+as the explicit `--python-oracle`. That interpreter must be Python 3.14.6 with
+the exact frozen Catabolic package installed non-editably from reference commit
+`453fca983222c6665a48775eef67c489c96b527e`. Identify and legacy-refresh fixtures
+clear `PYTHONPATH` before their oracle launches `python -m catabolic.http_worker`;
+a source-path override or editable install does not satisfy this prerequisite.
+The qualifier checks the installed package against the frozen inventory and
+records its interpreter and module identities before and after execution. It
+fails before scenarios on missing or mismatched prerequisites; it does not
+install a package or silently substitute another interpreter.
+
 The mutation runner rejects zero scenarios, duplicate identifiers, leaked
 Python-only oracle cases, incomplete outcome coverage, skipped tests, optimized
 Python, and implementation/test-source or executable changes during the run.

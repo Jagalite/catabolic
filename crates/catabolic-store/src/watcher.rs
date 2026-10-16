@@ -784,6 +784,7 @@ pub fn run_owned<O: std::ops::DerefMut<Target = Store>>(
     observe: &mut impl FnMut(&mut O, &Value) -> Result<Value>,
     complete: &mut impl FnMut(&mut O, Completion) -> Result<Value>,
 ) -> Result<Value> {
+    require_native_admission(store, profile)?;
     let row = get(store, profile, name)?;
     let value = normalize(store, profile, &row["definition"])?;
     if trigger == "scheduled" && !due(&row, now)? {
@@ -1017,7 +1018,31 @@ fn finish(
     store.transaction(|db|{db.execute("UPDATE watcher_runs SET state='complete',completed_at=?,result=? WHERE id=?",params![time(),encode(&report),id])?;db.execute("UPDATE watchers SET completed_generation=?,active_run=NULL,lease_until=0,pending_reaction=NULL,last_run=?,retry_at=0,next_due=?,event_first=CASE WHEN pending_generation<=? THEN NULL ELSE event_first END,event_last=CASE WHEN pending_generation<=? THEN NULL ELSE event_last END WHERE profile=? AND name=? AND active_run=?",params![generation,id,next_due(&value["schedule"],now)?,generation,generation,profile,name,id])?;Ok(())})?;
     Ok(report)
 }
+/// Native watcher restart admission is conservative: neither lease expiry nor
+/// PID absence establishes cleanup of an older worker or its descendants.
+pub fn require_native_admission(
+    store: &Store,
+    profile: &str,
+) -> std::result::Result<(), crate::media_mutation::AdmissionError> {
+    if !crate::migration::is_supported_native_schema(store.schema_version) {
+        return Ok(());
+    }
+    store.validate_native_identity()?;
+    let active = rows(
+        &store.db,
+        "SELECT w.active_run AS id,r.worker_pid FROM watchers w LEFT JOIN watcher_runs r ON r.id=w.active_run WHERE w.profile=? AND w.active_run IS NOT NULL UNION ALL SELECT id,worker_pid FROM observation_jobs WHERE profile=? AND state='running' LIMIT 1",
+        &[profile.to_owned().into(), profile.to_owned().into()],
+    )?;
+    if let Some(row) = active.first() {
+        return Err(crate::media_mutation::unresolved_worker(
+            row["id"].as_str().unwrap_or("unknown-native-worker"),
+            row["worker_pid"].as_i64(),
+        ));
+    }
+    Ok(())
+}
 fn recover(store: &Store, profile: &str, now: f64) -> Result<Value> {
+    require_native_admission(store, profile)?;
     let active = rows(
         &store.db,
         "SELECT w.name,w.active_run,r.worker_pid FROM watchers w JOIN watcher_runs r ON r.id=w.active_run WHERE w.profile=?",

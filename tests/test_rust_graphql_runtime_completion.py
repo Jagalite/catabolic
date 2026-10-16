@@ -140,47 +140,95 @@ class RuntimeCompletionTest(unittest.TestCase):
             f"Frozen runtime completion CLI pairs: {len(FIXTURE['cases'])}; strict-validation controls: {len(FIXTURE['validation_controls'])}"
         )
 
-    def test_explicit_recorded_scalar_output_differences(self):
+    def test_recorded_scalar_output_matches_versioned_reference(self):
         import sqlite3
         from contextlib import closing
 
-        controls = json.loads(
+        historical = json.loads(
             (
                 fixture.ROOT / "tests/parity/graphql-runtime-scalar-remaining.json"
             ).read_text()
         )
+        controls = json.loads(
+            (fixture.ROOT / "tests/parity/graphql-recorded-int-v1.json").read_text()
+        )
+        self.assert_exact(controls["contract"], "graphql-recorded-int-output-v1")
+        by_name = {case["name"]: case for case in controls["cases"]}
+        for old in historical["cases"]:
+            # Preserve the historical failures as evidence, not current expectations.
+            replacement = by_name[old["name"]]
+            self.assert_exact(replacement["reference"], old["reference"])
+            self.assert_exact(replacement["legacy"], old["native"])
+            self.assertNotEqual(old["native"], old["reference"])
+            self.assertNotEqual(old["baseline"], old["reference"])
+
         companion = Path(os.environ["CATABOLIC_NATIVE_BINARY"])
+        self.assertTrue(companion.is_file())
+        results = []
         for case in controls["cases"]:
-            for path in [self.reference, self.native]:
-                with closing(sqlite3.connect(path)) as db, db:
-                    db.execute("DELETE FROM item_relationships")
-                    db.execute(
-                        "INSERT INTO item_relationships(id,source_id,target_id,kind,position) VALUES('r','a','b','related',?)",
-                        (case["position_value"],),
-                    )
-            args = ["graphql", case["document"]]
-            for reference, key in [(True, "reference"), (False, "native")]:
-                run = self.invoke(reference, ["--machine", *args])
-                self.assert_exact(
-                    dict(
+            with self.subTest(case=case["name"]):
+                paths = [self.reference, self.native]
+                for path in paths:
+                    with closing(sqlite3.connect(path)) as db, db:
+                        db.execute("DELETE FROM item_relationships")
+                        db.execute(
+                            "INSERT INTO item_relationships(id,source_id,target_id,kind,position) VALUES('r','a','b','related',?)",
+                            (case["position_value"],),
+                        )
+                before = {
+                    str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+                    for path in paths
+                }
+                args = [
+                    "graphql",
+                    case["document"],
+                    "--variables",
+                    json.dumps(case["variables"]),
+                ]
+                observed = {}
+                for reference, surface in [(True, "reference"), (False, "legacy")]:
+                    run = self.invoke(reference, ["--machine", *args])
+                    observed[surface] = dict(
                         code=run.returncode,
                         stderr=run.stderr,
                         stdout=json.loads(run.stdout),
-                    ),
-                    case[key],
+                    )
+                run = subprocess.run(
+                    [str(companion), "--db", str(self.native), "--json", *args],
+                    env=self.env,
+                    capture_output=True,
+                    text=True,
+                    timeout=90,
                 )
-            run = subprocess.run(
-                [str(companion), "--db", str(self.native), "--json", *args],
-                env=self.env,
-                capture_output=True,
-                text=True,
-                timeout=90,
+                observed["companion"] = dict(
+                    code=run.returncode,
+                    stderr=run.stderr,
+                    stdout=json.loads(run.stdout),
+                )
+                results.append(dict(name=case["name"], results=observed))
+                self.assert_exact(observed["reference"], case["reference"])
+                self.assert_exact(observed["legacy"], case["reference"])
+                self.assert_exact(
+                    observed["companion"],
+                    dict(code=0, stderr="", stdout=case["reference"]["stdout"]["data"]),
+                )
+                self.assert_exact(
+                    {
+                        str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+                        for path in paths
+                    },
+                    before,
+                )
+        if report := os.environ.get("CATABOLIC_GRAPHQL_RECORDED_INT_REPORT"):
+            Path(report).write_text(
+                json.dumps(
+                    dict(contract=controls["contract"], results=results),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                + "\n"
             )
-            self.assert_exact(run.returncode, 0)
-            self.assert_exact(run.stderr, "")
-            self.assert_exact(json.loads(run.stdout), case["native"]["stdout"]["data"])
-            self.assertNotEqual(case["native"], case["reference"])
-            self.assertNotEqual(case["baseline"], case["reference"])
+        print(f"Frozen recorded Int output CLI triples: {len(controls['cases'])}")
 
     def test_opaque_json_numbers_preserve_exact_frozen_results(self):
         import sqlite3

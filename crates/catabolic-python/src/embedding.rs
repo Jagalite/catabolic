@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: MIT
 //! PyO3 ownership boundary. Every method returns the checked-out session even
 //! on native errors/unwinds. No mutex is held while Python callbacks run.
-use catabolic_store::{Error, Result, embedding::Session};
-use pyo3::{create_exception, exceptions::PyRuntimeError, prelude::*};
+use catabolic_store::{Error, ErrorClass, Result, embedding::Session};
+use pyo3::{
+    create_exception,
+    exceptions::{PyRuntimeError, PyTypeError},
+    prelude::*,
+};
 use serde_json::{Value, json};
 use std::{
     path::Path,
@@ -12,6 +16,12 @@ use std::{
 create_exception!(_native, CatabolicError, PyRuntimeError);
 fn error(value: Error) -> PyErr {
     CatabolicError::new_err(value.to_string())
+}
+fn detailed_error(value: catabolic_store::DetailedError) -> PyErr {
+    match value.class() {
+        ErrorClass::CatabolicError => error(value.into_error()),
+        ErrorClass::TypeError => PyTypeError::new_err(value.to_string()),
+    }
 }
 fn lock<T>(value: &Mutex<T>) -> PyResult<MutexGuard<'_, T>> {
     value
@@ -83,6 +93,13 @@ impl NativeStore {
         py: Python<'_>,
         action: impl FnOnce(&catabolic_store::Store) -> Result<Value> + Send,
     ) -> PyResult<String> {
+        self.read_value(py, action).map(|value| value.to_string())
+    }
+    fn read_value<T: Send>(
+        &self,
+        py: Python<'_>,
+        action: impl FnOnce(&catabolic_store::Store) -> Result<T> + Send,
+    ) -> PyResult<T> {
         let signal = Arc::new(Mutex::new(None));
         let captured = signal.clone();
         let value = self.run(py, move |session| {
@@ -104,7 +121,7 @@ impl NativeStore {
         if let Some(error) = signal.lock().unwrap().take() {
             return Err(error);
         }
-        value.map(|v| v.to_string())
+        value
     }
 }
 #[pymethods]
@@ -549,6 +566,19 @@ impl NativeStore {
                 })
                 .map(|v| v.to_string());
         }
+        if surface == "query" {
+            // Carry the detailed failure through the ordinary checkout/signal
+            // owner; convert it only after that owner has restored the session.
+            let detailed = self.read_value(py, |store| {
+                Ok((|| -> catabolic_store::DetailedResult<Value> {
+                    catabolic_store::query::CatalogQuery::new(store, profile)?
+                        .execute_detailed(operation, &request)
+                })())
+            })?;
+            return detailed
+                .map(|value| value.to_string())
+                .map_err(detailed_error);
+        }
         self.read(py, |store| match surface {
             "content_access" if operation == "revision_of" => {
                 catabolic_store::content_access::revision_of(
@@ -576,8 +606,6 @@ impl NativeStore {
             "fallback_policies" => {
                 catabolic_store::fallback_mutation::execute(store, profile, operation, &request)
             }
-            "query" => catabolic_store::query::CatalogQuery::new(store, profile)?
-                .execute(operation, &request),
             "tagging" => catabolic_store::tagging::dispatch(store, profile, operation, &request),
             "item_workflow" => {
                 catabolic_store::item_workflow::dispatch(store, profile, operation, &request)

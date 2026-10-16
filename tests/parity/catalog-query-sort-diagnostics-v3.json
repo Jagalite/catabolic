@@ -1,0 +1,4817 @@
+{
+  "schema": 3,
+  "status": "Bounded dictionary and list TypeError provenance on known sort-supporting methods; profile ordering and no-sort keywords remain explicit separate residuals.",
+  "provenance": {
+    "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "python": "3.14.6",
+    "historical_fixture": "tests/parity/graphql-runtime-sort-controls.json",
+    "historical_fixture_sha256": "dc645e7358c8d01cc943530e9d3105f7277f65526aca9238cac9102c299a9041",
+    "oracle_protocol": "Direct frozen CatalogQuery operation; canonical data or exact message and exception class in complete code/stdout/stderr envelope. Native owner uses the copied development PyO3 package. Companion retains operational error exit 2 and stderr; no companion exception-class claim.",
+    "previous_contract": "tests/parity/catalog-query-sort-diagnostics-v2.json",
+    "previous_contract_sha256": "22079ad59bec9827485f2d6d42f44b78d728b7cf7546d36976fb94325e819b28",
+    "stateless_python_protocol": "The stateless Python helper keeps its existing RuntimeError for ordinary domain failures, while the typed dictionary failure becomes TypeError. Exact envelopes are recorded without claiming ordinary stateless exception-class equivalence to frozen CatalogQuery.",
+    "historical_native_commit": "00950e792669fd401fbb59a3a0956b40a8668cc1",
+    "historical_native_sha256": "e2635bf64c8681bd6452a94168f6444d3f91d49304fa1611ad045c1319c3cb78",
+    "baseline_companion_sha256": "e8b3caafca409fad99cf45fb96f13d107d92389227b58adbacfbbb5c60f398b1",
+    "baseline_companion_source_files_sha256": "19d16731702867d62c295eed8e5d9a4144b6206ab3cf24c946263965c371f6d5",
+    "baseline_companion_scope": "The pre-repair sealed diagnostic integration, including its uncommitted qualified composition; not the historical baseline helper. Previous contract bytes and historical helper identity remain separately retained.",
+    "evidence_source_files_sha256": "03333a0bd0e8a88e2b0b102cdc3b35dccbf0082973428bddd9af45972fd1ebdd",
+    "evidence_preparation_sha256": "8961634a54c6f1d88b997ef3ffba98c38937ee1734b81dd0957c53f1caf2b4b2",
+    "supported_methods": [
+      "items",
+      "files",
+      "mappings"
+    ],
+    "scope": "25 historical v2 cases plus 63 expanded default-profile cases; 6 unknown-profile ordering cases and 4 unsupported keyword captures remain separately retained."
+  },
+  "cases": [
+    {
+      "name": "omitted",
+      "operation": "items",
+      "args": {},
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "id",
+      "operation": "items",
+      "args": {
+        "sort": "id"
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "title",
+      "operation": "items",
+      "args": {
+        "sort": "title"
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "null",
+      "operation": "items",
+      "args": {
+        "sort": null
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      }
+    },
+    {
+      "name": "integer",
+      "operation": "items",
+      "args": {
+        "sort": 5
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      }
+    },
+    {
+      "name": "true",
+      "operation": "items",
+      "args": {
+        "sort": true
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      }
+    },
+    {
+      "name": "dictionary_residual",
+      "operation": "items",
+      "args": {
+        "sort": {}
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      }
+    },
+    {
+      "name": "unknown_text",
+      "operation": "items",
+      "args": {
+        "sort": "bogus"
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      }
+    },
+    {
+      "name": "year",
+      "operation": "items",
+      "args": {
+        "sort": "year"
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "false",
+      "operation": "items",
+      "args": {
+        "sort": false
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      }
+    },
+    {
+      "name": "zero",
+      "operation": "items",
+      "args": {
+        "sort": 0
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      }
+    },
+    {
+      "name": "negative",
+      "operation": "items",
+      "args": {
+        "sort": -7
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      }
+    },
+    {
+      "name": "fraction",
+      "operation": "items",
+      "args": {
+        "sort": 1.5
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      }
+    },
+    {
+      "name": "wide_integer",
+      "operation": "items",
+      "args": {
+        "sort": 1267650600228229401496703205376
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      }
+    },
+    {
+      "name": "numeric_limit_precedence",
+      "operation": "items",
+      "args": {
+        "sort": 5,
+        "limit": 0
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      }
+    },
+    {
+      "name": "boolean_limit_precedence",
+      "operation": "items",
+      "args": {
+        "sort": true,
+        "limit": 0
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      }
+    },
+    {
+      "name": "dictionary_limit_precedence",
+      "operation": "items",
+      "args": {
+        "sort": {},
+        "limit": 0
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      }
+    },
+    {
+      "name": "dictionary_nonempty",
+      "operation": "items",
+      "args": {
+        "sort": {
+          "id": 1
+        }
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      }
+    },
+    {
+      "name": "dictionary_nested",
+      "operation": "items",
+      "args": {
+        "sort": {
+          "key": {
+            "nested": []
+          }
+        }
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      }
+    },
+    {
+      "name": "dictionary_descending_precedence",
+      "operation": "items",
+      "args": {
+        "sort": {},
+        "descending": "bad"
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      }
+    },
+    {
+      "name": "dictionary_message_text",
+      "operation": "items",
+      "args": {
+        "sort": "cannot use 'dict' as a dict key (unhashable type: 'dict')"
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      }
+    },
+    {
+      "name": "list_empty_residual",
+      "operation": "items",
+      "args": {
+        "sort": []
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      }
+    },
+    {
+      "name": "list_nonempty_residual",
+      "operation": "items",
+      "args": {
+        "sort": [
+          "id"
+        ]
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      }
+    },
+    {
+      "name": "dictionary_files_caller",
+      "operation": "files",
+      "args": {
+        "sort": {}
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      }
+    },
+    {
+      "name": "dictionary_mappings_caller",
+      "operation": "mappings",
+      "args": {
+        "sort": {}
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "diagnostic_parity": true,
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "profile": "default",
+      "group": "historical_v2",
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      }
+    },
+    {
+      "name": "items_array_empty",
+      "operation": "items",
+      "args": {
+        "sort": []
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_one_text",
+      "operation": "items",
+      "args": {
+        "sort": [
+          "id"
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_many_text",
+      "operation": "items",
+      "args": {
+        "sort": [
+          "id",
+          "title"
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_nested_list",
+      "operation": "items",
+      "args": {
+        "sort": [
+          []
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_nested_dict",
+      "operation": "items",
+      "args": {
+        "sort": [
+          {}
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_mixed",
+      "operation": "items",
+      "args": {
+        "sort": [
+          null,
+          false,
+          1,
+          {
+            "key": [
+              "id"
+            ]
+          }
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_limit_zero",
+      "operation": "items",
+      "args": {
+        "sort": [],
+        "limit": 0
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_limit_negative",
+      "operation": "items",
+      "args": {
+        "sort": [],
+        "limit": -1
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_limit_over_max",
+      "operation": "items",
+      "args": {
+        "sort": [],
+        "limit": 1001
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_limit_text",
+      "operation": "items",
+      "args": {
+        "sort": [],
+        "limit": "bad"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_limit_null",
+      "operation": "items",
+      "args": {
+        "sort": [],
+        "limit": null
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_descending",
+      "operation": "items",
+      "args": {
+        "sort": [],
+        "descending": "bad"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_cursor",
+      "operation": "items",
+      "args": {
+        "sort": [],
+        "cursor": "invalid-cursor"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_catalog",
+      "operation": "items",
+      "args": {
+        "sort": [],
+        "catalog": "array-sort-missing-catalog"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown catalogs: array-sort-missing-catalog\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown catalogs: array-sort-missing-catalog\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown catalogs: array-sort-missing-catalog\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_control_omitted",
+      "operation": "items",
+      "args": {},
+      "profile": "default",
+      "group": "unchanged_controls",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_control_null",
+      "operation": "items",
+      "args": {
+        "sort": null
+      },
+      "profile": "default",
+      "group": "unchanged_controls",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_control_dictionary",
+      "operation": "items",
+      "args": {
+        "sort": {}
+      },
+      "profile": "default",
+      "group": "unchanged_controls",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_control_message_text",
+      "operation": "items",
+      "args": {
+        "sort": "cannot use 'list' as a dict key (unhashable type: 'list')"
+      },
+      "profile": "default",
+      "group": "unchanged_controls",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_empty",
+      "operation": "files",
+      "args": {
+        "sort": []
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_one_text",
+      "operation": "files",
+      "args": {
+        "sort": [
+          "id"
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_many_text",
+      "operation": "files",
+      "args": {
+        "sort": [
+          "id",
+          "title"
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_nested_list",
+      "operation": "files",
+      "args": {
+        "sort": [
+          []
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_nested_dict",
+      "operation": "files",
+      "args": {
+        "sort": [
+          {}
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_mixed",
+      "operation": "files",
+      "args": {
+        "sort": [
+          null,
+          false,
+          1,
+          {
+            "key": [
+              "id"
+            ]
+          }
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_limit_zero",
+      "operation": "files",
+      "args": {
+        "sort": [],
+        "limit": 0
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_limit_negative",
+      "operation": "files",
+      "args": {
+        "sort": [],
+        "limit": -1
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_limit_over_max",
+      "operation": "files",
+      "args": {
+        "sort": [],
+        "limit": 1001
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_limit_text",
+      "operation": "files",
+      "args": {
+        "sort": [],
+        "limit": "bad"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_limit_null",
+      "operation": "files",
+      "args": {
+        "sort": [],
+        "limit": null
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_descending",
+      "operation": "files",
+      "args": {
+        "sort": [],
+        "descending": "bad"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_cursor",
+      "operation": "files",
+      "args": {
+        "sort": [],
+        "cursor": "invalid-cursor"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_catalog",
+      "operation": "files",
+      "args": {
+        "sort": [],
+        "catalog": "array-sort-missing-catalog"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown catalogs: array-sort-missing-catalog\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown catalogs: array-sort-missing-catalog\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown catalogs: array-sort-missing-catalog\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_control_omitted",
+      "operation": "files",
+      "args": {},
+      "profile": "default",
+      "group": "unchanged_controls",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"files\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 0,
+        "stdout": "{\"files\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 0,
+        "stdout": "{\"files\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"files\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"files\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"files\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"files\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 0,
+        "stdout": "{\"files\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_control_null",
+      "operation": "files",
+      "args": {
+        "sort": null
+      },
+      "profile": "default",
+      "group": "unchanged_controls",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, size, mtime\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, path, size, mtime\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, path, size, mtime\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, size, mtime\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, size, mtime\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, size, mtime\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, size, mtime\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, path, size, mtime\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_control_dictionary",
+      "operation": "files",
+      "args": {
+        "sort": {}
+      },
+      "profile": "default",
+      "group": "unchanged_controls",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_control_message_text",
+      "operation": "files",
+      "args": {
+        "sort": "cannot use 'list' as a dict key (unhashable type: 'list')"
+      },
+      "profile": "default",
+      "group": "unchanged_controls",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, size, mtime\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, path, size, mtime\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, path, size, mtime\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, size, mtime\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, size, mtime\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, size, mtime\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, size, mtime\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, path, size, mtime\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_empty",
+      "operation": "mappings",
+      "args": {
+        "sort": []
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_one_text",
+      "operation": "mappings",
+      "args": {
+        "sort": [
+          "id"
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_many_text",
+      "operation": "mappings",
+      "args": {
+        "sort": [
+          "id",
+          "title"
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_nested_list",
+      "operation": "mappings",
+      "args": {
+        "sort": [
+          []
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_nested_dict",
+      "operation": "mappings",
+      "args": {
+        "sort": [
+          {}
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_mixed",
+      "operation": "mappings",
+      "args": {
+        "sort": [
+          null,
+          false,
+          1,
+          {
+            "key": [
+              "id"
+            ]
+          }
+        ]
+      },
+      "profile": "default",
+      "group": "bounded_sort",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_limit_zero",
+      "operation": "mappings",
+      "args": {
+        "sort": [],
+        "limit": 0
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_limit_negative",
+      "operation": "mappings",
+      "args": {
+        "sort": [],
+        "limit": -1
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_limit_over_max",
+      "operation": "mappings",
+      "args": {
+        "sort": [],
+        "limit": 1001
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_limit_text",
+      "operation": "mappings",
+      "args": {
+        "sort": [],
+        "limit": "bad"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_limit_null",
+      "operation": "mappings",
+      "args": {
+        "sort": [],
+        "limit": null
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_descending",
+      "operation": "mappings",
+      "args": {
+        "sort": [],
+        "descending": "bad"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_cursor",
+      "operation": "mappings",
+      "args": {
+        "sort": [],
+        "cursor": "invalid-cursor"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be text\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'list' as a dict key (unhashable type: 'list')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_catalog",
+      "operation": "mappings",
+      "args": {
+        "sort": [],
+        "catalog": "array-sort-missing-catalog"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown catalogs: array-sort-missing-catalog\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown catalogs: array-sort-missing-catalog\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown catalogs: array-sort-missing-catalog\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown catalogs: array-sort-missing-catalog\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_control_omitted",
+      "operation": "mappings",
+      "args": {},
+      "profile": "default",
+      "group": "unchanged_controls",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"mappings\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 0,
+        "stdout": "{\"mappings\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "previous_companion": {
+        "code": 0,
+        "stdout": "{\"mappings\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"mappings\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"mappings\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"mappings\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"mappings\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 0,
+        "stdout": "{\"mappings\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_control_null",
+      "operation": "mappings",
+      "args": {
+        "sort": null
+      },
+      "profile": "default",
+      "group": "unchanged_controls",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, path, catalog\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, path, catalog\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, catalog\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, catalog\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, path, catalog\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_control_dictionary",
+      "operation": "mappings",
+      "args": {
+        "sort": {}
+      },
+      "profile": "default",
+      "group": "unchanged_controls",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: cannot use 'dict' as a dict key (unhashable type: 'dict')\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_control_message_text",
+      "operation": "mappings",
+      "args": {
+        "sort": "cannot use 'list' as a dict key (unhashable type: 'list')"
+      },
+      "profile": "default",
+      "group": "unchanged_controls",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, path, catalog\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, path, catalog\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, catalog\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, catalog\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, path, catalog\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, path, catalog\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_filter_kind",
+      "operation": "items",
+      "args": {
+        "sort": [],
+        "kind": "array-sort-invalid-kind"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_filter_year",
+      "operation": "items",
+      "args": {
+        "sort": [],
+        "year": "bad"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"year must be between 1 and 9999\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: year must be between 1 and 9999\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: year must be between 1 and 9999\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"year must be between 1 and 9999\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"year must be between 1 and 9999\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"year must be between 1 and 9999\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"year must be between 1 and 9999\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: year must be between 1 and 9999\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "items_array_filter_tags",
+      "operation": "items",
+      "args": {
+        "sort": [],
+        "tags": [
+          "array-sort-missing-tag"
+        ]
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown tag: array-sort-missing-tag; create it with tag put\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown tag: array-sort-missing-tag; create it with tag put\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown tag: array-sort-missing-tag; create it with tag put\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown tag: array-sort-missing-tag; create it with tag put\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown tag: array-sort-missing-tag; create it with tag put\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown tag: array-sort-missing-tag; create it with tag put\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown tag: array-sort-missing-tag; create it with tag put\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown tag: array-sort-missing-tag; create it with tag put\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_filter_kind",
+      "operation": "files",
+      "args": {
+        "sort": [],
+        "kind": "array-sort-invalid-kind"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown media kind: array-sort-invalid-kind; use a built-in name or custom:lowercase_name\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_filter_year",
+      "operation": "files",
+      "args": {
+        "sort": [],
+        "year": "bad"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"year must be between 1 and 9999\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: year must be between 1 and 9999\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: year must be between 1 and 9999\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"year must be between 1 and 9999\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"year must be between 1 and 9999\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"year must be between 1 and 9999\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"year must be between 1 and 9999\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: year must be between 1 and 9999\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "files_array_filter_tags",
+      "operation": "files",
+      "args": {
+        "sort": [],
+        "tags": [
+          "array-sort-missing-tag"
+        ]
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown tag: array-sort-missing-tag; create it with tag put\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown tag: array-sort-missing-tag; create it with tag put\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown tag: array-sort-missing-tag; create it with tag put\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown tag: array-sort-missing-tag; create it with tag put\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown tag: array-sort-missing-tag; create it with tag put\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown tag: array-sort-missing-tag; create it with tag put\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown tag: array-sort-missing-tag; create it with tag put\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown tag: array-sort-missing-tag; create it with tag put\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_filter_active",
+      "operation": "mappings",
+      "args": {
+        "sort": [],
+        "active": "bad"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"active must be all, active, or disabled\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: active must be all, active, or disabled\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: active must be all, active, or disabled\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"active must be all, active, or disabled\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"active must be all, active, or disabled\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"active must be all, active, or disabled\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"active must be all, active, or disabled\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: active must be all, active, or disabled\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_filter_item",
+      "operation": "mappings",
+      "args": {
+        "sort": [],
+        "item": "bad"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown items: bad\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown items: bad\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown items: bad\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown items: bad\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown items: bad\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown items: bad\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown items: bad\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown items: bad\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "mappings_array_filter_file",
+      "operation": "mappings",
+      "args": {
+        "sort": [],
+        "file": "bad"
+      },
+      "profile": "default",
+      "group": "precedence",
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown files: bad\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown files: bad\n"
+      },
+      "previous_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown files: bad\n"
+      },
+      "previous_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown files: bad\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "previous_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown files: bad\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown files: bad\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "expected_stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown files: bad\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown files: bad\n"
+      },
+      "diagnostic_parity": true
+    }
+  ],
+  "profile_precedence_residuals": [
+    {
+      "name": "items_array_missing_profile",
+      "operation": "items",
+      "args": {
+        "sort": []
+      },
+      "profile": "array-sort-missing-profile",
+      "group": "precedence",
+      "frozen_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "persistent_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown profile: array-sort-missing-profile\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown profile: array-sort-missing-profile\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown profile: array-sort-missing-profile\n"
+      }
+    },
+    {
+      "name": "items_array_missing_profile_limit",
+      "operation": "items",
+      "args": {
+        "sort": [],
+        "limit": 0
+      },
+      "profile": "array-sort-missing-profile",
+      "group": "precedence",
+      "frozen_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "persistent_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown profile: array-sort-missing-profile\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown profile: array-sort-missing-profile\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown profile: array-sort-missing-profile\n"
+      }
+    },
+    {
+      "name": "files_array_missing_profile",
+      "operation": "files",
+      "args": {
+        "sort": []
+      },
+      "profile": "array-sort-missing-profile",
+      "group": "precedence",
+      "frozen_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "persistent_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown profile: array-sort-missing-profile\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown profile: array-sort-missing-profile\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown profile: array-sort-missing-profile\n"
+      }
+    },
+    {
+      "name": "files_array_missing_profile_limit",
+      "operation": "files",
+      "args": {
+        "sort": [],
+        "limit": 0
+      },
+      "profile": "array-sort-missing-profile",
+      "group": "precedence",
+      "frozen_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "persistent_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown profile: array-sort-missing-profile\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown profile: array-sort-missing-profile\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown profile: array-sort-missing-profile\n"
+      }
+    },
+    {
+      "name": "mappings_array_missing_profile",
+      "operation": "mappings",
+      "args": {
+        "sort": []
+      },
+      "profile": "array-sort-missing-profile",
+      "group": "precedence",
+      "frozen_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'list' as a dict key (unhashable type: 'list')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "persistent_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown profile: array-sort-missing-profile\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown profile: array-sort-missing-profile\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown profile: array-sort-missing-profile\n"
+      }
+    },
+    {
+      "name": "mappings_array_missing_profile_limit",
+      "operation": "mappings",
+      "args": {
+        "sort": [],
+        "limit": 0
+      },
+      "profile": "array-sort-missing-profile",
+      "group": "precedence",
+      "frozen_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "persistent_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown profile: array-sort-missing-profile\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "stateless_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"unknown profile: array-sort-missing-profile\",\"type\":\"RuntimeError\"}\n",
+        "stderr": ""
+      },
+      "companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: unknown profile: array-sort-missing-profile\n"
+      }
+    }
+  ],
+  "no_sort_keyword_residuals": [
+    {
+      "name": "dictionary_tags_caller",
+      "operation": "tags",
+      "args": {
+        "sort": {}
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"CatalogQuery.tags() got an unexpected keyword argument 'sort'\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"CatalogQuery.tags() got an unexpected keyword argument 'sort'\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: CatalogQuery.tags() got an unexpected keyword argument 'sort'\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "dictionary_taggings_caller",
+      "operation": "taggings",
+      "args": {
+        "sort": {}
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"CatalogQuery.taggings() got an unexpected keyword argument 'sort'\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"CatalogQuery.taggings() got an unexpected keyword argument 'sort'\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: CatalogQuery.taggings() got an unexpected keyword argument 'sort'\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "dictionary_associations_caller",
+      "operation": "associations",
+      "args": {
+        "sort": {}
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"CatalogQuery.associations() got an unexpected keyword argument 'sort'\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"CatalogQuery.associations() got an unexpected keyword argument 'sort'\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: CatalogQuery.associations() got an unexpected keyword argument 'sort'\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "dictionary_relationships_caller",
+      "operation": "relationships",
+      "args": {
+        "sort": {}
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"CatalogQuery.relationships() got an unexpected keyword argument 'sort'\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_native_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"CatalogQuery.relationships() got an unexpected keyword argument 'sort'\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: CatalogQuery.relationships() got an unexpected keyword argument 'sort'\n"
+      },
+      "diagnostic_parity": true
+    }
+  ]
+}

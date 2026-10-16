@@ -1,0 +1,147 @@
+{
+  "format_version": 1,
+  "package": "R2",
+  "status": "locally_tested_native_foundation_independent_schema_review_incomplete",
+  "recorded_at_utc": "2026-10-14T17:41:58.629887+00:00",
+  "baseline_commit": "555b9455864070646a20aad401e8f0cab460b884",
+  "source": {
+    "manifest": "tests/parity/native-catalog-r2-source-manifest.json",
+    "file_sha256": "5858b55c8e143252b3d64ed840a24b8b540fdc903185581f3feaccaadeb91f92",
+    "canonical_files_sha256": "37874c5b0f19e4e6a94dff74b20393c5962197384bebb31079f844be2c5d0929",
+    "file_count": 732,
+    "unchanged_before_after": true,
+    "all_705_R1_frozen_paths_retained": true
+  },
+  "runner": {
+    "kind": "standard Cargo; user-authorized exception from Kyoto",
+    "rustc": "1.99.0 (b940084d7 2026-09-28)",
+    "cargo": "1.99.0 (5f94df478 2026-08-27)",
+    "target": "x86_64-unknown-linux-gnu",
+    "qualification_scope": "Linux only; project declared minimum1.99; not other-platform qualification",
+    "python": "3.12.14",
+    "python_sqlite": "3.53.1",
+    "ruff": "0.16.6 from https://pypi.org/simple"
+  },
+  "runs": {
+    "core_store_runtime": {
+      "command": "cargo test --locked -p catabolic-core -p catabolic-store -p catabolic-runtime --no-fail-fast -- --test-threads=1",
+      "log": ".local-tests/catalog-r2/frozen-integrated-tests.log",
+      "sha256": "b7c575e023e07a2da743b565b1810786422c066259770ddd7e9233ddb5c28c6b",
+      "passing_executions": 718,
+      "failed_executions": 0,
+      "ignored_entries": 9,
+      "harness_summaries": 59
+    },
+    "strict_clippy": {
+      "command": "cargo clippy --locked -p catabolic-core -p catabolic-store -p catabolic-runtime --all-targets -- -D warnings",
+      "log": ".local-tests/catalog-r2/frozen-clippy.log",
+      "sha256": "e27e1f860557162d1861f1e9adea84d209828ce123e7860aa36bd5f6888583d5",
+      "passed": true
+    },
+    "format": {
+      "command": "cargo fmt --all --check",
+      "log": ".local-tests/catalog-r2/frozen-format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true
+    },
+    "python_schema_and_audit": {
+      "command": "python3 -m unittest tests.test_native_catalog_schema tests.test_native_catalog_schema_generation tests.test_catalog_contract_audit -v",
+      "log": ".local-tests/catalog-r2/frozen-python-tests.log",
+      "sha256": "886d10e05b739faa709ba34ad85d53bdbc726076611437c3c6d1d77596fd4dbd",
+      "passing_tests": 46,
+      "failed_tests": 0,
+      "contract_ledger_sha256": "4f0169228ca950347de865ca0424c777f74db0515c7f990e561b8044e9536a30"
+    },
+    "schema_reproduction": {
+      "command": "python3 scripts/native_catalog_schema.py --check",
+      "log": ".local-tests/catalog-r2/frozen-schema-check.log",
+      "sha256": "5d2bfe1fdbcf01c5bbee0938a01573634a745a3e974b71b0e5865cdbbc079157",
+      "passed": true,
+      "artifacts": 4
+    },
+    "ruff": {
+      "command": "ruff check and ruff format --check on schema/audit tooling and tests",
+      "log": ".local-tests/catalog-r2/frozen-ruff.log",
+      "sha256": "cd7f41cf1ad5ba8b6263217889865f18d2b85df5ad631a05d6d321f51fd1b7b2",
+      "passed": true
+    },
+    "real_helper": {
+      "command": "CATABOLIC_HOST_TEST_HELPER=<recorded helper> cargo test --locked -p catabolic-runtime --test native_host_contract -- --ignored --test-threads=1",
+      "log": ".local-tests/catalog-r2/frozen-real-helper.log",
+      "sha256": "fb95974078a54a08678812dba39edd9fb1095db8252b9d088b0b408e3f0cca0b",
+      "passing_tests": 1,
+      "failed_tests": 0
+    }
+  },
+  "focused_cases": {
+    "core_command": 15,
+    "native_commands": 17,
+    "persistent_identity": 21,
+    "native_lifecycle": 20,
+    "native_admission": 2,
+    "native_migrations": 20,
+    "schema_only": 37,
+    "schema_packaging": 7,
+    "overlap_aggregate": true
+  },
+  "helper": {
+    "path": ".local-tests/catalog-r2/catabolic-native",
+    "sha256": "da8d5a3a4f3c7a6c3b15a74fdf39adb73253a9704a224294b64e591c706508cc",
+    "build": "cargo build --locked -p catabolic-cli --bin catabolic-native; copy; strip --strip-debug",
+    "distribution_candidate": false
+  },
+  "oracle_inputs": {
+    "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "archive_sha256": "ea6d64a8c274f0886da120343883a6ef761794b3b7ef55840fad93f9f402217b",
+    "reference_files_compared_byte_for_byte": 522,
+    "fixture_files_verified": 33,
+    "provenance_sha256": "86976e5179b4e68b193a30ca15765d48fd874d3387208c86e6964cb13260dd4d",
+    "unchanged_after_aggregate": true,
+    "qualification_scope": "Disposable storage_faults Rust test setup; not full pinned-Python release qualification"
+  },
+  "schema": {
+    "target": 33,
+    "legacy_default_target": 32,
+    "migration_sha256": "e809421a9cd5b0d561934b0d94e049b3a2d72b3944bd843275193caf6dad931c",
+    "signature_sha256": "bf82c9c96ba35d920f96fbd179acc059eb2e4711f07277e4d251fcc6f1575e3a",
+    "historical_SQL_and_old_rows_preserved": true,
+    "review": "incomplete"
+  },
+  "independent_schema_review": {
+    "status": "incomplete",
+    "record": "tests/parity/native-catalog-schema/schema-review-blocked.json",
+    "record_sha256": "1db6fd720953993a9100a032137287c3126e744294d3666a4412fffd38ea8ed1",
+    "retry_or_reassignment": false,
+    "clearance_claim": false
+  },
+  "failures": {
+    "record": "tests/parity/native-catalog-r2-failures.json",
+    "sha256": "9f95c40e346b4bc3f9447e14a351acecdaeef99664e4cd17c87c11b6fd7efeaf"
+  },
+  "ignored_entries": [
+    "test document::tests::real_pdf_text_and_page_overflow ... ignored, requires the optional local pdftotext executable",
+    "test document::tests::real_single_image_ocr ... ignored, requires local tesseract and its English language data",
+    "test real_native_helper_scan_cancel_drain_and_reopen ... ignored, requires an explicitly built, digest-checked CATABOLIC_HOST_TEST_HELPER",
+    "test entry_budget_exhaustion_cannot_restart_for_later_sources ... ignored, creates 200001 disposable empty entries to exercise setup exhaustion",
+    "test access_admin::tests::frozen_access_owner_differential ... ignored, requires pinned frozen checkout and Python 3.14.6; run with --ignored",
+    "test access_admin::tests::inherited_scalar_cache_confusion_remains_fail_closed_native ... ignored, requires pinned frozen checkout and Python 3.14.6; intentional fail-closed divergence witness",
+    "test artifact_mutation::tests::python_native_publication_intents_recover_in_both_directions ... ignored, requires CATABOLIC_PYTHON_ORACLE and CATABOLIC_PYTHON_REFERENCE",
+    "test native_admission::lifecycle_tests::fork_drop_helper ... ignored, run only through the isolated subprocess wrapper",
+    "test inherited_native_store_helper ... ignored, run through the isolated subprocess wrapper"
+  ],
+  "ignored_coverage": {
+    "real_helper": "separate current-source pass",
+    "two_fork_helpers": "executed and asserted by their passing wrapper tests",
+    "remaining_unrun": 6
+  },
+  "remaining_limits": [
+    "Independent schema review incomplete; no milestone or release closure",
+    "Native WAL cutover refused; controlled restore publication unavailable",
+    "Interval-aware packaging/publication unsupported; native slices fail closed",
+    "Privileged trusted-host APIs only; scoped authorization/search still R4 work",
+    "Contributions/pins/merge/split, import/cutover and remaining product work not completed",
+    "External Motion composition and application cutover deferred by user; no Motion edits/tests",
+    "Six opt-in cases unrun; full workspace, pinned Python3.14.6 and other platforms not qualified"
+  ],
+  "M0_M11_gate_closures": []
+}

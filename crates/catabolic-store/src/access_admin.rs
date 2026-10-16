@@ -89,7 +89,7 @@ impl From<rusqlite::Error> for Failure {
 impl From<Failure> for Error {
     fn from(error: Failure) -> Self {
         match error {
-            Failure::Access(error) => Self(error.code().into()),
+            Failure::Access(error) => Error(error.code().into()),
             Failure::Native(error) => error,
         }
     }
@@ -382,3 +382,9 @@ fn issue_with_sources_detailed(
 #[cfg(test)]
 #[path = "access_admin_tests.rs"]
 mod tests;
+
+/// Shared field-mask validation for trusted native hosts; no persisted principal.
+pub(crate) fn validate_host_metadata_fields(fields: &[String]) -> Result<()> {
+    validate_grant(&json!({"actions":["metadata:read"],"metadata_fields":fields}))
+        .map_err(Into::into)
+}

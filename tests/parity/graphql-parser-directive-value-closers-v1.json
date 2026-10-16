@@ -1,0 +1,943 @@
+{
+  "contract": "native-graphql-parser-directive-value-closers-v1",
+  "fixture_bindings": [
+    {
+      "case_count": 61,
+      "cases_sha256": "7879baa36b670ab27a6e155e315972bcca880f546e9d660b44c06890cc0cf240",
+      "contract": "native-graphql-parser-boundary-ownership-v1",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "prior_promotion_indices": [
+        19,
+        22,
+        27,
+        36,
+        37,
+        40,
+        56,
+        57
+      ],
+      "provenance_sha256": "37c7ba67609b15d843dc1543db32aa267bc40f09345d1ebe4537888dc71e11d5",
+      "sha256": "863a1a22934a34c81c1e154c2362530a4db49e936608fbf9a541b8a0725816de",
+      "stage06_cases_sha256": "c73858b6b52eb2b3aa6b53e564d97af23781d598f74f65d855298033cdbfc8c1",
+      "stage07_cases_sha256": "74804e14e41674e31a664132795a1cd76e3703b0926ff17c539a67b9b662afbc"
+    },
+    {
+      "case_count": 50,
+      "cases_sha256": "9e3b6c2d42041826ef7a4bd7fc42e0a5843fe512b7d2c6dc38715771d9f22bb3",
+      "contract": "native-graphql-parser-required-value-precedence-v1",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "prior_promotion_indices": [
+        40,
+        43,
+        46
+      ],
+      "provenance_sha256": "da6f8f0713b182dd4968830f67b52c1faa32da67fcb15b40f023f13a71309105",
+      "sha256": "079ce62e3dbd623e8a1726fbb7ec9f25b9ff678d1baa728da77f0928f73a8c56",
+      "stage06_cases_sha256": "c50c59105f6d58e4cc8b9dbc90d93ba7c79245cebac74c96e44e9d6b58b59818",
+      "stage07_cases_sha256": "058770bb7f1d8baa782b9cf4a1fc1d242aa95523d605a29bd27b952bc49f74ba"
+    }
+  ],
+  "provenance": {
+    "assessment_rows_sha256": "ca0c5262daa23f7d8084622830775d3dd8dda6998f59314e04aa2597cd6decce",
+    "assessment_seal_sha256": "122ca8506127ea904d98e2d701b70383766e5362445f2b6937eace426aa31285",
+    "base_seal_sha256": "2595389090bbfd14f02ee6f233ee010c2720620313703e23040833d51bd47032",
+    "base_source_map_sha256": "d768732983a3e361a403debca170d366a8df3ddf0e07a9a44268602247584d94",
+    "capture_boundary": "Complete historical frozen reference/frozen_parse and stage02 native envelopes copied unchanged from exact fixture preimages; not stage06 or stage07 runtime observations.",
+    "policy_scope": "FieldDirective required-value pairs Root/], ListElement/), ObjectMember/} only, in both independent policies. Other directive parents, other pairs, bang/EOF, names and colons are not promoted. Immediate-colon/) and variable ownership remain separate and unchanged.",
+    "prior_contract": "native-graphql-parser-field-value-tokens-v1",
+    "prior_fixture": "graphql-parser-field-value-tokens-v1.json",
+    "prior_fixture_sha256": "89793e8e4e19227c61dec263b77ff1016531e850d2a41940d473f7084e742184",
+    "runtime_executed": false
+  },
+  "replacements": [
+    {
+      "before_limit_policy": true,
+      "case_sha256": "080af98b7bbfd121080127806ee0c0f4f9f12673fb3226012e6567b2ee321377",
+      "closer": "]",
+      "companion_sha256": "0fd626bbefa5603418282730cb65bbc31ea145eb24a1b1fbb659255f1bea2961",
+      "context": "Argument(FieldDirective)",
+      "document_bytes": 21,
+      "document_sha256": "7eb529bbd12035f3976b7711f6992de1c17fd80086972d5dc15e1c0a61c25b38",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "frozen_parse_sha256": "259e187630f84e61c1fcc5d9e8424a1e42429fa28bf10af3966e4f3670085889",
+      "historical_active_policy": "ordinary",
+      "legacy_sha256": "8c49cd587af0af476ae2caac0539824086c34c6c05f1f00f26c5d1ec12abc131",
+      "name": "directive-field-root-bracket",
+      "ordinary_policy": true,
+      "pointer": "/cases/12",
+      "position": "Root",
+      "preimage": {
+        "args": [],
+        "baseline": {
+          "companion": {
+            "code": 0,
+            "stderr": "",
+            "stdout": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 19,
+                      "line": 1
+                    }
+                  ],
+                  "message": " --> 1:19\n  |\n1 | {profile @skip(if:])}\n  |                   ^---\n  |\n  = expected value"
+                }
+              ]
+            }
+          },
+          "legacy": {
+            "code": 2,
+            "stderr": "",
+            "stdout": {
+              "command": "graphql",
+              "data": {
+                "data": null,
+                "errors": [
+                  {
+                    "locations": [
+                      {
+                        "column": 19,
+                        "line": 1
+                      }
+                    ],
+                    "message": " --> 1:19\n  |\n1 | {profile @skip(if:])}\n  |                   ^---\n  |\n  = expected value"
+                  }
+                ]
+              },
+              "exit_code": 2,
+              "interface_version": 1,
+              "operation": null,
+              "outcome": "error",
+              "profile": "default"
+            }
+          }
+        },
+        "category": "directive-ownership-control",
+        "document": "{profile @skip(if:])}",
+        "document_sha256": "7eb529bbd12035f3976b7711f6992de1c17fd80086972d5dc15e1c0a61c25b38",
+        "evidence": {
+          "capture_name": "directive-field-root-bracket",
+          "source": "assessment-v2"
+        },
+        "expectation": "baseline",
+        "frozen_parse": {
+          "accepted": false,
+          "exception": "graphql.error.syntax_error.GraphQLSyntaxError",
+          "formatted": {
+            "locations": [
+              {
+                "column": 19,
+                "line": 1
+              }
+            ],
+            "message": "Syntax Error: Unexpected ']'."
+          },
+          "locations": [
+            {
+              "column": 19,
+              "line": 1
+            }
+          ],
+          "message": "Syntax Error: Unexpected ']'.",
+          "positions": [
+            18
+          ]
+        },
+        "name": "directive-field-root-bracket",
+        "preflight": true,
+        "reference": {
+          "code": 2,
+          "stderr": "",
+          "stdout": {
+            "command": "graphql",
+            "data": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 19,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Unexpected ']'."
+                }
+              ]
+            },
+            "exit_code": 2,
+            "interface_version": 1,
+            "operation": null,
+            "outcome": "error",
+            "profile": "default"
+          }
+        }
+      },
+      "reference_sha256": "b87fbc825da82abdf2f0976193b17ab886d41bb4f86b6c5a04b6a583ba155438"
+    },
+    {
+      "before_limit_policy": true,
+      "case_sha256": "5464555cc7f298e81c8560464d88f5d471faf698bc8711c80f593d3f5aa4e968",
+      "closer": ")",
+      "companion_sha256": "0008d71f34863703295418838608c03089a1e22af04057e31df55f164b34c85e",
+      "context": "Argument(FieldDirective)",
+      "document_bytes": 23,
+      "document_sha256": "7c40d13851c8554406c47177316f8fa683aaf97abc73ed91f9381c98969b04d3",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "frozen_parse_sha256": "d35b7846350cac2a73e0173430f64d92a48ce3d3c605f35270a6440738aa8734",
+      "historical_active_policy": "ordinary",
+      "legacy_sha256": "956568736d0d1fb51e1b08a566a2a8aa2f8afb2854fc41e749a79fbc12e540e4",
+      "name": "directive-field-list-paren",
+      "ordinary_policy": true,
+      "pointer": "/cases/13",
+      "position": "ListElement",
+      "preimage": {
+        "args": [],
+        "baseline": {
+          "companion": {
+            "code": 0,
+            "stderr": "",
+            "stdout": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 20,
+                      "line": 1
+                    }
+                  ],
+                  "message": " --> 1:20\n  |\n1 | {profile @skip(if:[)])}\n  |                    ^---\n  |\n  = expected value"
+                }
+              ]
+            }
+          },
+          "legacy": {
+            "code": 2,
+            "stderr": "",
+            "stdout": {
+              "command": "graphql",
+              "data": {
+                "data": null,
+                "errors": [
+                  {
+                    "locations": [
+                      {
+                        "column": 20,
+                        "line": 1
+                      }
+                    ],
+                    "message": " --> 1:20\n  |\n1 | {profile @skip(if:[)])}\n  |                    ^---\n  |\n  = expected value"
+                  }
+                ]
+              },
+              "exit_code": 2,
+              "interface_version": 1,
+              "operation": null,
+              "outcome": "error",
+              "profile": "default"
+            }
+          }
+        },
+        "category": "directive-ownership-control",
+        "document": "{profile @skip(if:[)])}",
+        "document_sha256": "7c40d13851c8554406c47177316f8fa683aaf97abc73ed91f9381c98969b04d3",
+        "evidence": {
+          "capture_name": "directive-field-list-paren",
+          "source": "assessment-v2"
+        },
+        "expectation": "baseline",
+        "frozen_parse": {
+          "accepted": false,
+          "exception": "graphql.error.syntax_error.GraphQLSyntaxError",
+          "formatted": {
+            "locations": [
+              {
+                "column": 20,
+                "line": 1
+              }
+            ],
+            "message": "Syntax Error: Unexpected ')'."
+          },
+          "locations": [
+            {
+              "column": 20,
+              "line": 1
+            }
+          ],
+          "message": "Syntax Error: Unexpected ')'.",
+          "positions": [
+            19
+          ]
+        },
+        "name": "directive-field-list-paren",
+        "preflight": true,
+        "reference": {
+          "code": 2,
+          "stderr": "",
+          "stdout": {
+            "command": "graphql",
+            "data": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 20,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Unexpected ')'."
+                }
+              ]
+            },
+            "exit_code": 2,
+            "interface_version": 1,
+            "operation": null,
+            "outcome": "error",
+            "profile": "default"
+          }
+        }
+      },
+      "reference_sha256": "c7b9c379165452b6a8e2c301eba982b59143aa55a95cab493e5cc8f138d5d075"
+    },
+    {
+      "before_limit_policy": true,
+      "case_sha256": "efc7c1ba771424b1ef94e1f2d3c66e52730267f0541b9a678d55cf9d8e13d9f0",
+      "closer": "}",
+      "companion_sha256": "17e9465b239cc7b3a20a27052acef57fdb0e39a6da5560119e2af7c02372614e",
+      "context": "Argument(FieldDirective)",
+      "document_bytes": 27,
+      "document_sha256": "42ec28595f2a04ae5f2930604dab44af24da0c6f0c88aa74441160a5b390f23a",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "frozen_parse_sha256": "abb95db29184e0f7ef66e476864ac383d0804a18fbe0e10135d6227c1bb40cf3",
+      "historical_active_policy": "ordinary",
+      "legacy_sha256": "cd29375da3afce67a8c99453447e5030ae1b2d0efd10fa25e8f51e6ecf52c4f8",
+      "name": "directive-field-object-brace",
+      "ordinary_policy": true,
+      "pointer": "/cases/14",
+      "position": "ObjectMember",
+      "preimage": {
+        "args": [],
+        "baseline": {
+          "companion": {
+            "code": 0,
+            "stderr": "",
+            "stdout": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 25,
+                      "line": 1
+                    }
+                  ],
+                  "message": " --> 1:25\n  |\n1 | {profile @skip(if:{kind:})}\n  |                         ^---\n  |\n  = expected value"
+                }
+              ]
+            }
+          },
+          "legacy": {
+            "code": 2,
+            "stderr": "",
+            "stdout": {
+              "command": "graphql",
+              "data": {
+                "data": null,
+                "errors": [
+                  {
+                    "locations": [
+                      {
+                        "column": 25,
+                        "line": 1
+                      }
+                    ],
+                    "message": " --> 1:25\n  |\n1 | {profile @skip(if:{kind:})}\n  |                         ^---\n  |\n  = expected value"
+                  }
+                ]
+              },
+              "exit_code": 2,
+              "interface_version": 1,
+              "operation": null,
+              "outcome": "error",
+              "profile": "default"
+            }
+          }
+        },
+        "category": "directive-ownership-control",
+        "document": "{profile @skip(if:{kind:})}",
+        "document_sha256": "42ec28595f2a04ae5f2930604dab44af24da0c6f0c88aa74441160a5b390f23a",
+        "evidence": {
+          "capture_name": "directive-field-object-brace",
+          "source": "assessment-v2"
+        },
+        "expectation": "baseline",
+        "frozen_parse": {
+          "accepted": false,
+          "exception": "graphql.error.syntax_error.GraphQLSyntaxError",
+          "formatted": {
+            "locations": [
+              {
+                "column": 25,
+                "line": 1
+              }
+            ],
+            "message": "Syntax Error: Unexpected '}'."
+          },
+          "locations": [
+            {
+              "column": 25,
+              "line": 1
+            }
+          ],
+          "message": "Syntax Error: Unexpected '}'.",
+          "positions": [
+            24
+          ]
+        },
+        "name": "directive-field-object-brace",
+        "preflight": true,
+        "reference": {
+          "code": 2,
+          "stderr": "",
+          "stdout": {
+            "command": "graphql",
+            "data": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 25,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Unexpected '}'."
+                }
+              ]
+            },
+            "exit_code": 2,
+            "interface_version": 1,
+            "operation": null,
+            "outcome": "error",
+            "profile": "default"
+          }
+        }
+      },
+      "reference_sha256": "548aa00e3def4f69df672065bca2a9a18e22784bb538c5cd1e5330431414d7a9"
+    },
+    {
+      "before_limit_policy": true,
+      "case_sha256": "aa8a42331ecf652c586c4abcd5b8175768025a7e175d034060cba617b914f52e",
+      "closer": ")",
+      "companion_sha256": "ec4d30d02add64fdf5c5ddec6b0c6574319c52362b932f120483984d2a6de92d",
+      "context": "Argument(FieldDirective)",
+      "document_bytes": 31,
+      "document_sha256": "e1e990d05864b84a1e48f6cea993c14f6a74149eeaf1bccdb89d577bd51502f0",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "frozen_parse_sha256": "f3ceff3f1433480e6ef9ee4681600c2392545856d60609101a9cd2a3bfa2f873",
+      "historical_active_policy": "ordinary",
+      "legacy_sha256": "34fa47992c17bb26025be8e87845d9342b5981f767a83cfbe8094f78bd7726fb",
+      "name": "field-then-directive",
+      "ordinary_policy": true,
+      "pointer": "/cases/53",
+      "position": "ListElement",
+      "preimage": {
+        "args": [],
+        "baseline": {
+          "companion": {
+            "code": 0,
+            "stderr": "",
+            "stdout": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 28,
+                      "line": 1
+                    }
+                  ],
+                  "message": " --> 1:28\n  |\n1 | {items(first:[]) @skip(if:[)])}\n  |                            ^---\n  |\n  = expected value"
+                }
+              ]
+            }
+          },
+          "legacy": {
+            "code": 2,
+            "stderr": "",
+            "stdout": {
+              "command": "graphql",
+              "data": {
+                "data": null,
+                "errors": [
+                  {
+                    "locations": [
+                      {
+                        "column": 28,
+                        "line": 1
+                      }
+                    ],
+                    "message": " --> 1:28\n  |\n1 | {items(first:[]) @skip(if:[)])}\n  |                            ^---\n  |\n  = expected value"
+                  }
+                ]
+              },
+              "exit_code": 2,
+              "interface_version": 1,
+              "operation": null,
+              "outcome": "error",
+              "profile": "default"
+            }
+          }
+        },
+        "category": "new-context-negative-or-coordinate-control",
+        "document": "{items(first:[]) @skip(if:[)])}",
+        "document_sha256": "e1e990d05864b84a1e48f6cea993c14f6a74149eeaf1bccdb89d577bd51502f0",
+        "evidence": {
+          "capture_name": "field-then-directive",
+          "source": "boundary-fixture-supplement"
+        },
+        "expectation": "baseline",
+        "frozen_parse": {
+          "accepted": false,
+          "exception": "graphql.error.syntax_error.GraphQLSyntaxError",
+          "formatted": {
+            "locations": [
+              {
+                "column": 28,
+                "line": 1
+              }
+            ],
+            "message": "Syntax Error: Unexpected ')'."
+          },
+          "locations": [
+            {
+              "column": 28,
+              "line": 1
+            }
+          ],
+          "message": "Syntax Error: Unexpected ')'.",
+          "positions": [
+            27
+          ]
+        },
+        "name": "field-then-directive",
+        "preflight": true,
+        "reference": {
+          "code": 2,
+          "stderr": "",
+          "stdout": {
+            "command": "graphql",
+            "data": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 28,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Unexpected ')'."
+                }
+              ]
+            },
+            "exit_code": 2,
+            "interface_version": 1,
+            "operation": null,
+            "outcome": "error",
+            "profile": "default"
+          }
+        }
+      },
+      "reference_sha256": "1bd6b772bba8e6792a51b6e51883fe42123ef9a014def66560acfc7a26477368"
+    },
+    {
+      "before_limit_policy": true,
+      "case_sha256": "564ac3a5f7114980ab2b2832a07eb89ffb0bf4f6b8809f866ae5c4e8d4d3a04d",
+      "closer": "]",
+      "companion_sha256": "2917300e0ede7cc3671a354b7294f037a013176fc3e2fd00753f8ad7d952ed91",
+      "context": "Argument(FieldDirective)",
+      "document_bytes": 32030,
+      "document_sha256": "20b32115397da97632d36349b901442eb128920b4a385e21362a41fda0a80071",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "fixture_contract": "native-graphql-parser-required-value-precedence-v1",
+      "frozen_parse_sha256": "259e187630f84e61c1fcc5d9e8424a1e42429fa28bf10af3966e4f3670085889",
+      "historical_active_policy": "before_token_limit",
+      "legacy_sha256": "8f6f42151f924a487aee86da04715dc21879cf2e849f385b02f9e07564cf636f",
+      "name": "overbudget-directive-field-root-bracket",
+      "ordinary_policy": true,
+      "pointer": "/cases/35",
+      "position": "Root",
+      "preimage": {
+        "args": [],
+        "baseline": {
+          "companion": {
+            "code": 0,
+            "stderr": "",
+            "stdout": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 31943,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Document contains more than 4000 tokens. Parsing aborted."
+                }
+              ]
+            }
+          },
+          "legacy": {
+            "code": 2,
+            "stderr": "",
+            "stdout": {
+              "command": "graphql",
+              "data": {
+                "data": null,
+                "errors": [
+                  {
+                    "locations": [
+                      {
+                        "column": 31943,
+                        "line": 1
+                      }
+                    ],
+                    "message": "Syntax Error: Document contains more than 4000 tokens. Parsing aborted."
+                  }
+                ]
+              },
+              "exit_code": 2,
+              "interface_version": 1,
+              "operation": null,
+              "outcome": "error",
+              "profile": "default"
+            }
+          }
+        },
+        "category": "overbudget-first-unclaimed-or-existing-precedence",
+        "document": "{profile @skip(if:])} profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile ",
+        "document_sha256": "20b32115397da97632d36349b901442eb128920b4a385e21362a41fda0a80071",
+        "evidence": {
+          "capture_name": "overbudget-directive-field-root-bracket",
+          "source": "boundary-fixture-supplement"
+        },
+        "expectation": "baseline",
+        "frozen_parse": {
+          "accepted": false,
+          "exception": "graphql.error.syntax_error.GraphQLSyntaxError",
+          "formatted": {
+            "locations": [
+              {
+                "column": 19,
+                "line": 1
+              }
+            ],
+            "message": "Syntax Error: Unexpected ']'."
+          },
+          "locations": [
+            {
+              "column": 19,
+              "line": 1
+            }
+          ],
+          "message": "Syntax Error: Unexpected ']'.",
+          "positions": [
+            18
+          ]
+        },
+        "name": "overbudget-directive-field-root-bracket",
+        "preflight": true,
+        "reference": {
+          "code": 2,
+          "stderr": "",
+          "stdout": {
+            "command": "graphql",
+            "data": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 19,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Unexpected ']'."
+                }
+              ]
+            },
+            "exit_code": 2,
+            "interface_version": 1,
+            "operation": null,
+            "outcome": "error",
+            "profile": "default"
+          }
+        }
+      },
+      "reference_sha256": "b87fbc825da82abdf2f0976193b17ab886d41bb4f86b6c5a04b6a583ba155438"
+    },
+    {
+      "before_limit_policy": true,
+      "case_sha256": "39b8ddb5e6e7edcd385eeae5c65a2689d3ec456576e616d11030c779f7b8623b",
+      "closer": ")",
+      "companion_sha256": "89c674eed67ef2c1831bfc85a6c134dd7e3747e5d897a0c54ac76bc2acb56a78",
+      "context": "Argument(FieldDirective)",
+      "document_bytes": 32032,
+      "document_sha256": "d0ff04359791e72e89c736567250f78b83a84fa01690b9aa9e546d4a8477f8b2",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "fixture_contract": "native-graphql-parser-required-value-precedence-v1",
+      "frozen_parse_sha256": "d35b7846350cac2a73e0173430f64d92a48ce3d3c605f35270a6440738aa8734",
+      "historical_active_policy": "before_token_limit",
+      "legacy_sha256": "d92e05ba6772e778747ce44c367fa8a17d49ea4dfa92527f2046cb3c25833552",
+      "name": "overbudget-directive-field-list-paren",
+      "ordinary_policy": true,
+      "pointer": "/cases/36",
+      "position": "ListElement",
+      "preimage": {
+        "args": [],
+        "baseline": {
+          "companion": {
+            "code": 0,
+            "stderr": "",
+            "stdout": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 31929,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Document contains more than 4000 tokens. Parsing aborted."
+                }
+              ]
+            }
+          },
+          "legacy": {
+            "code": 2,
+            "stderr": "",
+            "stdout": {
+              "command": "graphql",
+              "data": {
+                "data": null,
+                "errors": [
+                  {
+                    "locations": [
+                      {
+                        "column": 31929,
+                        "line": 1
+                      }
+                    ],
+                    "message": "Syntax Error: Document contains more than 4000 tokens. Parsing aborted."
+                  }
+                ]
+              },
+              "exit_code": 2,
+              "interface_version": 1,
+              "operation": null,
+              "outcome": "error",
+              "profile": "default"
+            }
+          }
+        },
+        "category": "overbudget-first-unclaimed-or-existing-precedence",
+        "document": "{profile @skip(if:[)])} profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile ",
+        "document_sha256": "d0ff04359791e72e89c736567250f78b83a84fa01690b9aa9e546d4a8477f8b2",
+        "evidence": {
+          "capture_name": "overbudget-directive-field-list-paren",
+          "source": "boundary-fixture-supplement"
+        },
+        "expectation": "baseline",
+        "frozen_parse": {
+          "accepted": false,
+          "exception": "graphql.error.syntax_error.GraphQLSyntaxError",
+          "formatted": {
+            "locations": [
+              {
+                "column": 20,
+                "line": 1
+              }
+            ],
+            "message": "Syntax Error: Unexpected ')'."
+          },
+          "locations": [
+            {
+              "column": 20,
+              "line": 1
+            }
+          ],
+          "message": "Syntax Error: Unexpected ')'.",
+          "positions": [
+            19
+          ]
+        },
+        "name": "overbudget-directive-field-list-paren",
+        "preflight": true,
+        "reference": {
+          "code": 2,
+          "stderr": "",
+          "stdout": {
+            "command": "graphql",
+            "data": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 20,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Unexpected ')'."
+                }
+              ]
+            },
+            "exit_code": 2,
+            "interface_version": 1,
+            "operation": null,
+            "outcome": "error",
+            "profile": "default"
+          }
+        }
+      },
+      "reference_sha256": "c7b9c379165452b6a8e2c301eba982b59143aa55a95cab493e5cc8f138d5d075"
+    },
+    {
+      "before_limit_policy": true,
+      "case_sha256": "290291c6e5db8448c92a951fd1729be6784404931c8f296816ffcabba12311a3",
+      "closer": "}",
+      "companion_sha256": "f07325dbe27b1a8370e75abcfc231a41a44c083650db46d27de993d3a78cb4c0",
+      "context": "Argument(FieldDirective)",
+      "document_bytes": 32036,
+      "document_sha256": "2d45ceedc8c3a7136b8764582fbb7f2487322c0532a04bf1970242fb76317e14",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "fixture_contract": "native-graphql-parser-required-value-precedence-v1",
+      "frozen_parse_sha256": "abb95db29184e0f7ef66e476864ac383d0804a18fbe0e10135d6227c1bb40cf3",
+      "historical_active_policy": "before_token_limit",
+      "legacy_sha256": "db545f2724161f1ed4bdebde4806581a4d4be1ed0bd74b8274ac25d462b01bb1",
+      "name": "overbudget-directive-field-object-brace",
+      "ordinary_policy": true,
+      "pointer": "/cases/37",
+      "position": "ObjectMember",
+      "preimage": {
+        "args": [],
+        "baseline": {
+          "companion": {
+            "code": 0,
+            "stderr": "",
+            "stdout": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 31925,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Document contains more than 4000 tokens. Parsing aborted."
+                }
+              ]
+            }
+          },
+          "legacy": {
+            "code": 2,
+            "stderr": "",
+            "stdout": {
+              "command": "graphql",
+              "data": {
+                "data": null,
+                "errors": [
+                  {
+                    "locations": [
+                      {
+                        "column": 31925,
+                        "line": 1
+                      }
+                    ],
+                    "message": "Syntax Error: Document contains more than 4000 tokens. Parsing aborted."
+                  }
+                ]
+              },
+              "exit_code": 2,
+              "interface_version": 1,
+              "operation": null,
+              "outcome": "error",
+              "profile": "default"
+            }
+          }
+        },
+        "category": "overbudget-first-unclaimed-or-existing-precedence",
+        "document": "{profile @skip(if:{kind:})} profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile ",
+        "document_sha256": "2d45ceedc8c3a7136b8764582fbb7f2487322c0532a04bf1970242fb76317e14",
+        "evidence": {
+          "capture_name": "overbudget-directive-field-object-brace",
+          "source": "boundary-fixture-supplement"
+        },
+        "expectation": "baseline",
+        "frozen_parse": {
+          "accepted": false,
+          "exception": "graphql.error.syntax_error.GraphQLSyntaxError",
+          "formatted": {
+            "locations": [
+              {
+                "column": 25,
+                "line": 1
+              }
+            ],
+            "message": "Syntax Error: Unexpected '}'."
+          },
+          "locations": [
+            {
+              "column": 25,
+              "line": 1
+            }
+          ],
+          "message": "Syntax Error: Unexpected '}'.",
+          "positions": [
+            24
+          ]
+        },
+        "name": "overbudget-directive-field-object-brace",
+        "preflight": true,
+        "reference": {
+          "code": 2,
+          "stderr": "",
+          "stdout": {
+            "command": "graphql",
+            "data": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 25,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Unexpected '}'."
+                }
+              ]
+            },
+            "exit_code": 2,
+            "interface_version": 1,
+            "operation": null,
+            "outcome": "error",
+            "profile": "default"
+          }
+        }
+      },
+      "reference_sha256": "548aa00e3def4f69df672065bca2a9a18e22784bb538c5cd1e5330431414d7a9"
+    }
+  ]
+}

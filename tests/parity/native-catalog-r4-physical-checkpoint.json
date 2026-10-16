@@ -1,0 +1,120 @@
+{
+  "format_version": 1,
+  "package": "R4-scoped-stored-whole-file-facts-v1",
+  "recorded_at_utc": "2026-10-14T21:07:16.814129+00:00",
+  "baseline_commit": "7f60be3e7c43c17d9fdf5532f232bb6c532b885e",
+  "source": {
+    "manifest": "tests/parity/native-catalog-r4-physical-source-manifest.json",
+    "files_sha256": "f3ffe6c697f383664795947f2e5b570c061d372d461043d4c14e32c0315a808c",
+    "file_count": 1491,
+    "unchanged_before_after": true
+  },
+  "patch": {
+    "path": "/workspace/shared/catalog-r4-search-completion/deliverables/r4-physical-facts-05/r4-physical-facts-05.patch",
+    "sha256": "6167af9d3380a192bf1466985f4e363c070dd4d9028b04d22d544396a47b1416"
+  },
+  "runner": "Standard offline locked Cargo1.99.0, Linux x86_64, dedicated main-only target, debug0 incremental0",
+  "passing_rust_executions": 139,
+  "runs": {
+    "schema-check": {
+      "log": ".local-tests/catalog-r4-physical/schema-check.log",
+      "sha256": "5d2bfe1fdbcf01c5bbee0938a01573634a745a3e974b71b0e5865cdbbc079157",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "audit": {
+      "log": ".local-tests/catalog-r4-physical/audit.log",
+      "sha256": "b9e978274f160ac23891645ecb7b5ba39ff1ee28ff957f8a982b390c6e334f6c",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "source-before": {
+      "log": ".local-tests/catalog-r4-physical/source-before.log",
+      "sha256": "cad7819a02d30ec404a9d4b6c6fbe76d8b180cc1f082d76159050fdce2be2732",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "scope": {
+      "log": ".local-tests/catalog-r4-physical/scope.log",
+      "sha256": "b95cf08f860a8983b910a2d3ab0ba30d19394ef8b7a88f24b52111dd00f5fdd8",
+      "passed": true,
+      "passing_executions": 86,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "writer": {
+      "log": ".local-tests/catalog-r4-physical/writer.log",
+      "sha256": "1e895a3a0ee763009d107a5c4beddbae67f957732be163c9f28ed8f98965ee3d",
+      "passed": true,
+      "passing_executions": 49,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "public-reads": {
+      "log": ".local-tests/catalog-r4-physical/public-reads.log",
+      "sha256": "39f0e4b60aab2b28c7e39c64b7527185220c1e919c64995e981fbd51ee08ac0e",
+      "passed": true,
+      "passing_executions": 4,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "clippy": {
+      "log": ".local-tests/catalog-r4-physical/clippy.log",
+      "sha256": "f4aacbe3942e820a53b7e6edfd4ad21d1a5d2ff37311e6ae2bf0791f01c1cbcc",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "format": {
+      "log": ".local-tests/catalog-r4-physical/format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "source-after": {
+      "log": ".local-tests/catalog-r4-physical/source-after.log",
+      "sha256": "cad7819a02d30ec404a9d4b6c6fbe76d8b180cc1f082d76159050fdce2be2732",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    }
+  },
+  "retained_initial_failure": {
+    "log": ".local-tests/catalog-r4-physical/schema-check-initial.log",
+    "sha256": "0949125a87059ba445de6be13bb7a0ffeebebe8d38494625dba3acd27df007f8",
+    "reason": "Generated owner inventory required the new physical test owner; only inventory regenerated, other three schema33 artifacts remained byte-identical. No runtime test had started."
+  },
+  "qualified_contracts": [
+    "Explicit selected whole-file role/field authority is distinct from logical item metadata/provenance/read grants",
+    "Only stored scalar observation/hash/verification/probe facts are exposed, labeled physical_scope=whole_file_recorded, including when a selected logical episode shares a physical file with a hidden episode",
+    "Exact association/current source-policy/revision checks, explicit RecordedRevision field mask, and existing owned snapshot, source/output/VM budgets and cancellation/stale delivery fencing",
+    "Scoped totals count authorized association records, not distinct files or logical episodes; no paths, raw snapshots, stream tags, live filesystem/probe or playback capability",
+    "Existing interval-effect refusal remains unchanged"
+  ],
+  "remaining": [
+    "Component adapter and schema37 private-writer/read/latest-target qualification remain separate work",
+    "Full current-source aggregate, final artifacts/thin wrapper/platform and M0-M11 release gates remain open",
+    "Independent schema/definition/filesystem reviews remain incomplete and were not retried/reassigned; unqualified effects remain fail-closed",
+    "Actual Motion composition/reference/two-owner testing remains deferred"
+  ],
+  "M0_M11_gate_closures": []
+}

@@ -4,7 +4,7 @@
 //! The Store aggregate owns validation/selection; the sidecar is never public
 //! data and never replaces a value or causes a second catalog read.
 use super::{dispatch::text, parser, presentation, signals};
-use catabolic_store::{Error, Result, Store};
+use catabolic_store::{DetailedError, DetailedResult, Error, Result, Store};
 use serde_json::Value;
 use std::{
     path::Path,
@@ -283,42 +283,65 @@ fn present(
 // Never wait on a sidecar after an error/cancellation or channel disconnect.
 // The joined supervisor has already completed before this is called.
 fn completed(
-    result: Result<Value>,
+    result: DetailedResult<Value>,
     sidecar: mpsc::Receiver<parser::Output>,
-) -> Result<parser::Output> {
-    result?;
-    sidecar.try_recv().map_err(|_| order_error())
+) -> super::failure::Result<parser::Output> {
+    result.map_err(mapping_failure)?;
+    sidecar.try_recv().map_err(|_| order_error().into())
 }
 
-pub fn execute(args: &Value) -> Result<parser::Output> {
+fn mapping_failure(error: DetailedError) -> super::failure::Failure {
+    // Only the owner's actual decoder failure carries this same-snapshot raw
+    // subject. Matching message text or error-looking values cannot forge it.
+    if let Some(raw) = error.mapping_subject_json()
+        && let Err(diagnostic) = super::json_diagnostic::validate(raw)
+    {
+        return diagnostic.into();
+    }
+    // Syntax-valid decoder refusals (e.g. depth, nonfinite, surrogates) keep
+    // their original native error. No accepted value is replaced or bypassed.
+    error.into_error().into()
+}
+
+pub fn execute(args: &Value) -> super::failure::Result<parser::Output> {
     let (sender, sidecar) = mpsc::sync_channel(1);
     let owned = args.clone();
-    let result = catabolic_http::interruptible(move |cancel| {
+    let result = catabolic_http::interruptible_detailed(move |cancel| {
         let check = cancel.clone();
         let result = catabolic_store::embedding::with_interrupt_check(
             move || check.load(Ordering::Acquire),
             || {
-                let (value, subject) = catabolic_store::mapping_history::events_with_subject(
-                    Store::open(Path::new(text(&owned, "db")), false, false)?,
-                    text(&owned, "profile"),
-                    owned["event"].as_str(),
-                )?;
-                // Render only after complete aggregate validation/selection.
-                // Keep order work inside the same interrupt owner and publish
-                // only a completed result through the ordinary main boundary.
-                let output = present(&owned, &value, subject, &cancel)?;
-                sender.try_send(output).map_err(|_| order_error())?;
-                Ok(value)
+                Ok((|| -> DetailedResult<Value> {
+                    let (value, subject) =
+                        catabolic_store::mapping_history::events_with_subject_detailed(
+                            Store::open(Path::new(text(&owned, "db")), false, false)?,
+                            text(&owned, "profile"),
+                            owned["event"].as_str(),
+                        )?;
+                    // Render only after complete aggregate validation/selection.
+                    // The same interrupt owner publishes one completed sidecar.
+                    let output = present(&owned, &value, subject, &cancel)?;
+                    sender.try_send(output).map_err(|_| order_error())?;
+                    Ok(value)
+                })())
             },
         );
         if cancel.load(Ordering::Acquire) {
-            Err(Error("native legacy CLI interrupted".into()))
+            Err(Error("native legacy CLI interrupted".into()).into())
         } else {
+            // The interrupt-check reset scope has finished before conversion.
             result
+                .map_err(DetailedError::from)
+                .and_then(|result| result)
         }
     });
     signals::finish();
-    completed(result, sidecar)
+    completed(
+        result
+            .map_err(DetailedError::from)
+            .and_then(|result| result),
+        sidecar,
+    )
 }
 
 #[cfg(test)]
@@ -331,6 +354,38 @@ mod tests {
     }
     fn render(value: &Value, order: &Order, mode: Mode, depth: usize) -> Result<String> {
         super::render(value, order, mode, depth, &AtomicBool::new(false))
+    }
+
+    #[test]
+    fn mapping_json_syntax_requires_actual_parse_provenance() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("mapping.db");
+        catabolic_store::migration::initialize(&path).unwrap();
+        let store = Store::open(&path, true, false).unwrap();
+        store.db.execute(
+            "INSERT INTO consumer_events(id,profile,event,severity,subject) VALUES ('event','default','mapping_publish','info','{')", [],
+        ).unwrap();
+        drop(store);
+        let error = catabolic_store::mapping_history::events_with_subject_detailed(
+            Store::open(&path, false, false).unwrap(),
+            "default",
+            Some("event"),
+        )
+        .unwrap_err();
+        let failure = mapping_failure(error);
+        assert!(matches!(failure, super::super::failure::Failure::Json(_)));
+        let message = failure.to_string();
+        let args = json!({"command":"projection", "operation":"mapping-events", "machine":true, "profile":"default"});
+        let output = presentation::legacy_error(&args, failure);
+        let payload: Value = serde_json::from_str(&output.stdout).unwrap();
+        assert_eq!(output.code, 2);
+        assert_eq!(output.stderr, "");
+        assert_eq!(payload["data"]["error"]["type"], "JSONDecodeError");
+        for spoof in ["invalid JSON".to_owned(), message] {
+            let output = presentation::legacy_error(&args, mapping_failure(Error(spoof).into()));
+            let payload: Value = serde_json::from_str(&output.stdout).unwrap();
+            assert_eq!(payload["data"]["error"]["type"], "CatabolicError");
+        }
     }
 
     #[test]
@@ -401,10 +456,10 @@ mod tests {
             })
             .ok()
             .unwrap();
-        let error = completed(Err(Error("owner error".into())), sidecar)
+        let error = completed(Err(Error("owner error".into()).into()), sidecar)
             .err()
             .unwrap();
-        assert_eq!(error.0, "owner error");
+        assert_eq!(error.to_string(), "owner error");
         // A sender still alive without a message must not block either.
         let (_sender, sidecar) = mpsc::sync_channel(1);
         assert!(completed(Ok(json!({})), sidecar).is_err());

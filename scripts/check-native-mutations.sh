@@ -5,6 +5,9 @@
 set -eu
 cd "$(dirname "$0")/.."
 python="${CATABOLIC_QUALIFICATION_PYTHON:-.venv/bin/python}"
+# This pinned Python must also contain the exact frozen Catabolic package: the
+# identify/refresh oracle launches its HTTP worker with PYTHONPATH cleared.
+# The qualifier verifies it; this caller never installs or substitutes a runtime.
 case "$python" in
     /*) export CATABOLIC_PYTHON_ORACLE="$python" ;;
     *) export CATABOLIC_PYTHON_ORACLE="$(pwd)/$python" ;;
@@ -84,7 +87,7 @@ required_ignored_test access_admin::tests::inherited_scalar_cache_confusion_rema
 # The two exact ASGI test files require an installed release wheel. Verify their
 # fixed 21-scenario inventory before import, and record this mandatory separate
 # prerequisite as pending rather than treating it as skipped or passed.
-"$python" scripts/qualify_native_mutations.py --defer-installed-asgi --binary "$CATABOLIC_NATIVE_BINARY" --http-binary "$CATABOLIC_HTTP_BINARY" --legacy-binary "$CATABOLIC_LEGACY_BINARY" --parser-binary "$CATABOLIC_NATIVE_PARSER_BINARY" --extension-binary "$CATABOLIC_NATIVE_EXTENSION" --reference-root "$reference_root" --report "$evidence/native-results.json"
+"$python" scripts/qualify_native_mutations.py --defer-installed-asgi --binary "$CATABOLIC_NATIVE_BINARY" --http-binary "$CATABOLIC_HTTP_BINARY" --legacy-binary "$CATABOLIC_LEGACY_BINARY" --parser-binary "$CATABOLIC_NATIVE_PARSER_BINARY" --extension-binary "$CATABOLIC_NATIVE_EXTENSION" --reference-root "$reference_root" --python-oracle "$CATABOLIC_PYTHON_ORACLE" --report "$evidence/native-results.json"
 "$target_dir"/debug/catabolic-verification check
 "$target_dir"/debug/catabolic-verification check-playback
 cargo build --locked --release -p catabolic-cli

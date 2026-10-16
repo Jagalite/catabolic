@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 # SPDX-License-Identifier: MIT
-"""Complete frozen parser-case responses, with explicit non-parity controls.
+"""Complete frozen parser-case responses, retaining pre-fix non-parity evidence.
 
 The frozen Python 3.14.6 checkout is an independent test oracle only. Run against
 explicit native legacy and companion artifacts; no service or network is used.
@@ -25,7 +25,48 @@ from tests import test_rust_legacy_parser as fixture
 FIXTURE = json.loads(
     (fixture.ROOT / "tests/parity/graphql-parser-cases.json").read_text()
 )
-CASES = FIXTURE["cases"]
+ADDITION = json.loads(
+    (fixture.ROOT / "tests/parity/graphql-braced-unicode-cases.json").read_text()
+)
+assert (
+    hashlib.sha256(
+        (fixture.ROOT / "tests/parity/graphql-parser-cases.json").read_bytes()
+    ).hexdigest()
+    == ADDITION["provenance"]["historical_parser_fixture_sha256"]
+)
+MISSING = json.loads(
+    (fixture.ROOT / "tests/parity/graphql-missing-argument-cases.json").read_text()
+)
+assert ADDITION["contract"] == "native-graphql-braced-unicode-v1"
+assert MISSING["contract"] == "native-graphql-missing-argument-value-v1"
+for filename, key in [
+    ("graphql-parser-cases.json", "historical_parser_fixture_sha256"),
+    ("graphql-braced-unicode-cases.json", "braced_fixture_sha256"),
+]:
+    assert (
+        hashlib.sha256(
+            (fixture.ROOT / "tests/parity" / filename).read_bytes()
+        ).hexdigest()
+        == MISSING["provenance"][key]
+    )
+CORRECTED = {
+    ADDITION["corrected_historical_control"],
+    *MISSING["corrected_historical_controls"],
+}
+assert len(MISSING["corrected_historical_controls"]) == 4
+assert len(CORRECTED) == 5
+assert CORRECTED == {case["name"] for case in FIXTURE["remaining_parser_controls"]}
+HISTORICAL = FIXTURE["remaining_parser_controls"]
+# Explicitly replace current native assertions, while preserving every original
+# mismatch record and proving each is still different from its frozen oracle.
+assert len(HISTORICAL) == 5
+assert all(case["native"]["stdout"] != case["expected"] for case in HISTORICAL)
+CASES = [*FIXTURE["cases"], *ADDITION["cases"], *MISSING["cases"], *HISTORICAL]
+assert len(CASES) == 250
+assert len({case["name"] for case in CASES}) == len(CASES)
+REMAINING = [case for case in HISTORICAL if case["name"] not in CORRECTED]
+assert REMAINING == []
+CATALOGS = {**FIXTURE["catalogs"], **ADDITION["catalogs"]}
 ORACLE = "import sys;sys.path.insert(0,sys.argv.pop(1));from catabolic.cli import main;raise SystemExit(main(sys.argv[1:]))"
 
 
@@ -71,7 +112,7 @@ class ParserCasesTest(unittest.TestCase):
                 ],
             )
             databases = {}
-            for name, catalog in FIXTURE["catalogs"].items():
+            for name, catalog in CATALOGS.items():
                 reference, native = (
                     root / f"{name}-reference.db",
                     root / f"{name}-native.db",
@@ -152,13 +193,22 @@ class ParserCasesTest(unittest.TestCase):
                 controls = list(
                     executor.map(
                         lambda case: compare(case, control=True),
-                        FIXTURE["remaining_parser_controls"],
+                        REMAINING,
                     )
                 )
             if report := os.environ.get("CATABOLIC_GRAPHQL_PARSER_CASES_REPORT"):
                 Path(report).write_text(
                     json.dumps(
-                        dict(parity=results, remaining_controls=controls), indent=2
+                        dict(
+                            parity=results,
+                            remaining_controls=controls,
+                            corrected_historical_controls=sorted(CORRECTED),
+                            fixture_contracts=[
+                                ADDITION["contract"],
+                                MISSING["contract"],
+                            ],
+                        ),
+                        indent=2,
                     )
                     + "\n"
                 )

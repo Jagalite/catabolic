@@ -68,6 +68,11 @@ def argument_parser():
     parser.add_argument("--parser-binary", type=Path)
     parser.add_argument("--extension-binary", type=Path)
     parser.add_argument("--reference-root", type=Path)
+    parser.add_argument(
+        "--python-oracle",
+        type=Path,
+        help="explicit pinned Python for reference subprocesses",
+    )
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--pattern", default="test_rust_*.py")
     parser.add_argument("--expected-count", type=int)
@@ -80,6 +85,23 @@ def argument_parser():
 
 
 REFERENCE = "453fca983222c6665a48775eef67c489c96b527e"
+COMPLETION_PREFIX = "tests.test_rust_graphql_empty_completion.EmptyCompletionTest."
+COMPLETION_EMBEDDING = (
+    COMPLETION_PREFIX + "test_direct_and_persistent_embedding_complete_responses"
+)
+COMPLETION_HTTP = COMPLETION_PREFIX + "test_actual_loopback_http_and_scoped_absence"
+SORT_OWNER_SCENARIOS = frozenset(
+    "tests.test_rust_catalog_sort_diagnostics.CatalogSortDiagnosticsTest." + name
+    for name in (
+        "test_frozen_owner_and_native_complete_process_envelopes",
+        "test_typed_owner_recovery_and_exact_message_spoof_controls",
+        "test_list_owner_recovery_and_exact_message_spoof_controls",
+    )
+)
+WORKER_PREFIXES = (
+    "tests.test_rust_identify.IdentifyTest.",
+    "tests.test_rust_legacy_refresh.LegacyRefreshTest.",
+)
 
 
 def fresh_import_cache():
@@ -381,6 +403,212 @@ def source_snapshot(root):
     }
 
 
+def package_snapshot(root):
+    """Bind every package payload, refusing linked files or directories."""
+    result = {}
+    for path in sorted(root.rglob("*")):
+        relative = str(path.relative_to(root))
+        if path.is_symlink():
+            raise ValueError(f"linked prerequisite package input: {relative}")
+        if path.is_file() and "__pycache__" not in path.parts:
+            verified_file(root, relative)
+            result[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return result
+
+
+def stage_completion_extension(root, sources, artifact, extension_sha256):
+    """Copy only source-fenced development wrappers and the explicit extension."""
+    if os.environ.get("CATABOLIC_COMPLETION_EXTENSION_ROOT"):
+        raise ValueError(
+            "ambient CATABOLIC_COMPLETION_EXTENSION_ROOT is not qualified; "
+            "unset it and supply --extension-binary"
+        )
+    prefix = "crates/catabolic-python/python/"
+    expected = {
+        name.removeprefix(prefix): digest
+        for name, digest in sources["files"].items()
+        if name.startswith(prefix + "catabolic_native/")
+    }
+    if (
+        not {
+            "catabolic_native/__init__.py",
+            "catabolic_native/graphql_query.py",
+            "catabolic_native/store.py",
+        }
+        <= expected.keys()
+    ):
+        raise ValueError("completion wrappers missing from qualified source inventory")
+    if any(not name.endswith(".py") for name in expected):
+        raise ValueError(
+            "completion development package contains an unexpected payload"
+        )
+    if artifact is None:
+        raise ValueError("completion embedding requires explicit --extension-binary")
+    temporary = tempfile.TemporaryDirectory(prefix="catabolic-completion-extension-")
+    atexit.register(temporary.cleanup)
+    # Normalize only this freshly owned root (macOS commonly aliases /var).
+    # User-supplied sources/package payloads still reject linked components.
+    stage = Path(temporary.name).resolve(strict=True)
+    for name, digest in expected.items():
+        source = verified_file(root, prefix + name)
+        content = source.read_bytes()
+        if hashlib.sha256(content).hexdigest() != digest:
+            raise ValueError(f"completion source changed since snapshot: {name}")
+        destination = stage / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(content)
+    name = "catabolic_native/_native.abi3.so"
+    content = artifact.read_bytes()
+    if hashlib.sha256(content).hexdigest() != extension_sha256:
+        raise ValueError("completion extension changed since artifact snapshot")
+    (stage / name).write_bytes(content)
+    expected[name] = extension_sha256
+    actual = package_snapshot(stage)
+    if actual != expected:
+        raise ValueError("staged completion package differs from qualified inputs")
+    return {
+        "root": str(stage),
+        "scope": "copied development wrappers and explicit extension; not installed-wheel evidence",
+        "source_content_sha256": sources["sha256"],
+        "extension_source": str(artifact),
+        "files": actual,
+    }
+
+
+def completion_extension_snapshot(staged):
+    root = Path(staged["root"])
+    if os.environ.get("CATABOLIC_COMPLETION_EXTENSION_ROOT") != str(root):
+        raise ValueError("completion package environment identity changed")
+    files = package_snapshot(root)
+    if files != staged["files"]:
+        raise ValueError("completion development package changed")
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            "-c",
+            "import json,sys;sys.path.insert(0,sys.argv[1]);import catabolic_native;"
+            "print(json.dumps({name:module.__file__ for name,module in sys.modules.items() "
+            "if name == 'catabolic_native' or name.startswith('catabolic_native.')}))",
+            str(root),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=30,
+    )
+    imported = json.loads(completed.stdout)
+    if not {"catabolic_native", "catabolic_native._native"} <= imported.keys():
+        raise ValueError("completion package import identity is incomplete")
+    for name, filename in imported.items():
+        path = Path(filename).absolute()
+        relative = str(path.relative_to(root))
+        candidates = {
+            name.replace(".", "/") + suffix for suffix in (".py", "/__init__.py")
+        }
+        if name == "catabolic_native._native":
+            candidates = {"catabolic_native/_native.abi3.so"}
+        if relative not in candidates or relative not in files:
+            raise ValueError(f"completion import escaped qualified package: {name}")
+    return {**staged, "imported_modules": imported}
+
+
+def oracle_runtime_snapshot(python):
+    from scripts.native_facade_qualification import reference_runtime
+
+    python = python.absolute()  # Resolving bin/python would lose a venv's identity.
+    identity = reference_runtime(python)
+    if os.environ.get("CATABOLIC_PYTHON_ORACLE") != str(python):
+        raise ValueError("oracle interpreter environment identity changed")
+    fixture = sys.modules.get("tests.test_rust_legacy_parser")
+    if fixture is not None and fixture.PYTHON.absolute() != python:
+        raise ValueError("discovered fixture captured a different oracle interpreter")
+    return identity
+
+
+def worker_oracle_snapshot(python, oracle):
+    """Admit the actual clean-path worker's complete frozen installed package.
+
+    The parent oracle's sys.path insertion cannot help its `python -m` child.
+    This probe mirrors fixtures that clear PYTHONPATH, without installing or
+    changing runtimes. Dependencies remain subject to the caller's runtime fence.
+    """
+    if python is None:
+        raise ValueError(
+            "clean-path HTTP worker scenarios require explicit --python-oracle"
+        )
+    python = python.absolute()
+    identity = oracle_runtime_snapshot(python)
+    environment = os.environ.copy()
+    for name in ("PYTHONPATH", "PYTHONHOME", "CATABOLIC_DB", "CATABOLIC_PROFILE"):
+        environment.pop(name, None)
+    with tempfile.TemporaryDirectory(prefix="catabolic-worker-admission-") as working:
+        environment["HOME"] = working
+        try:
+            completed = subprocess.run(
+                [
+                    str(python),
+                    "-B",
+                    "-c",
+                    "import json,sys,sysconfig;import catabolic.http_worker;"
+                    "print(json.dumps(dict(purelib=sysconfig.get_path('purelib'),"
+                    "modules={name:module.__file__ for name,module in sys.modules.items() "
+                    "if name == 'catabolic' or name.startswith('catabolic.')})))",
+                ],
+                cwd=working,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=30,
+            )
+        except subprocess.CalledProcessError as error:
+            raise ValueError(
+                f"clean-path frozen HTTP worker import failed for {python}: {error.stderr.strip()}"
+            ) from error
+    probe = json.loads(completed.stdout)
+    library = Path(probe["purelib"]).absolute()
+    if not library.is_relative_to(Path(identity["prefix"]).absolute()):
+        raise ValueError("oracle package location escaped its selected runtime")
+    package = library / "catabolic"
+    expected = {
+        name.removeprefix("src/catabolic/"): digest
+        for name, digest in oracle["resource_sha256"].items()
+        if name.startswith("src/catabolic/")
+    }
+    if not {"__init__.py", "http_worker.py", "domain.py"} <= expected.keys():
+        raise ValueError("frozen oracle worker inventory is incomplete")
+    files = package_snapshot(package)
+    if files != expected:
+        raise ValueError("installed oracle package differs from exact frozen inventory")
+    if (
+        not {"catabolic", "catabolic.http_worker", "catabolic.domain"}
+        <= probe["modules"].keys()
+    ):
+        raise ValueError("oracle worker import identity is incomplete")
+    for name, filename in probe["modules"].items():
+        path = Path(filename).absolute()
+        relative = str(path.relative_to(library))
+        candidates = {
+            name.replace(".", "/") + suffix for suffix in (".py", "/__init__.py")
+        }
+        if (
+            relative not in candidates
+            or relative.removeprefix("catabolic/") not in files
+        ):
+            raise ValueError(
+                f"oracle worker import escaped frozen installed package: {name}"
+            )
+    return {
+        "scope": "clean-PYTHONPATH frozen reference worker prerequisite; not native installed-wheel evidence",
+        "runtime": identity,
+        "package_root": str(package),
+        "reference_commit": REFERENCE,
+        "files": files,
+        "imported_modules": probe["modules"],
+    }
+
+
 class Results(unittest.TextTestResult):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -458,10 +686,14 @@ def validate_native_scenarios(
         raise ValueError(
             f"non-native oracle tests leaked into qualification: {foreign}"
         )
-    if not http_binary and any(
-        name.startswith("tests.test_rust_http_")
-        and not name.startswith("tests.test_rust_http_retry_fixture.")
-        for name in identifiers
+    if (
+        not http_binary
+        and any(
+            name.startswith("tests.test_rust_http_")
+            and not name.startswith("tests.test_rust_http_retry_fixture.")
+            for name in identifiers
+        )
+        or (not http_binary and COMPLETION_HTTP in identifiers)
     ):
         raise ValueError("HTTP scenarios require an explicit --http-binary artifact")
     if not parser_binary and any(
@@ -476,19 +708,25 @@ def validate_native_scenarios(
             and not name.startswith("tests.test_rust_legacy_parser.")
         )
         or name.startswith("tests.test_rust_native_events")
+        or name.startswith(COMPLETION_PREFIX)
         for name in identifiers
     ):
         raise ValueError(
             "legacy CLI scenarios require an explicit --legacy-binary artifact"
         )
 
-    if not extension_binary and any(
-        name.startswith("tests.test_rust_plex_login.")
-        and name.endswith(".test_publication_interrupt_cleanup_cli_and_python")
-        for name in identifiers
+    if (
+        not extension_binary
+        and any(
+            name.startswith("tests.test_rust_plex_login.")
+            and name.endswith(".test_publication_interrupt_cleanup_cli_and_python")
+            for name in identifiers
+        )
+        or (not extension_binary and COMPLETION_EMBEDDING in identifiers)
+        or (not extension_binary and SORT_OWNER_SCENARIOS.intersection(identifiers))
     ):
         raise ValueError(
-            "PyO3 interruption scenarios require an explicit --extension-binary artifact"
+            "PyO3 interruption/completion/sort scenarios require an explicit --extension-binary artifact"
         )
 
 
@@ -563,6 +801,9 @@ def main():
         os.environ["CATABOLIC_HTTP_BINARY"] = str(http_binary)
     sys.path.insert(0, str(root))
     sys.path.insert(0, str(reference / "src"))
+    if args.python_oracle is not None:
+        args.python_oracle = args.python_oracle.absolute()
+        os.environ["CATABOLIC_PYTHON_ORACLE"] = str(args.python_oracle)
     try:
         suite, installed_prerequisites = discover_native_suite(
             root, args.pattern, args.defer_installed_asgi
@@ -594,6 +835,36 @@ def main():
         raise AssertionError(
             "duplicate discovered test IDs cannot inflate qualification"
         )
+    prerequisites_before = {}
+    staged = None
+    needs_worker = any(name.startswith(WORKER_PREFIXES) for name in identifiers)
+    try:
+        if COMPLETION_EMBEDDING in identifiers:
+            staged = stage_completion_extension(
+                root,
+                sources_before,
+                extra_artifacts.get("native_extension"),
+                extra_before["native_extension"]["sha256"],
+            )
+            os.environ["CATABOLIC_COMPLETION_EXTENSION_ROOT"] = staged["root"]
+            prerequisites_before["completion_extension"] = (
+                completion_extension_snapshot(staged)
+            )
+        if needs_worker:
+            prerequisites_before["worker_oracle"] = worker_oracle_snapshot(
+                args.python_oracle, oracle_before
+            )
+        elif args.python_oracle is not None:
+            prerequisites_before["oracle_runtime"] = oracle_runtime_snapshot(
+                args.python_oracle
+            )
+    except (ValueError, OSError, AssertionError, subprocess.SubprocessError) as error:
+        initial_report.update(
+            qualification_status="preflight_failed", prerequisite_error=str(error)
+        )
+        args.report.write_text(json.dumps(initial_report, indent=2) + "\n")
+        parser.error(str(error))
+    initial_report["dynamic_prerequisites_before"] = prerequisites_before
     start = time.monotonic()
     imports_before = oracle_imports(
         reference, oracle_before, root, sources_before, adaptations_before
@@ -613,6 +884,26 @@ def main():
         hashlib.sha256(http_binary.read_bytes()).hexdigest() if http_binary else None
     )
     extra_after = extra_artifact_hashes(extra_artifacts)
+    prerequisites_after = {}
+    prerequisite_error = None
+    try:
+        if staged is not None:
+            prerequisites_after["completion_extension"] = completion_extension_snapshot(
+                staged
+            )
+        if needs_worker:
+            prerequisites_after["worker_oracle"] = worker_oracle_snapshot(
+                args.python_oracle, oracle_after
+            )
+        elif args.python_oracle is not None:
+            prerequisites_after["oracle_runtime"] = oracle_runtime_snapshot(
+                args.python_oracle
+            )
+    except (ValueError, OSError, AssertionError, subprocess.SubprocessError) as error:
+        prerequisite_error = str(error)
+    prerequisites_unchanged = (
+        prerequisite_error is None and prerequisites_before == prerequisites_after
+    )
     source_unchanged = (
         sources_before == sources_after
         and oracle_before == oracle_after
@@ -636,6 +927,7 @@ def main():
         complete
         and source_unchanged
         and artifact_unchanged
+        and prerequisites_unchanged
         and result.wasSuccessful()
         and all(item["outcome"] == "passed" for item in result.scenarios)
     )
@@ -662,6 +954,10 @@ def main():
         "http_binary": str(http_binary) if http_binary else None,
         "http_binary_sha256": http_before,
         "http_binary_sha256_after": http_after,
+        "dynamic_prerequisites_before": prerequisites_before,
+        "dynamic_prerequisites_after": prerequisites_after,
+        "dynamic_prerequisites_unchanged": prerequisites_unchanged,
+        "dynamic_prerequisite_error": prerequisite_error,
         "extra_artifacts_before": extra_before,
         "extra_artifacts_after": extra_after,
         "artifact_unchanged_during_qualification": artifact_unchanged,

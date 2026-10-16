@@ -11,6 +11,7 @@ complete hermetic or independently reproducible builds.
 """
 
 import argparse
+import configparser
 import hashlib
 import json
 import os
@@ -236,13 +237,32 @@ def main():
                     raise SystemExit(
                         f"wheel {name} helper manifest differs from the staged artifact"
                     )
+            launcher_metadata = f"catabolic_native-{release}.dist-info/entry_points.txt"
+            if archive.namelist().count(launcher_metadata) != 1:
+                raise SystemExit(
+                    "wheel must contain exactly one native launcher metadata file"
+                )
+            entry_points = configparser.ConfigParser(interpolation=None)
+            # Console-script names are case-sensitive. A substring in a comment,
+            # another group, another command or an inherited default is no proof
+            # that an installer will create the documented launcher.
+            entry_points.optionxform = str
+            try:
+                entry_points.read_string(
+                    archive.read(launcher_metadata).decode("utf-8")
+                )
+            except (configparser.Error, UnicodeError) as error:
+                raise SystemExit("wheel native launcher metadata is invalid") from error
             if (
-                "catabolic_native:main"
-                not in archive.read(
-                    f"catabolic_native-{release}.dist-info/entry_points.txt"
-                ).decode()
+                entry_points.defaults()
+                or entry_points.get(
+                    "console_scripts", "catabolic-native", fallback=None
+                )
+                != "catabolic_native:main"
             ):
-                raise SystemExit("wheel native launcher entry point is missing")
+                raise SystemExit(
+                    "wheel native launcher entry point is missing or mismatched"
+                )
             extensions = [
                 name
                 for name in archive.namelist()

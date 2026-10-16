@@ -822,6 +822,8 @@ class PairedBuilderChecks(unittest.TestCase):
         wheel_missing=None,
         wheel_change=None,
         extra_payload=None,
+        entry_points="[console_scripts]\ncatabolic-native = catabolic_native:main\n",
+        duplicate_entry_points=False,
     ):
         self.commands = []
 
@@ -870,10 +872,16 @@ class PairedBuilderChecks(unittest.TestCase):
                 archive.writestr(
                     "catabolic_native/_native.abi3.so", b"fixture native extension"
                 )
-                archive.writestr(
-                    "catabolic_native-0.2.0.dist-info/entry_points.txt",
-                    "[console_scripts]\ncatabolic-native = catabolic_native:main\n",
-                )
+                if entry_points is not None:
+                    archive.writestr(
+                        "catabolic_native-0.2.0.dist-info/entry_points.txt",
+                        entry_points,
+                    )
+                    if duplicate_entry_points:
+                        archive.writestr(
+                            "catabolic_native-0.2.0.dist-info/entry_points.txt",
+                            entry_points,
+                        )
                 if extra_payload:
                     archive.writestr(extra_payload, b"disposable payload")
             if mutate:
@@ -1030,6 +1038,65 @@ class PairedBuilderChecks(unittest.TestCase):
 
     def test_similar_noncache_data_is_not_misclassified(self):
         result = self.run_builder(extra_payload="catabolic_native/data.pyc.txt")
+        self.assertEqual(result["publication"], "local-only")
+        self.assertTrue(self.manifest.is_file())
+
+    def test_launcher_requires_exact_console_script_name_and_target(self):
+        for metadata in (
+            "[console_scripts]\nother = catabolic_native:main\n",
+            "[gui_scripts]\ncatabolic-native = catabolic_native:main\n",
+            "[console_scripts]\n# catabolic-native = catabolic_native:main\n",
+            "[console_scripts]\ncatabolic-native = catabolic_native:main_other\n",
+            "[console_scripts]\ncatabolic-native = other:main\n"
+            "other = catabolic_native:main\n",
+            "[console_scripts]\nCatabolic-Native = catabolic_native:main\n",
+            "[DEFAULT]\ncatabolic-native = catabolic_native:main\n[console_scripts]\n",
+            "[console_scripts]\ncatabolic-native = catabolic_native:main [extra]\n",
+        ):
+            with self.subTest(metadata=metadata):
+                self.manifest.write_text('{"passed": true}')
+                with self.assertRaisesRegex(SystemExit, "launcher"):
+                    self.run_builder(entry_points=metadata)
+                self.assertFalse(self.manifest.exists())
+                self.assertEqual(list(self.out.glob("*.whl")), [])
+
+    def test_missing_or_duplicate_launcher_metadata_cannot_emit_success_sidecar(self):
+        import warnings
+
+        for options in (
+            {"entry_points": None},
+            {"duplicate_entry_points": True},
+        ):
+            with self.subTest(options=options), warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                self.manifest.write_text('{"passed": true}')
+                with self.assertRaisesRegex(SystemExit, "launcher"):
+                    self.run_builder(**options)
+                self.assertFalse(self.manifest.exists())
+                self.assertEqual(list(self.out.glob("*.whl")), [])
+
+    def test_malformed_or_ambiguous_launcher_metadata_cannot_emit_success_sidecar(self):
+        for metadata in (
+            b"[console_scripts]\ncatabolic-native = catabolic_native:main\n\xff",
+            "[console_scripts]\ncatabolic-native = catabolic_native:main\n"
+            "catabolic-native = catabolic_native:main\n",
+            "[console_scripts]\ncatabolic-native = catabolic_native:main\n"
+            "[console_scripts]\ncatabolic-native = catabolic_native:main\n",
+            "catabolic-native = catabolic_native:main\n",
+        ):
+            with self.subTest(metadata=metadata):
+                self.manifest.write_text('{"passed": true}')
+                with self.assertRaisesRegex(SystemExit, "launcher"):
+                    self.run_builder(entry_points=metadata)
+                self.assertFalse(self.manifest.exists())
+                self.assertEqual(list(self.out.glob("*.whl")), [])
+
+    def test_exact_launcher_accepts_standard_spacing_and_unrelated_entries(self):
+        result = self.run_builder(
+            entry_points="# native companion\n[console_scripts]\n"
+            "catabolic-native  =  catabolic_native:main\n"
+            "other = other:main\n"
+        )
         self.assertEqual(result["publication"], "local-only")
         self.assertTrue(self.manifest.is_file())
 

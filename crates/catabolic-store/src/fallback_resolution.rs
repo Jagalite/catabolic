@@ -67,10 +67,14 @@ pub fn reserve_probe(path: &Path, database_id: &str) -> Result<Option<ProbeSlot>
         "SELECT * FROM fallback_probe_slots ORDER BY id",
         &[],
     )?;
-    let Some(row) = slots
-        .iter()
-        .find(|r| r["pid"].as_i64().is_none_or(|pid| !process_alive(pid)))
-    else {
+    let native = crate::migration::is_supported_native_schema(store.schema_version);
+    let Some(row) = slots.iter().find(|r| {
+        if native {
+            r["owner"].is_null() && r["pid"].is_null()
+        } else {
+            r["pid"].as_i64().is_none_or(|pid| !process_alive(pid))
+        }
+    }) else {
         return Ok(None);
     };
     let slot = ProbeSlot {
@@ -110,6 +114,19 @@ pub fn release_probe(path: &Path, database_id: &str, slot: &ProbeSlot) -> Result
     })
 }
 pub fn probe_check(request: &Value) -> Result<Value> {
+    request["snapshots"]
+        .as_array()
+        .filter(|v| (1..=65).contains(&v.len()))
+        .ok_or_else(|| Error("probe_snapshot_limit".into()))?;
+    let path = request["database"]
+        .as_str()
+        .ok_or_else(|| Error("invalid fallback probe request".into()))?;
+    let store = Store::open(Path::new(path), false, false)?;
+    probe_check_with_store(&store, request)
+}
+/// Retain the caller's already checked native catalog session through source IO.
+pub fn probe_check_with_store(store: &Store, request: &Value) -> Result<Value> {
+    store.validate_native_identity()?;
     let text = |key: &str| {
         request[key]
             .as_str()
@@ -119,12 +136,12 @@ pub fn probe_check(request: &Value) -> Result<Value> {
         .as_array()
         .filter(|v| (1..=65).contains(&v.len()))
         .ok_or_else(|| Error("probe_snapshot_limit".into()))?;
-    let store = Store::open(Path::new(text("database")?), false, false)?;
     if store.database_id != text("database_id")? {
         return Err(Error("catalog replaced during fallback probe".into()));
     }
     let profile = text("profile")?;
     for snapshot in snapshots {
+        store.validate_native_identity()?;
         let checked = source::with_validated_source(snapshot, |file| {
             let mut magic = [0u8; 16];
             if file.read_at(&mut magic, 0)? == 16 && &magic == b"SQLite format 3\0" {
@@ -142,7 +159,7 @@ pub fn probe_check(request: &Value) -> Result<Value> {
                 return Ok(Some(header["reason"].clone()));
             }
             Ok(filesystem_mutation::recorded_reason(
-                &store,
+                store,
                 profile,
                 snapshot["id"]
                     .as_str()
@@ -276,6 +293,7 @@ pub struct Resolver<'a, 'b> {
     package_policy: bool,
     policy_id: Option<String>,
     scoped_graphql_evidence: bool,
+    native_identity_read: bool,
     http_checkpoint: Option<crate::access::HttpSelectionCheckpoint>,
 }
 impl<'a, 'b> Resolver<'a, 'b> {
@@ -303,7 +321,24 @@ impl<'a, 'b> Resolver<'a, 'b> {
             package_policy: false,
             policy_id: None,
             scoped_graphql_evidence: false,
+            native_identity_read: false,
             http_checkpoint: None,
+        }
+    }
+    /// Only the authoritative persistent identity bridge may opt into typed
+    /// metadata capture. This does not authorize publication or interval effects.
+    pub(crate) fn native_identity_read(&mut self) {
+        self.native_identity_read = true;
+    }
+    pub(crate) fn admit_binding_read(&self, association: &str) -> Result<()> {
+        if self.native_identity_read {
+            Ok(())
+        } else {
+            crate::catalog_identity_mutation::legacy_association_admission(
+                self.store(),
+                self.profile(),
+                association,
+            )
         }
     }
     pub fn store(&self) -> &Store {
@@ -467,6 +502,7 @@ impl<'a, 'b> Resolver<'a, 'b> {
         catalog: &str,
         check_live: bool,
     ) -> Result<Option<Value>> {
+        self.admit_binding_read(text(row, "id")?)?;
         self.package_policy = !policy["package"].is_null();
         self.query_budget = self.query_budget.min(Duration::from_millis(
             policy["budgets"]["query_timeout_ms"].as_u64().unwrap(),

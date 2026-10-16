@@ -323,8 +323,20 @@ pub fn validate_package(
         .as_array()
         .filter(|a| !a.is_empty() && a.len() <= 17)
         .ok_or_else(|| Error("invalid component package".into()))?;
+    if entries.iter().any(|entry| {
+        catabolic_core::component::requires_native_binding_effect(&entry["compatibility"])
+    }) {
+        return Err(Error("native_binding_effect_unsupported".into()));
+    }
     for entry in entries {
         let old = &entry["occurrence"];
+        // A package captured before an explicit native claim has no native
+        // marker. Recheck current typed ownership before permitting any effect.
+        crate::catalog_identity_mutation::legacy_association_admission(
+            store,
+            profile,
+            old["association_id"].as_str().unwrap_or(""),
+        )?;
         let row = get(
             store,
             profile,

@@ -46,8 +46,11 @@ pub fn register(path: &Path, expected_sha256: Option<&str>) -> Result<()> {
             return Err(Error("native helper changed while validating".into()));
         }
     }
+    install(Helper { path, identity })
+}
+fn install(helper: Helper) -> Result<()> {
     if let Some(old) = HELPER.get() {
-        if old.path == path && old.identity == identity {
+        if old.path == helper.path && old.identity == helper.identity {
             return Ok(());
         }
         return Err(Error(
@@ -55,7 +58,7 @@ pub fn register(path: &Path, expected_sha256: Option<&str>) -> Result<()> {
         ));
     }
     HELPER
-        .set(Helper { path, identity })
+        .set(helper)
         .map_err(|_| Error("native helper registration raced".into()))
 }
 pub(crate) fn pin(path: &Path) -> Result<Helper> {
@@ -92,4 +95,156 @@ pub(crate) fn executable_with_fallback(fallback: Option<&Helper>) -> Result<Path
         return Ok(helper.path.clone());
     }
     Err(Error("native helper unavailable; install the qualified companion wheel or provide CATABOLIC_NATIVE_BINARY explicitly".into()))
+}
+
+/// Explicit qualified closed-companion capabilities. These are not negotiated
+/// from helper output or a caller-supplied string.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ClosedObservationProtocol {
+    NoChildV1,
+    NoChildWithExactJoinV2,
+}
+/// Explicit trusted packaging grant. The grant is deliberately separate from a
+/// digest or generic helper registration; it represents the packaging owner's
+/// verification of the versioned built-in no-descendant implementation.
+#[derive(Clone)]
+pub struct TrustedClosedObservationArtifact {
+    helper: Helper,
+    digest: String,
+    protocol: ClosedObservationProtocol,
+}
+impl TrustedClosedObservationArtifact {
+    /// Trusted packaging boundary, never an application/user-input constructor.
+    /// The caller must have verified this exact artifact's closed implementation.
+    /// Hashing an unknown program is insufficient authorization for this call.
+    pub fn after_packaging_verification(
+        path: &Path,
+        expected_sha256: &str,
+        protocol: ClosedObservationProtocol,
+    ) -> Result<Self> {
+        if expected_sha256.len() != 64
+            || !expected_sha256
+                .bytes()
+                .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+        {
+            return Err(Error("closed helper requires a lowercase SHA-256".into()));
+        }
+        let helper = pin(path)?;
+        if helper.identity.2 > 128 * 1024 * 1024
+            || catabolic_core::sha256(std::fs::read(&helper.path)?) != expected_sha256
+            || identify(&helper.path)? != helper.identity
+        {
+            return Err(Error(
+                "closed helper differs from verified packaging artifact".into(),
+            ));
+        }
+        Ok(Self {
+            helper,
+            digest: expected_sha256.into(),
+            protocol,
+        })
+    }
+}
+/// Enroll only an explicit trusted packaging grant. Generic registration and
+/// environment overrides never acquire the closed-companion capability.
+pub fn register_closed_observation(grant: &TrustedClosedObservationArtifact) -> Result<()> {
+    let TrustedClosedObservationArtifact {
+        helper,
+        digest,
+        protocol,
+    } = grant;
+    // The typed grant already verified these bytes before host enrollment. Do
+    // not hash the full artifact again while holding a catalog writer: retain
+    // its exact metadata/inode fence and install only that verified identity.
+    if identify(&helper.path)? != helper.identity {
+        return Err(Error(
+            "verified closed helper changed before enrollment".into(),
+        ));
+    }
+    install(helper.clone())?;
+    if let Some(old) = CLOSED_OBSERVATION.get() {
+        if old.helper.path == helper.path
+            && old.helper.identity == helper.identity
+            && old.digest == *digest
+            && old.protocol == *protocol
+        {
+            return Ok(());
+        }
+        return Err(Error(
+            "a different closed observation helper is already registered".into(),
+        ));
+    }
+    CLOSED_OBSERVATION
+        .set(ClosedArtifact {
+            helper: helper.clone(),
+            digest: digest.clone(),
+            protocol: *protocol,
+        })
+        .map_err(|_| Error("closed helper registration raced".into()))
+}
+struct ClosedArtifact {
+    helper: Helper,
+    digest: String,
+    protocol: ClosedObservationProtocol,
+}
+static CLOSED_OBSERVATION: OnceLock<ClosedArtifact> = OnceLock::new();
+pub(crate) fn closed_observation() -> Result<(PathBuf, String)> {
+    let artifact = CLOSED_OBSERVATION.get().ok_or_else(|| {
+        Error("schema37 scan requires an explicitly qualified closed observation helper".into())
+    })?;
+    if identify(&artifact.helper.path)? != artifact.helper.identity {
+        return Err(Error("closed observation helper identity changed".into()));
+    }
+    Ok((artifact.helper.path.clone(), artifact.digest.clone()))
+}
+pub(crate) fn closed_shared_observation() -> Result<(PathBuf, String)> {
+    if CLOSED_OBSERVATION
+        .get()
+        .is_none_or(|a| a.protocol != ClosedObservationProtocol::NoChildWithExactJoinV2)
+    {
+        return Err(Error(
+            "shared join requires the explicit exact-join packaging capability".into(),
+        ));
+    }
+    closed_observation()
+}
+/// Digest the executable selected by the actual helper process. No PATH lookup.
+pub(crate) fn current_digest() -> Result<String> {
+    let path = std::env::current_exe()?;
+    let before = identify(&path)?;
+    if before.2 > 128 * 1024 * 1024 {
+        return Err(Error("closed helper exceeds digest bound".into()));
+    }
+    let digest = catabolic_core::sha256(std::fs::read(&path)?);
+    if identify(&path)? != before {
+        return Err(Error("closed helper changed during digest".into()));
+    }
+    Ok(digest)
+}
+
+#[cfg(test)]
+mod closed_grant_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+    #[test]
+    fn changed_artifact_cannot_reuse_a_preverified_packaging_grant() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("fixture");
+        std::fs::write(&path, "#!/bin/sh\nexit 0\n").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let digest = catabolic_core::sha256(std::fs::read(&path).unwrap());
+        let grant = TrustedClosedObservationArtifact::after_packaging_verification(
+            &path,
+            &digest,
+            ClosedObservationProtocol::NoChildV1,
+        )
+        .unwrap();
+        std::fs::write(&path, "#!/bin/sh\n# changed bytes\nexit 0\n").unwrap();
+        assert!(
+            register_closed_observation(&grant)
+                .unwrap_err()
+                .0
+                .contains("changed before enrollment")
+        );
+    }
 }

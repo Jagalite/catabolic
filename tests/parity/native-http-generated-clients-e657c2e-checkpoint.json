@@ -1,0 +1,92 @@
+{
+  "complete": true,
+  "scope": "Historical exact e657c2e generated-client compilation and disposable loopback native HTTP journey only",
+  "source_commit": "e657c2e66662f91fd905d4b27dc51645e17c2d97",
+  "source_files": 1494,
+  "source_files_digest": "3c080ddcf36c486c32ed2b2fd09fba6dd7ec7aca68dca408ffee40c32e2d11d4",
+  "source_identity_matches_helper": true,
+  "native_cli_sha256": "4280752e6bc97de8aa1c8f587816ffda19c0bbb456603c9ff758d0ddb022e837",
+  "node_version": "22.23.3",
+  "npm_version": "10.9.9",
+  "node_signature_valid": true,
+  "node_checksum_valid": true,
+  "node_release_key_fingerprint": "5BE8A3F6C8A5C01D106C0AD820B1A390B168D356",
+  "npm_packages": 296,
+  "npm_lock_sha256": "0849f1dc2368eeb5db4494371c702ca4e1ef938c298aa6c0ffe4483c2eb8be62",
+  "npm_install_scripts_disabled": true,
+  "generation_and_strict_compile": {
+    "1.2": true,
+    "1.7": true
+  },
+  "python_version": "3.14.6",
+  "python_sha256": "2f7fff382c9d335d6d63f134b55cb8ced9d0b2e1d47e6f210ad3f059adfa71c1",
+  "oracle_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "oracle_source_files": 522,
+  "oracle_installed_package_files_verified": 323,
+  "oracle_uses_private_installed_venv": true,
+  "dependency_install_hash_locked": true,
+  "phase_exit_codes": {
+    "npm-ci": 0,
+    "client-1.2-generation-compile": 0,
+    "client-1.7-generation-compile": 0,
+    "python-dependency-install": 0,
+    "oracle-install": 0,
+    "python-pip-check": 0,
+    "http-journey": 0,
+    "final-fence": 0
+  },
+  "http_journey_report": "http-journey/report.json",
+  "full_input_fence": {
+    "unchanged": true,
+    "count": 17929,
+    "digest": "782f63113690d5732dffe4fa6b15d7d138965cbef77ec59839c87391ac516040"
+  },
+  "preserved_setup_failures": [
+    "gpgv unavailable, followed by successful gpg --no-autostart detached signature validation",
+    "Initial current-main HEAD comparison stopped before npm setup; explicit historical e657c2e source comparison then passed"
+  ],
+  "predecessor_status": "Outcome unknown; copied inputs/downloads/evidence preserved; no predecessor run promoted to pass",
+  "unqualified": [
+    "Main current HEAD and later native37 patches",
+    "Interrupted native aggregate",
+    "Full HTTP contract and generated management/logical/watcher behavioral lanes beyond acceptance.js",
+    "Production and remote HTTP",
+    "Private unregistered orphaned database sidecars and WAL gaps",
+    "Restore/destructive publication/interval effects"
+  ],
+  "release_qualified": false,
+  "schema_version": 32,
+  "source_edited": false,
+  "main_checkout_edited": false,
+  "phase_started": "2026-10-14T21:47:49Z",
+  "phase_finished": "2026-10-14T21:47:54Z",
+  "format_version": 1,
+  "recorded_at_utc": "2026-10-14T22:05:34.303538+00:00",
+  "source_manifest": "tests/parity/native-catalog-native36-interrupted-source-manifest.json",
+  "external_evidence": {
+    "/workspace/shared/catalog-clients-recovery-e657c2e-20261014T2144Z/qualification-summary.json": "c6038de11d0bdc46882ea718c22fa8bd14fec5347a0fa79adf9e34deaf32cc14",
+    "/workspace/shared/catalog-clients-recovery-e657c2e-20261014T2144Z/QUALIFICATION.md": "b347b1bae82c106620c118f11cfcf619bfa50a467806646dd7701c39ef44c3c8",
+    "/workspace/shared/catalog-clients-recovery-e657c2e-20261014T2144Z/http-journey/report.json": "83eeaed374948da3e4b288fbe990ec1902202210d430d18307071d1c10357c1a"
+  },
+  "journey_checks": [
+    "authenticated_graphql",
+    "saved_selection",
+    "durable_rendition",
+    "server_worker_restart",
+    "worker_isolated_after_ready",
+    "generated_client_phased_isolation",
+    "separate_writer_admission_contention",
+    "opaque_ticket",
+    "exact_range",
+    "original_denied",
+    "event_replay"
+  ],
+  "http_calls": 33,
+  "http_retries": 0,
+  "deliberate_busy_attempts": 1,
+  "generated_client_phases": [
+    "processing_ready",
+    "isolated_complete"
+  ],
+  "M0_M11_gate_closures": []
+}

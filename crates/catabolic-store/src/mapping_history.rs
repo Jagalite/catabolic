@@ -5,7 +5,9 @@
 //! the authority-scoped HTTP deliveries endpoint: its profile, row ordering,
 //! bounded HTTP tail, and combined publication history are the legacy contract.
 //! All queries use a read-only Store; no recovery effects or delivery run here.
-use crate::{Error, Result, Store, embedding::poll_interrupt, migration::rows};
+use crate::{
+    DetailedError, DetailedResult, Error, Result, Store, embedding::poll_interrupt, migration::rows,
+};
 use serde_json::{Value, json};
 
 fn interrupted() -> Result<()> {
@@ -27,6 +29,14 @@ fn history_with_subject(
     profile: &str,
     identifier: Option<&str>,
 ) -> Result<(Vec<Value>, Option<String>)> {
+    history_with_subject_detailed(store, profile, identifier).map_err(Into::into)
+}
+
+fn history_with_subject_detailed(
+    store: &Store,
+    profile: &str,
+    identifier: Option<&str>,
+) -> DetailedResult<(Vec<Value>, Option<String>)> {
     store.db.progress_handler(1000, Some(poll_interrupt))?;
     interrupted()?;
     let mut history = Vec::new();
@@ -40,7 +50,8 @@ fn history_with_subject(
         let raw = row["subject"]
             .as_str()
             .ok_or_else(|| Error("mapping history subject must be JSON text".into()))?;
-        let subject = catabolic_core::decode_json(raw)?;
+        let subject = catabolic_core::decode_json(raw)
+            .map_err(|error| DetailedError::mapping_subject_parse(error, raw))?;
         let mut event = subject
             .as_object()
             .cloned()
@@ -48,7 +59,7 @@ fn history_with_subject(
         // The frozen dict(id=..., **subject) refuses a duplicate ID, rather than
         // trusting a stored subject to replace the durable event identity.
         if event.insert("id".into(), row["id"].clone()).is_some() {
-            return Err(Error("mapping history subject contains an id".into()));
+            return Err(Error("mapping history subject contains an id".into()).into());
         }
         if selected_subject.is_none()
             && identifier.is_some_and(|identifier| row["id"] == identifier)
@@ -91,8 +102,17 @@ pub fn events_with_subject(
     profile: &str,
     identifier: Option<&str>,
 ) -> Result<(Value, Option<String>)> {
+    events_with_subject_detailed(store, profile, identifier).map_err(Into::into)
+}
+
+/// Additive diagnostic boundary; aggregation and selection still have one owner.
+pub fn events_with_subject_detailed(
+    store: Store,
+    profile: &str,
+    identifier: Option<&str>,
+) -> DetailedResult<(Value, Option<String>)> {
     let identifier = identifier.filter(|id| !id.is_empty());
-    let (history, subject) = history_with_subject(&store, profile, identifier)?;
+    let (history, subject) = history_with_subject_detailed(&store, profile, identifier)?;
     Ok((select_events(history, identifier)?, subject))
 }
 
@@ -185,6 +205,67 @@ mod tests {
     }
 
     #[test]
+    fn mapping_json_parse_provenance_uses_first_failure_without_extra_reads() {
+        let (_root, path) = catalog();
+        put(&path, "first", r#"{"owner":"good"}"#);
+        let raw = "{\"private-fixture-marker\":";
+        put(&path, "later", raw);
+        put(&path, "last", "[");
+        let store = Store::open(&path, false, false).unwrap();
+        let selects = Arc::new(AtomicUsize::new(0));
+        let observed = selects.clone();
+        store
+            .db
+            .authorizer(Some(move |context: rusqlite::hooks::AuthContext<'_>| {
+                if matches!(context.action, rusqlite::hooks::AuthAction::Select) {
+                    observed.fetch_add(1, Ordering::Relaxed);
+                }
+                rusqlite::hooks::Authorization::Allow
+            }))
+            .unwrap();
+        let before = std::fs::read(&path).unwrap();
+        let error = events_with_subject_detailed(store, "default", Some("first")).unwrap_err();
+        assert_eq!(selects.load(Ordering::Relaxed), 1);
+        assert_eq!(error.mapping_subject_json(), Some(raw));
+        assert_eq!(error.class(), crate::ErrorClass::CatabolicError);
+        assert_eq!(error.to_string(), "invalid JSON");
+        assert!(!format!("{error:?}").contains("private-fixture-marker"));
+        assert!(
+            !std::error::Error::source(&error)
+                .unwrap()
+                .to_string()
+                .contains("private-fixture-marker")
+        );
+        assert_eq!(before, std::fs::read(&path).unwrap());
+        assert!(
+            DetailedError::from(Error("invalid JSON".into()))
+                .mapping_subject_json()
+                .is_none()
+        );
+        assert!(
+            DetailedError::unhashable_sort_dictionary()
+                .mapping_subject_json()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn mapping_json_parse_provenance_never_tags_nonparse_failures() {
+        for raw in ["[]", "null", r#"{"id":"forged"}"#, "{}"] {
+            let (_root, path) = catalog();
+            put(&path, "event", raw);
+            let error = events_with_subject_detailed(
+                Store::open(&path, false, false).unwrap(),
+                "default",
+                None,
+            )
+            .unwrap_err();
+            assert!(error.mapping_subject_json().is_none(), "{raw}");
+            assert_eq!(error.class(), crate::ErrorClass::CatabolicError);
+        }
+    }
+
+    #[test]
     fn selected_subject_and_values_share_the_original_store_snapshot() {
         let (_root, path) = catalog();
         let old = r#"{"z":{"last":1,"first":2},"a":false}"#;
@@ -213,7 +294,8 @@ mod tests {
                 [r#"{"a":true,"z":{"first":3,"last":4}}"#],
             )
             .unwrap();
-        let (value, raw) = events_with_subject(snapshot, "default", Some("event")).unwrap();
+        let (value, raw) =
+            events_with_subject_detailed(snapshot, "default", Some("event")).unwrap();
         // Exactly the original publication query and bounded joined HTTP query.
         assert_eq!(selects.load(Ordering::Relaxed), 2);
         assert_eq!(raw.as_deref(), Some(old));
@@ -221,7 +303,7 @@ mod tests {
             value,
             json!({"id":"event","z":{"last":1,"first":2},"a":false})
         );
-        let (new, raw) = events_with_subject(
+        let (new, raw) = events_with_subject_detailed(
             Store::open(&path, false, false).unwrap(),
             "default",
             Some("event"),
@@ -255,13 +337,13 @@ mod tests {
                 Some("event"),
             )
             .unwrap_err();
-            let actual = events_with_subject(
+            let actual = events_with_subject_detailed(
                 Store::open(&path, false, false).unwrap(),
                 "default",
                 Some("event"),
             )
             .unwrap_err();
-            assert_eq!(actual.0, expected.0);
+            assert_eq!(actual.error().0, expected.0);
         }
     }
 
@@ -274,7 +356,7 @@ mod tests {
             r#"{"owner":"o","key":"k","state":"s","plan_id":"p"}"#,
         );
         for identifier in [None, Some("")] {
-            let (value, raw) = events_with_subject(
+            let (value, raw) = events_with_subject_detailed(
                 Store::open(&path, false, false).unwrap(),
                 "default",
                 identifier,
@@ -292,7 +374,8 @@ mod tests {
             );
         }
         let (value, raw) =
-            events_with_subject(Store::open(&path, false, false).unwrap(), "absent", None).unwrap();
+            events_with_subject_detailed(Store::open(&path, false, false).unwrap(), "absent", None)
+                .unwrap();
         assert!(raw.is_none());
         assert_eq!(value, json!({"events":[],"truncated":false}));
     }

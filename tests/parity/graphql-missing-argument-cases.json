@@ -1,0 +1,1328 @@
+{
+  "contract": "native-graphql-missing-argument-value-v1",
+  "provenance": {
+    "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "python": "3.14.6",
+    "graphql_core": "3.2.12",
+    "historical_parser_fixture_sha256": "47d0dec9c9948c58819ecc0457c81d0cce99e24cd1f54229d7e3394e6cc5b908",
+    "braced_fixture_sha256": "2d74d90669ad26cdef25ae870fa8844fc6322583e0022ca2a431f614e1b63d47",
+    "prerequisite_braced_patch_sha256": "a79366d2e6f7d816687aab59bb0491baa28b489f7a3c1f7b659e20f1a7e114e0",
+    "preflight_capture": "Frozen graphql-core parse(max_tokens=4000), catabolic.graphql_query.check_document, and validate(max_errors=20), with frozen LOCAL_SDL and SDL schemas. HTTP labels mean schema-validation contexts, not HTTP transport tests."
+  },
+  "cases": [
+    {
+      "name": "field-simple",
+      "document": "{items(first:){nodes{id}}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "field-alias",
+      "document": "{result:items(first:){nodes{id}}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 21
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 21
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 21
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "second-argument",
+      "document": "{items(first:1,after:){nodes{id}}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 22
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 22
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 22
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "field-directive",
+      "document": "{profile @skip(if:)}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 19
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 19
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 19
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "operation-directive",
+      "document": "query @skip(if:){profile}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 16
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 16
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 16
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "fragment-definition",
+      "document": "fragment F on Query @skip(if:){profile}{...F}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 30
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 30
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 30
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "fragment-spread",
+      "document": "{...F @skip(if:)} fragment F on Query {profile}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 16
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 16
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 16
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "typed-inline-fragment",
+      "document": "{... on Query @skip(if:){profile}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 24
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 24
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 24
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "anonymous-inline-fragment",
+      "document": "{... @skip(if:){profile}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 15
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 15
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 15
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "variable-directive",
+      "document": "query($x:Int @skip(if:)){profile}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 23
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 23
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 23
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "default-variable-directive",
+      "document": "query($x:Int=1 @skip(if:)){profile}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 25
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 25
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 25
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "after-object-value",
+      "document": "{items(hasRendition:{kind:\"video\"},first:){nodes{id}}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 42
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 42
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 42
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "after-valid-braced-unicode",
+      "document": "{item(id:\"\\u{1F600}\"){id}items(first:){nodes{id}}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 38
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 38
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 38
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "earlier-constant-error",
+      "document": "query($x:Int=$bad){items(first:){nodes{id}}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected variable '$bad' in constant value.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected variable '$bad' in constant value.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected variable '$bad' in constant value.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "earlier-unicode-error",
+      "document": "{item(id:\"\\uD800\"){id}items(first:){nodes{id}}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\uD800'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\uD800'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Invalid Unicode escape sequence: '\\uD800'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 11
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "earlier-missing-before-constant",
+      "document": "{items(first:)}\nquery($x:Int=$bad){profile}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "comments-and-commas",
+      "document": "{items(first: , # ignored\n , ) {nodes{id}}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 4
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 4
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 4
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "crlf-and-unicode-comment",
+      "document": "# \ud83d\ude00\r\n{items(first:\r\n)}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "bare-cr",
+      "document": "# \ud83d\ude00\r{items(first:\r)}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        },
+        "http": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Syntax Error: Unexpected ')'.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 14
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "literal-string-control",
+      "document": "{item(id:\"first:)\"){id}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": null
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "block-string-control",
+      "document": "{item(id:\"\"\"first:)\"\"\"){id}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": null
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "comment-control",
+      "document": "{profile} # items(first:)",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "profile": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "valid-zero-control",
+      "document": "{items(first:0){nodes{id}}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "items": null
+          },
+          "errors": [
+            {
+              "message": "first must be between 1 and 1000",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                }
+              ],
+              "path": [
+                "items"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    },
+    {
+      "name": "valid-braced-default-control",
+      "document": "query($id:ID=\"\\u{1F600}\"){item(id:$id){id}}",
+      "variables": {},
+      "catalog": "empty",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": null
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "preflight": {
+        "local": null,
+        "http": null
+      }
+    }
+  ],
+  "corrected_historical_controls": [
+    "earlier-syntax-before-unicode",
+    "earlier-syntax-before-constant",
+    "later-syntax-after-reordered-directive",
+    "unrelated-missing-value-control"
+  ],
+  "scope": "Only an argument colon immediately followed by its closing parenthesis; complete original historical captures stay unchanged"
+}

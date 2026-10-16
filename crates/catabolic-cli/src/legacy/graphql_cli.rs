@@ -48,6 +48,7 @@ pub fn execute(a: &Value) -> Result<Value> {
             return Err(Error("variables exceed input budget".into()).into());
         }
         super::json_diagnostic::validate(raw)?;
+        super::variable_admission::validate(raw)?;
     }
     let variables = if a["variables"].is_null()
         || catabolic_core::decode_json(text(a, "variables"))
@@ -104,6 +105,32 @@ mod tests {
             crate::execute(&context).unwrap_err(),
             Failure::Detailed(_)
         ));
+    }
+
+    #[test]
+    fn supervisor_preserves_variable_refusal_provenance() {
+        // An absent catalog also proves these refusals precede Store admission.
+        for (raw, kind) in [
+            (r#"{"x":NaN}"#, "ValueError"),
+            (r#"{"x":"\ud800"}"#, "UnicodeEncodeError"),
+        ] {
+            let args = json!({"command":"graphql", "document":"{profile}",
+                "variables":raw, "db":"unused-catalog", "timeout_ms":5000,
+                "machine":true});
+            let error = crate::execute(&args).unwrap_err();
+            assert!(matches!(error, Failure::Variable(_)));
+            let message = error.to_string();
+            let output = crate::presentation::legacy_error(&args, error);
+            let report: Value = serde_json::from_str(&output.stdout).unwrap();
+            assert_eq!(output.code, 2);
+            assert_eq!(output.stderr, "");
+            assert_eq!(report["data"]["error"]["type"], kind);
+            assert_eq!(report["data"]["error"]["message"], message);
+            // Matching text from an ordinary owner cannot forge a Python type.
+            let output = crate::presentation::legacy_error(&args, Error(message).into());
+            let report: Value = serde_json::from_str(&output.stdout).unwrap();
+            assert_eq!(report["data"]["error"]["type"], "CatabolicError");
+        }
     }
 
     #[test]

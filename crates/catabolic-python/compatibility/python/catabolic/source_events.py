@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+"""Opt-in compatibility names; behavior remains owned by catabolic_native.source_events."""
+
+from catabolic_native.source_events import invalidate as invalidate

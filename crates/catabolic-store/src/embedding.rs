@@ -14,12 +14,28 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[derive(Debug)]
+pub struct EvaluationError {
+    pub error: Error,
+    pub failure: Option<crate::selection::EvaluationFailure>,
+}
+impl From<Error> for EvaluationError {
+    fn from(error: Error) -> Self {
+        Self {
+            error,
+            failure: None,
+        }
+    }
+}
+
 pub struct Session {
     store: Option<Store>,
     path: PathBuf,
     writable: bool,
     recovery: bool,
     database_id: String,
+    catalog_incarnation: Option<String>,
+    native_path_identity: Option<(u64, u64)>,
     schema_version: u32,
     detached: bool,
     scopes: Vec<(u64, Option<String>)>,
@@ -37,10 +53,16 @@ struct QueryEvaluation {
 }
 impl Session {
     pub fn open(path: &Path, writable: bool, recovery: bool) -> Result<Self> {
-        let store = Store::open(path, writable, recovery)?;
+        Self::open_typed(path, writable, recovery).map_err(Into::into)
+    }
+    /// Retain the native Store's admission cause without changing session ownership.
+    pub fn open_typed(path: &Path, writable: bool, recovery: bool) -> crate::OpenResult<Self> {
+        let store = Store::open_typed(path, writable, recovery)?;
         Ok(Self {
             path: store.path.clone(),
             database_id: store.database_id.clone(),
+            catalog_incarnation: store.catalog_incarnation.clone(),
+            native_path_identity: store.native_path_identity,
             schema_version: store.schema_version,
             store: Some(store),
             writable,
@@ -89,6 +111,18 @@ impl Session {
         max_ids: usize,
         operation: impl FnOnce(&mut crate::selection::Evaluation) -> Result<T>,
     ) -> Result<T> {
+        self.with_evaluation_typed(profile, args, timeout_ms, max_ids, operation)
+            .map_err(|error| error.error)
+    }
+    /// Retain typed refusal evidence even before the caller's closure runs.
+    pub fn with_evaluation_typed<T>(
+        &mut self,
+        profile: &str,
+        args: &Value,
+        timeout_ms: u64,
+        max_ids: usize,
+        operation: impl FnOnce(&mut crate::selection::Evaluation) -> Result<T>,
+    ) -> std::result::Result<T, EvaluationError> {
         self.check_evaluation(profile, args)?;
         let mut temporary;
         let evaluation = if let Some(token) = args["session"].as_u64() {
@@ -98,14 +132,23 @@ impl Session {
             &mut temporary
         };
         if args["cancelled"] == true || poll_interrupt() {
-            return Err(Error("evaluation_cancelled".into()));
+            return Err(EvaluationError {
+                error: Error("evaluation_cancelled".into()),
+                failure: Some(crate::selection::EvaluationFailure::Cancelled),
+            });
         }
-        evaluation.remaining("query composition timed out")?;
+        evaluation
+            .remaining("query composition timed out")
+            .map_err(|error| EvaluationError {
+                error,
+                failure: evaluation.failure(),
+            })?;
         self.store
             .as_ref()
             .unwrap()
             .db
-            .progress_handler(1000, Some(poll_interrupt))?;
+            .progress_handler(1000, Some(poll_interrupt))
+            .map_err(Error::from)?;
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             evaluation.with_store(&mut self.store, operation)
         }));
@@ -113,7 +156,10 @@ impl Session {
             let _ = store.db.progress_handler(0, None::<fn() -> bool>);
         }
         match result {
-            Ok(result) => result,
+            Ok(result) => result.map_err(|error| EvaluationError {
+                error,
+                failure: evaluation.failure(),
+            }),
             Err(panic) => std::panic::resume_unwind(panic),
         }
     }
@@ -585,8 +631,18 @@ impl Session {
         };
         self.detached = false;
         let store = reopened?;
-        if store.database_id != self.database_id {
+        if store.database_id != self.database_id
+            || store.schema_version != self.schema_version
+            || store.catalog_incarnation != self.catalog_incarnation
+            || store.native_path_identity != self.native_path_identity
+        {
             return Err(Error("catalog replaced during detached execution".into()));
+        }
+        // A reconnect is a fresh admission boundary, never validation of old
+        // evaluation/fallback handles simply because the catalog UUID matches.
+        if self.catalog_incarnation.is_some() {
+            self.evaluations.clear();
+            self.fallback_plans.invalidate()?;
         }
         self.store = Some(store);
         Ok(())

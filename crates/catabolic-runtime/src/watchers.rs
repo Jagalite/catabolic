@@ -11,6 +11,13 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// Older companions reject this route before watcher recovery or source work.
+pub const NATIVE_WORKER_COMMAND: &str = "native-watcher-worker-v1";
+pub fn worker_v1(path: &Path, profile: &str, name: &str, options: &Value) -> Result<Value> {
+    crate::helper_fence::require(options)?;
+    worker_with_options(path, profile, name, options)
+}
+
 fn count(request: &Value, key: &str, default: u64, maximum: u64) -> Result<usize> {
     let value = request
         .get(key)
@@ -39,6 +46,7 @@ pub fn worker_with_options(
     loop {
         match Store::open(path, true, false) {
             Ok(mut store) => {
+                crate::helper_fence::check(&store, options)?;
                 watcher::execute(&store, profile, "recover", &json!({}))?;
                 let mut request = json!({"name":name,"trigger":"scheduled"});
                 if cfg!(debug_assertions) && options["disposable_fixture"] == true {
@@ -343,6 +351,7 @@ fn launch(
     profile: &str,
     name: &str,
     options: &Value,
+    command: &str,
 ) -> Result<Worker> {
     let output = tempfile::tempfile()?;
     let child = Command::new(binary)
@@ -351,7 +360,7 @@ fn launch(
         .args([
             "--profile",
             profile,
-            "watcher-worker",
+            command,
             name,
             "--options",
             &catabolic_core::encode(options),
@@ -399,10 +408,15 @@ pub(crate) fn tick_with_poll(
     watcher::execute(store, profile, "recover", &json!({}))?;
     let now = crate::media::now();
     let names = watcher::supervisor_candidates(store, profile, now, limit)?;
-    let options = if cfg!(debug_assertions) && request["disposable_fixture"] == true {
+    let mut options = if cfg!(debug_assertions) && request["disposable_fixture"] == true {
         json!({"disposable_fixture":true})
     } else {
         json!({})
+    };
+    let command = if crate::helper_fence::write(store, &mut options)?.is_some() {
+        NATIVE_WORKER_COMMAND
+    } else {
+        "watcher-worker"
     };
     let path = store.path.clone();
     let results = store.detached(|| {
@@ -413,7 +427,7 @@ pub(crate) fn tick_with_poll(
             pulse()?;
             while active.len()<workers {
                 let Some(name)=pending.next() else {break};
-                match launch(&binary,&path,profile,&name,&options) {
+                match launch(&binary,&path,profile,&name,&options,command) {
                     Ok(worker)=>active.push(worker),
                     Err(error)=>results.push(json!({"watcher":name,"complete":false,"error":error.0})),
                 }

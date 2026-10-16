@@ -1,0 +1,123 @@
+{
+  "format_version": 1,
+  "package": "R4-scoped-memberships-current-provenance-v1",
+  "recorded_at_utc": "2026-10-14T20:55:55.123618+00:00",
+  "baseline_commit": "ee147f6c21f1962795b547d7e810aa1ae41be985",
+  "source": {
+    "manifest": "tests/parity/native-catalog-r4-details-source-manifest.json",
+    "files_sha256": "c45c41fae56a5476f7fdc73d846265c67fbd2fba02783f881072fd3e4d3fd82b",
+    "file_count": 1486,
+    "unchanged_before_after": true
+  },
+  "runner": "Standard offline locked Cargo1.99.0 and CPython3.14.6; Linux x86_64; dedicated main-only target; debug0 incremental0",
+  "passing_rust_executions": 168,
+  "passing_python_controls": 80,
+  "runs": {
+    "schema-check": {
+      "log": ".local-tests/catalog-r4-details/schema-check.log",
+      "sha256": "5d2bfe1fdbcf01c5bbee0938a01573634a745a3e974b71b0e5865cdbbc079157",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "source-before": {
+      "log": ".local-tests/catalog-r4-details/source-before.log",
+      "sha256": "0a684396eb1f1085ae72c72e3ee8349a87f0a13cb6f7a7bb5a257ec0d3cf60f3",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "scope": {
+      "log": ".local-tests/catalog-r4-details/scope.log",
+      "sha256": "43e56dc825cb2240d2b9013c996ee16e49519a76b2123049963ea220f4b12147",
+      "passed": true,
+      "passing_executions": 78,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "writer": {
+      "log": ".local-tests/catalog-r4-details/writer.log",
+      "sha256": "54106d52743c30dd1afd9b7118cf33046c1a3f84a95ed46977c85f888e131cbe",
+      "passed": true,
+      "passing_executions": 49,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "metadata": {
+      "log": ".local-tests/catalog-r4-details/metadata.log",
+      "sha256": "c56b82121362679a7b4335d08aca94193e52651d757ca7016dad8c3b2d57d816",
+      "passed": true,
+      "passing_executions": 40,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "runtime": {
+      "log": ".local-tests/catalog-r4-details/runtime.log",
+      "sha256": "8fa4ece878b4218e60d9c74d4a0798c0b147e4d91fb4048cc2fdd72befe685ba",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "clippy": {
+      "log": ".local-tests/catalog-r4-details/clippy.log",
+      "sha256": "e6a5bdaaebed7f9d0b267d12c853f963891fd495717269c15f14adfa07ecac44",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "format": {
+      "log": ".local-tests/catalog-r4-details/format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "source-after": {
+      "log": ".local-tests/catalog-r4-details/source-after.log",
+      "sha256": "0a684396eb1f1085ae72c72e3ee8349a87f0a13cb6f7a7bb5a257ec0d3cf60f3",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "python-schema": {
+      "log": ".local-tests/catalog-r4-details/python-schema.log",
+      "sha256": "622e2683317659807e1d53322d91c9283dc78866ac4aef9a909fe501bd56a0c4",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0,
+      "passing_tests": 80,
+      "note": "Retained caller-owned fixture ResourceWarnings remain; no warning-free claim."
+    }
+  },
+  "qualified_contracts": [
+    "Explicit membership-read grant exposes only positive IDs/names of actually matching admitted saved selections; no unapproved definitions or output-catalog membership",
+    "Separate field-scoped current provenance reuses complete existing metadata resolver inside the owned snapshot, preserving visible conflicts/shadowed sources without hidden-only contributions/counts or raw history/evidence/fingerprints",
+    "Exact gate lease and per-operation membership/freshness checks through output delivery; actual VM/source/output byte budgets, output-stage cancellation and WAL commit before delivery discard results",
+    "Public unscoped metadata API retains ambient-snapshot refusal; new private seam is not arbitrary snapshot/SQL authority"
+  ],
+  "remaining": [
+    "Stored file/component adapters are separate work; raw history remains denied",
+    "Schema37 read/writer/latest-target fixture qualification remains separate",
+    "Full current-source aggregate, final artifacts/thin wrapper/platform and M0-M11 release gates remain open",
+    "Independent schema/definition/filesystem reviews remain incomplete and were not retried/reassigned; unqualified effects remain fail-closed",
+    "Actual Motion composition/reference/two-owner testing remains deferred"
+  ],
+  "M0_M11_gate_closures": []
+}

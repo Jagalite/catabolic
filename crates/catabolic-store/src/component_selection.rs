@@ -91,6 +91,7 @@ pub fn capture(
     policy: &Value,
     check_live: bool,
 ) -> Result<Option<Value>> {
+    resolver.admit_binding_read(text(&primary, "id")?)?;
     let config = &policy["package"];
     let mut videos = resolver.rows(
         &format!(

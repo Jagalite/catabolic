@@ -1,0 +1,52 @@
+{
+  "format_version": 1,
+  "preserved_runs": [
+    {
+      "log": ".local-tests/catalog-r2/native-migrations-first.log",
+      "sha256": "86bd8670ba9ce6c9d2398324157a3d44be9ce02d147a90fd48e8fd3d8399380e"
+    },
+    {
+      "log": ".local-tests/catalog-r2/native-migrations-second.log",
+      "sha256": "d26201d0f2527b9bf6a12997abed98797b7d02f219eff64a0350ca8cec08935f"
+    },
+    {
+      "log": ".local-tests/catalog-r2/legacy-storage-faults.log",
+      "sha256": "c0262b5bd22505616cee428a6678ba5f93363f5c6f44603337c3bf083cf7b0f2"
+    },
+    {
+      "log": ".local-tests/catalog-r2/durable-commands-identity-inflight.log",
+      "sha256": "2d069a926103ad575df8beb1a097ee9b1d6cd927c95ef8a1935b70ee1e94b935"
+    },
+    {
+      "log": ".local-tests/catalog-r2/identity-fixture-iterations.log",
+      "sha256": "85acbaac8aab27f87186735ac47639cc1c74c66b37a8507fb93360ab7fe94201"
+    },
+    {
+      "log": ".local-tests/catalog-r2/ruff-initial.log",
+      "sha256": "71e71f581a3c6907130b5a53c403de8894a5474b6505290d1b07b71fa51328b7"
+    }
+  ],
+  "lifecycle_tool_output_only": {
+    "evidence_kind": "worker-reported tool output; not a persisted raw run log",
+    "initial_failure_source_hash_recorded": false,
+    "command": "/workspace/shared/catabolic-target/debug/deps/native_catalog_lifecycle-c3b9278a35c8f3b6 --nocapture",
+    "preceding_build": "cargo test -p catabolic-store --test native_catalog_lifecycle --no-run",
+    "observed_failure": "thread 'store_detached_refuses_replaced_admission_sidecar_before_returning_result' (22) panicked at crates/catabolic-store/tests/native_catalog_lifecycle.rs:219:5:\ndetached acknowledged an invalid lifecycle lease",
+    "reported_run_counts": {
+      "passed": 14,
+      "failed": 2,
+      "ignored": 1
+    },
+    "other_failure": "Missing-catalog-FK test fixture, subsequently corrected",
+    "fix": "Store::detached revalidates admission lease inside reopen validation before installing connection or returning external result",
+    "later_focused_result": {
+      "lifecycle_passed": 20,
+      "admission_passed": 2,
+      "ignored_fork_helpers": "Both executed by passing wrapper tests"
+    },
+    "frozen_aggregate_log": ".local-tests/catalog-r2/frozen-integrated-tests.log",
+    "initial_failure_log_available": false,
+    "source_hash_scope": "Final source hashes are recorded separately; do not apply them to initial failure"
+  },
+  "classification": "Includes implementation regressions, test-fixture corrections, formatting findings and concurrent-integration compile failures; none relabeled as passing runs"
+}

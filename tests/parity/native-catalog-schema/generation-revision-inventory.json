@@ -1,0 +1,2695 @@
+[
+  {
+    "table": "api_audit",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_audit_insert",
+      "fallback_change_api_audit_update",
+      "fallback_change_api_audit_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-http/src/routes.rs",
+      "crates/catabolic-store/src/access_admin.rs",
+      "crates/catabolic-store/src/admin_cli.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "api_events",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_events_insert",
+      "fallback_change_api_events_update",
+      "fallback_change_api_events_delete"
+    ],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "api_grants",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_grants_insert",
+      "fallback_change_api_grants_update",
+      "fallback_change_api_grants_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/access.rs",
+      "crates/catabolic-store/src/access_admin.rs",
+      "crates/catabolic-store/src/access_admin_tests.rs",
+      "crates/catabolic-store/src/admin_cli.rs",
+      "crates/catabolic-store/src/content_access.rs",
+      "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/webhooks.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "api_logical_demands",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_logical_demands_insert",
+      "fallback_change_api_logical_demands_update",
+      "fallback_change_api_logical_demands_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/rendition_mutation.rs"
+    ],
+    "primary_key": [
+      "principal",
+      "idempotency_key"
+    ]
+  },
+  {
+    "table": "api_operations",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_operations_insert",
+      "fallback_change_api_operations_update",
+      "fallback_change_api_operations_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/admin_cli.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "api_playback_jobs",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/playback.rs",
+      "crates/catabolic-store/src/playback_cache.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "api_playback_sessions",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/playback.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "api_principals",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_principals_insert",
+      "fallback_change_api_principals_update",
+      "fallback_change_api_principals_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/access.rs",
+      "crates/catabolic-store/src/access_admin.rs",
+      "crates/catabolic-store/src/access_admin_tests.rs",
+      "crates/catabolic-store/src/admin_cli.rs",
+      "crates/catabolic-store/src/content_access.rs",
+      "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/private_secret.rs",
+      "crates/catabolic-store/src/webhooks.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "api_private_files",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_private_files_insert",
+      "fallback_change_api_private_files_update",
+      "fallback_change_api_private_files_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/private_secret.rs"
+    ],
+    "primary_key": [
+      "path"
+    ]
+  },
+  {
+    "table": "api_requests",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_requests_insert",
+      "fallback_change_api_requests_update",
+      "fallback_change_api_requests_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/rendition_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "api_reservations",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_reservations_insert",
+      "fallback_change_api_reservations_update",
+      "fallback_change_api_reservations_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/rendition_mutation.rs"
+    ],
+    "primary_key": [
+      "job_id"
+    ]
+  },
+  {
+    "table": "api_snapshots",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_snapshots_insert",
+      "fallback_change_api_snapshots_update",
+      "fallback_change_api_snapshots_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/api_catalog.rs",
+      "crates/catabolic-store/src/api_events.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "api_sources",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_sources_insert",
+      "fallback_change_api_sources_update",
+      "fallback_change_api_sources_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/admin_cli.rs",
+      "crates/catabolic-store/src/content_access.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "location"
+    ]
+  },
+  {
+    "table": "api_tickets",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_tickets_insert",
+      "fallback_change_api_tickets_update",
+      "fallback_change_api_tickets_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/content_access.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "api_tokens",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_tokens_insert",
+      "fallback_change_api_tokens_update",
+      "fallback_change_api_tokens_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-cli/src/legacy/presentation.rs",
+      "crates/catabolic-store/src/access.rs",
+      "crates/catabolic-store/src/access_admin.rs",
+      "crates/catabolic-store/src/access_admin_tests.rs",
+      "crates/catabolic-store/src/admin_cli.rs",
+      "crates/catabolic-store/src/content_access.rs",
+      "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/webhooks.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "api_webhooks",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/rendition_mutation.rs",
+      "crates/catabolic-store/src/webhooks.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "destination_id"
+    ]
+  },
+  {
+    "table": "api_worker_status",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_api_worker_status_insert",
+      "fallback_change_api_worker_status_update",
+      "fallback_change_api_worker_status_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/playback.rs",
+      "crates/catabolic-store/src/rendition_mutation.rs"
+    ],
+    "primary_key": [
+      "profile"
+    ]
+  },
+  {
+    "table": "binding_volumes",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_binding_volumes_insert",
+      "fallback_change_binding_volumes_update",
+      "fallback_change_binding_volumes_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/observation.rs",
+      "crates/catabolic-store/src/remount.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "kind",
+      "owner"
+    ]
+  },
+  {
+    "table": "bindings",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_bindings_insert",
+      "fallback_change_bindings_update",
+      "fallback_change_bindings_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-runtime/src/processors.rs",
+      "crates/catabolic-runtime/src/public_processing.rs",
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/catalog_scope_physical_tests.rs",
+      "crates/catabolic-store/src/observation.rs",
+      "crates/catabolic-store/src/publication_mappings.rs",
+      "crates/catabolic-store/src/receipt_mutation.rs",
+      "crates/catabolic-store/src/remount.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "kind",
+      "owner"
+    ]
+  },
+  {
+    "table": "catalog_binding_revisions",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "binding_id",
+      "revision"
+    ]
+  },
+  {
+    "table": "catalog_bindings",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "catalog_command_receipts",
+    "legacy": false,
+    "generation": "excluded",
+    "entity_revision": "excluded",
+    "excluded_reason": "Immutable command result/tombstone bookkeeping; committed_generation must stay final",
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "catalog_id",
+      "host_namespace",
+      "operation_id"
+    ]
+  },
+  {
+    "table": "catalog_commit_barrier",
+    "legacy": false,
+    "generation": "excluded",
+    "entity_revision": "excluded",
+    "excluded_reason": "Permanently empty transaction commit barrier",
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "catalog_entity_revisions",
+    "legacy": false,
+    "generation": "excluded",
+    "entity_revision": "excluded",
+    "excluded_reason": "Derived per-entity counters; recursion forbidden",
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "entity_kind",
+      "entity_key"
+    ]
+  },
+  {
+    "table": "catalog_exact_file_revisions",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "profile",
+      "file_id",
+      "revision"
+    ]
+  },
+  {
+    "table": "catalog_identity_evidence",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "catalog_legacy_associations",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "association_id"
+    ]
+  },
+  {
+    "table": "catalog_legacy_item_metadata",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "item_id"
+    ]
+  },
+  {
+    "table": "catalog_link_modes",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_catalog_link_modes_insert",
+      "fallback_change_catalog_link_modes_update",
+      "fallback_change_catalog_link_modes_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/embedding.rs",
+      "crates/catabolic-store/src/hardlink_mutation.rs"
+    ],
+    "primary_key": [
+      "catalog"
+    ]
+  },
+  {
+    "table": "catalog_mutation_permits",
+    "legacy": false,
+    "generation": "excluded",
+    "entity_revision": "excluded",
+    "excluded_reason": "Ephemeral typed-owner permits",
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "scope_kind",
+      "scope_id"
+    ]
+  },
+  {
+    "table": "catalog_receipt_holds",
+    "legacy": false,
+    "generation": "excluded",
+    "entity_revision": "excluded",
+    "excluded_reason": "Retention bookkeeping; does not affect catalog snapshots",
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "catalog_id",
+      "host_namespace",
+      "operation_id",
+      "holder_namespace",
+      "hold_id"
+    ]
+  },
+  {
+    "table": "catalog_refresh_queue",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_catalog_refresh_queue_insert",
+      "fallback_change_catalog_refresh_queue_update",
+      "fallback_change_catalog_refresh_queue_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_refresh.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "catalog"
+    ]
+  },
+  {
+    "table": "catalog_refresh_settings",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_catalog_refresh_settings_insert",
+      "fallback_change_catalog_refresh_settings_update",
+      "fallback_change_catalog_refresh_settings_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/catalog_refresh.rs",
+      "crates/catabolic-store/src/public_controls.rs",
+      "crates/catabolic-store/src/public_fallback.rs",
+      "crates/catabolic-store/src/receipt_mutation.rs",
+      "crates/catabolic-store/src/watcher.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "catalog"
+    ]
+  },
+  {
+    "table": "catalog_segment_members",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "context_id",
+      "context_revision",
+      "binding_id"
+    ]
+  },
+  {
+    "table": "catalog_segmentation_contexts",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "catalog_segmentation_revisions",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "context_id",
+      "revision"
+    ]
+  },
+  {
+    "table": "catalog_segmentation_sets",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "catalog_state",
+    "legacy": false,
+    "generation": "excluded",
+    "entity_revision": "excluded",
+    "excluded_reason": "Generation/incarnation owner; recursion forbidden",
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "catalog_timeline_revisions",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "timeline_id",
+      "revision"
+    ]
+  },
+  {
+    "table": "catalog_timelines",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "catalog_version_bindings",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "version_id",
+      "version_revision",
+      "binding_id"
+    ]
+  },
+  {
+    "table": "catalog_version_revisions",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "version_id",
+      "revision"
+    ]
+  },
+  {
+    "table": "catalog_versions",
+    "legacy": false,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "catalogs",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_catalogs_insert",
+      "fallback_change_catalogs_update",
+      "fallback_change_catalogs_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/access.rs",
+      "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/lib.rs",
+      "crates/catabolic-store/src/migration.rs",
+      "crates/catabolic-store/src/migration_schema34_tests.rs",
+      "crates/catabolic-store/src/public_reconcile.rs",
+      "crates/catabolic-store/src/receipt_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "component_assertions",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "component_assertion_insert",
+      "component_assertion_update"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/component_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "component_job_inputs",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs"
+    ],
+    "primary_key": [
+      "job_id",
+      "ordinal"
+    ]
+  },
+  {
+    "table": "component_occurrences",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "component_occurrence_insert",
+      "component_occurrence_update"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/components.rs",
+      "crates/catabolic-store/src/graphql.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "component_output_lineage",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "component_lineage_insert"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/component_mutation.rs"
+    ],
+    "primary_key": [
+      "artifact_id",
+      "ordinal"
+    ]
+  },
+  {
+    "table": "consumer_attempts",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_consumer_attempts_insert",
+      "fallback_change_consumer_attempts_update",
+      "fallback_change_consumer_attempts_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/consumers.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "consumer_bindings",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_consumer_bindings_insert",
+      "fallback_change_consumer_bindings_update",
+      "fallback_change_consumer_bindings_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/consumers.rs",
+      "crates/catabolic-store/src/filesystem_mutation.rs",
+      "crates/catabolic-store/src/remount.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "id"
+    ]
+  },
+  {
+    "table": "consumer_connections",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_consumer_connections_insert",
+      "fallback_change_consumer_connections_update",
+      "fallback_change_consumer_connections_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/consumers.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "id"
+    ]
+  },
+  {
+    "table": "consumer_creations",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_consumer_creations_insert",
+      "fallback_change_consumer_creations_update",
+      "fallback_change_consumer_creations_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/consumers.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "id"
+    ]
+  },
+  {
+    "table": "consumer_deliveries",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_consumer_deliveries_insert",
+      "fallback_change_consumer_deliveries_update",
+      "fallback_change_consumer_deliveries_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/consumers.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "id"
+    ]
+  },
+  {
+    "table": "consumer_events",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_consumer_events_insert",
+      "fallback_change_consumer_events_update",
+      "fallback_change_consumer_events_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-cli/src/legacy/mapping_events.rs",
+      "crates/catabolic-store/src/destination_mappings.rs",
+      "crates/catabolic-store/src/http_mappings.rs",
+      "crates/catabolic-store/src/mapping_history.rs",
+      "crates/catabolic-store/src/notifications.rs",
+      "crates/catabolic-store/src/plex_metadata.rs",
+      "crates/catabolic-store/src/publication_mappings.rs",
+      "crates/catabolic-store/src/webhooks.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "content_baselines",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_content_baselines_insert",
+      "fallback_change_content_baselines_update",
+      "fallback_change_content_baselines_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/media_mutation.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "file_id",
+      "algorithm"
+    ]
+  },
+  {
+    "table": "copy_policies",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_copy_policies_insert",
+      "fallback_change_copy_policies_update",
+      "fallback_change_copy_policies_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/definitions.rs"
+    ],
+    "primary_key": [
+      "catalog"
+    ]
+  },
+  {
+    "table": "decision_events",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_decision_events_insert",
+      "fallback_change_decision_events_update",
+      "fallback_change_decision_events_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/curation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "execution_claims",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_execution_claims_insert",
+      "fallback_change_execution_claims_update",
+      "fallback_change_execution_claims_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-runtime/src/execution_cleanup.rs",
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/media_mutation.rs"
+    ],
+    "primary_key": [
+      "job_id"
+    ]
+  },
+  {
+    "table": "expected_sets",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_expected_sets_insert",
+      "fallback_change_expected_sets_update",
+      "fallback_change_expected_sets_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/curation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "external_receipts",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_external_receipts_insert",
+      "fallback_change_external_receipts_update",
+      "fallback_change_external_receipts_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/receipt_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "fallback_bindings",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_fallback_bindings_insert",
+      "fallback_change_fallback_bindings_update",
+      "fallback_change_fallback_bindings_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-runtime/src/public_fallback.rs",
+      "crates/catabolic-store/src/fallback_projection.rs",
+      "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/public_controls.rs",
+      "crates/catabolic-store/src/public_fallback.rs",
+      "crates/catabolic-store/src/watcher.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "catalog"
+    ]
+  },
+  {
+    "table": "fallback_dependencies",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_fallback_dependencies_insert",
+      "fallback_change_fallback_dependencies_update",
+      "fallback_change_fallback_dependencies_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/fallback_mutation.rs"
+    ],
+    "primary_key": [
+      "policy_id",
+      "query_id"
+    ]
+  },
+  {
+    "table": "fallback_entries",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_fallback_entries_insert",
+      "fallback_change_fallback_entries_update",
+      "fallback_change_fallback_entries_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/fallback_projection.rs",
+      "crates/catabolic-store/src/filesystem_mutation.rs",
+      "crates/catabolic-store/src/graphql.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "fallback_epoch",
+    "legacy": true,
+    "generation": "excluded",
+    "entity_revision": "excluded",
+    "excluded_reason": "Derived legacy epoch; native source-table triggers cover it without recursive duplication",
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/catalog_identity_mutation.rs",
+      "crates/catabolic-store/src/components.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "fallback_health",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_fallback_health_insert",
+      "fallback_change_fallback_health_update",
+      "fallback_change_fallback_health_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/fallback_projection.rs",
+      "crates/catabolic-store/src/watcher.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "catalog",
+      "entry_id",
+      "file_id"
+    ]
+  },
+  {
+    "table": "fallback_history",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_fallback_history_insert",
+      "fallback_change_fallback_history_update",
+      "fallback_change_fallback_history_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/fallback_projection.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "fallback_policies",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_fallback_policies_insert",
+      "fallback_change_fallback_policies_update",
+      "fallback_change_fallback_policies_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/access.rs",
+      "crates/catabolic-store/src/fallback_mutation.rs",
+      "crates/catabolic-store/src/graphql.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "fallback_probe_slots",
+    "legacy": true,
+    "generation": "excluded",
+    "entity_revision": "excluded",
+    "excluded_reason": "Internal ephemeral probe semaphore, no logical catalog state",
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/fallback_resolution.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "file_facts",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_file_facts_insert",
+      "fallback_change_file_facts_update",
+      "fallback_change_file_facts_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/catalog_scope_physical_tests.rs",
+      "crates/catabolic-store/src/media_mutation.rs",
+      "crates/catabolic-store/src/observation.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "file_id",
+      "operation"
+    ]
+  },
+  {
+    "table": "file_tags",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_file_tags_insert",
+      "fallback_change_file_tags_update",
+      "fallback_change_file_tags_delete"
+    ],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "files",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_files_insert",
+      "fallback_change_files_update",
+      "fallback_change_files_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-runtime/src/execution_cleanup.rs",
+      "crates/catabolic-runtime/src/processors.rs",
+      "crates/catabolic-runtime/src/public_processing.rs",
+      "crates/catabolic-store/src/access.rs",
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/catalog_scope_physical_tests.rs",
+      "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/layout_mutation.rs",
+      "crates/catabolic-store/src/observation.rs",
+      "crates/catabolic-store/src/projection_run.rs",
+      "crates/catabolic-store/src/publication_mappings.rs",
+      "crates/catabolic-store/src/receipt_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "generated_locations",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_generated_locations_insert",
+      "fallback_change_generated_locations_update",
+      "fallback_change_generated_locations_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/receipt_mutation.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "location"
+    ]
+  },
+  {
+    "table": "http_mapping_definitions",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/http_mappings.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "id"
+    ]
+  },
+  {
+    "table": "http_mapping_deliveries",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/http_mappings.rs",
+      "crates/catabolic-store/src/http_operations.rs"
+    ],
+    "primary_key": [
+      "event_id"
+    ]
+  },
+  {
+    "table": "http_mapping_ledger",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/http_mappings.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "mapping_id",
+      "key"
+    ]
+  },
+  {
+    "table": "http_operations",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/http_operations.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "identities",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_identities_insert",
+      "fallback_change_identities_update",
+      "fallback_change_identities_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/curation.rs",
+      "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/migration_schema34_tests.rs"
+    ],
+    "primary_key": [
+      "namespace",
+      "value"
+    ]
+  },
+  {
+    "table": "item_files",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_item_files_insert",
+      "fallback_change_item_files_update",
+      "fallback_change_item_files_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-runtime/src/processors.rs",
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_identity_mutation.rs",
+      "crates/catabolic-store/src/catalog_logical_edits.rs",
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/curation.rs",
+      "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/layout_mutation.rs",
+      "crates/catabolic-store/src/output_mutation.rs",
+      "crates/catabolic-store/src/projection_run.rs",
+      "crates/catabolic-store/src/publication_mappings.rs",
+      "crates/catabolic-store/src/receipt_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "item_relationships",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_item_relationships_insert",
+      "fallback_change_item_relationships_update",
+      "fallback_change_item_relationships_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/curation.rs",
+      "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/output_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "item_requirements",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_item_requirements_insert",
+      "fallback_change_item_requirements_update",
+      "fallback_change_item_requirements_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/item_workflow.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "item_tags",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_item_tags_insert",
+      "fallback_change_item_tags_update",
+      "fallback_change_item_tags_delete"
+    ],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "item_workflow",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_item_workflow_insert",
+      "fallback_change_item_workflow_update",
+      "fallback_change_item_workflow_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/item_workflow.rs"
+    ],
+    "primary_key": [
+      "item_id"
+    ]
+  },
+  {
+    "table": "item_worklog",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_item_worklog_insert",
+      "fallback_change_item_worklog_update",
+      "fallback_change_item_worklog_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/item_workflow.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "items",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_items_insert",
+      "fallback_change_items_update",
+      "fallback_change_items_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-cli/src/legacy/dispatch.rs",
+      "crates/catabolic-runtime/src/processors.rs",
+      "crates/catabolic-store/src/access.rs",
+      "crates/catabolic-store/src/access_admin_tests.rs",
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_identity_mutation.rs",
+      "crates/catabolic-store/src/catalog_metadata_store.rs",
+      "crates/catabolic-store/src/catalog_metadata_store_tests.rs",
+      "crates/catabolic-store/src/catalog_scope_tests.rs",
+      "crates/catabolic-store/src/curation.rs",
+      "crates/catabolic-store/src/filesystem_mutation.rs",
+      "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/hardlink_mutation.rs",
+      "crates/catabolic-store/src/layout_mutation.rs",
+      "crates/catabolic-store/src/migration_schema34_tests.rs",
+      "crates/catabolic-store/src/output_mutation.rs",
+      "crates/catabolic-store/src/projection_run.rs",
+      "crates/catabolic-store/src/publication_mappings.rs",
+      "crates/catabolic-store/src/receipt_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "journal",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_journal_insert",
+      "fallback_change_journal_update",
+      "fallback_change_journal_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-runtime/src/host.rs",
+      "crates/catabolic-store/src/filesystem_mutation.rs",
+      "crates/catabolic-store/src/hardlink_mutation.rs",
+      "crates/catabolic-store/src/public_reconcile.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "locations",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_locations_insert",
+      "fallback_change_locations_update",
+      "fallback_change_locations_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-runtime/src/execution_cleanup.rs",
+      "crates/catabolic-runtime/src/processors.rs",
+      "crates/catabolic-runtime/src/public_processing.rs",
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/catalog_scope_physical_tests.rs",
+      "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/layout_mutation.rs",
+      "crates/catabolic-store/src/projection_run.rs",
+      "crates/catabolic-store/src/publication_mappings.rs",
+      "crates/catabolic-store/src/receipt_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "mappings",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_mappings_insert",
+      "fallback_change_mappings_update",
+      "fallback_change_mappings_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/embedding.rs",
+      "crates/catabolic-store/src/filesystem_mutation.rs",
+      "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/hardlink_mutation.rs",
+      "crates/catabolic-store/src/layout_mutation.rs",
+      "crates/catabolic-store/src/publication_mappings.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "media_components",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/components.rs",
+      "crates/catabolic-store/src/graphql.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "media_header_checks",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/observation.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "file_id"
+    ]
+  },
+  {
+    "table": "media_outputs",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_media_outputs_insert",
+      "fallback_change_media_outputs_update",
+      "fallback_change_media_outputs_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/output_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "meta",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_meta_insert",
+      "fallback_change_meta_update",
+      "fallback_change_meta_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/catalog_refresh.rs",
+      "crates/catabolic-store/src/definitions.rs",
+      "crates/catabolic-store/src/layout_mutation.rs",
+      "crates/catabolic-store/src/migration.rs",
+      "crates/catabolic-store/src/observation.rs",
+      "crates/catabolic-store/src/projection_run.rs",
+      "crates/catabolic-store/src/publication_mappings.rs",
+      "crates/catabolic-store/src/rules.rs"
+    ],
+    "primary_key": [
+      "key"
+    ]
+  },
+  {
+    "table": "notification_deliveries",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_notification_deliveries_insert",
+      "fallback_change_notification_deliveries_update",
+      "fallback_change_notification_deliveries_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/http_mappings.rs",
+      "crates/catabolic-store/src/notifications.rs",
+      "crates/catabolic-store/src/webhooks.rs"
+    ],
+    "primary_key": [
+      "event_id",
+      "profile",
+      "destination_id"
+    ]
+  },
+  {
+    "table": "notification_destinations",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_notification_destinations_insert",
+      "fallback_change_notification_destinations_update",
+      "fallback_change_notification_destinations_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/http_operations.rs",
+      "crates/catabolic-store/src/notifications.rs",
+      "crates/catabolic-store/src/webhooks.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "id"
+    ]
+  },
+  {
+    "table": "observation_batches",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/observation.rs"
+    ],
+    "primary_key": [
+      "job_id",
+      "sequence"
+    ]
+  },
+  {
+    "table": "observation_jobs",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/observation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "observation_requests",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/observation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "observation_scopes",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/observation.rs"
+    ],
+    "primary_key": [
+      "job_id",
+      "path"
+    ]
+  },
+  {
+    "table": "observation_seen",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/observation.rs"
+    ],
+    "primary_key": [
+      "job_id",
+      "file_id"
+    ]
+  },
+  {
+    "table": "observation_sources",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/observation.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "source"
+    ]
+  },
+  {
+    "table": "observations",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_observations_insert",
+      "fallback_change_observations_update",
+      "fallback_change_observations_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-runtime/src/processors.rs",
+      "crates/catabolic-runtime/src/public_processing.rs",
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/catalog_scope_physical_tests.rs",
+      "crates/catabolic-store/src/observation.rs",
+      "crates/catabolic-store/src/receipt_mutation.rs",
+      "crates/catabolic-store/src/remount.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "file_id"
+    ]
+  },
+  {
+    "table": "output_definitions",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_output_definitions_insert",
+      "fallback_change_output_definitions_update",
+      "fallback_change_output_definitions_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/output_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "owned_hardlinks",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_owned_hardlinks_insert",
+      "fallback_change_owned_hardlinks_update",
+      "fallback_change_owned_hardlinks_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/hardlink_mutation.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "catalog",
+      "path"
+    ]
+  },
+  {
+    "table": "owned_links",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_owned_links_insert",
+      "fallback_change_owned_links_update",
+      "fallback_change_owned_links_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/filesystem_mutation.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "catalog",
+      "path"
+    ]
+  },
+  {
+    "table": "processing_artifacts",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_processing_artifacts_insert",
+      "fallback_change_processing_artifacts_update",
+      "fallback_change_processing_artifacts_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "processing_attempts",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_processing_attempts_insert",
+      "fallback_change_processing_attempts_update",
+      "fallback_change_processing_attempts_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/media_mutation.rs"
+    ],
+    "primary_key": [
+      "job_id",
+      "attempt"
+    ]
+  },
+  {
+    "table": "processing_jobs",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_processing_jobs_insert",
+      "fallback_change_processing_jobs_update",
+      "fallback_change_processing_jobs_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-runtime/src/execution_cleanup.rs",
+      "crates/catabolic-runtime/src/public_processing.rs",
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/catalog_scope_physical_tests.rs",
+      "crates/catabolic-store/src/media_mutation.rs",
+      "crates/catabolic-store/src/rendition_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "processing_recipes",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_processing_recipes_insert",
+      "fallback_change_processing_recipes_update",
+      "fallback_change_processing_recipes_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/media_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "processing_retry_queue",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_processing_retry_queue_insert",
+      "fallback_change_processing_retry_queue_update",
+      "fallback_change_processing_retry_queue_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-runtime/src/public_processing.rs",
+      "crates/catabolic-store/src/media_mutation.rs"
+    ],
+    "primary_key": [
+      "job_id"
+    ]
+  },
+  {
+    "table": "processing_rules",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_processing_rules_insert",
+      "fallback_change_processing_rules_update",
+      "fallback_change_processing_rules_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/definitions.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "processor_attempts",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_processor_attempts_insert",
+      "fallback_change_processor_attempts_update",
+      "fallback_change_processor_attempts_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/processor_mutation.rs"
+    ],
+    "primary_key": [
+      "job_id",
+      "generation"
+    ]
+  },
+  {
+    "table": "processor_jobs",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_processor_jobs_insert",
+      "fallback_change_processor_jobs_update",
+      "fallback_change_processor_jobs_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-runtime/src/processors.rs",
+      "crates/catabolic-store/src/processor_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "processors",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_processors_insert",
+      "fallback_change_processors_update",
+      "fallback_change_processors_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/processor_mutation.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "id"
+    ]
+  },
+  {
+    "table": "profiles",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_profiles_insert",
+      "fallback_change_profiles_update",
+      "fallback_change_profiles_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/access_admin_tests.rs",
+      "crates/catabolic-store/src/catalog_identity_mutation.rs",
+      "crates/catabolic-store/src/catalog_scope_tests.rs",
+      "crates/catabolic-store/src/embedding.rs",
+      "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/legacy_refresh.rs",
+      "crates/catabolic-store/src/migration.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "projection_bindings",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_projection_bindings_insert",
+      "fallback_change_projection_bindings_update",
+      "fallback_change_projection_bindings_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/definitions.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "catalog"
+    ]
+  },
+  {
+    "table": "proposals",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_proposals_insert",
+      "fallback_change_proposals_update",
+      "fallback_change_proposals_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/curation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "publication_generations",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_publication_generations_insert",
+      "fallback_change_publication_generations_update",
+      "fallback_change_publication_generations_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/filesystem_mutation.rs",
+      "crates/catabolic-store/src/remount.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "catalog"
+    ]
+  },
+  {
+    "table": "query_dependencies",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_query_dependencies_insert",
+      "fallback_change_query_dependencies_update",
+      "fallback_change_query_dependencies_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/definitions.rs"
+    ],
+    "primary_key": [
+      "query_id",
+      "dependency_id"
+    ]
+  },
+  {
+    "table": "receipt_outputs",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_receipt_outputs_insert",
+      "fallback_change_receipt_outputs_update",
+      "fallback_change_receipt_outputs_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/receipt_mutation.rs"
+    ],
+    "primary_key": [
+      "receipt_id",
+      "output_id"
+    ]
+  },
+  {
+    "table": "refresh_dirty",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_refresh_dirty_insert",
+      "fallback_change_refresh_dirty_update",
+      "fallback_change_refresh_dirty_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/filesystem_mutation.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "catalog"
+    ]
+  },
+  {
+    "table": "refresh_events",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_refresh_events_insert",
+      "fallback_change_refresh_events_update",
+      "fallback_change_refresh_events_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/filesystem_mutation.rs",
+      "crates/catabolic-store/src/legacy_refresh.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "refresh_targets",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_refresh_targets_insert",
+      "fallback_change_refresh_targets_update",
+      "fallback_change_refresh_targets_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/legacy_refresh.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "catalog"
+    ]
+  },
+  {
+    "table": "remount_guard",
+    "legacy": true,
+    "generation": "excluded",
+    "entity_revision": "excluded",
+    "excluded_reason": "Internal ephemeral repair guard, no logical catalog state",
+    "legacy_fallback_triggers": [
+      "fallback_change_remount_guard_insert",
+      "fallback_change_remount_guard_update",
+      "fallback_change_remount_guard_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/remount.rs"
+    ],
+    "primary_key": [
+      "profile"
+    ]
+  },
+  {
+    "table": "remount_repairs",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_remount_repairs_insert",
+      "fallback_change_remount_repairs_update",
+      "fallback_change_remount_repairs_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/remount.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "rendition_decisions",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_rendition_decisions_insert",
+      "fallback_change_rendition_decisions_update",
+      "fallback_change_rendition_decisions_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/public_controls.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "catalog",
+      "output_id"
+    ]
+  },
+  {
+    "table": "rendition_policies",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_rendition_policies_insert",
+      "fallback_change_rendition_policies_update",
+      "fallback_change_rendition_policies_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/definitions.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "catalog"
+    ]
+  },
+  {
+    "table": "retained_hardlinks",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_retained_hardlinks_insert",
+      "fallback_change_retained_hardlinks_update",
+      "fallback_change_retained_hardlinks_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/hardlink_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "rule_evaluations",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_rule_evaluations_insert",
+      "fallback_change_rule_evaluations_update",
+      "fallback_change_rule_evaluations_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/rules.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "rule_jobs",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_rule_jobs_insert",
+      "fallback_change_rule_jobs_update",
+      "fallback_change_rule_jobs_delete"
+    ],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "rule_id",
+      "job_id"
+    ]
+  },
+  {
+    "table": "rule_processor_jobs",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_rule_processor_jobs_insert",
+      "fallback_change_rule_processor_jobs_update",
+      "fallback_change_rule_processor_jobs_delete"
+    ],
+    "mutation_owner_files": [],
+    "primary_key": [
+      "rule_id",
+      "job_id"
+    ]
+  },
+  {
+    "table": "rule_requirements",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_rule_requirements_insert",
+      "fallback_change_rule_requirements_update",
+      "fallback_change_rule_requirements_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/rules.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "saved_queries",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_saved_queries_insert",
+      "fallback_change_saved_queries_update",
+      "fallback_change_saved_queries_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/access.rs",
+      "crates/catabolic-store/src/access_admin_tests.rs",
+      "crates/catabolic-store/src/api_queries.rs",
+      "crates/catabolic-store/src/definitions.rs",
+      "crates/catabolic-store/src/graphql.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "scans",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_scans_insert",
+      "fallback_change_scans_update",
+      "fallback_change_scans_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-runtime/src/processors.rs",
+      "crates/catabolic-runtime/src/public_processing.rs",
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/catalog_scope_physical_tests.rs",
+      "crates/catabolic-store/src/observation.rs",
+      "crates/catabolic-store/src/receipt_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "schema_migrations",
+    "legacy": true,
+    "generation": "excluded",
+    "entity_revision": "excluded",
+    "excluded_reason": "Explicit lifecycle metadata; no ordinary mutation or cursor semantics",
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/migration.rs"
+    ],
+    "primary_key": [
+      "version"
+    ]
+  },
+  {
+    "table": "source_identity_policies",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_source_identity_policies_insert",
+      "fallback_change_source_identity_policies_update",
+      "fallback_change_source_identity_policies_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/catalog_scope_physical_tests.rs",
+      "crates/catabolic-store/src/observation.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "location"
+    ]
+  },
+  {
+    "table": "source_observation_policies",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/observation.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "source"
+    ]
+  },
+  {
+    "table": "source_observation_policy_history",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/observation.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "source",
+      "revision"
+    ]
+  },
+  {
+    "table": "source_policy_history",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_source_policy_history_insert",
+      "fallback_change_source_policy_history_update",
+      "fallback_change_source_policy_history_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/observation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "tag_names",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_tag_names_insert",
+      "fallback_change_tag_names_update",
+      "fallback_change_tag_names_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/catalog_tag_mutation.rs",
+      "crates/catabolic-store/src/tagging.rs"
+    ],
+    "primary_key": [
+      "name"
+    ]
+  },
+  {
+    "table": "tag_parents",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_tag_parents_insert",
+      "fallback_change_tag_parents_update",
+      "fallback_change_tag_parents_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/catalog_tag_mutation.rs",
+      "crates/catabolic-store/src/tagging.rs"
+    ],
+    "primary_key": [
+      "child_id",
+      "parent_id"
+    ]
+  },
+  {
+    "table": "tags",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_tags_insert",
+      "fallback_change_tags_update",
+      "fallback_change_tags_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/catalog_tag_mutation.rs",
+      "crates/catabolic-store/src/tagging.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "text_segments",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_text_segments_insert",
+      "fallback_change_text_segments_update",
+      "fallback_change_text_segments_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/media_mutation.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "text_terms",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_text_terms_insert",
+      "fallback_change_text_terms_update",
+      "fallback_change_text_terms_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/media_mutation.rs"
+    ],
+    "primary_key": [
+      "term",
+      "segment_id"
+    ]
+  },
+  {
+    "table": "watch_revisions",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [
+      "fallback_change_watch_revisions_insert",
+      "fallback_change_watch_revisions_update",
+      "fallback_change_watch_revisions_delete"
+    ],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/maintenance.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "file_id"
+    ]
+  },
+  {
+    "table": "watcher_definitions",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/watcher.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "watcher_owners",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/watcher.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "catalog"
+    ]
+  },
+  {
+    "table": "watcher_runs",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/watcher.rs"
+    ],
+    "primary_key": [
+      "id"
+    ]
+  },
+  {
+    "table": "watchers",
+    "legacy": true,
+    "generation": "insert/delete/changed-update",
+    "entity_revision": "retained-key counter and deletion tombstone",
+    "excluded_reason": null,
+    "legacy_fallback_triggers": [],
+    "mutation_owner_files": [
+      "crates/catabolic-store/src/artifact_mutation.rs",
+      "crates/catabolic-store/src/observation.rs",
+      "crates/catabolic-store/src/watcher.rs"
+    ],
+    "primary_key": [
+      "profile",
+      "name"
+    ]
+  }
+]

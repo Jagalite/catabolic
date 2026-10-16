@@ -1,0 +1,170 @@
+{
+  "format_version": 1,
+  "package": "R3",
+  "status": "locally_tested_bounded_curation; remaining_contracts_and_independent_review_incomplete",
+  "recorded_at_utc": "2026-10-14T19:19:54.146588+00:00",
+  "baseline_commit": "414d916822d12cfac4315f4ccf695963e8672e91",
+  "source": {
+    "manifest": "tests/parity/native-catalog-r3-source-manifest.json",
+    "file_sha256": "8893cb3501a0ba988549ccb5f3fc0f2a8ac97a1ad5d2f991bf525aedad21e8cd",
+    "canonical_files_sha256": "f3891f37d758936549f5e495a77a2aab3102b0c4579e9706b30eaa38e033eeea",
+    "file_count": 755,
+    "unchanged_before_after": true,
+    "all_732_R2_paths_retained": true
+  },
+  "runner": {
+    "kind": "standard Cargo; user-authorized exception from Kyoto",
+    "rustc": "1.99.0 (b940084d7 2026-09-28)",
+    "cargo": "1.99.0 (5f94df478 2026-08-27)",
+    "target": "x86_64-unknown-linux-gnu",
+    "qualification_scope": "Linux only; project declared minimum1.99; not other-platform qualification",
+    "python": "3.12.14",
+    "python_sqlite": "3.53.1",
+    "ruff": "0.16.6 from https://pypi.org/simple"
+  },
+  "runs": {
+    "core_store_runtime": {
+      "log": ".local-tests/catalog-r3/qualified-integrated-tests.log",
+      "sha256": "6e7ab432285e58722aec6cc05707d9e9fa73ea172d612f5af3a522150b21a728",
+      "passing_executions": 871,
+      "failed_executions": 0,
+      "ignored_entries": 9,
+      "harness_summaries": 64,
+      "python_oracle": "3.12.14"
+    },
+    "strict_clippy": {
+      "log": ".local-tests/catalog-r3/qualified-clippy.log",
+      "sha256": "650b3bf1ad792b32feb13259a5781994511b0074f936b2586531ef596d1028b8",
+      "passed": true
+    },
+    "format": {
+      "log": ".local-tests/catalog-r3/qualified-format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true
+    },
+    "ruff": {
+      "log": ".local-tests/catalog-r3/qualified-ruff.log",
+      "sha256": "afa20b27dacc9bf0aba3c1d265964c21e04ab42f6e39e2dd4769718ceded003a",
+      "passed": true
+    },
+    "python_schema_and_audit": {
+      "log": ".local-tests/catalog-r3/python-integrated.log",
+      "sha256": "74629f649d5ec7f7f1243347ba960d7a44ea0cd6b3732b10a6dd24598eed79cd",
+      "passing_tests": 49,
+      "failed_tests": 0
+    },
+    "schema33_reproduction": {
+      "log": ".local-tests/catalog-r3/frozen-foundation-generation.log",
+      "sha256": "5d2bfe1fdbcf01c5bbee0938a01573634a745a3e974b71b0e5865cdbbc079157",
+      "passed": true
+    },
+    "schema34_reproduction": {
+      "log": ".local-tests/catalog-r3/frozen-curation-generation.log",
+      "sha256": "8400277c06fc979cc5aa20d1fe78f131ae49c03bb2ff3ca348abcc8bc5b8ff5a",
+      "passed": true
+    },
+    "real_helper_legacy32": {
+      "log": ".local-tests/catalog-r3/qualified-real-helper.log",
+      "sha256": "58df7f2d4c7127c0f9d75ee1271e2e652f4929618eace76e854577bcf860792c",
+      "passing_tests": 1,
+      "failed_tests": 0
+    },
+    "pinned_access_differential": {
+      "log": ".local-tests/catalog-r3/pinned-frozen_access_owner_differential.log",
+      "sha256": "2ac19c4e481e52c8332764ed46ea4932b98737ec65c332d0f73cc174a4ebf6de",
+      "passing_tests": 1,
+      "python_oracle": "3.14.6"
+    },
+    "pinned_scalar_cache_refusal": {
+      "log": ".local-tests/catalog-r3/pinned-inherited_scalar_cache_confusion_remains_fail_closed_native.log",
+      "sha256": "0fcea06d61cb47800a71389b72c8ab2edc4732faccd29f7e53624cd993a6266d",
+      "passing_tests": 1,
+      "python_oracle": "3.14.6"
+    },
+    "publication_intents_differential": {
+      "log": ".local-tests/catalog-r3/pinned-python_native_publication_intents_recover_in_both_directions.log",
+      "sha256": "9c73fd2c7809e5af626acccc7b1686b8085c57f0ed2556e62187af8c673e363b",
+      "passing_tests": 1,
+      "python_oracle": "3.14.6"
+    },
+    "pdf": {
+      "log": ".local-tests/catalog-r3/media-real_pdf_text_and_page_overflow.log",
+      "sha256": "627cdcf0a5310c6c4c21dbc845a99f13f96d151f32f0eecd16bba1d5539dd368",
+      "passing_tests": 1
+    },
+    "ocr": {
+      "log": ".local-tests/catalog-r3/media-real_single_image_ocr.log",
+      "sha256": "1dbc6e7eea46883f9fa1907d2f6c4521852723c222e35cfe43346105b756dcdf",
+      "passing_tests": 1
+    },
+    "entry_budget": {
+      "log": ".local-tests/catalog-r3/source-entry-budget.log",
+      "sha256": "d86bd8effa912c98b375ef9e481fafd8d7b2dfb26c80168735fdb74d25177877",
+      "passing_tests": 1
+    }
+  },
+  "helper": {
+    "path": ".local-tests/catalog-r3/catabolic-native",
+    "sha256": "acd2277c28ca8cac0a7ca241cde60d2311b72d6f1cc25f43c6ecdafd8aa08aca",
+    "fixture_schema": 32,
+    "distribution_candidate": false
+  },
+  "oracle_inputs": {
+    "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "archive_sha256": "ea6d64a8c274f0886da120343883a6ef761794b3b7ef55840fad93f9f402217b",
+    "reference_files_compared_byte_for_byte": 522,
+    "fixture_files_verified": 33,
+    "provenance_sha256": "86976e5179b4e68b193a30ca15765d48fd874d3387208c86e6964cb13260dd4d",
+    "qualification_scope": "Frozen reference bytes verified; three supplemental differential cases use pinned Python3.14.6; main aggregate retains Python3.12.14 setup",
+    "verification_log": ".local-tests/catalog-r3/frozen-reference-verification-correct-path.log",
+    "verification_timing": "Verified before final aggregate; no post-aggregate reference-byte comparison claimed"
+  },
+  "schema": {
+    "target": 34,
+    "legacy_default_target": 32,
+    "supported_native_versions": [
+      33,
+      34
+    ],
+    "migration_sha256": "b1ee139e4844c421c6e4b69f28c8692c1286619edb10d608b60378741a9de299",
+    "signature_sha256": "1256c409e08a8613286aeccce8484bb6faf4d20f900d8711d18c4f0875ceeafd",
+    "preservation_exception": "Only append exact revision1/deleted0 legacy identity evidence baselines; retain all previous rows and generation"
+  },
+  "independent_schema_review": {
+    "status": "incomplete",
+    "record": "tests/parity/native-catalog-schema/schema-review-blocked.json",
+    "record_sha256": "1db6fd720953993a9100a032137287c3126e744294d3666a4412fffd38ea8ed1",
+    "retry_or_reassignment": false,
+    "clearance_claim": false
+  },
+  "failures": {
+    "record": "tests/parity/native-catalog-r3-failures.json",
+    "sha256": "1452d9eae335f3e5911a877ded385304405891e290224946a19eb38a2e26d940"
+  },
+  "ignored_entries": [
+    "test document::tests::real_pdf_text_and_page_overflow ... ignored, requires the optional local pdftotext executable",
+    "test document::tests::real_single_image_ocr ... ignored, requires local tesseract and its English language data",
+    "test real_native_helper_scan_cancel_drain_and_reopen ... ignored, requires an explicitly built, digest-checked CATABOLIC_HOST_TEST_HELPER",
+    "test entry_budget_exhaustion_cannot_restart_for_later_sources ... ignored, creates 200001 disposable empty entries to exercise setup exhaustion",
+    "test access_admin::tests::frozen_access_owner_differential ... ignored, requires pinned frozen checkout and Python 3.14.6; run with --ignored",
+    "test access_admin::tests::inherited_scalar_cache_confusion_remains_fail_closed_native ... ignored, requires pinned frozen checkout and Python 3.14.6; intentional fail-closed divergence witness",
+    "test artifact_mutation::tests::python_native_publication_intents_recover_in_both_directions ... ignored, requires CATABOLIC_PYTHON_ORACLE and CATABOLIC_PYTHON_REFERENCE",
+    "test native_admission::lifecycle_tests::fork_drop_helper ... ignored, run only through the isolated subprocess wrapper",
+    "test inherited_native_store_helper ... ignored, run through the isolated subprocess wrapper"
+  ],
+  "ignored_coverage": {
+    "seven_opt_in_cases": "Each passed in separate recorded execution on final source",
+    "two_fork_helpers": "Executed through passing isolated subprocess wrappers",
+    "remaining_unrun": 0
+  },
+  "remaining_limits": [
+    "Active relationship, publication mapping and expected-set relocation on logical retirement still refused pending explicit replacement policy",
+    "Privileged R3 reads require autocommit; scoped fresh read-only ownership remains R4",
+    "Independent schema review incomplete; no milestone or release closure",
+    "Native WAL cutover and controlled restore publication unavailable",
+    "R4\u2013R7, import/cutover, remaining product work and thin wrapper unfinished",
+    "Motion composition/application cutover deferred by user; no Motion edits/tests",
+    "Linux only; aggregate uses Python3.12.14; exact Python3.14.6 supplemental cases do not constitute whole-release qualification"
+  ],
+  "M0_M11_gate_closures": []
+}

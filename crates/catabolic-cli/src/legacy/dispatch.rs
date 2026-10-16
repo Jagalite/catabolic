@@ -97,9 +97,34 @@ fn application(a: &Value, operation: &str, r: &Value, writable: bool) -> Result<
     let store = Store::open(Path::new(text(a, "db")), writable, false)?;
     catabolic_store::embedding::application(&store, text(a, "profile"), operation, r)
 }
-fn query(a: &Value, entity: &str, r: &Value) -> Result<Value> {
+// Pure legacy request normalization shared by ordinary and detailed dispatch.
+fn catalog_request(a: &Value) -> Option<(&'static str, Value)> {
+    let mut request = a.clone();
+    let entity = match (text(a, "command"), text(a, "operation")) {
+        ("files", _) => "files",
+        ("item", "list") => "items",
+        ("item", "show") => {
+            set(&mut request, "item_id", "id");
+            "item"
+        }
+        ("tag", "list") => "tags",
+        ("tag", "assignments") => "taggings",
+        ("association", "list") => "associations",
+        ("relationship", "list") => "relationships",
+        ("mapping", "list") => {
+            if a["all_catalogs"] == true {
+                request["catalog"] = Value::Null;
+            }
+            "mappings"
+        }
+        _ => return None,
+    };
+    Some((entity, request))
+}
+fn query_detailed(a: &Value, entity: &str, r: &Value) -> catabolic_store::DetailedResult<Value> {
     let store = Store::open(Path::new(text(a, "db")), false, false)?;
-    catabolic_store::query::CatalogQuery::new(&store, text(a, "profile"))?.execute(entity, r)
+    catabolic_store::query::CatalogQuery::new(&store, text(a, "profile"))?
+        .execute_detailed(entity, r)
 }
 fn definitions(a: &Value, operation: &str, r: &Value) -> Result<Value> {
     runtime(a, "definitions", operation, r)
@@ -178,8 +203,14 @@ fn documentation(a: &Value) -> Result<Value> {
     }
     Ok(json!({"documentation_version":1,"query":search,"topics":topics}))
 }
-/// Preserve administrative failure provenance before ordinary flat dispatch.
-pub fn dispatch_detailed(a: &Value) -> catabolic_store::access_admin::DetailedResult<Value> {
+/// Preserve administrative and catalog-boundary provenance before flat dispatch.
+pub fn dispatch_detailed(a: &Value) -> super::failure::Result<Value> {
+    // Missing-database diagnostics retain their original ordinary owner/order.
+    if !text(a, "db").is_empty()
+        && let Some((entity, request)) = catalog_request(a)
+    {
+        return query_detailed(a, entity, &request).map_err(Into::into);
+    }
     if text(a, "command") == "api"
         // Let ordinary dispatch retain its missing-database diagnostic/order.
         && !text(a, "db").is_empty()
@@ -198,7 +229,7 @@ pub fn dispatch_detailed(a: &Value) -> catabolic_store::access_admin::DetailedRe
                 | "operation-approve"
         )
     {
-        admin_cli::execute_detailed(a)
+        admin_cli::execute_detailed(a).map_err(Into::into)
     } else {
         dispatch(a).map_err(Into::into)
     }
@@ -317,6 +348,9 @@ pub fn dispatch_with_cancel(a: &Value, cancel: &std::sync::atomic::AtomicBool) -
             .into(),
         ));
     }
+    if let Some((entity, request)) = catalog_request(a) {
+        return query_detailed(a, entity, &request).map_err(Into::into);
+    }
     match (command,operation){
         ("identify",_)=>identify::execute(a),
         ("maintenance",_)=>maintenance::execute(a),
@@ -329,14 +363,6 @@ pub fn dispatch_with_cancel(a: &Value, cancel: &std::sync::atomic::AtomicBool) -
         ("status",_)=>application(a,"status",a,false),
         ("profile","add")=>{r["profile"]=a["name"].clone();application(a,"add_profile",&r,true)}
         ("profile","list")=>{let store=Store::open(path,false,false)?;Ok(json!({"profiles":catabolic_store::migration::rows(&store.db,"SELECT id FROM profiles ORDER BY id",&[])?}))}
-        ("files",_)=>query(a,"files",a),
-        ("item","list")=>query(a,"items",a),
-        ("item","show")=>{set(&mut r,"item_id","id");query(a,"item",&r)},
-        ("tag","list")=>query(a,"tags",a),
-        ("tag","assignments")=>query(a,"taggings",a),
-        ("association","list")=>query(a,"associations",a),
-        ("relationship","list")=>query(a,"relationships",a),
-        ("mapping","list")=>{if a["all_catalogs"]==true{r["catalog"]=Value::Null;}query(a,"mappings",&r)}
         ("item","put")=>{
             let mut identities=serde_json::Map::new();for identity in a["identity"].as_array().unwrap(){let (namespace,value)=identity.as_str().unwrap().split_once('=').filter(|(n,v)|!n.is_empty()&&!v.is_empty()).ok_or_else(||Error("identity must be NAMESPACE=VALUE".into()))?;
                 if identities.get(namespace).is_some_and(|v|v!=value){return Err(Error("supply only one value per identity namespace".into()));}identities.insert(namespace.into(),json!(value));}
@@ -1076,5 +1102,96 @@ fn http_operation(a: &Value) -> Result<Value> {
         Ok(json!({"id":a["id"],"retry_scheduled":true}))
     } else {
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod detailed_boundary_tests {
+    use super::super::failure::Failure;
+    use super::*;
+
+    #[test]
+    fn catalog_normalization_preserves_all_eight_routes() {
+        for (command, operation, expected) in [
+            ("files", "", "files"),
+            ("item", "list", "items"),
+            ("item", "show", "item"),
+            ("tag", "list", "tags"),
+            ("tag", "assignments", "taggings"),
+            ("association", "list", "associations"),
+            ("relationship", "list", "relationships"),
+            ("mapping", "list", "mappings"),
+        ] {
+            let args = json!({"command":command,"operation":operation,"id":"selected","catalog":"missing","all_catalogs":true,"sort":{}});
+            let (entity, request) = catalog_request(&args).unwrap();
+            assert_eq!(entity, expected);
+            let mut wanted = args.clone();
+            if entity == "item" {
+                wanted["item_id"] = json!("selected");
+            }
+            if entity == "mappings" {
+                wanted["catalog"] = Value::Null;
+            }
+            assert_eq!(request, wanted);
+        }
+        assert!(catalog_request(&json!({"command":"query","operation":""})).is_none());
+    }
+
+    #[test]
+    fn detailed_dispatch_keeps_class_and_missing_database_profile_filter_precedence() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("dispatch.db");
+        catabolic_store::migration::initialize(&path).unwrap();
+        let store = Store::open(&path, true, false).unwrap();
+        store
+            .db
+            .execute(
+                "INSERT INTO items(id,kind,metadata) VALUES ('selected','movie','{}')",
+                [],
+            )
+            .unwrap();
+        drop(store);
+        for (command, operation) in [
+            ("files", ""),
+            ("item", "list"),
+            ("item", "show"),
+            ("tag", "list"),
+            ("tag", "assignments"),
+            ("association", "list"),
+            ("relationship", "list"),
+            ("mapping", "list"),
+        ] {
+            let args = json!({"command":command,"operation":operation,"db":path,"profile":"default","sort":{},"all_catalogs":true,"id":"selected"});
+            match dispatch_detailed(&args).unwrap_err() {
+                Failure::Boundary(error) => {
+                    assert_eq!(error.class(), catabolic_store::ErrorClass::TypeError)
+                }
+                error => panic!("lost detailed class: {error:?}"),
+            }
+            assert_eq!(
+                dispatch(&args).unwrap_err().0,
+                "cannot use 'dict' as a dict key (unhashable type: 'dict')"
+            );
+        }
+        let args =
+            json!({"command":"item","operation":"list","db":path,"profile":"default","sort":{}});
+        for (field, value, expected) in [
+            (
+                "db",
+                json!(""),
+                "select --db or set CATABOLIC_DB; no database is selected implicitly",
+            ),
+            ("profile", json!("missing"), "unknown profile: missing"),
+            ("limit", json!(0), "limit must be between 1 and 1000"),
+            ("catalog", json!("missing"), "unknown catalogs: missing"),
+        ] {
+            let mut bad = args.clone();
+            bad[field] = value;
+            let failure = dispatch_detailed(&bad).unwrap_err();
+            assert_eq!(failure.to_string(), expected);
+            if let Failure::Boundary(error) = failure {
+                assert_eq!(error.class(), catabolic_store::ErrorClass::CatabolicError);
+            }
+        }
     }
 }

@@ -1,4 +1,5 @@
 //! Frozen catalog views and bounded, authorizer-enforced read-only SQL.
+use crate::operation_budget::{BudgetCharge, OperationBudget};
 use crate::{
     Error, Result, Store,
     migration::{identifier, reference, rows, value},
@@ -13,6 +14,7 @@ use rusqlite::{
 };
 use serde_json::{Value, json};
 use std::{
+    cell::Cell,
     path::Path,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -84,10 +86,8 @@ pub fn setup(db: &Connection) -> Result<()> {
     // Only frozen temporary views are created before enabling the query guard.
     db.pragma_update(None, "query_only", false)?;
     install_functions(db)?;
-    let temp: i32 = db.pragma_query_value(None, "temp_store", |r| r.get(0))?;
-    if temp != 2 {
-        db.pragma_update(None, "temp_store", "MEMORY")?;
-    }
+    // The connection's initial TEMP storage is chosen before it is exposed.
+    // Keep any caller-selected storage and existing TEMP objects intact here.
     for view in reference()["views"].as_array().unwrap() {
         db.execute_batch(&format!(
             "CREATE TEMP VIEW IF NOT EXISTS {} AS {}",
@@ -215,7 +215,94 @@ pub fn validate_request(
     }
     Ok(bound)
 }
+/// Refusal evidence captured at the bounded SQL owner, independently of diagnostics.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ExecutionFailure {
+    RowBudget,
+    WorkBudget,
+    ByteBudget,
+    Timeout,
+    Cancelled,
+}
+
+fn from_operation(failure: crate::selection::EvaluationFailure) -> ExecutionFailure {
+    use crate::selection::EvaluationFailure as E;
+    match failure {
+        E::IdBudget => ExecutionFailure::RowBudget,
+        E::ByteBudget => ExecutionFailure::ByteBudget,
+        E::Timeout => ExecutionFailure::Timeout,
+        E::Cancelled => ExecutionFailure::Cancelled,
+        _ => ExecutionFailure::WorkBudget,
+    }
+}
+fn record_operation(evidence: &Arc<Mutex<Option<ExecutionFailure>>>) {
+    if let Some(budget) = OperationBudget::current() {
+        if let Some(failure) = *evidence.lock().expect("SQL failure lock") {
+            use crate::selection::EvaluationFailure as E;
+            budget.record_failure(match failure {
+                ExecutionFailure::RowBudget => E::IdBudget,
+                ExecutionFailure::ByteBudget => E::ByteBudget,
+                ExecutionFailure::WorkBudget => E::WorkBudget,
+                ExecutionFailure::Timeout => E::Timeout,
+                ExecutionFailure::Cancelled => E::Cancelled,
+            });
+        }
+        if let Some(failure) = budget.failure() {
+            *evidence.lock().expect("SQL failure lock") = Some(from_operation(failure));
+        }
+    }
+}
+
 pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) -> Result<Value> {
+    execute_store_classified(store, sql, options, &Cell::new(None))
+}
+
+/// Preserve the legacy SQL response, including successful truncation reports,
+/// while exposing the exact bounded refusal to complete-selection callers.
+pub(crate) fn execute_store_classified(
+    store: &Store,
+    sql: Option<&str>,
+    options: &Options<'_>,
+    failure: &Cell<Option<ExecutionFailure>>,
+) -> Result<Value> {
+    failure.set(None);
+    let evidence = Arc::new(Mutex::new(None));
+    let result = execute_store_inner(store, sql, options, &evidence, false);
+    record_operation(&evidence);
+    failure.set(*evidence.lock().expect("SQL failure lock"));
+    result
+}
+
+/// Sealed scoped public phase: only the fully materialized item TEMP surface.
+/// No accessor-name exception: even frozen views and spoofed CTEs may not read main.
+pub(crate) fn execute_materialized_scope(
+    store: &Store,
+    sql: &str,
+    options: &Options<'_>,
+    failure: &Cell<Option<ExecutionFailure>>,
+) -> Result<Value> {
+    failure.set(None);
+    let evidence = Arc::new(Mutex::new(None));
+    let result = execute_store_inner(store, Some(sql), options, &evidence, true);
+    record_operation(&evidence);
+    failure.set(*evidence.lock().expect("SQL failure lock"));
+    result
+}
+
+fn execute_store_inner(
+    store: &Store,
+    sql: Option<&str>,
+    options: &Options<'_>,
+    failure: &Arc<Mutex<Option<ExecutionFailure>>>,
+    materialized_scope: bool,
+) -> Result<Value> {
+    let operation = OperationBudget::current();
+    if let Some(budget) = &operation {
+        budget.check().map_err(|cause| {
+            *failure.lock().expect("SQL failure lock") = Some(from_operation(cause));
+            Error("operation budget exhausted".into())
+        })?;
+    }
     let bound = validate_request(sql, options)?;
     let db = &store.db;
     if !db
@@ -229,8 +316,16 @@ pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) ->
     let mut old_limits = vec![];
     let denied = Arc::new(Mutex::new(None::<String>));
     let deadline = Instant::now() + Duration::from_millis(options.timeout_ms);
+    let deadline = operation
+        .as_ref()
+        .map_or(deadline, |budget| deadline.min(budget.deadline()));
     let result = (|| {
-        setup(db)?;
+        if !materialized_scope {
+            setup(db)?;
+        }
+        if materialized_scope && options.describe {
+            return Err(Error("scoped schema enumeration is not admitted".into()));
+        }
         if options.describe {
             return describe(db, options.profile);
         }
@@ -252,6 +347,8 @@ pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) ->
             "http_mapping_ledger",
             "http_mapping_deliveries",
             "execution_claims",
+            "native_execution_lifetimes",
+            "native_observation_companions",
             "sqlite_master",
             "sqlite_schema",
             "fallback_probe_slots",
@@ -272,7 +369,7 @@ pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) ->
         .map(str::to_owned)
         .collect();
         let mut http_tables = std::collections::BTreeSet::new();
-        if options.http {
+        if options.http && !materialized_scope {
             for row in rows(
                 db,
                 "SELECT name FROM main.sqlite_schema WHERE type='table'",
@@ -307,6 +404,24 @@ pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) ->
                     table_name,
                     column_name,
                 } => {
+                    if materialized_scope {
+                        // All permitted tables contain only masked in-scope data.
+                        // database=None is SQLite's count(*) synthetic read.
+                        let allowed = [
+                            "items",
+                            "catalog_items",
+                            "item_relationships",
+                            "catalog_relationships",
+                        ]
+                        .contains(&table_name)
+                            && (context.database_name == Some("temp")
+                                || context.database_name.is_none() && column_name.is_empty());
+                        if allowed {
+                            return Authorization::Allow;
+                        }
+                        *captured.lock().expect("denial lock") = Some(table_name.into());
+                        return Authorization::Deny;
+                    }
                     let safe =
                         !(http && (table_name.starts_with("api_") || private.contains(table_name)));
                     let valid_database = matches!(context.database_name, Some("main" | "temp"))
@@ -372,9 +487,38 @@ pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) ->
                 Authorization::Deny
             }
         }))?;
+        let interrupted = Arc::clone(failure);
+        let vm_budget = operation.clone();
         db.progress_handler(
             1000,
-            Some(move || crate::embedding::poll_interrupt() || Instant::now() >= deadline),
+            Some(move || {
+                let shared = vm_budget
+                    .as_ref()
+                    .and_then(|budget| {
+                        budget
+                            .charge(BudgetCharge {
+                                work: 1000,
+                                ..Default::default()
+                            })
+                            .err()
+                    })
+                    .map(from_operation);
+                let reason = if shared.is_some() {
+                    shared
+                } else if vm_budget.is_none() && crate::embedding::poll_interrupt() {
+                    Some(ExecutionFailure::Cancelled)
+                } else if Instant::now() >= deadline {
+                    Some(ExecutionFailure::Timeout)
+                } else {
+                    None
+                };
+                if let Some(reason) = reason {
+                    *interrupted.lock().expect("SQL failure lock") = Some(reason);
+                    true
+                } else {
+                    false
+                }
+            }),
         )?;
         let sql = sql.unwrap();
         if sql.contains('\0') {
@@ -408,20 +552,35 @@ pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) ->
             .collect::<Vec<_>>();
         let mut used = encode_with(&json!(columns), false, false).len();
         if used > MAX_RESULT_BYTES {
+            *failure.lock().expect("SQL failure lock") = Some(ExecutionFailure::ByteBudget);
             return Err(Error(
                 "result column names exceed the output byte limit".into(),
             ));
+        }
+        if let Some(budget) = &operation {
+            budget
+                .charge(BudgetCharge {
+                    bytes: used,
+                    values: columns.len(),
+                    ..Default::default()
+                })
+                .map_err(|cause| {
+                    *failure.lock().expect("SQL failure lock") = Some(from_operation(cause));
+                    Error("operation budget exhausted".into())
+                })?;
         }
         let mut cursor = statement.raw_query();
         let mut output = vec![];
         let mut reason = None;
         while let Some(row) = cursor.next()? {
             if Instant::now() >= deadline {
+                *failure.lock().expect("SQL failure lock") = Some(ExecutionFailure::Timeout);
                 return Err(Error(
                     "SQL execution timed out; simplify the query or increase --timeout-ms".into(),
                 ));
             }
             if output.len() == options.max_rows {
+                *failure.lock().expect("SQL failure lock") = Some(ExecutionFailure::RowBudget);
                 reason = Some("max_rows");
                 break;
             }
@@ -446,8 +605,22 @@ pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) ->
             let converted = json!(converted);
             used += encode_with(&converted, false, false).len();
             if used > MAX_RESULT_BYTES {
+                *failure.lock().expect("SQL failure lock") = Some(ExecutionFailure::ByteBudget);
                 reason = Some("max_result_bytes");
                 break;
+            }
+            if let Some(budget) = &operation {
+                budget
+                    .charge(BudgetCharge {
+                        bytes: encode_with(&converted, false, false).len(),
+                        values: columns.len(),
+                        work: 1,
+                        ..Default::default()
+                    })
+                    .map_err(|cause| {
+                        *failure.lock().expect("SQL failure lock") = Some(from_operation(cause));
+                        Error("operation budget exhausted".into())
+                    })?;
             }
             output.push(converted);
         }
@@ -468,6 +641,12 @@ pub fn execute_store(store: &Store, sql: Option<&str>, options: &Options<'_>) ->
                 "read-only SQL rejected an operation or function: {name}"
             ))
         } else if Instant::now() >= deadline {
+            // Keep the existing timeout diagnostic even if cancellation happened
+            // just before expiry; the origin evidence still records cancellation.
+            let mut reason = failure.lock().expect("SQL failure lock");
+            if reason.is_none() {
+                *reason = Some(ExecutionFailure::Timeout);
+            }
             Error("SQL execution timed out; simplify the query or increase --timeout-ms".into())
         } else if error.0.starts_with("SQL query failed:")
             || error.0.starts_with("SQL must")

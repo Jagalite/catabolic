@@ -65,11 +65,66 @@ pub fn execute_detached_with_publisher(
     args: &Value,
     factory: Option<&mut dyn PublisherFactory>,
 ) -> Result<Value> {
+    execute_detached_inner(store, profile, action, args, factory, None)
+}
+
+/// Closed protocol only: no publisher callback can enter this call chain.
+pub(crate) fn execute_closed_detached(
+    store: &mut Store,
+    profile: &str,
+    args: &Value,
+) -> Result<(
+    Value,
+    Option<crate::native_observation_companion::OwnedClaim>,
+)> {
+    let mut claim = None;
+    let result = execute_detached_inner(store, profile, "scan", args, None, Some(&mut claim))?;
+    Ok((result, claim))
+}
+
+/// The explicit shared-handle path only attaches caller demand. It never runs
+/// recovery, makes a replacement job, acquires a claim, or invokes callbacks.
+pub(crate) fn attach_closed_shared(
+    store: &Store,
+    context: &crate::native_observation_companion::Reservation,
+    shared: &crate::native_observation_companion::SharedClaim,
+) -> Result<Value> {
+    store.transaction(|db| {
+        let (_, guarantees) = crate::native_observation_companion::shared_demand(store, context, shared)?;
+        if db.prepare("SELECT 1 FROM observation_requests WHERE profile=? AND source=? AND requester=?")?.exists(params![context.profile,context.source,context.requester])? {
+            return Err(Error("shared_observation_requester_already_exists".into()));
+        }
+        let (state, report): (String, Option<String>) = db.query_row(
+            "SELECT state,report FROM observation_jobs WHERE id=?",
+            [&shared.owned.job_id], |r| Ok((r.get(0)?,r.get(1)?)),
+        )?;
+        let request = uuid::Uuid::new_v4().to_string();
+        db.execute("INSERT INTO observation_requests(id,profile,source,requester,guarantees,job_id,created_at) VALUES(?,?,?,?,?,?,?)",params![request,context.profile,context.source,context.requester,guarantees,shared.owned.job_id,now()])?;
+        scan_result(store,&shared.owned.job_id,&request,&catabolic_core::decode_json(&guarantees)?,catabolic_core::decode_json(report.as_deref().unwrap_or("{}"))?,Some(if state=="complete" { Reuse::Completed } else { Reuse::Inflight }))
+    })
+}
+
+fn execute_detached_inner(
+    store: &mut Store,
+    profile: &str,
+    action: &str,
+    args: &Value,
+    factory: Option<&mut dyn PublisherFactory>,
+    closed_claim: Option<&mut Option<crate::native_observation_companion::OwnedClaim>>,
+) -> Result<Value> {
     let mut admitted = None;
     let result = execute_inner(store, profile, action, args, Some(&mut admitted))?;
     let Some(admitted) = admitted else {
         return Ok(result);
     };
+    if let Some(claim) = closed_claim {
+        *claim = Some(crate::native_observation_companion::capture_claim(
+            store,
+            &admitted.job,
+            &admitted.request,
+            &admitted.claim,
+        )?);
+    }
     let source: String = store.db.query_row(
         "SELECT source FROM observation_jobs WHERE id=?",
         [&admitted.job],
@@ -780,6 +835,13 @@ fn recover(store: &Store) -> Result<Value> {
     let mut stale = Vec::new();
     for job in jobs {
         let id = job["id"].as_str().unwrap();
+        // The closed protocol may share demand with an existing owner, but it
+        // may not turn flock availability, lease expiry or ESRCH into cleanup.
+        if crate::source::children_forbidden()
+            && !crate::native_observation_companion::has_cleanup_witness(store, id)?
+        {
+            continue;
+        }
         let Ok(parsed) = uuid::Uuid::parse_str(id) else {
             return Err(Error("invalid observation identity".into()));
         };
@@ -2223,6 +2285,14 @@ fn resume_scan(
         let mut pending = scan_result(store, &job, request, &guarantees, report, Some(reuse))?;
         pending["observations"][0]["blocker"] = json!("observation_capacity");
         return Ok(pending);
+    }
+    if crate::source::children_forbidden()
+        && (old["state"] != "queued"
+            || !old["worker_pid"].is_null()
+            || !old["claim_token"].is_null())
+        && !crate::native_observation_companion::has_cleanup_witness(store, &job)?
+    {
+        return Err(Error("observation_owner_reconciliation_required".into()));
     }
     let id =
         uuid::Uuid::parse_str(&job).map_err(|_| Error("invalid observation identity".into()))?;

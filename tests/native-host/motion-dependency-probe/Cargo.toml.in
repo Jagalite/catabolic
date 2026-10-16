@@ -1,0 +1,22 @@
+[workspace]
+resolver = "3"
+
+[package]
+name = "motion-catabolic-r0-dependency-probe"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+[dependencies]
+playscale = { path = __MOTION_PATH__ }
+catabolic-runtime = { path = __CATABOLIC_RUNTIME_PATH__ }
+
+catabolic-store = { path = __CATABOLIC_STORE_PATH__ }
+serde_json = "=1.0.151"
+sqlx = { version = "=0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate", "json"] }
+tokio = { version = "1", features = ["full"] }
+tempfile = "=3.27.0"
+
+[patch.crates-io]
+sqlx-sqlite = { path = "vendor/sqlx-sqlite-0.8.6" }

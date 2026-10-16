@@ -1,0 +1,122 @@
+{
+  "checkpoint_version": 1,
+  "scope": "Portable legacy GraphQL variable admission qualification harness only; no production changes",
+  "base_commit": "e657c2e66662f91fd905d4b27dc51645e17c2d97",
+  "base_delivery": {
+    "incremental_patch_sha256": "1c90015c86d4dd135de0a0eb6ed4ecfec096bce351fb98b7c412a4226c84b733",
+    "sealed_manifest_sha256": "ebfa48565354d77720c2ca999314ea3e0320ccc4451cf36336dd996161975832"
+  },
+  "source_sha256": {
+    "tests/parity/graphql-variable-admission-baseline-v1.json": "f4ff11b19959fc9682e1b4ad750cb5dbb091e979f862097fb0836c8bef175335",
+    "tests/test_rust_graphql_variable_admission.py": "f34bd0cd4e3e672bd633aa298d8281539cb69607eef371a919c590b88840fd6e",
+    "docs/RUST_MIGRATION_GRAPHQL_VARIABLE_ADMISSION.md": "0252cb4a96321531930cc939159fa3d9938fb08ae3b79f5d03d2abf28b155171"
+  },
+  "unchanged_historical_files": {
+    "tests/parity/graphql-variable-admission-v1.json": "c0036d2ee4e67aafebb513f07a2229ded0da191da9e41935859442c893f1b618",
+    "tests/parity/native-graphql-variable-admission-v1-checkpoint.json": "f0eaf1d982af87def92b6f28c80ebbe806259daf028a20e8998d48b8560c79fc",
+    "tests/parity/native-graphql-variable-errors-checkpoint.json": "5ae73a03b58f7c9044b251782f7603a15308eec140dc241c173188e4e24e5c6c"
+  },
+  "historical_fixture_derivation": {
+    "historical_cohort": "/workspace/shared/catalog-graphql-variable-recovery-e657c2e-20261014T2144",
+    "source_report_sha256": "fb7f15ff971412da84fc8cac00829ae533edf454e85c39577cd33f4e02f52537",
+    "baseline_fixture_sha256": "f4ff11b19959fc9682e1b4ad750cb5dbb091e979f862097fb0836c8bef175335",
+    "rows": 242,
+    "baseline_response_values_and_utf8_output_bytes_unchanged": true,
+    "ephemeral_output_path_hits": [],
+    "provenance": {
+      "baseline_commit": "e657c2e66662f91fd905d4b27dc51645e17c2d97",
+      "baseline_artifact": {
+        "sha256": "f994075a4ff5f71f102bf28d216c8c99406d71f296a2db262a2cdea805fad6f1",
+        "bytes": 80584072
+      },
+      "baseline_source_manifest_sha256": "628980785843302c4fc8293821f83f98aad3b17c41d202292d5d99af3e5dd3d4",
+      "qualification_source_sha256": "6ad74aad6633d28a4c638f5527f523c0cfad3404c09dc88f5d6859172087f096",
+      "input_fixture_sha256": "c0036d2ee4e67aafebb513f07a2229ded0da191da9e41935859442c893f1b618",
+      "source_report_sha256": "fb7f15ff971412da84fc8cac00829ae533edf454e85c39577cd33f4e02f52537",
+      "source_report_rows": 242,
+      "source_report_file": "admission-final.json",
+      "historical_checkpoint_sha256": "f0eaf1d982af87def92b6f28c80ebbe806259daf028a20e8998d48b8560c79fc",
+      "oracle_commit": "453fca983222c6665a48775eef67c489c96b527e",
+      "oracle_python": "3.14.6",
+      "oracle_inventory_sha256": "81b697a595556ded943bef59c167314a6ffbbfc68706ed134cfea66afe012cc2"
+    }
+  },
+  "results": {
+    "recorded_mode": {
+      "entry_point": "scripts/qualify_native_mutations.py",
+      "pattern": "test_rust_graphql_variable_admission.py",
+      "baseline_environment_variable": "unset",
+      "discovered_methods": 7,
+      "passed_without_skips": true,
+      "matrix_comparisons": 242,
+      "matrix_process_runs": {
+        "oracle": 242,
+        "native": 242,
+        "baseline": 0
+      },
+      "source_artifact_oracle_and_fixture_fences": true
+    },
+    "explicit_baseline_mode": {
+      "entry_point": "python -m unittest tests.test_rust_graphql_variable_admission",
+      "passed_methods": 7,
+      "matrix_comparisons": 242,
+      "matrix_process_runs": {
+        "oracle": 242,
+        "native": 242,
+        "baseline": 242
+      },
+      "all_live_baseline_outputs_equal_pinned_history": true
+    },
+    "mode_outputs_other_than_live_baseline_identical": true,
+    "new_integrity_methods": 6,
+    "aggregate_method_count_delta": 6,
+    "original_historical_matrix_and_receipts_unchanged": true,
+    "production_crate_files_unchanged": 450,
+    "python_lint_and_format": true,
+    "guide_freshness": true
+  },
+  "report_contract": {
+    "version": 2,
+    "recorded_baseline_field": "historical_baseline",
+    "live_baseline_field": "live_baseline; null when not executed",
+    "process_counts_exclude": "separate temporary oracle catalog initialization",
+    "explicit_baseline_artifact_policy": "fence and report its actual hash; execute all 242 rows and require each full response to match pinned historical output"
+  },
+  "evidence_root": "/workspace/shared/catalog-graphql-variable-harness-e657c2e-20261014T2209/evidence",
+  "evidence_sha256": {
+    "aggregate-preflight-fixtures.json": "83b1dc6a83bd0c52aa6da6bc044eb134218aa577fe73af4f6d82db871ef1b359",
+    "assertion-equivalence.json": "59db1821faedb00a58dd454077d5b3a70e6e25d25770334a8960afe111facb60",
+    "derivation-reproduced.json": "f4ff11b19959fc9682e1b4ad750cb5dbb091e979f862097fb0836c8bef175335",
+    "derivation-reproduction.log": "08edee87476bbcbe4d6c3b7c33cfdbcad32000e48887137a15177bd61a47ebf9",
+    "derivation.json": "04b154925b1a9307be1040e2d6efc9f891dfd0b9d4c780e9abaa5132fb511cfc",
+    "derive_fixture.py": "1ef0e83450172fe27bc84c5d7c541b3408819dec0936174431a0e9bfb6b992f5",
+    "format-final.log": "413a709001976657cb743636fd34e48fc41d8d302d665460d3f874b3313da127",
+    "format.log": "413a709001976657cb743636fd34e48fc41d8d302d665460d3f874b3313da127",
+    "guides.log": "cded038284aa703460ea80dc2d293527d607e1745914ee294cd7d52a19442354",
+    "guides.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "integrity-final.log": "11ccdc3f7cc5d52b6804e7affbe50618781798542cdb9a7c988710d0d9c4601a",
+    "integrity-final.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "integrity-tests.log": "d9023ecbf35304cc2ef95a5405bf3867900f58a0a060abf51faf7feb4359ac61",
+    "integrity-tests.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "lint-final.log": "ce04ce92b16073000b77c97a42c00b98b96305692d9d5ed4dcfa5a9ca9ea62d6",
+    "lint-final.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "lint.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "lint.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "live-mode-matrix.json": "34c38a5847a3d654daaefb082e86dbd687e471a6310109a8ebfe25087b1f808c",
+    "live-mode-tests.log": "82ee0b0c7dada9832620ccd1d8bae00bfc968f5069487fa554dc73496c01a779",
+    "live-mode-tests.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "recorded-mode-aggregate.json": "4b04b3fd85e15f3144a9f1d589adf09d33a28713d3e51efd542e55f2a2c92f01",
+    "recorded-mode-aggregate.log": "c42d1e2731780fe8ae6b270c3050a46275b2dc009d5d14b2302057487166e902",
+    "recorded-mode-aggregate.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "recorded-mode-matrix.json": "a8cd9c83d37d0c17c190daaab9f498613892402e520f285c183141f4264585a0",
+    "seal_delivery.py": "db53f2f263407f5d62b685ab06827ec81927ea07d5008728631257812b47164a",
+    "unchanged-owners.json": "35282fd52c8551ff9815b911b5dd2c0e54ab7866113d2c4614c429535d56ca98"
+  },
+  "limits": [
+    "This is the selected seven-method aggregate, not the full native aggregate or remote CI execution.",
+    "No production Rust, shared decoder, InputVariables, historical fixture, or original receipt was changed.",
+    "Recorded historical baseline data is never counted as a live third process run. The current native and frozen live oracle execute all 242 variants in both modes.",
+    "No blocked staged-033 or broad definition/filesystem review was retried, replaced, or rerouted. Existing schema 1-32 files were only hash-verified as mandatory aggregate preflight inputs.",
+    "No independent review, release/default/M4-M11 gate closure, or newly qualified effects is claimed."
+  ]
+}

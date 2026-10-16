@@ -6,7 +6,13 @@ continue implementation on `codex/rust-migration-m4-plus`. The
 explicit schema upgrade and the next implementation sequence. Python remains a
 thin-wrapper-last target. This changes sequencing, not safety or evidence gates.
 
-**Latest recorded native qualification:** [resumed on macOS on October 13](RUST_MIGRATION_MACOS_RESUMED_2026_10_13.md).
+**Current qualification boundary, October 15:** the
+[catalog checkpoint](RUST_MIGRATION_CATALOG_CHECKPOINT_2026_10_15.md) separates
+the complete Linux native and installed checks at `00950e7` from its interrupted
+dynamic run and the subsequently adopted, focused-qualified diagnostic repairs.
+No later commit inherits the earlier aggregate or wheel qualification.
+
+**Historical macOS qualification:** [resumed on October 13](RUST_MIGRATION_MACOS_RESUMED_2026_10_13.md).
 The `f8c2759` native CLI lane passes all 28 selected methods and both lifecycle
 and playback models pass. Its completed full aggregate has failures. The
 `cd70ac7` fixture and CI portability repairs pass the selected Python and shell
@@ -62,8 +68,9 @@ Two current distinctions matter:
 ## Ordered native critical path
 
 1. **Prove native hosting (R0).** Define the small supported lifecycle/error
-   contract and qualify Motion's aligned SQLite/toolchain dependency graph through
-   Kyoto, including real scan/cancellation/reopen and native helper identity.
+   contract and real scan/cancellation/reopen with native helper identity. The
+   October14 Catabolic-first amendment defers Motion dependency adoption/testing;
+   standard Rust1.99 in the current native workspace is explicitly authorized.
 2. **Prove catalog semantics before schema changes (R1).** Exercise the chosen
    version-item composition through actual component/fallback owners, stable
    timelines, alternative multipart representations and revision-pinned intervals.
@@ -71,9 +78,9 @@ Two current distinctions matter:
    upgrades, atomic command receipts, contributions/pins, reviewed merge/split,
    host scope admission, ranked search and restore-aware invalidation.
 4. **Qualify execution and cutover (R5–R6).** Account for actual worker lifetimes;
-   rehearse resumable identity-preserving import and Motion's application reference
-   reconciliation, then qualify one-owner activation. No live cutover is implied
-   by writing this plan.
+   rehearse resumable identity-preserving import and Catabolic-side one-owner
+   restart admission. Actual Motion reference reconciliation and deployment remain
+   deferred; no live cutover is implied by this plan.
 5. **Complete native product and wrapper gates (R7).** Close the still-required
    behavior, safety/recovery, HTTP, standalone artifact and platform gates below.
    Finish the thin Python wrapper and default transition last.
@@ -148,8 +155,10 @@ must not erase it or imply a native product defect was fixed.
 **External/qualification gates:** the two denied review lanes, actual macOS and
 mounted-filesystem acceptance, approved real-service environments, complete
 resource/performance/rollback evidence, and remaining prerequisite gates.
-Approval for the exact optional PyPI test wheels is still pending, but that
-blocks a deferred Python/ASGI lane, not native Rust progress.
+Official pinned development tools and locked dependencies were subsequently
+authorized and staged in isolated environments. Historical Linux wheel/client
+cohorts are source-specific; the final integrated source still needs its own
+artifact/installed qualification.
 
 ## Next checkpoint acceptance
 

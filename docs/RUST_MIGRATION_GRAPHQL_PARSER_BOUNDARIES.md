@@ -106,3 +106,23 @@ remain in `review/independent-results.json`; they are not relabeled passes.
 This is a bounded parser review, not a full GraphQL equivalence claim. Unrelated
 broad definitions and filesystem/source-access safety reviews remain blocked
 independently and were neither performed nor cleared here.
+
+
+## Native37 compatibility addendum, October14
+
+The earlier five retained controls and their original fixture bytes remain
+historical evidence. The additive `graphql-braced-unicode-cases.json` and
+`graphql-missing-argument-cases.json` fixtures now reproduce the pinned oracle
+for all five. The first increment decodes valid braced Unicode without changing
+the framework-owned recursion and unrelated syntax boundaries; the second
+recognizes an argument colon immediately followed by its closing parenthesis
+in the existing original-source diagnostic boundary. It does not introduce a
+second executable parser.
+
+The integrated source-bound result is
+`tests/parity/native-catalog-native37-followups-checkpoint.json`: 14 parser unit
+tests, six integration methods (included in its Store command), and 250 complete
+CLI/oracle envelopes passed. No historical parser mismatch control remains in
+that fixture set. This is bounded compatibility evidence, not a new independent
+review or general GraphQL equivalence claim. Prior failures and the unrelated
+blocked review lanes retain their original status.

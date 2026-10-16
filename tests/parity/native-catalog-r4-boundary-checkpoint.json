@@ -1,0 +1,124 @@
+{
+  "format_version": 1,
+  "package": "R4-scoped-boundary-v1",
+  "status": "bounded scoped item/search/private writer slice; R4/release incomplete",
+  "recorded_at_utc": "2026-10-14T20:19:44.950958+00:00",
+  "baseline_commit": "690b8cecfc8d4d652323331aa969918be29c58ee",
+  "source": {
+    "manifest": "tests/parity/native-catalog-r4-boundary-source-manifest.json",
+    "canonical_files_sha256": "7b4883153faff23b7f2d9977d7661265dbcf0eaaa7af70f0fa5dd92c98b3c97d",
+    "file_count": 775,
+    "unchanged_before_after": true,
+    "scope": "Enumerated crate/schema/audit sources, not full repository packaging source"
+  },
+  "runner": {
+    "rust": "1.99.0",
+    "platform": "Linux x86_64",
+    "kind": "Standard Cargo authorized exception; not Kyoto",
+    "python_oracle": "3.14.6",
+    "target_isolation": "Main-only central target; all preparation work uses distinct targets",
+    "profile": "debug0 incremental0"
+  },
+  "runs": {
+    "scope": {
+      "log": ".local-tests/catalog-r4/boundary01-qualified-scope.log",
+      "sha256": "6f72b91060119db9a515fe8ef17e28c7b21eab1d9bf324deacf201b24dd9ed22",
+      "passed": true,
+      "passing_executions": 52,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "writer": {
+      "log": ".local-tests/catalog-r4/boundary01-qualified-writer.log",
+      "sha256": "454f90290b966c1cad5a89e02fc34839ccdce3f7d9dd453f54e1d53250d03560",
+      "passed": true,
+      "passing_executions": 25,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "index-dispatch": {
+      "log": ".local-tests/catalog-r4/boundary01-qualified-index-dispatch.log",
+      "sha256": "11ce78ec3a7a11a8ec70504fda996f7b32a39408aecbdab401bea2ad90177db0",
+      "passed": true,
+      "passing_executions": 34,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 2
+    },
+    "cursor": {
+      "log": ".local-tests/catalog-r4/boundary01-qualified-cursor.log",
+      "sha256": "3c2754f7525e3b227ae568bbef7f2d194566556b6284eeaf991021210a9e52d7",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "runtime": {
+      "log": ".local-tests/catalog-r4/boundary01-qualified-runtime.log",
+      "sha256": "1d3e886e8d6a49c82f1c0a7209877d9c76c66e158980df6c73fdf8961aaafb49",
+      "passed": true,
+      "passing_executions": 2,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "clippy": {
+      "log": ".local-tests/catalog-r4/boundary01-qualified-clippy.log",
+      "sha256": "7a0dd4c04f2e81cf57cb3c71e28ca4b20afee4a9fe03845e139bcdfa39ae309b",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "format": {
+      "log": ".local-tests/catalog-r4/boundary01-qualified-format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "python": {
+      "log": ".local-tests/catalog-r4/boundary01-qualified-python.log",
+      "sha256": "e4d36ef21017c5bf1677bdf1f3a02511feff81a81895d77821e818513b73ab99",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0,
+      "passing_tests": 51,
+      "note": "CPython3.14.6 emits existing unclosed-connection ResourceWarnings;51 tests pass. Separate exception-safe lifecycle work pending, no warning-free claim."
+    }
+  },
+  "qualified_contracts": [
+    "Private per-admission authenticated item/search cursors and complete membership/mask digest",
+    "Fresh catalog/incarnation/generation/data-version/saved-definition fences and owned authorization lease through delivery",
+    "Real FTS5 matching after field and full alias-path scope; document-local rank/scoped totals; explicit budget/cancel/error outcomes",
+    "Private writer VM/busy ownership, source/index/receipt atomicity and lease-through-commit, schema34/35 only",
+    "Precommit output preparation and fixed final COMMIT phase preserving confirmed durable success"
+  ],
+  "initial_failures": [
+    {
+      "log": ".local-tests/catalog-r4/boundary01-clippy.log",
+      "reason": "All-target Clippy found test-only single-element loop; simplified and reran every focused cohort"
+    },
+    {
+      "log": ".local-tests/catalog-r4/boundary01-schema-check.log",
+      "reason": "Generated owner inventory lacked catalog_scope_tests reference; regenerated only that artifact after comparing all others byte-identical"
+    }
+  ],
+  "remaining": [
+    "Relationship/file/history/provenance/broad GraphQL surfaces remain denied pending separately qualified contracts",
+    "Private writer refuses schema36+ until finalizer expansion tests pass",
+    "Fixed COMMIT bound covers SQLite VM/parser callbacks, not hard real-time fsync/B-tree/passive checkpoint latency",
+    "External pinned relevance and actual Motion composition/cutover remain deferred",
+    "Independent schema/definition/filesystem safety reviews remain blocked and unqualified; no retry/reassignment",
+    "Full integrated current-source aggregate/standalone/wrapper/platform and all M0-M11 gates remain open"
+  ],
+  "M0_M11_gate_closures": []
+}

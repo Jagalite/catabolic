@@ -21,6 +21,8 @@ mod signals;
 mod spec_roundtrip;
 #[path = "legacy/transport.rs"]
 mod transport;
+#[path = "legacy/variable_admission.rs"]
+mod variable_admission;
 fn main() {
     if let Err(error) = std::env::current_exe()
         .map_err(catabolic_store::Error::from)
@@ -104,7 +106,7 @@ fn main() {
                 // Preserve shared dispatch's omitted-database error/provenance.
                 && !dispatch::text(&args, "db").is_empty()
             {
-                mapping_events::execute(&args).map_err(Into::into)
+                mapping_events::execute(&args)
             } else {
                 let result = execute(&args);
                 // Command owners, helper supervisors and runtimes have returned.
@@ -196,6 +198,6 @@ fn execute(args: &serde_json::Value) -> failure::Result<serde_json::Value> {
         }
         .map_err(Into::into)
     } else {
-        dispatch::dispatch_detailed(args).map_err(Into::into)
+        dispatch::dispatch_detailed(args)
     }
 }

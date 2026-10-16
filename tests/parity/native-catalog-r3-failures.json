@@ -1,0 +1,61 @@
+{
+  "format_version": 1,
+  "package": "R3",
+  "status": "corrected; final frozen aggregate passed",
+  "failures": [
+    {
+      "initial_log": ".local-tests/catalog-r3/combined-regression.log",
+      "initial_log_sha256": "da4477bc8f6804e3420c70bdf552570c71204c7c36fff9830dd911cefa76dc2d",
+      "description": "Seven native migration fixtures still asserted latest schema33 or targeted commit callbacks at33 after latest advanced to34;17 durable command tests passed and13/20 migration tests passed. Updated only latest-target assertions/checkpoints, retaining pinned33 regressions and historical checksum validation.",
+      "resolution_log": ".local-tests/catalog-r3/combined-migration-v34-rerun.log",
+      "resolution_log_sha256": "a65942cb726bb8660a3466c154ed67818064d828101ada1b745583530d39913a"
+    },
+    {
+      "initial_log": ".local-tests/catalog-r3/combined-migration-v34.log",
+      "initial_log_sha256": "5b8ff765d5a2d42894dc0e12429b7a469e91397587582ca05bd07352afadcb8a",
+      "description": "Test-only usize/u32 assertion mismatch introduced while making target assertions version-aware; corrected explicit usize conversion.",
+      "resolution_log": ".local-tests/catalog-r3/combined-migration-v34-rerun.log",
+      "resolution_log_sha256": "a65942cb726bb8660a3466c154ed67818064d828101ada1b745583530d39913a"
+    },
+    {
+      "initial_log": ".local-tests/catalog-r3/integration-clippy-first.log",
+      "initial_log_sha256": "2a91a948a03d8e6a902086c791550ce1ecb153be23e1749816d4de4c2db30b6b",
+      "description": "Four collapsible_if lints in initial logical owner adoption; final owner patch fixed them.",
+      "resolution_log": ".local-tests/catalog-r3/integration-clippy-final.log",
+      "resolution_log_sha256": "341acf581cf23480c170bd9bcf780ee1aefe0022a71165c5b7160bde6de426df"
+    },
+    {
+      "initial_log": ".local-tests/catalog-r3/frozen-real-helper.log",
+      "initial_log_sha256": "8eb74e78c4e2eb787a3efb9adcd01372a2854fb8292f9be84ae01503347bd607",
+      "description": "Invocation used nonexistent test target native_host; no helper fixture executed in this attempt. Corrected target to native_host_contract.",
+      "resolution_log": ".local-tests/catalog-r3/frozen-real-helper-correct-target.log",
+      "resolution_log_sha256": "01ce262dbfb6705ba47e3abeea3ca40214fae53f3e048b5d18e986c024fa9054"
+    },
+    {
+      "initial_log": ".local-tests/catalog-r3/foundation-generation-check.log",
+      "initial_log_sha256": "0949125a87059ba445de6be13bb7a0ffeebebe8d38494625dba3acd27df007f8",
+      "description": "Read-only generator correctly reported stale generation-revision inventory after new owner adoption. Regenerated inventory only after verifying frozen033 SQL/signature byte-identical.",
+      "resolution_log": ".local-tests/catalog-r3/frozen-foundation-generation.log",
+      "resolution_log_sha256": "5d2bfe1fdbcf01c5bbee0938a01573634a745a3e974b71b0e5865cdbbc079157"
+    },
+    {
+      "description": "Reference verification first joined reference under fixture-setup rather than its sibling directory and raised FileNotFoundError before comparison. Correct path then verified all522 archive files and33 fixture files. Initial traceback retained in tool output, not a full raw log.",
+      "resolution_log": ".local-tests/catalog-r3/frozen-reference-verification-correct-path.log"
+    },
+    {
+      "initial_log": ".local-tests/catalog-r3/frozen-integrated-tests.log",
+      "initial_log_sha256": "9473c4b7ce4f7d7f6cfc7c68a473f45117f1bd38e7d94f205f3b94419d79544e",
+      "source_manifest": ".local-tests/catalog-r3/frozen-source-before.json",
+      "canonical_files_sha256": "a5331b161c340cd30ef6ada62ea1ea4c28012d2b9f6ef971bf631b30f071f7bc",
+      "source_unchanged_before_after": true,
+      "passed": 870,
+      "failed": 1,
+      "ignored": 9,
+      "description": "Full aggregate found one latest-native lifecycle assertion still hardcoded33. Actual34 was intended. Replaced that single expected value with migration::NATIVE_SCHEMA_VERSION; pinned33 tests remain. Final full aggregate rerun passed871/0/9 on separately recorded final source.",
+      "resolution_log": ".local-tests/catalog-r3/qualified-integrated-tests.log",
+      "resolution_log_sha256": "6e7ab432285e58722aec6cc05707d9e9fa73ea172d612f5af3a522150b21a728"
+    }
+  ],
+  "source_note": "Initial development attempts were not individually source-frozen. Final aggregate has a separate exact source manifest.",
+  "review_note": "Blocked independent schema033 review remains incomplete and has not been retried or reassigned."
+}

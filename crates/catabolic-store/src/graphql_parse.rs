@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 //! Narrow executable-parser compatibility for the frozen GraphQL grammar.
 //!
-//! The framework rejects UTF-16 escape pairs and ignored text inside types.
+//! The framework rejects UTF-16 pairs, braced escapes and ignored text inside types.
 //! Admit those constructs through a lexical view, then restore every AST source
 //! position before validation or execution. The original document remains the
 //! budget, spelling, diagnostics, and request identity input.
@@ -12,6 +12,8 @@ use std::collections::{BTreeMap, HashSet};
 use crate::validation::{Token, tokens};
 
 mod boundary;
+
+pub(crate) use boundary::before_token_limit;
 
 struct Edit {
     start: usize,
@@ -67,6 +69,19 @@ fn ignored(text: &str) -> bool {
     })
 }
 
+fn braced_escape(bytes: &[u8], start: usize) -> Option<(char, usize)> {
+    if bytes.get(start..start + 3)? != b"\\u{" {
+        return None;
+    }
+    let rest = bytes.get(start + 3..)?;
+    let length = rest.iter().take(9).position(|byte| *byte == b'}')?;
+    if length == 0 || !rest[..length].iter().all(u8::is_ascii_hexdigit) {
+        return None;
+    }
+    let value = u32::from_str_radix(std::str::from_utf8(&rest[..length]).ok()?, 16).ok()?;
+    Some((char::from_u32(value)?, start + 4 + length))
+}
+
 fn edits(source: &str, tokens: &[Token]) -> Vec<Edit> {
     let mut edits = vec![];
     for (index, token) in tokens.iter().enumerate() {
@@ -112,7 +127,21 @@ fn edits(source: &str, tokens: &[Token]) -> Vec<Edit> {
                 }
                 u32::from_str_radix(std::str::from_utf8(&raw[2..]).ok()?, 16).ok()
             };
-            if let (Some(high), Some(low)) = (hex(i), hex(i + 6))
+            if let Some((scalar, end)) = braced_escape(bytes, i) {
+                // Keep quotes, backslashes and controls escaped in the parser view.
+                // Supplementary scalars use the same literal form as paired UTF-16.
+                let replacement = if u32::from(scalar) <= 0xffff {
+                    format!("\\u{:04X}", u32::from(scalar))
+                } else {
+                    scalar.to_string()
+                };
+                edits.push(Edit {
+                    start: token.start + i,
+                    end: token.start + end,
+                    chars: replacement.chars().map(|c| (c, token.start + i)).collect(),
+                });
+                i = end;
+            } else if let (Some(high), Some(low)) = (hex(i), hex(i + 6))
                 && (0xd800..=0xdbff).contains(&high)
                 && (0xdc00..=0xdfff).contains(&low)
             {
@@ -437,6 +466,81 @@ mod tests {
     use super::*;
 
     #[test]
+    fn braced_unicode_preserves_scalars_including_escaped_syntax_and_controls() {
+        for raw in [
+            "0", "8", "9", "A", "D", "1F", "22", "5C", "7F", "A0", "D7FF", "E000", "FFFF", "10000",
+            "1F600", "10FFFF", "00000041", "0001f600",
+        ] {
+            let source = format!(r#"{{item(id:"\u{{{raw}}}"){{id}}}}"#);
+            let document = parse_query(&source).unwrap();
+            let (_, operation) = document.operations.iter().next().unwrap();
+            let Selection::Field(field) = &operation.node.selection_set.node.items[0].node else {
+                panic!("expected field");
+            };
+            let scalar = char::from_u32(u32::from_str_radix(raw, 16).unwrap()).unwrap();
+            assert_eq!(
+                field.node.arguments[0].1.node,
+                async_graphql_value::Value::String(scalar.to_string()),
+                "{source}"
+            );
+        }
+    }
+
+    #[test]
+    fn braced_unicode_does_not_decode_literal_backslashes_blocks_or_comments() {
+        for source in [
+            r#"{item(id:"\\u{1F600}"){id}}"#,
+            r#"{item(id:"""\u{1F600}"""){id}}"#,
+            "# \\u{1F600}\n{profile}",
+        ] {
+            assert!(edits(source, &tokens(source)).is_empty(), "{source}");
+            assert!(parse_query(source).is_ok(), "{source}");
+        }
+    }
+
+    #[test]
+    fn invalid_braced_unicode_remains_owned_by_the_original_boundary() {
+        for raw in ["", "G", "D800", "DFFF", "110000", "FFFFFFFF", "000000041"] {
+            let source = format!(r#"{{item(id:"\u{{{raw}}}"){{id}}}}"#);
+            assert!(edits(&source, &tokens(&source)).is_empty(), "{source}");
+            assert!(parse_query(&source).is_err(), "{source}");
+        }
+        assert!(braced_escape(br"\u{1F600", 0).is_none());
+    }
+
+    #[test]
+    fn braced_unicode_restores_original_following_field_positions() {
+        let source = "{item(id:\"\\u{0001F600}\\u{22}\\u{5c}\"){id}\r\n profile}";
+        let document = parse_query(source).unwrap();
+        let (_, operation) = document.operations.iter().next().unwrap();
+        let Selection::Field(field) = &operation.node.selection_set.node.items[1].node else {
+            panic!("expected field");
+        };
+        let expected = tokens(source)
+            .into_iter()
+            .find(|token| token.text == "profile")
+            .unwrap();
+        assert_eq!(field.pos, expected.pos);
+        assert_eq!(field.node.name.pos, expected.pos);
+    }
+
+    #[test]
+    fn braced_unicode_composes_with_reordered_variable_directives() {
+        let source = r#"query Q($id: ID = "\u{1F600}" @skip(if:true)) { item(id:$id) { id } }"#;
+        let document = parse_query(source).unwrap();
+        let (_, operation) = document.operations.iter().next().unwrap();
+        assert_eq!(
+            operation.node.variable_definitions[0]
+                .node
+                .default_value
+                .as_ref()
+                .unwrap()
+                .node,
+            async_graphql_value::ConstValue::String("😀".into())
+        );
+    }
+
+    #[test]
     fn lexical_view_only_changes_valid_pairs_and_graphql_ignored_type_text() {
         for source in [
             r#"{item(id:"\\uD83D\\uDE00"){id}}"#,
@@ -470,16 +574,103 @@ mod tests {
     }
 
     #[test]
-    fn unrelated_malformed_source_diagnostics_remain_framework_owned() {
-        for source in [
-            r#"{item(id:"\uD83D\uDE00"){id} %}"#,
-            "{items(first:)} query($x:Int=$bad){profile}",
-            "{items(first:)} query($x:ID=\"\\uD800\"){profile}",
-            "{profile %}",
+    fn unsupported_scalars_keep_frozen_diagnostics_and_original_coordinates() {
+        // Exact frozen controls include the original surrogate-pair spelling:
+        // its unsupported scalar is at column 30, not the old fallback's 10.
+        for (source, column) in [
+            (r#"{item(id:"\uD83D\uDE00"){id} %}"#, 30),
+            ("{profile %}", 10),
         ] {
             assert_eq!(
                 parse_query(source).unwrap_err(),
+                Error::Syntax {
+                    message: "Syntax Error: Unexpected character: '%'.".into(),
+                    start: Pos { line: 1, column },
+                    end: None,
+                },
+                "{source}"
+            );
+        }
+    }
+
+    #[test]
+    fn closing_argument_list_after_colon_keeps_original_diagnostic_and_order() {
+        for (source, column) in [
+            ("{items(first:)} query($x:Int=$bad){profile}", 14),
+            ("{items(first:)} query($x:ID=\"\\uD800\"){profile}", 14),
+            ("query($x:Int=1 @skip(if:true)){items(first:)}", 44),
+            ("{items(first:){nodes{id}}}", 14),
+        ] {
+            assert_eq!(
+                parse_query(source).unwrap_err(),
+                Error::Syntax {
+                    message: "Syntax Error: Unexpected ')'.".into(),
+                    start: Pos { line: 1, column },
+                    end: None,
+                },
+                "{source}"
+            );
+        }
+    }
+
+    #[test]
+    fn missing_field_argument_colon_retains_versioned_ownership_and_first_failure() {
+        // The ordinary diagnostic-ownership contract already owns the field
+        // argument colon. These exact frozen-oracle results supersede the old
+        // framework-equality controls, including before later owned failures.
+        for (source, column, message) in [
+            (
+                "{items(first 1)} query($x:Int=$bad){profile}",
+                14,
+                "Syntax Error: Expected ':', found Int '1'.",
+            ),
+            (
+                "{items(first 1)} query($x:ID=\"\\uD800\"){profile}",
+                14,
+                "Syntax Error: Expected ':', found Int '1'.",
+            ),
+            (
+                "{items(first)}",
+                13,
+                "Syntax Error: Expected ':', found ')'.",
+            ),
+        ] {
+            let expected = Error::Syntax {
+                message: message.into(),
+                start: Pos { line: 1, column },
+                end: None,
+            };
+            assert_eq!(parse_query(source).unwrap_err(), expected, "{source}");
+            assert_ne!(
                 async_graphql_parser::parse_query(source).unwrap_err(),
+                expected,
+                "the versioned field-argument-colon diagnostic is distinct: {source}"
+            );
+        }
+    }
+
+    #[test]
+    fn categorical_field_boundaries_keep_exact_frozen_diagnostics() {
+        // Versioned category ownership replaces the seven old framework-equality
+        // assertions using exact frozen evidence, never the candidate's output.
+        for (source, column, message) in [
+            (
+                "{profile % items(first:)}",
+                10,
+                "Unexpected character: '%'.",
+            ),
+            ("{items()}", 8, "Expected Name, found ')'."),
+            ("{items(first:])}", 14, "Unexpected ']'."),
+            ("{items(first:[)])}", 15, "Unexpected ')'."),
+            ("{items(hasRendition:{kind:})}", 27, "Unexpected '}'."),
+        ] {
+            assert_eq!(
+                parse_query(source).unwrap_err(),
+                Error::Syntax {
+                    message: format!("Syntax Error: {message}"),
+                    start: Pos { line: 1, column },
+                    end: None,
+                },
                 "{source}"
             );
         }

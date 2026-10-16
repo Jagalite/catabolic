@@ -237,8 +237,6 @@ mod tests {
             .execute("UPDATE main.items SET metadata='{}' WHERE id='a'", [])
             .unwrap();
         let result = access.into_evaluation().bind_authority(authority);
-        assert!(
-            matches!(result, Err(Error(ref message)) if message == "authorization_snapshot_mismatch")
-        );
+        assert!(matches!(result, Err(ref error) if error.0 == "authorization_snapshot_mismatch"));
     }
 }
