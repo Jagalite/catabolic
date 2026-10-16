@@ -79,6 +79,14 @@ fn crash_before_completion() -> (tempfile::TempDir, std::path::PathBuf, Value) {
         .unwrap();
         watcher::execute(&store, "default", "put", &json!({"name":"changes","definition":{"plan":{"kind":"query","query_id":query["id"]},"reaction":"event"}})).unwrap();
     }
+    let crashed = crash_worker(&path);
+    (root, path, crashed)
+}
+
+/// Runs the watcher in a separate process that exits at the old crash window
+/// (after planning, before event admission and completion), then recovers the
+/// dead owner. Returns the watcher row as the crash left it.
+fn crash_worker(path: &Path) -> Value {
     // Concurrent Cargo invocations can unlink the running test executable.
     let executor = tempfile::tempdir().unwrap();
     let executable = executor.path().join("watcher-crash-worker");
@@ -89,7 +97,7 @@ fn crash_before_completion() -> (tempfile::TempDir, std::path::PathBuf, Value) {
     std::fs::copy(loaded, &executable).unwrap();
     let output = std::process::Command::new(&executable)
         .args(["--exact", "watcher_crash_worker", "--nocapture"])
-        .env("CATABOLIC_WATCHER_CRASH_DB", &path)
+        .env("CATABOLIC_WATCHER_CRASH_DB", path)
         .env("CATABOLIC_TEST_WATCHER_CRASH_AT", "before_finish")
         .output()
         .unwrap();
@@ -100,13 +108,13 @@ fn crash_before_completion() -> (tempfile::TempDir, std::path::PathBuf, Value) {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let store = Store::open(&path, true, false).unwrap();
+    let store = Store::open(path, true, false).unwrap();
     let crashed = watcher::execute(&store, "default", "get", &json!({"name":"changes"})).unwrap();
     assert!(!crashed["active_run"].is_null(), "{crashed}");
     assert_eq!(crashed["pending_reaction"], crashed["active_run"]);
     let recovered = watcher::execute(&store, "default", "recover", &json!({})).unwrap();
     assert_eq!(recovered["recovered"], json!([crashed["active_run"]]));
-    (root, path, crashed)
+    crashed
 }
 
 fn retry_admits_exactly_one(path: &Path) {
@@ -152,5 +160,47 @@ fn retry_deduplicates_event_committed_by_split_admission_protocol() {
             .unwrap();
         assert_eq!(notifications(&store), 1);
     }
+    retry_admits_exactly_one(&path);
+}
+
+/// Commits a split-protocol event under `run`, as frozen Python would have.
+fn legacy_event(path: &Path, run: &Value) {
+    let store = Store::open(path, true, false).unwrap();
+    store
+        .transaction(|db| {
+            catabolic_store::notifications::emit(
+                db,
+                "default",
+                "watcher_changed",
+                "info",
+                "changes",
+                &json!([run]),
+            )
+        })
+        .unwrap();
+}
+
+#[test]
+fn legacy_commit_then_crashed_native_retry_then_retry_admits_once() {
+    // Legacy run A commits its event, then crashes before finishing.
+    let (_root, path, first) = crash_before_completion();
+    legacy_event(&path, &first["pending_reaction"]);
+    // Unchanged native retry B replaces pending_reaction, then crashes before
+    // its event and completion transaction commits.
+    let second = crash_worker(&path);
+    assert_ne!(second["pending_reaction"], first["pending_reaction"]);
+    let store = Store::open(&path, true, false).unwrap();
+    assert_eq!(notifications(&store), 1);
+    drop(store);
+    retry_admits_exactly_one(&path);
+}
+
+#[test]
+fn event_committed_under_an_unchanged_legacy_retry_identity_is_not_repeated() {
+    // A crashes without an event; a legacy unchanged retry B emits under its
+    // own run identity and crashes before finishing.
+    let (_root, path, _) = crash_before_completion();
+    let second = crash_worker(&path);
+    legacy_event(&path, &second["pending_reaction"]);
     retry_admits_exactly_one(&path);
 }

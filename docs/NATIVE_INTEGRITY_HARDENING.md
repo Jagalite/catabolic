@@ -170,17 +170,24 @@ engine corrects it without a schema change:
 - `watcher::complete_evaluation` now admits the event and runs `finish`
   (the run row, completion generation, cleared `pending_reaction`) in one
   transaction. A crash can no longer separate them.
-- A retry that sees no newer change reuses the planned run's ID
-  (`pending_reaction`) as the event's identity. An event that an earlier
-  process committed under the split protocol is then deduplicated. A retry
-  that does see a newer change keeps its own identity and is still notified.
+- Every planned run records `retry_of` (the `pending_reaction` it replaced),
+  in both the frozen and native protocols. Before admitting, the native engine
+  follows that chain back from the current run to the first run whose
+  evaluation changed. All runs in the chain deliver that one change. If an
+  event was already admitted under any of their identities, nothing is
+  emitted. Otherwise the event uses the identity of the run whose evaluation
+  changed. A retry that sees a newer change starts a new chain and is still
+  notified. A missing or unreadable link fails closed
+  (`watcher_transition_unresolved`) rather than minting a new identity.
 
 The debug-only crash hook `CATABOLIC_TEST_WATCHER_CRASH_AT=before_finish`
 exits the process at the old crash window. The test
-`crates/catabolic-store/tests/watcher_event_crash.rs` covers both the native
-crash and recovery from a split-protocol commit.
+`crates/catabolic-store/tests/watcher_event_crash.rs` covers four cases:
 
-A remaining limit: suppose a Python-side crash is followed by native retries
-that each fail again before `finish`. Each such attempt overwrites
-`pending_reaction`, so a later retry can still emit one extra event. The stored
-value is unchanged on purpose, because it is observable reference state.
+- a native crash followed by a retry;
+- a retry after a split-protocol commit;
+- a legacy commit, then a native retry that crashes, then a successful retry;
+- an event committed under an unchanged legacy retry's own identity.
+
+The stored `pending_reaction` value is unchanged, because it is observable
+reference state.

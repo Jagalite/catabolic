@@ -228,6 +228,10 @@ pub fn configure(store: &Store, profile: &str, request: &Value) -> Result<Value>
 
 /// Must run in the caller's transaction, so producing an event and its matching
 /// destination deliveries is atomic with the underlying domain change.
+/// The durable deduplication key of an admitted consumer event.
+pub(crate) fn event_id(profile: &str, event: &str, identity: &Value) -> String {
+    sha256(encode(&json!([profile, event, identity])))
+}
 pub fn emit(
     db: &Connection,
     profile: &str,
@@ -240,7 +244,7 @@ pub fn emit(
         return Err(error("notification_emit_requires_transaction"));
     }
     let rank = severity(level).ok_or_else(|| error("invalid_notification_policy"))?;
-    let id = sha256(encode(&json!([profile, event, identity])));
+    let id = event_id(profile, event, identity);
     if db.execute("INSERT INTO consumer_events(id,profile,event,severity,subject) VALUES (?,?,?,?,?) ON CONFLICT DO NOTHING", params![id,profile,event,level,subject])? == 0 {
         return Ok(id);
     }

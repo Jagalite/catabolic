@@ -988,25 +988,33 @@ pub fn complete_evaluation(
         value["reaction"] == "event" && (changed || !row["pending_reaction"].is_null());
     // Event admission and watcher completion commit in one transaction, so a
     // crash cannot leave an admitted event behind a retained pending reaction
-    // (FS8). A retry with no newer change reuses the planned run's transition
-    // identity, deduplicating an event that an earlier process committed before
-    // finishing (frozen Python and earlier native builds split the two).
+    // (FS8). Retries with no newer change reuse the identity of the run whose
+    // evaluation changed, deduplicating an event that an earlier process
+    // committed before finishing (frozen Python and earlier native builds split
+    // the two), however many unchanged retries crashed in between.
     let store = &*store;
     store.transaction(|db| {
         if admit_event {
-            let transition = if changed {
-                id
-            } else {
-                row["pending_reaction"].as_str().unwrap_or(id)
-            };
-            crate::notifications::emit(
-                db,
-                profile,
-                "watcher_changed",
-                "info",
-                name,
-                &json!([transition]),
-            )?;
+            let chain = transition(db, profile, name, id)?;
+            let admitted = chain.iter().try_fold(false, |found, run| {
+                let key = crate::notifications::event_id(profile, "watcher_changed", &json!([run]));
+                Ok::<_, Error>(
+                    found
+                        || db
+                            .prepare_cached("SELECT 1 FROM consumer_events WHERE id=? AND profile=?")?
+                            .exists(params![key, profile])?,
+                )
+            })?;
+            if !admitted {
+                crate::notifications::emit(
+                    db,
+                    profile,
+                    "watcher_changed",
+                    "info",
+                    name,
+                    &json!([chain.last().unwrap()]),
+                )?;
+            }
         }
         fault("before_finish")?;
         finish(
@@ -1021,6 +1029,49 @@ pub fn complete_evaluation(
             json!({"run_id":id,"definition_id":row["definition_id"],"observations":evidence,"evaluation":comparison,"reaction":reaction,"complete":true}),
         )
     })
+}
+/// The retry chain of a planned reaction, from `run` back to its immutable
+/// transition (the last element): follow each planned run's recorded
+/// `retry_of`, stopping at the first run whose evaluation changed. Every run in
+/// the chain planned while the previous one's reaction was still pending, so
+/// they all deliver one change; an event admitted under any of them (including
+/// a frozen Python retry's own identity) is that change's notification.
+/// Missing or unreadable links fail closed instead of minting a new identity.
+fn transition(
+    db: &rusqlite::Connection,
+    profile: &str,
+    watcher: &str,
+    run: &str,
+) -> Result<Vec<String>> {
+    const MAX_CHAIN: usize = 100_000;
+    let mut chain = vec![];
+    let mut current = run.to_owned();
+    for _ in 0..MAX_CHAIN {
+        chain.push(current.clone());
+        let result: Option<String> = db
+            .query_row(
+                "SELECT result FROM watcher_runs WHERE id=? AND profile=? AND watcher=?",
+                params![current, profile, watcher],
+                |r| r.get(0),
+            )
+            .optional()?
+            .flatten();
+        let result = result
+            .map(|text| decode_json(&text))
+            .transpose()?
+            .ok_or_else(|| Error("watcher_transition_unresolved".into()))?;
+        if result["phase"] != "planned" {
+            return Err(Error("watcher_transition_unresolved".into()));
+        }
+        if result["evaluation"]["changed"] == true {
+            return Ok(chain);
+        }
+        match result["retry_of"].as_str() {
+            Some(previous) => current = previous.to_owned(),
+            None => return Ok(chain),
+        }
+    }
+    Err(Error("watcher_transition_unresolved".into()))
 }
 /// Crash-injection hook compiled only into debug/test builds. It never alters
 /// watcher completion semantics in release binaries.
