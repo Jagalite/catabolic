@@ -23,11 +23,11 @@ rehearsal, locking, WAL rejection and commit boundaries.
 
 | ID | Sev | Finding | Status |
 | --- | --- | --- | --- |
-| SC1 | P1 | Item and file suppression heads cascade on subject delete, but their history survives. A recreated ID then collides at revision 1 (`034_native_curation.sql:248,257`). | open |
-| SC2 | P2 | Metadata subjects and history have command-key columns but no foreign key to `catalog_command_receipts`, so orphaned provenance can commit (`034_native_curation.sql:23,35`). | open |
-| SC3 | P2 | Schema-34 pin, tag and retirement histories accept inserts that reference an already-sealed receipt (`034_native_curation.sql:461`). | open |
-| SC4 | P2 | A NULL `cleanup_kind` bypasses the terminal-state CHECK in execution cleanup (`036_native_execution_cleanup.sql:21`). | open |
-| SC5 | P2 | Newly created backup-root ancestors are not fsynced in their parent directories (`migration.rs:698`). | open |
+| SC1 | P1 | Item and file suppression heads cascade on subject delete, but their history survives. A recreated ID then collides at revision 1 (`034_native_curation.sql:248,257`). | fixed: `9f9f05c` (schema 38) |
+| SC2 | P2 | Metadata subjects and history have command-key columns but no foreign key to `catalog_command_receipts`, so orphaned provenance can commit (`034_native_curation.sql:23,35`). | fixed: `68af975` (schema 38) |
+| SC3 | P2 | Schema-34 pin, tag and retirement histories accept inserts that reference an already-sealed receipt (`034_native_curation.sql:461`). | fixed: `13b7dcc` (schema 38) |
+| SC4 | P2 | A NULL `cleanup_kind` bypasses the terminal-state CHECK in execution cleanup (`036_native_execution_cleanup.sql:21`). | fixed: `30d54e2` (schema 38) |
+| SC5 | P2 | Newly created backup-root ancestors are not fsynced in their parent directories (`migration.rs:698`). | fixed: `1021c31` |
 
 ## Broad-definition lane
 
