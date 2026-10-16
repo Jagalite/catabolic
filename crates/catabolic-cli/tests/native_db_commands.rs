@@ -466,12 +466,18 @@ fn convert_journal_command_unblocks_a_wal_catalog_for_a_fresh_plan() {
         cli(&path, &["db", "native-inspect"]).stdout["journal_mode"],
         "wal"
     );
-    let converted = cli(&path, &["db", "convert-journal", "--to", "delete"]);
+    refused(
+        &cli(&path, &["db", "convert-journal", "--to", "delete"]),
+        "explicit operator confirmation",
+    );
+    let mut convert = vec!["db", "convert-journal", "--to", "delete"];
+    convert.extend(QUIESCENT);
+    let converted = cli(&path, &convert);
     assert_eq!(converted.code, Some(0), "{}", converted.stderr);
     assert_eq!(converted.stdout["converted"], true);
     assert_eq!(converted.stdout["from_journal_mode"], "wal");
     assert_eq!(converted.stdout["journal_mode"], "delete");
-    let again = cli(&path, &["db", "convert-journal", "--to", "delete"]);
+    let again = cli(&path, &convert);
     assert_eq!(again.stdout["converted"], false);
     let plan = plan(root.path(), &path, "plan.json");
     let mut args = vec!["db", "native-upgrade", "--plan", plan.to_str().unwrap()];

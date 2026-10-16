@@ -4,7 +4,10 @@
 //!
 //! Native upgrade needs a real SQLite EXCLUSIVE lock, which WAL mode does not
 //! provide against readers, so it refuses WAL catalogs. This is the separate,
-//! offline operator step that precedes a fresh plan. It takes the native
+//! offline operator step that precedes a fresh plan. It requires the same
+//! explicit operator quiescence assertions as native upgrade, because a
+//! process that has opened SQLite without reading holds no lock that any
+//! probe can see. It then takes the native
 //! lifecycle lease and the Catabolic writer lock, refuses while any other
 //! process still has the WAL index open, then holds a real SQLite EXCLUSIVE
 //! database lock from before the first snapshot until verification ends. It
@@ -111,9 +114,13 @@ fn connect_exclusive(path: &Path) -> Result<Connection> {
 
 /// Convert a WAL catalog to SQLite's DELETE rollback journal. A catalog that is
 /// already in a rollback-journal mode is reported unchanged. Only `delete` is
-/// an accepted target.
-pub fn convert(path: &Path, target: &str) -> Result<Value> {
-    convert_observed(path, target, &|_| Ok(()))
+/// an accepted target, and the operator must assert quiescence explicitly.
+pub fn convert(
+    path: &Path,
+    target: &str,
+    quiescence: migration::NativeUpgradeQuiescence,
+) -> Result<Value> {
+    convert_observed(path, target, quiescence, &|_| Ok(()))
 }
 
 /// `convert` with an observer called at `locked` (exclusion held, nothing read
@@ -122,6 +129,7 @@ pub fn convert(path: &Path, target: &str) -> Result<Value> {
 pub fn convert_observed(
     path: &Path,
     target: &str,
+    quiescence: migration::NativeUpgradeQuiescence,
     observer: &dyn Fn(&str) -> Result<()>,
 ) -> Result<Value> {
     if target != "delete" {
@@ -129,6 +137,8 @@ pub fn convert_observed(
             "unsupported journal conversion target {target:?}; only delete is supported and native catalogs are never converted to WAL"
         )));
     }
+    // Locks cannot see an idle descriptor; refuse before any lock or open.
+    quiescence.require()?;
     let path = database_path(path)?;
     let _admission = native_admission_exclusive(&path)?;
     let _writer = writer_lock(&path)?;

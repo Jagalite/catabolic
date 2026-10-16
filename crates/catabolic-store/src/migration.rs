@@ -847,7 +847,7 @@ pub struct NativeUpgradeQuiescence {
     pub exclusive_operational_ownership: bool,
 }
 impl NativeUpgradeQuiescence {
-    fn require(self) -> Result<()> {
+    pub(crate) fn require(self) -> Result<()> {
         if !(self.admission_stopped
             && self.readers_and_workers_stopped
             && self.exclusive_operational_ownership)

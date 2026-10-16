@@ -128,9 +128,13 @@ fn run(mut args: Vec<String>) -> Result<Value> {
                 "--before and --after are only accepted by db identity-diff".into(),
             ));
         }
-        if (plan_in.is_some() || !assertions.is_empty()) && sub != Some("native-upgrade") {
+        if plan_in.is_some() && sub != Some("native-upgrade") {
+            return Err(Error("--plan is only accepted by db native-upgrade".into()));
+        }
+        if !assertions.is_empty() && !matches!(sub, Some("native-upgrade" | "convert-journal")) {
             return Err(Error(
-                "--plan and --assert-quiescent are only accepted by db native-upgrade".into(),
+                "--assert-quiescent is only accepted by db native-upgrade and db convert-journal"
+                    .into(),
             ));
         }
     }
@@ -391,7 +395,8 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         [command, sub] if command == "db" && sub == "convert-journal" => {
             let target = journal_target
                 .ok_or_else(|| Error("db convert-journal requires --to delete".into()))?;
-            catabolic_store::journal_conversion::convert(&path, &target)
+            let quiescence = quiescence(&assertions)?;
+            catabolic_store::journal_conversion::convert(&path, &target, quiescence)
         }
         [command, sub] if command == "db" && sub == "snapshot" => {
             let path = catabolic_store::database_path(Path::new(&path))?;

@@ -30,9 +30,9 @@ their directory, before success is reported.
 | `db native-upgrade --plan PLAN.json --assert-quiescent ... [--backup-dir D] [--migration-failpoint STAGE:VERSION]` | Applies the unchanged plan through the existing migration owner, with a verified backup and a rehearsal on a private clone. |
 | `db identity-manifest [--out FILE]` | Read-only identity manifest (see below). |
 | `db identity-diff --before A --after B` | Compares two manifests and refuses if any identity changed. |
-| `db convert-journal --to delete` | Offline conversion of a WAL catalog to the DELETE rollback journal. |
+| `db convert-journal --to delete --assert-quiescent ...` | Offline conversion of a WAL catalog to the DELETE rollback journal. |
 
-`--assert-quiescent` must be repeated with each of `admission-stopped`,
+For `db native-upgrade` and `db convert-journal`, `--assert-quiescent` must be repeated with each of `admission-stopped`,
 `readers-and-workers-stopped` and `exclusive-operational-ownership`. These are
 operator statements. Locks cannot show that old Python processes, idle
 descriptors or external workers have stopped, so the commands never infer
@@ -44,7 +44,10 @@ A typical sequence, with every writer, reader and worker stopped:
 
 ```sh
 catabolic-native --db catalog.sqlite3 db native-inspect --full
-catabolic-native --db catalog.sqlite3 db convert-journal --to delete   # only if WAL
+catabolic-native --db catalog.sqlite3 db convert-journal --to delete \
+  --assert-quiescent admission-stopped \
+  --assert-quiescent readers-and-workers-stopped \
+  --assert-quiescent exclusive-operational-ownership   # only if WAL
 catabolic-native --db catalog.sqlite3 db identity-manifest --out before.json
 catabolic-native --db catalog.sqlite3 db native-plan --out plan.json
 catabolic-native --db catalog.sqlite3 db native-upgrade --plan plan.json \
@@ -144,8 +147,10 @@ with `unsupported database schema 38` and leave it unchanged. The test needs
 ## Journal conversion
 
 Native upgrade refuses WAL catalogs: it needs a real SQLite EXCLUSIVE lock,
-and WAL mode does not exclude readers. `db convert-journal --to delete` takes
-the native lifecycle lease and the Catabolic writer lock. It refuses if
+and WAL mode does not exclude readers. `db convert-journal --to delete`
+requires the same three quiescence assertions as native upgrade and refuses
+without them before it takes a lock or opens SQLite. It then takes the native
+lifecycle lease and the Catabolic writer lock. It refuses if
 another process holds any WAL-index lock in the `-shm` file. It then opens
 the catalog in SQLite's EXCLUSIVE locking mode and takes the database lock
 before reading anything, and holds it until verification ends, so a process
@@ -157,8 +162,16 @@ kept. A catalog already in rollback-journal mode is reported unchanged.
 Converting to WAL is refused. A plan made before conversion no longer
 matches, so a fresh plan is required.
 
-The lock probe and SQLite's locks cover processes on the same host only. They
-do not cover users on another host of a network filesystem. The operator's offline statement still applies.
+The checks cannot see everything, which is why the assertions are required:
+
+- A process that has opened the catalog but not yet read it, such as a
+  legacy Python process between connecting and its first query, holds no
+  SQLite or WAL-index lock. Neither the probe nor SQLite detects it, and
+  conversion proceeds. In the recorded test, such a connection's first later
+  use reads the converted header and works in DELETE mode. That is SQLite's
+  behavior for this case, not a guarantee that every idle user is safe.
+- The probe and SQLite's locks cover processes on the same host only, not
+  users on another host of a network filesystem.
 
 ## Post-upgrade write limitations
 

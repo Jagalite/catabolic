@@ -19,6 +19,21 @@ fn catalog() -> (tempfile::TempDir, PathBuf) {
     migration::initialize(&path).unwrap();
     (root, path)
 }
+fn quiescent() -> NativeUpgradeQuiescence {
+    NativeUpgradeQuiescence {
+        admission_stopped: true,
+        readers_and_workers_stopped: true,
+        exclusive_operational_ownership: true,
+    }
+}
+fn wait_for(path: &Path, child: &mut Child) {
+    let deadline = Instant::now() + Duration::from_secs(60);
+    while !path.exists() {
+        assert!(Instant::now() < deadline, "worker did not signal readiness");
+        assert!(child.try_wait().unwrap().is_none(), "worker exited early");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
 fn sidecar(path: &Path, suffix: &str) -> PathBuf {
     PathBuf::from(format!("{}{suffix}", path.display()))
 }
@@ -41,7 +56,8 @@ fn count(path: &Path, id: &str) -> i64 {
 
 /// Child process: `commit` leaves committed WAL frames by exiting without
 /// closing its connection; `hold` keeps an idle connection open until killed;
-/// `enter` tries to open and write, exiting with `REFUSED` if SQLite refuses.
+/// `enter` tries to open and write, exiting with `REFUSED` if SQLite refuses;
+/// `idle` opens a connection without using it, then writes once told to go.
 #[test]
 fn journal_holder_worker() {
     let Ok(path) = std::env::var("CATABOLIC_TEST_JOURNAL_DATABASE") else {
@@ -61,6 +77,31 @@ fn journal_holder_worker() {
             Err(error) => panic!("unexpected failure entering the catalog: {error}"),
             Ok(()) => std::process::exit(0),
         }
+    }
+    if std::env::var("CATABOLIC_TEST_JOURNAL_MODE").unwrap() == "idle" {
+        // Opening issues no statement, so this process holds no SQLite lock.
+        let db = rusqlite::Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )
+        .unwrap();
+        fs::write(
+            std::env::var("CATABOLIC_TEST_JOURNAL_READY").unwrap(),
+            b"ready",
+        )
+        .unwrap();
+        let go = PathBuf::from(std::env::var("CATABOLIC_TEST_JOURNAL_GO").unwrap());
+        let deadline = Instant::now() + Duration::from_secs(120);
+        while !go.exists() {
+            assert!(Instant::now() < deadline, "idle worker was not released");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let mode: String = db
+            .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+            .unwrap();
+        db.execute("INSERT INTO catalogs VALUES('idle-after-conversion')", [])
+            .unwrap();
+        std::process::exit(if mode == "delete" { 0 } else { 4 });
     }
     let db = connect(path, true).unwrap();
     match std::env::var("CATABOLIC_TEST_JOURNAL_MODE")
@@ -91,6 +132,9 @@ fn journal_holder_worker() {
     }
 }
 fn worker(path: &Path, mode: &str, ready: Option<&Path>) -> Child {
+    idle_worker(path, mode, ready, None)
+}
+fn idle_worker(path: &Path, mode: &str, ready: Option<&Path>, go: Option<&Path>) -> Child {
     let mut command = Command::new(std::env::current_exe().unwrap());
     command
         .args(["--exact", "journal_holder_worker", "--nocapture"])
@@ -98,6 +142,9 @@ fn worker(path: &Path, mode: &str, ready: Option<&Path>) -> Child {
         .env("CATABOLIC_TEST_JOURNAL_MODE", mode);
     if let Some(ready) = ready {
         command.env("CATABOLIC_TEST_JOURNAL_READY", ready);
+    }
+    if let Some(go) = go {
+        command.env("CATABOLIC_TEST_JOURNAL_GO", go);
     }
     command.spawn().unwrap()
 }
@@ -110,7 +157,7 @@ fn a_process_entering_after_the_probe_is_refused_until_verification_ends() {
     let (_root, path) = catalog();
     assert!(worker(&path, "commit", None).wait().unwrap().success());
     let stages = std::cell::RefCell::new(Vec::new());
-    let report = journal_conversion::convert_observed(&path, "delete", &|stage| {
+    let report = journal_conversion::convert_observed(&path, "delete", quiescent(), &|stage| {
         let status = worker(&path, "enter", None).wait().unwrap();
         assert_eq!(status.code(), Some(REFUSED), "{stage}");
         stages.borrow_mut().push(stage.to_owned());
@@ -126,12 +173,64 @@ fn a_process_entering_after_the_probe_is_refused_until_verification_ends() {
     assert_eq!(count(&path, "entered-during-conversion"), 1);
 }
 
+/// Conversion requires the operator's quiescence assertions before it takes a
+/// lock or opens SQLite, exactly as native upgrade does.
+#[test]
+fn conversion_requires_explicit_quiescence_assertions() {
+    let (_root, path) = catalog();
+    enable_wal(&path);
+    let before = fs::read(&path).unwrap();
+    for quiescence in [
+        NativeUpgradeQuiescence::default(),
+        NativeUpgradeQuiescence {
+            exclusive_operational_ownership: false,
+            ..quiescent()
+        },
+    ] {
+        let error = journal_conversion::convert(&path, "delete", quiescence).unwrap_err();
+        assert!(
+            error.0.contains("explicit operator confirmation"),
+            "{error}"
+        );
+    }
+    assert!(!sidecar(&path, ".native-admission.lock").exists());
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert_eq!(
+        migration::inspect_native(&path, false).unwrap()["journal_mode"],
+        "wal"
+    );
+}
+
+/// A process that has opened SQLite but not read holds no lock, so neither the
+/// probe nor SQLite can see it; this is why the operator assertions are
+/// required. Recorded behavior: conversion proceeds, and that connection's
+/// first later use reads the converted header and works in DELETE mode.
+#[test]
+fn an_idle_unused_connection_is_not_detected_and_later_uses_delete_mode() {
+    let (root, path) = catalog();
+    enable_wal(&path);
+    let ready = root.path().join("ready");
+    let go = root.path().join("go");
+    let mut idle = idle_worker(&path, "idle", Some(&ready), Some(&go));
+    wait_for(&ready, &mut idle);
+    let report = journal_conversion::convert(&path, "delete", quiescent()).unwrap();
+    assert_eq!(report["converted"], true);
+    assert_eq!(report["from_journal_mode"], "wal");
+    fs::write(&go, b"go").unwrap();
+    assert_eq!(idle.wait().unwrap().code(), Some(0));
+    assert_eq!(count(&path, "idle-after-conversion"), 1);
+    assert!(!sidecar(&path, "-wal").exists());
+    let info = migration::inspect_native(&path, true).unwrap();
+    assert_eq!(info["journal_mode"], "delete");
+    assert_eq!(info["schema"], 32);
+}
+
 #[test]
 fn unsupported_targets_are_refused_before_any_lock() {
     let (_root, path) = catalog();
     let before = fs::read(&path).unwrap();
     for target in ["wal", "truncate", "persist", "memory", "off", ""] {
-        let error = journal_conversion::convert(&path, target).unwrap_err();
+        let error = journal_conversion::convert(&path, target, quiescent()).unwrap_err();
         assert!(
             error.0.contains("unsupported journal conversion target"),
             "{target}: {error}"
@@ -145,7 +244,7 @@ fn unsupported_targets_are_refused_before_any_lock() {
 fn rollback_journal_catalog_is_reported_unchanged() {
     let (_root, path) = catalog();
     let before = fs::read(&path).unwrap();
-    let report = journal_conversion::convert(&path, "delete").unwrap();
+    let report = journal_conversion::convert(&path, "delete", quiescent()).unwrap();
     assert_eq!(report["converted"], false);
     assert_eq!(report["from_journal_mode"], "delete");
     assert_eq!(report["journal_mode"], "delete");
@@ -170,7 +269,7 @@ fn committed_wal_frames_survive_conversion_and_unblock_native_upgrade() {
             .0
             .contains("found wal")
     );
-    let report = journal_conversion::convert(&path, "delete").unwrap();
+    let report = journal_conversion::convert(&path, "delete", quiescent()).unwrap();
     assert_eq!(report["converted"], true);
     assert_eq!(report["from_journal_mode"], "wal");
     assert_eq!(report["journal_mode"], "delete");
@@ -211,7 +310,7 @@ fn an_open_connection_in_another_process_refuses_conversion() {
         assert!(holder.try_wait().unwrap().is_none(), "holder exited early");
         std::thread::sleep(Duration::from_millis(20));
     }
-    let error = journal_conversion::convert(&path, "delete").unwrap_err();
+    let error = journal_conversion::convert(&path, "delete", quiescent()).unwrap_err();
     assert!(
         error
             .0
@@ -224,7 +323,7 @@ fn an_open_connection_in_another_process_refuses_conversion() {
     );
     holder.kill().unwrap();
     holder.wait().unwrap();
-    let report = journal_conversion::convert(&path, "delete").unwrap();
+    let report = journal_conversion::convert(&path, "delete", quiescent()).unwrap();
     assert_eq!(report["converted"], true);
     assert_eq!(migration::inspect(&path, true).unwrap()["schema"], 32);
 }
@@ -234,7 +333,7 @@ fn catabolic_writers_and_native_sessions_refuse_conversion() {
     let (_root, path) = catalog();
     enable_wal(&path);
     let writer = Store::open(&path, true, false).unwrap();
-    let error = journal_conversion::convert(&path, "delete").unwrap_err();
+    let error = journal_conversion::convert(&path, "delete", quiescent()).unwrap_err();
     assert!(
         error
             .0
@@ -248,7 +347,7 @@ fn catabolic_writers_and_native_sessions_refuse_conversion() {
     migration::initialize_native(&native).unwrap();
     enable_wal(&native);
     let session = Store::open(&native, false, false).unwrap();
-    let error = journal_conversion::convert(&native, "delete").unwrap_err();
+    let error = journal_conversion::convert(&native, "delete", quiescent()).unwrap_err();
     assert!(
         error
             .0
@@ -256,7 +355,7 @@ fn catabolic_writers_and_native_sessions_refuse_conversion() {
         "{error}"
     );
     drop(session);
-    let report = journal_conversion::convert(&native, "delete").unwrap();
+    let report = journal_conversion::convert(&native, "delete", quiescent()).unwrap();
     assert_eq!(report["converted"], true);
     assert_eq!(report["schema"], NATIVE_SCHEMA_VERSION);
     migration::validate(&connect(&native, false).unwrap(), true).unwrap();
