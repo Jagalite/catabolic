@@ -1248,13 +1248,8 @@ pub fn validate(selection: &Value) -> Result<()> {
         if object.contains_key("variables") {
             return Err(Error("SQL selection uses params, not variables".into()));
         }
-        let params = selection.get("params").cloned().unwrap_or(json!({}));
-        if !params.is_object() {
-            return Err(Error("params must be a JSON object".into()));
-        }
-        for value in params.as_object().unwrap().values() {
-            sql::scalar(value)?;
-        }
+        // Frozen admission runs the complete `--params` validator, names included.
+        sql::named_parameters(selection.get("params").unwrap_or(&json!({})))?;
     } else {
         if object.contains_key("params") {
             return Err(Error("GraphQL selection uses variables, not params".into()));

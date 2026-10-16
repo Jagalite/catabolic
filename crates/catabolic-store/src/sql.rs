@@ -100,17 +100,28 @@ pub fn setup(db: &Connection) -> Result<()> {
 }
 pub fn scalar(value: &Value) -> Result<SqlValue> {
     Ok(match value {
-        Value::Null=>SqlValue::Null, Value::Bool(v)=>SqlValue::Integer(i64::from(*v)), Value::String(v)=>SqlValue::Text(v.clone()),
-        Value::Number(v) if v.is_i64()=>SqlValue::Integer(v.as_i64().unwrap()),
-        Value::Number(v) if v.is_f64()=>SqlValue::Real(v.as_f64().unwrap()),
-        _=>return Err(Error("--params must be a JSON object with named scalar values; profile is reserved, numbers must be finite and integers fit signed 64 bits".into()))
+        Value::Null => SqlValue::Null,
+        Value::Bool(v) => SqlValue::Integer(i64::from(*v)),
+        Value::String(v) => SqlValue::Text(v.clone()),
+        Value::Number(v) if v.is_i64() => SqlValue::Integer(v.as_i64().unwrap()),
+        Value::Number(v) if v.is_f64() => SqlValue::Real(v.as_f64().unwrap()),
+        _ => return Err(Error(INVALID_PARAMETERS.into())),
     })
 }
 fn parameters(raw: Option<&str>, profile: &str) -> Result<Vec<(String, SqlValue)>> {
-    let invalid = || {
-        Error("--params must be a JSON object with named scalar values; profile is reserved, numbers must be finite and integers fit signed 64 bits".into())
-    };
+    let invalid = || Error(INVALID_PARAMETERS.into());
     let value: Value = catabolic_core::decode_json(raw.unwrap_or("{}")).map_err(|_| invalid())?;
+    let mut bound = named_parameters(&value)?;
+    bound.push(("profile".into(), SqlValue::Text(profile.into())));
+    Ok(bound)
+}
+const INVALID_PARAMETERS: &str = "--params must be a JSON object with named scalar values; profile is reserved, numbers must be finite and integers fit signed 64 bits";
+/// The complete frozen `sql_query.parameters` contract for a decoded value:
+/// an object of `[A-Za-z_][A-Za-z0-9_]*` names other than `profile`, each bound
+/// to a null, string, boolean, finite float or signed 64-bit integer. Shared by
+/// `--params` and stored SQL selection admission.
+pub fn named_parameters(value: &Value) -> Result<Vec<(String, SqlValue)>> {
+    let invalid = || Error(INVALID_PARAMETERS.into());
     let mut bound = vec![];
     for (key, value) in value.as_object().ok_or_else(invalid)? {
         if key == "profile"
@@ -124,7 +135,6 @@ fn parameters(raw: Option<&str>, profile: &str) -> Result<Vec<(String, SqlValue)
         }
         bound.push((key.clone(), scalar(value)?));
     }
-    bound.push(("profile".into(), SqlValue::Text(profile.into())));
     Ok(bound)
 }
 fn columns(db: &Connection, database: &str, name: &str) -> Result<Value> {

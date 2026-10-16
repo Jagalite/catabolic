@@ -1331,4 +1331,29 @@ mod tests {
             "target_kind must be a media kind string"
         );
     }
+
+    #[test]
+    fn layout_selection_admission_validates_sql_parameter_names() {
+        let params = "--params must be a JSON object with named scalar values; profile is reserved, numbers must be finite and integers fit signed 64 bits";
+        let with = |params: Value| {
+            let mut definition = layout(json!({}));
+            definition["selection"] = json!({"language":"sql","query":"SELECT item_id FROM catalog_items","params":params});
+            definition
+        };
+        validate(&with(json!({"ok_1":1,"_x":"y","n":null,"f":1.5,"b":true}))).unwrap();
+        for value in [
+            json!({"profile":"other"}),
+            json!({"bad-name":1}),
+            json!({"1st":1}),
+            json!({"":1}),
+            json!({"é":1}),
+            json!({"x":[1]}),
+            json!({"x":9223372036854775808u64}),
+            json!(null),
+            json!([]),
+            json!("{}"),
+        ] {
+            assert_eq!(refusal(&with(value.clone())), params, "{value}");
+        }
+    }
 }

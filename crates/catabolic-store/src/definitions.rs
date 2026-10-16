@@ -124,23 +124,7 @@ fn bounded_page(
     Ok(json!({key: values, "next_after": next}))
 }
 fn params_valid(value: &Value) -> Result<()> {
-    let invalid = || {
-        Error("--params must be a JSON object with named scalar values; profile is reserved, numbers must be finite and integers fit signed 64 bits".into())
-    };
-    let obj = value.as_object().ok_or_else(invalid)?;
-    for (key, value) in obj {
-        if key.is_empty()
-            || key == "profile"
-            || !key
-                .bytes()
-                .enumerate()
-                .all(|(i, c)| c.is_ascii_alphabetic() || c == b'_' || i > 0 && c.is_ascii_digit())
-            || crate::sql::scalar(value).is_err()
-        {
-            return Err(invalid());
-        }
-    }
-    Ok(())
+    crate::sql::named_parameters(value).map(drop)
 }
 pub fn query_get(store: &Store, profile: &str, id: &str) -> Result<Value> {
     let mut value = one(
@@ -246,15 +230,8 @@ pub fn query_validate(store: &Store, profile: &str, input: &Value) -> Result<Val
             return fail("query body must use its profile and inline SQL/GraphQL");
         }
         if value["mode"] == "selection" {
-            if let Err(error) = selection::validate(&body) {
-                if error.0 == "params must be a JSON object" {
-                    params_valid(body.get("params").unwrap_or(&json!({})))?;
-                }
-                return Err(error);
-            }
-            if body["language"] == "sql" {
-                params_valid(body.get("params").unwrap_or(&json!({})))?;
-            }
+            // Selection admission includes the complete SQL parameter contract.
+            selection::validate(&body)?;
         } else {
             let expected = if value["mode"] == "rows" {
                 "sql"
@@ -356,15 +333,7 @@ pub fn rule_put(store: &Store, profile: &str, args: &Value) -> Result<Value> {
     body.as_object_mut()
         .unwrap()
         .extend(args["selection"].as_object().unwrap().clone());
-    if let Err(error) = selection::validate(&body) {
-        if error.0 == "params must be a JSON object" {
-            params_valid(body.get("params").unwrap_or(&json!({})))?;
-        }
-        return Err(error);
-    }
-    if body["language"] == "sql" {
-        params_valid(body.get("params").unwrap_or(&json!({})))?;
-    }
+    selection::validate(&body)?;
     if let Some(id) = body.get("query_id")
         && query_get(store, profile, id.as_str().unwrap())?["definition"]["mode"] != "selection"
     {
