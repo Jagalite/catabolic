@@ -6006,6 +6006,16 @@
   ],
   [
     "trigger",
+    "native_execution_lifetimes_terminal_witness_insert",
+    "CREATE TRIGGER native_execution_lifetimes_terminal_witness_insert BEFORE INSERT ON native_execution_lifetimes WHEN NEW.state IS NOT 'owned' AND NOT (NEW.state IS 'quiescent' AND NEW.cleanup_kind IS 'builtin_no_child_v1' AND NEW.child_obligations IS 0 AND NEW.verified_retirements IS 0 AND NEW.capacity_released IS 1 AND NEW.sealed_at IS NOT NULL) BEGIN SELECT RAISE(ABORT,'invalid_native_execution_terminal_witness'); END"
+  ],
+  [
+    "trigger",
+    "native_execution_lifetimes_terminal_witness_update",
+    "CREATE TRIGGER native_execution_lifetimes_terminal_witness_update BEFORE UPDATE ON native_execution_lifetimes WHEN NEW.state IS NOT 'owned' AND NOT (NEW.state IS 'quiescent' AND NEW.cleanup_kind IS 'builtin_no_child_v1' AND NEW.child_obligations IS 0 AND NEW.verified_retirements IS 0 AND NEW.capacity_released IS 1 AND NEW.sealed_at IS NOT NULL) BEGIN SELECT RAISE(ABORT,'invalid_native_execution_terminal_witness'); END"
+  ],
+  [
+    "trigger",
     "native_execution_lifetimes_update_guard",
     "CREATE TRIGGER native_execution_lifetimes_update_guard BEFORE UPDATE ON native_execution_lifetimes BEGIN SELECT CASE WHEN OLD.state!='owned' OR NEW.state!='quiescent' OR NEW.catalog_id IS NOT OLD.catalog_id OR NEW.incarnation IS NOT OLD.incarnation OR NEW.job_id IS NOT OLD.job_id OR NEW.generation IS NOT OLD.generation OR NEW.attempt IS NOT OLD.attempt OR NEW.claim_token_digest IS NOT OLD.claim_token_digest OR NEW.snapshot_digest IS NOT OLD.snapshot_digest OR NEW.options_digest IS NOT OLD.options_digest OR NEW.runtime_owner_nonce IS NOT OLD.runtime_owner_nonce OR NEW.protocol_version IS NOT OLD.protocol_version OR NOT EXISTS(SELECT 1 FROM catalog_state WHERE id=1 AND catalog_id=NEW.catalog_id AND incarnation=NEW.incarnation) OR NOT EXISTS(SELECT 1 FROM execution_claims WHERE job_id=NEW.job_id AND generation=NEW.generation AND attempt=NEW.attempt) THEN RAISE(ABORT,'invalid_native_execution_cleanup') END; END"
   ],

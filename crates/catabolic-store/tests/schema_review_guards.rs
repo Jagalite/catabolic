@@ -682,6 +682,56 @@ fn sc3_schema38_curation_records_cannot_reuse_a_committed_receipt() {
     migration::validate(&f.store.db, true).unwrap();
 }
 
+// SC4 ----------------------------------------------------------------------
+
+fn owned_lifetime(store: &Store) {
+    store
+        .transaction(|db| {
+            db.execute("INSERT INTO processing_jobs(id,profile,file_id,operation,location,snapshot,options,cache_key,state,attempts) VALUES('job','default','file-a','hash','guard-source','{}','{}','key','complete',1)", [])?;
+            db.execute("INSERT INTO execution_claims VALUES('job',1,'token',1,1,0,'{}','{}')", [])?;
+            db.execute("INSERT INTO native_execution_lifetimes(catalog_id,incarnation,job_id,generation,attempt,claim_token_digest,snapshot_digest,options_digest,runtime_owner_nonce,protocol_version) SELECT catalog_id,incarnation,'job',1,1,?1,?1,?1,'0123456789abcdef0123456789abcdef',1 FROM catalog_state WHERE id=1", [FINGERPRINT])?;
+            Ok(())
+        })
+        .unwrap();
+}
+const NULL_KIND: &str = "UPDATE native_execution_lifetimes SET state='quiescent',cleanup_kind=NULL,capacity_released=1,sealed_at='2026-01-01'";
+
+#[test]
+fn sc4_schema37_null_cleanup_kind_terminal_row_is_rejected_by_full_validation() {
+    let f = Fixture::new(37);
+    owned_lifetime(&f.store);
+    // The schema-36 CHECK evaluates NULL for this row and accepts it.
+    f.store.db.execute(NULL_KIND, []).unwrap();
+    let error = migration::validate(&f.store.db, true)
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("incomplete terminal witness"), "{error}");
+    drop(f.store);
+    let error = migration::plan_native(&f.path).unwrap_err().to_string();
+    assert!(error.contains("incomplete terminal witness"), "{error}");
+}
+
+#[test]
+fn sc4_schema38_terminal_rows_require_the_complete_witness() {
+    let f = Fixture::new(38);
+    owned_lifetime(&f.store);
+    let db = &f.store.db;
+    let message = error(db.execute(NULL_KIND, []));
+    assert!(
+        message.contains("invalid_native_execution_terminal_witness"),
+        "{message}"
+    );
+    assert_eq!(
+        count(
+            db,
+            "SELECT count(*) FROM native_execution_lifetimes WHERE state='owned'"
+        ),
+        1
+    );
+    db.execute("UPDATE native_execution_lifetimes SET state='quiescent',cleanup_kind='builtin_no_child_v1',capacity_released=1,sealed_at='2026-01-01'", []).unwrap();
+    migration::validate(db, true).unwrap();
+}
+
 // SC5 ----------------------------------------------------------------------
 
 #[test]

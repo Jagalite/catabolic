@@ -86,3 +86,16 @@ CREATE TRIGGER catalog_tag_suppression_revisions_uncommitted BEFORE INSERT ON ca
 CREATE TRIGGER catalog_tag_merges_uncommitted BEFORE INSERT ON catalog_tag_merges WHEN EXISTS (SELECT 1 FROM catalog_command_receipts r WHERE r.catalog_id=NEW.command_catalog_id AND r.host_namespace=NEW.command_host_namespace AND r.operation_id=NEW.command_operation_id) BEGIN SELECT RAISE(ABORT,'catalog_committed_history_sealed'); END;
 CREATE TRIGGER catalog_logical_retirements_uncommitted BEFORE INSERT ON catalog_logical_retirements WHEN EXISTS (SELECT 1 FROM catalog_command_receipts r WHERE r.catalog_id=NEW.command_catalog_id AND r.host_namespace=NEW.command_host_namespace AND r.operation_id=NEW.command_operation_id) BEGIN SELECT RAISE(ABORT,'catalog_committed_history_sealed'); END;
 CREATE TRIGGER catalog_version_retirements_uncommitted BEFORE INSERT ON catalog_version_retirements WHEN EXISTS (SELECT 1 FROM catalog_command_receipts r WHERE r.catalog_id=NEW.command_catalog_id AND r.host_namespace=NEW.command_host_namespace AND r.operation_id=NEW.command_operation_id) BEGIN SELECT RAISE(ABORT,'catalog_committed_history_sealed'); END;
+
+-- SC4. Schema-36's table CHECK evaluates NULL, and therefore passes, for a
+-- quiescent row whose cleanup_kind is NULL. Require the complete NULL-safe
+-- terminal witness for every non-owned row. Persisted rows are validated by the
+-- migration owner (full validation) before this schema can commit or open.
+CREATE TRIGGER native_execution_lifetimes_terminal_witness_insert BEFORE INSERT ON native_execution_lifetimes
+ WHEN NEW.state IS NOT 'owned' AND NOT (NEW.state IS 'quiescent' AND NEW.cleanup_kind IS 'builtin_no_child_v1'
+  AND NEW.child_obligations IS 0 AND NEW.verified_retirements IS 0 AND NEW.capacity_released IS 1 AND NEW.sealed_at IS NOT NULL)
+ BEGIN SELECT RAISE(ABORT,'invalid_native_execution_terminal_witness'); END;
+CREATE TRIGGER native_execution_lifetimes_terminal_witness_update BEFORE UPDATE ON native_execution_lifetimes
+ WHEN NEW.state IS NOT 'owned' AND NOT (NEW.state IS 'quiescent' AND NEW.cleanup_kind IS 'builtin_no_child_v1'
+  AND NEW.child_obligations IS 0 AND NEW.verified_retirements IS 0 AND NEW.capacity_released IS 1 AND NEW.sealed_at IS NOT NULL)
+ BEGIN SELECT RAISE(ABORT,'invalid_native_execution_terminal_witness'); END;

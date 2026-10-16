@@ -300,6 +300,9 @@ pub fn validate_typed(db: &Connection, full: bool) -> crate::OpenResult<Value> {
             )));
         }
         if version >= 3 && db.prepare("SELECT 1 FROM mappings m WHERE m.active=1 AND NOT EXISTS (SELECT 1 FROM item_files a WHERE a.file_id=m.file_id AND a.item_id=m.item_id AND a.active=1) LIMIT 1")?.exists([])? { return Err(OpenError::invalid(Error("an active catalog mapping has no active file identification".into()))); }
+        // Schema36's CHECK accepts a NULL cleanup_kind on a terminal row. Every
+        // persisted non-owned row must carry the complete NULL-safe witness.
+        if version >= 36 && db.prepare("SELECT 1 FROM native_execution_lifetimes WHERE state IS NOT 'owned' AND NOT (state IS 'quiescent' AND cleanup_kind IS 'builtin_no_child_v1' AND child_obligations IS 0 AND verified_retirements IS 0 AND capacity_released IS 1 AND sealed_at IS NOT NULL) LIMIT 1")?.exists([])? { return Err(OpenError::invalid(Error("a native execution lifetime has an incomplete terminal witness".into()))); }
     }
     let pending: i64 = db.query_row("SELECT count(*) FROM journal", [], |r| r.get(0))?;
     let latest = if version > SCHEMA_VERSION {
