@@ -6,13 +6,13 @@
 //! provide against readers, so it refuses WAL catalogs. This is the separate,
 //! offline operator step that precedes a fresh plan. It takes the native
 //! lifecycle lease and the Catabolic writer lock, refuses while any other
-//! process still has the WAL index open, and verifies that every committed
-//! row, including committed WAL frames, survives the conversion. It never
-//! converts into WAL: native WAL operation is not a supported mode.
-use crate::{
-    Error, Result, connect, database_path, migration, native_admission_exclusive, writer_lock,
-};
-use rusqlite::{Connection, ErrorCode};
+//! process still has the WAL index open, then holds a real SQLite EXCLUSIVE
+//! database lock from before the first snapshot until verification ends. It
+//! verifies that every committed row, including committed WAL frames,
+//! survives the conversion. It never converts into WAL: native WAL operation
+//! is not a supported mode.
+use crate::{Error, Result, database_path, migration, native_admission_exclusive, writer_lock};
+use rusqlite::{Connection, ErrorCode, OpenFlags};
 use serde_json::{Value, json};
 use std::{
     fs::OpenOptions,
@@ -84,10 +84,46 @@ fn state(db: &Connection) -> Result<(Value, Value)> {
     result
 }
 
+/// Open the catalog in SQLite's EXCLUSIVE locking mode and take the database
+/// lock before anything is read. In WAL mode this also keeps the WAL index in
+/// private memory, so no other connection can read or write until this one
+/// closes. Connection settings otherwise match `connect`.
+fn connect_exclusive(path: &Path) -> Result<Connection> {
+    let db = Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )?;
+    db.pragma_update(None, "temp_store", "MEMORY")?;
+    db.pragma_update(None, "foreign_keys", true)?;
+    db.busy_timeout(Duration::ZERO)?;
+    let mode: String = db.query_row("PRAGMA locking_mode=EXCLUSIVE", [], |row| row.get(0))?;
+    if mode != "exclusive" {
+        return Err(busy());
+    }
+    // Exclusive locking mode retains the lock acquired here after COMMIT.
+    db.execute_batch("BEGIN EXCLUSIVE; COMMIT")
+        .map_err(|error| if locked(&error) { busy() } else { error.into() })?;
+    let schema: u32 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
+    crate::configure_native_connection(&db, schema)?;
+    crate::components::install(&db)?;
+    Ok(db)
+}
+
 /// Convert a WAL catalog to SQLite's DELETE rollback journal. A catalog that is
 /// already in a rollback-journal mode is reported unchanged. Only `delete` is
 /// an accepted target.
 pub fn convert(path: &Path, target: &str) -> Result<Value> {
+    convert_observed(path, target, &|_| Ok(()))
+}
+
+/// `convert` with an observer called at `locked` (exclusion held, nothing read
+/// yet) and `converted` (journal switched, before verification). An observer
+/// error aborts the conversion; it cannot release the held lock early.
+pub fn convert_observed(
+    path: &Path,
+    target: &str,
+    observer: &dyn Fn(&str) -> Result<()>,
+) -> Result<Value> {
     if target != "delete" {
         return Err(Error(format!(
             "unsupported journal conversion target {target:?}; only delete is supported and native catalogs are never converted to WAL"
@@ -99,16 +135,10 @@ pub fn convert(path: &Path, target: &str) -> Result<Value> {
     if other_wal_users(&path)? {
         return Err(busy());
     }
-    let db = connect(&path, true)?;
-    db.busy_timeout(Duration::ZERO)?;
+    let db = connect_exclusive(&path)?;
+    observer("locked")?;
     let from = journal_mode(&db)?;
-    let (info, before) = state(&db).map_err(|error| {
-        if error.0.contains("locked") || error.0.contains("busy") {
-            busy()
-        } else {
-            error
-        }
-    })?;
+    let (info, before) = state(&db)?;
     let report = json!({"database":path,"database_id":info["database_id"],"schema":info["schema"],"from_journal_mode":from});
     if from != "wal" {
         let mut report = report;
@@ -117,7 +147,7 @@ pub fn convert(path: &Path, target: &str) -> Result<Value> {
         return Ok(report);
     }
     // TRUNCATE copies every committed frame into the database and empties the
-    // log; a busy result means a reader or writer still uses the WAL.
+    // log. The exclusive lock means no other connection can make it partial.
     let (blocked, _, _): (i64, i64, i64) = db
         .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
             Ok((row.get(0)?, row.get(1)?, row.get(2)?))
@@ -132,6 +162,7 @@ pub fn convert(path: &Path, target: &str) -> Result<Value> {
     if mode != "delete" {
         return Err(busy());
     }
+    observer("converted")?;
     let (_, after) = state(&db)?;
     if after != before {
         return Err(Error(
@@ -139,6 +170,7 @@ pub fn convert(path: &Path, target: &str) -> Result<Value> {
                 .into(),
         ));
     }
+    // Closing releases the exclusive lock, and only after verification.
     drop(db);
     if sidecar(&path, "-wal").exists() {
         return Err(Error(

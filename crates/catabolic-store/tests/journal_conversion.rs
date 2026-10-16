@@ -11,6 +11,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+const REFUSED: i32 = 3;
+
 fn catalog() -> (tempfile::TempDir, PathBuf) {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("catalog.sqlite3");
@@ -38,13 +40,28 @@ fn count(path: &Path, id: &str) -> i64 {
 }
 
 /// Child process: `commit` leaves committed WAL frames by exiting without
-/// closing its connection; `hold` keeps an idle connection open until killed.
+/// closing its connection; `hold` keeps an idle connection open until killed;
+/// `enter` tries to open and write, exiting with `REFUSED` if SQLite refuses.
 #[test]
 fn journal_holder_worker() {
     let Ok(path) = std::env::var("CATABOLIC_TEST_JOURNAL_DATABASE") else {
         return;
     };
     let path = Path::new(&path);
+    if std::env::var("CATABOLIC_TEST_JOURNAL_MODE").unwrap() == "enter" {
+        let entered = connect(path, true).and_then(|db| {
+            db.execute(
+                "INSERT INTO catalogs VALUES('entered-during-conversion')",
+                [],
+            )?;
+            Ok(())
+        });
+        match entered {
+            Err(error) if error.0.contains("database is locked") => std::process::exit(REFUSED),
+            Err(error) => panic!("unexpected failure entering the catalog: {error}"),
+            Ok(()) => std::process::exit(0),
+        }
+    }
     let db = connect(path, true).unwrap();
     match std::env::var("CATABOLIC_TEST_JOURNAL_MODE")
         .unwrap()
@@ -83,6 +100,30 @@ fn worker(path: &Path, mode: &str, ready: Option<&Path>) -> Child {
         command.env("CATABOLIC_TEST_JOURNAL_READY", ready);
     }
     command.spawn().unwrap()
+}
+
+/// A process that arrives after the lock probe must not be able to change the
+/// catalog between the first snapshot and verification. Entering is attempted
+/// deterministically at both observer stages, while exclusion is held.
+#[test]
+fn a_process_entering_after_the_probe_is_refused_until_verification_ends() {
+    let (_root, path) = catalog();
+    assert!(worker(&path, "commit", None).wait().unwrap().success());
+    let stages = std::cell::RefCell::new(Vec::new());
+    let report = journal_conversion::convert_observed(&path, "delete", &|stage| {
+        let status = worker(&path, "enter", None).wait().unwrap();
+        assert_eq!(status.code(), Some(REFUSED), "{stage}");
+        stages.borrow_mut().push(stage.to_owned());
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(*stages.borrow(), ["locked", "converted"]);
+    assert_eq!(report["converted"], true);
+    assert_eq!(count(&path, "committed-in-wal"), 1);
+    assert_eq!(count(&path, "entered-during-conversion"), 0);
+    // Once the converter has closed, the same entry succeeds normally.
+    assert_eq!(worker(&path, "enter", None).wait().unwrap().code(), Some(0));
+    assert_eq!(count(&path, "entered-during-conversion"), 1);
 }
 
 #[test]
