@@ -268,10 +268,12 @@ impl TrustedReceiptReadGrant {
 // integrated and qualified before it can use this private writer owner.
 // Schema36 adds guarded lifetime rows; schema37 adds guarded companion rows.
 // Both add statement-time generation triggers, no additional COMMIT finalizers.
+// Schema38 adds statement-time guards and one deferred receipt FK, which the
+// receipt-last owner satisfies before COMMIT; it adds no COMMIT-time writes.
 // Their separately qualified upgrade matrices preserve the same FTS preflush
 // and fixed-COMMIT contract; arbitrary future additions remain refused.
 fn qualified_store(store: &Store) -> Result<&Store> {
-    if ![34, 35, 36, 37].contains(&store.schema_version) {
+    if ![34, 35, 36, 37, 38].contains(&store.schema_version) {
         return Err(fail(WriteErrorCode::Unsupported));
     }
     let actual: u32 = store

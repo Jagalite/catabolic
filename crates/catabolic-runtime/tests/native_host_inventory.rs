@@ -182,7 +182,7 @@ fn explicit36_upgrade_keeps_history_but_cannot_downgrade37_scan_admission() {
     before.close().unwrap();
     drop(before);
     let plan = migration::plan_native(&path).unwrap();
-    assert_eq!(plan["to_schema"], 37);
+    assert_eq!(plan["to_schema"], 38);
     migration::upgrade_native(
         &path,
         &plan,

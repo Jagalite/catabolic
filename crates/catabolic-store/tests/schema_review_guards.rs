@@ -1,0 +1,393 @@
+// SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+// SPDX-License-Identifier: MIT
+//! Schema-38 guards for the independent schema review (SC1-SC5 of e8f0c52).
+//! Each case shows the schema-37 gap where it is observable, then the schema-38
+//! refusal on the real Store connection with required native settings.
+use catabolic_core::catalog_command::{CommandEnvelope, CommandKey, ReceiptVisibility};
+use catabolic_store::{
+    Store,
+    catalog_commands::{
+        self as commands, CatalogAuthority, CommandOutcome, ReceiptPolicy, TrustedCommandAuthority,
+    },
+    catalog_metadata_store::{
+        MetadataAccess, MetadataAuthority, MetadataChange, MetadataMutation, PolicyField,
+        PolicyNormalization, PolicyValueType,
+    },
+    catalog_pins::{self as pins, PinAuthority, PinBatch, PinChange, PinDecision, PinMutation},
+    catalog_tag_mutation::{SuppressionChange, TagAuthority, TagMutation, TagSubject},
+    connect, curation, migration, tagging,
+};
+use rusqlite::{Connection, params};
+use serde_json::{Value, json};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    os::unix::fs::PermissionsExt,
+    path::{Path, PathBuf},
+    time::Duration,
+};
+
+const HOST: &str = "guard-host";
+const NS: &str = "tmdb.movie";
+const FINGERPRINT: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
+struct Fixture {
+    root: tempfile::TempDir,
+    path: PathBuf,
+    store: Store,
+}
+impl Fixture {
+    fn new(version: u32) -> Self {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("catalog.sqlite3");
+        migration::initialize_native_at(&path, version).unwrap();
+        let store = Store::open(&path, true, false).unwrap();
+        assert_eq!(store.schema_version, version);
+        seed(&store);
+        Self { root, path, store }
+    }
+}
+fn seed(store: &Store) {
+    for id in ["item-a", "item-b"] {
+        curation::item_put(
+            store,
+            &json!({"id":id,"kind":"movie","metadata":{"title":id},"identities":{NS:format!("{id}-tmdb")}}),
+        )
+        .unwrap();
+    }
+    store
+        .transaction(|db| {
+            db.execute("INSERT INTO locations VALUES('guard-source')", [])?;
+            for file in ["file-a", "file-b"] {
+                db.execute(
+                    "INSERT INTO files(id,location,path) VALUES(?,'guard-source',?)",
+                    params![file, format!("{file}.mkv")],
+                )?;
+            }
+            Ok(())
+        })
+        .unwrap();
+}
+fn base() -> TrustedCommandAuthority<'static> {
+    TrustedCommandAuthority {
+        host_namespace: HOST,
+        receipt_visibility: ReceiptVisibility::FullResult,
+        allow_new_commands: true,
+        identity_authority: None,
+    }
+}
+fn policy() -> ReceiptPolicy {
+    ReceiptPolicy {
+        retention: Duration::from_secs(3600),
+        max_receipts: 1000,
+        max_logical_bytes: 16 * 1024 * 1024,
+        max_hold_records: 1000,
+    }
+}
+fn generation(db: &Connection) -> i64 {
+    db.query_row("SELECT generation FROM catalog_state WHERE id=1", [], |r| {
+        r.get(0)
+    })
+    .unwrap()
+}
+fn envelope(store: &Store, id: &str, payload: Value) -> CommandEnvelope {
+    CommandEnvelope::new(
+        1,
+        CommandKey::new(&store.database_id, HOST, id).unwrap(),
+        store.catalog_incarnation.clone().unwrap(),
+        generation(&store.db),
+        &payload.to_string(),
+    )
+    .unwrap()
+}
+fn tag_grant() -> TagAuthority {
+    TagAuthority {
+        host_namespace: HOST.into(),
+        allowed_subjects: [
+            TagSubject::Item("item-a".into()),
+            TagSubject::Item("item-b".into()),
+            TagSubject::File("file-a".into()),
+            TagSubject::File("file-b".into()),
+        ]
+        .into_iter()
+        .collect(),
+        allow_global_merge: true,
+    }
+}
+fn tag(store: &Store, name: &str) -> String {
+    tagging::put(store, &json!(name), None).unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+fn suppress(
+    store: &Store,
+    op: &str,
+    subject: TagSubject,
+    tag_id: &str,
+    expected_revision: Option<i64>,
+) -> catabolic_store::Result<CommandOutcome> {
+    let mutation = TagMutation::SetSuppression {
+        contract_version: 1,
+        changes: vec![SuppressionChange {
+            subject,
+            canonical_tag_id: tag_id.into(),
+            expected_revision,
+            suppressed: true,
+            reason: "schema review guard".into(),
+        }],
+    };
+    let request = envelope(store, op, json!({"operation":"tags","mutation":mutation}));
+    commands::execute_with_authority(
+        store,
+        &request,
+        CatalogAuthority::new(base()).with_tags(&tag_grant()),
+        policy(),
+    )
+    .map_err(|error| catabolic_store::Error(error.to_string()))
+}
+fn committed(outcome: &CommandOutcome) -> &Value {
+    match outcome {
+        CommandOutcome::Committed { result, .. } => result,
+        _ => panic!("expected committed command: {outcome:?}"),
+    }
+}
+fn quiescence() -> migration::NativeUpgradeQuiescence {
+    migration::NativeUpgradeQuiescence {
+        admission_stopped: true,
+        readers_and_workers_stopped: true,
+        exclusive_operational_ownership: true,
+    }
+}
+fn upgrade(path: &Path, parent: Option<&Path>) -> catabolic_store::Result<Value> {
+    let plan = migration::plan_native(path)?;
+    assert_eq!(plan["to_schema"], 38);
+    migration::upgrade_native(path, &plan, quiescence(), parent, &|_, _, _| Ok(()))
+}
+fn error(result: rusqlite::Result<usize>) -> String {
+    result.expect_err("guarded statement must fail").to_string()
+}
+fn count(db: &Connection, sql: &str) -> i64 {
+    db.query_row(sql, [], |r| r.get(0)).unwrap()
+}
+
+// SC1 ----------------------------------------------------------------------
+
+#[test]
+fn sc1_schema37_cascade_loses_the_head_and_wedges_the_next_decision() {
+    let f = Fixture::new(37);
+    let secret = tag(&f.store, "secret");
+    committed(
+        &suppress(
+            &f.store,
+            "s1",
+            TagSubject::Item("item-a".into()),
+            &secret,
+            None,
+        )
+        .unwrap(),
+    );
+    f.store
+        .transaction(|db| {
+            db.execute("DELETE FROM identities WHERE item_id='item-a'", [])?;
+            db.execute("DELETE FROM items WHERE id='item-a'", [])?;
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(
+        count(
+            &f.store.db,
+            "SELECT count(*) FROM catalog_item_tag_suppressions"
+        ),
+        0
+    );
+    curation::item_put(
+        &f.store,
+        &json!({"id":"item-a","kind":"movie","metadata":{"title":"recreated"}}),
+    )
+    .unwrap();
+    // The finding: no head means revision 1, which collides with retained history.
+    let retry = suppress(
+        &f.store,
+        "s2",
+        TagSubject::Item("item-a".into()),
+        &secret,
+        None,
+    );
+    assert!(!matches!(retry, Ok(CommandOutcome::Committed { .. })));
+}
+
+#[test]
+fn sc1_schema38_managed_suppression_subjects_cannot_be_deleted_replaced_or_rekeyed() {
+    let f = Fixture::new(38);
+    let secret = tag(&f.store, "secret");
+    committed(
+        &suppress(
+            &f.store,
+            "s1",
+            TagSubject::Item("item-a".into()),
+            &secret,
+            None,
+        )
+        .unwrap(),
+    );
+    committed(
+        &suppress(
+            &f.store,
+            "s2",
+            TagSubject::File("file-a".into()),
+            &secret,
+            None,
+        )
+        .unwrap(),
+    );
+    let db = &f.store.db;
+    let required = "catalog_tag_suppression_subject_retirement_required";
+    for statement in [
+        "DELETE FROM items WHERE id='item-a'",
+        "INSERT OR REPLACE INTO items(id,kind,metadata) VALUES('item-a','movie','{}')",
+        "REPLACE INTO items(id,kind,metadata) VALUES('item-a','movie','{}')",
+        "UPDATE items SET id='item-z' WHERE id='item-a'",
+        "DELETE FROM files WHERE id='file-a'",
+        "INSERT OR REPLACE INTO files(id,location,path) VALUES('file-a','guard-source','file-a.mkv')",
+        "UPDATE files SET id='file-z' WHERE id='file-a'",
+    ] {
+        let message = error(db.execute(statement, []));
+        assert!(message.contains(required), "{statement}: {message}");
+    }
+    assert_eq!(count(db, "SELECT count(*) FROM items WHERE id='item-a'"), 1);
+    assert_eq!(count(db, "SELECT count(*) FROM files WHERE id='file-a'"), 1);
+    assert_eq!(
+        count(
+            db,
+            "SELECT count(*) FROM catalog_effective_item_tags WHERE item_id='item-a'"
+        ),
+        0
+    );
+    // Unmanaged subjects keep their legacy behavior.
+    f.store
+        .transaction(|db| {
+            db.execute("DELETE FROM files WHERE id='file-b'", [])?;
+            db.execute("DELETE FROM identities WHERE item_id='item-b'", [])?;
+            db.execute("DELETE FROM items WHERE id='item-b'", [])?;
+            Ok(())
+        })
+        .unwrap();
+    // The retained heads continue the revision sequence.
+    committed(
+        &suppress(
+            &f.store,
+            "s3",
+            TagSubject::Item("item-a".into()),
+            &secret,
+            Some(1),
+        )
+        .unwrap(),
+    );
+    assert_eq!(
+        count(
+            db,
+            "SELECT revision FROM catalog_item_tag_suppressions WHERE item_id='item-a'"
+        ),
+        2
+    );
+    migration::validate(db, true).unwrap();
+}
+
+#[test]
+fn sc1_heads_cascaded_before_schema38_cannot_be_recreated_after_upgrade() {
+    let f = Fixture::new(37);
+    let secret = tag(&f.store, "secret");
+    committed(
+        &suppress(
+            &f.store,
+            "s1",
+            TagSubject::Item("item-a".into()),
+            &secret,
+            None,
+        )
+        .unwrap(),
+    );
+    committed(
+        &suppress(
+            &f.store,
+            "s2",
+            TagSubject::File("file-a".into()),
+            &secret,
+            None,
+        )
+        .unwrap(),
+    );
+    f.store
+        .transaction(|db| {
+            db.execute("DELETE FROM identities WHERE item_id='item-a'", [])?;
+            db.execute("DELETE FROM items WHERE id='item-a'", [])?;
+            db.execute("DELETE FROM files WHERE id='file-a'", [])?;
+            Ok(())
+        })
+        .unwrap();
+    let Fixture {
+        root: _root,
+        path,
+        store,
+    } = f;
+    drop(store);
+    upgrade(&path, None).unwrap();
+    let store = Store::open(&path, true, false).unwrap();
+    assert_eq!(store.schema_version, 38);
+    let retained = "catalog_tag_suppression_subject_history_retained";
+    let item = curation::item_put(
+        &store,
+        &json!({"id":"item-a","kind":"movie","metadata":{"title":"recreated"}}),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(item.contains(retained), "{item}");
+    for statement in [
+        "INSERT INTO items(id,kind,metadata) VALUES('item-a','movie','{}')",
+        "UPDATE items SET id='item-a' WHERE id='item-b'",
+        "INSERT INTO files(id,location,path) VALUES('file-a','guard-source','again.mkv')",
+        "UPDATE files SET id='file-a' WHERE id='file-b'",
+    ] {
+        let message = error(store.db.execute(statement, []));
+        assert!(message.contains(retained), "{statement}: {message}");
+    }
+    // Fresh IDs and upserts of existing subjects are unaffected.
+    curation::item_put(
+        &store,
+        &json!({"id":"item-new","kind":"movie","metadata":{"title":"new"}}),
+    )
+    .unwrap();
+    store
+        .db
+        .execute(
+            "INSERT INTO items(id,kind,metadata) VALUES('item-b','movie','{}') ON CONFLICT(id) DO NOTHING",
+            [],
+        )
+        .unwrap();
+}
+
+// SC5 ----------------------------------------------------------------------
+
+#[test]
+fn sc5_upgrade_creates_every_missing_backup_ancestor_privately() {
+    let f = Fixture::new(37);
+    drop(f.store);
+    let parent = f.root.path().join("absent-a/absent-b/absent-c");
+    let report = upgrade(&f.path, Some(&parent)).unwrap();
+    assert_eq!(report["schema"], 38);
+    let backup = PathBuf::from(report["backup"].as_str().unwrap());
+    assert!(backup.starts_with(parent.canonicalize().unwrap()));
+    for ancestor in [
+        "absent-a",
+        "absent-a/absent-b",
+        "absent-a/absent-b/absent-c",
+    ] {
+        let mode = std::fs::metadata(f.root.path().join(ancestor))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o700, "{ancestor}");
+    }
+    let saved = connect(&backup, false).unwrap();
+    assert_eq!(migration::validate(&saved, true).unwrap()["schema"], 37);
+}

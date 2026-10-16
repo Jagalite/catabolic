@@ -1273,7 +1273,8 @@ fn private_writer_rejects_unqualified_future_schema_on_every_store_access() {
     let f = Fixture::new();
     {
         let mut store = Store::open(&f.path, true, false).unwrap();
-        for schema in [33, 38, 39] {
+        // Schema38 is qualified; 39 and later are the unqualified future.
+        for schema in [33, 39, 40] {
             store.schema_version = schema;
             assert_eq!(code(qualified_store(&store)), WriteErrorCode::Unsupported);
         }
@@ -1283,7 +1284,7 @@ fn private_writer_rejects_unqualified_future_schema_on_every_store_access() {
     let actual: u32 = other
         .pragma_query_value(None, "user_version", |r| r.get(0))
         .unwrap();
-    other.pragma_update(None, "user_version", 38).unwrap();
+    other.pragma_update(None, "user_version", 39).unwrap();
     assert_eq!(code(writer.store()), WriteErrorCode::Unsupported);
     other.pragma_update(None, "user_version", actual).unwrap();
     assert!(writer.store().is_ok());
