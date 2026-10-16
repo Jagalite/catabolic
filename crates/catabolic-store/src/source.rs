@@ -214,18 +214,26 @@ pub(crate) fn with_validated_source<T>(
         ));
     }
     let result = operation(&mut file)?;
-    let named = open_at(parent.as_raw_fd(), parts.last().unwrap(), false)?;
-    if revision(&file)? != before || revision(&named)? != before {
-        return Err(Error(
-            "source changed while reading; result discarded".into(),
-        ));
-    }
     let current = checked_root(snapshot)?;
     if root.metadata()?.dev() != current.metadata()?.dev()
         || root.metadata()?.ino() != current.metadata()?.ino()
     {
         return Err(Error(
             "source root changed while reading; result discarded".into(),
+        ));
+    }
+    // Re-walk the whole chain from the current root: a pinned parent moved
+    // outside the root would still resolve the old leaf by name.
+    let mut walked = current;
+    for part in &parts[..parts.len() - 1] {
+        walked = open_at(walked.as_raw_fd(), part, true)
+            .map_err(|_| Error("source changed while reading; result discarded".into()))?;
+    }
+    let named = open_at(walked.as_raw_fd(), parts.last().unwrap(), false)
+        .map_err(|_| Error("source changed while reading; result discarded".into()))?;
+    if revision(&file)? != before || revision(&named)? != before {
+        return Err(Error(
+            "source changed while reading; result discarded".into(),
         ));
     }
     Ok(result)
@@ -277,5 +285,38 @@ mod no_child_tests {
             })
             .is_err()
         );
+    }
+}
+
+#[cfg(test)]
+mod containment_tests {
+    use super::*;
+    #[test]
+    fn a_parent_moved_outside_the_root_discards_the_read() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("root");
+        std::fs::create_dir_all(root.join("sub")).unwrap();
+        std::fs::write(root.join("sub/file.bin"), b"bytes").unwrap();
+        let stat = std::fs::metadata(root.join("sub/file.bin")).unwrap();
+        let root_stat = std::fs::metadata(&root).unwrap();
+        let snapshot = json!({
+            "status": "present",
+            "root": root.to_str().unwrap(),
+            "path": "sub/file.bin",
+            "size": stat.size(),
+            "mtime_ns": i128::from(stat.mtime()) * 1_000_000_000 + i128::from(stat.mtime_nsec()),
+            "device": stat.dev(),
+            "inode": stat.ino(),
+            "root_device": root_stat.dev(),
+            "root_inode": root_stat.ino(),
+            "source_policy": {"settings": {}},
+        });
+        with_validated_source(&snapshot, |_| Ok(())).unwrap();
+        let error = with_validated_source(&snapshot, |_| {
+            std::fs::rename(root.join("sub"), dir.path().join("moved"))?;
+            Ok(())
+        })
+        .unwrap_err();
+        assert_eq!(error.0, "source changed while reading; result discarded");
     }
 }

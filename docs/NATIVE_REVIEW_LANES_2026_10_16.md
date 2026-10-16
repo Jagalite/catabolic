@@ -53,11 +53,11 @@ against frozen Python.
 | ID | Sev | Finding | Status |
 | --- | --- | --- | --- |
 | FS1 | P0 | Temporary and claim-marker cleanup unlinks by pathname after only a regular-file check, so it can delete a substituted foreign file. This includes release recovery (`filesystem_mutation.rs:552,556,1534`). | fixed: claims never create or delete temporaries; see [hardening](NATIVE_INTEGRITY_HARDENING.md) |
-| FS2 | P0 | Hardlink creation validates a pinned descriptor, then `linkat` re-resolves the source name. A substituted file or symlink becomes visible output (`hardlink_mutation.rs:455,479`). | open |
+| FS2 | P0 | Hardlink creation validates a pinned descriptor, then `linkat` re-resolves the source name. A substituted file or symlink becomes visible output (`hardlink_mutation.rs:455,479`). | fixed: staged, verified, exclusive publication; see [hardening](NATIVE_INTEGRITY_HARDENING.md) |
 | FS3 | P0 | Content snapshots omit ctime, so an edit with a restored mtime keeps the old revision. Direct serving of generated content does not enforce the artifact digest (`content_access.rs:135`, `source.rs:211`). Inherited from Python. | partly fixed: generated outputs are digest-verified on coarse filesystems. Source ctime remains open (A5) |
 | FS4 | P0 | Unrecognized orphaned private sidecars (rollback journals, zeroed headers) remain serveable (`content_access.rs:20,199`). This blocker was already known. | open |
 | FS5 | P1 | Recovery that finds the intended postcondition skips the parent-directory sync before acknowledging (`filesystem_mutation.rs:1342`, `hardlink_mutation.rs:564`). | fixed: ancestry is fsynced before every acknowledgement |
-| FS6 | P1 | A pinned directory descriptor moved outside the owned root stays usable. Source validation reopens the leaf through the old parent (`filesystem_mutation.rs:283`, `source.rs:217`). | open |
+| FS6 | P1 | A pinned directory descriptor moved outside the owned root stays usable. Source validation reopens the leaf through the old parent (`filesystem_mutation.rs:283`, `source.rs:217`). | fixed: containment re-walked after effects and reads |
 | FS7 | P1 | Incomplete event subscriptions re-dirty sources on every poll, which fences progressing scans (`source_events/platform.rs:122,192`, `source_events.rs:187`). | open |
 | FS8 | P1 | Watcher notifications duplicate when the process crashes between event commit and `finish` (`watcher.rs:987,1018`). Python shares this. | open |
 

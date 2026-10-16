@@ -436,6 +436,89 @@ fn desired(store: &Store, profile: &str, op: &Value) -> Result<Option<String>> {
         .transpose()
         .map(Option::flatten)
 }
+/// Whether a reserved internal leaf exists, without following symlinks.
+/// Reserved `.catabolic` names bypass catalog path validation by design.
+fn leaf_exists(dir: &File, leaf: &str) -> Result<bool> {
+    match stat_at(dir, leaf) {
+        Ok(_) => Ok(true),
+        Err(e) if absent(&e) => Ok(false),
+        Err(e) => Err(e),
+    }
+}
+/// Create a hard link to the source pinned by `opened`. Linux links the exact
+/// inode through its descriptor, so the source name is never resolved again.
+/// Other platforms re-resolve the name without following symlinks; callers
+/// verify the new entry before publishing it.
+fn link_pinned(opened: &File, src: &File, src_name: &str, dst: &File, leaf: &str) -> Result<()> {
+    let leaf_c = cstring(leaf)?;
+    let link_named = || -> std::result::Result<(), std::io::Error> {
+        let src_name = cstring(src_name).map_err(|e| std::io::Error::other(e.0))?;
+        // SAFETY: verified source/destination descriptors and names are live.
+        // Without AT_SYMLINK_FOLLOW a raced symlink is never followed.
+        let rc = unsafe {
+            libc::linkat(
+                src.as_raw_fd(),
+                src_name.as_ptr(),
+                dst.as_raw_fd(),
+                leaf_c.as_ptr(),
+                0,
+            )
+        };
+        if rc == 0 {
+            Ok(())
+        } else {
+            Err(std::io::Error::last_os_error())
+        }
+    };
+    #[cfg(target_os = "linux")]
+    let result = {
+        let path = cstring(&format!("/proc/self/fd/{}", opened.as_raw_fd()))?;
+        // SAFETY: live descriptor path and destination; AT_SYMLINK_FOLLOW
+        // resolves the descriptor's magic link to the pinned inode itself.
+        let rc = unsafe {
+            libc::linkat(
+                libc::AT_FDCWD,
+                path.as_ptr(),
+                dst.as_raw_fd(),
+                leaf_c.as_ptr(),
+                libc::AT_SYMLINK_FOLLOW,
+            )
+        };
+        let error = (rc != 0).then(std::io::Error::last_os_error);
+        match error {
+            None => Ok(()),
+            // Without a mounted /proc, fall back to the verified named link.
+            Some(e)
+                if e.raw_os_error() == Some(libc::ENOENT)
+                    && !std::path::Path::new("/proc/self/fd").is_dir() =>
+            {
+                link_named()
+            }
+            Some(e) => Err(e),
+        }
+    };
+    #[cfg(not(target_os = "linux"))]
+    let result = {
+        let _ = opened;
+        link_named()
+    };
+    let Err(error) = result else {
+        return Ok(());
+    };
+    match error.raw_os_error() {
+        Some(libc::EXDEV) => Err(Error("cross-filesystem hardlink rejected by filesystem (EXDEV); choose a symlink catalog; no fallback".into())),
+        // The pinned or named source disappeared after validation.
+        Some(libc::ENOENT) => Err(Error(
+            "source changed during hardlink creation; scan and recover".into(),
+        )),
+        Some(code) if [libc::EPERM, libc::EACCES, libc::ENOTSUP, libc::EROFS].contains(&code) => {
+            Err(Error(format!(
+                "filesystem or permissions rejected hardlink creation: {error}; no fallback"
+            )))
+        }
+        _ => Err(error.into()),
+    }
+}
 fn create(
     store: &Store,
     profile: &str,
@@ -473,35 +556,42 @@ fn create(
     }
     observer("before_link", op)?;
     fs::failpoint(args, "before_link")?;
-    let src_name = cstring(&src_name)?;
-    let dst_name_c = cstring(&dst_name)?;
-    // SAFETY: verified source/destination descriptors and names are live.
-    // Without AT_SYMLINK_FOLLOW, a raced symlink is never followed, and the
-    // post-link identity check preserves any unexpected entry for inspection.
-    if unsafe {
-        libc::linkat(
-            src.as_raw_fd(),
-            src_name.as_ptr(),
-            dst.as_raw_fd(),
-            dst_name_c.as_ptr(),
-            0,
-        )
-    } < 0
+    // Link into a staging name, verify it, then publish by exclusive rename.
+    // A source raced after validation can only reach the staging name, where
+    // it is preserved for inspection; it never becomes the selected output.
+    // The name is derived from the journal operation so recovery finds it.
+    let staged = format!(".catabolic-hardlink-{}", field(op, "id")?);
+    if !leaf_exists(&dst, &staged)? {
+        link_pinned(&opened, &src, &src_name, &dst, &staged)?;
+        dst.sync_all()?;
+    }
+    let linked = stat_at(&dst, &staged)?;
+    if !matches(Some(&linked), raw)?
+        || linked["size"] != target["size"]
+        || linked["mtime_ns"] != target["mtime_ns"]
     {
-        let error = std::io::Error::last_os_error();
-        if error.raw_os_error() == Some(libc::EXDEV) {
-            return Err(Error("cross-filesystem hardlink rejected by filesystem (EXDEV); choose a symlink catalog; no fallback".into()));
-        }
-        if [libc::EPERM, libc::EACCES, libc::ENOTSUP, libc::EROFS]
-            .contains(&error.raw_os_error().unwrap_or(0))
-        {
-            return Err(Error(format!(
-                "filesystem or permissions rejected hardlink creation: {error}; no fallback"
-            )));
-        }
-        return Err(error.into());
+        return Err(Error(format!(
+            "source changed during hardlink creation; staged entry {staged} preserved for inspection"
+        )));
+    }
+    // Walk from a freshly validated output root so a relocated root or
+    // ancestor is detected, not just a moved destination directory.
+    let fresh = || -> Result<File> {
+        let output = observation::binding(store, profile, "output", field(op, "catalog")?)?;
+        Ok(observation::checked_root(store, profile, &output)?.0)
+    };
+    fs::verify_containment(&fresh()?, field(op, "path")?, &dst)?;
+    if let Err(error) = rename_noreplace(&dst, &staged, &dst, &dst_name) {
+        return Err(if state(&dst, &dst_name)?.is_some() {
+            Error(format!(
+                "hardlink destination appeared during creation; staged entry {staged} preserved"
+            ))
+        } else {
+            Error(format!("{}; staged entry {staged} preserved", error.0))
+        });
     }
     dst.sync_all()?;
+    fs::verify_containment(&fresh()?, field(op, "path")?, &dst)?;
     let current = stat_at(&dst, &dst_name)?;
     if !matches(Some(&current), raw)?
         || current["size"] != target["size"]
@@ -625,6 +715,16 @@ pub fn cancel_obsolete(store: &Store, profile: &str, op: &Value, force: bool) ->
         };
         if !obsolete {
             return Ok(false);
+        }
+    }
+    // An interrupted creation may have staged a link that is now the source
+    // inode's only reference; never orphan it by clearing the intent.
+    if let Ok((parent, _)) = fs::parent(&root, field(op, "path")?, false) {
+        let staged = format!(".catabolic-hardlink-{}", field(op, "id")?);
+        if leaf_exists(&parent, &staged)? {
+            return Err(Error(format!(
+                "staged hardlink {staged} exists; inspect it before cancelling"
+            )));
         }
     }
     // A retention rename may have preceded a crash that skipped the source
@@ -834,6 +934,48 @@ mod tests {
         );
     }
     #[test]
+    fn interrupted_staging_publishes_only_a_verified_staged_link() {
+        let (_temporary, store, source, output) = fixture();
+        let op = intent(&store, "hard_create");
+        std::fs::create_dir_all(output.join("folder")).unwrap();
+        let staged = output.join(format!(
+            "folder/.catabolic-hardlink-{}",
+            op["id"].as_str().unwrap()
+        ));
+        // A foreign staged entry is refused and preserved, never published.
+        std::fs::write(&staged, "foreign staged bytes").unwrap();
+        let error =
+            execute(&store, "default", &op, &json!({"disposable_fixture":true})).unwrap_err();
+        assert!(error.0.contains("preserved for inspection"), "{error:?}");
+        assert!(!output.join("folder/one.txt").exists());
+        assert_eq!(std::fs::read(&staged).unwrap(), b"foreign staged bytes");
+        // Cancelling the intent would orphan the staged entry; it is refused.
+        let error = cancel_obsolete(&store, "default", &op, true).unwrap_err();
+        assert!(
+            error.0.contains("inspect it before cancelling"),
+            "{error:?}"
+        );
+        assert_eq!(std::fs::read(&staged).unwrap(), b"foreign staged bytes");
+        // A staged link to the recorded source, left by an interrupted
+        // predecessor, is verified and published on recovery.
+        std::fs::remove_file(&staged).unwrap();
+        std::fs::hard_link(source.join("one.txt"), &staged).unwrap();
+        // Public recovery consults cancellation first; a still-desired staged
+        // creation is not cancelled but verified and published.
+        crate::filesystem_mutation::execute(
+            &store,
+            "default",
+            "recover",
+            &json!({"catalog":"global","disposable_fixture":true}),
+        )
+        .unwrap();
+        assert!(!staged.exists());
+        assert_eq!(
+            std::fs::read(output.join("folder/one.txt")).unwrap(),
+            b"original source"
+        );
+    }
+    #[test]
     fn swapped_source_is_preserved_for_inspection_without_false_ownership() {
         let (_temporary, store, source, output) = fixture();
         let op = intent(&store, "hard_create");
@@ -852,10 +994,19 @@ mod tests {
         )
         .unwrap_err();
         assert!(error.0.contains("source changed during hardlink creation"));
-        assert_eq!(
-            std::fs::read(output.join("folder/one.txt")).unwrap(),
-            b"new raced inode"
-        );
+        // The raced source never becomes the selected output.
+        assert!(!output.join("folder/one.txt").exists());
+        let staged = output.join(format!(
+            "folder/.catabolic-hardlink-{}",
+            op["id"].as_str().unwrap()
+        ));
+        if cfg!(target_os = "linux") {
+            // The pinned (since unlinked) inode cannot be linked at all.
+            assert!(!staged.exists());
+        } else {
+            // A name-based link reached only the staging name, preserved there.
+            assert_eq!(std::fs::read(&staged).unwrap(), b"new raced inode");
+        }
         assert!(
             !store
                 .db

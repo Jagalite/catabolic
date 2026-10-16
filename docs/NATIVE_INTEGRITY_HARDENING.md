@@ -74,3 +74,48 @@ This covers both symlink and hardlink execution, and hardlink cancellation
 after retention. Claim recovery also fsyncs the marker and the root.
 Resolving a retention directory fsyncs the retention root and the
 per-operation directory.
+
+## Hardlink creation publishes only a verified staged link (FS2)
+
+Hardlink creation used to validate a pinned source descriptor and then link the
+source by name. A file substituted in between became the selected output.
+
+Creation now links into `.catabolic-hardlink-<journal operation id>` in the
+destination directory:
+
+- On Linux the link targets the pinned inode itself, through
+  `/proc/self/fd/N` with `AT_SYMLINK_FOLLOW`. If that inode has since been
+  unlinked, the operation is refused.
+- On other platforms the source name is linked without following symlinks.
+
+The staged entry is checked against the recorded identity, size and mtime. It
+is then published by exclusive rename and checked again. A mismatched staged
+entry is preserved for inspection and never published.
+
+Recovery reuses a staged entry left by an interrupted predecessor, but only
+after verifying it. Cancellation refuses while a staged entry exists, because
+the staged link may be the source inode's last reference.
+
+Remaining limits:
+
+- A writer in the output directory could replace the staged entry between
+  verification and rename. The final check reports it, but the entry has
+  already been published. Such a writer can already modify outputs directly,
+  which falls outside exclusive output management.
+- Frozen Python does not know about staging. If Python recovers an operation
+  that native code staged, it creates the final link itself and leaves the
+  staged entry behind. Handover qualification (work plan C7) has to account
+  for this.
+
+## Containment is re-verified after effects (FS6)
+
+A directory opened during an operation could be moved outside the owned root
+and still accept effects.
+
+- **Source reads** re-walk the whole path from a freshly checked root after
+  reading, instead of reopening the leaf through the old parent.
+- **Symlink and hardlink effects** re-walk the destination path from the output
+  root and require the same parent directory inode.
+
+A moved directory is reported as `output directory moved during operation`.
+An effect that has already landed outside the root is reported, not undone.

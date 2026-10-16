@@ -316,6 +316,22 @@ pub(crate) fn sync_ancestry(root: &File, path: &str) -> Result<()> {
     }
     Ok(())
 }
+/// Confirm that `parent`, pinned while operating on `path`, is still the
+/// directory reached by walking `path` from `root`. Callers pass a freshly
+/// opened and validated output root, so a pinned directory, the root itself or
+/// one of its ancestors moved elsewhere is detected rather than acknowledged.
+pub(crate) fn verify_containment(root: &File, path: &str, parent: &File) -> Result<()> {
+    let moved = || {
+        Error(format!(
+            "output directory moved during operation; inspect {path}"
+        ))
+    };
+    let (walked, _) = self::parent(root, path, false).map_err(|_| moved())?;
+    if identity(&walked.metadata()?) != identity(&parent.metadata()?) {
+        return Err(moved());
+    }
+    Ok(())
+}
 pub(crate) fn identity(metadata: &Metadata) -> (u64, u64) {
     (metadata.dev(), metadata.ino())
 }
@@ -1391,6 +1407,11 @@ fn execute_operation_context(
                         }
                     }
                     parent.sync_all()?;
+                    verify_containment(
+                        &crate::observation::checked_root(context.store(), profile, &output)?.0,
+                        path,
+                        &parent,
+                    )?;
                 }
             }
             "remove" | "forget" => {
@@ -1411,6 +1432,11 @@ fn execute_operation_context(
                     before_destructive_leaf();
                     unlink(&parent, &leaf)?;
                     parent.sync_all()?;
+                    verify_containment(
+                        &crate::observation::checked_root(context.store(), profile, &output)?.0,
+                        path,
+                        &parent,
+                    )?;
                 }
             }
             _ => return Err(Error(format!("unknown journal operation: {kind}"))),
@@ -1798,6 +1824,30 @@ mod tests {
             .collect::<Vec<_>>();
         names.sort();
         names
+    }
+    #[test]
+    fn pinned_directories_moved_outside_the_root_are_detected() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("root/a")).unwrap();
+        let root = File::open(dir.path().join("root")).unwrap();
+        let (pinned, leaf) = parent(&root, "a/link", false).unwrap();
+        assert_eq!(leaf, "link");
+        verify_containment(&root, "a/link", &pinned).unwrap();
+        std::fs::rename(dir.path().join("root/a"), dir.path().join("outside")).unwrap();
+        assert!(verify_containment(&root, "a/link", &pinned).is_err());
+        // A different directory recreated at the same name is also refused.
+        std::fs::create_dir(dir.path().join("root/a")).unwrap();
+        let error = verify_containment(&root, "a/link", &pinned).unwrap_err();
+        assert!(error.0.contains("output directory moved"), "{error:?}");
+        // Relocating the root itself is caught by walking from a fresh root.
+        std::fs::create_dir_all(dir.path().join("root2/b")).unwrap();
+        let old_root = File::open(dir.path().join("root2")).unwrap();
+        let (pinned, _) = parent(&old_root, "b/link", false).unwrap();
+        std::fs::rename(dir.path().join("root2"), dir.path().join("relocated")).unwrap();
+        std::fs::create_dir_all(dir.path().join("root2/b")).unwrap();
+        verify_containment(&old_root, "b/link", &pinned).unwrap();
+        let fresh = File::open(dir.path().join("root2")).unwrap();
+        assert!(verify_containment(&fresh, "b/link", &pinned).is_err());
     }
     #[test]
     fn claims_never_delete_temporaries_and_create_only_the_marker() {
