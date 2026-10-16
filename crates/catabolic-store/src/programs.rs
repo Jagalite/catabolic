@@ -235,6 +235,20 @@ impl Export<'_> {
                     for tier in value["fallbacks"].as_array().into_iter().flatten() {
                         self.add("queries", tier["query_id"].as_str().unwrap())?;
                     }
+                    // Native correction (docs/RUST_MIGRATION_DEFINITIONS.md):
+                    // frozen Python omits package component tiers and the
+                    // packaging operation, so its bundles are not dependency-closed.
+                    let package = &value["package"];
+                    for requirement in package["requirements"].as_array().into_iter().flatten() {
+                        for tier in requirement["fallbacks"].as_array().into_iter().flatten() {
+                            if let Some(id) = tier["query_id"].as_str() {
+                                self.add("queries", id)?;
+                            }
+                        }
+                    }
+                    if let Some(id) = package["operation_id"].as_str().filter(|s| !s.is_empty()) {
+                        self.add("operations", id)?;
+                    }
                 } else {
                     if let Some(operation) =
                         value["operation_id"].as_str().filter(|s| !s.is_empty())
@@ -372,6 +386,11 @@ impl<F: Fn(&str, &Value) -> Result<Value>> Import<'_, F> {
         }
         Ok(value)
     }
+    fn carries(&self, kind: &str, reference: &Value) -> bool {
+        reference
+            .as_str()
+            .is_some_and(|id| self.bundle[kind].get(id).is_some())
+    }
     fn put(&mut self, kind: &str, reference: &Value) -> Result<String> {
         let id = reference
             .as_str()
@@ -395,6 +414,35 @@ impl<F: Fn(&str, &Value) -> Result<Value>> Import<'_, F> {
                     .ok_or_else(|| Error("fallback tiers must be an array".into()))?;
                 for tier in tiers {
                     tier["query_id"] = json!(self.put("queries", &tier["query_id"])?);
+                }
+                // Native correction: remap package references that the bundle
+                // carries. Absent references stay literal, as in frozen Python,
+                // so older bundles keep their previous same-catalog behavior.
+                if let Some(package) = value.get_mut("package").and_then(Value::as_object_mut) {
+                    let requirements = package
+                        .get_mut("requirements")
+                        .and_then(Value::as_array_mut)
+                        .into_iter()
+                        .flatten();
+                    for requirement in requirements {
+                        let tiers = requirement
+                            .get_mut("fallbacks")
+                            .and_then(Value::as_array_mut)
+                            .into_iter()
+                            .flatten();
+                        for tier in tiers.filter_map(Value::as_object_mut) {
+                            if let Some(query) = tier.get_mut("query_id")
+                                && self.carries("queries", query)
+                            {
+                                *query = json!(self.put("queries", query)?);
+                            }
+                        }
+                    }
+                    if let Some(operation) = package.get_mut("operation_id")
+                        && self.carries("operations", operation)
+                    {
+                        *operation = json!(self.put("operations", operation)?);
+                    }
                 }
                 crate::fallback_mutation::put(
                     self.store,
@@ -909,5 +957,124 @@ finally:
                 };
             assert_eq!(actual, expected, "{raw}");
         }
+    }
+
+    /// Native correction BD3: package component tiers and the packaging
+    /// operation are exported and remapped, so a fresh catalog can import them.
+    #[test]
+    fn package_policy_bundles_are_dependency_closed_across_catalogs() {
+        let root = tempfile::tempdir().unwrap();
+        let source = store(root.path(), "source.db");
+        let put = |name: &str, sql: &str| {
+            definitions::query_put(&source, "default", name, &query(sql)).unwrap()["id"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        };
+        let main = put("main", "SELECT item_id FROM catalog_items");
+        let audio = put(
+            "audio",
+            "SELECT item_id FROM catalog_items WHERE kind='audio'",
+        );
+        let operation = media_mutation::operation_put(
+            &source,
+            "package",
+            &json!({"kind":"analysis","operation":"probe","options":{}}),
+        )
+        .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let policy = crate::fallback_mutation::put(
+            &source,
+            "default",
+            "packaged",
+            &json!({"fallbacks":[{"name":"main","query_id":main}],"package":{"requirements":[{"name":"audio","fallbacks":[{"name":"alt","query_id":audio}]}],"operation_id":operation}}),
+        )
+        .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let bundle = export(&source, "default", &json!({"fallback_policies":[policy]})).unwrap();
+        assert!(bundle["queries"].get(&audio).is_some(), "{bundle}");
+        assert!(bundle["operations"].get(&operation).is_some(), "{bundle}");
+
+        let destination = store(root.path(), "destination.db");
+        let result = import(
+            &destination,
+            "default",
+            &json!({"value":bundle,"prefix":"moved"}),
+            |name, definition| media_mutation::operation_put(&destination, name, definition),
+        )
+        .unwrap();
+        let references = &result["references"];
+        let imported = crate::fallback_mutation::get(
+            &destination,
+            "default",
+            references["fallback_policies"][&policy].as_str().unwrap(),
+        )
+        .unwrap();
+        let package = &imported["definition"]["package"];
+        assert_eq!(
+            package["requirements"][0]["fallbacks"][0]["query_id"],
+            references["queries"][&audio]
+        );
+        assert_eq!(
+            package["operation_id"],
+            references["operations"][&operation]
+        );
+        assert_ne!(package["operation_id"], json!(operation));
+        let dependencies: i64 = destination
+            .db
+            .query_row(
+                "SELECT count(*) FROM fallback_dependencies WHERE policy_id=?",
+                [imported["id"].as_str().unwrap()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(dependencies, 2);
+    }
+
+    /// References a bundle does not carry stay literal, as frozen Python leaves
+    /// them, so bundles exported before the correction keep importing in place.
+    #[test]
+    fn package_references_absent_from_older_bundles_stay_literal() {
+        let root = tempfile::tempdir().unwrap();
+        let store = store(root.path(), "same.db");
+        let main = definitions::query_put(
+            &store,
+            "default",
+            "main",
+            &query("SELECT item_id FROM catalog_items"),
+        )
+        .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let audio = definitions::query_put(
+            &store,
+            "default",
+            "audio",
+            &query("SELECT item_id FROM catalog_items WHERE kind='audio'"),
+        )
+        .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let definition = json!({"fallbacks":[{"name":"main","query_id":"m"}],"package":{"requirements":[{"name":"audio","fallbacks":[{"name":"alt","query_id":audio}]}]}});
+        let bundle = json!({"format":"catabolic.program","version":2,"queries":{"m":{"name":"main","definition":definitions::query_get(&store,"default",&main).unwrap()["definition"]}},"outputs":{},"operations":{},"rules":{},"layouts":{},"projections":{},"fallback_policies":{"p":{"name":"packaged","definition":definition}}});
+        let result = import(&store, "default", &json!({"value":bundle}), no_operations).unwrap();
+        let imported = crate::fallback_mutation::get(
+            &store,
+            "default",
+            result["references"]["fallback_policies"]["p"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            imported["definition"]["package"]["requirements"][0]["fallbacks"][0]["query_id"],
+            json!(audio)
+        );
     }
 }

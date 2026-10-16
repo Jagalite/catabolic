@@ -47,6 +47,29 @@ until the wider cutover gates are satisfied.
   its SQLite snapshot and cumulative 4 MiB/deadline budget. Fallback/projection
   plan **execution** still requires the future native resolution/publication owner.
 
+### Program bundle native correction 1: package policy closure
+
+Frozen Python (`453fca9`) exports only a fallback policy's top-level
+`fallbacks[].query_id` references, and imports remap only those. Queries named by
+`package.requirements[].fallbacks[].query_id` and the packaging operation in
+`package.operation_id` are omitted, so exporting a package policy and importing it
+into a fresh catalog fails. That contradicts the dependency-closed bundle
+contract above. The native owner therefore deliberately differs from frozen Python:
+
+- Export adds every package requirement tier query, in requirement and tier
+  order after the top-level tiers, then a non-empty `package.operation_id` as an
+  `operations` record. Bundle format and version numbers are unchanged.
+- Import remaps package tier queries and the packaging operation when the bundle
+  carries the referenced record. References a bundle does not carry stay literal,
+  as frozen Python leaves them, so bundles exported before this correction keep
+  importing into their source catalog as before and still fail elsewhere.
+
+Frozen Python importing a natively exported package bundle behaves as it does
+for its own export: the extra records are imported but its policy keeps foreign
+references. This was requested by review finding BD3 (2026-10-16). It is a
+documented semantic difference from frozen Python, not a parity claim. The
+`programs` unit tests cover cross-catalog closure and literal older references.
+
 Bundle and binding objects are traversed in source insertion order, as frozen
 Python's dictionaries are. `serde_json` maps are sorted, so entry points that
 hold the request text (CLI request arguments, `program import` files and the
