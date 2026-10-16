@@ -20,6 +20,59 @@ fn flag(args: &mut Vec<String>, name: &str) -> bool {
         false
     }
 }
+/// Write an operator artifact once. An existing pathname, including a symlink, is
+/// refused rather than replaced so an approved plan cannot be silently overwritten.
+fn write_new_file(path: &Path, value: &Value) -> Result<()> {
+    use std::{io::Write, os::unix::fs::OpenOptionsExt};
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)
+        .map_err(|error| Error(format!("cannot create {}: {error}", path.display())))?;
+    file.write_all(serde_json::to_string_pretty(value)?.as_bytes())?;
+    file.write_all(b"\n")?;
+    file.sync_all()?;
+    Ok(())
+}
+/// Read a bounded JSON operator artifact without following a final symlink.
+fn read_json_file(path: &Path) -> Result<Value> {
+    use std::{io::Read, os::unix::fs::OpenOptionsExt};
+    const LIMIT: u64 = 256 * 1024 * 1024;
+    let mut raw = Vec::new();
+    std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(path)
+        .map_err(|error| Error(format!("cannot read {}: {error}", path.display())))?
+        .take(LIMIT + 1)
+        .read_to_end(&mut raw)?;
+    if raw.len() as u64 > LIMIT {
+        return Err(Error(format!("{} exceeds 256 MiB", path.display())));
+    }
+    Ok(catabolic_core::decode_json_bytes(&raw)?)
+}
+/// Each operator assertion is named explicitly; unknown names are refused and
+/// missing names are left for the store's own quiescence refusal.
+fn quiescence(assertions: &[String]) -> Result<migration::NativeUpgradeQuiescence> {
+    let mut quiescence = migration::NativeUpgradeQuiescence::default();
+    for assertion in assertions {
+        match assertion.as_str() {
+            "admission-stopped" => quiescence.admission_stopped = true,
+            "readers-and-workers-stopped" => quiescence.readers_and_workers_stopped = true,
+            "exclusive-operational-ownership" => {
+                quiescence.exclusive_operational_ownership = true;
+            }
+            other => {
+                return Err(Error(format!(
+                    "unknown --assert-quiescent value {other:?}; expected admission-stopped, readers-and-workers-stopped or exclusive-operational-ownership"
+                )));
+            }
+        }
+    }
+    Ok(quiescence)
+}
 fn run(mut args: Vec<String>) -> Result<Value> {
     let path =
         PathBuf::from(argument(&mut args, "--db")?.unwrap_or_else(|| "catabolic.sqlite3".into()));
@@ -28,6 +81,36 @@ fn run(mut args: Vec<String>) -> Result<Value> {
     let dry_run = flag(&mut args, "--dry-run");
     let backup = argument(&mut args, "--backup-dir")?.map(PathBuf::from);
     let failpoint = argument(&mut args, "--migration-failpoint")?;
+    let failure = |stage: &str, version: u32| {
+        if failpoint.as_deref() == Some(&format!("{stage}:{version}")) {
+            return Err(Error(format!(
+                "injected migration failure: {stage}:{version}"
+            )));
+        }
+        Ok(())
+    };
+    // Lifecycle options are only consumed for db commands, so other command
+    // families keep their existing argument errors.
+    let lifecycle = args.first().is_some_and(|command| command == "db");
+    let mut plan_out = None;
+    let mut plan_in = None;
+    let mut assertions = Vec::new();
+    if lifecycle {
+        plan_out = argument(&mut args, "--out")?.map(PathBuf::from);
+        plan_in = argument(&mut args, "--plan")?.map(PathBuf::from);
+        while let Some(assertion) = argument(&mut args, "--assert-quiescent")? {
+            assertions.push(assertion);
+        }
+        let sub = args.get(1).map(String::as_str);
+        if plan_out.is_some() && sub != Some("native-plan") {
+            return Err(Error("--out is only accepted by db native-plan".into()));
+        }
+        if (plan_in.is_some() || !assertions.is_empty()) && sub != Some("native-upgrade") {
+            return Err(Error(
+                "--plan and --assert-quiescent are only accepted by db native-upgrade".into(),
+            ));
+        }
+    }
     let options = argument(&mut args, "--options")?.unwrap_or_else(|| "{}".into());
     let variables = argument(&mut args, "--variables")?.unwrap_or_else(|| "{}".into());
     let operation = argument(&mut args, "--operation-name")?;
@@ -222,13 +305,40 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         [command, sub] if command == "db" && sub == "inspect" => migration::inspect(&path, full),
         [command, sub] if command == "db" && sub == "upgrade" => {
             migration::upgrade(&path, dry_run, backup.as_deref(), &|stage, _, version| {
-                if failpoint.as_deref() == Some(&format!("{stage}:{version}")) {
-                    return Err(Error(format!(
-                        "injected migration failure: {stage}:{version}"
-                    )));
-                }
-                Ok(())
+                failure(stage, version)
             })
+        }
+        [command, sub] if command == "db" && sub == "native-inspect" => {
+            migration::inspect_native(&path, full)
+        }
+        [command, sub] if command == "db" && sub == "native-plan" => {
+            let out = plan_out.ok_or_else(|| Error("db native-plan requires --out PLAN.json".into()))?;
+            let plan = migration::plan_native(&path)?;
+            write_new_file(&out, &plan)?;
+            Ok(json!({
+                "database":plan["input"]["database"], "database_id":plan["input"]["database_id"],
+                "plan":std::path::absolute(&out)?, "plan_fingerprint":plan["plan_fingerprint"],
+                "input_fingerprint":plan["input_fingerprint"], "from_schema":plan["from_schema"],
+                "to_schema":plan["to_schema"], "migrations":plan["migrations"],
+                "work_settled":plan["work_settled"], "pending_work":plan["input"]["pending_work"],
+                "journal_mode":plan["input"]["journal_mode"],
+                "quiescence_required":plan["quiescence_required"],
+                "quiescence_preconditions":plan["quiescence_preconditions"]
+            }))
+        }
+        [command, sub] if command == "db" && sub == "native-upgrade" => {
+            let plan = plan_in.ok_or_else(|| {
+                Error("db native-upgrade requires --plan PLAN.json from db native-plan".into())
+            })?;
+            let quiescence = quiescence(&assertions)?;
+            let plan = read_json_file(&plan)?;
+            migration::upgrade_native(
+                &path,
+                &plan,
+                quiescence,
+                backup.as_deref(),
+                &|stage, _, version| failure(stage, version),
+            )
         }
         [command, sub] if command == "db" && sub == "snapshot" => {
             let path = catabolic_store::database_path(Path::new(&path))?;
@@ -473,7 +583,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             )
         }
         _ => Err(Error(
-            "supported commands: init, db inspect, db upgrade, db snapshot, encode, --version"
+            "supported commands: init, db inspect, db upgrade, db snapshot, db native-inspect, db native-plan, db native-upgrade, encode, --version"
                 .into(),
         )),
     }
