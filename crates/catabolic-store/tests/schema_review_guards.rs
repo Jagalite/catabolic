@@ -541,6 +541,147 @@ fn sc2_schema38_real_metadata_command_records_its_receipt_obligation() {
     migration::validate(&f.store.db, true).unwrap();
 }
 
+// SC3 ----------------------------------------------------------------------
+
+#[test]
+fn sc3_schema38_curation_records_cannot_reuse_a_committed_receipt() {
+    let f = Fixture::new(38);
+    let secret = tag(&f.store, "secret");
+    // Real receipt-last owners still commit under the sealing guards.
+    committed(
+        &suppress(
+            &f.store,
+            "sealed",
+            TagSubject::Item("item-a".into()),
+            &secret,
+            None,
+        )
+        .unwrap(),
+    );
+    let pin_grant = PinAuthority {
+        host_namespace: HOST.into(),
+        readable: BTreeMap::new(),
+        mutable: [(NS.into(), BTreeSet::from(["item-a".to_string()]))].into(),
+    };
+    let batch = PinBatch {
+        contract_version: 1,
+        changes: vec![PinChange {
+            item_id: "item-a".into(),
+            namespace: NS.into(),
+            expected_revision: 0,
+            decision: PinDecision::Set {
+                value: "accepted".into(),
+            },
+        }],
+    };
+    let preview = pins::preview_pins(&f.store, &batch, &pin_grant).unwrap();
+    let request = CommandEnvelope::new(
+        1,
+        CommandKey::new(&f.store.database_id, HOST, "pin").unwrap(),
+        preview.incarnation.clone(),
+        preview.expected_generation,
+        &json!({"operation":"pins","mutation":PinMutation{batch,preview_digest:preview.digest.clone()}}).to_string(),
+    )
+    .unwrap();
+    committed(
+        &commands::execute_with_authority(
+            &f.store,
+            &request,
+            CatalogAuthority::new(base()).with_pins(&pin_grant),
+            policy(),
+        )
+        .unwrap(),
+    );
+
+    let sealed = "catalog_committed_history_sealed";
+    let (catalog, incarnation) = (
+        f.store.database_id.clone(),
+        f.store.catalog_incarnation.clone().unwrap(),
+    );
+    let attempts: Vec<(&str, Box<dyn Fn(&Connection, &str) -> rusqlite::Result<()>>)> = vec![
+        (
+            "catalog_tag_suppression_revisions",
+            Box::new(|db, op| {
+                db.execute("INSERT INTO catalog_tag_suppression_revisions VALUES('item','item-b',?,1,1,'forged',0,?,?,?)", params![secret, catalog, HOST, op])?;
+                Ok(())
+            }),
+        ),
+        (
+            "catalog_tag_merges",
+            Box::new(|db, op| {
+                db.execute(
+                    "INSERT INTO catalog_tag_merges VALUES('retired-x','target-y','{}',0,?,?,?)",
+                    params![catalog, HOST, op],
+                )?;
+                Ok(())
+            }),
+        ),
+        (
+            "catalog_identity_pin_revisions",
+            Box::new(|db, op| {
+                db.execute("INSERT INTO catalog_identity_pin_revisions VALUES('item-b',?,1,'forged',0,?,?,?)", params![NS, catalog, HOST, op])?;
+                Ok(())
+            }),
+        ),
+        (
+            "catalog_metadata_subjects",
+            Box::new(|db, op| raw_subject(db, &f.store, op)),
+        ),
+        (
+            "catalog_logical_retirements",
+            Box::new(|db, op| {
+                db.execute("INSERT INTO catalog_logical_edit_permits(operation_id,incarnation) VALUES(?,?)", params![op, incarnation])?;
+                db.execute("INSERT INTO catalog_logical_retirements VALUES('item-a','merge','item-b','[]','{}',?,?,?,0)", params![catalog, HOST, op])?;
+                Ok(())
+            }),
+        ),
+    ];
+    for (table, attempt) in &attempts {
+        for op in ["sealed", "pin"] {
+            let message = raw_transaction(&f.store, |db| attempt(db, op))
+                .unwrap_err()
+                .to_string();
+            assert!(message.contains(sealed), "{table}/{op}: {message}");
+        }
+    }
+    // History needs an existing subject, so seal it in the same transaction as
+    // a valid subject keyed by a fresh, receipted command.
+    let message = raw_transaction(&f.store, |db| {
+        raw_subject(db, &f.store, "fresh")?;
+        raw_history(db, &f.store, "sealed")
+    })
+    .unwrap_err()
+    .to_string();
+    assert!(
+        message.contains(sealed),
+        "catalog_metadata_history: {message}"
+    );
+    drop(attempts);
+
+    // Version retirement needs a live version owner; isolate the new trigger on
+    // a separate rolled-back connection without the schema-34 guard or FKs.
+    let isolated = Connection::open(&f.path).unwrap();
+    isolated.pragma_update(None, "foreign_keys", false).unwrap();
+    isolated
+        .execute_batch("BEGIN IMMEDIATE; DROP TRIGGER catalog_version_retirement_guard;")
+        .unwrap();
+    let insert = |op: &str| {
+        isolated.execute(
+            "INSERT INTO catalog_version_retirements(version_id,version_revision,command_catalog_id,command_host_namespace,command_operation_id,recorded_at_us) VALUES(?,1,?,?,?,0)",
+            params![format!("version-{op}"), f.store.database_id, HOST, op],
+        )
+    };
+    let message = error(insert("sealed"));
+    assert!(
+        message.contains(sealed),
+        "catalog_version_retirements: {message}"
+    );
+    insert("not-yet-receipted").unwrap();
+    isolated.execute_batch("ROLLBACK").unwrap();
+    drop(isolated);
+    migration::validate(&f.store.db, true).unwrap();
+}
+
 // SC5 ----------------------------------------------------------------------
 
 #[test]

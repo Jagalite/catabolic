@@ -43,10 +43,10 @@
     "crates/catabolic-store/resources/migrations/035_native_search.sql": "b2b68911dc9cdf60b6a318a3671996a6675779004c80102c34ba0d816a13ac56",
     "crates/catabolic-store/resources/migrations/036_native_execution_cleanup.sql": "f729bf358d866cdb42daeb9cd984127b71ca420af0127e7ff8944234cf99087f",
     "crates/catabolic-store/resources/migrations/037_native_observation_companions.sql": "a6faf6ec36622efcdeb70275b759ad60e3db1fb931f2e9c50041f8a496d791d7",
-    "crates/catabolic-store/resources/migrations/038_native_review_guards.sql": "079b6d779080858a8a620b0b0fc535e43a04bd6a5ccebdd27c7c0d27b766a544",
+    "crates/catabolic-store/resources/migrations/038_native_review_guards.sql": "482f39c08a06af2348e92a5eba9e98dfb2b58749d99b94b1df17f246a7060d2d",
     "crates/catabolic-store/resources/native-schema-37.json": "35c77c61ae4143407d96c59bdb3ad22e821dc01c7a9eca78e32a3cccc4de14d6"
   },
-  "signature_sha256": "604d414b4c167d66b0e997d42c831a38635f638945b2b5c6801f0803e94e1cef",
+  "signature_sha256": "0920d18cc934da98ef2743427270286f35d4948dc00895d90e4187004f89ec8c",
   "historical_ddl_preserved": true,
   "migration_generation_preserved": true,
   "new_tables": {
@@ -75,7 +75,19 @@
     ],
     [
       "trigger",
+      "catalog_identity_pin_revisions_uncommitted"
+    ],
+    [
+      "trigger",
+      "catalog_logical_retirements_uncommitted"
+    ],
+    [
+      "trigger",
       "catalog_metadata_history_receipt_obligation"
+    ],
+    [
+      "trigger",
+      "catalog_metadata_history_uncommitted"
     ],
     [
       "trigger",
@@ -88,6 +100,14 @@
     [
       "trigger",
       "catalog_metadata_subject_receipt_obligation"
+    ],
+    [
+      "trigger",
+      "catalog_metadata_subjects_uncommitted"
+    ],
+    [
+      "trigger",
+      "catalog_tag_merges_uncommitted"
     ],
     [
       "trigger",
@@ -120,6 +140,14 @@
     [
       "trigger",
       "catalog_tag_suppression_item_subject_rekey_target_guard"
+    ],
+    [
+      "trigger",
+      "catalog_tag_suppression_revisions_uncommitted"
+    ],
+    [
+      "trigger",
+      "catalog_version_retirements_uncommitted"
     ]
   ]
 }

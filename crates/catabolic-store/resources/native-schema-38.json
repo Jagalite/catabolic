@@ -3531,6 +3531,11 @@
   ],
   [
     "trigger",
+    "catalog_identity_pin_revisions_uncommitted",
+    "CREATE TRIGGER catalog_identity_pin_revisions_uncommitted BEFORE INSERT ON catalog_identity_pin_revisions WHEN EXISTS (SELECT 1 FROM catalog_command_receipts r WHERE r.catalog_id=NEW.command_catalog_id AND r.host_namespace=NEW.command_host_namespace AND r.operation_id=NEW.command_operation_id) BEGIN SELECT RAISE(ABORT,'catalog_committed_history_sealed'); END"
+  ],
+  [
+    "trigger",
     "catalog_item_files_owner_delete",
     "CREATE TRIGGER catalog_item_files_owner_delete BEFORE DELETE ON item_files WHEN EXISTS (SELECT 1 FROM catalog_versions v WHERE (v.association_item_id=OLD.item_id OR EXISTS (SELECT 1 FROM catalog_bindings b WHERE b.version_id=v.id AND b.association_id=OLD.id)) AND NOT EXISTS (SELECT 1 FROM catalog_mutation_permits p JOIN catalog_state state ON state.id=1 WHERE p.scope_kind='version' AND p.scope_id=v.id AND p.incarnation=state.incarnation)) BEGIN SELECT RAISE(ABORT,'catalog_typed_owner_required'); END"
   ],
@@ -3611,6 +3616,11 @@
   ],
   [
     "trigger",
+    "catalog_logical_retirements_uncommitted",
+    "CREATE TRIGGER catalog_logical_retirements_uncommitted BEFORE INSERT ON catalog_logical_retirements WHEN EXISTS (SELECT 1 FROM catalog_command_receipts r WHERE r.catalog_id=NEW.command_catalog_id AND r.host_namespace=NEW.command_host_namespace AND r.operation_id=NEW.command_operation_id) BEGIN SELECT RAISE(ABORT,'catalog_committed_history_sealed'); END"
+  ],
+  [
+    "trigger",
     "catalog_metadata_generation_history_insert",
     "CREATE TRIGGER catalog_metadata_generation_history_insert AFTER INSERT ON catalog_metadata_history BEGIN SELECT CASE WHEN (SELECT generation FROM catalog_state WHERE id=1)>=9223372036854775807 THEN RAISE(ABORT,'catalog generation exhausted') END; SELECT CASE WHEN coalesce((SELECT revision FROM catalog_entity_revisions WHERE entity_kind='catalog_metadata_history' AND entity_key=json_array(NEW.item_id,NEW.namespace,NEW.record_id,NEW.revision)),0)>=9223372036854775807 THEN RAISE(ABORT,'metadata entity invalidation revision exhausted') END; UPDATE catalog_state SET generation=generation+1 WHERE id=1; INSERT INTO catalog_entity_revisions(entity_kind,entity_key,revision,deleted) VALUES('catalog_metadata_history',json_array(NEW.item_id,NEW.namespace,NEW.record_id,NEW.revision),1,0) ON CONFLICT(entity_kind,entity_key) DO UPDATE SET revision=revision+1,deleted=0; END"
   ],
@@ -3653,6 +3663,11 @@
     "trigger",
     "catalog_metadata_history_receipt_obligation",
     "CREATE TRIGGER catalog_metadata_history_receipt_obligation AFTER INSERT ON catalog_metadata_history BEGIN INSERT INTO catalog_metadata_receipt_obligations(command_catalog_id,command_host_namespace,command_operation_id) SELECT NEW.command_catalog_id,NEW.command_host_namespace,NEW.command_operation_id WHERE NOT EXISTS(SELECT 1 FROM catalog_metadata_receipt_obligations WHERE command_catalog_id=NEW.command_catalog_id AND command_host_namespace=NEW.command_host_namespace AND command_operation_id=NEW.command_operation_id); END"
+  ],
+  [
+    "trigger",
+    "catalog_metadata_history_uncommitted",
+    "CREATE TRIGGER catalog_metadata_history_uncommitted BEFORE INSERT ON catalog_metadata_history WHEN EXISTS (SELECT 1 FROM catalog_command_receipts r WHERE r.catalog_id=NEW.command_catalog_id AND r.host_namespace=NEW.command_host_namespace AND r.operation_id=NEW.command_operation_id) BEGIN SELECT RAISE(ABORT,'catalog_committed_history_sealed'); END"
   ],
   [
     "trigger",
@@ -3743,6 +3758,11 @@
     "trigger",
     "catalog_metadata_subject_update",
     "CREATE TRIGGER catalog_metadata_subject_update BEFORE UPDATE ON catalog_metadata_subjects BEGIN SELECT RAISE(ABORT,'metadata schemas and original import bytes are immutable'); END"
+  ],
+  [
+    "trigger",
+    "catalog_metadata_subjects_uncommitted",
+    "CREATE TRIGGER catalog_metadata_subjects_uncommitted BEFORE INSERT ON catalog_metadata_subjects WHEN EXISTS (SELECT 1 FROM catalog_command_receipts r WHERE r.catalog_id=NEW.command_catalog_id AND r.host_namespace=NEW.command_host_namespace AND r.operation_id=NEW.command_operation_id) BEGIN SELECT RAISE(ABORT,'catalog_committed_history_sealed'); END"
   ],
   [
     "trigger",
@@ -4256,6 +4276,11 @@
   ],
   [
     "trigger",
+    "catalog_tag_merges_uncommitted",
+    "CREATE TRIGGER catalog_tag_merges_uncommitted BEFORE INSERT ON catalog_tag_merges WHEN EXISTS (SELECT 1 FROM catalog_command_receipts r WHERE r.catalog_id=NEW.command_catalog_id AND r.host_namespace=NEW.command_host_namespace AND r.operation_id=NEW.command_operation_id) BEGIN SELECT RAISE(ABORT,'catalog_committed_history_sealed'); END"
+  ],
+  [
+    "trigger",
     "catalog_tag_redirect_no_delete",
     "CREATE TRIGGER catalog_tag_redirect_no_delete BEFORE DELETE ON catalog_tag_redirects BEGIN SELECT RAISE(ABORT,'catalog_tag_redirect_permanent'); END"
   ],
@@ -4313,6 +4338,11 @@
     "trigger",
     "catalog_tag_suppression_item_subject_rekey_target_guard",
     "CREATE TRIGGER catalog_tag_suppression_item_subject_rekey_target_guard BEFORE UPDATE OF id ON items WHEN NEW.id IS NOT OLD.id AND EXISTS(SELECT 1 FROM catalog_tag_suppression_revisions WHERE subject_type='item' AND subject_id=NEW.id) BEGIN SELECT RAISE(ABORT,'catalog_tag_suppression_subject_history_retained'); END"
+  ],
+  [
+    "trigger",
+    "catalog_tag_suppression_revisions_uncommitted",
+    "CREATE TRIGGER catalog_tag_suppression_revisions_uncommitted BEFORE INSERT ON catalog_tag_suppression_revisions WHEN EXISTS (SELECT 1 FROM catalog_command_receipts r WHERE r.catalog_id=NEW.command_catalog_id AND r.host_namespace=NEW.command_host_namespace AND r.operation_id=NEW.command_operation_id) BEGIN SELECT RAISE(ABORT,'catalog_committed_history_sealed'); END"
   ],
   [
     "trigger",
@@ -4418,6 +4448,11 @@
     "trigger",
     "catalog_version_retirements_revision_insert",
     "CREATE TRIGGER catalog_version_retirements_revision_insert AFTER INSERT ON catalog_version_retirements BEGIN SELECT CASE WHEN (SELECT generation FROM catalog_state WHERE id=1)>=9223372036854775807 THEN RAISE(ABORT,'catalog_logical_generation_exhausted') END; INSERT INTO catalog_entity_revisions(entity_kind,entity_key,revision,deleted) VALUES('catalog_version_retirements',json_array(NEW.version_id),1,0); UPDATE catalog_state SET generation=generation+1 WHERE id=1; END"
+  ],
+  [
+    "trigger",
+    "catalog_version_retirements_uncommitted",
+    "CREATE TRIGGER catalog_version_retirements_uncommitted BEFORE INSERT ON catalog_version_retirements WHEN EXISTS (SELECT 1 FROM catalog_command_receipts r WHERE r.catalog_id=NEW.command_catalog_id AND r.host_namespace=NEW.command_host_namespace AND r.operation_id=NEW.command_operation_id) BEGIN SELECT RAISE(ABORT,'catalog_committed_history_sealed'); END"
   ],
   [
     "trigger",
