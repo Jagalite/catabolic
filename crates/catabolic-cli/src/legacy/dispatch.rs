@@ -66,6 +66,30 @@ pub fn read_text(path: &str, maximum: usize) -> Result<String> {
 fn file(v: &Value, key: &str, maximum: usize) -> Result<Value> {
     catabolic_core::decode_json(&read_text(text(v, key), maximum)?).map_err(Into::into)
 }
+/// Frozen `program import` json.loads its files, so bundle and binding objects
+/// are traversed in file order; record that order beside the decoded values.
+fn program_import(a: &Value, operation: &str, mut r: Value) -> Result<Value> {
+    use catabolic_core::json::{SourceOrder, source_order};
+    let mut order = vec![];
+    for (key, maximum) in [("file", 4 * 1024 * 1024), ("bindings", 65536)] {
+        if key == "bindings" && a["bindings"].is_null() {
+            continue;
+        }
+        let source = read_text(text(a, key), maximum)?;
+        let field = if key == "file" { "value" } else { key };
+        r[field] = catabolic_core::decode_json(&source)?;
+        order.push((field.to_owned(), source_order(&source)?));
+    }
+    let request = nonnull(&r);
+    catabolic_runtime::api::execute_ordered(
+        Path::new(text(a, "db")),
+        text(a, "profile"),
+        "programs",
+        operation,
+        &request,
+        Some(&SourceOrder::Object(order)),
+    )
+}
 fn raw(v: &Value, key: &str) -> Result<Value> {
     catabolic_core::decode_json(text(v, key)).map_err(Into::into)
 }
@@ -439,7 +463,7 @@ pub fn dispatch_with_cancel(a: &Value, cancel: &std::sync::atomic::AtomicBool) -
         ("projection","show")=>definitions(a,"projection-get",&r),
         ("projection","enable-auto"|"disable-auto")=>{r["enabled"]=json!(operation=="enable-auto");runtime(a,"catalog-refresh","configure",&r)},
         ("projection","verify"|"recover")=>runtime(a,"outputs",operation,&r),
-        ("program",_)=>{if operation=="export"{for (to,from) in [("queries","query"),("rules","rule"),("projections","projection"),("fallback_policies","fallback_policy"),("watchers","watcher")]{set(&mut r,to,from);}}else{r["value"]=file(a,"file",4*1024*1024)?;if !a["bindings"].is_null(){r["bindings"]=file(a,"bindings",65536)?;}}runtime(a,"programs",operation,&r)}
+        ("program",_)=>{if operation=="export"{for (to,from) in [("queries","query"),("rules","rule"),("projections","projection"),("fallback_policies","fallback_policy"),("watchers","watcher")]{set(&mut r,to,from);}runtime(a,"programs",operation,&r)}else{program_import(a,operation,r)}}
         ("manifest",_)=>manifest(a),
         ("process","list"|"attempts"|"facts")|("content","duplicates"|"search")=>{let store=Store::open(path,false,false)?;catabolic_store::public_reads::processing(&store,profile,operation,a)},
         ("process","enqueue"|"run")=>processing(a),

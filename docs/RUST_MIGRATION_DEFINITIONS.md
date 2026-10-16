@@ -47,6 +47,14 @@ until the wider cutover gates are satisfied.
   its SQLite snapshot and cumulative 4 MiB/deadline budget. Fallback/projection
   plan **execution** still requires the future native resolution/publication owner.
 
+Bundle and binding objects are traversed in source insertion order, as frozen
+Python's dictionaries are. `serde_json` maps are sorted, so entry points that
+hold the request text (CLI request arguments, `program import` files and the
+Python extension) record object order with `catabolic_core::json::source_order`.
+That order controls first-error selection and same-name revision numbering
+only; decoded values, canonical encoding and digests are unchanged. Direct API
+callers without source text keep the canonical sorted order.
+
 JSON parsing uses `catabolic_core::decode_json` for ordinary last-key-wins
 boundaries and the same structural parser with duplicate rejection for interchange.
 Arbitrary integers remain exact, nonfinite floats are rejected, and legitimate

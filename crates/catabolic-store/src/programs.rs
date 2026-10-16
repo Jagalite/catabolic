@@ -8,9 +8,26 @@ use crate::{
     output_mutation,
     query::{decode, name},
 };
-use catabolic_core::encode;
-use serde_json::{Value, json};
+use catabolic_core::{encode, json::SourceOrder};
+use serde_json::{Map, Value, json};
 use std::collections::BTreeSet;
+/// Frozen Python iterates bundle dictionaries in source insertion order, and
+/// that order selects first errors and same-name revision numbers. serde_json
+/// maps are sorted, so callers holding the source text pass its recorded order.
+/// Keys always come from the decoded object; an absent or inconsistent order
+/// falls back to the canonical sorted order. Hashing and encoding are unchanged.
+fn ordered<'a>(object: &'a Map<String, Value>, order: Option<&SourceOrder>) -> Vec<&'a String> {
+    let keys = order
+        .into_iter()
+        .flat_map(SourceOrder::keys)
+        .filter_map(|key| object.get_key_value(key).map(|(key, _)| key))
+        .collect::<Vec<_>>();
+    if keys.len() == object.len() {
+        keys
+    } else {
+        object.keys().collect()
+    }
+}
 const KINDS: &[&str] = &[
     "queries",
     "outputs",
@@ -38,6 +55,10 @@ fn exact(value: &Value, keys: &[&str]) -> bool {
         .is_some_and(|o| o.len() == keys.len() && o.keys().all(|k| keys.contains(&k.as_str())))
 }
 pub fn validate(bundle: &Value) -> Result<()> {
+    validate_ordered(bundle, None)
+}
+/// `validate`, reporting the first invalid record in the bundle's source order.
+pub fn validate_ordered(bundle: &Value, order: Option<&SourceOrder>) -> Result<()> {
     let version = bundle["version"].as_u64().unwrap_or(0);
     let kinds = kinds(version);
     let mut fields = vec!["format", "version"];
@@ -70,7 +91,8 @@ pub fn validate(bundle: &Value) -> Result<()> {
             "projections" => &["catalog", "query_id", "layout", "copies", "renditions"][..],
             _ => &["name", "definition"][..],
         };
-        for (key, value) in records {
+        for key in ordered(records, order.and_then(|o| o.get(kind))) {
+            let value = &records[key];
             if key.is_empty() || key.chars().count() > 255 || !exact(value, fields) {
                 return Err(Error(format!("invalid program {kind} record")));
             }
@@ -296,10 +318,20 @@ pub fn export(store: &Store, profile: &str, args: &Value) -> Result<Value> {
     Ok(bundle)
 }
 pub fn dispatch(store: &Store, profile: &str, action: &str, args: &Value) -> Result<Value> {
+    dispatch_ordered(store, profile, action, args, None)
+}
+/// `dispatch`, with the request's source object order when the caller has it.
+pub fn dispatch_ordered(
+    store: &Store,
+    profile: &str,
+    action: &str,
+    args: &Value,
+    order: Option<&SourceOrder>,
+) -> Result<Value> {
     match action {
         "export" => export(store, profile, args),
         "validate" => {
-            validate(&args["value"])?;
+            validate_ordered(&args["value"], order.and_then(|o| o.get("value")))?;
             Ok(json!({"valid":true}))
         }
         _ => Err(Error(format!("unknown programs action: {action}"))),
@@ -606,8 +638,20 @@ pub fn import<F: Fn(&str, &Value) -> Result<Value>>(
     args: &Value,
     put_operation: F,
 ) -> Result<Value> {
+    import_ordered(store, profile, args, None, put_operation)
+}
+/// `import`, traversing bundle and binding objects in the request's source
+/// order (`order` describes the whole request), as frozen Python does.
+pub fn import_ordered<F: Fn(&str, &Value) -> Result<Value>>(
+    store: &Store,
+    profile: &str,
+    args: &Value,
+    order: Option<&SourceOrder>,
+    put_operation: F,
+) -> Result<Value> {
     let bundle = &args["value"];
-    validate(bundle)?;
+    let bundle_order = order.and_then(|o| o.get("value"));
+    validate_ordered(bundle, bundle_order)?;
     definitions::require_recovered(store)?;
     if !store.writable || !store.db.is_autocommit() {
         return fail("program import requires the writer lock outside a transaction");
@@ -635,12 +679,14 @@ pub fn import<F: Fn(&str, &Value) -> Result<Value>>(
     }) {
         return fail("bindings supports catalogs, locations and processors");
     }
-    for mapping in bindings.as_object().unwrap().values() {
-        let mapping = mapping
+    let bindings_order = order.and_then(|o| o.get("bindings"));
+    let maps = bindings.as_object().unwrap();
+    for kind in ordered(maps, bindings_order) {
+        let mapping = maps[kind]
             .as_object()
             .ok_or_else(|| Error("binding maps must be objects".into()))?;
-        for (key, value) in mapping {
-            let value = value
+        for key in ordered(mapping, bindings_order.and_then(|o| o.get(kind))) {
+            let value = mapping[key]
                 .as_str()
                 .ok_or_else(|| Error("binding names must be strings".into()))?;
             name(key)?;
@@ -666,7 +712,8 @@ pub fn import<F: Fn(&str, &Value) -> Result<Value>>(
     let dry_run = args["dry_run"] == true;
     let result = store.transaction(|_| {
         for kind in kinds(version) {
-            for id in bundle[kind].as_object().unwrap().keys() {
+            let records = bundle[kind].as_object().unwrap();
+            for id in ordered(records, bundle_order.and_then(|o| o.get(kind))) {
                 state.put(kind, &json!(id))?;
             }
         }
@@ -683,4 +730,184 @@ pub fn import<F: Fn(&str, &Value) -> Result<Value>>(
     Ok(
         json!({"format":"catabolic.program","version":version,"complete":true,"applied":!dry_run,"dry_run":dry_run,"references":state.references,"preview_ids_ephemeral":dry_run}),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use catabolic_core::json::source_order;
+    use std::path::Path;
+
+    fn store(root: &Path, name: &str) -> Store {
+        let path = root.join(name);
+        crate::migration::initialize(&path).unwrap();
+        Store::open(&path, true, false).unwrap()
+    }
+    fn query(sql: &str) -> Value {
+        json!({"version":1,"mode":"selection","selection":{"language":"sql","query":sql}})
+    }
+    fn no_operations(_: &str, _: &Value) -> Result<Value> {
+        fail("unexpected operation import")
+    }
+    /// Records "z" then "a" share one local name but differ, so traversal order
+    /// decides which receives revision 1 (frozen Python: source order).
+    fn same_name_request() -> String {
+        let z = encode(&query(
+            "SELECT item_id FROM catalog_items WHERE item_id='z'",
+        ));
+        let a = encode(&query(
+            "SELECT item_id FROM catalog_items WHERE item_id='a'",
+        ));
+        format!(
+            r#"{{"prefix":"imported","value":{{"format":"catabolic.program","version":1,"queries":{{"z":{{"name":"pick","definition":{z}}},"a":{{"name":"pick","definition":{a}}}}},"outputs":{{}},"operations":{{}},"rules":{{}},"layouts":{{}},"projections":{{}}}}}}"#
+        )
+    }
+    fn revisions(store: &Store, result: &Value) -> Value {
+        let mut out = json!({});
+        for (key, id) in result["references"]["queries"].as_object().unwrap() {
+            out[key] =
+                definitions::query_get(store, "default", id.as_str().unwrap()).unwrap()["revision"]
+                    .clone();
+        }
+        out
+    }
+
+    #[test]
+    fn import_assigns_same_name_revisions_in_bundle_source_order() {
+        let root = tempfile::tempdir().unwrap();
+        let raw = same_name_request();
+        let request = catabolic_core::decode_json(&raw).unwrap();
+        let order = source_order(&raw).unwrap();
+        let ordered = store(root.path(), "ordered.db");
+        let result =
+            import_ordered(&ordered, "default", &request, Some(&order), no_operations).unwrap();
+        assert_eq!(revisions(&ordered, &result), json!({"z":1,"a":2}));
+        // Canonical hashing is unchanged: each definition keeps its digest.
+        let canonical = store(root.path(), "canonical.db");
+        let sorted = import(&canonical, "default", &request, no_operations).unwrap();
+        assert_eq!(revisions(&canonical, &sorted), json!({"z":2,"a":1}));
+        for key in ["z", "a"] {
+            let digest = |store: &Store, result: &Value| {
+                definitions::query_get(
+                    store,
+                    "default",
+                    result["references"]["queries"][key].as_str().unwrap(),
+                )
+                .unwrap()["digest"]
+                    .clone()
+            };
+            assert_eq!(digest(&ordered, &result), digest(&canonical, &sorted));
+        }
+    }
+
+    #[test]
+    fn inconsistent_order_falls_back_to_canonical_keys() {
+        let root = tempfile::tempdir().unwrap();
+        let request = catabolic_core::decode_json(&same_name_request()).unwrap();
+        let stale = source_order(r#"{"value":{"queries":{"z":0}}}"#).unwrap();
+        let store = store(root.path(), "stale.db");
+        let result =
+            import_ordered(&store, "default", &request, Some(&stale), no_operations).unwrap();
+        assert_eq!(revisions(&store, &result), json!({"z":2,"a":1}));
+    }
+
+    #[test]
+    fn validation_and_bindings_report_the_first_source_order_error() {
+        let raw = r#"{"value":{"format":"catabolic.program","version":1,"queries":{"z":{"name":5,"definition":{}},"a":{"name":"x","definition":{},"extra":1}},"outputs":{},"operations":{},"rules":{},"layouts":{},"projections":{}}}"#;
+        let request = catabolic_core::decode_json(raw).unwrap();
+        let order = source_order(raw).unwrap();
+        assert_eq!(
+            validate_ordered(&request["value"], order.get("value"))
+                .unwrap_err()
+                .0,
+            "program names must be strings"
+        );
+        assert_eq!(
+            validate(&request["value"]).unwrap_err().0,
+            "invalid program queries record"
+        );
+        let root = tempfile::tempdir().unwrap();
+        let store = store(root.path(), "bindings.db");
+        let mut raw = same_name_request();
+        raw.insert_str(1, r#""bindings":{"catalogs":{"z":5,"a!":"x"}},"#);
+        let request = catabolic_core::decode_json(&raw).unwrap();
+        let order = source_order(&raw).unwrap();
+        assert_eq!(
+            import_ordered(&store, "default", &request, Some(&order), no_operations)
+                .unwrap_err()
+                .0,
+            "binding names must be strings"
+        );
+        assert_ne!(
+            import(&store, "default", &request, no_operations)
+                .unwrap_err()
+                .0,
+            "binding names must be strings"
+        );
+    }
+
+    /// Python is an explicitly selected compatibility oracle, never a runtime fallback.
+    #[test]
+    #[ignore = "requires CATABOLIC_PYTHON_ORACLE and CATABOLIC_PYTHON_REFERENCE"]
+    fn python_import_traversal_order_matches() {
+        let python = std::env::var("CATABOLIC_PYTHON_ORACLE").unwrap();
+        let reference = std::env::var("CATABOLIC_PYTHON_REFERENCE").unwrap();
+        let script = r#"
+import json, sys
+from catabolic.app import Application
+from catabolic.domain import CatabolicError
+from catabolic.program_bundle import Programs
+from catabolic.store import Store
+request = json.loads(sys.argv[2])
+store = Store(sys.argv[1], writable=True)
+try:
+    try:
+        result = Programs(Application(store)).import_bundle(
+            request["value"], bindings=request.get("bindings"), prefix=request["prefix"])
+        print(json.dumps({"revisions": {k: store.rows(
+            "SELECT revision FROM saved_queries WHERE id=?", (v,))[0]["revision"]
+            for k, v in result["references"]["queries"].items()}}))
+    except CatabolicError as exc:
+        print(json.dumps({"error": str(exc)}))
+finally:
+    store.close()
+"#;
+        let root = tempfile::tempdir().unwrap();
+        // Source order "a", "z": sorted and insertion order coincide.
+        let swapped = same_name_request()
+            .replace(r#""z":{"name""#, r#""tmp":{"name""#)
+            .replace(r#""a":{"name""#, r#""z":{"name""#)
+            .replace(r#""tmp":{"name""#, r#""a":{"name""#);
+        let mut bad_bindings = same_name_request();
+        bad_bindings.insert_str(1, r#""bindings":{"catalogs":{"z":5,"a!":"x"}},"#);
+        let invalid = r#"{"prefix":"imported","value":{"format":"catabolic.program","version":1,"queries":{"z":{"name":5,"definition":{}},"a":{"name":"x","definition":{},"extra":1}},"outputs":{},"operations":{},"rules":{},"layouts":{},"projections":{}}}"#;
+        for (index, raw) in [same_name_request(), swapped, bad_bindings, invalid.into()]
+            .iter()
+            .enumerate()
+        {
+            let python_path = root.path().join(format!("python-{index}.db"));
+            crate::migration::initialize(&python_path).unwrap();
+            let output = std::process::Command::new(&python)
+                .args(["-c", script, python_path.to_str().unwrap(), raw])
+                .env("PYTHONPATH", &reference)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let expected =
+                catabolic_core::decode_json(std::str::from_utf8(&output.stdout).unwrap()).unwrap();
+            let native = store(root.path(), &format!("native-{index}.db"));
+            let request = catabolic_core::decode_json(raw).unwrap();
+            let order = source_order(raw).unwrap();
+            let actual =
+                match import_ordered(&native, "default", &request, Some(&order), no_operations) {
+                    Ok(result) => json!({"revisions":revisions(&native, &result)}),
+                    Err(error) => json!({"error":error.0}),
+                };
+            assert_eq!(actual, expected, "{raw}");
+        }
+    }
 }

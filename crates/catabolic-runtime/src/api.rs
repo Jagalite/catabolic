@@ -129,6 +129,37 @@ pub fn execute(
     operation: &str,
     request: &Value,
 ) -> Result<Value> {
+    execute_ordered(path, profile, surface, operation, request, None)
+}
+
+/// `execute` for a request decoded from `source`. Owners whose frozen Python
+/// traversal follows dictionary insertion order (program bundles) receive the
+/// source's object order; every value still comes from `request`.
+pub fn execute_with_source(
+    path: &Path,
+    profile: &str,
+    surface: &str,
+    operation: &str,
+    request: &Value,
+    source: &str,
+) -> Result<Value> {
+    let order = if surface == "programs" && matches!(operation, "import" | "validate") {
+        Some(catabolic_core::json::source_order(source)?)
+    } else {
+        None
+    };
+    execute_ordered(path, profile, surface, operation, request, order.as_ref())
+}
+
+/// `execute` with an already recorded request object order.
+pub fn execute_ordered(
+    path: &Path,
+    profile: &str,
+    surface: &str,
+    operation: &str,
+    request: &Value,
+    order: Option<&catabolic_core::json::SourceOrder>,
+) -> Result<Value> {
     if !request.is_object() {
         return Err(Error("operation request must be a JSON object".into()));
     }
@@ -527,27 +558,31 @@ pub fn execute(
             ),
             _ => Err(Error("unknown output operation".into())),
         },
-        "programs" if operation == "import" => {
-            catabolic_store::programs::import(&store, profile, request, |name, definition| {
-                match definition["kind"].as_str() {
-                    Some("analysis") => crate::media::put_operation(&store, name, definition),
-                    Some("render") => crate::artifacts::recipe(
-                        &store,
-                        name,
-                        required(definition, "operation")?,
-                        definition.get("options").unwrap_or(&serde_json::json!({})),
-                        definition["output_definition_id"].as_str(),
-                    ),
-                    _ => Err(Error(
-                        "native external processor import is not yet supported".into(),
-                    )),
-                }
-            })
-        }
+        "programs" if operation == "import" => catabolic_store::programs::import_ordered(
+            &store,
+            profile,
+            request,
+            order,
+            |name, definition| match definition["kind"].as_str() {
+                Some("analysis") => crate::media::put_operation(&store, name, definition),
+                Some("render") => crate::artifacts::recipe(
+                    &store,
+                    name,
+                    required(definition, "operation")?,
+                    definition.get("options").unwrap_or(&serde_json::json!({})),
+                    definition["output_definition_id"].as_str(),
+                ),
+                _ => Err(Error(
+                    "native external processor import is not yet supported".into(),
+                )),
+            },
+        ),
         "fallback-policy" => {
             catabolic_store::fallback_mutation::execute(&store, profile, operation, request)
         }
-        "programs" => catabolic_store::programs::dispatch(&store, profile, operation, request),
+        "programs" => {
+            catabolic_store::programs::dispatch_ordered(&store, profile, operation, request, order)
+        }
         "http-operations" => {
             catabolic_store::http_operations::execute(&mut store, profile, operation, request)
         }

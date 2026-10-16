@@ -237,6 +237,7 @@ fn execute_operation(
     request: &str,
     profile: &str,
 ) -> PyResult<String> {
+    let source = request;
     let request: serde_json::Value =
         catabolic_core::decode_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     if (matches!(surface, "plex-import" | "plex-match" | "plex-metadata") && operation == "run")
@@ -308,7 +309,14 @@ fn execute_operation(
                 &mut poll,
             );
         }
-        catabolic_runtime::api::execute(Path::new(path), profile, surface, operation, &request)
+        catabolic_runtime::api::execute_with_source(
+            Path::new(path),
+            profile,
+            surface,
+            operation,
+            &request,
+            source,
+        )
     }))
 }
 

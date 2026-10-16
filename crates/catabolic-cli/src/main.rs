@@ -381,12 +381,13 @@ fn run(mut args: Vec<String>) -> Result<Value> {
                 || command == "rules"
                 || command == "layout" =>
         {
-            catabolic_runtime::api::execute(
+            catabolic_runtime::api::execute_with_source(
                 &path,
                 &profile,
                 command,
                 action,
                 &catabolic_core::decode_json(request)?,
+                request,
             )
         }
         [command, action] if command == "tag" => {
