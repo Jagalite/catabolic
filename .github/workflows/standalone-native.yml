@@ -7,7 +7,6 @@ on:
   pull_request:
     paths:
       - 'crates/**'
-      - 'src/catabolic/http/releases/1.7.0/openapi.json*'
       - 'Cargo.*'
       - 'rust-toolchain.toml'
       - 'LICENSE'

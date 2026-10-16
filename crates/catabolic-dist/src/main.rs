@@ -118,18 +118,8 @@ fn collect(root: &Path, at: &Path, out: &mut BTreeMap<String, FileIdentity>) -> 
 }
 fn source_snapshot(root: &Path) -> Result<BTreeMap<String, FileIdentity>> {
     let mut files = BTreeMap::new();
-    for name in [
-        "Cargo.toml",
-        "Cargo.lock",
-        "rust-toolchain.toml",
-        "LICENSE",
-        "src/catabolic/http/releases/1.7.0/openapi.json",
-    ] {
+    for name in ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "LICENSE"] {
         collect(root, &root.join(name), &mut files)?;
-    }
-    let notice = root.join("src/catabolic/http/releases/1.7.0/openapi.json.license");
-    if notice.exists() {
-        collect(root, &notice, &mut files)?;
     }
     for name in NATIVE_CRATES {
         collect(root, &root.join("crates").join(name), &mut files)?;
@@ -531,7 +521,8 @@ fn stage_licenses(
     for path in sources.keys().filter(|p| p.ends_with(".license")) {
         copy_new(&root.join(path), &out.join("licenses/resources").join(path))?;
     }
-    let contract_license = root.join("src/catabolic/http/releases/1.7.0/openapi.json.license");
+    let contract_license =
+        root.join("crates/catabolic-http/resources/releases/1.7.0/openapi.json.license");
     if contract_license.exists() {
         copy_new(
             &contract_license,
@@ -1040,13 +1031,7 @@ mod tests {
         assert!(cargo_home_setting(None, Some(PathBuf::new())).is_err());
     }
     fn sources(root: &Path) {
-        for file in [
-            "Cargo.toml",
-            "Cargo.lock",
-            "rust-toolchain.toml",
-            "LICENSE",
-            "src/catabolic/http/releases/1.7.0/openapi.json",
-        ] {
+        for file in ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml", "LICENSE"] {
             write_new(&root.join(file), b"source").unwrap();
         }
         for name in NATIVE_CRATES {

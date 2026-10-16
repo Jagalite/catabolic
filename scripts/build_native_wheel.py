@@ -33,8 +33,6 @@ def source_digest(root):
             "Cargo.toml",
             "Cargo.lock",
             "rust-toolchain.toml",
-            # catabolic-http embeds this frozen contract via include_str!.
-            "src/catabolic/http/releases/1.7.0/openapi.json",
         )
     ]
     generated = {

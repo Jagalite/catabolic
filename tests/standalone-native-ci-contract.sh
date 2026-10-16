@@ -13,7 +13,7 @@ printf 'Contract scratch: %s\n' "$work"
 # Conservative literal workflow contract: any YAML/control-flow change requires
 # deliberate re-review of this digest. This is not a general YAML interpreter.
 workflow_matches() {
-    [ "$(shasum -a 256 "$1" | cut -d ' ' -f 1)" = 75f6c1552c067f44de4a8aa25b9368291c44ea97a0d16f648c108f0420c71b44 ]
+    [ "$(shasum -a 256 "$1" | cut -d ' ' -f 1)" = 8a4200af6a788956f2387b188e424d16002a83c5ba2bdf8a22f496f2626a10a3 ]
 }
 workflow="$repo/.github/workflows/standalone-native.yml"
 workflow_matches "$workflow"

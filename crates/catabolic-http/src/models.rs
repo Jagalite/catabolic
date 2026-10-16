@@ -8,10 +8,8 @@ use std::sync::OnceLock;
 pub fn contract() -> &'static Value {
     static V: OnceLock<Value> = OnceLock::new();
     V.get_or_init(|| {
-        serde_json::from_str(include_str!(
-            "../../../src/catabolic/http/releases/1.7.0/openapi.json"
-        ))
-        .expect("frozen HTTP1.7.0")
+        serde_json::from_str(include_str!("../resources/releases/1.7.0/openapi.json"))
+            .expect("frozen HTTP1.7.0")
     })
 }
 type Route = (String, String, Vec<(String, String)>);
@@ -236,6 +234,19 @@ pub fn page(query: &std::collections::BTreeMap<String, String>) -> Result<usize>
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn native_contract_copy_matches_the_frozen_release_while_it_exists() {
+        // The frozen Python tree is removed at retirement; until then the
+        // native-owned contract must stay byte-identical to the release.
+        let frozen = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../src/catabolic/http/releases/1.7.0/openapi.json");
+        if let Ok(bytes) = std::fs::read(frozen) {
+            assert_eq!(
+                bytes,
+                include_bytes!("../resources/releases/1.7.0/openapi.json")
+            );
+        }
+    }
     #[test]
     fn paths_decode_once_without_panicking_on_utf8_boundaries() {
         assert_eq!(decode_path("/a%2Fb"), Some("/a/b".into()));

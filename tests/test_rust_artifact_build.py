@@ -49,7 +49,7 @@ class NativeArtifactBuildTest(unittest.TestCase):
             "rust-toolchain.toml",
             "crates/example/src/lib.rs",
             "crates/example/resources/schema.json",
-            "src/catabolic/http/releases/1.7.0/openapi.json",
+            "crates/catabolic-http/resources/releases/1.7.0/openapi.json",
             ".cargo/config.toml",
             "crates/example/.cargo/config.toml",
         ]
