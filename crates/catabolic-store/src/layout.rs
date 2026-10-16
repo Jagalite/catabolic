@@ -327,6 +327,30 @@ fn component(value: &str) -> Result<String> {
     }
     Ok(value.into())
 }
+/// Python `format(value, "0Nd" | "Nd")` for an exact JSON integer of any size
+/// (`type(value) is int`: booleans and float spellings are refused).
+fn format_integer(value: &Value, spec: &str) -> Option<String> {
+    let token = value.as_number()?.to_string();
+    let (negative, digits) = match token.strip_prefix('-') {
+        Some(digits) => (true, digits),
+        None => (false, token.as_str()),
+    };
+    if digits.is_empty() || !digits.bytes().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    let digits = digits.trim_start_matches('0');
+    let (sign, digits) = match digits {
+        "" => ("", "0"),
+        digits => (if negative { "-" } else { "" }, digits),
+    };
+    let width = spec.trim_end_matches('d').parse::<usize>().ok()?;
+    let padding = width.saturating_sub(sign.len() + digits.len());
+    Some(if spec.starts_with('0') {
+        format!("{sign}{}{digits}", "0".repeat(padding))
+    } else {
+        format!("{}{sign}{digits}", " ".repeat(padding))
+    })
+}
 pub fn render(template: &str, context: &Value, normalization: &str) -> Result<String> {
     let mut path = String::new();
     for part in parts(template)? {
@@ -345,15 +369,8 @@ pub fn render(template: &str, context: &Value, normalization: &str) -> Result<St
             return Err(Error(format!("template field must be scalar: {field}")));
         }
         let text = if !part.spec.is_empty() {
-            let integer = value
-                .as_i64()
-                .ok_or_else(|| Error(format!("integer required for {field}:{}", part.spec)))?;
-            let width = part.spec.trim_end_matches('d').parse::<usize>().unwrap();
-            if part.spec.starts_with('0') {
-                format!("{integer:0width$}")
-            } else {
-                format!("{integer:width$}")
-            }
+            format_integer(value, &part.spec)
+                .ok_or_else(|| Error(format!("integer required for {field}:{}", part.spec)))?
         } else {
             match value {
                 Value::String(v) => v.clone(),
@@ -1355,5 +1372,188 @@ mod tests {
         ] {
             assert_eq!(refusal(&with(value.clone())), params, "{value}");
         }
+    }
+
+    #[test]
+    fn integer_formats_render_arbitrary_precision_integers() {
+        let context = |n: &str| parsed(&format!(r#"{{"item":{{"n":{n}}}}}"#));
+        let render = |template: &str, n: &str| render(template, &context(n), "portable");
+        assert_eq!(
+            render("{item.n:02d}", "9223372036854775808").unwrap(),
+            "9223372036854775808"
+        );
+        assert_eq!(
+            render("{item.n:025d}", "-12345678901234567890").unwrap(),
+            "-000012345678901234567890"
+        );
+        // Space padding is exact, then path components strip it as Python does.
+        assert_eq!(
+            format_integer(&parsed("18446744073709551616"), "22d").unwrap(),
+            "  18446744073709551616"
+        );
+        assert_eq!(
+            format_integer(&parsed("-18446744073709551616"), "23d").unwrap(),
+            "  -18446744073709551616"
+        );
+        assert_eq!(
+            render("{item.n:22d}", "18446744073709551616").unwrap(),
+            "18446744073709551616"
+        );
+        assert_eq!(render("{item.n:03d}", "-5").unwrap(), "-05");
+        assert_eq!(render("{item.n:3d}", "7").unwrap(), "7");
+        assert_eq!(render("{item.n:02d}", "-0").unwrap(), "00");
+        for n in ["true", "5.0", "1e2", "\"5\""] {
+            assert_eq!(
+                render("{item.n:02d}", n).unwrap_err().0,
+                "integer required for item.n:02d",
+                "{n}"
+            );
+        }
+        // Portable length limits still apply to the formatted digits.
+        assert_eq!(
+            render("{item.n:02d}", &"9".repeat(256)).unwrap_err().0,
+            "generated path exceeds portable filesystem length limits"
+        );
+    }
+
+    /// Python is an explicitly selected compatibility oracle, never a runtime fallback.
+    #[test]
+    #[ignore = "requires CATABOLIC_PYTHON_ORACLE and CATABOLIC_PYTHON_REFERENCE"]
+    fn python_layout_admission_rendering_and_copy_equality_match() {
+        let python = std::env::var("CATABOLIC_PYTHON_ORACLE").unwrap();
+        let reference = std::env::var("CATABOLIC_PYTHON_REFERENCE").unwrap();
+        let rule = r#"{"name":"r","path":"{item.title}"}"#;
+        let selection = |params: &str| {
+            format!(
+                r#"{{"version":1,"rules":[{rule}],"selection":{{"language":"sql","query":"SELECT item_id FROM catalog_items","params":{params}}}}}"#
+            )
+        };
+        let relation = |extra: &str| {
+            format!(
+                r#"{{"version":1,"rules":[{{"name":"r","path":"{{item.title}}","relations":[{{"alias":"parent","kind":"part_of"{extra}}}]}}]}}"#
+            )
+        };
+        let mut layouts = vec![format!(r#"{{"version":1,"rules":[{rule}]}}"#)];
+        for normalization in [
+            "null",
+            "1",
+            "[\"ascii\"]",
+            "false",
+            "\"ascii\"",
+            "\"other\"",
+        ] {
+            layouts.push(format!(
+                r#"{{"version":1,"rules":[{rule}],"normalization":{normalization}}}"#
+            ));
+        }
+        for extra in [
+            "",
+            r#","from":null"#,
+            r#","from":5"#,
+            r#","from":"item","direction":"incoming""#,
+            r#","direction":null"#,
+            r#","direction":1"#,
+            r#","target_kind":5"#,
+        ] {
+            layouts.push(relation(extra));
+        }
+        for params in [
+            r#"{"ok_1":1,"f":1.5,"b":true,"n":null}"#,
+            r#"{"profile":"other"}"#,
+            r#"{"bad-name":1}"#,
+            r#"{"1st":1}"#,
+            r#"{"é":1}"#,
+            r#"{"x":[1]}"#,
+            r#"{"x":9223372036854775808}"#,
+            "null",
+            "[]",
+        ] {
+            layouts.push(selection(params));
+        }
+        let renders = [
+            ("{item.n:02d}", "9223372036854775808"),
+            ("{item.n:025d}", "-12345678901234567890"),
+            ("{item.n:22d}", "18446744073709551616"),
+            ("{item.n:03d}", "-5"),
+            ("{item.n:02d}", "-0"),
+            ("{item.n:02d}", "true"),
+            ("{item.n:02d}", "5.0"),
+        ];
+        let pairs = [
+            ("1080", "1080.0"),
+            ("true", "1"),
+            ("false", "0.0"),
+            ("9007199254740993", "9007199254740992.0"),
+            ("9007199254740992", "9007199254740992.0"),
+            ("[1, true]", "[1.0, 1]"),
+            (r#"{"a":1}"#, r#"{"a":true}"#),
+            ("\"1\"", "1"),
+        ];
+        let formats = [
+            ("18446744073709551616", "22d"),
+            ("-18446744073709551616", "23d"),
+            ("-12345678901234567890", "025d"),
+            ("-0", "3d"),
+            ("7", "09d"),
+        ];
+        let input = format!(
+            r#"{{"layouts":[{}],"renders":[{}],"pairs":[{}],"formats":[{}]}}"#,
+            layouts.join(","),
+            renders
+                .iter()
+                .map(|(t, n)| format!(r#"[{},{{"item":{{"n":{n}}}}}]"#, encode(&json!(t))))
+                .collect::<Vec<_>>()
+                .join(","),
+            pairs
+                .iter()
+                .map(|(a, b)| format!("[{a},{b}]"))
+                .collect::<Vec<_>>()
+                .join(","),
+            formats
+                .iter()
+                .map(|(n, spec)| format!(r#"[{n},"{spec}"]"#))
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+        let script = r#"
+import json, sys
+from catabolic.domain import CatabolicError
+from catabolic.layouts import render_path, validate_layout
+cases = json.loads(sys.argv[1])
+def attempt(call):
+    try:
+        return {"ok": call()}
+    except CatabolicError as exc:
+        return {"error": str(exc)}
+print(json.dumps({
+    "layouts": [attempt(lambda d=d: validate_layout(d) and None) for d in cases["layouts"]],
+    "renders": [attempt(lambda t=t, c=c: render_path(t, c)) for t, c in cases["renders"]],
+    "pairs": [a == b for a, b in cases["pairs"]],
+    "formats": [format(n, spec) for n, spec in cases["formats"]],
+}))
+"#;
+        let output = std::process::Command::new(&python)
+            .args(["-c", script, &input])
+            .env("PYTHONPATH", &reference)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let expected = decode_json(std::str::from_utf8(&output.stdout).unwrap()).unwrap();
+        let input = decode_json(&input).unwrap();
+        let attempt = |result: Result<Value>| match result {
+            Ok(value) => json!({"ok":value}),
+            Err(error) => json!({"error":error.0}),
+        };
+        let actual = json!({
+            "layouts": array(&input["layouts"]).iter().map(|d| attempt(validate(d).map(|_| Value::Null))).collect::<Vec<_>>(),
+            "renders": array(&input["renders"]).iter().map(|c| attempt(render(c[0].as_str().unwrap(), &c[1], "portable").map(Value::String))).collect::<Vec<_>>(),
+            "pairs": array(&input["pairs"]).iter().map(|p| python_equal(&p[0], &p[1])).collect::<Vec<_>>(),
+            "formats": array(&input["formats"]).iter().map(|f| format_integer(&f[0], f[1].as_str().unwrap()).unwrap()).collect::<Vec<_>>(),
+        });
+        assert_eq!(actual, expected);
     }
 }
