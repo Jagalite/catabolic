@@ -28,6 +28,13 @@ impl std::fmt::Display for AdmissionError {
 }
 impl std::error::Error for AdmissionError {}
 
+/// CPython's default integer string-conversion refusal for `digits` digits.
+pub fn integer_limit(digits: usize) -> AdmissionError {
+    AdmissionError::value(format!(
+        "Exceeds the limit (4300 digits) for integer string conversion: value has {digits} digits; use sys.set_int_max_str_digits() to increase the limit"
+    ))
+}
+
 enum Diagnostic {
     Atom(String),
     Nonfinite(&'static str),
@@ -185,10 +192,7 @@ impl Reader<'_> {
                 } else {
                     let digits = token.strip_prefix('-').unwrap_or(token);
                     if digits.len() > 4300 && digits.bytes().all(|b| b.is_ascii_digit()) {
-                        return Err(AdmissionError::value(format!(
-                            "Exceeds the limit (4300 digits) for integer string conversion: value has {} digits; use sys.set_int_max_str_digits() to increase the limit",
-                            digits.len()
-                        )));
+                        return Err(integer_limit(digits.len()));
                     }
                     let Ok(value) = catabolic_core::decode_json(token) else {
                         return Ok(None);

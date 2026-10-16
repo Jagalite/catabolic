@@ -27,6 +27,11 @@ HISTORICAL_CHECKPOINT = (
     fixture.ROOT / "tests/parity/native-graphql-variable-admission-v1-checkpoint.json"
 )
 BASELINE_ENV = "CATABOLIC_VARIABLE_ADMISSION_BASELINE"
+# Versioned precedence replacement (track D): frozen json.loads converts an
+# oversized integer while scanning, before a later syntax defect. The pinned
+# input and historical rows stay unchanged; the current assertion becomes live
+# oracle equality and additionally proves the historical response differed.
+PRECEDENCE_V2 = frozenset({"syntax-after-huge"})
 
 
 def digest(path):
@@ -126,6 +131,10 @@ def select_baseline(environment):
     return "live", path
 
 
+def current_expectation(case):
+    return "superseded_equal" if case["name"] in PRECEDENCE_V2 else case["expectation"]
+
+
 def matches(expectation, oracle, native, historical, live_baseline=None):
     # A supplied baseline must execute and match every pinned historical response,
     # including rows whose native acceptance assertion otherwise uses the oracle.
@@ -133,6 +142,8 @@ def matches(expectation, oracle, native, historical, live_baseline=None):
         return False
     if expectation == "equal":
         return native == oracle
+    if expectation == "superseded_equal":
+        return native == oracle and historical != oracle
     if expectation == "strict_unchanged":
         return native == historical and native["code"] == 2 and native != oracle
     if expectation == "accepted_unchanged":
@@ -232,12 +243,13 @@ class GraphQLVariableAdmissionTest(unittest.TestCase):
                         "mode": mode,
                         "source": source,
                         "expectation": case["expectation"],
+                        "current_expectation": current_expectation(case),
                         "oracle": outputs["oracle"],
                         "native": outputs["native"],
                         "historical_baseline": recorded,
                         "live_baseline": live,
                         "passed": matches(
-                            case["expectation"],
+                            current_expectation(case),
                             outputs["oracle"],
                             outputs["native"],
                             recorded,
@@ -366,6 +378,7 @@ class GraphQLVariableAdmissionFixtureTest(unittest.TestCase):
             ("strict_unchanged", ok, strict, strict),
             ("accepted_unchanged", ok, ok, ok),
             ("unchanged", alternate, strict, strict),
+            ("superseded_equal", ok, ok, strict),
         ]:
             with self.subTest(expectation=expectation):
                 self.assertTrue(matches(expectation, oracle, native, recorded))
@@ -378,6 +391,23 @@ class GraphQLVariableAdmissionFixtureTest(unittest.TestCase):
                 self.assertFalse(matches(expectation, oracle, alternate, recorded))
         self.assertFalse(matches("strict_unchanged", strict, strict, strict))
         self.assertFalse(matches("accepted_unchanged", strict, strict, strict))
+        # A superseded row must have historically differed from the oracle.
+        self.assertFalse(matches("superseded_equal", strict, strict, strict))
+
+    def test_precedence_replacement_is_versioned_and_historically_unchanged(self):
+        cases = {case["name"]: case for case in self.cases}
+        self.assertEqual(PRECEDENCE_V2, {"syntax-after-huge"})
+        for name in PRECEDENCE_V2:
+            self.assertEqual(cases[name]["expectation"], "unchanged")
+            self.assertEqual(current_expectation(cases[name]), "superseded_equal")
+        self.assertEqual(
+            {
+                name
+                for name, case in cases.items()
+                if current_expectation(case) != case["expectation"]
+            },
+            set(PRECEDENCE_V2),
+        )
 
 
 if __name__ == "__main__":

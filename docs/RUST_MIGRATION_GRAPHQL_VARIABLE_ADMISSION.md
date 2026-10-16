@@ -109,10 +109,10 @@ gate.
 This does not claim blanket JSON, GraphQL, transport, wrapper, or installed
 parity. Depth limits and other existing strict-boundary differences remain.
 The integer ceiling models CPython's default configuration; environment overrides
-to that ceiling are not qualified. Syntax validation still precedes this adapter: an oversized integer followed
-by a syntax defect retains the prior native syntax error, even when Python's
-integer conversion fails first. Those residual precedence cases are explicit
-unchanged controls. No release/default/M4–M11 gate closes, no blocked review is
+to that ceiling are not qualified. At this checkpoint syntax validation preceded this adapter: an oversized
+integer followed by a syntax defect retained the prior native syntax error, even
+when Python's integer conversion fails first. Track D closes that precedence
+residual; see below. No release/default/M4–M11 gate closes, no blocked review is
 retried or replaced, and unqualified effects remain fail-closed.
 
 Reproduce with explicit immutable baseline/candidate binaries, the pinned oracle,
@@ -139,3 +139,23 @@ python -W error::ResourceWarning -m unittest \
   tests.test_rust_graphql_runtime_inputs \
   tests.test_rust_json_boundaries
 ```
+
+## Track D: integer-conversion versus syntax precedence (October 16)
+
+Frozen `json.loads` converts each integer token as soon as the scanner reaches
+it, so an integer beyond the 4,300-digit default fails with `ValueError` before
+any later syntax defect, while an earlier syntax defect still wins. The legacy
+`graphql --variables` boundary now runs the syntax recognizer with that integer
+check in scan order (`json_diagnostic::validate_with_integer_limit`). Fraction
+and exponent tokens are floats and are not limited; a leading-zero token stops
+at `0`, so the following digits are a syntax error. The shared `validate` used
+by other JSON boundaries is unchanged, and the private diagnostic tree still
+owns nonfinite and surrogate refusals afterwards.
+
+The pinned version-one input and historical rows are unchanged. The
+`syntax-after-huge` row's current assertion is replaced by a versioned
+`superseded_equal` mode: live native output must equal the oracle **and** the
+pinned historical response must differ from the oracle. A new
+`test_rust_graphql_variable_precedence.py` compares 15 precedence inputs in all
+three output modes with the live frozen oracle, and Rust unit tests cover scan
+order, the 4,300-digit boundary, float tokens and duplicate keys.

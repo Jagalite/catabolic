@@ -21,9 +21,24 @@ impl std::fmt::Display for JsonError {
 }
 impl std::error::Error for JsonError {}
 
+/// The first refusal in frozen `json.loads` scan order. CPython converts each
+/// integer token as soon as it is scanned, so a token beyond the default
+/// 4,300-digit conversion limit fails before any later syntax defect.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Refusal {
+    Syntax(JsonError),
+    IntegerDigits(usize),
+}
+impl From<JsonError> for Refusal {
+    fn from(error: JsonError) -> Self {
+        Self::Syntax(error)
+    }
+}
+
 struct Parser<'a> {
     raw: &'a str,
     at: usize,
+    integer_limit: bool,
 }
 impl Parser<'_> {
     fn error(&self, message: &'static str, at: usize) -> JsonError {
@@ -79,11 +94,12 @@ impl Parser<'_> {
         }
         Err(self.error("Unterminated string starting at", start))
     }
-    fn number(&mut self) -> bool {
+    fn number(&mut self) -> Result<bool, Refusal> {
         let start = self.at;
         if self.byte() == Some(b'-') {
             self.at += 1;
         }
+        let digits = self.at;
         match self.byte() {
             Some(b'0') => self.at += 1,
             Some(b'1'..=b'9') => {
@@ -94,9 +110,10 @@ impl Parser<'_> {
             }
             _ => {
                 self.at = start;
-                return false;
+                return Ok(false);
             }
         }
+        let integer = self.at;
         if self.byte() == Some(b'.') {
             let point = self.at;
             self.at += 1;
@@ -122,11 +139,14 @@ impl Parser<'_> {
                 self.at = exponent;
             }
         }
-        true
+        if self.integer_limit && self.at == integer && integer - digits > 4300 {
+            return Err(Refusal::IntegerDigits(integer - digits));
+        }
+        Ok(true)
     }
     // The companion's depth limit is a distinct admission constraint, not a
     // JSON syntax error. Stop classification there and retain its original error.
-    fn value(&mut self, depth: usize) -> Result<bool, JsonError> {
+    fn value(&mut self, depth: usize) -> Result<bool, Refusal> {
         if depth > 512 {
             return Ok(false);
         }
@@ -145,15 +165,14 @@ impl Parser<'_> {
                 loop {
                     if object {
                         if self.byte() != Some(b'"') {
-                            return Err(self.error(
-                                "Expecting property name enclosed in double quotes",
-                                self.at,
-                            ));
+                            return Err(self
+                                .error("Expecting property name enclosed in double quotes", self.at)
+                                .into());
                         }
                         self.string()?;
                         self.ws();
                         if self.byte() != Some(b':') {
-                            return Err(self.error("Expecting ':' delimiter", self.at));
+                            return Err(self.error("Expecting ':' delimiter", self.at).into());
                         }
                         self.at += 1;
                     }
@@ -166,20 +185,22 @@ impl Parser<'_> {
                         break;
                     }
                     if self.byte() != Some(b',') {
-                        return Err(self.error("Expecting ',' delimiter", self.at));
+                        return Err(self.error("Expecting ',' delimiter", self.at).into());
                     }
                     let comma = self.at;
                     self.at += 1;
                     self.ws();
                     if self.byte() == Some(close) {
-                        return Err(self.error(
-                            if object {
-                                "Illegal trailing comma before end of object"
-                            } else {
-                                "Illegal trailing comma before end of array"
-                            },
-                            comma,
-                        ));
+                        return Err(self
+                            .error(
+                                if object {
+                                    "Illegal trailing comma before end of object"
+                                } else {
+                                    "Illegal trailing comma before end of array"
+                                },
+                                comma,
+                            )
+                            .into());
                     }
                 }
             }
@@ -189,8 +210,8 @@ impl Parser<'_> {
                     .find(|literal| self.raw[self.at..].starts_with(literal))
                 {
                     self.at += literal.len();
-                } else if !self.number() {
-                    return Err(self.error("Expecting value", self.at));
+                } else if !self.number()? {
+                    return Err(self.error("Expecting value", self.at).into());
                 }
             }
         }
@@ -201,16 +222,36 @@ impl Parser<'_> {
 /// Return a typed syntax error, or leave valid JSON and separate decoder
 /// constraints (nonfinite values, surrogates, depth) with their existing owner.
 pub fn validate(raw: &str) -> Result<(), JsonError> {
-    let mut parser = Parser { raw, at: 0 };
+    match scan(raw, false) {
+        Err(Refusal::Syntax(error)) => Err(error),
+        // Unreachable without the integer limit; never forge a syntax error.
+        Err(Refusal::IntegerDigits(_)) | Ok(()) => Ok(()),
+    }
+}
+
+/// `validate`, additionally reporting the first oversized integer token in
+/// scan order, for boundaries whose frozen owner is CPython's `json.loads`.
+pub fn validate_with_integer_limit(raw: &str) -> Result<(), Refusal> {
+    scan(raw, true)
+}
+
+fn scan(raw: &str, integer_limit: bool) -> Result<(), Refusal> {
+    let mut parser = Parser {
+        raw,
+        at: 0,
+        integer_limit,
+    };
     if raw.starts_with('\u{feff}') {
-        return Err(parser.error("Unexpected UTF-8 BOM (decode using utf-8-sig)", 0));
+        return Err(parser
+            .error("Unexpected UTF-8 BOM (decode using utf-8-sig)", 0)
+            .into());
     }
     if !parser.value(0)? {
         return Ok(());
     }
     parser.ws();
     if parser.at != raw.len() {
-        return Err(parser.error("Extra data", parser.at));
+        return Err(parser.error("Extra data", parser.at).into());
     }
     Ok(())
 }
@@ -249,6 +290,52 @@ mod tests {
             ),
         ] {
             assert_eq!(validate(raw).unwrap_err().to_string(), expected, "{raw:?}");
+        }
+    }
+    #[test]
+    fn oversized_integers_fail_in_scan_order_only_when_selected() {
+        let big = "1".repeat(4301);
+        // (input, whether the limit-free syntax check alone refuses it)
+        for (raw, syntax) in [
+            (format!("{{\"a\":{big}, }}"), true),
+            (format!("{{\"a\":-{big}x"), true),
+            (format!("[{big}, {big}0, ]"), true),
+            (format!("{{\"x\":{big},\"x\":0}}"), false),
+            (big.clone(), false),
+        ] {
+            assert_eq!(
+                validate_with_integer_limit(&raw).unwrap_err(),
+                Refusal::IntegerDigits(4301)
+            );
+            assert_eq!(validate(&raw).is_err(), syntax);
+        }
+        for raw in [
+            format!("[{}]", "1".repeat(4300)),
+            format!("[-{}]", "1".repeat(4300)),
+            format!("[{big}.5]"),
+            format!("[{big}e1]"),
+            format!("[{big}E+1]"),
+        ] {
+            assert_eq!(validate_with_integer_limit(&raw), Ok(()), "{raw}");
+        }
+        for (raw, message) in [
+            (
+                format!("[1, ]{big}"),
+                "Illegal trailing comma before end of array",
+            ),
+            (format!("{{\"a\" {big}"), "Expecting ':' delimiter"),
+            (format!("[0{big}]"), "Expecting ',' delimiter"),
+            (
+                format!("[{big}.5, ]"),
+                "Illegal trailing comma before end of array",
+            ),
+            (format!("{{\"a\":1}} {big}"), "Extra data"),
+        ] {
+            let Err(Refusal::Syntax(error)) = validate_with_integer_limit(&raw) else {
+                panic!("{raw}");
+            };
+            assert!(error.to_string().starts_with(message), "{error}");
+            assert_eq!(validate(&raw).unwrap_err(), error);
         }
     }
     #[test]

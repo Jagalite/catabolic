@@ -47,7 +47,15 @@ pub fn execute(a: &Value) -> Result<Value> {
         if raw.len() > 131072 {
             return Err(Error("variables exceed input budget".into()).into());
         }
-        super::json_diagnostic::validate(raw)?;
+        // Frozen json.loads converts each integer token while scanning, so an
+        // oversized integer precedes any later syntax defect, and vice versa.
+        match super::json_diagnostic::validate_with_integer_limit(raw) {
+            Err(super::json_diagnostic::Refusal::Syntax(error)) => return Err(error.into()),
+            Err(super::json_diagnostic::Refusal::IntegerDigits(digits)) => {
+                return Err(super::variable_admission::integer_limit(digits).into());
+            }
+            Ok(()) => (),
+        }
         super::variable_admission::validate(raw)?;
     }
     let variables = if a["variables"].is_null()
