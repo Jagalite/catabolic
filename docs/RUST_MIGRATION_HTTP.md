@@ -174,7 +174,11 @@ findings. This qualification is scoped to the experimental loopback backend.
   unresolved content-release blocker. Registered aliases and normal live
   database sidecars passing tests do not close this gap. The bounded
   [recognizable WAL/SHM prefix refusal](RUST_MIGRATION_PRIVATE_SIDECAR_HEADERS.md)
-  also leaves damaged/unrecognizable orphaned sidecars unqualified.
+  also leaves damaged/unrecognizable orphaned sidecars unqualified. The FS4
+  [name-based refusal](NATIVE_INTEGRITY_HARDENING.md) now covers orphans that
+  keep a SQLite sidecar name, and rollback-journal headers. A hard-link alias
+  whose header SQLite zeroed remains an accepted residual. This gate still
+  needs release qualification evidence before it closes.
 - Component-policy logical demand deliberately retains the frozen requirement
   for explicit local component packaging admission. Package resolution itself has
   a separate independent-catalog HTTP privacy gate, including child-order and

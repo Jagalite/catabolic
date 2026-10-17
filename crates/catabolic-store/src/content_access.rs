@@ -16,22 +16,46 @@ fn denied(code: &str) -> Error {
 }
 /// Conservatively refuse recognizable SQLite payloads even after their original
 /// private pathname has disappeared. This is not proof that other bytes are
-/// public: damaged, zeroed, or unfamiliar sidecar headers remain unclassified.
+/// public: damaged, zeroed, or unfamiliar sidecar headers remain unclassified,
+/// which is why `sqlite_sidecar_name` also refuses by name (FS4).
 fn refuse_sqlite_payload(file: &File) -> Result<()> {
     let mut header = [0u8; 16];
     let length = file.read_at(&mut header, 0)?;
     let bytes = &header[..length];
     // SQLite WAL_MAGIC is big-endian; WalIndexHdr.iVersion is native-endian.
     // Both wal-index byte orders are private, including copied foreign files.
+    // A rollback journal starts with the eight-byte aJournalMagic once its
+    // header is synced (pager.c in the pinned libsqlite3-sys 0.38.2).
     if bytes == b"SQLite format 3\0"
         || bytes.starts_with(&0x377f0682u32.to_be_bytes())
         || bytes.starts_with(&0x377f0683u32.to_be_bytes())
         || bytes.starts_with(&3_007_000u32.to_le_bytes())
         || bytes.starts_with(&3_007_000u32.to_be_bytes())
+        || bytes.starts_with(&[0xd9, 0xd5, 0x05, 0xf9, 0x20, 0xa1, 0x63, 0xd7])
     {
         return Err(denied("private_content"));
     }
     Ok(())
+}
+/// SQLite names every sidecar after its database: `-wal`, `-shm`, `-journal`
+/// and the super-journal `-mjXXXXXXXX` (eight hex digits). An orphaned sidecar
+/// keeps that name after its database is renamed, moved or deleted, while its
+/// header may be zeroed (a persisted or never-synced rollback journal) or
+/// truncated, so no content check can recognize it. Content is refused by name,
+/// whatever the bytes (FS4). The suffix must end the name, so ordinary media
+/// such as `diary-journal.mkv` is unaffected. Nothing is deleted or renamed.
+fn sqlite_sidecar_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    if ["-wal", "-shm", "-journal"]
+        .iter()
+        .any(|suffix| lower.ends_with(suffix))
+    {
+        return true;
+    }
+    let bytes = lower.as_bytes();
+    bytes.len() >= 11
+        && &bytes[bytes.len() - 11..bytes.len() - 8] == b"-mj"
+        && bytes[bytes.len() - 8..].iter().all(u8::is_ascii_hexdigit)
 }
 impl Access {
     /// Reopen the current catalog snapshot for a new authorization boundary.
@@ -181,6 +205,9 @@ fn authorize_snapshot(access: &mut Access, id: &str, revision: &str) -> Result<V
         .map(|p| p.join(".config/catabolic/credentials"));
     if &filename == database
         || filename.to_string_lossy().starts_with(&database_sidecar)
+        || filename
+            .file_name()
+            .is_some_and(|name| sqlite_sidecar_name(&name.to_string_lossy()))
         || private.is_some_and(|p| filename.starts_with(p))
         || access
             .store()
@@ -943,15 +970,16 @@ mod tests {
     #[test]
     fn recognizable_sidecar_prefixes_are_conservative_and_endian_independent() {
         for prefix in [
-            0x377f0682u32.to_be_bytes(),
-            0x377f0683u32.to_be_bytes(),
-            3_007_000u32.to_le_bytes(),
-            3_007_000u32.to_be_bytes(),
+            0x377f0682u32.to_be_bytes().as_slice(),
+            0x377f0683u32.to_be_bytes().as_slice(),
+            3_007_000u32.to_le_bytes().as_slice(),
+            3_007_000u32.to_be_bytes().as_slice(),
+            // Rollback journal aJournalMagic.
+            [0xd9, 0xd5, 0x05, 0xf9, 0x20, 0xa1, 0x63, 0xd7].as_slice(),
         ] {
             for suffix in [b"".as_slice(), b"arbitrary private body".as_slice()] {
                 let file = tempfile::tempfile().unwrap();
-                file.write_all_at(&[prefix.as_slice(), suffix].concat(), 0)
-                    .unwrap();
+                file.write_all_at(&[prefix, suffix].concat(), 0).unwrap();
                 assert_eq!(
                     refuse_sqlite_payload(&file).unwrap_err().0,
                     "private_content"
@@ -970,6 +998,134 @@ mod tests {
             file.write_all_at(bytes, 0).unwrap();
             refuse_sqlite_payload(&file).unwrap();
         }
+    }
+    #[test]
+    fn sqlite_sidecar_names_are_recognized_only_as_whole_suffixes() {
+        for name in [
+            "catalog.sqlite3-wal",
+            "catalog.sqlite3-shm",
+            "catalog.sqlite3-journal",
+            "old catalog.db-JOURNAL",
+            "renamed-wal",
+            "-shm",
+            "catalog.sqlite3-mj7f3319fa",
+            "catalog.sqlite3-MJ7F3319FA",
+            "\u{e9}t\u{e9}.db-wal",
+        ] {
+            assert!(sqlite_sidecar_name(name), "{name}");
+        }
+        for name in [
+            "diary-journal.mkv",
+            "movie-wal.mp4",
+            "catalog.sqlite3",
+            "walnut",
+            "show-shm.srt",
+            "catalog.sqlite3-mj7f3319f",
+            "catalog.sqlite3-mj7f3319fz",
+            "\u{e9}\u{e9}\u{e9}\u{e9}\u{e9}\u{e9}",
+            "",
+        ] {
+            assert!(!sqlite_sidecar_name(name), "{name}");
+        }
+    }
+    #[test]
+    fn unrecognizable_orphaned_sidecars_are_refused_by_name_and_never_removed() {
+        let (root, access, _, _) = fixture();
+        let media = root.path().join("media");
+        // Zeroed or truncated headers carry no SQLite signature. The bodies
+        // stand in for private database pages left by a renamed catalog.
+        let mut zeroed_journal = vec![0u8; 28];
+        zeroed_journal.extend_from_slice(b"private page bytes");
+        let zeroed_wal = [0u8; 64];
+        let orphans: [(&str, &[u8]); 5] = [
+            ("old-catalog.sqlite3-journal", zeroed_journal.as_slice()),
+            ("old-catalog.sqlite3-wal", zeroed_wal.as_slice()),
+            ("old-catalog.sqlite3-shm", b"".as_slice()),
+            (
+                "old-catalog.sqlite3-mj0A1B2C3D",
+                b"old-catalog.sqlite3-journal\0".as_slice(),
+            ),
+            ("nested-WAL", b"private".as_slice()),
+        ];
+        for (name, bytes) in orphans {
+            std::fs::write(media.join(name), bytes).unwrap();
+        }
+        std::fs::write(media.join("diary-journal.mkv"), b"ordinary media").unwrap();
+        let database = access.store().path.clone();
+        drop(access);
+        let store = Store::open(&database, true, false).unwrap();
+        // Sidecar names have no media extension, so they are cataloged only
+        // when the source policy admits every file.
+        crate::observation::execute(
+            &store,
+            "default",
+            "scan_policy",
+            &json!({"source":"media","policy":{"extensions":null},"apply":true}),
+        )
+        .unwrap();
+        let scanned =
+            crate::observation::execute(&store, "default", "scan", &json!({"source":"media"}))
+                .unwrap();
+        let mut access = Access::authenticate(store, "token.secret").unwrap();
+        let listed = access
+            .store()
+            .db
+            .prepare("SELECT path FROM files ORDER BY path")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(listed.len(), 7, "{listed:?} {scanned}");
+        let lookup = |access: &Access, name: &str| {
+            let id = access
+                .store()
+                .db
+                .query_row("SELECT id FROM files WHERE path=?", [name], |r| {
+                    r.get::<_, String>(0)
+                })
+                .unwrap();
+            let revision = revision_of(access.store(), "default", &id).unwrap();
+            (id, revision)
+        };
+        for (name, bytes) in orphans {
+            let (id, revision) = lookup(&access, name);
+            assert_eq!(
+                authorize(&mut access, &id, &revision).unwrap_err().0,
+                "private_content",
+                "{name}"
+            );
+            assert_eq!(
+                ticket(&mut access, &id, &revision, 300, 100).unwrap_err().0,
+                "private_content",
+                "{name}"
+            );
+            let called = std::cell::Cell::new(false);
+            let result = with_transfer(
+                access.current().unwrap(),
+                &id,
+                &revision,
+                None,
+                |_, _, _| {
+                    called.set(true);
+                    Ok(())
+                },
+                |_, _, _, ()| {
+                    called.set(true);
+                    Ok(())
+                },
+            );
+            assert_eq!(result.unwrap_err().0, "private_content", "{name}");
+            assert!(!called.get());
+            // Refusal never deletes or rewrites what Catabolic cannot prove it owns.
+            assert_eq!(std::fs::read(media.join(name)).unwrap(), bytes, "{name}");
+        }
+        let (id, revision) = lookup(&access, "diary-journal.mkv");
+        let bytes = with_opened(&mut access, &id, &revision, |file, stat| {
+            read_chunk(file, stat, 0, 64)
+        })
+        .unwrap();
+        assert_eq!(bytes, b"ordinary media");
     }
     #[test]
     fn ordinary_content_still_reaches_both_descriptor_callbacks() {

@@ -87,6 +87,62 @@ Remaining limits:
   the mismatch is found. Clients must treat an aborted transfer as failed and
   discard what they received.
 
+## Orphaned SQLite sidecars are refused by name (FS4)
+
+Content admission already refused the catalog, its live `-wal`, `-shm` and
+`-journal` inodes, registered private files, and files whose first bytes carry
+a SQLite database, WAL or wal-index signature. An orphaned sidecar escaped all
+of these when its header was unrecognizable. A persisted or never-synced
+rollback journal has a zeroed header, and a truncated or damaged sidecar has
+none, yet the body still holds private database pages.
+
+The filesystem lane did not settle a design, so the native engine adopts the
+safest fail-closed one. It never deletes, renames or rewrites a file it cannot
+prove it owns. It refuses to serve the file, with a structured error, and
+leaves the decision to the operator.
+
+- **By name.** SQLite names every sidecar after its database. A file whose name
+  ends in `-wal`, `-shm` or `-journal`, or in the super-journal form
+  `-mjXXXXXXXX` (eight hex digits), is refused as `private_content` whatever
+  its bytes. Matching ignores ASCII case and requires the suffix to end the
+  name, so ordinary media such as `diary-journal.mkv` is unaffected. The name
+  survives a renamed, moved or deleted database, which is how orphans arise in
+  practice.
+- **By header.** The eight-byte rollback-journal magic joins the recognized
+  signatures, so a synced journal is refused under any name.
+
+The default scan policy catalogs only listed media extensions, which no
+sidecar name has. Sidecar-named files reach content admission when a source
+policy admits every file (`extensions: null`).
+
+The refusal happens during authorization, so tickets, `inspect`, `HEAD`,
+ranges and full transfers all refuse before any descriptor callback runs.
+Frozen Python serves these files. This is a versioned native difference.
+
+### Operator procedure
+
+A `private_content` refusal for a file in an exposed source means one of two
+things:
+
+1. **It is an orphaned SQLite sidecar.** Move it out of the exposed source to
+   private storage. Do not delete it until its database is identified: a hot
+   rollback journal or WAL may be needed to recover that database. If the
+   database is found, put the sidecar back beside it under the matching name
+   before opening it with SQLite.
+2. **It is genuine media with a sidecar-like name.** Rename it so that the name
+   no longer ends in a sidecar suffix, for example by adding its extension.
+   Then rescan the source.
+
+### Remaining limit
+
+A hard link to a live sidecar, created under an unrelated name while the
+sidecar existed and then left behind when SQLite removed the original name, is
+still unrecognizable if SQLite later zeroed its header. Creating that link
+requires access to the catalog's directory and write access to an exposed
+source on the same filesystem. With the catalog's file modes that access
+already allows reading the catalog directly, so it is outside this threat
+model. Recognizable headers in such a link are refused as before.
+
 ## Output claims never delete temporaries (FS1)
 
 `claim_output` now creates the ownership marker directly, with

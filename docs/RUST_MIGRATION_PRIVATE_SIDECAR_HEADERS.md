@@ -21,7 +21,9 @@ descriptor protocol, private inode persistence, or filesystem mutation changes.
 This is a conservative refusal, not a format validator. An ordinary file whose
 prefix coincides with a refused value is refused too. Truncated, zeroed,
 modified, future-format, or otherwise unrecognizable sidecars are not proven
-safe. The private-content release blocker therefore remains open. The frozen
+safe. The private-content release blocker therefore remains open. (Later,
+FS4 added rollback-journal magic and a refusal by SQLite sidecar name; see
+[native integrity hardening](NATIVE_INTEGRITY_HARDENING.md).) The frozen
 Python implementation lacks the new prefix refusal; this is an explicit native
 fail-closed improvement, not an exact-parity claim.
 
