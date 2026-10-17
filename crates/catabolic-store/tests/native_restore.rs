@@ -1033,6 +1033,88 @@ fn restore_records_use_durable_volume_identity() {
     assert_eq!(rerun["already_published"], true);
 }
 
+/// Child process: leave the substituted live file with evidence SQLite would
+/// otherwise consume. `hot` exits mid-transaction after page spills, leaving a
+/// hot rollback journal; `wal` switches to WAL and exits without checkpoint.
+#[test]
+fn evidence_worker() {
+    let Ok(path) = std::env::var("CATABOLIC_TEST_RESTORE_EVIDENCE") else {
+        return;
+    };
+    let db = rusqlite::Connection::open(&path).unwrap();
+    let mode = std::env::var("CATABOLIC_TEST_RESTORE_EVIDENCE_MODE").unwrap();
+    if mode == "wal" {
+        db.query_row("PRAGMA journal_mode=WAL", [], |row| row.get::<_, String>(0))
+            .unwrap();
+        db.execute_batch("INSERT INTO meta VALUES('evidence-wal','1')")
+            .unwrap();
+    } else {
+        db.execute_batch("PRAGMA cache_size=1; BEGIN").unwrap();
+        for index in 0..400 {
+            db.execute(
+                "INSERT INTO meta VALUES(?,?)",
+                rusqlite::params![format!("evidence-{index}"), "x".repeat(2000)],
+            )
+            .unwrap();
+        }
+    }
+    std::process::exit(0);
+}
+
+/// A rerun after a detected substitution must refuse before touching the live
+/// path with SQLite, which would replay or checkpoint the evidence.
+#[test]
+fn rerun_after_substitution_preserves_journal_and_wal_evidence() {
+    for (mode, sidecars) in [("hot", &["-journal"][..]), ("wal", &["-wal", "-shm"][..])] {
+        let (_root, path, receipt) = backed_up();
+        let error =
+            native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+                if at == native_restore::RENAME_WINDOW {
+                    substitute_staged(&path, &backup_directory(&receipt));
+                }
+                Ok(())
+            })
+            .unwrap_err();
+        assert!(
+            error.0.contains("hostile substitution detected"),
+            "{mode}: {error}"
+        );
+        let status = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "evidence_worker", "--nocapture"])
+            .env("CATABOLIC_TEST_RESTORE_EVIDENCE", &path)
+            .env("CATABOLIC_TEST_RESTORE_EVIDENCE_MODE", mode)
+            .status()
+            .unwrap();
+        assert!(status.success(), "{mode}");
+        let evidence = |path: &Path| -> Vec<Option<Vec<u8>>> {
+            std::iter::once(path.to_path_buf())
+                .chain(
+                    sidecars
+                        .iter()
+                        .map(|suffix| PathBuf::from(format!("{}{suffix}", path.display()))),
+                )
+                .map(|file| fs::read(file).ok())
+                .collect()
+        };
+        let before = evidence(&path);
+        assert!(
+            before.iter().all(Option::is_some),
+            "{mode}: evidence files were not created"
+        );
+        assert!(
+            before[1].as_ref().is_some_and(|bytes| !bytes.is_empty()),
+            "{mode}: empty sidecar"
+        );
+        let error = restore(&path, &receipt).unwrap_err();
+        assert!(
+            error.0.contains("restore record reconciliation required")
+                && error.0.contains("detected substitution"),
+            "{mode}: {error}"
+        );
+        assert_eq!(evidence(&path), before, "{mode}");
+    }
+}
+
 /// Schema objects, migration history and sequences are not covered by table
 /// digests; each is verified under the held lock before the rename.
 #[test]

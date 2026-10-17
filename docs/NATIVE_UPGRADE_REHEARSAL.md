@@ -277,7 +277,10 @@ live path or try to roll back. It leaves the unexpected live file and any
 sidecars where they are, leaves `previous.sqlite3` in the staging directory,
 sets the record to `substitution_detected`, and fails with `hostile
 substitution detected` and `restore record reconciliation required`. Reruns
-refuse in the same way while that record exists.
+refuse in the same way while that record exists. Records are read and
+classified before any SQLite access to the live path, because opening it
+would replay or checkpoint a hot journal or WAL left with the unexpected
+file and destroy that evidence.
 
 To recover by hand:
 
@@ -330,6 +333,8 @@ identity and incarnation before use and require a reopen.
 - rerun durability after an uncertain publication;
 - unreadable or corrupt restore records;
 - volume-UUID file identities in records;
+- a rerun after a detected substitution that leaves a hot journal or WAL
+  byte-identical;
 - a process exit at every checkpoint, followed by a rerun.
 
 Each refusal leaves the catalog unchanged. A restore returns the database to

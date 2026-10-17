@@ -594,34 +594,13 @@ pub fn restore(
     let mut snapshot_file = open_snapshot(&snapshot, &target)?;
     let admission = crate::native_admission_exclusive(&target)?;
     let _writer = crate::writer_lock(&target)?;
-    // Held until after the rename: no SQLite user can read or write meanwhile.
-    let live = crate::journal_conversion::connect_exclusive(&target)?;
-    let journal: String = live.pragma_query_value(None, "journal_mode", |row| row.get(0))?;
-    if journal == "wal" {
-        return Err(Error(
-            "controlled restore requires a rollback-journal live catalog; run db convert-journal --to delete first".into(),
-        ));
-    }
-    live.execute_batch("BEGIN")?;
-    let current = migration::validate(&live, false)?;
-    let current_identity = identity_manifest::manifest(&live)?;
-    live.execute_batch("ROLLBACK")?;
-    if current["database_id"] != identity["database_id"]
-        || current_identity["catalog"]["catalog_id"] != identity["catalog"]["catalog_id"]
-    {
-        return Err(Error(
-            "native backup belongs to another catalog; refusing to restore it over this one".into(),
-        ));
-    }
-    let previous_incarnation = current_identity["catalog"]["incarnation"]
-        .as_str()
-        .ok_or_else(|| Error("live catalog has no native incarnation".into()))?
-        .to_owned();
     let live_file = file_identity(&target)?;
     // Records left at `publishing` are classified by the live file's identity:
     // the previous file or the staged file. Anything else, and any detected
     // substitution, is an outcome that requires operator reconciliation.
-    // Unreadable records refuse before anything else is looked up.
+    // This runs before ANY SQLite access to the live path: opening it could
+    // replay and delete a hot journal, altering a preserved unexpected file
+    // and destroying evidence. Unreadable records refuse first of all.
     let mut records = previous_records(&target, &identity["database_id"])?;
     let volume = catalog_volume(&target)?;
     let live_json = durable_identity(&volume, live_file);
@@ -653,6 +632,29 @@ pub fn restore(
             _ => {}
         }
     }
+    // Held until after the rename: no SQLite user can read or write meanwhile.
+    let live = crate::journal_conversion::connect_exclusive(&target)?;
+    let journal: String = live.pragma_query_value(None, "journal_mode", |row| row.get(0))?;
+    if journal == "wal" {
+        return Err(Error(
+            "controlled restore requires a rollback-journal live catalog; run db convert-journal --to delete first".into(),
+        ));
+    }
+    live.execute_batch("BEGIN")?;
+    let current = migration::validate(&live, false)?;
+    let current_identity = identity_manifest::manifest(&live)?;
+    live.execute_batch("ROLLBACK")?;
+    if current["database_id"] != identity["database_id"]
+        || current_identity["catalog"]["catalog_id"] != identity["catalog"]["catalog_id"]
+    {
+        return Err(Error(
+            "native backup belongs to another catalog; refusing to restore it over this one".into(),
+        ));
+    }
+    let previous_incarnation = current_identity["catalog"]["incarnation"]
+        .as_str()
+        .ok_or_else(|| Error("live catalog has no native incarnation".into()))?
+        .to_owned();
     // A record whose rotated incarnation is the live one, published at this
     // very inode, proves that this backup was already published; never rotate
     // it a second time.
