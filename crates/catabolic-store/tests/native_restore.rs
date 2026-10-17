@@ -426,14 +426,19 @@ fn crash_at_every_restore_stage_is_recoverable() {
         assert_eq!(status.code(), Some(86), "{stage}");
         let reached = |name: &str| position(stage) >= position(name);
         let committed = reached("renamed");
-        // Staging begins after verification and survives a crash.
+        // Staging holds the private snapshot copy from the first checkpoint
+        // on, and survives a crash.
         let staging = staging_directories(&path);
-        assert_eq!(staging.len(), usize::from(reached("retained")), "{stage}");
+        assert_eq!(staging.len(), 1, "{stage}");
         let record = staging
             .first()
             .map(|directory| directory.join("manifest.json"));
         if let Some(directory) = staging.first() {
-            assert!(directory.join("previous.sqlite3").exists(), "{stage}");
+            assert_eq!(
+                directory.join("previous.sqlite3").exists(),
+                reached("retained"),
+                "{stage}"
+            );
             assert_eq!(
                 record.as_ref().unwrap().exists(),
                 reached("rotated"),
@@ -502,17 +507,13 @@ fn crash_at_every_restore_stage_is_recoverable() {
 /// an ordinary failure, and a rerun does not rotate the incarnation again.
 #[test]
 fn failures_after_publication_report_a_committed_restore() {
-    for (stage, durability, warning) in [
-        ("renamed", "uncertain", "failure after publication rename"),
-        ("published", "durable", "failure after durable publication"),
-        (
-            "finalizing",
-            "durable",
-            "restore record could not be finalized",
-        ),
+    for (stage, step) in [
+        ("renamed", "the step after the rename"),
+        ("published", "the step after the directory fsync"),
+        ("finalizing", "finalizing the restore record"),
     ] {
         let (_root, path, receipt) = backed_up();
-        let report =
+        let error =
             native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
                 if at == stage {
                     Err(catabolic_store::Error(format!("injected {at}")))
@@ -520,35 +521,23 @@ fn failures_after_publication_report_a_committed_restore() {
                     Ok(())
                 }
             })
-            .unwrap();
-        assert_eq!(report["restored"], true, "{stage}");
-        assert_eq!(report["durability"], durability, "{stage}");
-        let warnings = report["warnings"].as_array().unwrap();
+            .unwrap_err();
         assert!(
-            warnings
-                .iter()
-                .any(|text| text.as_str().unwrap().contains(warning)),
-            "{stage}: {warnings:?}"
+            error.0.contains("restore committed") && error.0.contains(step),
+            "{stage}: {error}"
         );
-        let rotated = report["incarnation"].as_str().unwrap().to_owned();
-        assert_eq!(incarnation(&path), rotated, "{stage}");
-        let record: Value =
-            serde_json::from_slice(&fs::read(report["restore_record"].as_str().unwrap()).unwrap())
-                .unwrap();
-        let expected = if stage == "finalizing" {
-            "publishing"
-        } else {
-            "published"
-        };
-        assert_eq!(record["status"], expected, "{stage}");
-        if stage != "finalizing" {
-            assert_eq!(record["durability"], durability, "{stage}");
-        }
+        let rotated = incarnation(&path);
+        assert!(error.0.contains(&rotated), "{stage}: {error}");
+        assert_eq!(items(&path, "later-item"), 0, "{stage}");
+        assert_eq!(record_of(&path)["status"], "publishing", "{stage}");
+        // The rerun confirms durability and never rotates again.
         let rerun = restore(&path, &receipt).unwrap();
         assert_eq!(rerun["already_published"], true, "{stage}");
+        assert_eq!(rerun["durability"], "durable", "{stage}");
         assert_eq!(rerun["incarnation"], rotated.as_str(), "{stage}");
         assert_eq!(incarnation(&path), rotated, "{stage}");
-        assert_eq!(items(&path, "later-item"), 0, "{stage}");
+        assert_eq!(record_of(&path)["status"], "published", "{stage}");
+        assert_eq!(record_of(&path)["durability"], "durable", "{stage}");
     }
 }
 
@@ -700,7 +689,10 @@ fn another_process_is_excluded_from_live_and_staged_catalogs_until_publication()
     let snapshot_bytes = fs::read(&snapshot).unwrap();
     let error =
         native_restore::restore(&snapshot, &backup_directory(&receipt), quiescent(), &|at| {
-            assert_ne!(at, "verified", "restore onto its own snapshot proceeded");
+            assert!(
+                !native_restore::RESTORE_STAGES.contains(&at),
+                "restore onto its own snapshot reached {at}"
+            );
             Ok(())
         })
         .unwrap_err();
@@ -828,14 +820,13 @@ fn rerun_retries_the_publication_fsync_before_reporting_durability() {
             Ok(())
         }
     })
-    .unwrap();
-    assert_eq!(failed["already_published"], true);
-    assert_eq!(failed["durability"], "uncertain");
+    .unwrap_err();
     assert!(
-        failed["warnings"][0]
-            .as_str()
-            .unwrap()
-            .contains("retrying the directory fsync failed")
+        failed.0.contains("restore committed")
+            && failed
+                .0
+                .contains("retrying the publication directory fsync"),
+        "{failed}"
     );
     assert_eq!(record()["status"], "published");
     assert_eq!(record()["durability"], "uncertain");

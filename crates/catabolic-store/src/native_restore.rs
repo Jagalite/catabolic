@@ -102,11 +102,11 @@ pub const RESTORE_CONTRACT: &str = "catabolic-native-restore-v1";
 
 /// Restore checkpoints, in order. The rename between `publishing` and
 /// `renamed` is the single commit point: stages up to `publishing` precede it,
-/// and every later stage reports a committed restore.
+/// and every later stage belongs to a committed restore.
 pub const RESTORE_STAGES: [&str; 10] = [
+    "staged",
     "verified",
     "retained",
-    "staged",
     "rotated",
     "protected",
     "publishing",
@@ -119,71 +119,271 @@ pub const RESTORE_STAGES: [&str; 10] = [
 /// Checkpoint on the rerun path, before retrying the directory fsync of an
 /// already published restore.
 pub const RERUN_FSYNC: &str = "rerun_fsync";
-/// Checkpoint between the final pathname checks and the publication rename.
-/// Only tests use it, to model a substitution in that unavoidable window.
+/// Checkpoint between the final checks and the publication rename. Only tests
+/// use it, to model a substitution in that unavoidable window.
 pub const RENAME_WINDOW: &str = "rename_window";
+/// Checkpoint after the backup directory and its manifest were opened through
+/// held descriptors and before the snapshot is opened. Only tests use it.
+pub const BACKUP_OPENED: &str = "backup_opened";
 
-fn sidecar(path: &Path, suffix: &str) -> PathBuf {
-    let mut name = path.as_os_str().to_os_string();
-    name.push(suffix);
-    PathBuf::from(name)
+/// One controlled restore at a time in this process. Lifecycle admission
+/// excludes other processes; this also keeps a second restore in the same
+/// process from opening and closing descriptors that could cancel the first
+/// one's POSIX locks.
+static RESTORE_IN_PROCESS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn name_cstring(name: &str) -> Result<std::ffi::CString> {
+    if name.is_empty() || name == "." || name == ".." || name.contains('/') {
+        return Err(Error(format!("invalid directory entry name {name:?}")));
+    }
+    std::ffi::CString::new(name)
+        .map_err(|_| Error(format!("invalid directory entry name {name:?}")))
 }
 
-/// Read and verify a native backup directory: its manifest, the snapshot's
-/// SHA-256, full validation, and the identity manifest fingerprint.
-fn verified_backup(directory: &Path) -> Result<(Value, PathBuf, Value)> {
-    use std::{io::Read, os::unix::fs::OpenOptionsExt};
-    let directory = directory.canonicalize()?;
-    let mut raw = Vec::new();
-    fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW)
-        .open(directory.join("manifest.json"))
-        .map_err(|error| Error(format!("cannot read native backup manifest: {error}")))?
-        .take(64 * 1024 * 1024)
-        .read_to_end(&mut raw)?;
-    let receipt = catabolic_core::decode_json_bytes(&raw)?;
-    if receipt["contract"] != BACKUP_CONTRACT {
-        return Err(Error(
-            "not a native backup: manifest contract is not catabolic-native-backup-v1; restore legacy snapshots to a new path instead".into(),
-        ));
+fn os_error() -> Error {
+    std::io::Error::last_os_error().into()
+}
+
+/// What `fstatat(..., AT_SYMLINK_NOFOLLOW)` reports for one directory entry.
+struct Entry {
+    identity: (u64, u64),
+    regular: bool,
+    directory: bool,
+    links: u64,
+}
+
+/// A directory held open with `O_DIRECTORY|O_NOFOLLOW`. Every create, open,
+/// rename, unlink and fsync in restore goes through such a descriptor, so a
+/// pathname swapped after it was opened is never followed. Its pathname is
+/// kept only for SQLite, which opens files by name; callers recheck that the
+/// name still resolves to the held directory around every such open.
+struct Dir {
+    file: fs::File,
+    identity: (u64, u64),
+    path: PathBuf,
+}
+
+impl Dir {
+    fn adopt(fd: libc::c_int, path: PathBuf) -> Result<Dir> {
+        use std::os::fd::FromRawFd;
+        // SAFETY: the caller passes a freshly opened descriptor it owns.
+        let file = unsafe { fs::File::from_raw_fd(fd) };
+        let identity = descriptor_identity(&file)?;
+        Ok(Dir {
+            file,
+            identity,
+            path,
+        })
     }
-    let snapshot = directory.join("snapshot.sqlite3");
-    if receipt["backup"].as_str() != snapshot.to_str() {
-        return Err(Error(
-            "native backup manifest names a different snapshot".into(),
-        ));
+
+    fn open(path: &Path) -> Result<Dir> {
+        use std::os::unix::ffi::OsStrExt;
+        let raw = std::ffi::CString::new(path.as_os_str().as_bytes())
+            .map_err(|_| Error(format!("invalid directory path {}", path.display())))?;
+        // SAFETY: raw is a valid NUL-terminated path.
+        let fd = unsafe {
+            libc::open(
+                raw.as_ptr(),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            )
+        };
+        if fd < 0 {
+            return Err(Error(format!(
+                "cannot open directory {} without following a symbolic link: {}",
+                path.display(),
+                std::io::Error::last_os_error()
+            )));
+        }
+        Dir::adopt(fd, path.to_path_buf())
     }
-    let metadata = fs::symlink_metadata(&snapshot)?;
-    if !metadata.is_file() || std::os::unix::fs::MetadataExt::nlink(&metadata) != 1 {
-        return Err(Error(
-            "native backup snapshot is not a unique regular file".into(),
-        ));
+
+    fn fd(&self) -> libc::c_int {
+        use std::os::fd::AsRawFd;
+        self.file.as_raw_fd()
     }
-    if receipt["sha256"].as_str() != Some(sha256(fs::read(&snapshot)?).as_str()) {
-        return Err(Error(
-            "native backup snapshot does not match its manifest checksum".into(),
-        ));
+
+    fn child(&self, name: &str) -> PathBuf {
+        self.path.join(name)
     }
-    let db = connect(&snapshot, false)?;
-    db.execute_batch("BEGIN")?;
-    let info = migration::validate(&db, true)?;
-    let identity = identity_manifest::manifest(&db)?;
-    drop(db);
-    let schema = info["schema"].as_u64().expect("validated schema") as u32;
-    if !migration::is_supported_native_schema(schema)
-        || receipt["schema"] != schema
-        || receipt["database_id"] != info["database_id"]
-        || receipt["identity_manifest"] != identity
-        || receipt["catalog_id"] != identity["catalog"]["catalog_id"]
-        || receipt["incarnation"] != identity["catalog"]["incarnation"]
+
+    fn open_dir_at(&self, name: &str) -> Result<Dir> {
+        let raw = name_cstring(name)?;
+        // SAFETY: valid directory descriptor and NUL-terminated entry name.
+        let fd = unsafe {
+            libc::openat(
+                self.fd(),
+                raw.as_ptr(),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            )
+        };
+        if fd < 0 {
+            return Err(os_error());
+        }
+        Dir::adopt(fd, self.child(name))
+    }
+
+    fn create_dir_at(&self, name: &str) -> Result<Dir> {
+        let raw = name_cstring(name)?;
+        // SAFETY: valid directory descriptor and NUL-terminated entry name.
+        if unsafe { libc::mkdirat(self.fd(), raw.as_ptr(), 0o700) } != 0 {
+            return Err(os_error());
+        }
+        self.fsync()?;
+        self.open_dir_at(name)
+    }
+
+    fn open_file_at(&self, name: &str) -> std::io::Result<fs::File> {
+        use std::os::fd::FromRawFd;
+        let raw = name_cstring(name).map_err(|error| std::io::Error::other(error.0))?;
+        // SAFETY: valid directory descriptor and NUL-terminated entry name.
+        let fd = unsafe {
+            libc::openat(
+                self.fd(),
+                raw.as_ptr(),
+                libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            )
+        };
+        if fd < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        // SAFETY: openat returned a fresh descriptor we own.
+        Ok(unsafe { fs::File::from_raw_fd(fd) })
+    }
+
+    fn create_file_at(&self, name: &str) -> Result<fs::File> {
+        use std::os::fd::FromRawFd;
+        let raw = name_cstring(name)?;
+        // SAFETY: valid directory descriptor and NUL-terminated entry name.
+        let fd = unsafe {
+            libc::openat(
+                self.fd(),
+                raw.as_ptr(),
+                libc::O_RDWR | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+                0o600 as libc::c_uint,
+            )
+        };
+        if fd < 0 {
+            return Err(os_error());
+        }
+        // SAFETY: openat returned a fresh descriptor we own.
+        Ok(unsafe { fs::File::from_raw_fd(fd) })
+    }
+
+    fn entry(&self, name: &str) -> Option<Entry> {
+        let raw = name_cstring(name).ok()?;
+        // SAFETY: an all-zero stat is a valid output buffer.
+        let mut stat: libc::stat = unsafe { std::mem::zeroed() };
+        // SAFETY: valid descriptor, name and output buffer.
+        if unsafe {
+            libc::fstatat(
+                self.fd(),
+                raw.as_ptr(),
+                &mut stat,
+                libc::AT_SYMLINK_NOFOLLOW,
+            )
+        } != 0
+        {
+            return None;
+        }
+        let kind = stat.st_mode & libc::S_IFMT;
+        Some(Entry {
+            identity: (stat.st_dev as u64, stat.st_ino as u64),
+            regular: kind == libc::S_IFREG,
+            directory: kind == libc::S_IFDIR,
+            links: stat.st_nlink as u64,
+        })
+    }
+
+    fn rename_at(&self, from: &str, to: &Dir, name: &str) -> Result<()> {
+        let (from, name) = (name_cstring(from)?, name_cstring(name)?);
+        // SAFETY: valid descriptors and NUL-terminated entry names.
+        if unsafe { libc::renameat(self.fd(), from.as_ptr(), to.fd(), name.as_ptr()) } != 0 {
+            return Err(os_error());
+        }
+        Ok(())
+    }
+
+    fn unlink_at(&self, name: &str, directory: bool) -> Result<()> {
+        let raw = name_cstring(name)?;
+        let flags = if directory { libc::AT_REMOVEDIR } else { 0 };
+        // SAFETY: valid descriptor and NUL-terminated entry name.
+        if unsafe { libc::unlinkat(self.fd(), raw.as_ptr(), flags) } != 0 {
+            return Err(os_error());
+        }
+        Ok(())
+    }
+
+    fn fsync(&self) -> Result<()> {
+        Ok(self.file.sync_all()?)
+    }
+
+    /// The held descriptor is unchanged and its pathname still resolves to
+    /// it, so SQLite opening a file by name below it reaches this directory.
+    fn require_unchanged(&self) -> Result<()> {
+        use std::os::unix::fs::MetadataExt;
+        let held = descriptor_identity(&self.file)?;
+        let named = fs::symlink_metadata(&self.path)
+            .ok()
+            .filter(|metadata| metadata.file_type().is_dir())
+            .map(|metadata| (metadata.dev(), metadata.ino()));
+        if held != self.identity || named != Some(self.identity) {
+            return Err(Error(format!(
+                "directory {} was replaced during restore; refusing to continue",
+                self.path.display()
+            )));
+        }
+        Ok(())
+    }
+
+    /// The entry `name` is still exactly the held child directory.
+    fn require_child(&self, name: &str, child: &Dir) -> Result<()> {
+        match self.entry(name) {
+            Some(entry) if entry.directory && entry.identity == child.identity => Ok(()),
+            _ => Err(Error(format!(
+                "staging directory {} was replaced during restore; refusing to continue",
+                child.path.display()
+            ))),
+        }
+    }
+}
+
+/// Write `manifest.json` inside a held directory: a new private temporary file
+/// written and fsynced through its descriptor, renamed within the directory,
+/// and the directory fsynced. Every failure is an error.
+fn write_record(parent: &Dir, staging_name: &str, staging: &Dir, record: &Value) -> Result<()> {
+    use std::io::Write;
+    parent.require_child(staging_name, staging)?;
+    let temporary = format!("manifest-{}.tmp", Uuid::new_v4().simple());
+    let mut file = staging.create_file_at(&temporary)?;
+    file.write_all(serde_json::to_string_pretty(record)?.as_bytes())?;
+    file.write_all(b"\n")?;
+    file.sync_all()?;
+    drop(file);
+    parent.require_child(staging_name, staging)?;
+    staging.rename_at(&temporary, staging, "manifest.json")?;
+    staging.fsync()
+}
+
+/// Remove this run's unpublished staging directory, entry by entry through
+/// its held descriptor. Anything unexpected is left for the operator.
+fn remove_staging(parent: &Dir, staging_name: &str, staging: &Dir) {
+    if staging.require_unchanged().is_err() || parent.require_child(staging_name, staging).is_err()
     {
-        return Err(Error(
-            "native backup snapshot does not match its manifest identity".into(),
-        ));
+        return;
     }
-    identity_manifest::validate(&identity).map_err(Error)?;
-    Ok((receipt, snapshot, identity))
+    if let Ok(entries) = fs::read_dir(&staging.path) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            // unlinkat removes a symbolic link itself and never follows it.
+            if staging.entry(&name).is_some_and(|entry| !entry.directory) {
+                let _ = staging.unlink_at(&name, false);
+            }
+        }
+    }
+    if parent.require_child(staging_name, staging).is_ok() {
+        let _ = parent.unlink_at(staging_name, true);
+        let _ = parent.fsync();
+    }
 }
 
 fn fresh_incarnation(avoid: &[&str]) -> String {
@@ -304,35 +504,10 @@ fn require_worker_ownership_resolved(staged: &Path) -> Result<()> {
     Ok(())
 }
 
-fn file_identity(path: &Path) -> Result<(u64, u64)> {
-    use std::os::unix::fs::MetadataExt;
-    let metadata = fs::symlink_metadata(path)?;
-    if !metadata.file_type().is_file() || metadata.nlink() != 1 {
-        return Err(Error(format!(
-            "{} is not a unique regular file",
-            path.display()
-        )));
-    }
-    Ok((metadata.dev(), metadata.ino()))
-}
-
 fn descriptor_identity(file: &fs::File) -> Result<(u64, u64)> {
     use std::os::unix::fs::MetadataExt;
     let metadata = file.metadata()?;
     Ok((metadata.dev(), metadata.ino()))
-}
-
-/// Volume UUID of the catalog's directory. Device numbers can change across
-/// reboots, so identities compared across runs use this UUID and the inode;
-/// `(st_dev, st_ino)` is used only within a single run.
-fn catalog_volume(target: &Path) -> Result<String> {
-    // A directory descriptor, never one on a database file.
-    let directory = fs::File::open(target.parent().expect("database parent"))?;
-    crate::source::volume_uuid(&directory).ok_or_else(|| {
-        Error(
-            "controlled restore requires a filesystem that reports a volume UUID, so that restore records stay valid across reboots".into(),
-        )
-    })
 }
 
 fn durable_identity(volume: &str, identity: (u64, u64)) -> Value {
@@ -340,83 +515,39 @@ fn durable_identity(volume: &str, identity: (u64, u64)) -> Value {
 }
 
 /// Identities of the live catalog and whichever of its sidecars exist.
-fn live_identities(target: &Path) -> Vec<(u64, u64)> {
-    use std::os::unix::fs::MetadataExt;
-    std::iter::once(target.to_path_buf())
-        .chain(["-journal", "-wal", "-shm"].map(|suffix| sidecar(target, suffix)))
-        .filter_map(|path| fs::symlink_metadata(path).ok())
-        .map(|metadata| (metadata.dev(), metadata.ino()))
+fn live_identities(parent: &Dir, target_name: &str) -> Vec<(u64, u64)> {
+    ["", "-journal", "-wal", "-shm"]
+        .iter()
+        .filter_map(|suffix| parent.entry(&format!("{target_name}{suffix}")))
+        .map(|entry| entry.identity)
         .collect()
 }
 
-/// A backup file that is the live catalog, one of its sidecars, or a hard link
-/// to either would be opened and closed while the live catalog is locked,
-/// which drops the process's POSIX locks, and a restore would replace a file
-/// with itself. Refuse before any SQLite access, by path and by identity.
-fn refuse_backup_aliases(target: &Path, backup_directory: &Path) -> Result<()> {
+/// Open a backup file through the held backup directory without following a
+/// symbolic link, and refuse anything but a unique regular file that is not
+/// the live catalog, one of its sidecars or a hard link to either.
+fn open_backup_file(backup: &Dir, name: &str, parent: &Dir, target_name: &str) -> Result<fs::File> {
     use std::os::unix::fs::MetadataExt;
-    let directory = backup_directory.canonicalize()?;
-    let live = live_identities(target);
-    for name in ["snapshot.sqlite3", "manifest.json"] {
-        let path = directory.join(name);
-        let aliased_path = path == target
-            || ["-journal", "-wal", "-shm"]
-                .iter()
-                .any(|suffix| path == sidecar(target, suffix));
-        let metadata = fs::symlink_metadata(&path).ok();
-        let aliased_file = metadata
-            .as_ref()
-            .is_some_and(|metadata| live.contains(&(metadata.dev(), metadata.ino())));
-        if aliased_path || aliased_file {
-            return Err(Error(format!(
-                "native backup file {} is the live catalog or one of its sidecars; refusing to restore",
-                path.display()
-            )));
-        }
-        if metadata.is_some_and(|metadata| metadata.nlink() != 1) {
-            return Err(Error(format!(
-                "native backup file {} has other hard links; refusing to restore",
-                path.display()
-            )));
-        }
-    }
-    Ok(())
-}
-
-/// Open the verified snapshot before the live catalog is locked, and keep the
-/// descriptor. Its inode is checked once against the live catalog and its
-/// sidecars, so reading and closing it later can never touch the live locks.
-fn open_snapshot(snapshot: &Path, target: &Path) -> Result<fs::File> {
-    use std::os::unix::fs::OpenOptionsExt;
-    let file = fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW)
-        .open(snapshot)?;
-    if live_identities(target).contains(&descriptor_identity(&file)?) {
-        return Err(Error(
-            "native backup snapshot is the live catalog or one of its sidecars; refusing to restore"
-                .into(),
-        ));
-    }
-    Ok(file)
-}
-
-/// Refuse if a path is no longer the exact file verified earlier, or if any
-/// SQLite sidecar exists for it; a stray journal would apply to the new file.
-fn require_exact_file(path: &Path, expected: (u64, u64), what: &str) -> Result<()> {
-    if file_identity(path).ok() != Some(expected) {
+    let file = backup.open_file_at(name).map_err(|error| {
+        Error(format!(
+            "cannot open native backup file {} without following a symbolic link: {error}",
+            backup.child(name).display()
+        ))
+    })?;
+    let metadata = file.metadata()?;
+    if live_identities(parent, target_name).contains(&(metadata.dev(), metadata.ino())) {
         return Err(Error(format!(
-            "{what} was replaced during restore; refusing to publish"
+            "native backup file {} is the live catalog or one of its sidecars; refusing to restore",
+            backup.child(name).display()
         )));
     }
-    for suffix in ["-journal", "-wal", "-shm"] {
-        if fs::symlink_metadata(sidecar(path, suffix)).is_ok() {
-            return Err(Error(format!(
-                "{what} has a {suffix} file; refusing to publish"
-            )));
-        }
+    if !metadata.file_type().is_file() || metadata.nlink() != 1 {
+        return Err(Error(format!(
+            "native backup file {} is not a unique regular file; refusing to restore",
+            backup.child(name).display()
+        )));
     }
-    Ok(())
+    Ok(file)
 }
 
 fn is_hex(value: &Value, length: usize) -> bool {
@@ -501,44 +632,64 @@ fn reconciliation_required(detail: String) -> Error {
     ))
 }
 
-/// A publication whose renamed file was not the verified, locked staged
-/// catalog. Nothing is touched: the unexpected live file and its sidecars and
-/// `previous.sqlite3` all stay where they are for the operator, and the record
-/// says `substitution_detected`.
-fn substitution_detected(staging: &Path, record: &mut Value) -> Error {
-    record["status"] = json!("substitution_detected");
-    let unrecorded = migration::manifest(staging, record)
-        .err()
-        .map(|error| format!(" (the record could not be updated: {error})"))
-        .unwrap_or_default();
-    reconciliation_required(format!(
-        "hostile substitution detected: the file published at the live path was not the verified staged catalog{unrecorded}. The unexpected live file and its sidecars are preserved and nothing was rolled back. To recover, quiesce every user, check the live path for sidecars, verify {} against the record's previous_sha256 and retained_identity, and restore it over the live path by hand",
-        record["retained"].as_str().unwrap_or_default()
+/// A failure after the publication rename. The restore is committed; a rerun
+/// with the same backup recognizes it and never rotates again.
+fn committed_failure(incarnation: &str, step: &str, error: impl std::fmt::Display) -> Error {
+    Error(format!(
+        "restore committed: the catalog was published under incarnation {incarnation}, but {step} failed: {error}. Rerun the same restore to confirm durability; it recognizes the published state and does not rotate the incarnation again"
     ))
 }
 
-/// Restore records for this catalog left by earlier runs, newest first. A
-/// staging directory without a record never reached rotation and so cannot
-/// have been published. Every other enumeration, read or parse failure is a
-/// refusal rather than an absent record.
-fn previous_records(target: &Path, database_id: &Value) -> Result<Vec<(PathBuf, Value)>> {
-    let parent = target.parent().expect("database parent");
-    let prefix = format!(
-        ".{}.restore-",
-        target.file_name().expect("database name").to_string_lossy()
-    );
+/// One restore record found beside the catalog, with its held directory.
+struct Record {
+    name: String,
+    directory: Dir,
+    value: Value,
+}
+
+/// Restore records for this catalog left by earlier runs. Every staging
+/// directory and record is opened through held descriptors without following
+/// symbolic links. A staging directory without a record never reached
+/// rotation and so cannot have been published; every other enumeration, open,
+/// read or parse failure is a refusal rather than an absent record.
+fn previous_records(
+    parent: &Dir,
+    target: &Path,
+    target_name: &str,
+    database_id: &Value,
+) -> Result<Vec<Record>> {
+    use std::io::Read;
+    let prefix = format!(".{target_name}.restore-");
     let listing = |error: std::io::Error| {
-        reconciliation_required(format!("cannot list {}: {error}", parent.display()))
+        reconciliation_required(format!("cannot list {}: {error}", parent.path.display()))
     };
-    let mut records = Vec::new();
-    for entry in fs::read_dir(parent).map_err(listing)? {
-        let entry = entry.map_err(listing)?;
-        if !entry.file_name().to_string_lossy().starts_with(&prefix) {
-            continue;
+    let mut names = Vec::new();
+    for entry in fs::read_dir(&parent.path).map_err(listing)? {
+        let name = entry
+            .map_err(listing)?
+            .file_name()
+            .to_string_lossy()
+            .into_owned();
+        if name.starts_with(&prefix) {
+            names.push(name);
         }
-        let path = entry.path().join("manifest.json");
-        let raw = match fs::read(&path) {
-            Ok(raw) => raw,
+    }
+    // The listing came from the pathname; it must have been the held directory.
+    parent
+        .require_unchanged()
+        .map_err(|error| reconciliation_required(error.0))?;
+    names.sort();
+    let mut records = Vec::new();
+    for name in names {
+        let directory = parent.open_dir_at(&name).map_err(|error| {
+            reconciliation_required(format!(
+                "cannot open {} without following a symbolic link: {error}",
+                parent.child(&name).display()
+            ))
+        })?;
+        let path = directory.child("manifest.json");
+        let mut file = match directory.open_file_at("manifest.json") {
+            Ok(file) => file,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
             Err(error) => {
                 return Err(reconciliation_required(format!(
@@ -547,35 +698,71 @@ fn previous_records(target: &Path, database_id: &Value) -> Result<Vec<(PathBuf, 
                 )));
             }
         };
+        let regular = file
+            .metadata()
+            .map(|metadata| {
+                use std::os::unix::fs::MetadataExt;
+                metadata.file_type().is_file() && metadata.nlink() == 1
+            })
+            .unwrap_or(false);
+        if !regular {
+            return Err(reconciliation_required(format!(
+                "{} is not a unique regular file",
+                path.display()
+            )));
+        }
+        let mut raw = Vec::new();
+        file.read_to_end(&mut raw).map_err(|error| {
+            reconciliation_required(format!("cannot read {}: {error}", path.display()))
+        })?;
         let value: Value = serde_json::from_slice(&raw).map_err(|error| {
             reconciliation_required(format!("{} is not valid JSON: {error}", path.display()))
         })?;
-        // The staging prefix names this catalog, so every record found here
-        // must be complete and must identify exactly this catalog.
         if let Err(problem) = validate_record(&value, target, database_id) {
             return Err(reconciliation_required(format!(
                 "{} is not a complete restore record for this catalog: {problem}",
                 path.display()
             )));
         }
-        records.push((path, value));
+        records.push(Record {
+            name,
+            directory,
+            value,
+        });
     }
-    records.sort_by(|a, b| b.0.cmp(&a.0));
     Ok(records)
+}
+
+/// Read the backup manifest through the held backup directory.
+fn read_backup_manifest(backup: &Dir, parent: &Dir, target_name: &str) -> Result<Value> {
+    use std::io::Read;
+    let mut raw = Vec::new();
+    open_backup_file(backup, "manifest.json", parent, target_name)?
+        .take(64 * 1024 * 1024)
+        .read_to_end(&mut raw)?;
+    let receipt = catabolic_core::decode_json_bytes(&raw)?;
+    if receipt["contract"] != BACKUP_CONTRACT {
+        return Err(Error(
+            "not a native backup: manifest contract is not catabolic-native-backup-v1; restore legacy snapshots to a new path instead".into(),
+        ));
+    }
+    Ok(receipt)
 }
 
 /// Controlled restore of a native catalog from a verified native backup.
 ///
 /// The operator asserts quiescence exactly as for native upgrade and journal
-/// conversion. The restore takes the native lifecycle lease, the Catabolic
-/// writer lock and an exclusive SQLite lock on the live catalog, retains a
-/// copy of it, stages the snapshot beside it with a fresh incarnation, holds
-/// an exclusive SQLite lock on the staged file while verifying its identity
-/// and whole-row digest, and publishes it by one atomic rename followed by a
-/// directory fsync. Anything that fails before the rename leaves the live
-/// catalog untouched and removes the staging directory. After the rename the
-/// restore is committed: later problems are returned as warnings on a
-/// committed result, and a rerun recognizes the published state.
+/// conversion. Restore takes process-wide and cross-process lifecycle
+/// exclusion first, then reads the backup only through a held directory
+/// descriptor into a private staged copy, which alone is verified and
+/// published. Every file operation runs through held directory descriptors;
+/// SQLite, which opens files by name, is only pointed at names whose
+/// directories are rechecked around each open. The live catalog is held under
+/// an exclusive SQLite lock from verification to the rename, the staged copy
+/// from its final verification to the rename, and the rename itself is bound
+/// to the locked staged inode. Anything that fails before the rename leaves
+/// the live catalog untouched and removes the staging directory; any failure
+/// after it is reported as a committed restore that a rerun confirms.
 pub fn restore(
     target: &Path,
     backup_directory: &Path,
@@ -584,56 +771,89 @@ pub fn restore(
 ) -> Result<Value> {
     quiescence.require()?;
     let target = database_path(target)?;
-    refuse_backup_aliases(&target, backup_directory)?;
-    let (receipt, snapshot, identity) = verified_backup(backup_directory)?;
-    let snapshot_tables = {
-        let db = connect(&snapshot, false)?;
-        db.execute_batch("BEGIN")?;
-        migration::snapshot(&db)?
+    // Lifecycle exclusion comes before anything in the backup is read.
+    let _in_process = match RESTORE_IN_PROCESS.try_lock() {
+        Ok(guard) => guard,
+        Err(std::sync::TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+        Err(std::sync::TryLockError::WouldBlock) => {
+            return Err(Error(
+                "another controlled restore is running in this process".into(),
+            ));
+        }
     };
-    let mut snapshot_file = open_snapshot(&snapshot, &target)?;
     let admission = crate::native_admission_exclusive(&target)?;
     let _writer = crate::writer_lock(&target)?;
-    let live_file = file_identity(&target)?;
-    // Records left at `publishing` are classified by the live file's identity:
-    // the previous file or the staged file. Anything else, and any detected
-    // substitution, is an outcome that requires operator reconciliation.
-    // This runs before ANY SQLite access to the live path: opening it could
-    // replay and delete a hot journal, altering a preserved unexpected file
-    // and destroying evidence. Unreadable records refuse first of all.
-    let mut records = previous_records(&target, &identity["database_id"])?;
-    let volume = catalog_volume(&target)?;
+    let target_name = target
+        .file_name()
+        .expect("database name")
+        .to_string_lossy()
+        .into_owned();
+    let parent = Dir::open(target.parent().expect("database parent")).map_err(|error| {
+        reconciliation_required(format!("cannot open the catalog directory: {error}"))
+    })?;
+    let live_entry = parent
+        .entry(&target_name)
+        .filter(|entry| entry.regular && entry.links == 1)
+        .ok_or_else(|| Error("live catalog is not a unique regular file".into()))?;
+    let live_file = live_entry.identity;
+
+    // The backup is read only through this held directory descriptor; its
+    // pathname is resolved once, before it is opened, and never used again.
+    let backup_path = std::path::absolute(backup_directory)?.canonicalize()?;
+    let backup = Dir::open(&backup_path)?;
+    let snapshot_name = "snapshot.sqlite3";
+    let snapshot_path = backup_path.join(snapshot_name);
+    let receipt = read_backup_manifest(&backup, &parent, &target_name)?;
+    checkpoint(BACKUP_OPENED)?;
+    if receipt["backup"].as_str() != snapshot_path.to_str() {
+        return Err(Error(
+            "native backup manifest names a different snapshot".into(),
+        ));
+    }
+    let mut snapshot_file = open_backup_file(&backup, snapshot_name, &parent, &target_name)?;
+
+    // Records are read and classified before ANY SQLite access to the live
+    // path: opening it could replay and delete a hot journal, altering a
+    // preserved unexpected file and destroying evidence.
+    let mut records = previous_records(&parent, &target, &target_name, &receipt["database_id"])?;
+    let volume = crate::source::volume_uuid(&parent.file).ok_or_else(|| {
+        Error(
+            "controlled restore requires a filesystem that reports a volume UUID, so that restore records stay valid across reboots".into(),
+        )
+    })?;
     let live_json = durable_identity(&volume, live_file);
-    for (record_path, record) in &mut records {
-        let directory = record_path
-            .parent()
-            .expect("record directory")
-            .to_path_buf();
-        match record["status"].as_str() {
-            Some("publishing") if record["staged_identity"] == live_json => {}
-            Some("publishing") if record["live_identity"] == live_json => {
+    for record in &mut records {
+        let path = record.directory.child("manifest.json");
+        match record.value["status"].as_str() {
+            Some("publishing") if record.value["staged_identity"] == live_json => {}
+            Some("publishing") if record.value["live_identity"] == live_json => {
                 // The rename never happened.
-                record["status"] = json!("abandoned");
-                migration::manifest(&directory, record)?;
+                record.value["status"] = json!("abandoned");
+                write_record(&parent, &record.name, &record.directory, &record.value)?;
             }
             Some("publishing") => {
                 return Err(reconciliation_required(format!(
                     "{} records a publication whose outcome cannot be determined: the live catalog is neither the previous nor the staged file",
-                    record_path.display()
+                    path.display()
                 )));
             }
             Some("substitution_detected") => {
                 return Err(reconciliation_required(format!(
                     "{} records a detected substitution of the published catalog; verify {} against its previous_sha256 and retained_identity and restore it by hand",
-                    record_path.display(),
-                    record["retained"].as_str().unwrap_or_default()
+                    path.display(),
+                    record.value["retained"].as_str().unwrap_or_default()
                 )));
             }
             _ => {}
         }
     }
+
     // Held until after the rename: no SQLite user can read or write meanwhile.
+    parent.require_unchanged()?;
     let live = crate::journal_conversion::connect_exclusive(&target)?;
+    if parent.entry(&target_name).map(|entry| entry.identity) != Some(live_file) {
+        return Err(Error("live catalog was replaced during restore".into()));
+    }
     let journal: String = live.pragma_query_value(None, "journal_mode", |row| row.get(0))?;
     if journal == "wal" {
         return Err(Error(
@@ -644,8 +864,8 @@ pub fn restore(
     let current = migration::validate(&live, false)?;
     let current_identity = identity_manifest::manifest(&live)?;
     live.execute_batch("ROLLBACK")?;
-    if current["database_id"] != identity["database_id"]
-        || current_identity["catalog"]["catalog_id"] != identity["catalog"]["catalog_id"]
+    if current["database_id"] != receipt["database_id"]
+        || current_identity["catalog"]["catalog_id"] != receipt["catalog_id"]
     {
         return Err(Error(
             "native backup belongs to another catalog; refusing to restore it over this one".into(),
@@ -658,145 +878,195 @@ pub fn restore(
     // A record whose rotated incarnation is the live one, published at this
     // very inode, proves that this backup was already published; never rotate
     // it a second time.
-    if let Some((record_path, mut record)) = records.into_iter().find(|(_, record)| {
-        record["incarnation"] == previous_incarnation.as_str()
-            && matches!(record["status"].as_str(), Some("publishing" | "published"))
+    if let Some(mut record) = records.into_iter().find(|record| {
+        record.value["incarnation"] == previous_incarnation.as_str()
+            && matches!(
+                record.value["status"].as_str(),
+                Some("publishing" | "published")
+            )
     }) {
-        if record["staged_identity"] != live_json {
+        let path = record.directory.child("manifest.json");
+        if record.value["staged_identity"] != live_json {
             return Err(reconciliation_required(format!(
                 "{} names the live incarnation, but the live catalog is not the file it published",
-                record_path.display()
+                path.display()
             )));
         }
-        if record["backup_sha256"] != receipt["sha256"] {
+        if record.value["backup_sha256"] != receipt["sha256"] {
             return Err(Error(
                 "the live catalog was published by a restore of a different backup; inspect it before restoring again".into(),
             ));
         }
         // An earlier run may have stopped before or during the directory
         // fsync. Retry it under the held exclusion; only its success makes
-        // the publication durable.
-        let mut warnings = Vec::new();
-        let durable = match checkpoint(RERUN_FSYNC)
-            .and_then(|()| migration::fsync(target.parent().expect("database parent")))
-        {
-            Ok(()) => true,
-            Err(error) => {
-                warnings.push(format!(
-                    "publication rename may not be durable; retrying the directory fsync failed: {error}"
-                ));
-                false
-            }
-        };
-        let durability = json!(if durable { "durable" } else { "uncertain" });
-        if record["status"] != "published" || record["durability"] != durability {
-            record["status"] = json!("published");
-            record["durability"] = durability.clone();
-            if let Err(error) =
-                migration::manifest(record_path.parent().expect("record directory"), &record)
-            {
-                warnings.push(format!("restore record could not be finalized: {error}"));
-            }
+        // the publication durable, and its failure is an error.
+        let retried = checkpoint(RERUN_FSYNC).and_then(|()| parent.fsync());
+        let durability = json!(if retried.is_ok() {
+            "durable"
+        } else {
+            "uncertain"
+        });
+        if record.value["status"] != "published" || record.value["durability"] != durability {
+            record.value["status"] = json!("published");
+            record.value["durability"] = durability.clone();
+            write_record(&parent, &record.name, &record.directory, &record.value).map_err(
+                |error| {
+                    committed_failure(
+                        &previous_incarnation,
+                        "finalizing the restore record",
+                        error,
+                    )
+                },
+            )?;
+        }
+        if let Err(error) = retried {
+            return Err(committed_failure(
+                &previous_incarnation,
+                "retrying the publication directory fsync",
+                error,
+            ));
         }
         return Ok(json!({
-            "database":target, "database_id":identity["database_id"],
-            "catalog_id":identity["catalog"]["catalog_id"], "schema":identity["schema"],
-            "previous_incarnation":record["previous_incarnation"], "incarnation":previous_incarnation,
-            "backup":snapshot, "backup_sha256":receipt["sha256"], "retained":record["retained"],
-            "restore_record":record_path, "restored":true, "already_published":true,
-            "durability":durability, "warnings":warnings,
+            "database":target, "database_id":receipt["database_id"],
+            "catalog_id":receipt["catalog_id"], "schema":receipt["schema"],
+            "previous_incarnation":record.value["previous_incarnation"], "incarnation":previous_incarnation,
+            "backup":snapshot_path, "backup_sha256":receipt["sha256"], "retained":record.value["retained"],
+            "restore_record":path, "restored":true, "already_published":true,
+            "durability":"durable", "warnings":[],
         }));
     }
-    checkpoint("verified")?;
 
-    let parent = target.parent().expect("database parent").to_path_buf();
-    let name = target
-        .file_name()
-        .expect("database name")
-        .to_string_lossy()
-        .into_owned();
-    let staging = parent.join(format!(".{name}.restore-{}", Uuid::new_v4().simple()));
-    private_directory(&staging)?;
-    let staged = staging.join("catalog.sqlite3");
+    let staging_name = format!(".{target_name}.restore-{}", Uuid::new_v4().simple());
+    let staging = parent.create_dir_at(&staging_name)?;
+    let staged_name = "catalog.sqlite3";
+    let staged_path = staging.child(staged_name);
+    // Every SQLite open by name in the staging directory is bracketed by this
+    // check: the directories are the held ones and the staged file is the one
+    // created through the held descriptor.
+    let staged_check = |staged_file: (u64, u64)| -> Result<()> {
+        parent.require_unchanged()?;
+        parent.require_child(&staging_name, &staging)?;
+        staging.require_unchanged()?;
+        match staging.entry(staged_name) {
+            Some(entry) if entry.regular && entry.links == 1 && entry.identity == staged_file => {
+                Ok(())
+            }
+            _ => Err(Error(
+                "staged catalog was replaced during restore; refusing to publish".into(),
+            )),
+        }
+    };
     let prepared = (|| -> Result<(String, Value, PathBuf, rusqlite::Connection, fs::File)> {
-        let retained = staging.join("previous.sqlite3");
+        // Copy the snapshot from the held backup descriptor into a private
+        // file created through the held staging descriptor; verify only that.
+        let mut staged = staging.create_file_at(staged_name)?;
+        let staged_file = descriptor_identity(&staged)?;
+        {
+            use sha2::{Digest, Sha256};
+            use std::io::{Read, Write};
+            let mut digest = Sha256::new();
+            let mut buffer = vec![0u8; 1024 * 1024];
+            loop {
+                let read = snapshot_file.read(&mut buffer)?;
+                if read == 0 {
+                    break;
+                }
+                digest.update(&buffer[..read]);
+                staged.write_all(&buffer[..read])?;
+            }
+            staged.sync_all()?;
+            if receipt["sha256"].as_str() != Some(format!("{:x}", digest.finalize()).as_str()) {
+                return Err(Error(
+                    "native backup snapshot does not match its manifest checksum".into(),
+                ));
+            }
+        }
+        staging.fsync()?;
+        checkpoint("staged")?;
+
+        staged_check(staged_file)?;
+        let (identity, snapshot_tables) = {
+            let db = connect(&staged_path, false)?;
+            db.execute_batch("BEGIN")?;
+            let info = migration::validate(&db, true)?;
+            let identity = identity_manifest::manifest(&db)?;
+            let tables = migration::snapshot(&db)?;
+            drop(db);
+            let schema = info["schema"].as_u64().expect("validated schema") as u32;
+            if !migration::is_supported_native_schema(schema)
+                || receipt["schema"] != schema
+                || receipt["database_id"] != info["database_id"]
+                || receipt["identity_manifest"] != identity
+                || receipt["catalog_id"] != identity["catalog"]["catalog_id"]
+                || receipt["incarnation"] != identity["catalog"]["incarnation"]
+            {
+                return Err(Error(
+                    "native backup snapshot does not match its manifest identity".into(),
+                ));
+            }
+            identity_manifest::validate(&identity).map_err(Error)?;
+            (identity, tables)
+        };
+        staged_check(staged_file)?;
+        checkpoint("verified")?;
+
         // Copied through the live connection with SQLite's backup API. No
         // separate descriptor may ever be opened and closed on the live (or
         // staged) file while a connection holds it: on POSIX, closing any
         // descriptor drops every fcntl lock this process holds on the inode.
+        let retained_name = "previous.sqlite3";
+        let retained = staging.child(retained_name);
+        staged_check(staged_file)?;
         migration::copy(&live, &retained)?;
-        migration::fsync(&retained)?;
-        migration::fsync(&staging)?;
-        checkpoint("retained")?;
-
-        {
-            use std::{
-                io::{Read, Seek, Write},
-                os::unix::fs::OpenOptionsExt,
-            };
-            // Read through the descriptor checked before the live lock was taken.
+        staged_check(staged_file)?;
+        let (retained_file, previous_sha256) = {
+            use std::io::Read;
+            let mut file = staging.open_file_at(retained_name)?;
             let mut bytes = Vec::new();
-            snapshot_file.seek(std::io::SeekFrom::Start(0))?;
-            snapshot_file.read_to_end(&mut bytes)?;
-            if receipt["sha256"].as_str() != Some(sha256(&bytes).as_str()) {
-                return Err(Error(
-                    "native backup snapshot changed during restore".into(),
-                ));
-            }
-            let mut file = fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .mode(0o600)
-                .custom_flags(libc::O_NOFOLLOW)
-                .open(&staged)?;
-            file.write_all(&bytes)?;
+            file.read_to_end(&mut bytes)?;
             file.sync_all()?;
+            (descriptor_identity(&file)?, sha256(&bytes))
+        };
+        if staging.entry(retained_name).map(|entry| entry.identity) != Some(retained_file) {
+            return Err(Error("retained copy was replaced during restore".into()));
         }
-        migration::fsync(&staging)?;
-        let staged_file = file_identity(&staged)?;
-        checkpoint("staged")?;
+        staging.fsync()?;
+        checkpoint("retained")?;
 
         let snapshot_incarnation = identity["catalog"]["incarnation"]
             .as_str()
             .unwrap_or_default();
+        staged_check(staged_file)?;
         let (incarnation, rotated_state) = rotate(
-            &staged,
+            &staged_path,
             &snapshot_tables,
             &identity,
             &[previous_incarnation.as_str(), snapshot_incarnation],
         )?;
-        require_worker_ownership_resolved(&staged)?;
-        migration::fsync(&staged)?;
+        staged_check(staged_file)?;
+        require_worker_ownership_resolved(&staged_path)?;
+        staged_check(staged_file)?;
+        staged.sync_all()?;
         let record = json!({
             "contract":RESTORE_CONTRACT, "status":"staged", "database":target,
             "database_id":identity["database_id"], "catalog_id":identity["catalog"]["catalog_id"],
             "previous_incarnation":previous_incarnation, "incarnation":incarnation,
-            "backup":snapshot, "backup_sha256":receipt["sha256"], "retained":retained,
+            "backup":snapshot_path, "backup_sha256":receipt["sha256"], "retained":retained,
             "live_identity":durable_identity(&volume, live_file),
             "staged_identity":durable_identity(&volume, staged_file),
-            "retained_identity":durable_identity(&volume, file_identity(&retained)?),
-            "previous_sha256":sha256(fs::read(&retained)?),
+            "retained_identity":durable_identity(&volume, retained_file),
+            "previous_sha256":previous_sha256,
         });
-        migration::manifest(&staging, &record)?;
+        write_record(&parent, &staging_name, &staging, &record)?;
         checkpoint("rotated")?;
 
         // From here to the rename the staged file is exclusively locked, and
-        // it must be exactly the rotated file, row for row.
-        require_exact_file(&staged, staged_file, "staged catalog")?;
-        // Held through the rename: the published pathname must be this inode.
-        let staged_descriptor = {
-            use std::os::unix::fs::OpenOptionsExt;
-            fs::OpenOptions::new()
-                .read(true)
-                .custom_flags(libc::O_NOFOLLOW)
-                .open(&staged)?
-        };
-        if descriptor_identity(&staged_descriptor)? != staged_file {
-            return Err(Error(
-                "staged catalog was replaced during restore; refusing to publish".into(),
-            ));
-        }
-        let protected = crate::journal_conversion::connect_exclusive(&staged)?;
+        // it must be exactly the rotated file, row for row and object for
+        // object. The descriptor `staged` stays open until after the staged
+        // connection closes, and pins the inode the rename must publish.
+        staged_check(staged_file)?;
+        let protected = crate::journal_conversion::connect_exclusive(&staged_path)?;
+        staged_check(staged_file)?;
         protected.execute_batch("BEGIN")?;
         // The complete native validation (schema signature, history checksums,
         // integrity, foreign keys and native state) and the complete state
@@ -819,83 +1089,87 @@ pub fn restore(
         checkpoint("publishing")?;
         // The final checks follow every observable checkpoint; both connections
         // and the staged descriptor stay open through them and the rename.
-        require_exact_file(&staged, staged_file, "staged catalog")?;
+        staged_check(staged_file)?;
         admission.validate_path()?;
-        require_exact_file(&target, live_file, "live catalog")?;
-        Ok((incarnation, record, retained, protected, staged_descriptor))
+        if parent.entry(&target_name).map(|entry| entry.identity) != Some(live_file) {
+            return Err(Error(
+                "live catalog was replaced during restore; refusing to publish".into(),
+            ));
+        }
+        for suffix in ["-journal", "-wal", "-shm"] {
+            if parent.entry(&format!("{target_name}{suffix}")).is_some() {
+                return Err(Error(format!(
+                    "live catalog has a {suffix} file; refusing to publish"
+                )));
+            }
+        }
+        Ok((incarnation, record, retained, protected, staged))
     })();
-    let (incarnation, mut record, retained, protected, staged_descriptor) = match prepared {
+    let (incarnation, mut record, retained, protected, staged) = match prepared {
         Ok(prepared) => prepared,
         Err(error) => {
             // Nothing was published; the live catalog is untouched.
-            let _ = fs::remove_dir_all(&staging);
+            remove_staging(&parent, &staging_name, &staging);
             return Err(error);
         }
     };
 
-    // The single commit point. Every result from here on reports a committed
-    // restore; durability is uncertain until the directory fsync succeeds.
     // A failed rename published nothing: close both connections and remove
     // only this run's unpublished staging directory. The record says
-    // `publishing` first, so a crash here is classified on rerun by inode.
+    // `publishing` first, so a crash here is classified on rerun by identity.
     record["status"] = json!("publishing");
-    if let Err(error) = migration::manifest(&staging, &record)
+    let staged_file = descriptor_identity(&staged)?;
+    if let Err(error) = write_record(&parent, &staging_name, &staging, &record)
         .and_then(|()| checkpoint(RENAME_WINDOW))
-        .and_then(|()| fs::rename(&staged, &target).map_err(Error::from))
+        .and_then(|()| parent.require_child(&staging_name, &staging))
+        .and_then(|()| staging.rename_at(staged_name, &parent, &target_name))
     {
         drop(protected);
         drop(live);
-        let _ = fs::remove_dir_all(&staging);
+        remove_staging(&parent, &staging_name, &staging);
         return Err(Error(format!(
             "publication rename failed; the live catalog is unchanged: {error}"
         )));
     }
-    // Bind the rename to the locked inode. Any pathname check leaves a window
-    // before the rename; a substituted file is never reported as published,
-    // and never overwritten automatically.
-    let locked = descriptor_identity(&staged_descriptor).ok();
-    if file_identity(&target).ok().is_none() || file_identity(&target).ok() != locked {
+    // Bind the rename to the locked inode. Any check leaves a window before
+    // the rename; a substituted file is never reported as published, and
+    // never overwritten automatically.
+    if parent.entry(&target_name).map(|entry| entry.identity) != Some(staged_file) {
         drop(protected);
-        drop(staged_descriptor);
+        drop(staged);
         drop(live);
-        return Err(substitution_detected(&staging, &mut record));
+        record["status"] = json!("substitution_detected");
+        let unrecorded = write_record(&parent, &staging_name, &staging, &record)
+            .err()
+            .map(|error| format!(" (the record could not be updated: {error})"))
+            .unwrap_or_default();
+        return Err(reconciliation_required(format!(
+            "hostile substitution detected: the file published at the live path was not the verified staged catalog{unrecorded}. The unexpected live file and its sidecars are preserved and nothing was rolled back. To recover, quiesce every user, check the live path for sidecars, verify {} against the record's previous_sha256 and retained_identity, and restore it over the live path by hand",
+            retained.display()
+        )));
     }
     drop(protected);
-    drop(staged_descriptor);
+    drop(staged);
     drop(live);
-    let mut warnings = Vec::new();
-    let mut durable = match checkpoint("renamed") {
-        Ok(()) => true,
-        Err(error) => {
-            warnings.push(format!("failure after publication rename: {error}"));
-            false
-        }
-    };
-    if durable {
-        if let Err(error) = migration::fsync(&parent) {
-            warnings.push(format!(
-                "publication rename may not be durable; the directory fsync failed: {error}"
-            ));
-            durable = false;
-        }
-    }
-    if durable {
-        if let Err(error) = checkpoint("published") {
-            warnings.push(format!("failure after durable publication: {error}"));
-        }
-    }
+
+    // The single commit point has passed. Every failure from here on is a
+    // committed restore that a rerun confirms.
+    checkpoint("renamed")
+        .map_err(|error| committed_failure(&incarnation, "the step after the rename", error))?;
+    parent.fsync().map_err(|error| {
+        committed_failure(&incarnation, "the publication directory fsync", error)
+    })?;
+    checkpoint("published").map_err(|error| {
+        committed_failure(&incarnation, "the step after the directory fsync", error)
+    })?;
     record["status"] = json!("published");
-    record["durability"] = json!(if durable { "durable" } else { "uncertain" });
-    if let Err(error) =
-        checkpoint("finalizing").and_then(|()| migration::manifest(&staging, &record))
-    {
-        warnings.push(format!("restore record could not be finalized: {error}"));
-    } else if let Err(error) = checkpoint("finalized") {
-        warnings.push(format!(
-            "failure after finalizing the restore record: {error}"
-        ));
-    }
-    let verified = (|| -> Result<Value> {
+    record["durability"] = json!("durable");
+    checkpoint("finalizing")
+        .and_then(|()| write_record(&parent, &staging_name, &staging, &record))
+        .map_err(|error| committed_failure(&incarnation, "finalizing the restore record", error))?;
+    checkpoint("finalized")
+        .map_err(|error| committed_failure(&incarnation, "the step after finalizing", error))?;
+    let restored = (|| -> Result<Value> {
         let db = connect(&target, false)?;
         db.execute_batch("BEGIN")?;
         migration::validate(&db, true)?;
@@ -906,24 +1180,17 @@ pub fn restore(
                 "published catalog does not carry the rotated incarnation".into(),
             ));
         }
-        identity_manifest::require_preserved(&identity, &restored)?;
+        identity_manifest::require_preserved(&receipt["identity_manifest"], &restored)?;
         Ok(restored)
-    })();
-    let generation = match verified {
-        Ok(restored) => restored["catalog"]["generation"].clone(),
-        Err(error) => {
-            warnings.push(format!("post-publication verification failed: {error}"));
-            Value::Null
-        }
-    };
+    })()
+    .map_err(|error| committed_failure(&incarnation, "post-publication verification", error))?;
     Ok(json!({
-        "database":target, "database_id":identity["database_id"],
-        "catalog_id":identity["catalog"]["catalog_id"], "schema":identity["schema"],
+        "database":target, "database_id":receipt["database_id"],
+        "catalog_id":receipt["catalog_id"], "schema":receipt["schema"],
         "previous_incarnation":previous_incarnation, "incarnation":incarnation,
-        "generation":generation, "backup":snapshot,
+        "generation":restored["catalog"]["generation"], "backup":snapshot_path,
         "backup_sha256":receipt["sha256"], "retained":retained,
-        "restore_record":staging.join("manifest.json"), "restored":true,
-        "already_published":false,
-        "durability":if durable { "durable" } else { "uncertain" }, "warnings":warnings,
+        "restore_record":staging.child("manifest.json"), "restored":true,
+        "already_published":false, "durability":"durable", "warnings":[],
     }))
 }

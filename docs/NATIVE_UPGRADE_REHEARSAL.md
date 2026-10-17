@@ -193,64 +193,94 @@ Legacy catalogs are refused; their backups come from `db upgrade` and are
 restored to a new path by hand.
 
 `db native-restore --backup DIR` publishes such a snapshot at the live path.
-It is fail-closed and passes these checkpoints, in order:
+It is fail-closed. Before anything in the backup is read, it requires the
+three quiescence assertions and takes lifecycle exclusion: one restore per
+process, the native lifecycle lease and the Catabolic writer lock. It then
+opens the catalog's directory and the backup directory once, with
+`O_DIRECTORY|O_NOFOLLOW`, and holds them. The backup manifest and snapshot
+are opened through the held backup descriptor without following links. Each
+must be a regular file with one link that is not the live catalog, one of
+its sidecars or a hard link to either.
+
+Existing restore records are read and classified next (see below), still
+before any SQLite access to the live path. Restore then takes an exclusive
+SQLite lock on the live catalog and checks rollback-journal mode and the
+database and catalog IDs. It creates and holds the staging directory
+`.<name>.restore-<id>/` beside the catalog and passes these checkpoints, in
+order:
 
 | Checkpoint | Work before it | After a crash here |
 | --- | --- | --- |
-| `verified` | Requires the three quiescence assertions. Verifies the manifest, the snapshot's checksum, full validation and identity manifest. Takes the native lifecycle lease, the Catabolic writer lock and an exclusive SQLite lock on the live catalog (opened in EXCLUSIVE locking mode before anything is read). Requires rollback-journal mode and the same database and catalog IDs. | Live catalog unchanged; no staging directory |
-| `retained` | Creates `.<name>.restore-<id>/` beside the catalog and copies the live catalog into `previous.sqlite3` with SQLite's backup API through the locked live connection, recording its whole-file SHA-256 | Live catalog unchanged |
-| `staged` | Copies the snapshot into the staging directory, rechecks its checksum and records the staged file's identity | Live catalog unchanged |
-| `rotated` | Changes the staged copy's incarnation through the schema's restore-scoped permit, to a fresh value different from both the live and the snapshot incarnation. Checks that only `catalog_state` changed, that identities are preserved and that no worker ownership is left unresolved (see below). Records the whole-row digest of the rotated file and writes the staging `manifest.json` record (`catabolic-native-restore-v1`, status `staged`). | Live catalog unchanged; record says `staged` |
-| `protected` | Rechecks that the staged path is still the same regular file with one link and no sidecars and takes an exclusive SQLite lock on it. Under that lock, runs complete native validation (schema signature, history checksums, integrity, foreign keys, native state) and requires its complete state to equal the rotated file's: table digests, every schema object, full migration history rows, `sqlite_sequence` and the identity manifest | Live catalog unchanged |
-| `publishing` | Nothing new; the final checks follow it. After this checkpoint restore rechecks the staged file, the live pathname, the lease and the absence of `-journal`, `-wal` and `-shm` files, with both connections and a descriptor on the staged file held open, then writes the record with status `publishing`. A failed rename closes both connections and removes only this run's staging directory. | Live catalog unchanged; record says `staged` |
-| `renamed` | Renames the staged copy over the live path, then requires the live path's identity to equal the locked staged file's; on a mismatch nothing is touched and the record says `substitution_detected`. This rename is the single commit point. | Restore in effect; durability not yet confirmed; record says `publishing` |
-| `published` | Fsyncs the containing directory | Restore in effect and durable |
+| `staged` | Copies the snapshot from the held backup descriptor into a private `catalog.sqlite3` created through the held staging descriptor, and checks the manifest's SHA-256 against the copied bytes. Only this copy is verified or published from now on; backup paths are never reopened by name. | Live catalog unchanged; staging holds the copy |
+| `verified` | Fully validates the copy and requires its schema, IDs, incarnation and identity manifest to match the backup manifest | Live catalog unchanged |
+| `retained` | Copies the live catalog into `previous.sqlite3` with SQLite's backup API through the locked live connection, recording its whole-file SHA-256 | Live catalog unchanged |
+| `rotated` | Changes the staged copy's incarnation through the schema's restore-scoped permit, to a fresh value different from both the live and the snapshot incarnation. Checks that only `catalog_state` changed, that identities are preserved and that no worker ownership is left unresolved (see below). Records the complete state of the rotated file and writes the staging `manifest.json` record (`catabolic-native-restore-v1`, status `staged`). | Live catalog unchanged; record says `staged` |
+| `protected` | Takes an exclusive SQLite lock on the staged copy. Under that lock, runs complete native validation (schema signature, history checksums, integrity, foreign keys, native state) and requires its complete state to equal the rotated file's: table digests, every schema object, full migration history rows, `sqlite_sequence` and the identity manifest | Live catalog unchanged |
+| `publishing` | Nothing new; the final checks follow it. Restore rechecks the held directories, the staged entry, the live entry, the lease and the absence of `-journal`, `-wal` and `-shm` files, then writes the record with status `publishing`. A failed rename closes both connections and removes only this run's staging directory. | Live catalog unchanged; record says `staged` |
+| `renamed` | `renameat` from the held staging descriptor into the held catalog directory, then requires the live entry to be the locked staged inode; on a mismatch nothing is touched and the record says `substitution_detected`. This rename is the single commit point. | Restore in effect; durability not yet confirmed; record says `publishing` |
+| `published` | Fsyncs the held catalog directory | Restore in effect and durable |
 | `finalizing` | Prepares the final record | Restore in effect; record still says `publishing` |
-| `finalized` | Writes the record with status `published` and its durability | Restore in effect; record final |
+| `finalized` | Writes the record with status `published` and durability `durable` | Restore in effect; record final |
 
-Every file and directory is fsynced before the next checkpoint. Anything that
-fails before the rename leaves the live catalog's bytes unchanged and removes
-the staging directory; a crash before the rename leaves it for the operator.
+### Anchored file operations
+
+Every create, open, rename, unlink and fsync in restore runs through a held
+directory descriptor (`openat`, `mkdirat`, `renameat`, `unlinkat`, `fsync`),
+never through a pathname that could have been swapped. Records are written
+as a private temporary file through the staging descriptor, fsynced, renamed
+within it and followed by a directory fsync. Before each rename restore
+checks that the held directories are still the entries it created. SQLite
+opens files by name, so restore only points it at the live catalog and at
+files in the held staging directory. Each such open is preceded and followed
+by checks that the directory pathnames still resolve to the held descriptors
+and that the staged entry is still the inode created through them. Anything
+that fails before the rename leaves the live catalog's bytes unchanged and
+removes the staging directory entry by entry through its descriptor; a crash
+before the rename leaves it for the operator.
+
 The exclusive locks mean that no SQLite user can read or write the live
 catalog between verification and the rename, or the staged copy between its
 final verification and the rename. A changed or replaced staged file is
-refused. No descriptor is ever opened and closed on the live or staged
-file while a connection holds it, because on POSIX closing any descriptor
-drops every lock the process holds on that file. Identity checks use `lstat`
-and a descriptor that stays open until after the staged connection closes.
-A test probes the exclusion from a separate process; a probe in the same
-process would be masked. A backup file that is the live catalog, one of its
-sidecars or a hard link to either, by path or by device and inode, is
-refused before any SQLite access. The snapshot is opened and checked against
-the live catalog before the live lock is taken, and is read only through
-that descriptor.
+refused. No descriptor is ever opened and closed on the live or staged file
+while a connection holds it, because on POSIX closing any descriptor drops
+every lock the process holds on that file. The descriptor of the private copy
+stays open until after the staged connection closes and pins the inode the
+rename must publish. One restore per process keeps a second restore from
+opening and closing descriptors that could cancel the first one's locks. A
+test probes the exclusion from a separate process; a probe in the same
+process would be masked.
 
-After the rename the restore is committed, so no later problem is reported as
-an ordinary failure. The command instead returns the committed result with
-`durability` (`durable`, or `uncertain` if the directory fsync failed or
-anything failed before it) and `warnings`, for example when the record could
-not be finalized. A rerun with the same backup finds the record whose
-incarnation is the live one and returns `already_published: true` without
-rotating again. It first retries the directory fsync while holding the
-exclusive locks; it reports `durable` only if that succeeds, otherwise
-`uncertain` with a warning, and writes the resulting durability into the
-record. If any existing restore record, its staging directory or the
-catalog's directory cannot be read, or a record is not valid, restore
+### Failures after the rename
+
+After the rename the restore is committed. Any later failure, including a
+failed directory fsync or record write, is an error that begins `restore
+committed` and names the published incarnation. It is never reported as
+success with a warning, and the operator should simply rerun. A rerun with
+the same backup finds the record whose incarnation is the live one and
+returns `already_published: true` without rotating again. It first retries
+the directory fsync while holding the exclusive locks. If the fsync
+succeeds, it reports and records `durable`. Otherwise it records `uncertain`
+and fails with `restore committed` again.
+
+### Restore records
+
+If any existing restore record, its staging directory or the catalog's
+directory cannot be opened or read, or a record is not valid, restore
 refuses with `restore record reconciliation required` and changes nothing.
 A valid record is valid JSON with every required field and type: contract,
 status, database path, database and catalog IDs, both incarnations, backup
 path and SHA-256, retained path and SHA-256, the live, staged and retained
-file identities, and an optional durability. Because the staging prefix names the
-catalog, a record whose database path or database ID differs is also refused
-rather than skipped.
-An unreadable record could describe a published restore, and treating it as
-absent would rotate the catalog again and discard later writes. The
-operator inspects and repairs or removes the record by hand. A staging
-directory without a record never reached rotation, so it is ignored. A rerun after a crash before
-the rename performs the restore. Successful restores keep their staging
-directory, with `previous.sqlite3`, for the operator to inspect and remove.
-Idle, unused descriptors and users on other hosts remain undetectable, as for
-journal conversion, so the assertions are required.
+file identities, and an optional durability. Because the staging prefix
+names the catalog, a record whose database path or database ID differs is
+also refused rather than skipped. An unreadable record could describe a
+published restore, and treating it as absent would rotate the catalog again
+and discard later writes. The operator inspects and repairs or removes the
+record by hand. A staging directory without a record never reached rotation,
+so it is ignored. A rerun after a crash before the rename performs the
+restore. Successful restores keep their staging directory, with
+`previous.sqlite3`, for the operator to inspect and remove. Idle, unused
+descriptors and users on other hosts remain undetectable, as for journal
+conversion, so the assertions are required.
 
 Records identify files by the volume UUID of the catalog's directory and the
 inode. They never store `st_dev`, which can change across reboots on macOS;
@@ -326,7 +356,10 @@ identity and incarnation before use and require a reopen.
   publication;
 - refused staged mutations and replacements, and refused staged schema,
   migration-history and sequence changes;
-- injected failures at the rename and after it;
+- injected failures at the rename and after it, reported as committed;
+- a staging directory swapped for a symbolic link at `finalizing`, a snapshot
+  swapped for a symbolic link to a locked catalog, and a backup directory
+  swapped after it was opened;
 - a replacement at `publishing`, refused before the rename;
 - a substitution in the rename window, detected and preserved for
   reconciliation;
