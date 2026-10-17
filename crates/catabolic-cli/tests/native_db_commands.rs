@@ -547,3 +547,48 @@ fn dry_run_is_refused_by_commands_that_do_not_implement_it() {
     assert_eq!(preview.stdout["dry_run"], true);
     assert_eq!(fs::read(&path).unwrap(), before);
 }
+
+#[test]
+fn native_backup_and_controlled_restore_commands_rotate_the_incarnation() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("native.sqlite3");
+    migration::initialize_native(&path).unwrap();
+    let backed_up = cli(&path, &["db", "native-backup"]);
+    assert_eq!(backed_up.code, Some(0), "{}", backed_up.stderr);
+    let directory = Path::new(backed_up.stdout["backup"].as_str().unwrap())
+        .parent()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_owned();
+    let before = fs::read(&path).unwrap();
+    refused(
+        &cli(&path, &["db", "native-restore"]),
+        "requires --backup DIRECTORY",
+    );
+    refused(
+        &cli(&path, &["db", "native-restore", "--backup", &directory]),
+        "explicit operator confirmation",
+    );
+    refused(
+        &cli(&path, &["db", "native-inspect", "--backup", &directory]),
+        "--backup is only accepted by db native-restore",
+    );
+    assert_eq!(fs::read(&path).unwrap(), before);
+    let mut args = vec!["db", "native-restore", "--backup", &directory];
+    args.extend(QUIESCENT);
+    let restored = cli(&path, &args);
+    assert_eq!(restored.code, Some(0), "{}", restored.stderr);
+    assert_eq!(restored.stdout["restored"], true);
+    assert_eq!(
+        restored.stdout["previous_incarnation"],
+        backed_up.stdout["incarnation"]
+    );
+    assert_ne!(
+        restored.stdout["incarnation"],
+        backed_up.stdout["incarnation"]
+    );
+    let inspected = cli(&path, &["db", "native-inspect", "--full"]);
+    assert_eq!(inspected.code, Some(0), "{}", inspected.stderr);
+    assert_eq!(inspected.stdout["schema"], migration::NATIVE_SCHEMA_VERSION);
+}

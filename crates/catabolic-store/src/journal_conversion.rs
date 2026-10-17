@@ -91,7 +91,7 @@ fn state(db: &Connection) -> Result<(Value, Value)> {
 /// lock before anything is read. In WAL mode this also keeps the WAL index in
 /// private memory, so no other connection can read or write until this one
 /// closes. Connection settings otherwise match `connect`.
-fn connect_exclusive(path: &Path) -> Result<Connection> {
+pub(crate) fn connect_exclusive(path: &Path) -> Result<Connection> {
     let db = Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,

@@ -103,6 +103,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
     let mut assertions = Vec::new();
     let mut compared = (None, None);
     let mut journal_target = None;
+    let mut restore_source = None;
     if lifecycle {
         plan_out = argument(&mut args, "--out")?.map(PathBuf::from);
         plan_in = argument(&mut args, "--plan")?.map(PathBuf::from);
@@ -114,6 +115,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             argument(&mut args, "--after")?.map(PathBuf::from),
         );
         journal_target = argument(&mut args, "--to")?;
+        restore_source = argument(&mut args, "--backup")?.map(PathBuf::from);
         let sub = args.get(1).map(String::as_str);
         if journal_target.is_some() && sub != Some("convert-journal") {
             return Err(Error("--to is only accepted by db convert-journal".into()));
@@ -131,9 +133,19 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         if plan_in.is_some() && sub != Some("native-upgrade") {
             return Err(Error("--plan is only accepted by db native-upgrade".into()));
         }
-        if !assertions.is_empty() && !matches!(sub, Some("native-upgrade" | "convert-journal")) {
+        if restore_source.is_some() && sub != Some("native-restore") {
             return Err(Error(
-                "--assert-quiescent is only accepted by db native-upgrade and db convert-journal"
+                "--backup is only accepted by db native-restore".into(),
+            ));
+        }
+        if !assertions.is_empty()
+            && !matches!(
+                sub,
+                Some("native-upgrade" | "convert-journal" | "native-restore")
+            )
+        {
+            return Err(Error(
+                "--assert-quiescent is only accepted by db native-upgrade, db convert-journal and db native-restore"
                     .into(),
             ));
         }
@@ -395,6 +407,13 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         [command, sub] if command == "db" && sub == "native-backup" => {
             catabolic_store::native_restore::backup(&path, backup.as_deref())
         }
+        [command, sub] if command == "db" && sub == "native-restore" => {
+            let source = restore_source.ok_or_else(|| {
+                Error("db native-restore requires --backup DIRECTORY from db native-backup".into())
+            })?;
+            let quiescence = quiescence(&assertions)?;
+            catabolic_store::native_restore::restore(&path, &source, quiescence, &|_| Ok(()))
+        }
         [command, sub] if command == "db" && sub == "convert-journal" => {
             let target = journal_target
                 .ok_or_else(|| Error("db convert-journal requires --to delete".into()))?;
@@ -644,7 +663,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             )
         }
         _ => Err(Error(
-            "supported commands: init, db inspect, db upgrade, db snapshot, db native-inspect, db native-plan, db native-upgrade, db identity-manifest, db identity-diff, db convert-journal, db native-backup, encode, --version"
+            "supported commands: init, db inspect, db upgrade, db snapshot, db native-inspect, db native-plan, db native-upgrade, db identity-manifest, db identity-diff, db convert-journal, db native-backup, db native-restore, encode, --version"
                 .into(),
         )),
     }
