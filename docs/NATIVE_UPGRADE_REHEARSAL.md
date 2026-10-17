@@ -193,25 +193,49 @@ Legacy catalogs are refused; their backups come from `db upgrade` and are
 restored to a new path by hand.
 
 `db native-restore --backup DIR` publishes such a snapshot at the live path.
-It is fail-closed and runs these durable stages, in order:
+It is fail-closed and passes these checkpoints, in order:
 
-| Stage | Work | After a crash here |
+| Checkpoint | Work before it | After a crash here |
 | --- | --- | --- |
 | `verified` | Requires the three quiescence assertions. Verifies the manifest, the snapshot's checksum, full validation and identity manifest. Takes the native lifecycle lease, the Catabolic writer lock and an exclusive SQLite lock on the live catalog (opened in EXCLUSIVE locking mode before anything is read). Requires rollback-journal mode and the same database and catalog IDs. | Live catalog unchanged; no staging directory |
 | `retained` | Creates `.<name>.restore-<id>/` beside the catalog and copies the live catalog into `previous.sqlite3` with SQLite's backup API | Live catalog unchanged |
-| `staged` | Copies the snapshot into the staging directory and rechecks its checksum | Live catalog unchanged |
-| `rotated` | Changes the staged copy's incarnation through the schema's restore-scoped permit, to a fresh value different from both the live and the snapshot incarnation. Checks that only `catalog_state` changed and that identities are preserved. Writes the staging `manifest.json` record (`catabolic-native-restore-v1`, status `staged`). | Live catalog unchanged; record says `staged` |
-| `published` | Rechecks the live pathname, lease and absence of `-journal`, `-wal` and `-shm` files, renames the staged copy over the live path, fsyncs the directory and marks the record `published` | Restore in effect under the new incarnation |
+| `staged` | Copies the snapshot into the staging directory, rechecks its checksum and records the staged file's identity | Live catalog unchanged |
+| `rotated` | Changes the staged copy's incarnation through the schema's restore-scoped permit, to a fresh value different from both the live and the snapshot incarnation. Checks that only `catalog_state` changed, that identities are preserved and that no worker ownership is left unresolved (see below). Records the whole-row digest of the rotated file and writes the staging `manifest.json` record (`catabolic-native-restore-v1`, status `staged`). | Live catalog unchanged; record says `staged` |
+| `protected` | Rechecks that the staged path is still the same regular file with one link and no sidecars, takes an exclusive SQLite lock on it, and requires its whole-row digest and incarnation to equal the rotated file's | Live catalog unchanged |
+| `renamed` | Rechecks the staged file, the live pathname, the lease and the absence of `-journal`, `-wal` and `-shm` files, then renames the staged copy over the live path. This rename is the single commit point. | Restore in effect; durability not yet confirmed |
+| `published` | Fsyncs the containing directory | Restore in effect and durable |
+| `finalizing` | Prepares the final record | Restore in effect; record still says `staged` |
+| `finalized` | Writes the record with status `published` and its durability | Restore in effect; record final |
 
-Every file and directory is fsynced before the next stage. The rename is the
-single commit point; anything that fails before it leaves the live catalog's
-bytes unchanged. Staging directories are kept after crashes and after success
-(with `previous.sqlite3`) for the operator to inspect and remove. Rerunning
-the restore after a crash at any stage completes it, under another fresh
-incarnation. The lock covers the whole operation: no SQLite user can read or
-write between verification and publication. Idle, unused descriptors and
-users on other hosts remain undetectable, as for journal conversion, so the
-assertions are required.
+Every file and directory is fsynced before the next checkpoint. Anything that
+fails before the rename leaves the live catalog's bytes unchanged and removes
+the staging directory; a crash before the rename leaves it for the operator.
+The exclusive locks mean that no SQLite user can read or write the live
+catalog between verification and the rename, or the staged copy between its
+final verification and the rename. A changed or replaced staged file is
+refused.
+
+After the rename the restore is committed, so no later problem is reported as
+an ordinary failure. The command instead returns the committed result with
+`durability` (`durable`, or `uncertain` if the directory fsync failed or
+anything failed before it) and `warnings`, for example when the record could
+not be finalized. A rerun with the same backup finds the record whose
+incarnation is the live one and returns `already_published: true` without
+rotating again, finalizing the record if needed. A rerun after a crash before
+the rename performs the restore. Successful restores keep their staging
+directory, with `previous.sqlite3`, for the operator to inspect and remove.
+Idle, unused descriptors and users on other hosts remain undetectable, as for
+journal conversion, so the assertions are required.
+
+Restore refuses backups with retained worker ownership. Cleanup witnesses for
+completed processing jobs and observation companions name the incarnation
+that sealed them, and the schema's guards forbid rebinding them. Rewriting
+them under the new incarnation would mint evidence that no runtime owner
+produced. So the rotated copy's worker inventory must admit new work. A
+backup that holds completed but witnessed workers, or unfinished ones, is
+refused before publication. Take the backup when no worker ownership is
+retained. A future evidence-carrying reconciliation would need its own
+reviewed schema contract.
 
 Rotating the incarnation is what fences the old catalog's users. A live native
 session holds shared admission, so a restore is refused while one exists.
@@ -222,13 +246,20 @@ and is not executed again, and one whose receipt is in the backup replays its
 original result. Existing native handles also check the catalog's file
 identity and incarnation before use and require a reopen.
 
-`crates/catabolic-store/tests/native_restore.rs` covers the backup, a restore
-round trip, these stale-incarnation refusals, refused backups (missing
-assertions, another catalog's backup, a changed snapshot, an edited manifest, a
-legacy backup and a WAL live catalog, each leaving the catalog unchanged), and
-a process exit at every restore stage followed by a successful rerun. A
-restore returns the database to the backup point only; it does not undo
-filesystem or network effects made since.
+`crates/catabolic-store/tests/native_restore.rs` covers:
+
+- the backup, and a restore round trip;
+- the stale-incarnation refusals above;
+- refused backups: missing assertions, another catalog's backup, a changed
+  snapshot, an edited manifest, a legacy backup, a WAL live catalog, and
+  completed or unfinished worker ownership;
+- refused staged mutations and replacements;
+- injected failures after the rename;
+- a process exit at every checkpoint, followed by a rerun.
+
+Each refusal leaves the catalog unchanged. A restore returns the database to
+the backup point only; it does not undo filesystem or network effects made
+since.
 
 ## Post-upgrade write limitations
 
