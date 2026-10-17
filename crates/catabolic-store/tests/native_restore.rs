@@ -880,6 +880,66 @@ fn failed_publication_rename_removes_only_its_staging_directory() {
     assert_eq!(items(&path, "later-item"), 0);
 }
 
+/// Valid JSON is not enough: a record missing any required field, carrying a
+/// wrong type, or naming another database is refused, never skipped.
+#[test]
+fn incomplete_restore_records_require_reconciliation() {
+    let (_root, path, receipt) = backed_up();
+    let report = restore(&path, &receipt).unwrap();
+    let record_path = PathBuf::from(report["restore_record"].as_str().unwrap());
+    let original: Value = serde_json::from_slice(&fs::read(&record_path).unwrap()).unwrap();
+    let published = incarnation(&path);
+    let before = fs::read(&path).unwrap();
+    let mut cases: Vec<(String, Value)> = Vec::new();
+    for field in [
+        "contract",
+        "status",
+        "database",
+        "database_id",
+        "catalog_id",
+        "previous_incarnation",
+        "incarnation",
+        "backup",
+        "backup_sha256",
+        "retained",
+        "live_identity",
+        "staged_identity",
+        "retained_identity",
+    ] {
+        let mut missing = original.clone();
+        missing.as_object_mut().unwrap().remove(field);
+        cases.push((format!("missing {field}"), missing));
+        let mut mistyped = original.clone();
+        mistyped[field] = json!(17);
+        cases.push((format!("mistyped {field}"), mistyped));
+    }
+    let mut durability = original.clone();
+    durability["durability"] = json!("maybe");
+    cases.push(("unknown durability".into(), durability));
+    let mut foreign = original.clone();
+    foreign["database_id"] = json!("2ff334d9-68fc-44b9-aa39-e9635593ccaa");
+    cases.push(("mismatched database id".into(), foreign));
+    let mut moved = original.clone();
+    moved["database"] = json!("/elsewhere/native.sqlite3");
+    cases.push(("mismatched database path".into(), moved));
+    for (label, record) in cases {
+        fs::write(&record_path, serde_json::to_vec(&record).unwrap()).unwrap();
+        let error = restore(&path, &receipt).unwrap_err();
+        assert!(
+            error.0.contains("restore record reconciliation required")
+                && error
+                    .0
+                    .contains("is not a complete restore record for this catalog"),
+            "{label}: {error}"
+        );
+        assert_eq!(fs::read(&path).unwrap(), before, "{label}");
+        assert_eq!(incarnation(&path), published, "{label}");
+    }
+    // The intact record is recognized again.
+    fs::write(&record_path, serde_json::to_vec(&original).unwrap()).unwrap();
+    assert_eq!(restore(&path, &receipt).unwrap()["already_published"], true);
+}
+
 /// Schema objects, migration history and sequences are not covered by table
 /// digests; each is verified under the held lock before the rename.
 #[test]

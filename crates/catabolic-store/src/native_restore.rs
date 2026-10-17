@@ -369,6 +369,75 @@ fn require_exact_file(path: &Path, expected: (u64, u64), what: &str) -> Result<(
     Ok(())
 }
 
+fn is_hex(value: &Value, length: usize) -> bool {
+    value.as_str().is_some_and(|text| {
+        text.len() == length
+            && text
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    })
+}
+
+/// Every field a restore record must carry, with its type, and the catalog
+/// it must identify. Returns the first problem found.
+fn validate_record(
+    record: &Value,
+    target: &Path,
+    database_id: &Value,
+) -> std::result::Result<(), String> {
+    let object = record
+        .as_object()
+        .ok_or_else(|| "the record is not an object".to_owned())?;
+    if record["contract"] != RESTORE_CONTRACT {
+        return Err("contract is not catabolic-native-restore-v1".into());
+    }
+    if !matches!(
+        record["status"].as_str(),
+        Some("staged" | "publishing" | "published" | "rolling_back" | "rolled_back" | "abandoned")
+    ) {
+        return Err("status is missing or unknown".into());
+    }
+    for field in [
+        "database",
+        "database_id",
+        "catalog_id",
+        "backup",
+        "retained",
+    ] {
+        if !record[field].is_string() {
+            return Err(format!("{field} is missing or not a string"));
+        }
+    }
+    for field in ["previous_incarnation", "incarnation"] {
+        if !is_hex(&record[field], 32) {
+            return Err(format!("{field} is missing or not an incarnation"));
+        }
+    }
+    if !is_hex(&record["backup_sha256"], 64) {
+        return Err("backup_sha256 is missing or not a SHA-256".into());
+    }
+    for field in ["live_identity", "staged_identity", "retained_identity"] {
+        let complete = record[field]
+            .as_array()
+            .is_some_and(|pair| pair.len() == 2 && pair.iter().all(Value::is_u64));
+        if !complete {
+            return Err(format!("{field} is missing or not a file identity"));
+        }
+    }
+    if object.contains_key("durability")
+        && !matches!(record["durability"].as_str(), Some("durable" | "uncertain"))
+    {
+        return Err("durability is not durable or uncertain".into());
+    }
+    if record["database"] != json!(target) {
+        return Err("it names a different database path".into());
+    }
+    if record["database_id"] != *database_id {
+        return Err("it names a different database ID".into());
+    }
+    Ok(())
+}
+
 /// Refusal used whenever an existing restore record cannot be checked.
 fn reconciliation_required(detail: String) -> Error {
     Error(format!(
@@ -415,7 +484,7 @@ fn roll_back_substitution(
 /// staging directory without a record never reached rotation and so cannot
 /// have been published. Every other enumeration, read or parse failure is a
 /// refusal rather than an absent record.
-fn previous_records(target: &Path) -> Result<Vec<(PathBuf, Value)>> {
+fn previous_records(target: &Path, database_id: &Value) -> Result<Vec<(PathBuf, Value)>> {
     let parent = target.parent().expect("database parent");
     let prefix = format!(
         ".{}.restore-",
@@ -444,15 +513,15 @@ fn previous_records(target: &Path) -> Result<Vec<(PathBuf, Value)>> {
         let value: Value = serde_json::from_slice(&raw).map_err(|error| {
             reconciliation_required(format!("{} is not valid JSON: {error}", path.display()))
         })?;
-        if value["contract"] != RESTORE_CONTRACT || !value["incarnation"].is_string() {
+        // The staging prefix names this catalog, so every record found here
+        // must be complete and must identify exactly this catalog.
+        if let Err(problem) = validate_record(&value, target, database_id) {
             return Err(reconciliation_required(format!(
-                "{} is not a complete restore record",
+                "{} is not a complete restore record for this catalog: {problem}",
                 path.display()
             )));
         }
-        if value["database"] == json!(target) {
-            records.push((path, value));
-        }
+        records.push((path, value));
     }
     records.sort_by(|a, b| b.0.cmp(&a.0));
     Ok(records)
@@ -514,7 +583,7 @@ pub fn restore(
     // Records left at `publishing` or `rolling_back` are classified by the
     // live file's inode: the previous file, the staged file or the retained
     // copy. Anything else is an outcome that cannot be determined.
-    let mut records = previous_records(&target)?;
+    let mut records = previous_records(&target, &identity["database_id"])?;
     for (record_path, record) in &mut records {
         let directory = record_path
             .parent()

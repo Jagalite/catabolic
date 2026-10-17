@@ -228,6 +228,12 @@ exclusive locks; it reports `durable` only if that succeeds, otherwise
 record. If any existing restore record, its staging directory or the
 catalog's directory cannot be read, or a record is not valid, restore
 refuses with `restore record reconciliation required` and changes nothing.
+A valid record is valid JSON with every required field and type: contract,
+status, database path, database and catalog IDs, both incarnations, backup
+path and SHA-256, retained path, the live, staged and retained file
+identities, and an optional durability. Because the staging prefix names the
+catalog, a record whose database path or database ID differs is also refused
+rather than skipped.
 An unreadable record could describe a published restore, and treating it as
 absent would rotate the catalog again and discard later writes. The
 operator inspects and repairs or removes the record by hand. A staging
