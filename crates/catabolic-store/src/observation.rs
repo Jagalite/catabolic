@@ -13,7 +13,7 @@ use catabolic_core::{coordination as lifecycle, encode, sha256};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeSet, HashMap},
     fs::File,
     ops::Deref,
     os::{
@@ -911,6 +911,10 @@ struct Publication {
     prefiltered_entries: bool,
     // Preserve the unqualified callback/generated schedule until its own slice.
     eager_scopes: bool,
+    // Schema 39: ctimes the native scanner itself observed, keyed by path and
+    // bound to the exact stamp. Entries stay ctime-free, so callback payloads
+    // and public Publisher input are unchanged and cannot supply a ctime.
+    ctimes: HashMap<String, (Value, i64)>,
 }
 impl Deref for Publication {
     type Target = PublicationContext;
@@ -1005,6 +1009,7 @@ impl Publisher {
             blocker: None,
             prefiltered_entries: false,
             eager_scopes: false,
+            ctimes: HashMap::new(),
         }))))
     }
     pub fn initial_scopes(&self, after: i64) -> Result<Value> {
@@ -1165,10 +1170,17 @@ impl Scan {
         }
         Ok(())
     }
-    fn publish(&mut self, store: Option<&Store>, entry: Value) -> Result<()> {
+    fn publish(&mut self, store: Option<&Store>, entry: Value, ctime: Option<i64>) -> Result<()> {
         if let Some(callbacks) = &mut self.callbacks {
             callbacks.entry(entry)
         } else {
+            if let (Some(ctime), Some(path)) = (ctime, entry["path"].as_str()) {
+                let stamp = source_stamp(&entry);
+                self.publisher.with(|p| {
+                    p.ctimes.insert(path.to_owned(), (stamp, ctime));
+                    Ok(())
+                })?;
+            }
             if self.publisher.entry(entry)? {
                 self.publisher.flush(store)?;
             }
@@ -1248,7 +1260,7 @@ impl Scan {
             if excluded(&path, &self.exclusions) || !self.filter.matches(&path)? {
                 continue;
             }
-            self.publish(store, self.generated_entry(&path)?)?;
+            self.publish(store, self.generated_entry(&path)?, None)?;
         }
         // Registry coverage cannot authorize directory-wide absence.
         self.scope(store, "", "registry_complete", &json!({}))?;
@@ -1360,7 +1372,7 @@ impl Scan {
                     return Ok(true);
                 }
                 let tick = Instant::now();
-                let result = (|| -> Result<Option<Value>> {
+                let result = (|| -> Result<Option<(Value, Option<i64>)>> {
                     crate::layout::relative_path(&child)?;
                     let (mode, stamp) = stat_at(&fd, name)?;
                     if u64::from(mode) == u64::from(libc::S_IFDIR) {
@@ -1404,16 +1416,16 @@ impl Scan {
                         return Err(Error("source changed while checking media header".into()));
                     }
                     let mut entry = stamp;
-                    entry.as_object_mut().unwrap().remove("ctime_ns");
+                    let ctime = entry.as_object_mut().unwrap().remove("ctime_ns");
                     entry["path"] = json!(child);
                     entry["media_header"] = health;
-                    Ok(Some(entry))
+                    Ok(Some((entry, ctime.and_then(|v| v.as_i64()))))
                 })();
                 match result {
                     // A directory callback can fail inside the entry closure.
                     // Preserve its source-wide error before per-file aggregation.
                     Err(error) if self.callback_failed() => return Err(error),
-                    Ok(Some(entry)) => self.publish(store, entry)?,
+                    Ok(Some((entry, ctime))) => self.publish(store, entry, ctime)?,
                     Ok(None) => {}
                     Err(e)
                         if matches!(
@@ -1671,6 +1683,7 @@ impl Publication {
         let sequence = self.sequence + 1;
         let profile = &self.profile;
         let source = &self.source;
+        let ctimes = &self.ctimes;
         store.transaction(|db|{
             self.fence(store)?;
             if db.prepare("SELECT 1 FROM observation_batches WHERE job_id=? AND sequence=?")?.exists(params![self.job,sequence])?{return Err(Error("duplicate_observation_batch".into()));}
@@ -1685,6 +1698,9 @@ impl Publication {
                 db.execute("INSERT INTO observations VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(profile,file_id) DO UPDATE SET size=excluded.size,mtime_ns=excluded.mtime_ns,device=excluded.device,inode=excluded.inode,status=excluded.status,scan_id=excluded.scan_id",params![profile,identifier,entry["size"].as_i64(),entry["mtime_ns"].as_i64(),entry["device"].as_i64(),entry["inode"].as_i64(),status,self.scan])?;
                 if status=="missing" {
                     continue;
+                }
+                if store.schema_version >= SOURCE_CTIME_SCHEMA {
+                    record_ctime(db, profile, &identifier, entry, ctimes.get(entry["path"].as_str().unwrap_or("")))?;
                 }
                 let default_health=json!({"status":"unknown","reason":"header_not_checked","bytes_read":0});let health=entry.get("media_header").filter(|value| !value.is_null()).unwrap_or(&default_health);let old=rows(db,"SELECT status,reason FROM media_header_checks WHERE profile=? AND file_id=?",&[profile.to_string().into(),identifier.clone().into()])?;
                 changed|=old.first().is_none_or(|old|old["status"]!=health["status"]||old["reason"]!=health["reason"]);
@@ -1706,6 +1722,7 @@ impl Publication {
         })?;
         self.sequence = sequence;
         self.entries.clear();
+        self.ctimes.clear();
         self.scopes.clear();
         self.bytes = 0;
         self.last = Instant::now();
@@ -1764,6 +1781,44 @@ impl Publication {
             other => other,
         }
     }
+}
+
+/// First native schema with the bound source-ctime companion (work plan A5).
+pub(crate) const SOURCE_CTIME_SCHEMA: u32 = 39;
+
+/// The observed tuple a recorded ctime is bound to.
+fn source_stamp(entry: &Value) -> Value {
+    json!([
+        entry["size"],
+        entry["mtime_ns"],
+        entry["device"],
+        entry["inode"]
+    ])
+}
+
+/// Record the ctime the scanner saw for exactly this observation, or discard a
+/// previous one when no ctime was observed for it (public Publisher input,
+/// generated outputs, or a stamp that no longer matches). An unknown ctime is
+/// never carried over from another observation.
+fn record_ctime(
+    db: &Connection,
+    profile: &str,
+    file: &str,
+    entry: &Value,
+    observed: Option<&(Value, i64)>,
+) -> Result<()> {
+    match observed.filter(|(stamp, _)| *stamp == source_stamp(entry)) {
+        Some((_, ctime)) => {
+            db.execute("INSERT INTO native_source_ctimes(profile,file_id,size,mtime_ns,device,inode,ctime_ns) VALUES(?,?,?,?,?,?,?) ON CONFLICT(profile,file_id) DO UPDATE SET size=excluded.size,mtime_ns=excluded.mtime_ns,device=excluded.device,inode=excluded.inode,ctime_ns=excluded.ctime_ns",params![profile,file,entry["size"].as_i64(),entry["mtime_ns"].as_i64(),entry["device"].as_i64(),entry["inode"].as_i64(),ctime])?;
+        }
+        None => {
+            db.execute(
+                "DELETE FROM native_source_ctimes WHERE profile=? AND file_id=?",
+                params![profile, file],
+            )?;
+        }
+    }
+    Ok(())
 }
 
 fn excluded(path: &str, exclusions: &Value) -> bool {
@@ -2583,6 +2638,7 @@ fn prepare_scan(
         blocker: None,
         prefiltered_entries: true,
         eager_scopes: generated,
+        ctimes: HashMap::new(),
     })));
     let scan = Scan {
         context,

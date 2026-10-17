@@ -242,7 +242,7 @@ fn assert_post_upgrade_limitations(path: &Path) {
         "{legacy}"
     );
     let unsupported =
-        migration::initialize_native_at(&path.with_extension("v38"), NATIVE_SCHEMA_VERSION + 1)
+        migration::initialize_native_at(&path.with_extension("future"), NATIVE_SCHEMA_VERSION + 1)
             .unwrap_err();
     assert!(unsupported.0.contains("unsupported native schema target"));
     // A repeated native upgrade is an acknowledged no-op, not a second backup.

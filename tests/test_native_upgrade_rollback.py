@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 # SPDX-License-Identifier: MIT
-"""Frozen Python rollback check for the explicit native schema-38 upgrade.
+"""Frozen Python rollback check for the explicit native schema-39 upgrade.
 
 The native CLI upgrades a disposable schema-32 catalog with a verified backup.
 The backup snapshot is restored to a new path after its manifest SHA-256 is
 checked, and frozen Python must read it (``db status`` and ``status``). Frozen
-Python must refuse the upgraded schema-38 file without changing it. This is a
+Python must refuse the upgraded schema-39 file without changing it. This is a
 rollback-to-backup check, not a downgrade: writes made after the upgrade are
 not carried back.
 
@@ -27,7 +27,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 # The latest native target. Frozen Python supports schemas 1 through 32.
-NATIVE_SCHEMA = 38
+NATIVE_SCHEMA = 39
 REQUIRED = (
     "CATABOLIC_PYTHON_ORACLE",
     "CATABOLIC_PYTHON_REFERENCE",

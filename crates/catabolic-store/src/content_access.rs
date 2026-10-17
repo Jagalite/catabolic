@@ -170,6 +170,31 @@ pub fn snapshot(store: &Store, profile: &str, id: &str) -> Result<Value> {
     .first()
     .map(|r| r["volume_uuid"].clone())
     .unwrap_or(Value::Null);
+    // Schema 39 (A5): the ctime a native scan recorded for exactly this
+    // observation joins the content revision, so an edit that restores mtime
+    // changes the revision after a rescan, and `with_validated_source` refuses
+    // the descriptor before one. Without a bound ctime the key is omitted and
+    // the revision is the same as frozen Python's.
+    if store.schema_version >= crate::observation::SOURCE_CTIME_SCHEMA
+        && row["status"] == "present"
+        && let Some(ctime) = store
+            .db
+            .query_row(
+                "SELECT ctime_ns FROM native_source_ctimes WHERE profile=? AND file_id=? AND size IS ? AND mtime_ns IS ? AND device IS ? AND inode IS ?",
+                params![
+                    profile,
+                    id,
+                    row["size"].as_i64(),
+                    row["mtime_ns"].as_i64(),
+                    row["device"].as_i64(),
+                    row["inode"].as_i64()
+                ],
+                |r| r.get::<_, i64>(0),
+            )
+            .optional()?
+    {
+        row["ctime_ns"] = json!(ctime);
+    }
     Ok(row)
 }
 pub fn revision_of(store: &Store, profile: &str, id: &str) -> Result<String> {

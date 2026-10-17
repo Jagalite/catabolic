@@ -160,7 +160,9 @@ fn quiescence() -> migration::NativeUpgradeQuiescence {
 }
 fn upgrade(path: &Path, parent: Option<&Path>) -> catabolic_store::Result<Value> {
     let plan = migration::plan_native(path)?;
-    assert_eq!(plan["to_schema"], 38);
+    // Upgrades now continue through schema 39 (source ctimes), which keeps
+    // every schema-38 guard.
+    assert_eq!(plan["to_schema"], 39);
     migration::upgrade_native(path, &plan, quiescence(), parent, &|_, _, _| Ok(()))
 }
 fn error(result: rusqlite::Result<usize>) -> String {
@@ -333,7 +335,7 @@ fn sc1_heads_cascaded_before_schema38_cannot_be_recreated_after_upgrade() {
     drop(store);
     upgrade(&path, None).unwrap();
     let store = Store::open(&path, true, false).unwrap();
-    assert_eq!(store.schema_version, 38);
+    assert_eq!(store.schema_version, 39);
     let retained = "catalog_tag_suppression_subject_history_retained";
     let item = curation::item_put(
         &store,
@@ -740,7 +742,7 @@ fn sc5_upgrade_creates_every_missing_backup_ancestor_privately() {
     drop(f.store);
     let parent = f.root.path().join("absent-a/absent-b/absent-c");
     let report = upgrade(&f.path, Some(&parent)).unwrap();
-    assert_eq!(report["schema"], 38);
+    assert_eq!(report["schema"], 39);
     let backup = PathBuf::from(report["backup"].as_str().unwrap());
     assert!(backup.starts_with(parent.canonicalize().unwrap()));
     for ancestor in [

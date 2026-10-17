@@ -40,7 +40,7 @@ fn upgrade36_preserves_every_prior_table_and_history_without_backfill() {
     drop(store);
     let plan = migration::plan_native(&path).unwrap();
     assert_eq!(plan["from_schema"], 36);
-    assert_eq!(plan["to_schema"], 38);
+    assert_eq!(plan["to_schema"], 39);
     migration::upgrade_native(
         &path,
         &plan,

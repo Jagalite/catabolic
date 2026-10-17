@@ -3,7 +3,8 @@
 These native behaviors go beyond frozen-Python parity. Each is a versioned
 difference that fixes a finding from the October 16
 [independent review lanes](NATIVE_REVIEW_LANES_2026_10_16.md). All of them
-fail closed. None changes catalog data or schema.
+fail closed. Only source ctimes (A5) change the schema, as native schema 39;
+none of the others changes catalog data or schema.
 
 ## Generated outputs on coarse-timestamp filesystems (A1, part of FS3)
 
@@ -45,8 +46,9 @@ than one second, the whole cache is discarded.
 - On coarse and untrusted filesystems, digest verification adds a full read.
   Untrusted filesystems pay it on every use, including HEAD and Range
   requests that go through `with_transfer`.
-- Source files have no recorded digest. They keep the metadata contract until
-  the ctime and stat-time schema step (work plan item A5).
+- Source files have no recorded digest. From native schema 39 their content
+  revision includes the scanned ctime (A5, below), which exposes an edit that
+  restores mtime; schema 32 keeps the metadata contract.
 
 ## Complete responses are hashed while they stream (A4)
 
@@ -142,6 +144,18 @@ requires access to the catalog's directory and write access to an exposed
 source on the same filesystem. With the catalog's file modes that access
 already allows reading the catalog directly, so it is outside this threat
 model. Recognizable headers in such a link are refused as before.
+
+## Source revisions include ctime (A5, rest of FS3)
+
+Native schema 39 records each present source's ctime, as seen by the native
+scanner, in `native_source_ctimes`, bound to the exact observation. The ctime
+joins the content revision: serving a source whose ctime moved since the scan
+is refused with "rescan and start a new operation", and the next scan rotates
+the revision. A ctime-only change does not invalidate derived facts, because
+ctime also moves on metadata-only events such as the links hardlink catalogs
+create. The schema, the reasons and the operational consequences are in
+[schema section 12](CATABOLIC_NATIVE_SCHEMA_V1.md#12-schema-39-source-ctimes).
+Schema-32 catalogs keep frozen Python's revision contract.
 
 ## Output claims never delete temporaries (FS1)
 

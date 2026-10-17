@@ -7,7 +7,7 @@ SPDX-License-Identifier: MIT
 
 This covers Track B items 1–5 of the
 [native retirement work plan](NATIVE_RETIREMENT_WORK_PLAN.md): the operator
-commands for the explicit schema-32 to schema-38 upgrade, the identity
+commands for the explicit schema-32 to schema-39 upgrade, the identity
 checker, the rehearsal harness, offline journal conversion and the recorded
 post-upgrade limitations. These are development tools and tests. Passing them
 does not qualify the upgrade, close a retirement gate or authorize upgrading a
@@ -115,27 +115,27 @@ For each fixture the harness:
 5. Checks the backup receipt status and the SHA-256 of the backup snapshot.
    The receipt must embed the approved plan.
 6. Resumes with a fresh plan. After a committed exit the old plan is refused.
-   It then checks schema 38, history, preservation and the identity diffs
+   It then checks schema 39, history, preservation and the identity diffs
    against both the schema-32 and the original manifests.
 7. Restores the committed backup, and the interrupted attempt's backup, to
    new paths. It verifies the manifest SHA-256 before and after the copy, and
    that `inspect` reports schema 32 with the original manifest fingerprint.
 
 The boundaries are the migration checkpoints, with the version passed at each.
-The matrix has 30 entries:
+The matrix has 34 entries:
 
 | Boundary | Versions | Schema after exit | Receipt status | Rehearsal clone left |
 | --- | --- | --- | --- | --- |
 | `upgrade:after_backup` | 32 | 32 | `backup_verified` | no |
-| `rehearsal:before_migration`, `rehearsal:after_migration` | 33–38 | 32 | `backup_verified` | yes |
-| `rehearsal:before_commit`, `rehearsal:after_commit` | 38 | 32 | `backup_verified` | yes |
+| `rehearsal:before_migration`, `rehearsal:after_migration` | 33–39 | 32 | `backup_verified` | yes |
+| `rehearsal:before_commit`, `rehearsal:after_commit` | 39 | 32 | `backup_verified` | yes |
 | `upgrade:after_rehearsal` | 32 | 32 | `rehearsed` | no |
-| `upgrade:before_migration`, `upgrade:after_migration` | 33–38 | 32 | `rehearsed` | no |
-| `upgrade:before_commit` | 38 | 32 | `rehearsed` | no |
-| `upgrade:after_commit` | 38 | 38 | `rehearsed` | no |
+| `upgrade:before_migration`, `upgrade:after_migration` | 33–39 | 32 | `rehearsed` | no |
+| `upgrade:before_commit` | 39 | 32 | `rehearsed` | no |
+| `upgrade:after_commit` | 39 | 39 | `rehearsed` | no |
 
 Two results are worth noting. An exit after the live commit leaves the
-receipt at `rehearsed`, although the catalog is at schema 38; the schema
+receipt at `rehearsed`, although the catalog is at schema 39; the schema
 version and history are authoritative. A killed rehearsal leaves its
 `rehearsal-*` clone inside the backup directory for the operator to remove.
 
@@ -143,8 +143,8 @@ version and history are authoritative. A killed rehearsal leaves its
 upgrades a frozen-initialized catalog, and the retained schema-32 fixture when
 present, with the native CLI. It restores the verified backup to a new path,
 and frozen Python must read the restored copy with `db status` and `status`
-without changing its bytes. Frozen Python must then refuse the schema-38 file
-with `unsupported database schema 38` and leave it unchanged. The test needs
+without changing its bytes. Frozen Python must then refuse the schema-39 file
+with `unsupported database schema 39` and leave it unchanged. The test needs
 `CATABOLIC_PYTHON_ORACLE`, `CATABOLIC_PYTHON_REFERENCE` and
 `CATABOLIC_NATIVE_CLI`, and skips with the missing names otherwise.
 
@@ -184,10 +184,10 @@ frozen Python check. None of them changes the upgraded catalog.
 
 | Limitation | Refusal |
 | --- | --- |
-| Legacy recovery admission on schema 38 (`Store::open` for recovery) | `native catalog recovery requires separately qualified recovery admission` |
+| Legacy recovery admission on schema 39 (`Store::open` for recovery) | `native catalog recovery requires separately qualified recovery admission` |
 | Legacy upgrade path on a native catalog | `native catalogs cannot be downgraded by the legacy upgrade path` |
-| Frozen Python on schema 38 (`db status`, `status`) | `unsupported database schema 38` |
-| Native schemas newer than 38 | `unsupported native schema target 39` |
+| Frozen Python on schema 39 (`db status`, `status`) | `unsupported database schema 39` |
+| Native schemas newer than 39 | `unsupported native schema target 40` |
 | Reusing a consumed or stale plan | `native upgrade plan or inputs changed; inspect and approve a fresh native plan` |
 | Native upgrade of a WAL catalog | `native upgrade requires rollback-journal mode for a real SQLite exclusive lock; found wal` |
 | Converting a catalog to WAL | `unsupported journal conversion target "wal"` |

@@ -439,3 +439,79 @@ above 32.
 - **SC5, backup durability.** Native and legacy upgrades now create each missing
   backup ancestor individually (mode 0700) and fsync the directory containing
   each new entry before writing the verified backup.
+
+## 12. Schema 39 source ctimes
+
+Migration `039_native_source_ctimes.sql` (native signature
+`native-schema-39.json`) adds source ctimes for filesystem-review finding FS3
+of e8f0c52 (work plan A5). Like schema 38 it is purely additive: one new table
+and new triggers, no rebuilt or rewritten historical DDL, no backfill, no
+existing-row mutation and no generation change during the migration.
+`python3 scripts/native_catalog_source_ctimes_schema.py --check` reproduces the
+signature and `tests/parity/native-source-ctimes/schema-manifest.json`; the
+schema-38 script still reproduces schema 38 unchanged. Catalogs reach schema 39
+only through the explicit `plan_native`/`upgrade_native` path. Frozen Python
+still refuses every schema above 32.
+
+**Storage.** The legacy `observations` table is shared with frozen Python's
+schema 32 and its DDL is pinned, so ctime is not a new column.
+`native_source_ctimes(profile, file_id, size, mtime_ns, device, inode,
+ctime_ns)` records, per present observation, the ctime a native scan saw
+together with the exact tuple it was captured with. Binding triggers refuse a
+row (`native_source_ctime_unbound`) unless a present observation with the same
+key and tuple exists, and refuse rekeying. Any change to an observation's tuple
+or status, and its deletion, deletes the companion, whichever owner made the
+change (scan, remount repair, artifact publication). A stale ctime therefore
+never outlives the observation it describes. The table has the ordinary
+generation and entity-revision triggers: a ctime change rotates a content
+revision, so caches must see it.
+
+**Recording.** Only the native scanner records a ctime, from the same `fstatat`
+stamp it publishes, keyed by path and checked against the published tuple.
+Scan entries, callback payloads and public Publisher input stay ctime-free, so
+a caller cannot supply one. An observation published without a scanner ctime
+(public Publisher entries, generated outputs) has its companion removed. No
+historical ctime exists, so nothing is backfilled; the first native scan after
+the upgrade records one for every present source.
+
+**Change detection.** ctime participates in the *content revision* and nowhere
+else:
+
+- `content_access::snapshot`, and so `revision_of`, content tokens, ticket and
+  grant revision pins, ETags, playback and rendition source checks, includes
+  `ctime_ns` when a bound companion exists. Without one the key is omitted,
+  and the revision is the same as frozen Python's.
+- Source descriptor validation already compared a snapshot's `ctime_ns` with
+  the live file when present. An edit made after a scan, even one that keeps
+  the size and restores mtime, is now refused before any byte is read
+  ("rescan and start a new operation"). The next scan records the new ctime and
+  rotates the revision, so tokens, pins and ETags for the old bytes stop
+  authorizing content.
+- A ctime-only change does not mark the scan as changed and does not
+  invalidate derived facts. The Components v1 revision, retained
+  `catalog_exact_file_revisions` snapshots and fact currentness keep excluding
+  ctime, as section 4 requires.
+
+**Why.** ctime is the only timestamp userspace cannot set, so it is the only
+stat field that exposes an edit with a restored mtime. But it also moves on
+metadata-only events: chmod and chown, extended attributes (including those
+macOS sets when a file is opened from the Finder), renames on some
+filesystems, and new hard links, including the links Catabolic's own hardlink
+catalogs create. Making it part of fact currentness would re-probe and re-hash
+the library after every hardlink sync, and would disagree with snapshots that
+were retained without it. Serving bytes is where a stale revision causes harm,
+so ctime fences content serving and leaves derived facts on the v1 contract.
+
+**Consequences.**
+
+- The first native scan after the upgrade rotates every content revision once.
+  Outstanding tickets, revision-pinned grants and client ETags must be
+  reissued. Rendition and playback demands recorded against an earlier source
+  revision are no longer current; clients request them again with the new
+  revision.
+- After any metadata-only change, such as a hardlink catalog sync that adds a
+  link to a source, that source is refused for content serving until the next
+  scan. Run a scan after link synchronization when content is served.
+- Derived facts for a file edited with a restored mtime stay current until its
+  size or mtime changes. Re-verifying them on a ctime-only change, for example
+  with a content digest, is not implemented.

@@ -1,4 +1,4 @@
-//! Shared test-only, actual populated36→latest upgrade (36→37→38). All Store/host owners must be
+//! Shared test-only, actual populated36→latest upgrade (36→37→38→39). All Store/host owners must be
 //! closed by the fixture before this helper runs. No alternate migration engine.
 use crate::{Store, migration};
 use std::path::Path;
@@ -6,8 +6,8 @@ use std::path::Path;
 pub(super) fn upgrade(path: &Path) {
     assert_eq!(
         migration::NATIVE_SCHEMA_VERSION,
-        38,
-        "this receipt qualifies exact36→38; requalify a later target explicitly"
+        39,
+        "this receipt qualifies exact36→39; requalify a later target explicitly"
     );
     let before_store = Store::open(path, false, false).unwrap();
     assert_eq!(before_store.schema_version, 36);
@@ -16,7 +16,7 @@ pub(super) fn upgrade(path: &Path) {
     drop(before_store);
     let plan = migration::plan_native(path).unwrap();
     assert_eq!(plan["from_schema"], 36);
-    assert_eq!(plan["to_schema"], 38);
+    assert_eq!(plan["to_schema"], 39);
     let receipt = migration::upgrade_native(
         path,
         &plan,
@@ -30,10 +30,10 @@ pub(super) fn upgrade(path: &Path) {
     )
     .unwrap();
     let after = Store::open(path, false, false).unwrap();
-    assert_eq!(after.schema_version, 38);
+    assert_eq!(after.schema_version, 39);
     migration::preservation(&after.db, &before).unwrap();
     let validation = migration::validate(&after.db, true).unwrap();
-    assert_eq!(validation["schema"], 38);
+    assert_eq!(validation["schema"], 39);
     assert_eq!(
         &validation["history"].as_array().unwrap()[..36],
         history.as_array().unwrap()

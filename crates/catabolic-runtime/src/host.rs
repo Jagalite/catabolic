@@ -267,11 +267,11 @@ impl HostSession {
         let mut session =
             Session::open_typed(path, true, false).map_err(|cause| internal(cause.into()))?;
         let store = session.store().map_err(internal)?;
-        if !matches!(store.schema_version, 34..=38) {
+        if !matches!(store.schema_version, 34..=39) {
             return Err(error(
                 ErrorCode::UnsupportedSchema,
                 Retry::DoNotRetry,
-                "import restart is qualified only for native34 through native38",
+                "import restart is qualified only for native34 through native39",
             ));
         }
         let decision = catabolic_store::catalog_import::reconcile_persisted_activation(

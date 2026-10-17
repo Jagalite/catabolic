@@ -41,7 +41,7 @@ fn seed_job(path: &Path, state: &str) {
 #[test]
 fn targets_are_explicit_and_legacy_resources_stay_frozen() {
     assert_eq!(SCHEMA_VERSION, 32);
-    assert_eq!(NATIVE_SCHEMA_VERSION, 38);
+    assert_eq!(NATIVE_SCHEMA_VERSION, 39);
     assert_eq!(migration::MIGRATIONS.len(), 32);
     assert_eq!(
         migration::NATIVE_MIGRATIONS.len(),

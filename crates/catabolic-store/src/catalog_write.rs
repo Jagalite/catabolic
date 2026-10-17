@@ -270,10 +270,12 @@ impl TrustedReceiptReadGrant {
 // Both add statement-time generation triggers, no additional COMMIT finalizers.
 // Schema38 adds statement-time guards and one deferred receipt FK, which the
 // receipt-last owner satisfies before COMMIT; it adds no COMMIT-time writes.
+// Schema39 adds the source-ctime companion with statement-time binding and
+// generation triggers only; catalog writes never touch it.
 // Their separately qualified upgrade matrices preserve the same FTS preflush
 // and fixed-COMMIT contract; arbitrary future additions remain refused.
 fn qualified_store(store: &Store) -> Result<&Store> {
-    if ![34, 35, 36, 37, 38].contains(&store.schema_version) {
+    if ![34, 35, 36, 37, 38, 39].contains(&store.schema_version) {
         return Err(fail(WriteErrorCode::Unsupported));
     }
     let actual: u32 = store
