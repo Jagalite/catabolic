@@ -119,6 +119,13 @@ pub const RESTORE_STAGES: [&str; 10] = [
 /// Checkpoint on the rerun path, before retrying the directory fsync of an
 /// already published restore.
 pub const RERUN_FSYNC: &str = "rerun_fsync";
+/// Checkpoint between the final pathname checks and the publication rename.
+/// Only tests use it, to model a substitution in that unavoidable window.
+pub const RENAME_WINDOW: &str = "rename_window";
+/// Checkpoints of a substitution rollback: after the record says
+/// `rolling_back`, and after the retained catalog was renamed back.
+pub const ROLLBACK_PENDING: &str = "rollback_pending";
+pub const ROLLBACK_RENAMED: &str = "rollback_renamed";
 
 fn sidecar(path: &Path, suffix: &str) -> PathBuf {
     let mut name = path.as_os_str().to_os_string();
@@ -313,6 +320,37 @@ fn file_identity(path: &Path) -> Result<(u64, u64)> {
     Ok((metadata.dev(), metadata.ino()))
 }
 
+fn descriptor_identity(file: &fs::File) -> Result<(u64, u64)> {
+    use std::os::unix::fs::MetadataExt;
+    let metadata = file.metadata()?;
+    Ok((metadata.dev(), metadata.ino()))
+}
+
+fn identity_json(identity: (u64, u64)) -> Value {
+    json!([identity.0, identity.1])
+}
+
+/// Byte copy of a file that the caller holds an exclusive SQLite lock on, with
+/// no journal present, so the copy is consistent and byte-identical.
+fn byte_copy(source: &Path, target: &Path) -> Result<()> {
+    use std::{io::Write, os::unix::fs::OpenOptionsExt};
+    let bytes = fs::read(source)?;
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(target)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    if sha256(fs::read(target)?) != sha256(&bytes) {
+        return Err(Error(
+            "retained copy of the live catalog does not match it".into(),
+        ));
+    }
+    Ok(())
+}
+
 /// Refuse if a path is no longer the exact file verified earlier, or if any
 /// SQLite sidecar exists for it; a stray journal would apply to the new file.
 fn require_exact_file(path: &Path, expected: (u64, u64), what: &str) -> Result<()> {
@@ -335,6 +373,41 @@ fn require_exact_file(path: &Path, expected: (u64, u64), what: &str) -> Result<(
 fn reconciliation_required(detail: String) -> Error {
     Error(format!(
         "restore record reconciliation required: {detail}. An earlier restore of this catalog cannot be checked, so another restore could rotate an already published catalog again and discard writes made since; inspect, repair or remove the record by hand before restoring"
+    ))
+}
+
+/// Undo a publication whose renamed file was not the verified, locked staged
+/// catalog. The record says `rolling_back` before the retained byte-identical
+/// copy of the previous catalog is renamed back over the live path, and
+/// `rolled_back` afterwards, so a rerun can classify a crash at any point.
+fn roll_back_substitution(
+    target: &Path,
+    parent: &Path,
+    staging: &Path,
+    record: &mut Value,
+    retained: &Path,
+    checkpoint: &dyn Fn(&str) -> Result<()>,
+) -> Error {
+    let detected = "hostile substitution detected: the file published at the live path was not the verified staged catalog";
+    record["status"] = json!("rolling_back");
+    let rolled_back = migration::manifest(staging, record)
+        .and_then(|()| checkpoint(ROLLBACK_PENDING))
+        .and_then(|()| fs::rename(retained, target).map_err(Error::from))
+        .and_then(|()| migration::fsync(parent));
+    if let Err(error) = rolled_back {
+        return reconciliation_required(format!(
+            "{detected}, and restoring the previous catalog from {} failed: {error}",
+            retained.display()
+        ));
+    }
+    let _ = checkpoint(ROLLBACK_RENAMED);
+    record["status"] = json!("rolled_back");
+    let finalized = migration::manifest(staging, record)
+        .err()
+        .map(|error| format!("; the record could not be updated: {error}"))
+        .unwrap_or_default();
+    Error(format!(
+        "{detected}; the previous catalog was restored unchanged{finalized}"
     ))
 }
 
@@ -436,12 +509,57 @@ pub fn restore(
         .as_str()
         .ok_or_else(|| Error("live catalog has no native incarnation".into()))?
         .to_owned();
-    // A record whose rotated incarnation is the live one proves that this
-    // backup was already published; never rotate it a second time.
-    if let Some((record_path, mut record)) = previous_records(&target)?
-        .into_iter()
-        .find(|(_, record)| record["incarnation"] == previous_incarnation.as_str())
-    {
+    let live_file = file_identity(&target)?;
+    let live_json = identity_json(live_file);
+    // Records left at `publishing` or `rolling_back` are classified by the
+    // live file's inode: the previous file, the staged file or the retained
+    // copy. Anything else is an outcome that cannot be determined.
+    let mut records = previous_records(&target)?;
+    for (record_path, record) in &mut records {
+        let directory = record_path
+            .parent()
+            .expect("record directory")
+            .to_path_buf();
+        match record["status"].as_str() {
+            Some("publishing") if record["staged_identity"] == live_json => {}
+            Some("publishing") if record["live_identity"] == live_json => {
+                // The rename never happened.
+                record["status"] = json!("abandoned");
+                migration::manifest(&directory, record)?;
+            }
+            Some("publishing") => {
+                return Err(reconciliation_required(format!(
+                    "{} records a publication whose outcome cannot be determined: the live catalog is neither the previous nor the staged file",
+                    record_path.display()
+                )));
+            }
+            Some("rolling_back") if record["retained_identity"] == live_json => {
+                record["status"] = json!("rolled_back");
+                migration::manifest(&directory, record)?;
+            }
+            Some("rolling_back") => {
+                return Err(reconciliation_required(format!(
+                    "{} records an unfinished substitution rollback; the live path may hold an unverified file. Restore {} by hand",
+                    record_path.display(),
+                    record["retained"].as_str().unwrap_or_default()
+                )));
+            }
+            _ => {}
+        }
+    }
+    // A record whose rotated incarnation is the live one, published at this
+    // very inode, proves that this backup was already published; never rotate
+    // it a second time.
+    if let Some((record_path, mut record)) = records.into_iter().find(|(_, record)| {
+        record["incarnation"] == previous_incarnation.as_str()
+            && matches!(record["status"].as_str(), Some("publishing" | "published"))
+    }) {
+        if record["staged_identity"] != live_json {
+            return Err(reconciliation_required(format!(
+                "{} names the live incarnation, but the live catalog is not the file it published",
+                record_path.display()
+            )));
+        }
         if record["backup_sha256"] != receipt["sha256"] {
             return Err(Error(
                 "the live catalog was published by a restore of a different backup; inspect it before restoring again".into(),
@@ -481,7 +599,6 @@ pub fn restore(
             "durability":durability, "warnings":warnings,
         }));
     }
-    let live_file = file_identity(&target)?;
     checkpoint("verified")?;
 
     let parent = target.parent().expect("database parent").to_path_buf();
@@ -493,10 +610,12 @@ pub fn restore(
     let staging = parent.join(format!(".{name}.restore-{}", Uuid::new_v4().simple()));
     private_directory(&staging)?;
     let staged = staging.join("catalog.sqlite3");
-    let prepared = (|| -> Result<(String, Value, PathBuf, rusqlite::Connection)> {
+    let prepared = (|| -> Result<(String, Value, PathBuf, rusqlite::Connection, fs::File)> {
         let retained = staging.join("previous.sqlite3");
-        migration::copy(&live, &retained)?;
-        migration::fsync(&retained)?;
+        // The exclusive lock is held and no journal exists, so a byte copy is
+        // consistent, and a substitution rollback restores identical bytes.
+        require_exact_file(&target, live_file, "live catalog")?;
+        byte_copy(&target, &retained)?;
         migration::fsync(&staging)?;
         checkpoint("retained")?;
 
@@ -537,6 +656,8 @@ pub fn restore(
             "database_id":identity["database_id"], "catalog_id":identity["catalog"]["catalog_id"],
             "previous_incarnation":previous_incarnation, "incarnation":incarnation,
             "backup":snapshot, "backup_sha256":receipt["sha256"], "retained":retained,
+            "live_identity":identity_json(live_file), "staged_identity":identity_json(staged_file),
+            "retained_identity":identity_json(file_identity(&retained)?),
         });
         migration::manifest(&staging, &record)?;
         checkpoint("rotated")?;
@@ -544,6 +665,19 @@ pub fn restore(
         // From here to the rename the staged file is exclusively locked, and
         // it must be exactly the rotated file, row for row.
         require_exact_file(&staged, staged_file, "staged catalog")?;
+        // Held through the rename: the published pathname must be this inode.
+        let staged_descriptor = {
+            use std::os::unix::fs::OpenOptionsExt;
+            fs::OpenOptions::new()
+                .read(true)
+                .custom_flags(libc::O_NOFOLLOW)
+                .open(&staged)?
+        };
+        if descriptor_identity(&staged_descriptor)? != staged_file {
+            return Err(Error(
+                "staged catalog was replaced during restore; refusing to publish".into(),
+            ));
+        }
         let protected = crate::journal_conversion::connect_exclusive(&staged)?;
         protected.execute_batch("BEGIN")?;
         // The complete native validation (schema signature, history checksums,
@@ -563,14 +697,16 @@ pub fn restore(
                 "staged catalog changed after rotation; refusing to publish".into(),
             ));
         }
-        require_exact_file(&staged, staged_file, "staged catalog")?;
         checkpoint("protected")?;
+        checkpoint("publishing")?;
+        // The final checks follow every observable checkpoint; both connections
+        // and the staged descriptor stay open through them and the rename.
         require_exact_file(&staged, staged_file, "staged catalog")?;
         admission.validate_path()?;
         require_exact_file(&target, live_file, "live catalog")?;
-        Ok((incarnation, record, retained, protected))
+        Ok((incarnation, record, retained, protected, staged_descriptor))
     })();
-    let (incarnation, mut record, retained, protected) = match prepared {
+    let (incarnation, mut record, retained, protected, staged_descriptor) = match prepared {
         Ok(prepared) => prepared,
         Err(error) => {
             // Nothing was published; the live catalog is untouched.
@@ -582,9 +718,12 @@ pub fn restore(
     // The single commit point. Every result from here on reports a committed
     // restore; durability is uncertain until the directory fsync succeeds.
     // A failed rename published nothing: close both connections and remove
-    // only this run's unpublished staging directory.
-    if let Err(error) =
-        checkpoint("publishing").and_then(|()| fs::rename(&staged, &target).map_err(Error::from))
+    // only this run's unpublished staging directory. The record says
+    // `publishing` first, so a crash here is classified on rerun by inode.
+    record["status"] = json!("publishing");
+    if let Err(error) = migration::manifest(&staging, &record)
+        .and_then(|()| checkpoint(RENAME_WINDOW))
+        .and_then(|()| fs::rename(&staged, &target).map_err(Error::from))
     {
         drop(protected);
         drop(live);
@@ -593,7 +732,24 @@ pub fn restore(
             "publication rename failed; the live catalog is unchanged: {error}"
         )));
     }
+    // Bind the rename to the locked inode. Any pathname check leaves a window
+    // before the rename; a substituted file is rolled back, never reported.
+    let locked = descriptor_identity(&staged_descriptor).ok();
+    if file_identity(&target).ok().is_none() || file_identity(&target).ok() != locked {
+        drop(protected);
+        drop(staged_descriptor);
+        drop(live);
+        return Err(roll_back_substitution(
+            &target,
+            &parent,
+            &staging,
+            &mut record,
+            &retained,
+            checkpoint,
+        ));
+    }
     drop(protected);
+    drop(staged_descriptor);
     drop(live);
     let mut warnings = Vec::new();
     let mut durable = match checkpoint("renamed") {

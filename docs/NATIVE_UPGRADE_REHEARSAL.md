@@ -198,14 +198,14 @@ It is fail-closed and passes these checkpoints, in order:
 | Checkpoint | Work before it | After a crash here |
 | --- | --- | --- |
 | `verified` | Requires the three quiescence assertions. Verifies the manifest, the snapshot's checksum, full validation and identity manifest. Takes the native lifecycle lease, the Catabolic writer lock and an exclusive SQLite lock on the live catalog (opened in EXCLUSIVE locking mode before anything is read). Requires rollback-journal mode and the same database and catalog IDs. | Live catalog unchanged; no staging directory |
-| `retained` | Creates `.<name>.restore-<id>/` beside the catalog and copies the live catalog into `previous.sqlite3` with SQLite's backup API | Live catalog unchanged |
+| `retained` | Creates `.<name>.restore-<id>/` beside the catalog and copies the live catalog byte for byte into `previous.sqlite3` (the exclusive lock is held and no journal exists) | Live catalog unchanged |
 | `staged` | Copies the snapshot into the staging directory, rechecks its checksum and records the staged file's identity | Live catalog unchanged |
 | `rotated` | Changes the staged copy's incarnation through the schema's restore-scoped permit, to a fresh value different from both the live and the snapshot incarnation. Checks that only `catalog_state` changed, that identities are preserved and that no worker ownership is left unresolved (see below). Records the whole-row digest of the rotated file and writes the staging `manifest.json` record (`catabolic-native-restore-v1`, status `staged`). | Live catalog unchanged; record says `staged` |
 | `protected` | Rechecks that the staged path is still the same regular file with one link and no sidecars and takes an exclusive SQLite lock on it. Under that lock, runs complete native validation (schema signature, history checksums, integrity, foreign keys, native state) and requires its complete state to equal the rotated file's: table digests, every schema object, full migration history rows, `sqlite_sequence` and the identity manifest | Live catalog unchanged |
-| `publishing` | Rechecks the staged file, the live pathname, the lease and the absence of `-journal`, `-wal` and `-shm` files. A failed rename here closes both connections and removes only this run's staging directory. | Live catalog unchanged |
-| `renamed` | Renames the staged copy over the live path. This rename is the single commit point. | Restore in effect; durability not yet confirmed |
+| `publishing` | Nothing new; the final checks follow it. After this checkpoint restore rechecks the staged file, the live pathname, the lease and the absence of `-journal`, `-wal` and `-shm` files, with both connections and a descriptor on the staged file held open, then writes the record with status `publishing`. A failed rename closes both connections and removes only this run's staging directory. | Live catalog unchanged; record says `staged` |
+| `renamed` | Renames the staged copy over the live path, then requires the live path's device and inode to equal the locked staged file's. This rename is the single commit point. | Restore in effect; durability not yet confirmed; record says `publishing` |
 | `published` | Fsyncs the containing directory | Restore in effect and durable |
-| `finalizing` | Prepares the final record | Restore in effect; record still says `staged` |
+| `finalizing` | Prepares the final record | Restore in effect; record still says `publishing` |
 | `finalized` | Writes the record with status `published` and its durability | Restore in effect; record final |
 
 Every file and directory is fsynced before the next checkpoint. Anything that
@@ -237,6 +237,39 @@ directory, with `previous.sqlite3`, for the operator to inspect and remove.
 Idle, unused descriptors and users on other hosts remain undetectable, as for
 journal conversion, so the assertions are required.
 
+A rerun classifies a record left at `publishing` by the live file's inode. If
+the live file is still the previous one, the rename never happened and the
+record becomes `abandoned`. If it is the staged file, the restore was
+published. Any other file needs reconciliation.
+
+### Threat model and substitution rollback
+
+The staging directory has mode 0700, so only processes running as the same
+user, and root, can touch the staged file. The design defends against crashes
+and against same-user processes acting outside the quiescence assertions. It
+does not defend against root.
+
+A pathname check always leaves a window before the rename. So the rename is
+also bound to the inode that was verified and locked: immediately after it,
+restore compares the live path's device and inode with the held staged
+descriptor. On a mismatch the published file is a substitution. Restore then:
+
+1. Writes the record with status `rolling_back`.
+2. Renames the byte-identical `previous.sqlite3` back over the live path.
+3. Fsyncs the directory.
+4. Writes the record with status `rolled_back`.
+5. Fails with `hostile substitution detected`.
+
+The previous catalog is back, byte for byte.
+
+A rerun after a crash during the rollback also uses the inode. If the live
+file is the retained copy, the rollback completed; the record becomes
+`rolled_back` and the restore proceeds. Otherwise the live path may hold the
+unverified file, and the rerun refuses with `restore record reconciliation
+required`, naming the retained copy to restore by hand. `rename_window`,
+`rollback_pending` and `rollback_renamed` are checkpoints used only by these
+tests.
+
 Restore refuses backups with retained worker ownership. Cleanup witnesses for
 completed processing jobs and observation companions name the incarnation
 that sealed them, and the schema's guards forbid rebinding them. Rewriting
@@ -266,6 +299,9 @@ identity and incarnation before use and require a reopen.
 - refused staged mutations and replacements, and refused staged schema,
   migration-history and sequence changes;
 - injected failures at the rename and after it;
+- a replacement at `publishing`, refused before the rename;
+- a substitution in the rename window, rolled back to identical bytes;
+- crashes during that rollback;
 - rerun durability after an uncertain publication;
 - unreadable or corrupt restore records;
 - a process exit at every checkpoint, followed by a rerun.
