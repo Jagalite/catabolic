@@ -636,6 +636,49 @@ fn staged_mutation_or_replacement_is_refused_before_publication() {
     assert_eq!(count, 0);
 }
 
+/// A rerun after an exit at `renamed` retries the directory fsync under the
+/// held exclusion and reports and records durability only from its result.
+#[test]
+fn rerun_retries_the_publication_fsync_before_reporting_durability() {
+    let (_root, path, receipt) = backed_up();
+    let status = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "restore_exit_worker", "--nocapture"])
+        .env("CATABOLIC_TEST_RESTORE_DATABASE", &path)
+        .env("CATABOLIC_TEST_RESTORE_BACKUP", backup_directory(&receipt))
+        .env("CATABOLIC_TEST_RESTORE_STAGE", "renamed")
+        .status()
+        .unwrap();
+    assert_eq!(status.code(), Some(86));
+    let rotated = incarnation(&path);
+    let record_path = staging_directories(&path)[0].join("manifest.json");
+    let record = || -> Value { serde_json::from_slice(&fs::read(&record_path).unwrap()).unwrap() };
+    assert_eq!(record()["status"], "staged");
+    let failed = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+        if at == native_restore::RERUN_FSYNC {
+            Err(catabolic_store::Error("injected fsync failure".into()))
+        } else {
+            Ok(())
+        }
+    })
+    .unwrap();
+    assert_eq!(failed["already_published"], true);
+    assert_eq!(failed["durability"], "uncertain");
+    assert!(
+        failed["warnings"][0]
+            .as_str()
+            .unwrap()
+            .contains("retrying the directory fsync failed")
+    );
+    assert_eq!(record()["status"], "published");
+    assert_eq!(record()["durability"], "uncertain");
+    let retried = restore(&path, &receipt).unwrap();
+    assert_eq!(retried["already_published"], true);
+    assert_eq!(retried["durability"], "durable");
+    assert_eq!(retried["warnings"], json!([]));
+    assert_eq!(record()["durability"], "durable");
+    assert_eq!(incarnation(&path), rotated);
+}
+
 /// Schema objects, migration history and sequences are not covered by table
 /// digests; each is verified under the held lock before the rename.
 #[test]

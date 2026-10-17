@@ -115,6 +115,10 @@ pub const RESTORE_STAGES: [&str; 9] = [
     "finalized",
 ];
 
+/// Checkpoint on the rerun path, before retrying the directory fsync of an
+/// already published restore.
+pub const RERUN_FSYNC: &str = "rerun_fsync";
+
 fn sidecar(path: &Path, suffix: &str) -> PathBuf {
     let mut name = path.as_os_str().to_os_string();
     name.push(suffix);
@@ -411,9 +415,25 @@ pub fn restore(
                 "the live catalog was published by a restore of a different backup; inspect it before restoring again".into(),
             ));
         }
+        // An earlier run may have stopped before or during the directory
+        // fsync. Retry it under the held exclusion; only its success makes
+        // the publication durable.
         let mut warnings = Vec::new();
-        if record["status"] != "published" {
+        let durable = match checkpoint(RERUN_FSYNC)
+            .and_then(|()| migration::fsync(target.parent().expect("database parent")))
+        {
+            Ok(()) => true,
+            Err(error) => {
+                warnings.push(format!(
+                    "publication rename may not be durable; retrying the directory fsync failed: {error}"
+                ));
+                false
+            }
+        };
+        let durability = json!(if durable { "durable" } else { "uncertain" });
+        if record["status"] != "published" || record["durability"] != durability {
             record["status"] = json!("published");
+            record["durability"] = durability.clone();
             if let Err(error) =
                 migration::manifest(record_path.parent().expect("record directory"), &record)
             {
@@ -426,7 +446,7 @@ pub fn restore(
             "previous_incarnation":record["previous_incarnation"], "incarnation":previous_incarnation,
             "backup":snapshot, "backup_sha256":receipt["sha256"], "retained":record["retained"],
             "restore_record":record_path, "restored":true, "already_published":true,
-            "durability":"durable", "warnings":warnings,
+            "durability":durability, "warnings":warnings,
         }));
     }
     let live_file = file_identity(&target)?;
