@@ -957,6 +957,48 @@ fn incomplete_restore_records_require_reconciliation() {
     assert_eq!(restore(&path, &receipt).unwrap()["already_published"], true);
 }
 
+/// Records identify files by volume UUID and inode, never by st_dev, which
+/// can change across reboots; a rerun still recognizes the published state,
+/// and a different volume is refused rather than matched.
+#[test]
+fn restore_records_use_durable_volume_identity() {
+    let (_root, path, receipt) = backed_up();
+    let status = Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "restore_exit_worker", "--nocapture"])
+        .env("CATABOLIC_TEST_RESTORE_DATABASE", &path)
+        .env("CATABOLIC_TEST_RESTORE_BACKUP", backup_directory(&receipt))
+        .env("CATABOLIC_TEST_RESTORE_STAGE", "renamed")
+        .status()
+        .unwrap();
+    assert_eq!(status.code(), Some(86));
+    let record_path = staging_directories(&path)[0].join("manifest.json");
+    let record: Value = serde_json::from_slice(&fs::read(&record_path).unwrap()).unwrap();
+    let inode = fs::symlink_metadata(&path).unwrap().ino();
+    for field in ["live_identity", "staged_identity", "retained_identity"] {
+        let identity = record[field].as_object().unwrap();
+        let mut keys = identity.keys().cloned().collect::<Vec<_>>();
+        keys.sort();
+        assert_eq!(keys, ["inode", "volume"], "{field}");
+        assert!(uuid::Uuid::parse_str(record[field]["volume"].as_str().unwrap()).is_ok());
+    }
+    assert_eq!(record["staged_identity"]["inode"], inode);
+    // No device number is persisted (the keys above are exactly volume and
+    // inode), so a changed st_dev with the same volume UUID and inode is still
+    // the published file.
+    let original = record.clone();
+    let mut moved = record;
+    moved["staged_identity"]["volume"] = json!("00000000-0000-4000-8000-000000000000");
+    fs::write(&record_path, serde_json::to_vec(&moved).unwrap()).unwrap();
+    let error = restore(&path, &receipt).unwrap_err();
+    assert!(
+        error.0.contains("restore record reconciliation required"),
+        "{error}"
+    );
+    fs::write(&record_path, serde_json::to_vec(&original).unwrap()).unwrap();
+    let rerun = restore(&path, &receipt).unwrap();
+    assert_eq!(rerun["already_published"], true);
+}
+
 /// Schema objects, migration history and sequences are not covered by table
 /// digests; each is verified under the held lock before the rename.
 #[test]

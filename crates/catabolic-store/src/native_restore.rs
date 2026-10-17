@@ -322,8 +322,21 @@ fn descriptor_identity(file: &fs::File) -> Result<(u64, u64)> {
     Ok((metadata.dev(), metadata.ino()))
 }
 
-fn identity_json(identity: (u64, u64)) -> Value {
-    json!([identity.0, identity.1])
+/// Volume UUID of the catalog's directory. Device numbers can change across
+/// reboots, so identities compared across runs use this UUID and the inode;
+/// `(st_dev, st_ino)` is used only within a single run.
+fn catalog_volume(target: &Path) -> Result<String> {
+    // A directory descriptor, never one on a database file.
+    let directory = fs::File::open(target.parent().expect("database parent"))?;
+    crate::source::volume_uuid(&directory).ok_or_else(|| {
+        Error(
+            "controlled restore requires a filesystem that reports a volume UUID, so that restore records stay valid across reboots".into(),
+        )
+    })
+}
+
+fn durable_identity(volume: &str, identity: (u64, u64)) -> Value {
+    json!({"volume":volume, "inode":identity.1})
 }
 
 /// Refuse if a path is no longer the exact file verified earlier, or if any
@@ -394,9 +407,13 @@ fn validate_record(
         }
     }
     for field in ["live_identity", "staged_identity", "retained_identity"] {
-        let complete = record[field]
-            .as_array()
-            .is_some_and(|pair| pair.len() == 2 && pair.iter().all(Value::is_u64));
+        let complete = record[field].as_object().is_some_and(|identity| {
+            identity.len() == 2
+                && record[field]["volume"]
+                    .as_str()
+                    .is_some_and(|volume| !volume.is_empty())
+                && record[field]["inode"].is_u64()
+        });
         if !complete {
             return Err(format!("{field} is missing or not a file identity"));
         }
@@ -537,11 +554,13 @@ pub fn restore(
         .ok_or_else(|| Error("live catalog has no native incarnation".into()))?
         .to_owned();
     let live_file = file_identity(&target)?;
-    let live_json = identity_json(live_file);
-    // Records left at `publishing` are classified by the live file's inode:
+    // Records left at `publishing` are classified by the live file's identity:
     // the previous file or the staged file. Anything else, and any detected
     // substitution, is an outcome that requires operator reconciliation.
+    // Unreadable records refuse before anything else is looked up.
     let mut records = previous_records(&target, &identity["database_id"])?;
+    let volume = catalog_volume(&target)?;
+    let live_json = durable_identity(&volume, live_file);
     for (record_path, record) in &mut records {
         let directory = record_path
             .parent()
@@ -681,8 +700,9 @@ pub fn restore(
             "database_id":identity["database_id"], "catalog_id":identity["catalog"]["catalog_id"],
             "previous_incarnation":previous_incarnation, "incarnation":incarnation,
             "backup":snapshot, "backup_sha256":receipt["sha256"], "retained":retained,
-            "live_identity":identity_json(live_file), "staged_identity":identity_json(staged_file),
-            "retained_identity":identity_json(file_identity(&retained)?),
+            "live_identity":durable_identity(&volume, live_file),
+            "staged_identity":durable_identity(&volume, staged_file),
+            "retained_identity":durable_identity(&volume, file_identity(&retained)?),
             "previous_sha256":sha256(fs::read(&retained)?),
         });
         migration::manifest(&staging, &record)?;

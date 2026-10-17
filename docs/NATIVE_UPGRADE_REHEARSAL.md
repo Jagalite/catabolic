@@ -235,8 +235,8 @@ catalog's directory cannot be read, or a record is not valid, restore
 refuses with `restore record reconciliation required` and changes nothing.
 A valid record is valid JSON with every required field and type: contract,
 status, database path, database and catalog IDs, both incarnations, backup
-path and SHA-256, retained path, the live, staged and retained file
-identities, and an optional durability. Because the staging prefix names the
+path and SHA-256, retained path and SHA-256, the live, staged and retained
+file identities, and an optional durability. Because the staging prefix names the
 catalog, a record whose database path or database ID differs is also refused
 rather than skipped.
 An unreadable record could describe a published restore, and treating it as
@@ -248,7 +248,12 @@ directory, with `previous.sqlite3`, for the operator to inspect and remove.
 Idle, unused descriptors and users on other hosts remain undetectable, as for
 journal conversion, so the assertions are required.
 
-A rerun classifies a record left at `publishing` by the live file's inode. If
+Records identify files by the volume UUID of the catalog's directory and the
+inode. They never store `st_dev`, which can change across reboots on macOS;
+the device and inode pair is compared only within one run. Restore refuses
+when the filesystem reports no volume UUID.
+
+A rerun classifies a record left at `publishing` by the live file's identity. If
 the live file is still the previous one, the rename never happened and the
 record becomes `abandoned`. If it is the staged file, the restore was
 published. Any other file needs reconciliation.
@@ -320,6 +325,7 @@ identity and incarnation before use and require a reopen.
   reconciliation;
 - rerun durability after an uncertain publication;
 - unreadable or corrupt restore records;
+- volume-UUID file identities in records;
 - a process exit at every checkpoint, followed by a rerun.
 
 Each refusal leaves the catalog unchanged. A restore returns the database to
