@@ -692,6 +692,40 @@ fn another_process_is_excluded_from_live_and_staged_catalogs_until_publication()
     assert_eq!(report["durability"], "durable");
     // Every lock is released once the restore returns.
     assert_eq!(probe(&path), Some(0));
+
+    // A backup file that is the restore target itself, or a hard link to one
+    // of its sidecars, is refused before any SQLite access or lock.
+    let (_root, path, receipt) = backed_up();
+    let snapshot = PathBuf::from(receipt["backup"].as_str().unwrap());
+    let snapshot_bytes = fs::read(&snapshot).unwrap();
+    let error =
+        native_restore::restore(&snapshot, &backup_directory(&receipt), quiescent(), &|at| {
+            assert_ne!(at, "verified", "restore onto its own snapshot proceeded");
+            Ok(())
+        })
+        .unwrap_err();
+    assert!(
+        error
+            .0
+            .contains("is the live catalog or one of its sidecars"),
+        "{error}"
+    );
+    assert_eq!(fs::read(&snapshot).unwrap(), snapshot_bytes);
+    assert_eq!(probe(&snapshot), Some(0));
+    let journal = PathBuf::from(format!("{}-journal", path.display()));
+    let manifest_path = backup_directory(&receipt).join("manifest.json");
+    fs::hard_link(&manifest_path, &journal).unwrap();
+    let before = fs::read(&path).unwrap();
+    let error = restore(&path, &receipt).unwrap_err();
+    fs::remove_file(&journal).unwrap();
+    assert!(
+        error
+            .0
+            .contains("is the live catalog or one of its sidecars"),
+        "{error}"
+    );
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert!(staging_directories(&path).is_empty());
 }
 
 /// Replace the staged pathname with an unrotated copy of the backup snapshot.

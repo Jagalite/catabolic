@@ -339,6 +339,68 @@ fn durable_identity(volume: &str, identity: (u64, u64)) -> Value {
     json!({"volume":volume, "inode":identity.1})
 }
 
+/// Identities of the live catalog and whichever of its sidecars exist.
+fn live_identities(target: &Path) -> Vec<(u64, u64)> {
+    use std::os::unix::fs::MetadataExt;
+    std::iter::once(target.to_path_buf())
+        .chain(["-journal", "-wal", "-shm"].map(|suffix| sidecar(target, suffix)))
+        .filter_map(|path| fs::symlink_metadata(path).ok())
+        .map(|metadata| (metadata.dev(), metadata.ino()))
+        .collect()
+}
+
+/// A backup file that is the live catalog, one of its sidecars, or a hard link
+/// to either would be opened and closed while the live catalog is locked,
+/// which drops the process's POSIX locks, and a restore would replace a file
+/// with itself. Refuse before any SQLite access, by path and by identity.
+fn refuse_backup_aliases(target: &Path, backup_directory: &Path) -> Result<()> {
+    use std::os::unix::fs::MetadataExt;
+    let directory = backup_directory.canonicalize()?;
+    let live = live_identities(target);
+    for name in ["snapshot.sqlite3", "manifest.json"] {
+        let path = directory.join(name);
+        let aliased_path = path == target
+            || ["-journal", "-wal", "-shm"]
+                .iter()
+                .any(|suffix| path == sidecar(target, suffix));
+        let metadata = fs::symlink_metadata(&path).ok();
+        let aliased_file = metadata
+            .as_ref()
+            .is_some_and(|metadata| live.contains(&(metadata.dev(), metadata.ino())));
+        if aliased_path || aliased_file {
+            return Err(Error(format!(
+                "native backup file {} is the live catalog or one of its sidecars; refusing to restore",
+                path.display()
+            )));
+        }
+        if metadata.is_some_and(|metadata| metadata.nlink() != 1) {
+            return Err(Error(format!(
+                "native backup file {} has other hard links; refusing to restore",
+                path.display()
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Open the verified snapshot before the live catalog is locked, and keep the
+/// descriptor. Its inode is checked once against the live catalog and its
+/// sidecars, so reading and closing it later can never touch the live locks.
+fn open_snapshot(snapshot: &Path, target: &Path) -> Result<fs::File> {
+    use std::os::unix::fs::OpenOptionsExt;
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(snapshot)?;
+    if live_identities(target).contains(&descriptor_identity(&file)?) {
+        return Err(Error(
+            "native backup snapshot is the live catalog or one of its sidecars; refusing to restore"
+                .into(),
+        ));
+    }
+    Ok(file)
+}
+
 /// Refuse if a path is no longer the exact file verified earlier, or if any
 /// SQLite sidecar exists for it; a stray journal would apply to the new file.
 fn require_exact_file(path: &Path, expected: (u64, u64), what: &str) -> Result<()> {
@@ -521,13 +583,15 @@ pub fn restore(
     checkpoint: &dyn Fn(&str) -> Result<()>,
 ) -> Result<Value> {
     quiescence.require()?;
+    let target = database_path(target)?;
+    refuse_backup_aliases(&target, backup_directory)?;
     let (receipt, snapshot, identity) = verified_backup(backup_directory)?;
     let snapshot_tables = {
         let db = connect(&snapshot, false)?;
         db.execute_batch("BEGIN")?;
         migration::snapshot(&db)?
     };
-    let target = database_path(target)?;
+    let mut snapshot_file = open_snapshot(&snapshot, &target)?;
     let admission = crate::native_admission_exclusive(&target)?;
     let _writer = crate::writer_lock(&target)?;
     // Held until after the rename: no SQLite user can read or write meanwhile.
@@ -664,8 +728,14 @@ pub fn restore(
         checkpoint("retained")?;
 
         {
-            use std::{io::Write, os::unix::fs::OpenOptionsExt};
-            let bytes = fs::read(&snapshot)?;
+            use std::{
+                io::{Read, Seek, Write},
+                os::unix::fs::OpenOptionsExt,
+            };
+            // Read through the descriptor checked before the live lock was taken.
+            let mut bytes = Vec::new();
+            snapshot_file.seek(std::io::SeekFrom::Start(0))?;
+            snapshot_file.read_to_end(&mut bytes)?;
             if receipt["sha256"].as_str() != Some(sha256(&bytes).as_str()) {
                 return Err(Error(
                     "native backup snapshot changed during restore".into(),

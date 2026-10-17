@@ -219,7 +219,11 @@ file while a connection holds it, because on POSIX closing any descriptor
 drops every lock the process holds on that file. Identity checks use `lstat`
 and a descriptor that stays open until after the staged connection closes.
 A test probes the exclusion from a separate process; a probe in the same
-process would be masked.
+process would be masked. A backup file that is the live catalog, one of its
+sidecars or a hard link to either, by path or by device and inode, is
+refused before any SQLite access. The snapshot is opened and checked against
+the live catalog before the live lock is taken, and is read only through
+that descriptor.
 
 After the rename the restore is committed, so no later problem is reported as
 an ordinary failure. The command instead returns the committed result with
