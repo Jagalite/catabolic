@@ -531,6 +531,15 @@ pub fn worker(store: &mut Store, profile: &str, operation: &str, request: &Value
             "playback worker requires a standalone transaction boundary".into(),
         ));
     }
+    if !cfg!(target_os = "linux")
+        && matches!(operation, "run" | "tick")
+        && !crate::process::parent_death_supervised()
+    {
+        return Err(Error(
+            "native playback worker parent-death supervision is unqualified on this platform"
+                .into(),
+        ));
+    }
     let mut lockpath = store.path.as_os_str().to_os_string();
     lockpath.push(".api-worker");
     let _supervisor = catabolic_store::writer_lock(std::path::Path::new(&lockpath))?;

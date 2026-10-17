@@ -9,10 +9,6 @@ reported as present, so "gone" means the process has also been reaped.
 
 import subprocess
 
-# The command line of the runtime's parent-death guardian (see
-# catabolic-runtime/src/process.rs), as the process table reports it.
-GUARDIAN = "/bin/sh -c read -r line; kill -KILL 0"
-
 
 def table():
     """Return {pid: (ppid, stat, args)} for every process, zombies included."""
@@ -58,3 +54,23 @@ def present(pids):
     """The subset of ``pids`` still in the process table (zombies included)."""
     processes = table()
     return sorted(pid for pid in pids if pid in processes)
+
+
+def group(pgid, live=False):
+    """Members of process group ``pgid`` (zombies excluded when ``live``)."""
+    output = subprocess.run(
+        ["ps", "-A", "-o", "pid=,pgid=,stat="],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=10,
+    ).stdout
+    members = []
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) < 3 or int(fields[1]) != pgid:
+            continue
+        if live and fields[2].startswith("Z"):
+            continue
+        members.append(int(fields[0]))
+    return sorted(members)

@@ -67,6 +67,11 @@ pub fn run(
     interval: Duration,
     cancel: Arc<AtomicBool>,
 ) -> Result<Value> {
+    if !cfg!(target_os = "linux") && !crate::process::parent_death_supervised() {
+        return Err(Error(
+            "native API worker parent-death supervision is unqualified on this platform".into(),
+        ));
+    }
     // Frozen admission resolves the path before the singleton, but validates
     // the profile only inside a short writable owner. Contention must retain
     // its precedence over an unknown profile, without weakening reopen checks.

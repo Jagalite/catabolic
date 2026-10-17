@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 //! Disposable-loopback qualification entry point, not a default server backend.
 fn main() {
+    // First: tool supervisor mode (never returns) or supervisor registration.
+    catabolic_runtime::process::supervise_or_configure();
     let args = std::env::args().collect::<Vec<_>>();
     if args.len() != 4 {
         eprintln!("usage: catabolic-http-experimental DATABASE PORT read-only|writable");

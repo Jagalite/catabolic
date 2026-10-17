@@ -532,23 +532,27 @@ bind(sys.argv[2], 'default', 'movies', 'fixture', 'global', '', '/fixture/Movies
         self.assertTrue(self.entered.wait(10), self.server_errors)
         # Server readiness proves this tick is blocked in real loopback I/O,
         # rather than the supervisor already having completed its tick.
-        # Exactly the tick and its parent-death guardian (the runtime's
-        # lifeline supervisor, which leads the tick's process group).
+        # Exactly one child: the tick. Its parent-death guardian is detached
+        # (reparented) but shares the tick's own session and process group.
         children = process_tree.children(process.pid)
-        self.assertEqual(len(children), 2, children)
-        guardians = [c for c in children if c[1] == process_tree.GUARDIAN]
-        ticks = [c for c in children if "__legacy-consumer-watch-tick" in c[1]]
-        self.assertEqual((len(guardians), len(ticks)), (1, 1), children)
-        tick_pid = ticks[0][0]
+        self.assertEqual(len(children), 1, children)
+        tick_pid, command = children[0]
+        self.assertIn("__legacy-consumer-watch-tick", command)
+        self.assertGreaterEqual(len(process_tree.group(tick_pid)), 2)
         self.assert_writer_available(self.native)
         self.assertEqual(self.stop(process, signal.SIGTERM), ("", ""))
         self.assertTrue(self.closed.wait(5), "SIGTERM left the tick socket open")
-        # Both are gone and reaped (not even zombies) at CLI return.
+        # The tick is gone and reaped (not even a zombie) at CLI return, and
+        # no member of its group (guardian included) is still alive.
         self.assertEqual(
-            process_tree.present([tick_pid, guardians[0][0]]),
+            process_tree.present([tick_pid]),
             [],
-            "tick or guardian still exists, possibly as a zombie",
+            "tick still exists, possibly as a zombie",
         )
+        deadline = time.monotonic() + 5
+        while process_tree.group(tick_pid, live=True) and time.monotonic() < deadline:
+            time.sleep(0.02)
+        self.assertEqual(process_tree.group(tick_pid, live=True), [])
         self.assert_writer_available(self.native)
         table = "consumer_deliveries" if consumer else "notification_deliveries"
         with closing(sqlite3.connect(self.native)) as db:

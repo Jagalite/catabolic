@@ -286,3 +286,100 @@ Results on macOS arm64 with the corrected build:
     a 30-second CLI timeout in the busy case; the other had a 15-second
     heartbeat wait and a `database is locked` setup error. Both logs are
     retained, and the busy method passed when rerun alone.
+
+#### Review round 2 corrections (October 17)
+
+Sol's round-2 review found two defects in the round-1 design, both reproduced
+on macOS:
+
+- **P1:** the shell guardian died from the SIGHUP that XNU sends to an orphaned
+  stopped group, so a stopped, HUP-ignoring tool survived the worker's death.
+- **P2:** without `setsid`, a tool kept the worker's controlling terminal, and
+  opening `/dev/tty` stopped it on SIGTTIN.
+
+The design is replaced as follows. It supersedes the round-1 guardian and the
+tool's `setpgid`.
+
+- **Supervisor.** The worker execs a supervisor (the hidden
+  `__catabolic-supervise` mode of the Catabolic executable) in place of the
+  tool. Every Catabolic binary registers itself first thing in `main`, and
+  embedders use the registered native helper. The post-fork callback calls only
+  `fchdir`, `setsid`, `umask`, `fcntl`, and the Linux `prctl`/`getppid`.
+- **New session.** The tool is therefore a session leader with no controlling
+  terminal, as with frozen Python's `start_new_session=True`.
+- **Guardian.** In that fresh image the supervisor:
+  1. enumerates its open descriptors;
+  2. double-forks a guardian into the same session and group;
+  3. waits for the guardian's readiness byte.
+
+  Before signalling readiness, the guardian ignores SIGHUP, SIGINT, SIGQUIT,
+  SIGTERM, SIGTSTP, SIGTTIN, SIGTTOU, SIGPIPE, SIGUSR1 and SIGUSR2, and closes
+  everything but the lifeline. Only then does the supervisor exec the tool,
+  keeping the same PID. The worker therefore observes the tool's exact exit
+  status (including death by signal) and output directly; nothing is relayed.
+  A failed tool exec is reported back as an errno over a close-on-exec pipe,
+  so a missing tool is still `unavailable`.
+- **Parent death.** On lifeline EOF the guardian SIGKILLs the group.
+  `parent_death_supervised()` reports whether a supervisor is available.
+  Without one, the API and playback workers keep refusing on non-Linux
+  platforms.
+- **Descriptor marking.** In the child, macOS now marks exactly the open
+  descriptors, read with `proc_pidinfo(PROC_PIDLISTFDS)` into a buffer
+  allocated before fork, instead of looping to a soft limit of up to 1M. If
+  the buffer may be truncated, it falls back to the full loop. This removes
+  the main cost of each tool start.
+
+New regressions:
+
+- A stopped, HUP-ignoring tool and its grandchild die after a worker SIGKILL.
+- From a process with a controlling pseudo-terminal, the fixture itself can
+  open `/dev/tty`, but the tool's open fails immediately.
+- Tools keep exact output bytes, exit code 7, death by SIGTERM (`-15`), and
+  session and group leadership; a missing tool is `unavailable`.
+- A non-close-on-exec descriptor numbered 9000 or above is not inherited.
+- The atfork fixture requires exactly one fork in the worker per command.
+- The consumer-watch in-flight TERM test requires exactly one child (the
+  tick), whose group has at least two members (the tick and the guardian),
+  and requires every member to be gone at CLI return.
+
+Round-2 results on macOS arm64:
+
+- Runtime unit tests: 161 passed, 2 ignored. The 43 `process` tests passed
+  three consecutive times, in about 5.4 s each.
+- Python suites:
+  - `test_rust_legacy_sigterm`: 4
+  - `test_rust_legacy_external_rule`: 18
+  - `test_rust_legacy_fallback_worker`: 10
+  - `test_rust_legacy_consumer_watch`: 12, on the second run (the first, under
+    load, missed watch lines four times)
+  - `test_rust_playback`: interleaved A/B passed 2 of 2 on the new build and
+    1 of 2 on `ee101fe` (that failing run had host load above 7)
+
+Interleaved `test_rust_legacy_api_worker` A/B runs (5 methods each):
+
+| Session | Build | Passed | Failing runs |
+|---|---|---|---|
+| 1, load 3–5 | `2038382` | 3/3 | none |
+| 1, load 3–5 | `ee101fe` | 3/3 | none |
+| 2, load 4–6 | `2038382` | 3/4 | 15 s "worker heartbeat not observed" |
+| 2, load 4–6 | new build | 3/4 | `database is locked` |
+
+The api-worker stalls therefore track host load and are not caused by these
+changes.
+
+**Open: `test_rust_legacy_external_worker_diagnostics` is timing-sensitive.**
+Its full-table comparison includes `fallback_epoch.generation`, which change
+triggers bump only when a column value really changes. The same-worker GET
+poll renews `processor_jobs.lease_until` in whole seconds (both engines use
+integer seconds), so whether that renewal changes anything depends on whether
+it lands in a new second. The frozen side alone produced 46, 47 and 48 for
+identical subcases across runs, and across 22 mismatched subcases native was
+higher 8 times and lower 14 times. Pass rates:
+
+- `ee101fe`: 4 of 4 full runs passed.
+- New build: 2 of 5 full runs passed, mostly failing GET subcases with
+  off-by-one epochs. Its extra exec makes native runs longer, which changes
+  how often the two engines' renewals fall in matching seconds.
+
+The assertion is unchanged. Stabilizing it needs a decision: compare the epoch
+modulo no-op renewals, or schedule renewals deterministically in the fixture.

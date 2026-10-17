@@ -669,6 +669,8 @@ fn run(mut args: Vec<String>) -> Result<Value> {
     }
 }
 fn main() {
+    // First: tool supervisor mode (never returns) or supervisor registration.
+    catabolic_runtime::process::supervise_or_configure();
     if let Err(error) = std::env::current_exe()
         .map_err(Error::from)
         .and_then(|path| catabolic_runtime::helper::register(&path, None))
