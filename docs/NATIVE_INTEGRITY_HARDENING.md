@@ -211,66 +211,134 @@ Python protocol. A damaged chain never produces a notification.
 A damaged chain does not heal by itself. While the watched input stays
 unchanged, every retry fails again with `watcher_transition_unresolved`, and
 `recover` does not help, because it only clears dead owners. No CLI command or
-API restores a chain. The procedure below is manual and uses only existing
-read commands and SQLite.
+API restores a chain. There are two manual paths:
+
+- **Restore damaged values from trustworthy evidence.** Pending demand and
+  event identity are preserved.
+- **Reset the watcher.** This always works. It may notify a change twice, but
+  it never suppresses one.
+
+A guessed value can suppress a real change. For example, suppose run A
+admitted its event and crashed, and run B then saw a newer change and crashed
+before admission. If B's damaged `changed` value were guessed as `false`, the
+next retry would reach A's event and stay silent about B's change. Never infer
+a value from run order or position in the chain. When a value cannot be
+established from the evidence listed in step 4, reset instead.
 
 1. **Stop every writer.** Stop the supervisor and any `watch` or
-   `watcher run` process for the catalog. Do not run `watcher disable`: it
+   `watcher run` process for the catalog. Do not run `watcher disable` yet: it
    resets `requested_generation` and drops pending manual demand.
-2. **Back up the catalog** with `sqlite3 CATALOG ".backup BACKUP"`.
-3. **Inspect.** `catabolic watcher show NAME` prints `pending_reaction`.
-   `catabolic watcher history NAME` prints the latest 100 runs with their
-   results. For a longer chain, walk it in SQL, replacing `:profile` and
-   `:name`:
+2. **Back up the catalog** with `sqlite3 CATALOG ".backup DAMAGED"`. This
+   preserves the damaged state. It is not evidence for step 4.
+3. **Inspect.** `catabolic watcher show NAME` prints `pending_reaction`, and
+   `catabolic watcher history NAME` prints the latest 100 runs. To walk the
+   whole chain, use this query, replacing `:profile` and `:name`. Every JSON
+   function is guarded by `json_valid`, so null and malformed results are
+   reported instead of aborting the query:
 
    ```sql
    WITH RECURSIVE chain(id, depth) AS (
-     SELECT pending_reaction, 0 FROM watchers WHERE profile=:profile AND name=:name
+     SELECT pending_reaction, 0 FROM watchers
+     WHERE profile=:profile AND name=:name AND pending_reaction IS NOT NULL
      UNION ALL
-     SELECT json_extract(r.result,'$.retry_of'), c.depth+1
+     SELECT CASE WHEN json_valid(r.result) THEN json_extract(r.result,'$.retry_of') END,
+            c.depth+1
      FROM chain c JOIN watcher_runs r ON r.id=c.id
-     WHERE json_valid(r.result) AND json_type(r.result,'$.retry_of')='text'
-       AND json_type(r.result,'$.evaluation.changed')='false' AND c.depth<1000)
-   SELECT c.depth, c.id, r.state, r.started_at, json_valid(r.result) AS valid,
-          json_extract(r.result,'$.phase') AS phase,
-          json_type(r.result,'$.evaluation.changed') AS changed,
-          json_type(r.result,'$.retry_of') AS link
+     WHERE CASE WHEN json_valid(r.result)
+                THEN json_type(r.result,'$.phase')='text'
+                 AND json_extract(r.result,'$.phase')='planned'
+                 AND json_type(r.result,'$.retry_of')='text'
+                 AND json_type(r.result,'$.evaluation.changed')='false'
+                ELSE 0 END
+       AND c.depth<1000)
+   SELECT c.depth, c.id, r.state, r.started_at,
+          CASE WHEN r.id IS NULL THEN 'missing row'
+               WHEN r.result IS NULL THEN 'null result'
+               WHEN NOT json_valid(r.result) THEN 'malformed result'
+               ELSE 'valid' END AS result_status,
+          CASE WHEN json_valid(r.result) THEN json_type(r.result,'$.phase') END AS phase_type,
+          CASE WHEN json_valid(r.result) THEN json_extract(r.result,'$.phase') END AS phase,
+          CASE WHEN json_valid(r.result) THEN json_type(r.result,'$.evaluation.changed') END AS changed,
+          CASE WHEN json_valid(r.result) THEN json_type(r.result,'$.retry_of') END AS link
    FROM chain c LEFT JOIN watcher_runs r ON r.id=c.id ORDER BY c.depth;
    ```
 
-   The last row is the first run the engine cannot read. A null `state`
-   means the run's row is missing.
-4. **Restore only the damaged run's result fields**, with `json_set` on that
-   run:
-   - `phase` is `planned`.
-   - `retry_of` is the ID of the same watcher's previous planned run, that is,
-     the newest earlier run started after the last `complete` run. It is null
-     if there is no such run.
-   - `evaluation.changed` is `true` only for the oldest run after the last
-     completed run, because that run first saw the change. Otherwise it is
-     `false`.
+   The last row is where the walk stops. The chain is intact if that row is
+   valid with phase `planned` and either `changed` is `true`, or `changed` is
+   `false` and `link` is `null`. Otherwise the last row is the damaged run. A
+   missing row, `phase_type` other than `text`, `changed` other than
+   `true`/`false`, or `link` other than `text`/`null` is damage. If the chain
+   has a cycle, the query lists repeating IDs until depth 1000.
+4. **Establish each damaged value from trustworthy evidence only.** Leave
+   intact fields untouched. Only these sources count:
+   - **A backup taken before the damage**, holding the same run with a valid
+     result. It is trustworthy for every field, and the only trustworthy
+     source for `retry_of`. For a null or malformed result, it is the only
+     source at all.
+   - **`phase`.** Any run that `pending_reaction` or a successor's `retry_of`
+     points to reached the planned phase. A damaged `phase` on such a run is
+     therefore `planned`.
+   - **`evaluation.changed`.** A `watcher_changed` event keyed to the damaged
+     run proves that run's notification was admitted. Restoring `true` then
+     ends the walk at an already admitted event: nothing is suppressed and
+     nothing is repeated. Find the event key with
+     `python3 -c 'import hashlib,json,sys; print(hashlib.sha256(json.dumps([sys.argv[1],"watcher_changed",[sys.argv[2]]],ensure_ascii=False).encode()).hexdigest())' PROFILE RUN`
+     and check it with `SELECT 1 FROM consumer_events WHERE id=:key AND profile=:profile`.
+     The absence of an event proves nothing.
+
+   If any damaged value cannot be established from these sources, skip to the
+   reset below. Do not guess.
+5. **Write the established values.**
+   - For a valid result, set only the damaged fields with `json_set`, using
+     the exact established value:
+
+     ```sql
+     UPDATE watcher_runs SET result=json_set(result,'$.evaluation.changed',json('true'))
+     WHERE id=:run AND json_valid(result);
+     UPDATE watcher_runs SET result=json_set(result,'$.retry_of',:previous_run)
+     WHERE id=:run AND json_valid(result);
+     UPDATE watcher_runs SET result=json_set(result,'$.retry_of',json('null'))
+     WHERE id=:run AND json_valid(result);
+     UPDATE watcher_runs SET result=json_set(result,'$.phase','planned')
+     WHERE id=:run AND json_valid(result);
+     ```
+
+   - For a null or malformed result, `json_set` does not help: it fails on
+     malformed text and leaves SQL NULL unchanged. Replace the whole value
+     with the run's valid result from the pre-damage backup:
+
+     ```sql
+     ATTACH 'PRE_DAMAGE_BACKUP' AS b;
+     UPDATE main.watcher_runs
+     SET result=(SELECT result FROM b.watcher_runs WHERE id=:run)
+     WHERE id=:run
+       AND (SELECT json_valid(result) FROM b.watcher_runs WHERE id=:run);
+     DETACH b;
+     ```
+
+     Without such a backup, reset.
 
    Do not edit `pending_reaction`, `baseline`, `pending_generation`,
    `requested_generation`, `consumer_events` or `notification_deliveries`.
-   Event identity and pending demand are derived from those columns, so they
-   stay intact.
-5. **Re-run the step 3 query**, confirm the chain now ends at a changed run or
-   an unchanged run with a null link, and restart the writers.
+   Event identity and pending demand are derived from those columns.
+6. **Re-run the step 3 query**, confirm the chain is now intact, and restart
+   the writers.
 
-**A run row that is missing entirely cannot be restored.** Its run ID, which
-is the event identity, is gone. In that case, and as the only alternative to
-the procedure above, reset the watcher's comparison state: run
-`catabolic watcher disable NAME`, then `catabolic watcher put NAME --file DEFINITION`
-with the unchanged definition, then enable it again. `put` clears `baseline`
-and `pending_reaction`. Its consequences:
+**Reset**, for a missing run row, a value that cannot be established, or any
+doubt: run `catabolic watcher disable NAME`, then
+`catabolic watcher put NAME --file DEFINITION` with the unchanged definition,
+then `catabolic watcher enable NAME`. `put` clears `baseline` and
+`pending_reaction`. The consequences:
 
 - The next run compares against no baseline, so it reports a change.
 - That run emits a new `watcher_changed` event under its own run ID.
   - If the lost chain's notification was already admitted, consumers receive
     the change a second time.
   - If it was not admitted, this event is its only delivery.
-- `disable` resets pending manual demand, so request it again with
-  `watcher run` after enabling if it is still needed.
+
+  A reset can therefore over-notify, but it never suppresses a change.
+- `disable` resets pending manual demand. Request it again with `watcher run`
+  after enabling, if it is still needed.
 - Run history is kept. The reset is visible as a new completed run whose
   comparison has no previous baseline.
 
