@@ -1106,6 +1106,100 @@ fn rerun_after_substitution_preserves_journal_and_wal_evidence() {
     }
 }
 
+/// Replacing the staging directory with a symbolic link to the catalog's own
+/// directory, where the catalog is named manifest.json, cannot redirect the
+/// record write: records are written through the held staging descriptor and
+/// the staging entry is rechecked, so the catalog stays intact.
+#[test]
+fn staging_symlink_swap_at_finalizing_cannot_reach_the_catalog() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("manifest.json");
+    migration::initialize_native(&path).unwrap();
+    put(&path, "kept", "kept-item");
+    let receipt = native_restore::backup(&path, None).unwrap();
+    put(&path, "later", "later-item");
+    let parent = fs::canonicalize(root.path()).unwrap();
+    let error = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+        if at == "finalizing" {
+            let staging = staging_directories(&path).remove(0);
+            fs::rename(&staging, staging.with_extension("moved")).unwrap();
+            std::os::unix::fs::symlink(&parent, &staging).unwrap();
+        }
+        Ok(())
+    })
+    .unwrap_err();
+    assert!(
+        error.0.contains("restore committed") && error.0.contains("was replaced"),
+        "{error}"
+    );
+    // The catalog named manifest.json is still the published SQLite catalog.
+    let info = migration::validate(&connect(&path, true).unwrap(), true).unwrap();
+    assert_eq!(info["schema"], migration::NATIVE_SCHEMA_VERSION);
+    assert_eq!(items(&path, "kept-item"), 1);
+    assert_eq!(items(&path, "later-item"), 0);
+    assert!(!fs::read(&path).unwrap().starts_with(b"{"));
+}
+
+/// A snapshot replaced by a symbolic link to another live catalog is never
+/// opened: backup files are opened through the held backup directory without
+/// following links, and a second restore in the same process is refused, so
+/// the first restore's POSIX locks survive, as a separate-process probe shows.
+#[test]
+fn snapshot_symlink_to_a_locked_catalog_is_never_opened() {
+    let (_root, path, receipt) = backed_up();
+    let (_other_root, other, other_receipt) = backed_up();
+    let other_snapshot = PathBuf::from(other_receipt["backup"].as_str().unwrap());
+    fs::remove_file(&other_snapshot).unwrap();
+    std::os::unix::fs::symlink(&path, &other_snapshot).unwrap();
+    let other_before = fs::read(&other).unwrap();
+    let report = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+        if at == "retained" {
+            let error = restore(&other, &other_receipt).unwrap_err();
+            assert!(
+                error
+                    .0
+                    .contains("another controlled restore is running in this process"),
+                "{error}"
+            );
+            assert_eq!(probe(&path), Some(PROBE_REFUSED), "live lock lost at {at}");
+        }
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(report["already_published"], false);
+    // Alone, the symlinked snapshot is refused without being followed.
+    let error = restore(&other, &other_receipt).unwrap_err();
+    assert!(
+        error.0.contains("without following a symbolic link"),
+        "{error}"
+    );
+    assert_eq!(fs::read(&other).unwrap(), other_before);
+    assert_eq!(probe(&path), Some(0));
+}
+
+/// The backup directory itself swapped for a link to another catalog's backup
+/// after it was opened changes nothing: the held descriptor and the private
+/// copy are all restore ever reads.
+#[test]
+fn backup_directory_swap_after_opening_is_not_followed() {
+    let (_root, path, receipt) = backed_up();
+    let (_other_root, _other, other_receipt) = backed_up();
+    let directory = backup_directory(&receipt);
+    let report = native_restore::restore(&path, &directory, quiescent(), &|at| {
+        if at == native_restore::BACKUP_OPENED {
+            fs::rename(&directory, directory.with_extension("moved")).unwrap();
+            std::os::unix::fs::symlink(backup_directory(&other_receipt), &directory).unwrap();
+        }
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(report["backup_sha256"], receipt["sha256"]);
+    assert_eq!(report["database_id"], receipt["database_id"]);
+    assert_eq!(items(&path, "kept-item"), 1);
+    assert_eq!(items(&path, "later-item"), 0);
+    identity_manifest::require_preserved(&receipt["identity_manifest"], &manifest(&path)).unwrap();
+}
+
 /// Schema objects, migration history and sequences are not covered by table
 /// digests; each is verified under the held lock before the rename.
 #[test]
