@@ -728,6 +728,40 @@ fn unreadable_or_corrupt_restore_records_require_reconciliation() {
     }
 }
 
+/// A failed publication rename publishes nothing and removes only this run's
+/// staging directory, leaving other staging directories alone.
+#[test]
+fn failed_publication_rename_removes_only_its_staging_directory() {
+    let (_root, path, receipt) = backed_up();
+    let earlier = path.parent().unwrap().join(format!(
+        ".{}.restore-earlier",
+        path.file_name().unwrap().to_string_lossy()
+    ));
+    fs::create_dir(&earlier).unwrap();
+    let before = fs::read(&path).unwrap();
+    let error = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+        if at == "publishing" {
+            Err(catabolic_store::Error("injected rename failure".into()))
+        } else {
+            Ok(())
+        }
+    })
+    .unwrap_err();
+    assert!(
+        error
+            .0
+            .contains("publication rename failed; the live catalog is unchanged"),
+        "{error}"
+    );
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert_eq!(items(&path, "later-item"), 1);
+    assert_eq!(staging_directories(&path), vec![earlier.clone()]);
+    // The live catalog is not locked afterwards: a restore then succeeds.
+    let report = restore(&path, &receipt).unwrap();
+    assert_eq!(report["already_published"], false);
+    assert_eq!(items(&path, "later-item"), 0);
+}
+
 /// Schema objects, migration history and sequences are not covered by table
 /// digests; each is verified under the held lock before the rename.
 #[test]

@@ -100,15 +100,16 @@ pub fn backup(path: &Path, parent: Option<&Path>) -> Result<Value> {
 
 pub const RESTORE_CONTRACT: &str = "catabolic-native-restore-v1";
 
-/// Restore checkpoints, in order. The rename between `protected` and
-/// `renamed` is the single commit point: stages up to `protected` precede it,
+/// Restore checkpoints, in order. The rename between `publishing` and
+/// `renamed` is the single commit point: stages up to `publishing` precede it,
 /// and every later stage reports a committed restore.
-pub const RESTORE_STAGES: [&str; 9] = [
+pub const RESTORE_STAGES: [&str; 10] = [
     "verified",
     "retained",
     "staged",
     "rotated",
     "protected",
+    "publishing",
     "renamed",
     "published",
     "finalizing",
@@ -580,7 +581,18 @@ pub fn restore(
 
     // The single commit point. Every result from here on reports a committed
     // restore; durability is uncertain until the directory fsync succeeds.
-    fs::rename(&staged, &target)?;
+    // A failed rename published nothing: close both connections and remove
+    // only this run's unpublished staging directory.
+    if let Err(error) =
+        checkpoint("publishing").and_then(|()| fs::rename(&staged, &target).map_err(Error::from))
+    {
+        drop(protected);
+        drop(live);
+        let _ = fs::remove_dir_all(&staging);
+        return Err(Error(format!(
+            "publication rename failed; the live catalog is unchanged: {error}"
+        )));
+    }
     drop(protected);
     drop(live);
     let mut warnings = Vec::new();
