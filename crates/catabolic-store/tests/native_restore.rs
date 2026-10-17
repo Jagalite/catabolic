@@ -471,6 +471,90 @@ fn crash_at_every_restore_stage_is_recoverable() {
     }
 }
 
+fn staged_file(path: &Path) -> PathBuf {
+    let staging = staging_directories(path);
+    assert_eq!(staging.len(), 1);
+    staging[0].join("catalog.sqlite3")
+}
+
+/// The staged copy is checked row for row and by file identity after
+/// rotation, and is exclusively locked from then until the rename.
+#[test]
+fn staged_mutation_or_replacement_is_refused_before_publication() {
+    let tamper = "INSERT INTO meta VALUES('restore-tamper','1')";
+    let refusals: [(&str, &str, &dyn Fn(&Path)); 3] = [
+        (
+            "rotated",
+            "staged catalog changed after rotation",
+            &|staged: &Path| {
+                connect(staged, true)
+                    .unwrap()
+                    .execute_batch(tamper)
+                    .unwrap();
+            },
+        ),
+        (
+            "rotated",
+            "staged catalog was replaced",
+            &|staged: &Path| {
+                let copy = staged.with_extension("copy");
+                fs::write(&copy, fs::read(staged).unwrap()).unwrap();
+                fs::rename(&copy, staged).unwrap();
+            },
+        ),
+        (
+            "protected",
+            "staged catalog was replaced",
+            &|staged: &Path| {
+                let copy = staged.with_extension("copy");
+                fs::write(&copy, fs::read(staged).unwrap()).unwrap();
+                fs::remove_file(staged).unwrap();
+                std::os::unix::fs::symlink(&copy, staged).unwrap();
+            },
+        ),
+    ];
+    for (stage, message, change) in refusals {
+        let (_root, path, receipt) = backed_up();
+        let before = fs::read(&path).unwrap();
+        let error =
+            native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+                if at == stage {
+                    change(&staged_file(&path));
+                }
+                Ok(())
+            })
+            .unwrap_err();
+        assert!(error.0.contains(message), "{stage}: {error}");
+        assert_eq!(fs::read(&path).unwrap(), before, "{stage}");
+        assert_eq!(items(&path, "later-item"), 1, "{stage}");
+        assert!(staging_directories(&path).is_empty(), "{stage}");
+    }
+    // While protected, a writer cannot change the staged file at all.
+    let (_root, path, receipt) = backed_up();
+    let report = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+        if at == "protected" {
+            let mut writer = connect(&staged_file(&path), true);
+            let refused = match writer.as_mut() {
+                Ok(db) => db.execute_batch(tamper).unwrap_err().to_string(),
+                Err(error) => error.to_string(),
+            };
+            assert!(refused.contains("database is locked"), "{refused}");
+        }
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(report["restored"], true);
+    let count: i64 = connect(&path, false)
+        .unwrap()
+        .query_row(
+            "SELECT count(*) FROM meta WHERE key='restore-tamper'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(count, 0);
+}
+
 const DIGEST: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 /// One observation job claimed by a native companion; `sealed` completes it
 /// with the exact quiescent cleanup witness, otherwise it stays unfinished.

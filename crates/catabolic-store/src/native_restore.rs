@@ -100,9 +100,16 @@ pub fn backup(path: &Path, parent: Option<&Path>) -> Result<Value> {
 
 pub const RESTORE_CONTRACT: &str = "catabolic-native-restore-v1";
 
-/// Durable restore stages, in order. `published` follows the atomic rename,
+/// Restore checkpoints, in order. `published` follows the atomic rename,
 /// which is the single commit point of a restore.
-pub const RESTORE_STAGES: [&str; 5] = ["verified", "retained", "staged", "rotated", "published"];
+pub const RESTORE_STAGES: [&str; 6] = [
+    "verified",
+    "retained",
+    "staged",
+    "rotated",
+    "protected",
+    "published",
+];
 
 fn sidecar(path: &Path, suffix: &str) -> PathBuf {
     let mut name = path.as_os_str().to_os_string();
@@ -177,13 +184,14 @@ fn fresh_incarnation(avoid: &[&str]) -> String {
 }
 
 /// Rotate the staged copy's incarnation through the schema's restore-scoped
-/// permit and verify that nothing else changed.
+/// permit, verify that nothing else changed, and return the incarnation and
+/// the complete whole-row digest of the rotated file.
 fn rotate(
     staged: &Path,
     snapshot_tables: &Value,
     identity: &Value,
     avoid: &[&str],
-) -> Result<String> {
+) -> Result<(String, Value)> {
     let incarnation = fresh_incarnation(avoid);
     let db = connect(staged, true)?;
     db.execute_batch("BEGIN IMMEDIATE")?;
@@ -206,17 +214,18 @@ fn rotate(
     rotated?;
     db.execute_batch("BEGIN")?;
     migration::validate(&db, true)?;
-    let mut tables = migration::snapshot(&db)?;
+    let tables = migration::snapshot(&db)?;
     let after = identity_manifest::manifest(&db)?;
     drop(db);
+    let mut unchanged = tables.clone();
     let mut expected = snapshot_tables.clone();
-    for object in [&mut tables, &mut expected] {
+    for object in [&mut unchanged, &mut expected] {
         object
             .as_object_mut()
             .expect("snapshot object")
             .remove("catalog_state");
     }
-    if tables != expected
+    if unchanged != expected
         || after["catalog"]["incarnation"] != incarnation
         || after["catalog"]["generation"] != identity["catalog"]["generation"]
     {
@@ -225,7 +234,7 @@ fn rotate(
         ));
     }
     identity_manifest::require_preserved(identity, &after)?;
-    Ok(incarnation)
+    Ok((incarnation, tables))
 }
 
 /// Cleanup witnesses for completed native workers name the incarnation that
@@ -256,15 +265,46 @@ fn require_worker_ownership_resolved(staged: &Path) -> Result<()> {
     Ok(())
 }
 
+fn file_identity(path: &Path) -> Result<(u64, u64)> {
+    use std::os::unix::fs::MetadataExt;
+    let metadata = fs::symlink_metadata(path)?;
+    if !metadata.file_type().is_file() || metadata.nlink() != 1 {
+        return Err(Error(format!(
+            "{} is not a unique regular file",
+            path.display()
+        )));
+    }
+    Ok((metadata.dev(), metadata.ino()))
+}
+
+/// Refuse if a path is no longer the exact file verified earlier, or if any
+/// SQLite sidecar exists for it; a stray journal would apply to the new file.
+fn require_exact_file(path: &Path, expected: (u64, u64), what: &str) -> Result<()> {
+    if file_identity(path).ok() != Some(expected) {
+        return Err(Error(format!(
+            "{what} was replaced during restore; refusing to publish"
+        )));
+    }
+    for suffix in ["-journal", "-wal", "-shm"] {
+        if fs::symlink_metadata(sidecar(path, suffix)).is_ok() {
+            return Err(Error(format!(
+                "{what} has a {suffix} file; refusing to publish"
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// Controlled restore of a native catalog from a verified native backup.
 ///
 /// The operator asserts quiescence exactly as for native upgrade and journal
 /// conversion. The restore takes the native lifecycle lease, the Catabolic
 /// writer lock and an exclusive SQLite lock on the live catalog, retains a
-/// copy of the live catalog, stages the snapshot beside it with a fresh
-/// incarnation, and publishes it by one atomic rename followed by a directory
-/// fsync. Anything that fails before the rename leaves the live catalog
-/// untouched. Old sessions, permits and receipts name the old incarnation.
+/// copy of it, stages the snapshot beside it with a fresh incarnation, holds
+/// an exclusive SQLite lock on the staged file while verifying its identity
+/// and whole-row digest, and publishes it by one atomic rename followed by a
+/// directory fsync. Anything that fails before the rename leaves the live
+/// catalog untouched and removes the staging directory.
 pub fn restore(
     target: &Path,
     backup_directory: &Path,
@@ -304,11 +344,7 @@ pub fn restore(
         .as_str()
         .ok_or_else(|| Error("live catalog has no native incarnation".into()))?
         .to_owned();
-    let live_file = {
-        use std::os::unix::fs::MetadataExt;
-        let metadata = fs::symlink_metadata(&target)?;
-        (metadata.dev(), metadata.ino())
-    };
+    let live_file = file_identity(&target)?;
     checkpoint("verified")?;
 
     let parent = target.parent().expect("database parent").to_path_buf();
@@ -319,79 +355,92 @@ pub fn restore(
         .into_owned();
     let staging = parent.join(format!(".{name}.restore-{}", Uuid::new_v4().simple()));
     private_directory(&staging)?;
-    let retained = staging.join("previous.sqlite3");
-    migration::copy(&live, &retained)?;
-    migration::fsync(&retained)?;
-    migration::fsync(&staging)?;
-    checkpoint("retained")?;
-
     let staged = staging.join("catalog.sqlite3");
-    {
-        use std::{io::Write, os::unix::fs::OpenOptionsExt};
-        let bytes = fs::read(&snapshot)?;
-        if receipt["sha256"].as_str() != Some(sha256(&bytes).as_str()) {
+    let prepared = (|| -> Result<(String, Value, PathBuf, rusqlite::Connection)> {
+        let retained = staging.join("previous.sqlite3");
+        migration::copy(&live, &retained)?;
+        migration::fsync(&retained)?;
+        migration::fsync(&staging)?;
+        checkpoint("retained")?;
+
+        {
+            use std::{io::Write, os::unix::fs::OpenOptionsExt};
+            let bytes = fs::read(&snapshot)?;
+            if receipt["sha256"].as_str() != Some(sha256(&bytes).as_str()) {
+                return Err(Error(
+                    "native backup snapshot changed during restore".into(),
+                ));
+            }
+            let mut file = fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .custom_flags(libc::O_NOFOLLOW)
+                .open(&staged)?;
+            file.write_all(&bytes)?;
+            file.sync_all()?;
+        }
+        migration::fsync(&staging)?;
+        let staged_file = file_identity(&staged)?;
+        checkpoint("staged")?;
+
+        let snapshot_incarnation = identity["catalog"]["incarnation"]
+            .as_str()
+            .unwrap_or_default();
+        let (incarnation, rotated_tables) = rotate(
+            &staged,
+            &snapshot_tables,
+            &identity,
+            &[previous_incarnation.as_str(), snapshot_incarnation],
+        )?;
+        require_worker_ownership_resolved(&staged)?;
+        migration::fsync(&staged)?;
+        let record = json!({
+            "contract":RESTORE_CONTRACT, "status":"staged", "database":target,
+            "database_id":identity["database_id"], "catalog_id":identity["catalog"]["catalog_id"],
+            "previous_incarnation":previous_incarnation, "incarnation":incarnation,
+            "backup":snapshot, "backup_sha256":receipt["sha256"], "retained":retained,
+        });
+        migration::manifest(&staging, &record)?;
+        checkpoint("rotated")?;
+
+        // From here to the rename the staged file is exclusively locked, and
+        // it must be exactly the rotated file, row for row.
+        require_exact_file(&staged, staged_file, "staged catalog")?;
+        let protected = crate::journal_conversion::connect_exclusive(&staged)?;
+        protected.execute_batch("BEGIN")?;
+        let tables = migration::snapshot(&protected)?;
+        let current: String = protected.query_row(
+            "SELECT incarnation FROM catalog_state WHERE id=1",
+            [],
+            |row| row.get(0),
+        )?;
+        protected.execute_batch("ROLLBACK")?;
+        if tables != rotated_tables || current != incarnation {
             return Err(Error(
-                "native backup snapshot changed during restore".into(),
+                "staged catalog changed after rotation; refusing to publish".into(),
             ));
         }
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .custom_flags(libc::O_NOFOLLOW)
-            .open(&staged)?;
-        file.write_all(&bytes)?;
-        file.sync_all()?;
-    }
-    migration::fsync(&staging)?;
-    checkpoint("staged")?;
-
-    let snapshot_incarnation = identity["catalog"]["incarnation"]
-        .as_str()
-        .unwrap_or_default();
-    let incarnation = rotate(
-        &staged,
-        &snapshot_tables,
-        &identity,
-        &[previous_incarnation.as_str(), snapshot_incarnation],
-    )?;
-    if let Err(error) = require_worker_ownership_resolved(&staged) {
-        // Nothing was published; the live catalog is untouched.
-        let _ = fs::remove_dir_all(&staging);
-        return Err(error);
-    }
-    migration::fsync(&staged)?;
-    let mut record = json!({
-        "contract":RESTORE_CONTRACT, "status":"staged", "database":target,
-        "database_id":identity["database_id"], "catalog_id":identity["catalog"]["catalog_id"],
-        "previous_incarnation":previous_incarnation, "incarnation":incarnation,
-        "backup":snapshot, "backup_sha256":receipt["sha256"], "retained":retained,
-    });
-    migration::manifest(&staging, &record)?;
-    checkpoint("rotated")?;
-
-    // Publish only if the live pathname, its lease and its sidecars are still
-    // exactly what was verified; a stray journal would be applied to the new file.
-    {
-        use std::os::unix::fs::MetadataExt;
+        require_exact_file(&staged, staged_file, "staged catalog")?;
+        checkpoint("protected")?;
+        require_exact_file(&staged, staged_file, "staged catalog")?;
         admission.validate_path()?;
-        let metadata = fs::symlink_metadata(&target)?;
-        if !metadata.is_file()
-            || metadata.nlink() != 1
-            || (metadata.dev(), metadata.ino()) != live_file
-        {
-            return Err(Error("live catalog was replaced during restore".into()));
+        require_exact_file(&target, live_file, "live catalog")?;
+        Ok((incarnation, record, retained, protected))
+    })();
+    let (incarnation, mut record, retained, protected) = match prepared {
+        Ok(prepared) => prepared,
+        Err(error) => {
+            // Nothing was published; the live catalog is untouched.
+            let _ = fs::remove_dir_all(&staging);
+            return Err(error);
         }
-        for suffix in ["-journal", "-wal", "-shm"] {
-            if fs::symlink_metadata(sidecar(&target, suffix)).is_ok() {
-                return Err(Error(format!(
-                    "live catalog has a {suffix} file; refusing to publish a restore over it"
-                )));
-            }
-        }
-    }
+    };
+
+    // The single commit point.
     fs::rename(&staged, &target)?;
     migration::fsync(&parent)?;
+    drop(protected);
     drop(live);
     record["status"] = json!("published");
     migration::manifest(&staging, &record)?;
