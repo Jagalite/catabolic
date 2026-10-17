@@ -74,9 +74,10 @@ wiring/discovery evidence is not installed product qualification.
 
 The diagnostic classification covers selected ordinary ASCII Location/URI
 references, not an implementation of every urllib URL/header parsing edge.
-Malformed protocol, unusual header encoding, credential encoding, exact encoded
-request budgets, other transport diagnostics, clean-EOF/reset behavior and wider
-HTTP security remain unqualified. Existing Store detachment/reacquisition and
+Track D later qualified selected malformed-protocol, truncated-body, refused
+connection, Latin-1 credential encoding and exact request-budget behavior; see
+the [external-rule track D section](RUST_MIGRATION_EXTERNAL_RULE.md). Other
+transport diagnostics and wider HTTP security remain unqualified. Existing Store detachment/reacquisition and
 SQLite exception-classification differences remain explicit in the earlier
 checkpoint. Receipt reuse and other receipt outcomes remain limited to their
 previous evidence. Previously restricted broad feature and filesystem/source

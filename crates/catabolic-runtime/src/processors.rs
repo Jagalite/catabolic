@@ -8,6 +8,48 @@ use serde_json::{Value, json};
 use std::{io::Read, time::Duration};
 const MAX_RESPONSE: usize = 1024 * 1024;
 pub const WORKER_ARGUMENT: &str = "__processor-http-worker";
+/// The frozen worker's diagnostic for every urllib transport, protocol,
+/// header-encoding and body-read failure.
+const NETWORK_ERROR: &str = "HTTP request failed; check endpoint, credentials and network";
+
+/// Frozen `token()`: resolved in the dispatching process before the request.
+fn credential(request: &Value) -> Result<Option<String>> {
+    let Some(environment) = request["credential_env"].as_str() else {
+        return Ok(None);
+    };
+    catabolic_store::notifications::credential_reference(environment)?;
+    let secret = std::env::var(environment)
+        .ok()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| Error(format!("set credential environment variable {environment}")))?;
+    if secret.contains(['\n', '\r']) {
+        return Err(Error("invalid credential value".into()));
+    }
+    Ok(Some(secret))
+}
+
+/// The frozen worker envelope's exact canonical UTF-8 size bounds the request,
+/// including the base64 body and the resolved Authorization header.
+fn request_budget(request: &Value, secret: Option<&str>) -> Result<()> {
+    use base64::Engine;
+    let mut headers = json!({"Content-Type": "application/json"});
+    if let Some(secret) = secret {
+        headers["Authorization"] = json!(format!("Bearer {secret}"));
+    }
+    let body = request
+        .get("body")
+        .filter(|v| !v.is_null())
+        .map(|body| base64::engine::general_purpose::STANDARD.encode(catabolic_core::encode(body)));
+    let envelope = json!({
+        "url": request["url"], "headers": headers, "method": request["method"],
+        "maximum": MAX_RESPONSE, "timeout": request["timeout"], "body": body,
+        "structured_errors": false,
+    });
+    if catabolic_core::encode(&envelope).len() > 256 * 1024 {
+        return Err(Error("HTTP request exceeds input limit".into()));
+    }
+    Ok(())
+}
 
 /// Private native transport helper. The existing process supervisor bounds DNS,
 /// TLS, body reads and cancellation, and reaps this worker before returning.
@@ -37,6 +79,12 @@ impl Transport for SupervisedTransport<'_> {
     fn request(&mut self, request: &Value) -> Result<Vec<u8>> {
         use base64::Engine;
         use std::{ffi::OsStr, sync::atomic::Ordering};
+        // The frozen dispatcher resolves the credential and bounds the exact
+        // worker envelope before starting its helper; the native helper
+        // repeats both checks and still receives only the variable name.
+        let secret = credential(request)?;
+        request_budget(request, secret.as_deref())?;
+        drop(secret);
         let input = catabolic_core::encode(request);
         if input.len() > 262144 {
             return Err(Error("HTTP request exceeds input limit".into()));
@@ -98,34 +146,26 @@ impl Transport for HttpTransport {
             .ok_or_else(|| Error("invalid processor endpoint".into()))?;
         catabolic_store::notifications::callback_origin(url)
             .map_err(|_| Error("invalid processor endpoint".into()))?;
-        let mut headers = vec![("Content-Type", "application/json".to_owned())];
-        if let Some(environment) = request["credential_env"].as_str() {
-            catabolic_store::notifications::credential_reference(environment)?;
-            let secret = std::env::var(environment)
-                .ok()
-                .filter(|s| !s.is_empty())
-                .ok_or_else(|| {
-                    Error(format!("set credential environment variable {environment}"))
-                })?;
-            if secret.contains(['\n', '\r']) || secret.len() > 256 * 1024 {
-                return Err(Error("invalid credential value".into()));
+        let secret = credential(request)?;
+        request_budget(request, secret.as_deref())?;
+        let network = || Error(NETWORK_ERROR.into());
+        let mut headers = vec![("Content-Type", b"application/json".to_vec())];
+        if let Some(secret) = secret {
+            // http.client encodes header values as Latin-1; a wider character
+            // fails before any connection, like its UnicodeEncodeError. The
+            // native HTTP client accepts only visible ASCII in Authorization,
+            // so Latin-1 bytes above 0x7f still fail with the same diagnostic
+            // (a recorded difference: frozen Python sends them).
+            let mut value = b"Bearer ".to_vec();
+            for character in secret.chars() {
+                value.push(u8::try_from(u32::from(character)).map_err(|_| network())?);
             }
-            headers.push(("Authorization", format!("Bearer {secret}")));
+            headers.push(("Authorization", value));
         }
         let body = request
             .get("body")
             .filter(|v| !v.is_null())
             .map(catabolic_core::encode);
-        let header_bytes = headers
-            .iter()
-            .map(|(k, v)| k.len() + v.len())
-            .sum::<usize>();
-        // Bound the old worker envelope as well as the direct native request.
-        if url.len() + header_bytes + body.as_ref().map_or(0, |b| b.len().div_ceil(3) * 4) + 1024
-            > 256 * 1024
-        {
-            return Err(Error("HTTP request exceeds input limit".into()));
-        }
         let agent: ureq::Agent = ureq::Agent::config_builder()
             .proxy(None)
             .max_redirects(0)
@@ -133,23 +173,22 @@ impl Transport for HttpTransport {
             .timeout_global(Some(Duration::from_secs(timeout)))
             .build()
             .into();
-        let failed = || Error("HTTP worker failed; check endpoint and network".into());
         let mut response = match request["method"].as_str() {
             Some("PUT") => {
                 let mut outgoing = agent.put(url);
                 for (key, value) in &headers {
-                    outgoing = outgoing.header(*key, value);
+                    outgoing = outgoing.header(*key, value.as_slice());
                 }
                 outgoing
                     .send(body.as_deref().unwrap_or("").as_bytes())
-                    .map_err(|_| failed())?
+                    .map_err(|_| network())?
             }
             Some("GET") => {
                 let mut outgoing = agent.get(url);
                 for (key, value) in &headers {
-                    outgoing = outgoing.header(*key, value);
+                    outgoing = outgoing.header(*key, value.as_slice());
                 }
-                outgoing.call().map_err(|_| failed())?
+                outgoing.call().map_err(|_| network())?
             }
             _ => return Err(Error("invalid processor HTTP method".into())),
         };
@@ -174,22 +213,22 @@ impl Transport for HttpTransport {
                 response.status().as_u16()
             )));
         }
-        if response
-            .headers()
-            .get("Content-Length")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.parse::<u64>().ok())
-            .is_some_and(|n| n > MAX_RESPONSE as u64)
-        {
-            return Err(Error("HTTP response exceeds byte limit".into()));
-        }
+        // Like the frozen `read(maximum + 1)`, an advertised length alone
+        // decides nothing: at most one byte past the limit is read. http.client
+        // returns a length-delimited body cut short by EOF as-is; only chunked
+        // framing raises IncompleteRead, an ordinary transport failure.
+        let chunked = response.headers().contains_key("Transfer-Encoding");
         let mut bytes = Vec::new();
-        response
+        match response
             .body_mut()
             .as_reader()
             .take(MAX_RESPONSE as u64 + 1)
             .read_to_end(&mut bytes)
-            .map_err(|_| failed())?;
+        {
+            Ok(_) => (),
+            Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof && !chunked => (),
+            Err(_) => return Err(network()),
+        }
         if bytes.len() > MAX_RESPONSE {
             return Err(Error("HTTP response exceeds byte limit".into()));
         }
@@ -602,9 +641,16 @@ mod tests {
                 "redirect refused; configure the final endpoint explicitly",
             ),
             (
-                format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", MAX_RESPONSE + 1),
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    MAX_RESPONSE + 1,
+                    " ".repeat(MAX_RESPONSE + 1)
+                ),
                 "HTTP response exceeds byte limit",
             ),
+            ("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n5\r\n{\"st".to_owned(), NETWORK_ERROR),
+            ("garbage\r\n\r\n".to_owned(), NETWORK_ERROR),
+            (String::new(), NETWORK_ERROR),
         ] {
             let listener = TcpListener::bind("127.0.0.1:0").unwrap();
             let endpoint = format!("http://{}", listener.local_addr().unwrap());
@@ -617,6 +663,131 @@ mod tests {
             assert_eq!(HttpTransport.request(&request).unwrap_err().0, expected);
             server.join().unwrap();
         }
+        // Frozen read(maximum + 1) returns a length-delimited body truncated by
+        // EOF; an advertised oversized length alone is not decisive.
+        for (response, expected) in [
+            (
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    MAX_RESPONSE + 1
+                ),
+                &b""[..],
+            ),
+            (
+                "HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\n{}".to_owned(),
+                &b"{}"[..],
+            ),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let endpoint = format!("http://{}", listener.local_addr().unwrap());
+            let server = std::thread::spawn(move || {
+                let (socket, _) = listener.accept().unwrap();
+                let (mut socket, _, _) = incoming(socket);
+                socket.write_all(response.as_bytes()).unwrap();
+            });
+            let request = json!({"url":endpoint,"method":"GET","timeout":2});
+            assert_eq!(HttpTransport.request(&request).unwrap(), expected);
+            server.join().unwrap();
+        }
+    }
+    #[test]
+    fn refused_connection_uses_frozen_worker_diagnostic() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        drop(listener);
+        let request = json!({"url":endpoint,"method":"GET","timeout":2});
+        assert_eq!(
+            HttpTransport.request(&request).unwrap_err().0,
+            NETWORK_ERROR
+        );
+    }
+    #[test]
+    fn credential_header_encoding_failures_use_frozen_worker_diagnostic() {
+        let variable = "CATABOLIC_PROCESSOR_TEST_ENCODED_CREDENTIAL";
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        // The ASCII control is the only request that reaches the server.
+        let server = std::thread::spawn(move || {
+            let (socket, _) = listener.accept().unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(3)))
+                .unwrap();
+            let mut reader = BufReader::new(socket);
+            let mut header = vec![];
+            loop {
+                let mut line = vec![];
+                assert!(reader.read_until(b'\n', &mut line).unwrap() > 0);
+                if line == b"\r\n" {
+                    break;
+                }
+                if line.to_ascii_lowercase().starts_with(b"authorization:") {
+                    header = line;
+                }
+            }
+            let mut socket = reader.into_inner();
+            socket
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}")
+                .unwrap();
+            header
+        });
+        let request = json!({"url":endpoint,"method":"GET","timeout":2,"credential_env":variable});
+        // SAFETY: this test alone uses the variable; no thread reads it concurrently.
+        unsafe { std::env::set_var(variable, "FAKE-ascii") };
+        assert_eq!(HttpTransport.request(&request).unwrap(), b"{}");
+        let header = server.join().unwrap();
+        assert!(header.to_ascii_lowercase().starts_with(b"authorization: "));
+        assert!(header.ends_with(b": Bearer FAKE-ascii\r\n"), "{header:?}");
+        // The listener is gone: a wider character must fail before connecting
+        // with the frozen diagnostic, and a Latin-1 byte fails the same way.
+        for secret in ["FAKE-\u{2603}", "FAKE-caf\u{e9}"] {
+            // SAFETY: as above; only this test touches this unique variable.
+            unsafe { std::env::set_var(variable, secret) };
+            assert_eq!(
+                HttpTransport.request(&request).unwrap_err().0,
+                NETWORK_ERROR
+            );
+        }
+        // SAFETY: as above; only this test touches this unique variable.
+        unsafe { std::env::set_var(variable, "x".repeat(300 * 1024)) };
+        assert_eq!(
+            HttpTransport.request(&request).unwrap_err().0,
+            "HTTP request exceeds input limit"
+        );
+        // SAFETY: as above; only this test touches this unique variable.
+        unsafe { std::env::remove_var(variable) };
+    }
+    #[test]
+    fn request_budget_is_the_exact_frozen_worker_envelope() {
+        let base = json!({"url":"http://127.0.0.1:9/jobs/a/1","method":"PUT","timeout":15});
+        let envelope = |body: &str, secret: Option<&str>| {
+            use base64::Engine;
+            let mut headers = json!({"Content-Type":"application/json"});
+            if let Some(secret) = secret {
+                headers["Authorization"] = json!(format!("Bearer {secret}"));
+            }
+            catabolic_core::encode(&json!({
+                "body": base64::engine::general_purpose::STANDARD
+                    .encode(catabolic_core::encode(&json!(body))),
+                "headers": headers, "maximum": 1048576, "method": "PUT",
+                "structured_errors": false, "timeout": 15, "url": base["url"],
+            }))
+            .len()
+        };
+        // Three body bytes per base64 quantum; adjust a secret to land exactly.
+        let body = "b".repeat(196_000);
+        let mut request = base.clone();
+        request["body"] = json!(body);
+        let fixed = envelope(&body, Some(""));
+        let exact = "s".repeat(256 * 1024 - fixed);
+        assert_eq!(envelope(&body, Some(&exact)), 256 * 1024);
+        assert!(request_budget(&request, Some(&exact)).is_ok());
+        let over = format!("{exact}\u{e9}");
+        assert_eq!(envelope(&body, Some(&over)), 256 * 1024 + 2);
+        assert_eq!(
+            request_budget(&request, Some(&over)).unwrap_err().0,
+            "HTTP request exceeds input limit"
+        );
+        assert!(request_budget(&request, None).is_ok());
     }
     #[test]
     fn global_timeout_bounds_slow_response_body() {

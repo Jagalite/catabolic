@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: MIT
 """Bounded ordinary worker diagnostics on independent disposable catalogs.
 
-Numeric loopback only; no live service, credentials, physical output production,
-source-policy review, malformed protocol or clean-EOF/reset qualification.
+Numeric loopback only; no live service, real credentials, physical output
+production or source-policy review. Selected malformed-protocol, truncated-body,
+refused-connection and credential-header encoding cases are compared too.
 """
 
 import json
 import shutil
+import socket
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +19,7 @@ import tests.test_rust_legacy_external_rule as fixture
 MAXIMUM = 1024 * 1024
 REDIRECT = "redirect refused; configure the final endpoint explicitly"
 OVERSIZE = "HTTP response exceeds byte limit"
+NETWORK = "HTTP request failed; check endpoint, credentials and network"
 
 
 @dataclass(frozen=True)
@@ -25,6 +28,13 @@ class Reply:
     body: bytes = b'{"state":"running"}'
     headers: tuple = ()
     chunked: bool = False
+
+
+@dataclass(frozen=True)
+class Raw:
+    """Exact response bytes, followed by connection close."""
+
+    data: bytes
 
 
 class ExternalWorkerDiagnosticsTest(fixture.NativeLegacyExternalRuleTest):
@@ -41,12 +51,19 @@ class ExternalWorkerDiagnosticsTest(fixture.NativeLegacyExternalRuleTest):
                 owner.requests.append(
                     (handler.command, handler.path, json.loads(raw) if raw else None)
                 )
+                # http.server decodes header bytes as Latin-1.
+                owner.authorization.append(handler.headers.get("Authorization"))
                 reply = owner.responses.pop(0)
                 if isinstance(reply, fixture.Gate):
                     reply.entered.set()
                     if not reply.release.wait(20):
                         raise AssertionError("loopback response was never released")
                     reply = reply.result
+                if isinstance(reply, Raw):
+                    handler.wfile.write(reply.data)
+                    handler.wfile.flush()
+                    handler.close_connection = True
+                    return
                 if not isinstance(reply, Reply):
                     reply = Reply(body=json.dumps(reply).encode())
                 handler.send_response(reply.status)
@@ -74,6 +91,7 @@ class ExternalWorkerDiagnosticsTest(fixture.NativeLegacyExternalRuleTest):
             except BaseException as exc:
                 owner.errors.append(repr(exc))
 
+        self.server.authorization = []
         self.server.server.RequestHandlerClass.protocol_version = "HTTP/1.1"
         self.server.server.RequestHandlerClass.respond = respond
 
@@ -225,6 +243,91 @@ class ExternalWorkerDiagnosticsTest(fixture.NativeLegacyExternalRuleTest):
         self.assertEqual(
             self.snapshot(False)["processor_attempts"][0]["state"], "cancelled"
         )
+
+    def test_protocol_and_truncation_failures_use_frozen_worker_diagnostic(self):
+        invalid = "processor returned invalid JSON"
+        head = b"HTTP/1.1 200 OK\r\nConnection: close\r\n"
+        cases = {
+            "closed-without-response": (Raw(b""), NETWORK),
+            "malformed-status-line": (Raw(b"garbage\r\n\r\n"), NETWORK),
+            "truncated-chunked-body": (
+                Raw(head + b'Transfer-Encoding: chunked\r\n\r\n5\r\n{"st'),
+                NETWORK,
+            ),
+            "unterminated-chunked-body": (
+                Raw(head + b"Transfer-Encoding: chunked\r\n\r\n2\r\n{}\r\n"),
+                NETWORK,
+            ),
+            # http.client returns a length-delimited body cut short by EOF.
+            "truncated-length-body": (
+                Raw(head + b"Content-Length: 100\r\n\r\n{"),
+                invalid,
+            ),
+            "truncated-length-valid-json": (
+                Raw(head + b'Content-Length: 100\r\n\r\n{"state":"running"}'),
+                None,
+            ),
+            "advertised-oversize-without-body": (
+                Raw(head + b"Content-Length: %d\r\n\r\n" % (MAXIMUM + 1)),
+                invalid,
+            ),
+            "advertised-oversize-partial-over-limit": (
+                Raw(
+                    head
+                    + b"Content-Length: %d\r\n\r\n" % (MAXIMUM + 10)
+                    + b" " * (MAXIMUM + 1)
+                ),
+                OVERSIZE,
+            ),
+            "close-delimited": (Raw(head + b'\r\n{"state":"running"}'), None),
+        }
+        for method in ("PUT", "GET"):
+            for name, (reply, expected) in cases.items():
+                with self.subTest(method=method, case=name):
+                    self.diagnostic_pair(reply, expected, method=method)
+
+    def failed_without_request(self, expected):
+        self.reset_catalogs("PUT")
+        results, requests = self.pair(self.run_args())
+        self.assertEqual(requests, [])
+        for flag in (True, False):
+            self.assertEqual(results[flag].returncode, 3)
+            self.assertEqual(
+                self.report(results[flag])["execution"]["errors"],
+                [{"job_id": fixture.JOB_IDS[0], "error": expected}],
+            )
+            self.assert_writer_available(flag)
+
+    def test_refused_connection_uses_frozen_worker_diagnostic(self):
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            closed = f"http://127.0.0.1:{probe.getsockname()[1]}"
+        self.mutate(
+            "UPDATE processors SET definition=json_set(definition,'$.endpoint',?) WHERE profile='default'",
+            (closed,),
+        )
+        shutil.copyfile(self.db[True], self.seed)
+        self.failed_without_request(NETWORK)
+
+    def test_credential_header_encoding_and_exact_request_budget(self):
+        variable = "EXTERNAL_RULE_ENCODED_CREDENTIAL"
+        self.mutate(
+            "UPDATE processors SET definition=json_set(definition,'$.credential_env',?) WHERE profile='default'",
+            (variable,),
+        )
+        shutil.copyfile(self.db[True], self.seed)
+        # An ASCII credential is sent identically by both workers.
+        self.env[variable] = "FAKE-ascii"
+        self.server.authorization = []
+        self.diagnostic_pair(Reply(), None)
+        self.assertEqual(self.server.authorization, ["Bearer FAKE-ascii"] * 2)
+        # A wider character fails header encoding before any connection.
+        self.env[variable] = "FAKE-\u2603"
+        self.failed_without_request(NETWORK)
+        # A long credential is bounded by the exact worker envelope, not by a
+        # separate credential-length refusal.
+        self.env[variable] = "F" * (300 * 1024)
+        self.failed_without_request("HTTP request exceeds input limit")
 
     def test_resumed_poll_cleanup_neighbor(self):
         super().test_pending_same_worker_polls_once_without_new_generation()

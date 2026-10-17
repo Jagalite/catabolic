@@ -183,7 +183,7 @@ worker and top-level watch only after existing native cleanup finishes. Private
 Python callable and shared HTTP signal behavior remain unchanged. This does not
 close the other documented gaps or promote any leaf or migration gate.
 
-## Track D: program import kinds (October 16)
+## Track D: program import kinds and worker transport (October 16)
 
 **Program import kinds.** Frozen `program import` admits every operation kind
 through the ordinary `Operations.put` owner. The native import previously
@@ -194,3 +194,47 @@ binding the processor name. A differential test imports the external program
 bundle with a missing processor binding, a binding to an absent local processor,
 a dry run, a real import and an idempotent repeat, comparing returned references
 and every definition table with frozen Python.
+
+**Worker transport.** The native processor HTTP helper now matches the frozen
+`http_worker` for these previously unqualified cases:
+
+- Every transport, protocol, header-encoding and chunked-body failure reports
+  `HTTP request failed; check endpoint, credentials and network` (the frozen
+  worker's text), not the parent's `HTTP worker failed; ...` helper-failure text.
+  Covered: refused connection, connection closed without a response, malformed
+  status line, truncated and unterminated chunked bodies.
+- A length-delimited body cut short by EOF is returned as received, like
+  `http.client`'s `read(amt)`; a truncated body is therefore normally invalid
+  JSON, while a complete JSON prefix succeeds. An advertised oversized
+  `Content-Length` alone no longer refuses early; at most one byte past 1 MiB is
+  read, as before, and more than 1 MiB is still `HTTP response exceeds byte limit`.
+- A credential character beyond Latin-1 fails before any connection with the
+  frozen diagnostic, like `http.client`'s header-encoding `UnicodeEncodeError`.
+- The request budget is the exact canonical UTF-8 size of the frozen worker
+  envelope (URL, both headers, method, limit, timeout, base64 body), checked in
+  the dispatching process after credential resolution and again in the helper.
+  The former separate 256 KiB credential-length refusal is removed, so a very
+  long credential reports `HTTP request exceeds input limit` as in Python.
+  The helper still receives only the credential variable name.
+
+Remaining differences: header names keep native capitalization; credential
+values containing Latin-1 characters above U+007F, or control characters other
+than CR/LF, are refused by the pinned native HTTP client (`ureq` accepts only
+visible ASCII in `Authorization`) with the frozen network diagnostic, while
+Python sends them as Latin-1 bytes; a malformed `Content-Length`
+value, bare-LF response heads and interim 1xx responses follow the native HTTP
+parser and were not compared. Store detachment/reacquisition and SQLite
+exception-class differences above are unchanged.
+
+Local macOS arm64 results (Kyoto build, test executables run directly): the
+runtime processor/operation unit tests pass 12 of 12, including the
+refused-connection, truncation, credential-encoding and exact-budget tests.
+`test_rust_legacy_external_worker_diagnostics` passed 12 methods with one
+Linux-only skip against the build that preceded a comment-and-test-only
+correction. On the final build one full run failed once in the inherited
+`test_cancel_cleanup_neighbor`: the CLI did not reach the loopback server
+within 15 seconds while the host load average was above 20. That log is
+retained. The method and all three new methods then passed in a focused rerun
+on the same final binary. `test_rust_legacy_external_rule` passes 18 methods
+with one Linux-only skip. `test_rust_programs` passes 8 methods (including the
+new external import) and `test_program_bundle` passes 9.
