@@ -137,8 +137,9 @@ it controls:
 - **Recovery.** Recovery understands the new intermediate states. Frozen
   Python recovery of those states acknowledges the operation and leaves an
   inert private link behind. That is non-destructive, and item 6 qualifies it.
-- **Residual.** A writer who targets the private name between verification and
-  deletion. This is the same class as the accepted hardlink staging limit.
+- **Residual.** As first implemented, a writer could swap the private name
+  between verification and deletion. Sol round 1 found this (P2), and the
+  private-directory change below closes it.
 - **Gates.** Both gates stay closed in release builds. Lifting them needs
   independent review and the user's decision.
 
@@ -156,8 +157,10 @@ otherwise. Both modes are equally safe for data:
 4. Delete the verified previous link.
 
 In quarantine mode, readers can briefly see the leaf missing between steps 1
-and 3. Frozen `os.replace` never shows that gap. This visibility difference
-needs the user's acceptance.
+and 3. Frozen `os.replace` never shows that gap. The coordinator accepted this
+as a known platform difference, data safety first. It is documented for users
+in [OPERATIONS.md](OPERATIONS.md#operating-assumptions-and-limits) and is
+pending the user's final acknowledgement.
 
 Three crash points are new:
 
@@ -169,8 +172,43 @@ Three crash points are new:
 | `after_publish` | The leaf is the new link; the quarantine holds the previous link | Deletes the verified quarantine, then acknowledges |
 
 A foreign entry found at either private name always blocks recovery with
-`private publication entry … changed externally; inspect it`, and is never
-deleted.
+`private publication entry … changed externally; …`, and is never deleted.
+
+**Private-directory deletion (Sol round 1 fix).** A private entry is never
+unlinked in the shared output directory:
+
+1. `mkdirat` creates `<private name>.private` with mode 0700. It fails if the
+   name exists.
+2. The directory is opened with `O_DIRECTORY|O_NOFOLLOW`. Its device and inode
+   must match the name, its device must match the parent's, its owner must be
+   the effective user and its mode must be exactly 0700.
+3. The entry is moved in with an exclusive `renameat` under the name `entry`.
+4. `entry` is verified inside the directory, through the held descriptor.
+5. `entry` is unlinked there, then the empty directory is removed with
+   `AT_REMOVEDIR`.
+
+A swap of the private name after the caller's check therefore moves the
+foreign entry into the directory, where it fails verification and is
+retained. The same happens when the directory cannot be created or verified,
+or contains anything except our link: the operation retains and fails, and
+deletes nothing.
+
+The directory name derives from the journal operation, which is a random
+UUID. Recovery therefore finds an interrupted predecessor's directory without
+scanning the parent. It completes the cleanup only for a verified directory
+that holds exactly our link, or nothing. Any other content, or a squatter
+that is not a directory, blocks recovery and is retained. The new crash point
+`after_private_move` covers the window between the move and the unlink.
+
+**Remaining residual, stated plainly.** Between verification inside the
+directory and the unlink, a writer running as the same user can still replace
+`entry`, and that replacement is deleted. The directory is 0700 and owned by
+us, so other users cannot reach it. A same-user writer must find the
+per-operation name and act inside that window. The test
+`characterize_residual_same_user_writer_inside_the_private_directory`
+demonstrates this residual; it does not qualify it. As in
+[OPERATIONS.md](OPERATIONS.md), a malicious process running as the same user
+is outside the supported concurrency model.
 
 Frozen Python reaches these states only through handover. It acknowledges the
 exchange, publish and remove-quarantine states, leaving an inert private link

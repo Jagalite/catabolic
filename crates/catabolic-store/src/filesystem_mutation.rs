@@ -1232,6 +1232,7 @@ pub const PUBLICATION_FAILPOINTS: &[&str] = &[
     "after_exchange",
     "after_quarantine",
     "after_publish",
+    "after_private_move",
     "after_retention_marker_create",
     "after_retention_marker_write",
     "before_retention_rename",
@@ -1393,6 +1394,27 @@ thread_local! {
     // just before the leaf is displaced, and just after it is displaced.
     static BEFORE_DESTRUCTIVE_LEAF: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = std::cell::RefCell::new(None);
     static AFTER_DESTRUCTIVE_LEAF: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = std::cell::RefCell::new(None);
+    // Between a caller's verification of a private entry and its move into
+    // the exclusive directory (the window Sol round 1 found), and between
+    // verification inside that directory and the unlink (the residual).
+    static BEFORE_PRIVATE_MOVE: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = std::cell::RefCell::new(None);
+    static BEFORE_PRIVATE_UNLINK: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = std::cell::RefCell::new(None);
+}
+fn before_private_move() {
+    #[cfg(test)]
+    BEFORE_PRIVATE_MOVE.with(|hook| {
+        if let Some(hook) = hook.borrow_mut().take() {
+            hook();
+        }
+    });
+}
+fn before_private_unlink() {
+    #[cfg(test)]
+    BEFORE_PRIVATE_UNLINK.with(|hook| {
+        if let Some(hook) = hook.borrow_mut().take() {
+            hook();
+        }
+    });
 }
 fn before_destructive_leaf() {
     #[cfg(test)]
@@ -1435,6 +1457,16 @@ enum Rename {
 /// an exclusive rename refuses an occupied destination, and an exchange swaps
 /// the two entries atomically.
 fn rename_in(parent: &File, from: &str, to: &str, mode: Rename) -> std::io::Result<()> {
+    rename_between(parent, from, parent, to, mode)
+}
+/// [`rename_in`] between two directories on one filesystem.
+fn rename_between(
+    source: &File,
+    from: &str,
+    destination: &File,
+    to: &str,
+    mode: Rename,
+) -> std::io::Result<()> {
     let invalid = |_| std::io::Error::from(std::io::ErrorKind::InvalidInput);
     let from = CString::new(from).map_err(invalid)?;
     let to = CString::new(to).map_err(invalid)?;
@@ -1447,9 +1479,9 @@ fn rename_in(parent: &File, from: &str, to: &str, mode: Rename) -> std::io::Resu
     // SAFETY: live descriptor and NUL-terminated names; the flags never replace an entry.
     let result = unsafe {
         libc::renameat2(
-            parent.as_raw_fd(),
+            source.as_raw_fd(),
             from.as_ptr(),
-            parent.as_raw_fd(),
+            destination.as_raw_fd(),
             to.as_ptr(),
             flags,
         )
@@ -1463,9 +1495,9 @@ fn rename_in(parent: &File, from: &str, to: &str, mode: Rename) -> std::io::Resu
     // SAFETY: live descriptor and NUL-terminated names; the flags never replace an entry.
     let result = unsafe {
         libc::renameatx_np(
-            parent.as_raw_fd(),
+            source.as_raw_fd(),
             from.as_ptr(),
-            parent.as_raw_fd(),
+            destination.as_raw_fd(),
             to.as_ptr(),
             flags,
         )
@@ -1482,20 +1514,125 @@ fn exchange_unsupported(error: &std::io::Error) -> bool {
         [libc::ENOTSUP, libc::EOPNOTSUPP, libc::EINVAL, libc::ENOSYS].contains(&code)
     })
 }
-/// Delete a private entry only when it is a symlink to one of `allowed`.
-/// Anything else is preserved and reported.
-fn discard_private(parent: &File, name: &str, allowed: &[Option<&str>]) -> Result<()> {
-    match state_at(parent, name)? {
-        (s, _) if s == "absent" => Ok(()),
-        (s, t) if s == "link" && allowed.contains(&t.as_deref()) => {
-            unlink(parent, name)?;
-            parent.sync_all()?;
-            Ok(())
-        }
-        _ => Err(Error(format!(
-            "private publication entry {name} changed externally; inspect it"
-        ))),
+/// The only name a private directory may hold.
+const PRIVATE_ENTRY: &str = "entry";
+/// Exclusive directory used to delete the private entry `name`. Its name is
+/// derived from the journal operation, like `name`, so recovery finds an
+/// interrupted predecessor's directory without scanning the parent.
+fn private_directory(name: &str) -> String {
+    format!("{name}.private")
+}
+fn retained(name: &str, directory: &str) -> Error {
+    Error(format!(
+        "private publication entry {name} changed externally; retained in {directory}; inspect it"
+    ))
+}
+/// Check that `held`, opened from `parent` by `directory`, is the directory
+/// at that name: same filesystem, owned by this user and mode 0700.
+fn verify_private_directory(parent: &File, directory: &str, held: &File) -> Result<()> {
+    let metadata = held.metadata()?;
+    let (_, named) = stat_at(parent, directory)?;
+    // SAFETY: geteuid has no preconditions.
+    let user = unsafe { libc::geteuid() };
+    if !metadata.is_dir()
+        || metadata.dev() != parent.metadata()?.dev()
+        || named["device"] != json!(metadata.dev())
+        || named["inode"] != json!(metadata.ino())
+        || metadata.uid() != user
+        || metadata.mode() & 0o7777 != 0o700
+    {
+        return Err(Error(format!(
+            "private publication directory {directory} failed verification; nothing was removed"
+        )));
     }
+    Ok(())
+}
+/// Delete the verified entry inside a held private directory, then the
+/// directory itself. Unexpected content is retained and reported.
+fn finish_private(
+    parent: &File,
+    name: &str,
+    directory: &str,
+    held: &File,
+    allowed: &[Option<&str>],
+) -> Result<()> {
+    let mut names = Vec::new();
+    entries(held, |entry| {
+        names.push(entry.to_owned());
+        Ok(names.len() <= 1)
+    })?;
+    match names.as_slice() {
+        [] => {}
+        [only] if only == PRIVATE_ENTRY => {
+            match state_at(held, PRIVATE_ENTRY)? {
+                (s, t) if s == "link" && allowed.contains(&t.as_deref()) => {}
+                _ => return Err(retained(name, directory)),
+            }
+            before_private_unlink();
+            unlink(held, PRIVATE_ENTRY)?;
+            held.sync_all()?;
+        }
+        _ => return Err(retained(name, directory)),
+    }
+    let path = cstring(directory)?;
+    // SAFETY: live descriptor and NUL-terminated name. AT_REMOVEDIR removes
+    // only an empty directory, so nothing added meanwhile can be lost.
+    if unsafe { libc::unlinkat(parent.as_raw_fd(), path.as_ptr(), libc::AT_REMOVEDIR) } < 0 {
+        return Err(Error(format!(
+            "private publication directory {directory} could not be removed ({}); inspect it",
+            std::io::Error::last_os_error()
+        )));
+    }
+    parent.sync_all()?;
+    Ok(())
+}
+/// Delete the private entry `name` only after moving it into a freshly and
+/// exclusively created 0700 directory and verifying it there as a symlink to
+/// one of `allowed`. A writer who swaps `name` after the caller's check moves
+/// its own entry into that directory, where verification retains it.
+/// Anything unexpected, including a leftover directory with other content,
+/// is retained and reported; nothing unverified is deleted.
+fn discard_private(
+    parent: &File,
+    name: &str,
+    allowed: &[Option<&str>],
+    args: &Value,
+) -> Result<()> {
+    let directory = private_directory(name);
+    // An interrupted predecessor may have left its directory behind.
+    match open_at(parent, &directory, true) {
+        Ok(held) => {
+            verify_private_directory(parent, &directory, &held)?;
+            finish_private(parent, name, &directory, &held, allowed)?;
+        }
+        Err(e) if e.0.contains("No such file or directory") => {}
+        Err(_) => return Err(retained(name, &directory)),
+    }
+    if state_at(parent, name)?.0 == "absent" {
+        return Ok(());
+    }
+    let path = cstring(&directory)?;
+    // SAFETY: live descriptor and NUL-terminated name; mkdirat fails rather
+    // than reuse an existing entry.
+    if unsafe { libc::mkdirat(parent.as_raw_fd(), path.as_ptr(), 0o700) } < 0 {
+        return Err(Error(format!(
+            "cannot create private publication directory {directory} ({}); nothing was removed",
+            std::io::Error::last_os_error()
+        )));
+    }
+    let held = open_at(parent, &directory, true)?;
+    verify_private_directory(parent, &directory, &held)?;
+    before_private_move();
+    if let Err(e) = rename_between(parent, name, &held, PRIVATE_ENTRY, Rename::Exclusive) {
+        let missing = e.kind() == std::io::ErrorKind::NotFound;
+        // The directory is still empty and ours; remove it either way.
+        finish_private(parent, name, &directory, &held, allowed)?;
+        return if missing { Ok(()) } else { Err(e.into()) };
+    }
+    held.sync_all()?;
+    parent.sync_all()?;
+    failpoint(args, "after_private_move")?;
+    finish_private(parent, name, &directory, &held, allowed)
 }
 /// Return a displaced foreign entry to its leaf, never overwriting.
 fn restore_displaced(parent: &File, private: &str, leaf: &str, path: &str, what: &str) -> Error {
@@ -1529,7 +1666,7 @@ fn publish_quarantined(
     }
     parent.sync_all()?;
     failpoint(args, "after_publish")?;
-    discard_private(parent, &quarantine, &[previous])
+    discard_private(parent, &quarantine, &[previous], args)
 }
 /// Replace the verified owned link at `leaf` with the staged temporary.
 fn replace_leaf(
@@ -1550,7 +1687,7 @@ fn replace_leaf(
             after_destructive_leaf();
             // The displaced entry is now at the temporary name.
             if state_at(parent, &temporary)? == ("link".into(), previous.map(str::to_owned)) {
-                return discard_private(parent, &temporary, &[previous]);
+                return discard_private(parent, &temporary, &[previous], args);
             }
             // A foreign entry was displaced: swap it back atomically.
             if let Err(e) = rename_in(parent, &temporary, leaf, Rename::Exchange) {
@@ -1624,7 +1761,7 @@ fn remove_leaf(
             "removal",
         ));
     }
-    discard_private(parent, &quarantine, &[previous])
+    discard_private(parent, &quarantine, &[previous], args)
 }
 /// The leaf's parent, if it exists.
 fn existing_parent(root: &File, path: &str) -> Result<Option<(File, String)>> {
@@ -1697,8 +1834,13 @@ fn execute_operation_context(
                     {
                         // An interrupted replacement may have left the
                         // displaced previous link at a private name.
-                        discard_private(&parent, &temporary_name(id), &[previous, Some(target)])?;
-                        discard_private(&parent, &quarantine_name(id), &[previous])?;
+                        discard_private(
+                            &parent,
+                            &temporary_name(id),
+                            &[previous, Some(target)],
+                            args,
+                        )?;
+                        discard_private(&parent, &quarantine_name(id), &[previous], args)?;
                     }
                 } else if let Some((parent, leaf)) = quarantined {
                     // Interrupted between quarantining the previous link and
@@ -1797,7 +1939,7 @@ fn execute_operation_context(
                     && let Some((parent, _)) = existing_parent(&root, path)?
                 {
                     // Interrupted after quarantining the owned link.
-                    discard_private(&parent, &quarantine_name(id), &[previous])?;
+                    discard_private(&parent, &quarantine_name(id), &[previous], args)?;
                 }
             }
             _ => return Err(Error(format!("unknown journal operation: {kind}"))),
@@ -1934,9 +2076,12 @@ fn recover_locked_context(
                                     "replacement recovery link changed externally".into(),
                                 ));
                             }
-                            unlink(&parent, &name)?;
-                            parent.sync_all()?;
                         }
+                        let leftover = state_at(&parent, &private_directory(&name))?.0;
+                        if leftover != "absent" && !symlink_leaf_allowed(kind, args) {
+                            return Err(Error(SYMLINK_RACE_GATE.into()));
+                        }
+                        discard_private(&parent, &name, &[op["target"].as_str()], args)?;
                     }
                     context.store().transaction(|db| {
                         db.execute(
@@ -2460,7 +2605,12 @@ mod tests {
         // Each private link left by an interrupted displacement is verified
         // before deletion; a foreign entry at the private name blocks.
         for replacement in [true, false] {
-            for stage in ["after_exchange", "after_quarantine", "after_publish"] {
+            for stage in [
+                "after_exchange",
+                "after_quarantine",
+                "after_publish",
+                "after_private_move",
+            ] {
                 let (_root, store, _source, output) = destructive_catalog(replacement);
                 let result = execute(
                     &store,
@@ -2507,14 +2657,118 @@ mod tests {
         std::fs::write(folder.join(&quarantine), "planted").unwrap();
         let error = execute(&store, "default", "recover", &json!({})).unwrap_err();
         assert!(
-            error.0.contains("changed externally; inspect it"),
+            error.0.contains("changed externally; retained in"),
             "{error:?}"
         );
-        assert_eq!(
-            std::fs::read_to_string(folder.join(&quarantine)).unwrap(),
-            "planted"
-        );
+        let kept = folder.join(format!("{quarantine}.private")).join("entry");
+        assert_eq!(std::fs::read_to_string(&kept).unwrap(), "planted");
         assert_eq!(journal_rows(&store), 1);
+        // A leftover private directory with foreign content keeps blocking.
+        let error = execute(&store, "default", "recover", &json!({})).unwrap_err();
+        assert!(error.0.contains("retained in"), "{error:?}");
+        assert_eq!(std::fs::read_to_string(&kept).unwrap(), "planted");
+    }
+    /// The private entry (temporary or quarantine name) currently in `folder`.
+    fn private_entry(folder: &std::path::Path) -> std::path::PathBuf {
+        let name = leaves(folder)
+            .into_iter()
+            .find(|n| n.starts_with(".catabolic-") && !n.ends_with(".private"))
+            .unwrap();
+        folder.join(name)
+    }
+    #[test]
+    fn entry_swapped_after_verification_is_retained_not_deleted() {
+        // Sol round 1: a writer swaps the private name for a foreign file
+        // after the caller verified it. The swapped entry is moved into the
+        // exclusive directory, fails verification there and is retained.
+        for replacement in [true, false] {
+            let (_root, store, _source, output) = destructive_catalog(replacement);
+            let folder = output.join("folder");
+            let watched = folder.clone();
+            BEFORE_PRIVATE_MOVE.with(|hook| {
+                *hook.borrow_mut() = Some(Box::new(move || {
+                    let entry = private_entry(&watched);
+                    std::fs::remove_file(&entry).unwrap();
+                    std::fs::write(&entry, "foreign at the private name").unwrap();
+                }))
+            });
+            let error =
+                execute(&store, "default", "apply", &json!({"max_removals":1})).unwrap_err();
+            assert!(error.0.contains("retained in"), "{replacement}: {error:?}");
+            let directory = leaves(&folder)
+                .into_iter()
+                .find(|n| n.ends_with(".private"))
+                .unwrap();
+            assert_eq!(
+                std::fs::read_to_string(folder.join(directory).join("entry")).unwrap(),
+                "foreign at the private name"
+            );
+            assert_eq!(journal_rows(&store), 1);
+            assert!(execute(&store, "default", "recover", &json!({})).is_err());
+        }
+    }
+    #[test]
+    fn private_directory_squatter_blocks_without_deleting() {
+        // A non-directory, or a directory with other content, at the private
+        // directory name is never removed or reused.
+        for squat in ["file", "directory"] {
+            let (_root, store, _source, output) = destructive_catalog(false);
+            let folder = output.join("folder");
+            assert!(
+                execute(
+                    &store,
+                    "default",
+                    "apply",
+                    &json!({"max_removals":1,"failpoint":"after_quarantine"})
+                )
+                .is_err()
+            );
+            let entry = private_entry(&folder);
+            let directory = std::path::PathBuf::from(format!("{}.private", entry.display()));
+            if squat == "file" {
+                std::fs::write(&directory, "squatter").unwrap();
+            } else {
+                std::fs::create_dir(&directory).unwrap();
+                std::fs::write(directory.join("other"), "squatter").unwrap();
+            }
+            let error = execute(&store, "default", "recover", &json!({})).unwrap_err();
+            assert!(
+                error.0.contains("retained in") || error.0.contains("failed verification"),
+                "{squat}: {error:?}"
+            );
+            assert!(std::fs::symlink_metadata(&entry).is_ok(), "{squat}");
+            assert_eq!(journal_rows(&store), 1);
+        }
+    }
+    #[test]
+    fn characterize_residual_same_user_writer_inside_the_private_directory() {
+        // RESIDUAL, not a qualification: the exclusive directory is 0700 and
+        // owned by this user, so only a writer running as the same user can
+        // reach it. Such a writer can still replace the verified entry
+        // between verification and unlink, and that entry is deleted.
+        let (_root, store, _source, output) = destructive_catalog(false);
+        let folder = output.join("folder");
+        let watched = folder.clone();
+        BEFORE_PRIVATE_UNLINK.with(|hook| {
+            *hook.borrow_mut() = Some(Box::new(move || {
+                let directory = leaves(&watched)
+                    .into_iter()
+                    .find(|n| n.ends_with(".private"))
+                    .unwrap();
+                let entry = watched.join(directory).join("entry");
+                std::fs::remove_file(&entry).unwrap();
+                std::fs::write(&entry, "same-user substitution").unwrap();
+            }))
+        });
+        execute(&store, "default", "apply", &json!({"max_removals":1})).unwrap();
+        assert!(
+            leaves(&folder)
+                .iter()
+                .all(|n| !n.starts_with(".catabolic-"))
+        );
+        eprintln!(
+            "RESIDUAL: a same-user writer inside the 0700 private directory can substitute the verified entry before unlink"
+        );
     }
     #[test]
     fn symlink_publication_and_unconfirmed_missing_preserve_output() {

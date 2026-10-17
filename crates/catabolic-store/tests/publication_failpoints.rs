@@ -63,6 +63,7 @@ fn stages(hardlink: bool, kind: Kind, exchange: bool) -> &'static [&'static str]
         (false, Remove) => &[
             "after_journal",
             "after_quarantine",
+            "after_private_move",
             "after_filesystem",
             "before_commit",
             "after_commit",
@@ -71,6 +72,7 @@ fn stages(hardlink: bool, kind: Kind, exchange: bool) -> &'static [&'static str]
             "after_journal",
             "after_temporary",
             "after_exchange",
+            "after_private_move",
             "after_filesystem",
             "before_commit",
             "after_commit",
@@ -80,6 +82,7 @@ fn stages(hardlink: bool, kind: Kind, exchange: bool) -> &'static [&'static str]
             "after_temporary",
             "after_quarantine",
             "after_publish",
+            "after_private_move",
             "after_filesystem",
             "before_commit",
             "after_commit",

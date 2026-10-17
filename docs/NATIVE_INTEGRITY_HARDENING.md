@@ -533,3 +533,20 @@ exits the process at the old crash window. The test
 The lookup counts come from a debug-only per-thread counter,
 `watcher::take_transition_lookups`, which is not compiled into release
 builds. A 60-second wall-clock limit serves only as a hang guard.
+
+## Replace and remove never destroy an unverified entry (track C2)
+
+Frozen Python checks an owned link and then renames over it or unlinks it, so
+a foreign entry written between the check and the effect is destroyed. The
+native engine first moves the leaf to a private name derived from the journal
+operation. Where the filesystem supports exchanging two names, this is an
+atomic exchange; otherwise it is an exclusive rename. The entry is verified at
+the private name, and a foreign entry is moved back. Deletion happens only
+inside a freshly created, verified 0700 directory. Hardlink retirement
+likewise returns a raced foreign file to its name.
+
+The remaining residual is a same-user writer inside that directory. On
+filesystems without exchange, such as HFS+, a replaced link is briefly absent.
+Details, crash states and evidence are in
+[track C](NATIVE_RETIREMENT_TRACK_C.md). The release-build gates on symlink
+replace/remove and hardlink retirement are unchanged.
