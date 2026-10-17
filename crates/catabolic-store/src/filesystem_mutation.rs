@@ -533,6 +533,26 @@ pub(crate) fn owner_state(root: &File, expected: &Value) -> Result<&'static str>
 /// deleted; it is preserved for inspection. A crash while writing leaves an
 /// incomplete marker, which ownership checks refuse rather than repair.
 pub(crate) fn claim_output(root: &File, expected: &Value, id: &str) -> Result<()> {
+    claim_output_at(root, expected, id, &Value::Null, false)
+}
+/// Crash points inside a claim. An output claim and a hardlink retention
+/// claim are distinct durable boundaries, so each has its own stage names.
+fn claim_failpoint(args: &Value, retention: bool, written: bool) -> Result<()> {
+    match (retention, written) {
+        (false, false) => failpoint(args, "after_marker_create"),
+        (false, true) => failpoint(args, "after_marker_write"),
+        (true, false) => failpoint(args, "after_retention_marker_create"),
+        (true, true) => failpoint(args, "after_retention_marker_write"),
+    }
+}
+/// [`claim_output`] with failpoints for the publication crash matrix.
+pub(crate) fn claim_output_at(
+    root: &File,
+    expected: &Value,
+    id: &str,
+    args: &Value,
+    retention: bool,
+) -> Result<()> {
     let temporary = format!(".catabolic-claim-{id}");
     if state_at(root, MARKER)?.0 != "absent" {
         owner_state(root, expected)?;
@@ -570,7 +590,9 @@ pub(crate) fn claim_output(root: &File, expected: &Value, id: &str) -> Result<()
     }
     // SAFETY: successful openat returned a fresh owned descriptor.
     let mut file = unsafe { File::from_raw_fd(fd) };
+    claim_failpoint(args, retention, false)?;
     writeln!(file, "{}", encode(expected))?;
+    claim_failpoint(args, retention, true)?;
     file.sync_all()?;
     root.sync_all()?;
     Ok(())
@@ -1194,6 +1216,26 @@ pub fn execute_locked(
         _ => Err(Error(format!("unknown filesystem action: {action}"))),
     }
 }
+/// Every crash point of symlink and hardlink publication, retirement and
+/// recovery. `tests/publication_failpoints.rs` crashes a real process at each
+/// one and checks recovery. It also fails if a literal stage passed to `failpoint`
+/// in either mutation source is missing from this list.
+pub const PUBLICATION_FAILPOINTS: &[&str] = &[
+    "after_journal",
+    "after_marker_create",
+    "after_marker_write",
+    "after_temporary",
+    "after_retention_marker_create",
+    "after_retention_marker_write",
+    "before_retention_rename",
+    "after_retention",
+    "before_link",
+    "after_staged_link",
+    "after_link",
+    "after_filesystem",
+    "before_commit",
+    "after_commit",
+];
 pub(crate) fn failpoint(args: &Value, stage: &str) -> Result<()> {
     if args["failpoint"] == stage {
         if args["crash"] == true {
@@ -1344,7 +1386,13 @@ fn execute_operation_context(
     let target = op["target"].as_str();
     let previous = op["previous"].as_str();
     if kind == "prepare" {
-        claim_output(&root, &owner(context.store(), profile, catalog), id)?;
+        claim_output_at(
+            &root,
+            &owner(context.store(), profile, catalog),
+            id,
+            args,
+            false,
+        )?;
     } else {
         if owner_state(&root, &owner(context.store(), profile, catalog))? != "owned" {
             return Err(Error(

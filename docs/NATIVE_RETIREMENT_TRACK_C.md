@@ -48,6 +48,26 @@ The test also scans both mutation sources for failpoint literals. It fails if
 any stage is missing from the matrix, or if any crash point in the matrix is
 never reached.
 
+**Implemented.** `filesystem_mutation::PUBLICATION_FAILPOINTS` lists 14
+crash points. A crash point here is a boundary after an effect that changes a
+published name, a private name, an ownership marker or the journal. Parent
+directory creation is excluded, because it tolerates `EEXIST` and every
+recovery repeats it.
+
+`tests/publication_failpoints.rs` runs 59 cases: every operation kind, for
+both link modes, at every stage that kind reaches. A copied test executable
+exits at the failpoint, and the parent recovers and re-applies. A stage that
+is not reached fails the case.
+
+Two stages block explicitly instead of converging: `after_marker_create` and
+`after_retention_marker_create`. The crash leaves an empty ownership marker,
+which ownership checks refuse rather than delete. The test asserts the
+refusal, the preserved marker and the pending intent, then performs the
+documented operator step (remove the empty marker) and checks convergence.
+
+A second test parses every `failpoint(args, "...")` literal in both mutation
+sources. It requires the literals, the declared list and the matrix to agree.
+
 ## 2. Safe replace and remove protocol
 
 **Exists.** Frozen-compatible symlink replace (a temporary link and then

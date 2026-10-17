@@ -265,6 +265,7 @@ fn retention(
     root: &File,
     op: &Value,
     create: bool,
+    args: &Value,
 ) -> Result<Option<File>> {
     let id = uuid::Uuid::parse_str(field(op, "id")?)
         .map_err(|_| Error("invalid journal operation identity".into()))?
@@ -284,7 +285,7 @@ fn retention(
     }
     let expected = expected_retention(store, profile, field(op, "catalog")?);
     if create {
-        fs::claim_output(&fd, &expected, &id)?;
+        fs::claim_output_at(&fd, &expected, &id, args, true)?;
     } else if fs::owner_state(&fd, &expected)? != "owned" {
         let mut pending = true;
         fs::entries(&fd, |name| {
@@ -315,7 +316,7 @@ fn retention(
     Ok(Some(child))
 }
 fn retained(store: &Store, profile: &str, root: &File, op: &Value) -> Result<bool> {
-    let Some(fd) = retention(store, profile, root, op, false)? else {
+    let Some(fd) = retention(store, profile, root, op, false, &Value::Null)? else {
         return Ok(false);
     };
     let actual = match stat_at(&fd, "data") {
@@ -371,7 +372,7 @@ fn retain(
     args: &Value,
     observer: &dyn Fn(&str, &Value) -> Result<()>,
 ) -> Result<()> {
-    let saved = retention(store, profile, root, op, true)?
+    let saved = retention(store, profile, root, op, true, args)?
         .ok_or_else(|| Error("missing retention directory".into()))?;
     let actual = match stat_at(&saved, "data") {
         Ok(v) => Some(v),
@@ -574,6 +575,7 @@ fn create(
             "source changed during hardlink creation; staged entry {staged} preserved for inspection"
         )));
     }
+    fs::failpoint(args, "after_staged_link")?;
     // Walk from a freshly validated output root so a relocated root or
     // ancestor is detected, not just a moved destination directory.
     let fresh = || -> Result<File> {
