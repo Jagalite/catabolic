@@ -6,7 +6,7 @@ use catabolic_core::catalog_command::{CommandEnvelope, CommandKey, ReceiptVisibi
 use catabolic_store::{
     Store,
     catalog_commands::{self as commands, CommandOutcome, ReceiptPolicy, TrustedCommandAuthority},
-    connect, identity_manifest, migration, native_restore,
+    connect, identity_manifest, migration, native_restore, native_worker_inventory,
 };
 use serde_json::{Value, json};
 use std::{
@@ -468,5 +468,64 @@ fn crash_at_every_restore_stage_is_recoverable() {
         identity_manifest::require_preserved(&receipt["identity_manifest"], &manifest(&path))
             .unwrap();
         Store::open(&path, true, false).unwrap();
+    }
+}
+
+const DIGEST: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+/// One observation job claimed by a native companion; `sealed` completes it
+/// with the exact quiescent cleanup witness, otherwise it stays unfinished.
+fn seed_observation_worker(path: &Path, sealed: bool) {
+    use rusqlite::params;
+    let store = Store::open(path, true, false).unwrap();
+    store
+        .transaction(|db| {
+            let id = "00000000-0000-4000-8000-000000000001";
+            let token = uuid::Uuid::new_v4().to_string();
+            db.execute("INSERT INTO observation_jobs(id,profile,source,compatibility,exclusions,dirty_generation,generation,state,requested_at,lease_until,worker_pid,claim_token,guarded) VALUES(?,'default','media','fixture','[]',0,1,'complete',0,0,?,?,1)", params![id, std::process::id(), token])?;
+            if sealed {
+                let request = uuid::Uuid::new_v4().to_string();
+                let nonce = uuid::Uuid::new_v4().simple().to_string();
+                db.execute("INSERT INTO observation_requests(id,profile,source,requester,guarantees,job_id,created_at) VALUES(?,'default','media','seed','{}',?,0)", params![request, id])?;
+                db.execute("INSERT INTO native_observation_companions(reservation_nonce,catalog_id,incarnation,protocol_kind,protocol_version,helper_digest,profile,source,requester,args_digest) VALUES(?,?,?,'native_observation_no_child',1,?,'default','media','seed',?)", params![nonce, store.database_id, store.catalog_incarnation, DIGEST, DIGEST])?;
+                db.execute("UPDATE native_observation_companions SET state='started',child_pid=? WHERE reservation_nonce=?", params![std::process::id(), nonce])?;
+                db.execute("UPDATE native_observation_companions SET state='completed',request_id=?,demand_job_id=?,owned_job_id=?,owned_generation=1,owned_claim_token_digest=? WHERE reservation_nonce=?", params![request, id, id, catabolic_core::sha256(token), nonce])?;
+                db.execute("UPDATE native_observation_companions SET state='quiescent',cleanup_kind='closed_child_exit_v1',sealed_at=CURRENT_TIMESTAMP WHERE reservation_nonce=?", [&nonce])?;
+            }
+            Ok(())
+        })
+        .unwrap();
+    let inventory = native_worker_inventory::inspect(&store).unwrap();
+    assert_eq!(inventory.admits_new_work(), sealed);
+    assert_eq!(inventory.witnessed_observation, usize::from(sealed));
+}
+
+/// Cleanup witnesses name the incarnation that sealed them and cannot be
+/// rebound, so a backup with retained worker ownership is refused before
+/// publication, for completed and unfinished work alike.
+#[test]
+fn backups_with_retained_worker_ownership_are_refused() {
+    for sealed in [true, false] {
+        let (_root, path) = native();
+        seed_observation_worker(&path, sealed);
+        let receipt = native_restore::backup(&path, None).unwrap();
+        let before = fs::read(&path).unwrap();
+        let error = restore(&path, &receipt).unwrap_err();
+        assert!(
+            error.0.contains("retained worker ownership")
+                && error
+                    .0
+                    .contains("observation:00000000-0000-4000-8000-000000000001"),
+            "sealed={sealed}: {error}"
+        );
+        assert_eq!(fs::read(&path).unwrap(), before, "sealed={sealed}");
+        assert!(staging_directories(&path).is_empty(), "sealed={sealed}");
+        // The live catalog keeps admitting exactly what it admitted before.
+        let store = Store::open(&path, false, false).unwrap();
+        assert_eq!(
+            native_worker_inventory::inspect(&store)
+                .unwrap()
+                .admits_new_work(),
+            sealed
+        );
     }
 }

@@ -228,6 +228,34 @@ fn rotate(
     Ok(incarnation)
 }
 
+/// Cleanup witnesses for completed native workers name the incarnation that
+/// sealed them, and the schema forbids rebinding them. Re-attesting them under
+/// the new incarnation would mint evidence no runtime owner produced, so a
+/// snapshot whose restored copy would carry unresolved worker ownership is
+/// refused before publication, whether the work had completed or not.
+fn require_worker_ownership_resolved(staged: &Path) -> Result<()> {
+    let store = crate::Store::open(staged, false, false)?;
+    let inventory = crate::native_worker_inventory::inspect(&store)?;
+    drop(store);
+    if !inventory.admits_new_work() {
+        let owners = inventory
+            .unresolved
+            .iter()
+            .map(|owner| format!("{}:{}", owner.kind, owner.id))
+            .collect::<Vec<_>>();
+        return Err(Error(format!(
+            "native backup has retained worker ownership that cannot be carried across incarnation rotation (cleanup evidence is bound to the backup's incarnation and is not re-attested): {}{}; restore a backup taken with no retained worker ownership",
+            owners.join(", "),
+            if inventory.truncated {
+                " (truncated)"
+            } else {
+                ""
+            }
+        )));
+    }
+    Ok(())
+}
+
 /// Controlled restore of a native catalog from a verified native backup.
 ///
 /// The operator asserts quiescence exactly as for native upgrade and journal
@@ -327,6 +355,11 @@ pub fn restore(
         &identity,
         &[previous_incarnation.as_str(), snapshot_incarnation],
     )?;
+    if let Err(error) = require_worker_ownership_resolved(&staged) {
+        // Nothing was published; the live catalog is untouched.
+        let _ = fs::remove_dir_all(&staging);
+        return Err(error);
+    }
     migration::fsync(&staged)?;
     let mut record = json!({
         "contract":RESTORE_CONTRACT, "status":"staged", "database":target,
