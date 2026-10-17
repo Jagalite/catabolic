@@ -532,23 +532,22 @@ bind(sys.argv[2], 'default', 'movies', 'fixture', 'global', '', '/fixture/Movies
         self.assertTrue(self.entered.wait(10), self.server_errors)
         # Server readiness proves this tick is blocked in real loopback I/O,
         # rather than the supervisor already having completed its tick.
+        # Exactly the tick and its parent-death guardian (the runtime's
+        # lifeline supervisor, which leads the tick's process group).
         children = process_tree.children(process.pid)
-        self.assertEqual(len(children), 1, children)
-        tick_pid, command = str(children[0][0]), children[0][1]
-        self.assertIn("__legacy-consumer-watch-tick", command)
+        self.assertEqual(len(children), 2, children)
+        guardians = [c for c in children if c[1] == process_tree.GUARDIAN]
+        ticks = [c for c in children if "__legacy-consumer-watch-tick" in c[1]]
+        self.assertEqual((len(guardians), len(ticks)), (1, 1), children)
+        tick_pid = ticks[0][0]
         self.assert_writer_available(self.native)
         self.assertEqual(self.stop(process, signal.SIGTERM), ("", ""))
         self.assertTrue(self.closed.wait(5), "SIGTERM left the tick socket open")
-        reaped = subprocess.run(
-            ["ps", "-p", tick_pid, "-o", "pid=,stat="],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        self.assertEqual(reaped.returncode, 1, reaped.stdout + reaped.stderr)
-        self.assertEqual(reaped.stderr, "")
+        # Both are gone and reaped (not even zombies) at CLI return.
         self.assertEqual(
-            reaped.stdout.strip(), "", "tick still exists, possibly as a zombie"
+            process_tree.present([tick_pid, guardians[0][0]]),
+            [],
+            "tick or guardian still exists, possibly as a zombie",
         )
         self.assert_writer_available(self.native)
         table = "consumer_deliveries" if consumer else "notification_deliveries"

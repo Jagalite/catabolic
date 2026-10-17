@@ -116,13 +116,14 @@ pub(crate) fn volume_uuid(file: &File) -> Option<String> {
         return None;
     }
     let root = std::fs::read_link(format!("/proc/self/fd/{}", file.as_raw_fd())).ok()?;
-    let mut child = std::process::Command::new("findmnt")
-        .args(["--json", "--target"])
-        .arg(root)
-        .args(["--output", "UUID"])
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .ok()?;
+    let mut child = catabolic_core::spawn_guard::spawn(
+        std::process::Command::new("findmnt")
+            .args(["--json", "--target"])
+            .arg(root)
+            .args(["--output", "UUID"])
+            .stdout(std::process::Stdio::piped()),
+    )
+    .ok()?;
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     loop {
         if child.try_wait().ok()?.is_some() {

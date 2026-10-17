@@ -354,20 +354,21 @@ fn launch(
     command: &str,
 ) -> Result<Worker> {
     let output = tempfile::tempfile()?;
-    let child = Command::new(binary)
-        .args(["--db"])
-        .arg(path)
-        .args([
-            "--profile",
-            profile,
-            command,
-            name,
-            "--options",
-            &catabolic_core::encode(options),
-        ])
-        .stdout(Stdio::from(output.try_clone()?))
-        .stderr(Stdio::from(output.try_clone()?))
-        .spawn()?;
+    let child = catabolic_core::spawn_guard::spawn(
+        Command::new(binary)
+            .args(["--db"])
+            .arg(path)
+            .args([
+                "--profile",
+                profile,
+                command,
+                name,
+                "--options",
+                &catabolic_core::encode(options),
+            ])
+            .stdout(Stdio::from(output.try_clone()?))
+            .stderr(Stdio::from(output.try_clone()?)),
+    )?;
     Ok(Worker {
         name: name.to_string(),
         child,

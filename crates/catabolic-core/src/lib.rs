@@ -15,6 +15,7 @@ pub mod playback;
 pub mod python_decimal;
 pub mod rendition;
 pub mod resolution;
+pub mod spawn_guard;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 

@@ -450,19 +450,20 @@ fn start_supervised_inner<P>(
     // ownership outside that result so this live child is always returned.
     let mut worker = None;
     let reconnect = store.detached(|| {
-        let child = Command::new(binary)
-            .arg("--db")
-            .arg(&path)
-            .args([
-                "--profile",
-                profile,
-                command,
-                &catabolic_core::encode(&child_request),
-            ])
-            .stdin(Stdio::null())
-            .stdout(Stdio::from(output.try_clone()?))
-            .stderr(Stdio::from(output))
-            .spawn()?;
+        let child = catabolic_core::spawn_guard::spawn(
+            Command::new(binary)
+                .arg("--db")
+                .arg(&path)
+                .args([
+                    "--profile",
+                    profile,
+                    command,
+                    &catabolic_core::encode(&child_request),
+                ])
+                .stdin(Stdio::null())
+                .stdout(Stdio::from(output.try_clone()?))
+                .stderr(Stdio::from(output)),
+        )?;
         let pid = child.id();
         worker = Some(SupervisedWorker {
             child: Some(child),
@@ -621,18 +622,19 @@ pub fn execute(store: &mut Store, profile: &str, action: &str, request: &Value) 
     let output = tempfile::tempfile()?;
     let mut reader = output.try_clone()?;
     let (mut child, status) = store.detached(|| {
-        let mut child = Command::new(binary)
-            .arg("--db")
-            .arg(&path)
-            .args([
-                "--profile",
-                profile,
-                command,
-                &catabolic_core::encode(&child_request),
-            ])
-            .stdout(Stdio::from(output.try_clone()?))
-            .stderr(Stdio::from(output))
-            .spawn()?;
+        let mut child = catabolic_core::spawn_guard::spawn(
+            Command::new(binary)
+                .arg("--db")
+                .arg(&path)
+                .args([
+                    "--profile",
+                    profile,
+                    command,
+                    &catabolic_core::encode(&child_request),
+                ])
+                .stdout(Stdio::from(output.try_clone()?))
+                .stderr(Stdio::from(output)),
+        )?;
         let started = Instant::now();
         loop {
             if let Some(status) = child.try_wait()? {

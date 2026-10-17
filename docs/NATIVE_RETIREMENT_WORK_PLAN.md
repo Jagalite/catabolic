@@ -221,3 +221,68 @@ in two steps, because macOS has no `pipe2`. A fork by an unrelated spawner
 between those steps could inherit the write end; spawns through this module
 mark every descriptor close-on-exec. The fallback probe helper keeps its
 existing stdin-EOF handoff and was not changed.
+
+#### Review round 1 corrections (October 17)
+
+Sol's round-1 review of `2038382` found three defects, now corrected:
+
+1. **No fork inside `pre_exec`.** The guardian was forked twice inside the
+   tool's post-fork callback. That runs `pthread_atfork` handlers in a forked
+   child, where a host handler can deadlock. The guardian is now an exec'd
+   `/bin/sh` (builtins `read` and `kill` only, empty environment), spawned by
+   the worker as the leader of a new process group. On macOS it is spawned with
+   `posix_spawn` (`POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_CLOEXEC_DEFAULT`), which
+   runs no fork handlers and keeps only its lifeline stdin and `/dev/null`
+   output. Elsewhere it is an ordinary spawn whose callback only calls
+   `setpgid` and marks descriptors close-on-exec. The tool then joins that
+   group with `setpgid` in its `pre_exec`. Both callbacks now contain only
+   async-signal-safe calls (`setpgid`, `fcntl`, `fchdir`, `umask`, and the
+   existing Linux `prctl`/`getppid`).
+   - Tools no longer get their own session. They are in a background process
+     group of the worker's session, so a terminal's job-control signals still
+     go only to the foreground group.
+   - The guardian is reaped after the tool, so the group ID stays reserved
+     throughout retirement.
+   - If the tool fails to spawn, the guardian is killed and reaped.
+2. **Close-on-exec race.** Linux now creates the lifeline with
+   `pipe2(O_CLOEXEC)`. On macOS it is created under the exclusive side of
+   `catabolic_core::spawn_guard`. Every in-workspace production spawn site now
+   forks through `spawn_guard::spawn`, which holds the shared side:
+   - `runtime::process` (tool and guardian)
+   - `runtime::watchers` (supervisor tick child)
+   - `runtime::observation` (isolated worker and supervised helper)
+   - `runtime::fallback` (probe helper)
+   - `store::source` (`findmnt`, Linux)
+
+   Not coordinated: test-only spawns, the separate `catabolic-dist` build tool,
+   and an embedding host's own subprocesses.
+3. **Lifeline on a standard descriptor.** Both lifeline ends are relocated to
+   descriptors 3 or above with `F_DUPFD_CLOEXEC`.
+
+New tests:
+
+- A fixture registers a `pthread_atfork` child handler and requires exactly
+  two forks per command (guardian and tool), with none inside a forked child.
+- A stress fixture spawns 150 long-lived children from another thread while the
+  tool starts. The tool group must still die after the worker is SIGKILLed.
+- A fixture closes descriptors 0, 1 and 2 before running a one-second tool,
+  which must succeed.
+- The group-membership tests now expect the guardian-led group.
+- The consumer-watch in-flight TERM test now requires exactly two children
+  (the tick and its guardian), both gone and reaped at CLI return.
+
+Results on macOS arm64 with the corrected build:
+
+- Runtime unit tests: 155 passed, 2 ignored. The 37 `process` tests passed
+  three consecutive times. Core unit tests: 101 passed.
+- Python suites:
+  - `test_rust_legacy_consumer_watch`: 12
+  - `test_rust_legacy_sigterm`: 4
+  - `test_rust_legacy_external_rule`: 18
+  - `test_rust_legacy_external_worker_diagnostics`: 12
+  - `test_rust_playback`: 19
+  - `test_rust_legacy_api_worker`: passed 5 of 7 full runs (5 methods each).
+    The two failing runs coincided with host load averages of 9 to 12. One had
+    a 30-second CLI timeout in the busy case; the other had a 15-second
+    heartbeat wait and a `database is locked` setup error. Both logs are
+    retained, and the busy method passed when rerun alone.

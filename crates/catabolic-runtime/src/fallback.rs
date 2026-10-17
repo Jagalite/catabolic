@@ -159,7 +159,7 @@ pub fn probe(
             });
         }
     }
-    let mut child = match command.spawn() {
+    let mut child = match catabolic_core::spawn_guard::spawn(&mut command) {
         Ok(child) => child,
         Err(_) => {
             fallback_resolution::release_probe(path, database_id, &slot)?;
