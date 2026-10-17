@@ -1264,6 +1264,36 @@ fn backup_directory_swap_after_opening_is_not_followed() {
     identity_manifest::require_preserved(&receipt["identity_manifest"], &manifest(&path)).unwrap();
 }
 
+/// previous.sqlite3 replaced by a hard link to the live catalog after SQLite
+/// wrote it is refused without ever being opened by name, so the live locks
+/// survive, as a separate-process probe shows.
+#[test]
+fn retained_copy_replaced_by_a_live_hard_link_is_refused() {
+    let _serial = serial();
+    let (_root, path, receipt) = backed_up();
+    let before = fs::read(&path).unwrap();
+    let error = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+        if at == native_restore::RETAINED_WRITTEN {
+            let retained = staging_directories(&path)[0].join("previous.sqlite3");
+            fs::remove_file(&retained).unwrap();
+            fs::hard_link(&path, &retained).unwrap();
+            assert_eq!(probe(&path), Some(PROBE_REFUSED), "live lock lost");
+        }
+        if at == "retained" {
+            panic!("a substituted retained copy was accepted");
+        }
+        Ok(())
+    })
+    .unwrap_err();
+    assert!(error.0.contains("retained copy was replaced"), "{error}");
+    // The hard link is removed with the staging directory; the catalog is
+    // unchanged and no lock was lost while restore held it.
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert_eq!(fs::metadata(&path).unwrap().nlink(), 1);
+    assert!(staging_directories(&path).is_empty());
+    assert_eq!(probe(&path), Some(0));
+}
+
 /// Schema objects, migration history and sequences are not covered by table
 /// digests; each is verified under the held lock before the rename.
 #[test]

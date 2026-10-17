@@ -213,7 +213,7 @@ order:
 | --- | --- | --- |
 | `staged` | Copies the snapshot from the held backup descriptor into a private `catalog.sqlite3` created through the held staging descriptor, and checks the manifest's SHA-256 against the copied bytes. Only this copy is verified or published from now on; backup paths are never reopened by name. | Live catalog unchanged; staging holds the copy |
 | `verified` | Fully validates the copy and requires its schema, IDs, incarnation and identity manifest to match the backup manifest | Live catalog unchanged |
-| `retained` | Copies the live catalog into `previous.sqlite3` with SQLite's backup API through the locked live connection, recording its whole-file SHA-256 | Live catalog unchanged |
+| `retained` | Creates `previous.sqlite3` through the held staging descriptor and keeps that descriptor, fills it with SQLite's backup API through the locked live connection, rechecks that the name is still that inode (and not the live catalog or a sidecar), and hashes it only through the held descriptor | Live catalog unchanged |
 | `rotated` | Changes the staged copy's incarnation through the schema's restore-scoped permit, to a fresh value different from both the live and the snapshot incarnation. Checks that only `catalog_state` changed, that identities are preserved and that no worker ownership is left unresolved (see below). Records the complete state of the rotated file and writes the staging `manifest.json` record (`catabolic-native-restore-v1`, status `staged`). | Live catalog unchanged; record says `staged` |
 | `protected` | Takes an exclusive SQLite lock on the staged copy. Under that lock, runs complete native validation (schema signature, history checksums, integrity, foreign keys, native state) and requires its complete state to equal the rotated file's: table digests, every schema object, full migration history rows, `sqlite_sequence` and the identity manifest | Live catalog unchanged |
 | `publishing` | Nothing new; the final checks follow it. Restore rechecks the held directories, the staged entry, the live entry, the lease and the absence of `-journal`, `-wal` and `-shm` files, then writes the record with status `publishing`. A failed rename closes both connections and removes only this run's staging directory. | Live catalog unchanged; record says `staged` |
@@ -233,7 +233,13 @@ checks that the held directories are still the entries it created. SQLite
 opens files by name, so restore only points it at the live catalog and at
 files in the held staging directory. Each such open is preceded and followed
 by checks that the directory pathnames still resolve to the held descriptors
-and that the staged entry is still the inode created through them. Anything
+and that the staged or retained entry is still the inode created through
+them. Writing the retained copy is the one place where SQLite opens a second
+file by name while the live catalog is locked. A same-user swap of that name
+to the live catalog in the instant between the check and SQLite's open is
+the accepted residual risk of using the backup API. The bundled SQLite
+offers no page-level copy that avoids the open, and serializing a whole
+catalog into memory is not bounded. Anything
 that fails before the rename leaves the live catalog's bytes unchanged and
 removes the staging directory entry by entry through its descriptor; a crash
 before the rename leaves it for the operator.

@@ -125,6 +125,9 @@ pub const RENAME_WINDOW: &str = "rename_window";
 /// Checkpoint after the backup directory and its manifest were opened through
 /// held descriptors and before the snapshot is opened. Only tests use it.
 pub const BACKUP_OPENED: &str = "backup_opened";
+/// Checkpoint after SQLite wrote the retained copy and before its name is
+/// rechecked. Only tests use it.
+pub const RETAINED_WRITTEN: &str = "retained_written";
 
 /// One controlled restore at a time in this process. Lifecycle admission
 /// excludes other processes; this also keeps a second restore in the same
@@ -384,6 +387,36 @@ fn remove_staging(parent: &Dir, staging_name: &str, staging: &Dir) {
         let _ = parent.unlink_at(staging_name, true);
         let _ = parent.fsync();
     }
+}
+
+/// SQLite's backup API from `source` into an existing empty file by name.
+/// The caller created that file through a held directory descriptor and
+/// checks that the name is still that inode before and after.
+fn backup_into(source: &rusqlite::Connection, path: &Path) -> Result<()> {
+    let mut target = connect(path, true)?;
+    {
+        let backup = rusqlite::backup::Backup::new(source, &mut target)?;
+        backup.run_to_completion(256, std::time::Duration::from_millis(10), None)?;
+    }
+    target.pragma_update(None, "journal_mode", "DELETE")?;
+    Ok(())
+}
+
+/// SHA-256 of a held file, read from the start through its descriptor.
+fn hash_descriptor(file: &mut fs::File) -> Result<String> {
+    use sha2::{Digest, Sha256};
+    use std::io::{Read, Seek};
+    file.seek(std::io::SeekFrom::Start(0))?;
+    let mut digest = Sha256::new();
+    let mut buffer = vec![0u8; 1024 * 1024];
+    loop {
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        digest.update(&buffer[..read]);
+    }
+    Ok(format!("{:x}", digest.finalize()))
 }
 
 fn fresh_incarnation(avoid: &[&str]) -> String {
@@ -1016,20 +1049,37 @@ pub fn restore(
         // descriptor drops every fcntl lock this process holds on the inode.
         let retained_name = "previous.sqlite3";
         let retained = staging.child(retained_name);
-        staged_check(staged_file)?;
-        migration::copy(&live, &retained)?;
-        staged_check(staged_file)?;
-        let (retained_file, previous_sha256) = {
-            use std::io::Read;
-            let mut file = staging.open_file_at(retained_name)?;
-            let mut bytes = Vec::new();
-            file.read_to_end(&mut bytes)?;
-            file.sync_all()?;
-            (descriptor_identity(&file)?, sha256(&bytes))
+        // Created and held through the staging descriptor from the start.
+        // SQLite's backup API writes into this inode through the live
+        // connection and by name; the name is checked to still be this inode,
+        // and not the live catalog or a sidecar, before and after. It is then
+        // hashed only through the held descriptor, never reopened by name.
+        let mut retained_handle = staging.create_file_at(retained_name)?;
+        let retained_file = descriptor_identity(&retained_handle)?;
+        let retained_check = || -> Result<()> {
+            staged_check(staged_file)?;
+            match staging.entry(retained_name) {
+                Some(entry)
+                    if entry.regular
+                        && entry.links == 1
+                        && entry.identity == retained_file
+                        && !live_identities(&parent, &target_name).contains(&entry.identity) =>
+                {
+                    Ok(())
+                }
+                _ => Err(Error(
+                    "retained copy was replaced during restore; refusing to continue".into(),
+                )),
+            }
         };
-        if staging.entry(retained_name).map(|entry| entry.identity) != Some(retained_file) {
-            return Err(Error("retained copy was replaced during restore".into()));
-        }
+        retained_check()?;
+        backup_into(&live, &retained)?;
+        checkpoint(RETAINED_WRITTEN)?;
+        retained_check()?;
+        retained_handle.sync_all()?;
+        let previous_sha256 = hash_descriptor(&mut retained_handle)?;
+        // No SQLite connection holds the retained inode any more.
+        drop(retained_handle);
         staging.fsync()?;
         checkpoint("retained")?;
 
