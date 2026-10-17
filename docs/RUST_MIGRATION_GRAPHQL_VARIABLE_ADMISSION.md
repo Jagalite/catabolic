@@ -159,3 +159,8 @@ pinned historical response must differ from the oracle. A new
 `test_rust_graphql_variable_precedence.py` compares 15 precedence inputs in all
 three output modes with the live frozen oracle, and Rust unit tests cover scan
 order, the 4,300-digit boundary, float tokens and duplicate keys.
+
+Local macOS arm64 results at commit `065d6f2`: the precedence module passes
+(45 envelopes); the admission module passes 8 methods (242 live comparisons);
+variable-error and file-boundary modules pass (153 + 55 pairs); and the legacy
+unit executable passes 34 functions, including the new scan-order test.

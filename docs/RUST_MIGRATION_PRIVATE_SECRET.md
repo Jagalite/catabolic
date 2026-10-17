@@ -189,3 +189,8 @@ stay inside the disposable fixture through `..` components), and both
 unexpandable cases in all three output modes, comparing token, private-file and
 audit state with frozen Python. Rust unit tests cover the parser and
 unknown-user refusal.
+
+Local macOS arm64 results at commit `ecce11d`: `test_rust_legacy_private_secret`
+passes 6 methods and `test_rust_legacy_access_admin` passes 6 methods against
+the frozen oracle. The store unit tests for admin, access and private-secret
+pass 17, with 2 existing ignores.

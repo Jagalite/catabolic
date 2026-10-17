@@ -126,3 +126,11 @@ CLI/oracle envelopes passed. No historical parser mismatch control remains in
 that fixture set. This is bounded compatibility evidence, not a new independent
 review or general GraphQL equivalence claim. Prior failures and the unrelated
 blocked review lanes retain their original status.
+
+## Track D replay, October 16
+
+All live native/oracle parser comparisons in the current suites passed on
+macOS arm64. Parser residuals are still **not** marked closed: frozen-crash
+`baseline` controls fail on capture-host traceback paths, and three
+evidence-archive checks need absent `/workspace/shared` seals. See the
+[track D status](NATIVE_RETIREMENT_WORK_PLAN.md#track-d-status-october-16).

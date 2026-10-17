@@ -90,6 +90,8 @@ Their findings feed the tracks below.
 - CLI: `api token` `~user` expansion and the HOME-unset fallback, program
   import kinds, plan evaluation, SIGTERM alignment, and external rule
   transport.
+- Status of the first two bullets after the October 16 track D pass (see
+  [track D status](#track-d-status-october-16) below).
 - Notifications: the unsupported option matrix, implemented provider by
   provider.
 - Observation: regex dialect constructs, scan and maintenance report fields,
@@ -127,3 +129,56 @@ Their findings feed the tracks below.
 - Real-service acceptance against Plex, Jellyfin and notification services.
 - Motion integration, which the user deferred on 2026-10-14.
 - The final default switch and removal of the shipped Python engine.
+
+## Track D status, October 16
+
+Status of the first two track D bullets. Results come from a Kyoto build of the
+workspace on macOS arm64, with test executables and Python suites then run one
+at a time against the frozen oracle (Python 3.14.6, reference `453fca9`).
+
+| Item | Status | Commit | Evidence |
+|---|---|---|---|
+| `api token` `~user` and HOME-unset | Closed; the not-found `RuntimeError` presentation is a structured error, **pending user confirmation** | `ecce11d` | private-secret 6/6, access-admin 6/6, store unit 17 |
+| GraphQL variable-JSON precedence | Closed | `065d6f2` | precedence 1 method (45 envelopes), admission 8 (242 comparisons), variable-errors and file-boundary 2 (153 + 55 pairs) |
+| Program import kinds | Closed (external processors) | `267a621` | `test_rust_programs` 8, `test_program_bundle` 9 |
+| SIGTERM alignment | Closed for all standalone legacy families; Linux lane still needed for three harnesses | `69f6e0b` | legacy unit 34, fallback-worker 10, consumer-watch idle TERM paired with the oracle |
+| External rule transport | Closed for the listed cases; Latin-1 credential bytes and a few parser edges remain recorded differences | `6295930` | runtime unit 12, worker diagnostics 12 (one Linux-only skip), external rule 18 (one Linux-only skip) |
+| GraphQL field-conflict | Closed (suite passes) | earlier checkpoints | overlap 77, document validation 55, coercion 182 pairs, including the former known-gap vectors |
+| GraphQL merged-field nulls | Closed (suite passes) | earlier checkpoints | runtime completion 59 pairs plus runtime inputs |
+| GraphQL recorded Int output | Closed (suite passes) | earlier checkpoints | 42 recorded-Int CLI triples |
+| GraphQL parser residuals | **Not closed** | none | see below |
+| Plan evaluation | **Deferred to track E** | none | see below |
+
+**Parser residuals.** Every live native/oracle parser comparison passed: 250
+parser pairs, the 156 captured residuals, budget precedence v2 (150) and v1
+(68), diagnostic ownership (38), boundary ownership (61), required-value
+precedence (50), lexical capture (197), token-budget locations (144), source
+locations (58), literal diagnostics (158), string diagnostics (56) and
+unsupported-scalar precedence (31 controls). The suites still do not pass
+locally, for these reasons:
+
+- Retained `baseline` controls where frozen Python itself crashes (for
+  example `dangling-backslash-residual`, which hits a frozen `IndexError`)
+  embed the capture host's traceback paths, so `test_rust_graphql_parser_budget_precedence`
+  and `test_rust_graphql_string_diagnostics` each fail one subcase on path text
+  alone.
+- Three evidence-archive checks need `/workspace/shared` capture seals that
+  are not present here.
+
+Those crash controls are intentional non-parity: native returns a controlled
+syntax error. Separately, `test_rust_graphql_empty_completion` was not
+runnable here: it needs a provisioned extension root and the
+`catabolic-http-experimental` binary.
+
+**Plan evaluation.** Watcher runs on the CLI already evaluate query,
+fallback and projection plans natively and are compared with frozen Python in
+`test_rust_watcher_projection.py`. What remains is the companion and Python
+facade `plans evaluate` entry point, which refuses fallback and projection
+plans. Frozen `Resolver.resolve` needs a writable session and probes, so this
+moves to track E with the thin-wrapper boundary.
+
+**Not runnable on macOS (Linux lane needed):** `test_rust_legacy_api_worker`
+(native refuses API-worker parent-death supervision on this platform),
+in-flight consumer-watch TERM (Linux `ps --ppid`) and `test_rust_legacy_sigterm`
+(it observes helpers through `/proc`). Logs are under
+`/Volumes/seed1/Projects/catabolic-builds/evidence/track-d/logs/`.
