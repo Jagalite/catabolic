@@ -187,9 +187,35 @@ fn fresh_incarnation(avoid: &[&str]) -> String {
     }
 }
 
+/// Everything a published catalog must keep exactly: whole-row table digests,
+/// every schema object (tables, indexes, views and triggers), migration
+/// history, AUTOINCREMENT sequences and the identity manifest. Table digests
+/// alone exclude schema definitions, history and sqlite_sequence.
+fn complete_state(db: &rusqlite::Connection) -> Result<Value> {
+    let sequences = if db
+        .prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='sqlite_sequence'")?
+        .exists([])?
+    {
+        json!(migration::rows(
+            db,
+            "SELECT name,seq FROM sqlite_sequence ORDER BY name,seq",
+            &[]
+        )?)
+    } else {
+        Value::Null
+    };
+    Ok(json!({
+        "tables":migration::snapshot(db)?,
+        "schema":migration::rows(db, "SELECT type,name,tbl_name,sql FROM sqlite_schema ORDER BY type,name,tbl_name", &[])?,
+        "history":migration::rows(db, "SELECT version,filename,checksum,origin,applied_at FROM schema_migrations ORDER BY version", &[])?,
+        "sequences":sequences,
+        "identity":identity_manifest::manifest(db)?,
+    }))
+}
+
 /// Rotate the staged copy's incarnation through the schema's restore-scoped
 /// permit, verify that nothing else changed, and return the incarnation and
-/// the complete whole-row digest of the rotated file.
+/// the complete state of the rotated file.
 fn rotate(
     staged: &Path,
     snapshot_tables: &Value,
@@ -218,9 +244,10 @@ fn rotate(
     rotated?;
     db.execute_batch("BEGIN")?;
     migration::validate(&db, true)?;
-    let tables = migration::snapshot(&db)?;
-    let after = identity_manifest::manifest(&db)?;
+    let state = complete_state(&db)?;
     drop(db);
+    let tables = &state["tables"];
+    let after = &state["identity"];
     let mut unchanged = tables.clone();
     let mut expected = snapshot_tables.clone();
     for object in [&mut unchanged, &mut expected] {
@@ -237,8 +264,8 @@ fn rotate(
             "incarnation rotation changed restored catalog contents".into(),
         ));
     }
-    identity_manifest::require_preserved(identity, &after)?;
-    Ok((incarnation, tables))
+    identity_manifest::require_preserved(identity, after)?;
+    Ok((incarnation, state))
 }
 
 /// Cleanup witnesses for completed native workers name the incarnation that
@@ -445,7 +472,7 @@ pub fn restore(
         let snapshot_incarnation = identity["catalog"]["incarnation"]
             .as_str()
             .unwrap_or_default();
-        let (incarnation, rotated_tables) = rotate(
+        let (incarnation, rotated_state) = rotate(
             &staged,
             &snapshot_tables,
             &identity,
@@ -467,14 +494,19 @@ pub fn restore(
         require_exact_file(&staged, staged_file, "staged catalog")?;
         let protected = crate::journal_conversion::connect_exclusive(&staged)?;
         protected.execute_batch("BEGIN")?;
-        let tables = migration::snapshot(&protected)?;
-        let current: String = protected.query_row(
-            "SELECT incarnation FROM catalog_state WHERE id=1",
-            [],
-            |row| row.get(0),
-        )?;
+        // The complete native validation (schema signature, history checksums,
+        // integrity, foreign keys and native state) and the complete state
+        // comparison both run under the held lock, immediately before the rename.
+        let verified = migration::validate(&protected, true)
+            .map_err(|error| {
+                Error(format!(
+                    "staged catalog failed verification before publication: {error}"
+                ))
+            })
+            .and_then(|_| complete_state(&protected));
         protected.execute_batch("ROLLBACK")?;
-        if tables != rotated_tables || current != incarnation {
+        let state = verified?;
+        if state != rotated_state || state["identity"]["catalog"]["incarnation"] != incarnation {
             return Err(Error(
                 "staged catalog changed after rotation; refusing to publish".into(),
             ));

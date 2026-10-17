@@ -636,6 +636,69 @@ fn staged_mutation_or_replacement_is_refused_before_publication() {
     assert_eq!(count, 0);
 }
 
+/// Schema objects, migration history and sequences are not covered by table
+/// digests; each is verified under the held lock before the rename.
+#[test]
+fn staged_schema_history_and_sequence_changes_are_refused() {
+    let first = |db: &rusqlite::Connection, kind: &str| -> String {
+        db.query_row(
+            "SELECT name FROM sqlite_schema WHERE type=? AND sql IS NOT NULL ORDER BY name LIMIT 1",
+            [kind],
+            |row| row.get(0),
+        )
+        .unwrap()
+    };
+    let changes: [(&str, &dyn Fn(&rusqlite::Connection)); 5] = [
+        ("dropped trigger", &|db| {
+            db.execute_batch("DROP TRIGGER catalog_permit_current_incarnation")
+                .unwrap();
+        }),
+        ("altered view", &|db| {
+            let view = first(db, "view");
+            db.execute_batch(&format!(
+                "DROP VIEW \"{view}\"; CREATE VIEW \"{view}\" AS SELECT 1 AS altered"
+            ))
+            .unwrap();
+        }),
+        ("dropped index", &|db| {
+            let index = first(db, "index");
+            db.execute_batch(&format!("DROP INDEX \"{index}\""))
+                .unwrap();
+        }),
+        ("edited history", &|db| {
+            db.execute_batch("UPDATE schema_migrations SET applied_at='edited' WHERE version=1")
+                .unwrap();
+        }),
+        ("edited sequence", &|db| {
+            db.execute_batch("INSERT INTO sqlite_sequence(name,seq) VALUES('api_events',1000)")
+                .unwrap();
+        }),
+    ];
+    for (label, change) in changes {
+        let (_root, path, receipt) = backed_up();
+        let before = fs::read(&path).unwrap();
+        let error =
+            native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+                if at == "rotated" {
+                    let db = rusqlite::Connection::open(staged_file(&path)).unwrap();
+                    change(&db);
+                }
+                Ok(())
+            })
+            .unwrap_err();
+        assert!(
+            error
+                .0
+                .contains("staged catalog failed verification before publication")
+                || error.0.contains("staged catalog changed after rotation"),
+            "{label}: {error}"
+        );
+        assert_eq!(fs::read(&path).unwrap(), before, "{label}");
+        assert_eq!(items(&path, "later-item"), 1, "{label}");
+        assert!(staging_directories(&path).is_empty(), "{label}");
+    }
+}
+
 const DIGEST: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 /// One observation job claimed by a native companion; `sealed` completes it
 /// with the exact quiescent cleanup witness, otherwise it stays unfinished.
