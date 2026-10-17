@@ -330,27 +330,58 @@ fn require_exact_file(path: &Path, expected: (u64, u64), what: &str) -> Result<(
     Ok(())
 }
 
-/// Restore records for this catalog left by earlier runs, newest first.
-fn previous_records(target: &Path) -> Vec<(PathBuf, Value)> {
+/// Refusal used whenever an existing restore record cannot be checked.
+fn reconciliation_required(detail: String) -> Error {
+    Error(format!(
+        "restore record reconciliation required: {detail}. An earlier restore of this catalog cannot be checked, so another restore could rotate an already published catalog again and discard writes made since; inspect, repair or remove the record by hand before restoring"
+    ))
+}
+
+/// Restore records for this catalog left by earlier runs, newest first. A
+/// staging directory without a record never reached rotation and so cannot
+/// have been published. Every other enumeration, read or parse failure is a
+/// refusal rather than an absent record.
+fn previous_records(target: &Path) -> Result<Vec<(PathBuf, Value)>> {
     let parent = target.parent().expect("database parent");
     let prefix = format!(
         ".{}.restore-",
         target.file_name().expect("database name").to_string_lossy()
     );
-    let mut records = fs::read_dir(parent)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter(|entry| entry.file_name().to_string_lossy().starts_with(&prefix))
-        .filter_map(|entry| {
-            let path = entry.path().join("manifest.json");
-            let value: Value = serde_json::from_slice(&fs::read(&path).ok()?).ok()?;
-            (value["contract"] == RESTORE_CONTRACT && value["database"] == json!(target))
-                .then_some((path, value))
-        })
-        .collect::<Vec<_>>();
+    let listing = |error: std::io::Error| {
+        reconciliation_required(format!("cannot list {}: {error}", parent.display()))
+    };
+    let mut records = Vec::new();
+    for entry in fs::read_dir(parent).map_err(listing)? {
+        let entry = entry.map_err(listing)?;
+        if !entry.file_name().to_string_lossy().starts_with(&prefix) {
+            continue;
+        }
+        let path = entry.path().join("manifest.json");
+        let raw = match fs::read(&path) {
+            Ok(raw) => raw,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(error) => {
+                return Err(reconciliation_required(format!(
+                    "cannot read {}: {error}",
+                    path.display()
+                )));
+            }
+        };
+        let value: Value = serde_json::from_slice(&raw).map_err(|error| {
+            reconciliation_required(format!("{} is not valid JSON: {error}", path.display()))
+        })?;
+        if value["contract"] != RESTORE_CONTRACT || !value["incarnation"].is_string() {
+            return Err(reconciliation_required(format!(
+                "{} is not a complete restore record",
+                path.display()
+            )));
+        }
+        if value["database"] == json!(target) {
+            records.push((path, value));
+        }
+    }
     records.sort_by(|a, b| b.0.cmp(&a.0));
-    records
+    Ok(records)
 }
 
 /// Controlled restore of a native catalog from a verified native backup.
@@ -406,7 +437,7 @@ pub fn restore(
         .to_owned();
     // A record whose rotated incarnation is the live one proves that this
     // backup was already published; never rotate it a second time.
-    if let Some((record_path, mut record)) = previous_records(&target)
+    if let Some((record_path, mut record)) = previous_records(&target)?
         .into_iter()
         .find(|(_, record)| record["incarnation"] == previous_incarnation.as_str())
     {

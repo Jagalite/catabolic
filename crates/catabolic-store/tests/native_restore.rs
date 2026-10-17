@@ -679,6 +679,55 @@ fn rerun_retries_the_publication_fsync_before_reporting_durability() {
     assert_eq!(incarnation(&path), rotated);
 }
 
+/// A record that cannot be read or parsed is never treated as absent: the
+/// restore refuses and requires reconciliation, leaving the catalog unchanged.
+#[test]
+fn unreadable_or_corrupt_restore_records_require_reconciliation() {
+    let damages: [(&str, &dyn Fn(&Path) -> PathBuf); 4] = [
+        ("unreadable record", &|record: &Path| {
+            fs::set_permissions(record, fs::Permissions::from_mode(0o000)).unwrap();
+            record.to_path_buf()
+        }),
+        ("corrupt record", &|record: &Path| {
+            fs::write(record, b"{").unwrap();
+            record.to_path_buf()
+        }),
+        ("unreadable staging directory", &|record: &Path| {
+            let directory = record.parent().unwrap();
+            fs::set_permissions(directory, fs::Permissions::from_mode(0o000)).unwrap();
+            directory.to_path_buf()
+        }),
+        ("unlistable catalog directory", &|record: &Path| {
+            let parent = record.parent().unwrap().parent().unwrap();
+            fs::set_permissions(parent, fs::Permissions::from_mode(0o300)).unwrap();
+            parent.to_path_buf()
+        }),
+    ];
+    for (label, damage) in damages {
+        let (_root, path, receipt) = backed_up();
+        let report = restore(&path, &receipt).unwrap();
+        let published = incarnation(&path);
+        put(&path, "after-restore", "after-restore-item");
+        let before = fs::read(&path).unwrap();
+        let damaged = damage(Path::new(report["restore_record"].as_str().unwrap()));
+        let error = restore(&path, &receipt).unwrap_err();
+        // Restore permissions before any assertion so cleanup can proceed.
+        let mode = if label == "unreadable record" {
+            0o600
+        } else {
+            0o700
+        };
+        fs::set_permissions(&damaged, fs::Permissions::from_mode(mode)).unwrap();
+        assert!(
+            error.0.contains("restore record reconciliation required"),
+            "{label}: {error}"
+        );
+        assert_eq!(fs::read(&path).unwrap(), before, "{label}");
+        assert_eq!(incarnation(&path), published, "{label}");
+        assert_eq!(items(&path, "after-restore-item"), 1, "{label}");
+    }
+}
+
 /// Schema objects, migration history and sequences are not covered by table
 /// digests; each is verified under the held lock before the rename.
 #[test]
