@@ -17,6 +17,15 @@ use std::{
     time::Duration,
 };
 
+/// Production restore takes a process-wide lock, so test bodies are
+/// serialized; libtest otherwise runs them on parallel threads, and
+/// overlapping restores would be refused by that lock.
+static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+fn serial() -> std::sync::MutexGuard<'static, ()> {
+    SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 fn native() -> (tempfile::TempDir, PathBuf) {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("native.sqlite3");
@@ -31,6 +40,7 @@ fn manifest(path: &Path) -> Value {
 
 #[test]
 fn native_backup_is_verified_private_and_bound_to_its_catalog() {
+    let _serial = serial();
     let (root, path) = native();
     let before = fs::read(&path).unwrap();
     let backups = root.path().join("backups");
@@ -74,6 +84,7 @@ fn native_backup_is_verified_private_and_bound_to_its_catalog() {
 
 #[test]
 fn native_backup_refuses_legacy_catalogs_and_missing_parents() {
+    let _serial = serial();
     let root = tempfile::tempdir().unwrap();
     let legacy = root.path().join("legacy.sqlite3");
     migration::initialize(&legacy).unwrap();
@@ -145,13 +156,45 @@ fn run(store: &Store, command: &CommandEnvelope) -> CommandOutcome {
     )
     .unwrap()
 }
+/// Fixture data written through the durable command owner. Its internal
+/// operation budget can time out on a loaded host before anything commits;
+/// setup retries only that transient, never a result or another failure.
 fn put(path: &Path, operation: &str, id: &str) {
-    let store = Store::open(path, true, false).unwrap();
-    let outcome = run(&store, &envelope(&store, operation, id));
-    assert!(
-        matches!(outcome, CommandOutcome::Committed { .. }),
-        "{outcome:?}"
-    );
+    for attempt in 1..=5 {
+        let store = Store::open(path, true, false).unwrap();
+        let command = envelope(&store, operation, id);
+        let outcome = commands::execute(
+            &store,
+            &command,
+            TrustedCommandAuthority {
+                host_namespace: "test-host",
+                receipt_visibility: ReceiptVisibility::FullResult,
+                allow_new_commands: true,
+                identity_authority: None,
+            },
+            ReceiptPolicy {
+                retention: Duration::from_secs(3600),
+                max_receipts: 1000,
+                max_logical_bytes: 16 * 1024 * 1024,
+                max_hold_records: 1000,
+            },
+        );
+        match outcome {
+            Ok(outcome) => {
+                // A retry may find that the timed-out attempt had committed.
+                assert!(
+                    matches!(outcome, CommandOutcome::Committed { .. })
+                        || (attempt > 1 && matches!(outcome, CommandOutcome::Replay { .. })),
+                    "{outcome:?}"
+                );
+                return;
+            }
+            Err(error) if attempt < 5 && format!("{error:?}").contains("Timeout") => {
+                std::thread::sleep(Duration::from_millis(500));
+            }
+            Err(error) => panic!("fixture command failed: {error:?}"),
+        }
+    }
 }
 fn items(path: &Path, id: &str) -> i64 {
     connect(path, false)
@@ -214,6 +257,7 @@ fn restore(path: &Path, receipt: &Value) -> catabolic_store::Result<Value> {
 
 #[test]
 fn restore_round_trip_publishes_the_backup_under_a_fresh_incarnation() {
+    let _serial = serial();
     let (_root, path, receipt) = backed_up();
     let live_incarnation = incarnation(&path);
     let live_inode = fs::metadata(&path).unwrap().ino();
@@ -252,6 +296,7 @@ fn restore_round_trip_publishes_the_backup_under_a_fresh_incarnation() {
 
 #[test]
 fn stale_incarnation_sessions_permits_and_receipts_are_refused() {
+    let _serial = serial();
     let (_root, path) = native();
     let store = Store::open(&path, true, false).unwrap();
     let committed = envelope(&store, "known", "known-item");
@@ -321,6 +366,7 @@ fn stale_incarnation_sessions_permits_and_receipts_are_refused() {
 
 #[test]
 fn mismatched_or_unverified_backups_are_refused_without_touching_the_catalog() {
+    let _serial = serial();
     let (root, path, receipt) = backed_up();
     let before = fs::read(&path).unwrap();
     let check = |error: catabolic_store::Error, message: &str| {
@@ -393,6 +439,7 @@ fn mismatched_or_unverified_backups_are_refused_without_touching_the_catalog() {
 /// Re-executed by `crash_at_every_restore_stage_is_recoverable`.
 #[test]
 fn restore_exit_worker() {
+    let _serial = serial();
     let Ok(path) = std::env::var("CATABOLIC_TEST_RESTORE_DATABASE") else {
         return;
     };
@@ -410,6 +457,7 @@ fn restore_exit_worker() {
 
 #[test]
 fn crash_at_every_restore_stage_is_recoverable() {
+    let _serial = serial();
     let stages = native_restore::RESTORE_STAGES;
     let position = |name: &str| stages.iter().position(|stage| *stage == name).unwrap();
     for stage in stages {
@@ -507,6 +555,7 @@ fn crash_at_every_restore_stage_is_recoverable() {
 /// an ordinary failure, and a rerun does not rotate the incarnation again.
 #[test]
 fn failures_after_publication_report_a_committed_restore() {
+    let _serial = serial();
     for (stage, step) in [
         ("renamed", "the step after the rename"),
         ("published", "the step after the directory fsync"),
@@ -551,6 +600,7 @@ fn staged_file(path: &Path) -> PathBuf {
 /// rotation, and is exclusively locked from then until the rename.
 #[test]
 fn staged_mutation_or_replacement_is_refused_before_publication() {
+    let _serial = serial();
     let tamper = "INSERT INTO meta VALUES('restore-tamper','1')";
     let refusals: [(&str, &str, &dyn Fn(&Path)); 3] = [
         (
@@ -632,6 +682,7 @@ const PROBE_REFUSED: i32 = 3;
 /// within one process.
 #[test]
 fn exclusion_probe_worker() {
+    let _serial = serial();
     let Ok(path) = std::env::var("CATABOLIC_TEST_RESTORE_PROBE") else {
         return;
     };
@@ -659,6 +710,7 @@ fn probe(path: &Path) -> Option<i32> {
 /// descriptor opened and closed on a locked file has released the lock.
 #[test]
 fn another_process_is_excluded_from_live_and_staged_catalogs_until_publication() {
+    let _serial = serial();
     let (_root, path, receipt) = backed_up();
     let report = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
         match at {
@@ -740,6 +792,7 @@ fn record_of(path: &Path) -> Value {
 /// there is refused before the rename.
 #[test]
 fn replacement_at_publishing_is_refused_before_the_rename() {
+    let _serial = serial();
     let (_root, path, receipt) = backed_up();
     let before = fs::read(&path).unwrap();
     let error = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
@@ -759,6 +812,7 @@ fn replacement_at_publishing_is_refused_before_the_rename() {
 /// live path, previous.sqlite3 stays in place and reconciliation is required.
 #[test]
 fn substitution_in_the_rename_window_is_preserved_for_reconciliation() {
+    let _serial = serial();
     let (_root, path, receipt) = backed_up();
     let before = fs::read(&path).unwrap();
     let snapshot = fs::read(Path::new(receipt["backup"].as_str().unwrap())).unwrap();
@@ -800,6 +854,7 @@ fn substitution_in_the_rename_window_is_preserved_for_reconciliation() {
 /// held exclusion and reports and records durability only from its result.
 #[test]
 fn rerun_retries_the_publication_fsync_before_reporting_durability() {
+    let _serial = serial();
     let (_root, path, receipt) = backed_up();
     let status = Command::new(std::env::current_exe().unwrap())
         .args(["--exact", "restore_exit_worker", "--nocapture"])
@@ -842,6 +897,7 @@ fn rerun_retries_the_publication_fsync_before_reporting_durability() {
 /// restore refuses and requires reconciliation, leaving the catalog unchanged.
 #[test]
 fn unreadable_or_corrupt_restore_records_require_reconciliation() {
+    let _serial = serial();
     let damages: [(&str, &dyn Fn(&Path) -> PathBuf); 4] = [
         ("unreadable record", &|record: &Path| {
             fs::set_permissions(record, fs::Permissions::from_mode(0o000)).unwrap();
@@ -891,6 +947,7 @@ fn unreadable_or_corrupt_restore_records_require_reconciliation() {
 /// staging directory, leaving other staging directories alone.
 #[test]
 fn failed_publication_rename_removes_only_its_staging_directory() {
+    let _serial = serial();
     let (_root, path, receipt) = backed_up();
     let earlier = path.parent().unwrap().join(format!(
         ".{}.restore-earlier",
@@ -925,6 +982,7 @@ fn failed_publication_rename_removes_only_its_staging_directory() {
 /// wrong type, or naming another database is refused, never skipped.
 #[test]
 fn incomplete_restore_records_require_reconciliation() {
+    let _serial = serial();
     let (_root, path, receipt) = backed_up();
     let report = restore(&path, &receipt).unwrap();
     let record_path = PathBuf::from(report["restore_record"].as_str().unwrap());
@@ -987,6 +1045,7 @@ fn incomplete_restore_records_require_reconciliation() {
 /// and a different volume is refused rather than matched.
 #[test]
 fn restore_records_use_durable_volume_identity() {
+    let _serial = serial();
     let (_root, path, receipt) = backed_up();
     let status = Command::new(std::env::current_exe().unwrap())
         .args(["--exact", "restore_exit_worker", "--nocapture"])
@@ -1029,6 +1088,7 @@ fn restore_records_use_durable_volume_identity() {
 /// hot rollback journal; `wal` switches to WAL and exits without checkpoint.
 #[test]
 fn evidence_worker() {
+    let _serial = serial();
     let Ok(path) = std::env::var("CATABOLIC_TEST_RESTORE_EVIDENCE") else {
         return;
     };
@@ -1056,6 +1116,7 @@ fn evidence_worker() {
 /// path with SQLite, which would replay or checkpoint the evidence.
 #[test]
 fn rerun_after_substitution_preserves_journal_and_wal_evidence() {
+    let _serial = serial();
     for (mode, sidecars) in [("hot", &["-journal"][..]), ("wal", &["-wal", "-shm"][..])] {
         let (_root, path, receipt) = backed_up();
         let error =
@@ -1112,6 +1173,7 @@ fn rerun_after_substitution_preserves_journal_and_wal_evidence() {
 /// the staging entry is rechecked, so the catalog stays intact.
 #[test]
 fn staging_symlink_swap_at_finalizing_cannot_reach_the_catalog() {
+    let _serial = serial();
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("manifest.json");
     migration::initialize_native(&path).unwrap();
@@ -1146,6 +1208,7 @@ fn staging_symlink_swap_at_finalizing_cannot_reach_the_catalog() {
 /// the first restore's POSIX locks survive, as a separate-process probe shows.
 #[test]
 fn snapshot_symlink_to_a_locked_catalog_is_never_opened() {
+    let _serial = serial();
     let (_root, path, receipt) = backed_up();
     let (_other_root, other, other_receipt) = backed_up();
     let other_snapshot = PathBuf::from(other_receipt["backup"].as_str().unwrap());
@@ -1182,6 +1245,7 @@ fn snapshot_symlink_to_a_locked_catalog_is_never_opened() {
 /// copy are all restore ever reads.
 #[test]
 fn backup_directory_swap_after_opening_is_not_followed() {
+    let _serial = serial();
     let (_root, path, receipt) = backed_up();
     let (_other_root, _other, other_receipt) = backed_up();
     let directory = backup_directory(&receipt);
@@ -1204,6 +1268,7 @@ fn backup_directory_swap_after_opening_is_not_followed() {
 /// digests; each is verified under the held lock before the rename.
 #[test]
 fn staged_schema_history_and_sequence_changes_are_refused() {
+    let _serial = serial();
     let first = |db: &rusqlite::Connection, kind: &str| -> String {
         db.query_row(
             "SELECT name FROM sqlite_schema WHERE type=? AND sql IS NOT NULL ORDER BY name LIMIT 1",
@@ -1296,6 +1361,7 @@ fn seed_observation_worker(path: &Path, sealed: bool) {
 /// publication, for completed and unfinished work alike.
 #[test]
 fn backups_with_retained_worker_ownership_are_refused() {
+    let _serial = serial();
     for sealed in [true, false] {
         let (_root, path) = native();
         seed_observation_worker(&path, sealed);
