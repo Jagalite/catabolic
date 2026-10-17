@@ -122,10 +122,6 @@ pub const RERUN_FSYNC: &str = "rerun_fsync";
 /// Checkpoint between the final pathname checks and the publication rename.
 /// Only tests use it, to model a substitution in that unavoidable window.
 pub const RENAME_WINDOW: &str = "rename_window";
-/// Checkpoints of a substitution rollback: after the record says
-/// `rolling_back`, and after the retained catalog was renamed back.
-pub const ROLLBACK_PENDING: &str = "rollback_pending";
-pub const ROLLBACK_RENAMED: &str = "rollback_renamed";
 
 fn sidecar(path: &Path, suffix: &str) -> PathBuf {
     let mut name = path.as_os_str().to_os_string();
@@ -393,7 +389,7 @@ fn validate_record(
     }
     if !matches!(
         record["status"].as_str(),
-        Some("staged" | "publishing" | "published" | "rolling_back" | "rolled_back" | "abandoned")
+        Some("staged" | "publishing" | "published" | "substitution_detected" | "abandoned")
     ) {
         return Err("status is missing or unknown".into());
     }
@@ -413,8 +409,10 @@ fn validate_record(
             return Err(format!("{field} is missing or not an incarnation"));
         }
     }
-    if !is_hex(&record["backup_sha256"], 64) {
-        return Err("backup_sha256 is missing or not a SHA-256".into());
+    for field in ["backup_sha256", "previous_sha256"] {
+        if !is_hex(&record[field], 64) {
+            return Err(format!("{field} is missing or not a SHA-256"));
+        }
     }
     for field in ["live_identity", "staged_identity", "retained_identity"] {
         let complete = record[field]
@@ -445,38 +443,19 @@ fn reconciliation_required(detail: String) -> Error {
     ))
 }
 
-/// Undo a publication whose renamed file was not the verified, locked staged
-/// catalog. The record says `rolling_back` before the retained byte-identical
-/// copy of the previous catalog is renamed back over the live path, and
-/// `rolled_back` afterwards, so a rerun can classify a crash at any point.
-fn roll_back_substitution(
-    target: &Path,
-    parent: &Path,
-    staging: &Path,
-    record: &mut Value,
-    retained: &Path,
-    checkpoint: &dyn Fn(&str) -> Result<()>,
-) -> Error {
-    let detected = "hostile substitution detected: the file published at the live path was not the verified staged catalog";
-    record["status"] = json!("rolling_back");
-    let rolled_back = migration::manifest(staging, record)
-        .and_then(|()| checkpoint(ROLLBACK_PENDING))
-        .and_then(|()| fs::rename(retained, target).map_err(Error::from))
-        .and_then(|()| migration::fsync(parent));
-    if let Err(error) = rolled_back {
-        return reconciliation_required(format!(
-            "{detected}, and restoring the previous catalog from {} failed: {error}",
-            retained.display()
-        ));
-    }
-    let _ = checkpoint(ROLLBACK_RENAMED);
-    record["status"] = json!("rolled_back");
-    let finalized = migration::manifest(staging, record)
+/// A publication whose renamed file was not the verified, locked staged
+/// catalog. Nothing is touched: the unexpected live file and its sidecars and
+/// `previous.sqlite3` all stay where they are for the operator, and the record
+/// says `substitution_detected`.
+fn substitution_detected(staging: &Path, record: &mut Value) -> Error {
+    record["status"] = json!("substitution_detected");
+    let unrecorded = migration::manifest(staging, record)
         .err()
-        .map(|error| format!("; the record could not be updated: {error}"))
+        .map(|error| format!(" (the record could not be updated: {error})"))
         .unwrap_or_default();
-    Error(format!(
-        "{detected}; the previous catalog was restored unchanged{finalized}"
+    reconciliation_required(format!(
+        "hostile substitution detected: the file published at the live path was not the verified staged catalog{unrecorded}. The unexpected live file and its sidecars are preserved and nothing was rolled back. To recover, quiesce every user, check the live path for sidecars, verify {} against the record's previous_sha256 and retained_identity, and restore it over the live path by hand",
+        record["retained"].as_str().unwrap_or_default()
     ))
 }
 
@@ -580,9 +559,9 @@ pub fn restore(
         .to_owned();
     let live_file = file_identity(&target)?;
     let live_json = identity_json(live_file);
-    // Records left at `publishing` or `rolling_back` are classified by the
-    // live file's inode: the previous file, the staged file or the retained
-    // copy. Anything else is an outcome that cannot be determined.
+    // Records left at `publishing` are classified by the live file's inode:
+    // the previous file or the staged file. Anything else, and any detected
+    // substitution, is an outcome that requires operator reconciliation.
     let mut records = previous_records(&target, &identity["database_id"])?;
     for (record_path, record) in &mut records {
         let directory = record_path
@@ -602,13 +581,9 @@ pub fn restore(
                     record_path.display()
                 )));
             }
-            Some("rolling_back") if record["retained_identity"] == live_json => {
-                record["status"] = json!("rolled_back");
-                migration::manifest(&directory, record)?;
-            }
-            Some("rolling_back") => {
+            Some("substitution_detected") => {
                 return Err(reconciliation_required(format!(
-                    "{} records an unfinished substitution rollback; the live path may hold an unverified file. Restore {} by hand",
+                    "{} records a detected substitution of the published catalog; verify {} against its previous_sha256 and retained_identity and restore it by hand",
                     record_path.display(),
                     record["retained"].as_str().unwrap_or_default()
                 )));
@@ -727,6 +702,7 @@ pub fn restore(
             "backup":snapshot, "backup_sha256":receipt["sha256"], "retained":retained,
             "live_identity":identity_json(live_file), "staged_identity":identity_json(staged_file),
             "retained_identity":identity_json(file_identity(&retained)?),
+            "previous_sha256":sha256(fs::read(&retained)?),
         });
         migration::manifest(&staging, &record)?;
         checkpoint("rotated")?;
@@ -802,20 +778,14 @@ pub fn restore(
         )));
     }
     // Bind the rename to the locked inode. Any pathname check leaves a window
-    // before the rename; a substituted file is rolled back, never reported.
+    // before the rename; a substituted file is never reported as published,
+    // and never overwritten automatically.
     let locked = descriptor_identity(&staged_descriptor).ok();
     if file_identity(&target).ok().is_none() || file_identity(&target).ok() != locked {
         drop(protected);
         drop(staged_descriptor);
         drop(live);
-        return Err(roll_back_substitution(
-            &target,
-            &parent,
-            &staging,
-            &mut record,
-            &retained,
-            checkpoint,
-        ));
+        return Err(substitution_detected(&staging, &mut record));
     }
     drop(protected);
     drop(staged_descriptor);

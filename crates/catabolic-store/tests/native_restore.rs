@@ -398,12 +398,8 @@ fn restore_exit_worker() {
     };
     let backup = std::env::var("CATABOLIC_TEST_RESTORE_BACKUP").unwrap();
     let stage = std::env::var("CATABOLIC_TEST_RESTORE_STAGE").unwrap();
-    let substitute = std::env::var_os("CATABOLIC_TEST_RESTORE_SUBSTITUTE").is_some();
     let result =
         native_restore::restore(Path::new(&path), Path::new(&backup), quiescent(), &|at| {
-            if substitute && at == native_restore::RENAME_WINDOW {
-                substitute_staged(Path::new(&path), Path::new(&backup));
-            }
             if at == stage {
                 std::process::exit(86);
             }
@@ -675,12 +671,13 @@ fn replacement_at_publishing_is_refused_before_the_rename() {
 }
 
 /// A substitution after the final checks is caught by binding the rename to
-/// the locked inode, and the previous catalog is put back byte for byte.
+/// the locked inode. Nothing is rolled back: the unexpected file stays at the
+/// live path, previous.sqlite3 stays in place and reconciliation is required.
 #[test]
-fn substitution_in_the_rename_window_is_rolled_back() {
+fn substitution_in_the_rename_window_is_preserved_for_reconciliation() {
     let (_root, path, receipt) = backed_up();
     let before = fs::read(&path).unwrap();
-    let live_incarnation = incarnation(&path);
+    let snapshot = fs::read(Path::new(receipt["backup"].as_str().unwrap())).unwrap();
     let error = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
         if at == native_restore::RENAME_WINDOW {
             substitute_staged(&path, &backup_directory(&receipt));
@@ -690,68 +687,29 @@ fn substitution_in_the_rename_window_is_rolled_back() {
     .unwrap_err();
     assert!(error.0.contains("hostile substitution detected"), "{error}");
     assert!(
-        error.0.contains("previous catalog was restored unchanged"),
+        error.0.contains("restore record reconciliation required"),
         "{error}"
     );
-    assert_eq!(fs::read(&path).unwrap(), before);
-    assert_eq!(incarnation(&path), live_incarnation);
-    assert_eq!(record_of(&path)["status"], "rolled_back");
-    migration::validate(&connect(&path, true).unwrap(), true).unwrap();
-    // A clean restore then proceeds normally.
-    let report = restore(&path, &receipt).unwrap();
-    assert_eq!(report["already_published"], false);
-    assert_eq!(items(&path, "later-item"), 0);
-}
-
-/// A crash during the rollback is classified on rerun: before the retained
-/// catalog is renamed back the outcome needs reconciliation; after it the
-/// rerun records the rollback and restores normally.
-#[test]
-fn crash_during_substitution_rollback_is_classified_on_rerun() {
-    for stage in [
-        native_restore::ROLLBACK_PENDING,
-        native_restore::ROLLBACK_RENAMED,
-    ] {
-        let (_root, path, receipt) = backed_up();
-        let before = fs::read(&path).unwrap();
-        let status = Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "restore_exit_worker", "--nocapture"])
-            .env("CATABOLIC_TEST_RESTORE_DATABASE", &path)
-            .env("CATABOLIC_TEST_RESTORE_BACKUP", backup_directory(&receipt))
-            .env("CATABOLIC_TEST_RESTORE_STAGE", stage)
-            .env("CATABOLIC_TEST_RESTORE_SUBSTITUTE", "1")
-            .status()
-            .unwrap();
-        assert_eq!(status.code(), Some(86), "{stage}");
-        assert_eq!(record_of(&path)["status"], "rolling_back", "{stage}");
-        if stage == native_restore::ROLLBACK_PENDING {
-            assert_ne!(fs::read(&path).unwrap(), before, "{stage}");
-            let held = fs::read(&path).unwrap();
-            let error = restore(&path, &receipt).unwrap_err();
-            assert!(
-                error.0.contains("restore record reconciliation required")
-                    && error.0.contains("unfinished substitution rollback"),
-                "{error}"
-            );
-            assert_eq!(fs::read(&path).unwrap(), held, "{stage}");
-        } else {
-            assert_eq!(fs::read(&path).unwrap(), before, "{stage}");
-            let report = restore(&path, &receipt).unwrap();
-            assert_eq!(report["already_published"], false, "{stage}");
-            let mut statuses = staging_directories(&path)
-                .iter()
-                .map(|directory| {
-                    serde_json::from_slice::<Value>(
-                        &fs::read(directory.join("manifest.json")).unwrap(),
-                    )
-                    .unwrap()["status"]
-                        .clone()
-                })
-                .collect::<Vec<_>>();
-            statuses.sort_by_key(|status| status.to_string());
-            assert_eq!(statuses, vec![json!("published"), json!("rolled_back")]);
-        }
-    }
+    assert!(error.0.contains("nothing was rolled back"), "{error}");
+    // The substituted file is preserved at the live path, not auto-restored.
+    assert_eq!(fs::read(&path).unwrap(), snapshot);
+    assert_ne!(fs::read(&path).unwrap(), before);
+    let record = record_of(&path);
+    assert_eq!(record["status"], "substitution_detected");
+    let retained = Path::new(record["retained"].as_str().unwrap());
+    assert_eq!(
+        record["previous_sha256"],
+        catabolic_core::sha256(fs::read(retained).unwrap())
+    );
+    assert_eq!(items(retained, "later-item"), 1);
+    // A rerun refuses rather than guessing, and changes nothing.
+    let error = restore(&path, &receipt).unwrap_err();
+    assert!(
+        error.0.contains("restore record reconciliation required")
+            && error.0.contains("detected substitution"),
+        "{error}"
+    );
+    assert_eq!(fs::read(&path).unwrap(), snapshot);
 }
 
 /// A rerun after an exit at `renamed` retries the directory fsync under the
@@ -901,6 +859,7 @@ fn incomplete_restore_records_require_reconciliation() {
         "incarnation",
         "backup",
         "backup_sha256",
+        "previous_sha256",
         "retained",
         "live_identity",
         "staged_identity",

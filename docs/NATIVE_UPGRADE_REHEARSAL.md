@@ -203,7 +203,7 @@ It is fail-closed and passes these checkpoints, in order:
 | `rotated` | Changes the staged copy's incarnation through the schema's restore-scoped permit, to a fresh value different from both the live and the snapshot incarnation. Checks that only `catalog_state` changed, that identities are preserved and that no worker ownership is left unresolved (see below). Records the whole-row digest of the rotated file and writes the staging `manifest.json` record (`catabolic-native-restore-v1`, status `staged`). | Live catalog unchanged; record says `staged` |
 | `protected` | Rechecks that the staged path is still the same regular file with one link and no sidecars and takes an exclusive SQLite lock on it. Under that lock, runs complete native validation (schema signature, history checksums, integrity, foreign keys, native state) and requires its complete state to equal the rotated file's: table digests, every schema object, full migration history rows, `sqlite_sequence` and the identity manifest | Live catalog unchanged |
 | `publishing` | Nothing new; the final checks follow it. After this checkpoint restore rechecks the staged file, the live pathname, the lease and the absence of `-journal`, `-wal` and `-shm` files, with both connections and a descriptor on the staged file held open, then writes the record with status `publishing`. A failed rename closes both connections and removes only this run's staging directory. | Live catalog unchanged; record says `staged` |
-| `renamed` | Renames the staged copy over the live path, then requires the live path's device and inode to equal the locked staged file's. This rename is the single commit point. | Restore in effect; durability not yet confirmed; record says `publishing` |
+| `renamed` | Renames the staged copy over the live path, then requires the live path's identity to equal the locked staged file's; on a mismatch nothing is touched and the record says `substitution_detected`. This rename is the single commit point. | Restore in effect; durability not yet confirmed; record says `publishing` |
 | `published` | Fsyncs the containing directory | Restore in effect and durable |
 | `finalizing` | Prepares the final record | Restore in effect; record still says `publishing` |
 | `finalized` | Writes the record with status `published` and its durability | Restore in effect; record final |
@@ -248,7 +248,7 @@ the live file is still the previous one, the rename never happened and the
 record becomes `abandoned`. If it is the staged file, the restore was
 published. Any other file needs reconciliation.
 
-### Threat model and substitution rollback
+### Threat model and detected substitution
 
 The staging directory has mode 0700, so only processes running as the same
 user, and root, can touch the staged file. The design defends against crashes
@@ -257,24 +257,27 @@ does not defend against root.
 
 A pathname check always leaves a window before the rename. So the rename is
 also bound to the inode that was verified and locked: immediately after it,
-restore compares the live path's device and inode with the held staged
-descriptor. On a mismatch the published file is a substitution. Restore then:
+restore compares the live path's identity with the held staged descriptor. On
+a mismatch the published file is a substitution. Restore does not touch the
+live path or try to roll back. It leaves the unexpected live file and any
+sidecars where they are, leaves `previous.sqlite3` in the staging directory,
+sets the record to `substitution_detected`, and fails with `hostile
+substitution detected` and `restore record reconciliation required`. Reruns
+refuse in the same way while that record exists.
 
-1. Writes the record with status `rolling_back`.
-2. Renames the byte-identical `previous.sqlite3` back over the live path.
-3. Fsyncs the directory.
-4. Writes the record with status `rolled_back`.
-5. Fails with `hostile substitution detected`.
+To recover by hand:
 
-The previous catalog is back, byte for byte.
+1. Quiesce every user of the catalog.
+2. Check the live path for `-journal`, `-wal` and `-shm` sidecars and keep
+   them with the unexpected file for investigation.
+3. Verify `previous.sqlite3` against the record's `previous_sha256` (its
+   whole-file SHA-256) and `retained_identity`.
+4. Copy the unexpected live file aside, then restore `previous.sqlite3` over
+   the live path by hand.
+5. Validate the result with `db native-inspect --full`, then resolve or
+   remove the record before the next restore.
 
-A rerun after a crash during the rollback also uses the inode. If the live
-file is the retained copy, the rollback completed; the record becomes
-`rolled_back` and the restore proceeds. Otherwise the live path may hold the
-unverified file, and the rerun refuses with `restore record reconciliation
-required`, naming the retained copy to restore by hand. `rename_window`,
-`rollback_pending` and `rollback_renamed` are checkpoints used only by these
-tests.
+`rename_window` is a checkpoint used only by these tests.
 
 Restore refuses backups with retained worker ownership. Cleanup witnesses for
 completed processing jobs and observation companions name the incarnation
@@ -306,8 +309,8 @@ identity and incarnation before use and require a reopen.
   migration-history and sequence changes;
 - injected failures at the rename and after it;
 - a replacement at `publishing`, refused before the rename;
-- a substitution in the rename window, rolled back to identical bytes;
-- crashes during that rollback;
+- a substitution in the rename window, detected and preserved for
+  reconciliation;
 - rerun durability after an uncertain publication;
 - unreadable or corrupt restore records;
 - a process exit at every checkpoint, followed by a rerun.
