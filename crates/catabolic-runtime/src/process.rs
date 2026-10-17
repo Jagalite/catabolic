@@ -6,14 +6,21 @@
 //! A command is not complete until its output pipes close and its leader exits.
 //! Every exit path kills the group and reaps the leader, including callback
 //! errors and unwinding. Descendants must not deliberately escape the session.
-//! Linux additionally kills the direct tool if its spawning worker dies; this
-//! parent-death guarantee is not yet qualified on macOS or for tool grandchildren.
+//!
+//! Parent death: every tool group also contains a small guardian, forked in the
+//! child after `setsid` and detached from the tool by a double fork. It holds
+//! only the read end of a lifeline pipe whose write end the spawning worker
+//! owns. When the worker exits for any reason (including SIGKILL) the kernel
+//! closes that end, the guardian reads EOF and SIGKILLs the whole group, so the
+//! direct tool and its grandchildren die on Linux and macOS alike. Normal
+//! retirement kills the group, guardian included. Linux keeps its direct-tool
+//! parent-death signal as an additional guarantee.
 
 use std::collections::BTreeMap;
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::io::{self, Read, Write};
-use std::os::fd::{AsRawFd, RawFd};
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -202,6 +209,9 @@ pub fn command_output<S: AsRef<OsStr>>(
     let pass_fds = options.pass_fds.to_vec();
     let umask = options.umask;
     let cwd_fd = options.cwd_fd;
+    let (lifeline_read, lifeline_write) = lifeline()
+        .map_err(|error| CommandFailure::from_io("cannot create parent-death lifeline", error))?;
+    let guardian_fd = lifeline_read.as_raw_fd();
     #[cfg(target_os = "linux")]
     let parent_pid = std::process::id() as libc::pid_t;
     let mut command = Command::new(executable);
@@ -244,6 +254,7 @@ pub fn command_output<S: AsRef<OsStr>>(
             if libc::setsid() == -1 {
                 return Err(io::Error::last_os_error());
             }
+            spawn_guardian(guardian_fd, fd_limit)?;
             if let Some(mask) = umask {
                 libc::umask(mask as libc::mode_t);
             }
@@ -257,11 +268,14 @@ pub fn command_output<S: AsRef<OsStr>>(
             Ok(())
         });
     }
-    let child = command
-        .spawn()
-        .map_err(|error| CommandFailure::from_io("cannot start command", error))?;
+    let child = command.spawn();
+    // Only the guardian keeps the read end. On spawn failure the write end is
+    // dropped too, so a guardian that was created reaps the failed group.
+    drop(lifeline_read);
+    let child = child.map_err(|error| CommandFailure::from_io("cannot start command", error))?;
     // Install the guard before any user callback or fallible operation.
     let mut process = ProcessGroup::new(child);
+    process.lifeline = Some(lifeline_write);
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
     let result = (|| {
@@ -576,6 +590,85 @@ fn returncode(status: ExitStatus) -> i32 {
 struct ProcessGroup {
     child: Child,
     retired: bool,
+    /// Write end of the guardian lifeline. Field drop follows `Drop::drop`, so
+    /// it closes only after the group has been killed and its leader reaped.
+    lifeline: Option<OwnedFd>,
+}
+
+/// A close-on-exec pipe: (read end for the guardian, write end for the worker).
+fn lifeline() -> io::Result<(OwnedFd, OwnedFd)> {
+    let mut fds: [libc::c_int; 2] = [-1; 2];
+    // SAFETY: fds is a writable two-element descriptor array.
+    if unsafe { libc::pipe(fds.as_mut_ptr()) } == -1 {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: pipe returned two new descriptors owned only by this function.
+    let (read, write) = unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) };
+    for fd in [&read, &write] {
+        let flags = fd_flags(fd.as_raw_fd())?;
+        // SAFETY: sets close-on-exec on a descriptor owned above.
+        if unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_SETFD, flags | libc::FD_CLOEXEC) } == -1 {
+            return Err(io::Error::last_os_error());
+        }
+    }
+    Ok((read, write))
+}
+
+/// Runs in the forked tool child after `setsid`, so the guardian joins the new
+/// group. A double fork reparents it away from the tool, which therefore never
+/// sees an unexpected child. Only async-signal-safe system calls are used.
+///
+/// # Safety
+/// Must be called only between fork and exec of a group leader.
+unsafe fn spawn_guardian(lifeline: RawFd, fd_limit: RawFd) -> io::Result<()> {
+    // SAFETY: fork, read, kill, close, waitpid and _exit are async-signal-safe;
+    // no memory is allocated and no lock is taken in either new process.
+    unsafe {
+        let first = libc::fork();
+        if first == -1 {
+            return Err(io::Error::last_os_error());
+        }
+        if first == 0 {
+            let second = libc::fork();
+            if second != 0 {
+                libc::_exit(if second == -1 { 1 } else { 0 });
+            }
+            // Guardian: keep only the lifeline, so no output pipe, exec-error
+            // pipe or the worker's write end stays open through this process.
+            for fd in 0..fd_limit {
+                if fd != lifeline {
+                    libc::close(fd);
+                }
+            }
+            let mut byte = 0u8;
+            loop {
+                let read = libc::read(lifeline, (&raw mut byte).cast(), 1);
+                if read == -1 && io::Error::last_os_error().raw_os_error() == Some(libc::EINTR) {
+                    continue;
+                }
+                break;
+            }
+            // EOF: the worker is gone or retired this group. Kill every member,
+            // this guardian included.
+            libc::kill(0, libc::SIGKILL);
+            libc::_exit(0);
+        }
+        let mut status = 0;
+        loop {
+            if libc::waitpid(first, &mut status, 0) == -1 {
+                let error = io::Error::last_os_error();
+                if error.raw_os_error() == Some(libc::EINTR) {
+                    continue;
+                }
+                return Err(error);
+            }
+            break;
+        }
+        if !libc::WIFEXITED(status) || libc::WEXITSTATUS(status) != 0 {
+            return Err(io::Error::from_raw_os_error(libc::EAGAIN));
+        }
+        Ok(())
+    }
 }
 
 #[cfg(any(target_os = "macos", test))]
@@ -592,6 +685,7 @@ impl ProcessGroup {
         Self {
             child,
             retired: false,
+            lifeline: None,
         }
     }
 
@@ -1391,6 +1485,114 @@ mod tests {
         )
         .unwrap();
         panic!("worker fixture unexpectedly completed");
+    }
+
+    /// Portable: the worker is SIGKILLed while its tool and a grandchild in
+    /// the tool's group are alive. The guardian must kill both.
+    #[test]
+    fn tool_and_grandchild_are_killed_when_worker_process_dies() {
+        let dir = tempfile::tempdir().unwrap();
+        let pid_path = dir.path().join("pids");
+        let mut worker = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "process::tests::guardian_fixture_worker",
+                "--nocapture",
+            ])
+            .env("CATABOLIC_GUARDIAN_FIXTURE", &pid_path)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let pids: Vec<libc::pid_t> = loop {
+            if let Ok(raw) = fs::read_to_string(&pid_path)
+                && raw.ends_with('\n')
+                && let Ok(pids) = raw
+                    .split_whitespace()
+                    .map(str::parse)
+                    .collect::<Result<Vec<_>, _>>()
+                && pids.len() == 2
+            {
+                break pids;
+            }
+            assert!(Instant::now() < deadline, "tool failed to start");
+            thread::sleep(Duration::from_millis(10));
+        };
+        let group = pids[0];
+        // Both processes are alive members of the tool's private group.
+        for &pid in &pids {
+            // SAFETY: getpgid only queries the named fixture process.
+            assert_eq!(unsafe { libc::getpgid(pid) }, group);
+        }
+        worker.kill().unwrap();
+        worker.wait().unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            // A killed member may linger briefly as a zombie of the system
+            // reaper; it is then no longer a live member of the group.
+            // SAFETY: signal 0 only probes the fixture group for live members.
+            let alive = unsafe { libc::kill(-group, 0) } == 0;
+            if !alive {
+                break;
+            }
+            if Instant::now() >= deadline {
+                // SAFETY: failure-path cleanup of our own fixture group.
+                unsafe {
+                    libc::kill(-group, libc::SIGKILL);
+                }
+                panic!("orphan tool group survived worker death");
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    #[test]
+    fn guardian_fixture_worker() {
+        let Some(path) = std::env::var_os("CATABOLIC_GUARDIAN_FIXTURE") else {
+            return;
+        };
+        // The tool starts a grandchild in its own group, records both PIDs
+        // atomically (one write ending in a newline), then waits.
+        command_output(
+            &[
+                OsString::from("/bin/sh"),
+                OsString::from("-c"),
+                OsString::from(
+                    "/bin/sleep 60 & child=$!; printf '%s %s\\n' $$ $child > \"$1.tmp\"; mv \"$1.tmp\" \"$1\"; wait",
+                ),
+                OsString::from("fixture"),
+                path,
+            ],
+            CommandOptions {
+                timeout: Duration::from_secs(70),
+                ..CommandOptions::default()
+            },
+        )
+        .unwrap();
+        panic!("worker fixture unexpectedly completed");
+    }
+
+    #[test]
+    fn guardian_leaves_no_process_after_normal_and_failed_commands() {
+        // Normal retirement kills the group, guardian included.
+        let output =
+            command_output(&["/bin/sh", "-c", "echo $$"], CommandOptions::default()).unwrap();
+        let group: libc::pid_t = String::from_utf8(output.stdout)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        // SAFETY: signal 0 only probes the retired fixture group.
+        while unsafe { libc::kill(-group, 0) } == 0 {
+            assert!(Instant::now() < deadline, "guardian outlived retirement");
+            thread::sleep(Duration::from_millis(10));
+        }
+        // A missing executable still reports the original spawn failure.
+        let failure = command_output(&["/nonexistent/catabolic-tool"], CommandOptions::default())
+            .unwrap_err();
+        assert_eq!(failure.state, "unavailable");
     }
 
     fn assert_reaped(pid: libc::pid_t) {

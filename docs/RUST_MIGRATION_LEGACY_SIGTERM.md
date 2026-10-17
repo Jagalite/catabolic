@@ -153,3 +153,11 @@ failing before any signal is sent for reasons unrelated to this change: every
 unqualified on this platform"), the two in-flight consumer-watch TERM methods
 (the harness uses Linux `ps --ppid`) and `test_rust_legacy_sigterm` (it observes
 helpers through `/proc`). Those need the Linux lane.
+
+**Update (track D supervision):** the native API and playback workers no longer
+refuse on macOS. Every tool group now carries a lifeline guardian (see
+`catabolic-runtime/src/process.rs`), and the three harnesses above use the
+portable `tests/process_tree.py` (`ps -A`) instead of `/proc` and `ps --ppid`.
+On macOS arm64, `test_rust_legacy_api_worker` (5 methods, including TERM in all
+three modes), `test_rust_legacy_consumer_watch` (12, including both in-flight
+TERM methods) and `test_rust_legacy_sigterm` (4) now pass.

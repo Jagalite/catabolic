@@ -22,8 +22,8 @@ from tests.test_rust_migration import BINARY
 
 
 @unittest.skipUnless(
-    sys.platform.startswith("linux") and shutil.which("ffmpeg"),
-    "native Linux playback supervision and FFmpeg",
+    sys.platform.startswith(("linux", "darwin")) and shutil.which("ffmpeg"),
+    "native playback supervision (Linux or macOS) and FFmpeg",
 )
 class NativePlaybackTest(unittest.TestCase):
     def setUp(self):

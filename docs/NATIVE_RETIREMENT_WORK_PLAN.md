@@ -182,3 +182,42 @@ moves to track E with the thin-wrapper boundary.
 in-flight consumer-watch TERM (Linux `ps --ppid`) and `test_rust_legacy_sigterm`
 (it observes helpers through `/proc`). Logs are under
 `/Volumes/seed1/Projects/catabolic-builds/evidence/track-d/logs/`.
+
+### Supervision: macOS parent-death and grandchildren (track D, October 17)
+
+**Closed.** Each tool started by `catabolic_runtime::process::command_output`
+gets a guardian process in its private process group. The guardian is forked
+after `setsid` and detached from the tool by a double fork. It keeps only the
+read end of a close-on-exec lifeline pipe; the spawning worker owns the write
+end. When the worker exits for any reason, including SIGKILL, the guardian
+reads EOF and SIGKILLs the whole group, so the direct tool and its
+grandchildren die on macOS as well as Linux. Normal retirement still kills the
+group, guardian included. Linux keeps `PR_SET_PDEATHSIG` as an extra guarantee.
+The API worker and playback worker `run`/`tick` no longer refuse on macOS.
+
+Test harnesses are portable: `tests/process_tree.py` reads the kernel process
+table through `ps -A` (procps and BSD ps), replacing `/proc` scans and
+`ps --ppid`. `test_rust_playback` now also runs on macOS when FFmpeg is present.
+
+Results on macOS arm64:
+
+- Runtime unit tests: 149 passed, 2 ignored, including the new portable test
+  that SIGKILLs a worker and checks that its tool and a grandchild die, and a
+  test that no guardian outlives normal or failed commands. One fixture hit a
+  shared-budget timeout under load and passed when rerun.
+- Python suites:
+  - `test_rust_legacy_api_worker`: 5
+  - `test_rust_legacy_consumer_watch`: 12
+  - `test_rust_legacy_sigterm`: 4
+  - `test_rust_legacy_external_rule`: 18, no skips
+  - `test_rust_legacy_external_worker_diagnostics`: 12, no skips
+  - `test_rust_playback`: 19, on the second full run. The first full run, under
+    heavy host load from another lane, had six 30-second CLI timeouts; that log
+    is retained.
+
+Limits: a descendant that deliberately leaves the session (its own `setsid`)
+escapes, as before. The lifeline pipe is created and then marked close-on-exec
+in two steps, because macOS has no `pipe2`. A fork by an unrelated spawner
+between those steps could inherit the write end; spawns through this module
+mark every descriptor close-on-exec. The fallback probe helper keeps its
+existing stdin-EOF handoff and was not changed.

@@ -14,8 +14,8 @@ import subprocess
 import threading
 import unittest
 from contextlib import closing
-from pathlib import Path
 
+from tests import process_tree
 from tests import test_rust_legacy_external_rule as external
 from tests.test_native_cli_callable_contract import load
 
@@ -52,9 +52,7 @@ class LegacySigtermContract(unittest.TestCase):
 
     def assert_reaped(self, descendants):
         self.assertTrue(descendants, "no supervised helper was observed")
-        self.assertEqual(
-            [pid for pid in descendants if Path(f"/proc/{pid}").exists()], []
-        )
+        self.assertEqual(process_tree.present(descendants), [])
 
     def terminate(self, fixture, child):
         descendants = fixture.descendants(child.pid)

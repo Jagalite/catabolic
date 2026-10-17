@@ -21,6 +21,7 @@ from contextlib import closing
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from tests import process_tree
 from tests import test_rust_legacy_cli as legacy
 from tests.test_rust_legacy_cli import BINARY, ORACLE
 from tests.test_rust_legacy_parser import PYTHON, REFERENCE
@@ -531,15 +532,9 @@ bind(sys.argv[2], 'default', 'movies', 'fixture', 'global', '', '/fixture/Movies
         self.assertTrue(self.entered.wait(10), self.server_errors)
         # Server readiness proves this tick is blocked in real loopback I/O,
         # rather than the supervisor already having completed its tick.
-        children = subprocess.run(
-            ["ps", "--ppid", str(process.pid), "-o", "pid=,args="],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=5,
-        ).stdout.splitlines()
+        children = process_tree.children(process.pid)
         self.assertEqual(len(children), 1, children)
-        tick_pid, command = children[0].strip().split(maxsplit=1)
+        tick_pid, command = str(children[0][0]), children[0][1]
         self.assertIn("__legacy-consumer-watch-tick", command)
         self.assert_writer_available(self.native)
         self.assertEqual(self.stop(process, signal.SIGTERM), ("", ""))

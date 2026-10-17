@@ -12,7 +12,6 @@ import shutil
 import socket
 import unittest
 from dataclasses import dataclass
-from pathlib import Path
 
 import tests.test_rust_legacy_external_rule as fixture
 
@@ -338,7 +337,6 @@ class ExternalWorkerDiagnosticsTest(fixture.NativeLegacyExternalRuleTest):
     def test_cancel_cleanup_neighbor(self):
         super().test_cancellation_during_network_wait_fences_late_response()
 
-    @unittest.skipUnless(Path("/proc/self/task").exists(), "Linux process-tree witness")
     def test_interrupt_cleanup_neighbor(self):
         super().test_interrupt_reaps_http_child_and_leaves_reclaimable_durable_lease()
 

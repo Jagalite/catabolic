@@ -26,6 +26,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from uuid import UUID
 
+from tests import process_tree
 from tests.test_rust_legacy_review import ORACLE, PYTHON, REFERENCE
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -820,31 +821,10 @@ class NativeLegacyExternalRuleTest(unittest.TestCase):
 
     @staticmethod
     def descendants(pid):
-        parents = {}
-        # Some container kernels omit task/*/children. Process status is the
-        # kernel's own parent identity and works for both Python and the native
-        # worker thread's child without inferring a subprocess from HTTP alone.
-        for status in Path("/proc").glob("[0-9]*/status"):
-            try:
-                fields = dict(
-                    line.split(":", 1) for line in status.read_text().splitlines()
-                )
-                parents[int(status.parent.name)] = int(fields["PPid"])
-            except (FileNotFoundError, ProcessLookupError):
-                pass
-        found = set()
-        pending = [pid]
-        while pending:
-            parent = pending.pop()
-            for child, owner in parents.items():
-                if owner != parent:
-                    continue
-                if child not in found:
-                    found.add(child)
-                    pending.append(child)
-        return found
+        # Portable kernel process table (Linux procps and macOS ps), covering
+        # both Python's and the native worker thread's HTTP children.
+        return process_tree.descendants(pid)
 
-    @unittest.skipUnless(Path("/proc/self/task").exists(), "Linux process-tree witness")
     def test_interrupt_reaps_http_child_and_leaves_reclaimable_durable_lease(self):
         before = {flag: self.snapshot(flag) for flag in (True, False)}
         results = {}
@@ -860,13 +840,10 @@ class NativeLegacyExternalRuleTest(unittest.TestCase):
             )
             self.assertEqual(child.returncode, 130, (stdout, stderr))
             deadline = time.monotonic() + 5
-            while (
-                any(Path(f"/proc/{pid}").exists() for pid in descendants)
-                and time.monotonic() < deadline
-            ):
+            while process_tree.present(descendants) and time.monotonic() < deadline:
                 time.sleep(0.02)
             self.assertFalse(
-                [pid for pid in descendants if Path(f"/proc/{pid}").exists()],
+                process_tree.present(descendants),
                 "HTTP descendants were not reaped",
             )
             self.assert_writer_available(flag)
