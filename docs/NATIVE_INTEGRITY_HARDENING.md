@@ -231,56 +231,89 @@ established from the evidence listed in step 4, reset instead.
 2. **Back up the catalog** with `sqlite3 CATALOG ".backup DAMAGED"`. This
    preserves the damaged state. It is not evidence for step 4.
 3. **Inspect.** `catabolic watcher show NAME` prints `pending_reaction`, and
-   `catabolic watcher history NAME` prints the latest 100 runs. To walk the
-   whole chain, use this query, replacing `:profile` and `:name`. Like the
-   engine, it follows a link only to a run owned by the same profile and
-   watcher. Every JSON function is guarded by `json_valid`, so null and
-   malformed results are reported instead of aborting the query:
+   `catabolic watcher history NAME` prints the latest 100 runs. To check the
+   whole chain exactly as the engine will, run the query below, replacing
+   `:profile` and `:name`.
+
+   The engine's walk (`transition()` in `crates/catabolic-store/src/watcher.rs`)
+   makes these checks for each run, in this order:
+
+   | # | `transition()` check | Rejects with `watcher_transition_unresolved` when | Query `verdict` |
+   | --- | --- | --- | --- |
+   | 1 | Length bound: at most 100,000 runs per walk | a 100,001st lookup would be needed | `reject: too long` |
+   | 2 | Visited set | the run was already visited | `reject: cycle` |
+   | 3 | Row lookup by `id`, `profile` and `watcher` | no row with that ID exists | `reject: missing row` |
+   | 3 | (same lookup) | the ID exists under another profile or watcher | `reject: other owner` |
+   | 4 | `json_valid(result)` | the result is SQL NULL or not valid JSON | `reject: invalid result` |
+   | 5 | `phase` is the text `planned` | `phase` is missing, not text, or another value | `reject: phase` |
+   | 6 | `retry_of` type is JSON null or text | `retry_of` is missing or any other type | `reject: link type` |
+   | 7 | `evaluation.changed` is `true` | (accepts: the walk ends at this changed run) | `intact: changed run` |
+   | 7 | `changed` is `false` and `retry_of` is null | (accepts: unchanged root, nothing to notify) | `intact: unchanged root` |
+   | 7 | `changed` is `false` and `retry_of` is text | (continues to the linked run) | `follow` |
+   | 7 | anything else | `changed` is missing or not a boolean | `reject: changed type` |
+
+   The engine starts at the retrying run itself, whose `retry_of` is the
+   current `pending_reaction`. The query starts at `pending_reaction`, so its
+   depth `d` is the engine's lookup `d + 2`. The length bound is therefore
+   reached when the row at depth 99,998 would continue. If the retrying run
+   itself sees a newer change, the walk ends at that run and the damage
+   below it is not consulted.
 
    ```sql
    WITH RECURSIVE chain(id, depth) AS (
      SELECT pending_reaction, 0 FROM watchers
      WHERE profile=:profile AND name=:name AND pending_reaction IS NOT NULL
      UNION ALL
-     SELECT CASE WHEN json_valid(r.result) THEN json_extract(r.result,'$.retry_of') END,
-            c.depth+1
+     SELECT json_extract(r.result,'$.retry_of'), c.depth+1
      FROM chain c JOIN watcher_runs r
-       ON r.id=c.id AND r.profile=:profile AND r.watcher=:name
-     WHERE CASE WHEN json_valid(r.result)
-                THEN json_type(r.result,'$.phase')='text'
+       -- Unary + keeps each step a primary-key lookup instead of a scan
+       -- of the watcher's whole run history.
+       ON r.id=c.id AND +r.profile=:profile AND +r.watcher=:name
+     WHERE c.depth<99998
+       AND CASE WHEN r.result IS NULL OR NOT json_valid(r.result) THEN 0
+                ELSE json_type(r.result,'$.phase')='text'
                  AND json_extract(r.result,'$.phase')='planned'
                  AND json_type(r.result,'$.retry_of')='text'
-                 AND json_type(r.result,'$.evaluation.changed')='false'
-                ELSE 0 END
-       AND c.depth<1000)
-   SELECT c.depth, c.id, r.state, r.started_at,
-          CASE WHEN r.id IS NULL AND o.id IS NOT NULL THEN 'other owner'
-               WHEN r.id IS NULL THEN 'missing row'
-               WHEN r.result IS NULL THEN 'null result'
-               WHEN NOT json_valid(r.result) THEN 'malformed result'
-               ELSE 'valid' END AS result_status,
-          CASE WHEN json_valid(r.result) THEN json_type(r.result,'$.phase') END AS phase_type,
-          CASE WHEN json_valid(r.result) THEN json_extract(r.result,'$.phase') END AS phase,
-          CASE WHEN json_valid(r.result) THEN json_type(r.result,'$.evaluation.changed') END AS changed,
-          CASE WHEN json_valid(r.result) THEN json_type(r.result,'$.retry_of') END AS link
-   FROM chain c
-   LEFT JOIN watcher_runs r ON r.id=c.id AND r.profile=:profile AND r.watcher=:name
-   LEFT JOIN watcher_runs o ON o.id=c.id
-   ORDER BY c.depth;
+                 AND json_type(r.result,'$.evaluation.changed')='false' END),
+   checked AS (
+     SELECT c.depth, c.id, r.state, r.started_at,
+       CASE WHEN row_number() OVER (PARTITION BY c.id ORDER BY c.depth)>1 THEN 'reject: cycle'
+            WHEN r.id IS NULL AND o.id IS NOT NULL THEN 'reject: other owner'
+            WHEN r.id IS NULL THEN 'reject: missing row'
+            WHEN r.result IS NULL OR NOT json_valid(r.result) THEN 'reject: invalid result'
+            WHEN json_type(r.result,'$.phase') IS NOT 'text'
+              OR json_extract(r.result,'$.phase') IS NOT 'planned' THEN 'reject: phase'
+            WHEN json_type(r.result,'$.retry_of') IS NULL
+              OR json_type(r.result,'$.retry_of') NOT IN ('null','text') THEN 'reject: link type'
+            WHEN json_type(r.result,'$.evaluation.changed')='true' THEN 'intact: changed run'
+            WHEN json_type(r.result,'$.evaluation.changed')='false'
+             AND json_type(r.result,'$.retry_of')='null' THEN 'intact: unchanged root'
+            WHEN json_type(r.result,'$.evaluation.changed')='false' AND c.depth>=99998
+              THEN 'reject: too long'
+            WHEN json_type(r.result,'$.evaluation.changed')='false' THEN 'follow'
+            ELSE 'reject: changed type' END AS verdict
+     FROM chain c
+     LEFT JOIN watcher_runs r ON r.id=c.id AND r.profile=:profile AND r.watcher=:name
+     LEFT JOIN watcher_runs o ON o.id=c.id),
+   decided AS (
+     SELECT *, min(CASE WHEN verdict<>'follow' THEN depth END) OVER () AS deciding
+     FROM checked)
+   SELECT depth, id, state, started_at, verdict FROM decided
+   WHERE depth<=deciding ORDER BY depth;
    ```
 
-   The last row is where the walk stops. The chain is intact if that row is
-   valid with phase `planned` and either `changed` is `true`, or `changed` is
-   `false` and `link` is `null`. Otherwise the walk stopped at damage:
-   - `missing row`, or `other owner` (the ID belongs to another profile or
-     watcher). The damage is then the link in the previous row, which points
-     to a run the engine will not follow. Its correct value can come only from
-     a pre-damage backup.
-   - `phase_type` other than `text`.
-   - `changed` other than `true`/`false`.
-   - `link` other than `text`/`null`.
+   The `CASE` branches are evaluated in order, so JSON functions only run on
+   valid results. The query lists the chain up to and including the deciding
+   row:
+   - **The chain is intact** only when that row's verdict starts with
+     `intact:`.
+   - **`reject: missing row` or `reject: other owner`:** the damage is the link
+     in the previous row. Only a pre-damage backup can supply its value.
+   - **`reject: cycle` or `reject: too long`:** some link in the listed rows
+     is wrong. Only a pre-damage backup can show which.
+   - **Any other `reject:` verdict:** the damage is in that row's own fields.
 
-   If the chain has a cycle, the query lists repeating IDs until depth 1000.
+   No output at all means no reaction is pending.
 4. **Establish each damaged value from trustworthy evidence only.** Leave
    intact fields untouched. Only these sources count:
    - **A backup taken before the damage**, holding the same run, with the same
@@ -343,8 +376,8 @@ established from the evidence listed in step 4, reset instead.
    Do not edit `pending_reaction`, `baseline`, `pending_generation`,
    `requested_generation`, `consumer_events` or `notification_deliveries`.
    Event identity and pending demand are derived from those columns.
-6. **Re-run the step 3 query**, confirm the chain is now intact, and restart
-   the writers.
+6. **Re-run the step 3 query.** Restart the writers only when the deciding
+   row's verdict starts with `intact:`.
 
 **Reset**, for a missing run row, a value that cannot be established, or any
 doubt: run `catabolic watcher disable NAME`, then
