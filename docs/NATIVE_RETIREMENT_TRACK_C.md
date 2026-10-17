@@ -106,6 +106,58 @@ it controls:
 - **Gates.** Both gates stay closed in release builds. Lifting them needs
   independent review and the user's decision.
 
+**Implemented, with one change to the plan.** HFS+ (the evidence volume)
+rejects `RENAME_SWAP` with `ENOTSUP`, and APFS accepts it. Refusing
+replacement on HFS+ outputs would remove a working frozen feature, so the
+native engine uses exchange where it is supported and a quarantine mode
+otherwise. Both modes are equally safe for data:
+
+1. Rename the leaf exclusively to `.catabolic-unlink-<id>`.
+2. Verify the moved entry. A foreign entry is renamed back.
+3. Publish `.catabolic-link-<id>` with an exclusive rename. If the leaf has
+   reappeared, nothing is overwritten. Both links are preserved and the
+   operation fails closed.
+4. Delete the verified previous link.
+
+In quarantine mode, readers can briefly see the leaf missing between steps 1
+and 3. Frozen `os.replace` never shows that gap. This visibility difference
+needs the user's acceptance.
+
+Three crash points are new:
+
+| Stage | State left behind | Native recovery |
+| --- | --- | --- |
+| `after_exchange` | The leaf is the new link; the temporary holds the previous link | Deletes the verified temporary, then acknowledges |
+| `after_quarantine` | Remove: the leaf is absent and the quarantine holds the previous link | Deletes the verified quarantine, then acknowledges |
+| `after_quarantine` | Replace: the leaf is absent, the temporary is the new link and the quarantine is the previous link | Publishes if the replacement is still desired, otherwise restores the previous link |
+| `after_publish` | The leaf is the new link; the quarantine holds the previous link | Deletes the verified quarantine, then acknowledges |
+
+A foreign entry found at either private name always blocks recovery with
+`private publication entry … changed externally; inspect it`, and is never
+deleted.
+
+Frozen Python reaches these states only through handover. It acknowledges the
+exchange, publish and remove-quarantine states, leaving an inert private link
+behind. It refuses the replace-quarantine state with
+`replacement destination changed externally`. None of this is destructive.
+Item 6 records both behaviors.
+
+**Evidence** (Kyoto job `51aae75494a34cffa7c58cd059275bf4`):
+
+- The crash matrix passes 62 cases in quarantine mode, under `TMPDIR` on
+  HFS+. It passes 61 cases in exchange mode on an APFS directory, through the
+  ignored test `publication_crash_points_in_the_other_replacement_mode`.
+- New unit tests cover these cases:
+  - A foreign leaf swapped in just before displacement is restored, for both
+    replace and remove.
+  - A second writer reuses the leaf name, and both foreign entries survive.
+  - Every interrupted private link is cleaned up after verification.
+  - A foreign file planted at a private name is never deleted.
+- The two hardlink race tests now expect the foreign entry back at its own
+  name. If that name has been reused, they expect it kept in retention.
+- The old test that characterized frozen Python destroying the foreign leaf
+  is replaced. Its premise no longer holds for native code.
+
 ## 3. Reconciler apply and recover
 
 **Exists.** The native CLI `sync`/`recover` route into
@@ -185,6 +237,6 @@ it.
 
 | Item | Status | Commit |
 | --- | --- | --- |
-| 1 | In progress | |
-| 2 | Not started | |
+| 1 | Implemented (59-case matrix at the time; 62 with item 2) | `8ffd97d` |
+| 2 | Implemented; release gates still closed | this commit |
 | 3–6 | Not started | |

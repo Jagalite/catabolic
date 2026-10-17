@@ -1225,6 +1225,9 @@ pub const PUBLICATION_FAILPOINTS: &[&str] = &[
     "after_marker_create",
     "after_marker_write",
     "after_temporary",
+    "after_exchange",
+    "after_quarantine",
+    "after_publish",
     "after_retention_marker_create",
     "after_retention_marker_write",
     "before_retention_rename",
@@ -1347,16 +1350,250 @@ fn validate_intent_context(
 }
 #[cfg(test)]
 thread_local! {
-    // Test-only deterministic scheduler for the unresolved POSIX leaf race.
+    // Test-only deterministic schedulers for a concurrent foreign leaf writer:
+    // just before the leaf is displaced, and just after it is displaced.
     static BEFORE_DESTRUCTIVE_LEAF: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = std::cell::RefCell::new(None);
+    static AFTER_DESTRUCTIVE_LEAF: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = std::cell::RefCell::new(None);
 }
-#[cfg(test)]
 fn before_destructive_leaf() {
+    #[cfg(test)]
     BEFORE_DESTRUCTIVE_LEAF.with(|hook| {
         if let Some(hook) = hook.borrow_mut().take() {
             hook();
         }
     });
+}
+fn after_destructive_leaf() {
+    #[cfg(test)]
+    AFTER_DESTRUCTIVE_LEAF.with(|hook| {
+        if let Some(hook) = hook.borrow_mut().take() {
+            hook();
+        }
+    });
+}
+
+// Safe replace/remove protocol (track C2). A published leaf is never renamed
+// over or unlinked in place. It is first displaced to a private name derived
+// from the journal operation, by atomic exchange or exclusive rename. Only an
+// entry verified there as the expected owned link is deleted. A foreign entry
+// is moved back without overwriting anything, or left at the private name.
+
+/// Private name holding the new link before publication. After an atomic
+/// exchange it holds the displaced entry. Frozen Python uses the same name.
+fn temporary_name(id: &str) -> String {
+    format!(".catabolic-link-{id}")
+}
+/// Private name holding a leaf displaced by exclusive rename.
+fn quarantine_name(id: &str) -> String {
+    format!(".catabolic-unlink-{id}")
+}
+#[derive(Clone, Copy)]
+enum Rename {
+    Exclusive,
+    Exchange,
+}
+/// Rename within one directory. Neither mode can replace an existing entry:
+/// an exclusive rename refuses an occupied destination, and an exchange swaps
+/// the two entries atomically.
+fn rename_in(parent: &File, from: &str, to: &str, mode: Rename) -> std::io::Result<()> {
+    let invalid = |_| std::io::Error::from(std::io::ErrorKind::InvalidInput);
+    let from = CString::new(from).map_err(invalid)?;
+    let to = CString::new(to).map_err(invalid)?;
+    #[cfg(target_os = "linux")]
+    let flags = match mode {
+        Rename::Exclusive => libc::RENAME_NOREPLACE,
+        Rename::Exchange => libc::RENAME_EXCHANGE,
+    };
+    #[cfg(target_os = "linux")]
+    // SAFETY: live descriptor and NUL-terminated names; the flags never replace an entry.
+    let result = unsafe {
+        libc::renameat2(
+            parent.as_raw_fd(),
+            from.as_ptr(),
+            parent.as_raw_fd(),
+            to.as_ptr(),
+            flags,
+        )
+    };
+    #[cfg(target_os = "macos")]
+    let flags = match mode {
+        Rename::Exclusive => libc::RENAME_EXCL,
+        Rename::Exchange => libc::RENAME_SWAP,
+    };
+    #[cfg(target_os = "macos")]
+    // SAFETY: live descriptor and NUL-terminated names; the flags never replace an entry.
+    let result = unsafe {
+        libc::renameatx_np(
+            parent.as_raw_fd(),
+            from.as_ptr(),
+            parent.as_raw_fd(),
+            to.as_ptr(),
+            flags,
+        )
+    };
+    if result < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    Ok(())
+}
+/// Whether the filesystem lacks atomic exchange (for example HFS+).
+fn exchange_unsupported(error: &std::io::Error) -> bool {
+    // ENOTSUP and EOPNOTSUPP are equal on Linux and distinct on macOS.
+    error.raw_os_error().is_some_and(|code| {
+        [libc::ENOTSUP, libc::EOPNOTSUPP, libc::EINVAL, libc::ENOSYS].contains(&code)
+    })
+}
+/// Delete a private entry only when it is a symlink to one of `allowed`.
+/// Anything else is preserved and reported.
+fn discard_private(parent: &File, name: &str, allowed: &[Option<&str>]) -> Result<()> {
+    match state_at(parent, name)? {
+        (s, _) if s == "absent" => Ok(()),
+        (s, t) if s == "link" && allowed.contains(&t.as_deref()) => {
+            unlink(parent, name)?;
+            parent.sync_all()?;
+            Ok(())
+        }
+        _ => Err(Error(format!(
+            "private publication entry {name} changed externally; inspect it"
+        ))),
+    }
+}
+/// Return a displaced foreign entry to its leaf, never overwriting.
+fn restore_displaced(parent: &File, private: &str, leaf: &str, path: &str, what: &str) -> Error {
+    match rename_in(parent, private, leaf, Rename::Exclusive) {
+        Ok(()) => match parent.sync_all() {
+            Ok(()) => Error(format!(
+                "owned link changed before {what}: {path}; the foreign entry was restored and nothing was overwritten or removed"
+            )),
+            Err(e) => e.into(),
+        },
+        Err(e) => Error(format!(
+            "owned link changed during {what}: {path}; the foreign entry is preserved at {private} ({e})"
+        )),
+    }
+}
+/// Publish the staged new link after the previous link was quarantined, then
+/// delete the verified previous link.
+fn publish_quarantined(
+    parent: &File,
+    leaf: &str,
+    id: &str,
+    previous: Option<&str>,
+    path: &str,
+    args: &Value,
+) -> Result<()> {
+    let (temporary, quarantine) = (temporary_name(id), quarantine_name(id));
+    if let Err(e) = rename_in(parent, &temporary, leaf, Rename::Exclusive) {
+        return Err(Error(format!(
+            "replacement destination appeared during replacement: {path}; the previous link is preserved at {quarantine} and the new link at {temporary} ({e})"
+        )));
+    }
+    parent.sync_all()?;
+    failpoint(args, "after_publish")?;
+    discard_private(parent, &quarantine, &[previous])
+}
+/// Replace the verified owned link at `leaf` with the staged temporary.
+fn replace_leaf(
+    parent: &File,
+    leaf: &str,
+    id: &str,
+    target: &str,
+    previous: Option<&str>,
+    path: &str,
+    args: &Value,
+) -> Result<()> {
+    let (temporary, quarantine) = (temporary_name(id), quarantine_name(id));
+    before_destructive_leaf();
+    match rename_in(parent, &temporary, leaf, Rename::Exchange) {
+        Ok(()) => {
+            parent.sync_all()?;
+            failpoint(args, "after_exchange")?;
+            after_destructive_leaf();
+            // The displaced entry is now at the temporary name.
+            if state_at(parent, &temporary)? == ("link".into(), previous.map(str::to_owned)) {
+                return discard_private(parent, &temporary, &[previous]);
+            }
+            // A foreign entry was displaced: swap it back atomically.
+            if let Err(e) = rename_in(parent, &temporary, leaf, Rename::Exchange) {
+                return Err(Error(format!(
+                    "owned link changed during replacement: {path}; the foreign entry is preserved at {temporary} ({e})"
+                )));
+            }
+            parent.sync_all()?;
+            if state_at(parent, &temporary)? == ("link".into(), Some(target.to_owned())) {
+                Err(Error(format!(
+                    "owned link changed before replacement: {path}; the foreign entry was restored and nothing was overwritten or removed"
+                )))
+            } else {
+                Err(Error(format!(
+                    "owned link changed during replacement: {path}; displaced entries are preserved at {leaf} and {temporary}"
+                )))
+            }
+        }
+        Err(e) if exchange_unsupported(&e) => {
+            // No atomic exchange: quarantine the previous link, then publish
+            // exclusively. The leaf is briefly absent between the two renames.
+            if state_at(parent, &quarantine)?.0 != "absent" {
+                return Err(Error(format!(
+                    "private publication entry {quarantine} changed externally; inspect it"
+                )));
+            }
+            rename_in(parent, leaf, &quarantine, Rename::Exclusive)?;
+            parent.sync_all()?;
+            failpoint(args, "after_quarantine")?;
+            after_destructive_leaf();
+            if state_at(parent, &quarantine)? != ("link".into(), previous.map(str::to_owned)) {
+                return Err(restore_displaced(
+                    parent,
+                    &quarantine,
+                    leaf,
+                    path,
+                    "replacement",
+                ));
+            }
+            publish_quarantined(parent, leaf, id, previous, path, args)
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+/// Remove the verified owned link at `leaf` by quarantining it first.
+fn remove_leaf(
+    parent: &File,
+    leaf: &str,
+    id: &str,
+    previous: Option<&str>,
+    path: &str,
+    args: &Value,
+) -> Result<()> {
+    let quarantine = quarantine_name(id);
+    if state_at(parent, &quarantine)?.0 != "absent" {
+        return Err(Error(format!(
+            "private publication entry {quarantine} changed externally; inspect it"
+        )));
+    }
+    before_destructive_leaf();
+    rename_in(parent, leaf, &quarantine, Rename::Exclusive)?;
+    parent.sync_all()?;
+    failpoint(args, "after_quarantine")?;
+    after_destructive_leaf();
+    if state_at(parent, &quarantine)? != ("link".into(), previous.map(str::to_owned)) {
+        return Err(restore_displaced(
+            parent,
+            &quarantine,
+            leaf,
+            path,
+            "removal",
+        ));
+    }
+    discard_private(parent, &quarantine, &[previous])
+}
+/// The leaf's parent, if it exists.
+fn existing_parent(root: &File, path: &str) -> Result<Option<(File, String)>> {
+    match parent(root, path, false) {
+        Ok(v) => Ok(Some(v)),
+        Err(e) if e.0.contains("No such file or directory") => Ok(None),
+        Err(e) => Err(e),
+    }
 }
 
 fn execute_operation_context(
@@ -1403,7 +1640,57 @@ fn execute_operation_context(
         match kind {
             "create" | "replace" => {
                 let target = target.ok_or_else(|| Error("journal target is missing".into()))?;
-                if (current.as_str(), actual.as_deref()) != ("link", Some(target)) {
+                let quarantined = if kind == "replace" && current == "absent" {
+                    match existing_parent(&root, path)? {
+                        Some((parent, leaf)) => {
+                            let held = state_at(&parent, &quarantine_name(id))?;
+                            (held == ("link".into(), previous.map(str::to_owned)))
+                                .then_some((parent, leaf))
+                        }
+                        None => None,
+                    }
+                } else {
+                    None
+                };
+                if (current.as_str(), actual.as_deref()) == ("link", Some(target)) {
+                    if kind == "replace"
+                        && let Some((parent, _)) = existing_parent(&root, path)?
+                    {
+                        // An interrupted replacement may have left the
+                        // displaced previous link at a private name.
+                        discard_private(&parent, &temporary_name(id), &[previous, Some(target)])?;
+                        discard_private(&parent, &quarantine_name(id), &[previous])?;
+                    }
+                } else if let Some((parent, leaf)) = quarantined {
+                    // Interrupted between quarantining the previous link and
+                    // publishing the new one. Finish only a still-desired
+                    // replacement; otherwise put the previous link back.
+                    if let Err(error) =
+                        validate_intent_context(context, profile, catalog, path, Some(target))
+                    {
+                        rename_in(&parent, &quarantine_name(id), &leaf, Rename::Exclusive)?;
+                        parent.sync_all()?;
+                        return Err(Error(format!("{}; previous link restored", error.0)));
+                    }
+                    match state_at(&parent, &temporary_name(id))? {
+                        (s, _) if s == "absent" => {
+                            symlink(&parent, &temporary_name(id), target)?;
+                            parent.sync_all()?;
+                        }
+                        (s, t) if s == "link" && t.as_deref() == Some(target) => {}
+                        _ => {
+                            return Err(Error(
+                                "replacement recovery link changed externally".into(),
+                            ));
+                        }
+                    }
+                    publish_quarantined(&parent, &leaf, id, previous, path, args)?;
+                    verify_containment(
+                        &crate::observation::checked_root(context.store(), profile, &output)?.0,
+                        path,
+                        &parent,
+                    )?;
+                } else {
                     validate_intent_context(context, profile, catalog, path, Some(target))?;
                     if kind == "create" && current != "absent"
                         || kind == "replace"
@@ -1417,7 +1704,7 @@ fn execute_operation_context(
                     if kind == "create" {
                         symlink(&parent, &leaf, target)?;
                     } else {
-                        let temporary = format!(".catabolic-link-{id}");
+                        let temporary = temporary_name(id);
                         match state_at(&parent, &temporary)? {
                             (s, _) if s == "absent" => {
                                 symlink(&parent, &temporary, target)?;
@@ -1437,22 +1724,7 @@ fn execute_operation_context(
                                 "owned link changed before replacement: {path}"
                             )));
                         }
-                        let temporary = cstring(&temporary)?;
-                        let leaf = cstring(&leaf)?;
-                        #[cfg(test)]
-                        before_destructive_leaf();
-                        // SAFETY: both entries are relative to the verified output parent; inputs are live.
-                        if unsafe {
-                            libc::renameat(
-                                parent.as_raw_fd(),
-                                temporary.as_ptr(),
-                                parent.as_raw_fd(),
-                                leaf.as_ptr(),
-                            )
-                        } < 0
-                        {
-                            return Err(std::io::Error::last_os_error().into());
-                        }
+                        replace_leaf(&parent, &leaf, id, target, previous, path, args)?;
                     }
                     parent.sync_all()?;
                     verify_containment(
@@ -1476,15 +1748,17 @@ fn execute_operation_context(
                     if state_at(&parent, &leaf)? != ("link".into(), previous.map(str::to_owned)) {
                         return Err(Error(format!("owned link changed before removal: {path}")));
                     }
-                    #[cfg(test)]
-                    before_destructive_leaf();
-                    unlink(&parent, &leaf)?;
-                    parent.sync_all()?;
+                    remove_leaf(&parent, &leaf, id, previous, path, args)?;
                     verify_containment(
                         &crate::observation::checked_root(context.store(), profile, &output)?.0,
                         path,
                         &parent,
                     )?;
+                } else if kind == "remove"
+                    && let Some((parent, _)) = existing_parent(&root, path)?
+                {
+                    // Interrupted after quarantining the owned link.
+                    discard_private(&parent, &quarantine_name(id), &[previous])?;
                 }
             }
             _ => return Err(Error(format!("unknown journal operation: {kind}"))),
@@ -2004,27 +2278,73 @@ mod tests {
         drop(guard);
         assert!(publication_lock(&store).is_ok());
     }
-    #[test]
-    fn characterize_unresolved_external_writer_leaf_race() {
-        // Frozen Python-compatible replacement/removal cannot atomically compare
-        // an existing symlink and mutate that same inode. These assertions
-        // characterize the open safety gate; they do NOT qualify these races.
-        for replacement in [true, false] {
-            let (_root, store, source, output) = catalog();
-            execute(&store, "default", "apply", &json!({})).unwrap();
-            if replacement {
-                std::fs::write(source.join("two.txt"), "next source").unwrap();
-                crate::observation::execute(&store, "default", "scan", &json!({"source":"media"}))
-                    .unwrap();
-                store.transaction(|db| {db.execute("UPDATE mappings SET file_id=(SELECT id FROM files WHERE path='two.txt')",[])?;Ok(())}).unwrap();
-            } else {
-                store
-                    .transaction(|db| {
-                        db.execute("UPDATE mappings SET active=0", [])?;
-                        Ok(())
-                    })
-                    .unwrap();
+    /// A catalog after one healthy apply, whose next apply plans one symlink
+    /// replacement (`replacement`) or removal of `folder/one.txt`.
+    fn destructive_catalog(
+        replacement: bool,
+    ) -> (
+        tempfile::TempDir,
+        Store,
+        std::path::PathBuf,
+        std::path::PathBuf,
+    ) {
+        let (root, store, source, output) = catalog();
+        execute(&store, "default", "apply", &json!({})).unwrap();
+        if replacement {
+            std::fs::write(source.join("two.txt"), "next source").unwrap();
+            crate::observation::execute(&store, "default", "scan", &json!({"source":"media"}))
+                .unwrap();
+            store
+                .transaction(|db| {
+                    db.execute(
+                        "UPDATE mappings SET file_id=(SELECT id FROM files WHERE path='two.txt')",
+                        [],
+                    )?;
+                    Ok(())
+                })
+                .unwrap();
+        } else {
+            store
+                .transaction(|db| {
+                    db.execute("UPDATE mappings SET active=0", [])?;
+                    Ok(())
+                })
+                .unwrap();
+        }
+        (root, store, source, output)
+    }
+    fn journal_rows(store: &Store) -> i64 {
+        store
+            .db
+            .query_row("SELECT count(*) FROM journal", [], |r| r.get(0))
+            .unwrap()
+    }
+    /// Regular-file contents among the given names, sorted; links are listed
+    /// by their target.
+    fn contents(dir: &std::path::Path, names: &[String]) -> Vec<String> {
+        let mut found = Vec::new();
+        for name in names {
+            let path = dir.join(name);
+            match std::fs::symlink_metadata(&path) {
+                Ok(m) if m.file_type().is_symlink() => found.push(format!(
+                    "link:{}",
+                    std::fs::read_link(&path).unwrap().display()
+                )),
+                Ok(_) => found.push(std::fs::read_to_string(&path).unwrap()),
+                Err(_) => {}
             }
+        }
+        found.sort();
+        found
+    }
+    #[test]
+    fn foreign_leaf_swapped_before_displacement_is_restored_not_destroyed() {
+        // Frozen Python checks the leaf and then renames over or unlinks it,
+        // so a foreign file swapped in between is destroyed. The native
+        // protocol displaces the leaf to a private name first and verifies it
+        // there, so the foreign file is returned to its name instead.
+        for replacement in [true, false] {
+            let (_root, store, source, output) = destructive_catalog(replacement);
             let leaf = output.join("folder/one.txt");
             let swapped = leaf.clone();
             BEFORE_DESTRUCTIVE_LEAF.with(|hook| {
@@ -2033,25 +2353,129 @@ mod tests {
                     std::fs::write(&swapped, "external concurrent bytes").unwrap();
                 }))
             });
-            execute(&store, "default", "apply", &json!({"max_removals":1})).unwrap();
-            if replacement {
-                assert_eq!(std::fs::read_to_string(&leaf).unwrap(), "next source");
-            } else {
-                assert!(!leaf.exists());
-            }
+            let error =
+                execute(&store, "default", "apply", &json!({"max_removals":1})).unwrap_err();
+            assert!(
+                error.0.contains("the foreign entry was restored"),
+                "{replacement}: {error:?}"
+            );
+            assert_eq!(
+                std::fs::read_to_string(&leaf).unwrap(),
+                "external concurrent bytes"
+            );
             assert_eq!(
                 std::fs::read_to_string(source.join("one.txt")).unwrap(),
                 "original source"
             );
-            eprintln!(
-                "OPEN SAFETY GATE: concurrent external leaf writer can lose replacement bytes during {}",
-                if replacement {
-                    "symlink replacement"
-                } else {
-                    "symlink removal"
-                }
+            // The intent stays pending, ownership is not acknowledged, and
+            // recovery refuses the changed destination rather than act on it.
+            assert_eq!(journal_rows(&store), 1);
+            assert!(execute(&store, "default", "recover", &json!({})).is_err());
+            assert_eq!(
+                std::fs::read_to_string(&leaf).unwrap(),
+                "external concurrent bytes"
             );
+            let names: Vec<String> = leaves(&output.join("folder"));
+            let private: Vec<_> = names
+                .iter()
+                .filter(|n| n.starts_with(".catabolic-unlink-"))
+                .collect();
+            assert!(private.is_empty(), "{names:?}");
         }
+    }
+    #[test]
+    fn foreign_writer_reusing_the_leaf_name_keeps_every_entry() {
+        // A second foreign writer recreates the leaf after the first foreign
+        // entry was displaced, so it cannot be moved back. Nothing is
+        // overwritten or deleted: both foreign entries survive.
+        for replacement in [true, false] {
+            let (_root, store, _source, output) = destructive_catalog(replacement);
+            let leaf = output.join("folder/one.txt");
+            let (first, second) = (leaf.clone(), leaf.clone());
+            BEFORE_DESTRUCTIVE_LEAF.with(|hook| {
+                *hook.borrow_mut() = Some(Box::new(move || {
+                    std::fs::remove_file(&first).unwrap();
+                    std::fs::write(&first, "first foreign").unwrap();
+                }))
+            });
+            AFTER_DESTRUCTIVE_LEAF.with(|hook| {
+                *hook.borrow_mut() = Some(Box::new(move || {
+                    // After an exchange the leaf holds the new link; after a
+                    // quarantine rename it is absent.
+                    let _ = std::fs::remove_file(&second);
+                    std::fs::write(&second, "second foreign").unwrap();
+                }))
+            });
+            let error =
+                execute(&store, "default", "apply", &json!({"max_removals":1})).unwrap_err();
+            assert!(error.0.contains("preserved"), "{replacement}: {error:?}");
+            let names = leaves(&output.join("folder"));
+            let found = contents(&output.join("folder"), &names);
+            assert!(found.contains(&"first foreign".to_owned()), "{found:?}");
+            assert!(found.contains(&"second foreign".to_owned()), "{found:?}");
+            assert_eq!(journal_rows(&store), 1);
+        }
+    }
+    #[test]
+    fn interrupted_replacement_and_removal_clean_up_verified_private_links() {
+        // Each private link left by an interrupted displacement is verified
+        // before deletion; a foreign entry at the private name blocks.
+        for replacement in [true, false] {
+            for stage in ["after_exchange", "after_quarantine", "after_publish"] {
+                let (_root, store, _source, output) = destructive_catalog(replacement);
+                let result = execute(
+                    &store,
+                    "default",
+                    "apply",
+                    &json!({"max_removals":1,"failpoint":stage}),
+                );
+                let Err(error) = result else {
+                    // This stage belongs to the other protocol mode, or to
+                    // replacement only.
+                    continue;
+                };
+                assert!(error.0.contains(stage), "{error:?}");
+                execute(&store, "default", "recover", &json!({})).unwrap();
+                assert_eq!(journal_rows(&store), 0);
+                let names = leaves(&output.join("folder"));
+                assert!(
+                    names.iter().all(|n| !n.starts_with(".catabolic-")),
+                    "{stage}: {names:?}"
+                );
+                assert_eq!(
+                    execute(&store, "default", "verify", &json!({})).unwrap()["healthy"],
+                    true
+                );
+            }
+        }
+        // A foreign file planted at the quarantine name is never deleted.
+        let (_root, store, _source, output) = destructive_catalog(false);
+        assert!(
+            execute(
+                &store,
+                "default",
+                "apply",
+                &json!({"max_removals":1,"failpoint":"after_quarantine"})
+            )
+            .is_err()
+        );
+        let folder = output.join("folder");
+        let quarantine = leaves(&folder)
+            .into_iter()
+            .find(|n| n.starts_with(".catabolic-unlink-"))
+            .unwrap();
+        std::fs::remove_file(folder.join(&quarantine)).unwrap();
+        std::fs::write(folder.join(&quarantine), "planted").unwrap();
+        let error = execute(&store, "default", "recover", &json!({})).unwrap_err();
+        assert!(
+            error.0.contains("changed externally; inspect it"),
+            "{error:?}"
+        );
+        assert_eq!(
+            std::fs::read_to_string(folder.join(&quarantine)).unwrap(),
+            "planted"
+        );
+        assert_eq!(journal_rows(&store), 1);
     }
     #[test]
     fn symlink_publication_and_unconfirmed_missing_preserve_output() {

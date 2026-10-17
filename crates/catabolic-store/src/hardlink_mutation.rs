@@ -400,6 +400,17 @@ fn retain(
     saved.sync_all()?;
     parent.sync_all()?;
     if !matches(Some(&stat_at(&saved, "data")?), field(op, "previous")?)? {
+        // A foreign entry was raced into the leaf and retired. Return it to
+        // its name without overwriting anything; if the name has been reused
+        // meanwhile, keep it in retention.
+        observer("before_retention_restore", op)?;
+        if rename_noreplace(&saved, "data", &parent, &leaf).is_ok() {
+            saved.sync_all()?;
+            parent.sync_all()?;
+            return Err(Error(format!(
+                "hardlink changed before retirement: {path}; the foreign entry was restored and nothing was overwritten"
+            )));
+        }
         return Err(Error(
             "destination changed concurrently; unexpected file preserved in retention".into(),
         ));
@@ -1027,7 +1038,7 @@ mod tests {
         );
     }
     #[test]
-    fn raced_foreign_retirement_preserves_bytes_without_acknowledging_ownership() {
+    fn raced_foreign_retirement_is_restored_without_acknowledging_ownership() {
         let (_temporary, store, source, output) = fixture();
         execute(
             &store,
@@ -1057,9 +1068,17 @@ mod tests {
             },
         )
         .unwrap_err();
-        assert!(error.0.contains("unexpected file preserved in retention"));
+        assert!(
+            error.0.contains("the foreign entry was restored"),
+            "{error:?}"
+        );
+        // The foreign file is back at its own name, not relocated.
+        assert_eq!(
+            std::fs::read(output.join("folder/one.txt")).unwrap(),
+            b"foreign final reference"
+        );
         let retained = output.join(format!("{RETAINED}/{}/data", op["id"].as_str().unwrap()));
-        assert_eq!(std::fs::read(retained).unwrap(), b"foreign final reference");
+        assert!(std::fs::symlink_metadata(&retained).is_err());
         assert_eq!(
             std::fs::read(source.join("one.txt")).unwrap(),
             b"original source"
@@ -1079,6 +1098,62 @@ mod tests {
                 .unwrap()
                 .exists([])
                 .unwrap()
+        );
+        assert!(
+            execute(&store, "default", &op, &json!({"disposable_fixture":true}))
+                .unwrap_err()
+                .0
+                .contains("owned hardlink changed before retirement")
+        );
+        assert_eq!(
+            std::fs::read(output.join("folder/one.txt")).unwrap(),
+            b"foreign final reference"
+        );
+    }
+    #[test]
+    fn foreign_retirement_stays_retained_when_its_name_is_reused() {
+        let (_temporary, store, source, output) = fixture();
+        execute(
+            &store,
+            "default",
+            &intent(&store, "hard_create"),
+            &json!({"disposable_fixture":true}),
+        )
+        .unwrap();
+        store
+            .transaction(|db| {
+                db.execute("UPDATE mappings SET active=0", [])?;
+                Ok(())
+            })
+            .unwrap();
+        let op = intent(&store, "hard_remove");
+        let error = execute_with(
+            &store,
+            "default",
+            &op,
+            &json!({"disposable_fixture":true}),
+            &|stage, _| {
+                let leaf = output.join("folder/one.txt");
+                if stage == "before_retention_rename" {
+                    std::fs::remove_file(&leaf)?;
+                    std::fs::write(&leaf, "first foreign")?;
+                } else if stage == "before_retention_restore" {
+                    std::fs::write(&leaf, "second foreign")?;
+                }
+                Ok(())
+            },
+        )
+        .unwrap_err();
+        assert!(error.0.contains("unexpected file preserved in retention"));
+        let retained = output.join(format!("{RETAINED}/{}/data", op["id"].as_str().unwrap()));
+        assert_eq!(std::fs::read(retained).unwrap(), b"first foreign");
+        assert_eq!(
+            std::fs::read(output.join("folder/one.txt")).unwrap(),
+            b"second foreign"
+        );
+        assert_eq!(
+            std::fs::read(source.join("one.txt")).unwrap(),
+            b"original source"
         );
         assert!(
             execute(&store, "default", &op, &json!({"disposable_fixture":true}))

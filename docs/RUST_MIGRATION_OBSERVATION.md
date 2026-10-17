@@ -57,6 +57,11 @@ protocol, or an explicitly coordinated reference/schema change, remains an open
 M6 requirement. Cross-language destructive symlink crash tests below only apply
 to the debug disposable-fixture protocol, not a release safety claim.
 
+Track C2 (October 17, 2026) replaces the check-then-rename and check-then-unlink
+effects. The leaf is now displaced to a private name first, verified there, and
+a foreign entry is returned to its name. The release gates above are unchanged
+pending review. See [track C](NATIVE_RETIREMENT_TRACK_C.md).
+
 The broader same-user adversary that replaces private marker-temporary names
 between a type check and cleanup also remains outside qualification. The current
 release gate addresses the two reproduced published-leaf effects; it is not a

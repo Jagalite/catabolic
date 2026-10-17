@@ -41,7 +41,9 @@ struct Case {
 }
 
 /// Crash points each one-operation plan reaches, in execution order.
-fn stages(hardlink: bool, kind: Kind) -> &'static [&'static str] {
+/// Symlink replacement uses atomic exchange where the filesystem supports
+/// it, and otherwise quarantines the previous link before publishing.
+fn stages(hardlink: bool, kind: Kind, exchange: bool) -> &'static [&'static str] {
     use Kind::*;
     match (hardlink, kind) {
         (_, Prepare) => &[
@@ -52,8 +54,23 @@ fn stages(hardlink: bool, kind: Kind) -> &'static [&'static str] {
             "before_commit",
             "after_commit",
         ],
-        (false, Create | Remove | Forget) | (true, Forget) => &[
+        (false, Create | Forget) | (true, Forget) => &[
             "after_journal",
+            "after_filesystem",
+            "before_commit",
+            "after_commit",
+        ],
+        (false, Remove) => &[
+            "after_journal",
+            "after_quarantine",
+            "after_filesystem",
+            "before_commit",
+            "after_commit",
+        ],
+        (false, Replace) if exchange => &[
+            "after_journal",
+            "after_temporary",
+            "after_exchange",
             "after_filesystem",
             "before_commit",
             "after_commit",
@@ -61,6 +78,8 @@ fn stages(hardlink: bool, kind: Kind) -> &'static [&'static str] {
         (false, Replace) => &[
             "after_journal",
             "after_temporary",
+            "after_quarantine",
+            "after_publish",
             "after_filesystem",
             "before_commit",
             "after_commit",
@@ -100,12 +119,12 @@ fn stages(hardlink: bool, kind: Kind) -> &'static [&'static str] {
     }
 }
 
-fn matrix() -> Vec<Case> {
+fn matrix(exchange: bool) -> Vec<Case> {
     use Kind::*;
     let mut cases = Vec::new();
     for hardlink in [false, true] {
         for kind in [Prepare, Create, Replace, Remove, Forget] {
-            for stage in stages(hardlink, kind) {
+            for stage in stages(hardlink, kind, exchange) {
                 cases.push(Case {
                     hardlink,
                     kind,
@@ -157,8 +176,8 @@ fn generation(store: &Store) -> i64 {
 }
 
 /// A catalog whose next apply plans exactly one operation of `kind`.
-fn fixture(hardlink: bool, kind: Kind) -> Fixture {
-    let root = tempfile::tempdir().unwrap();
+fn fixture(base: &Path, hardlink: bool, kind: Kind) -> Fixture {
+    let root = tempfile::tempdir_in(base).unwrap();
     let database = root.path().join("catalog.sqlite3");
     let source = root.path().join("source");
     let output = root.path().join("output");
@@ -441,8 +460,8 @@ fn converged(store: &Store, fixture: &Fixture, case: Case, before: i64, recovere
     );
 }
 
-fn run(executable: &Path, case: Case) {
-    let fixture = fixture(case.hardlink, case.kind);
+fn run(executable: &Path, base: &Path, case: Case) {
+    let fixture = fixture(base, case.hardlink, case.kind);
     let before = {
         let store = Store::open(&fixture.database, true, false).unwrap();
         generation(&store)
@@ -471,15 +490,78 @@ fn run(executable: &Path, case: Case) {
     converged(&store, &fixture, case, before, &recovered);
 }
 
+/// Whether `base` supports atomic exchange of two directory entries.
+fn exchange_supported(base: &Path) -> bool {
+    use std::os::unix::ffi::OsStrExt;
+    let probe = tempfile::tempdir_in(base).unwrap();
+    std::os::unix::fs::symlink("a", probe.path().join("a")).unwrap();
+    std::os::unix::fs::symlink("b", probe.path().join("b")).unwrap();
+    let a = std::ffi::CString::new(probe.path().join("a").as_os_str().as_bytes()).unwrap();
+    let b = std::ffi::CString::new(probe.path().join("b").as_os_str().as_bytes()).unwrap();
+    #[cfg(target_os = "macos")]
+    // SAFETY: both paths are live NUL-terminated strings.
+    let result = unsafe {
+        libc::renameatx_np(
+            libc::AT_FDCWD,
+            a.as_ptr(),
+            libc::AT_FDCWD,
+            b.as_ptr(),
+            libc::RENAME_SWAP,
+        )
+    };
+    #[cfg(target_os = "linux")]
+    // SAFETY: both paths are live NUL-terminated strings.
+    let result = unsafe {
+        libc::renameat2(
+            libc::AT_FDCWD,
+            a.as_ptr(),
+            libc::AT_FDCWD,
+            b.as_ptr(),
+            libc::RENAME_EXCHANGE,
+        )
+    };
+    result == 0
+}
+
+fn run_matrix(base: &Path) -> usize {
+    let exchange = exchange_supported(base);
+    let directory = tempfile::tempdir_in(base).unwrap();
+    let executable = worker_executable(directory.path());
+    let cases = matrix(exchange);
+    for case in &cases {
+        run(&executable, base, *case);
+    }
+    eprintln!(
+        "publication crash matrix ({} mode) under {}: {} cases passed",
+        if exchange { "exchange" } else { "quarantine" },
+        base.display(),
+        cases.len()
+    );
+    cases.len()
+}
+
 #[test]
 fn every_publication_crash_point_recovers_or_blocks_explicitly() {
-    let directory = tempfile::tempdir().unwrap();
-    let executable = worker_executable(directory.path());
-    let cases = matrix();
-    for case in &cases {
-        run(&executable, *case);
-    }
-    eprintln!("publication crash matrix: {} cases passed", cases.len());
+    run_matrix(&std::env::temp_dir());
+}
+
+/// The other replacement mode, on a filesystem chosen explicitly. Run with
+/// `--ignored` and `CATABOLIC_TEST_EXCHANGE_ROOT` naming a directory whose
+/// filesystem uses the other mode from `TMPDIR`'s (HFS+ lacks exchange;
+/// APFS has it).
+#[test]
+#[ignore = "needs CATABOLIC_TEST_EXCHANGE_ROOT on a filesystem of the other replacement mode"]
+fn publication_crash_points_in_the_other_replacement_mode() {
+    let base = PathBuf::from(
+        std::env::var("CATABOLIC_TEST_EXCHANGE_ROOT")
+            .expect("CATABOLIC_TEST_EXCHANGE_ROOT is required"),
+    );
+    assert_ne!(
+        exchange_supported(&base),
+        exchange_supported(&std::env::temp_dir()),
+        "CATABOLIC_TEST_EXCHANGE_ROOT must use the other replacement mode"
+    );
+    run_matrix(&base);
 }
 
 /// Every failpoint literal in the two mutation sources.
@@ -506,9 +588,13 @@ fn every_failpoint_in_the_source_is_in_the_matrix() {
         .iter()
         .map(|s| s.to_string())
         .collect();
-    let covered: BTreeSet<String> = matrix().iter().map(|c| c.stage.to_owned()).collect();
+    let covered: BTreeSet<String> = matrix(true)
+        .into_iter()
+        .chain(matrix(false))
+        .map(|c| c.stage.to_owned())
+        .collect();
     let in_source = source_failpoints();
-    assert!(in_source.len() >= 14, "{in_source:?}");
+    assert!(in_source.len() >= 17, "{in_source:?}");
     assert_eq!(in_source, declared, "source and declared list differ");
     assert_eq!(covered, declared, "matrix misses a declared failpoint");
 }
