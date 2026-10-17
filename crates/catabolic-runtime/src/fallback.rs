@@ -447,11 +447,11 @@ pub fn apply_prepared(
     }
     let mut probe = probe;
     let mut options = json!({"catalog":catalog,"max_removals":removals,"max_changes":changes,"notify_consumers":request.get("notify_consumers").cloned().unwrap_or(json!(true)),"disposable_fixture":true});
-    if cfg!(debug_assertions) && request["disposable_fixture"] == true {
-        for key in ["failpoint", "crash"] {
-            if let Some(value) = request.get(key) {
-                options[key] = value.clone();
-            }
+    // Forward failpoint fields whenever present: the store refuses them in
+    // builds without the failpoints feature instead of silently ignoring them.
+    for key in ["failpoint", "crash"] {
+        if let Some(value) = request.get(key) {
+            options[key] = value.clone();
         }
     }
     let publication = filesystem_mutation::execute_mut_locked(

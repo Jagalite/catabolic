@@ -68,6 +68,42 @@ documented operator step (remove the empty marker) and checks convergence.
 A second test parses every `failpoint(args, "...")` literal in both mutation
 sources. It requires the literals, the declared list and the matrix to agree.
 
+### Failpoint injection is test-only
+
+Before this change, request fields `failpoint` and `crash` were honoured in
+every build. A caller could make a release `catabolic-native outputs apply
+--options '{"failpoint":…,"crash":true}'` exit mid-operation. Frozen Python
+has no such fields, so no compatibility contract keeps them.
+
+They are now behind the `catabolic-store` feature `failpoints`, which is off
+by default.
+
+- **Who enables it.** Only `catabolic-cli`'s dev-dependency enables the
+  feature, so it is on in the workspace test build. Shipped artifacts
+  (`cargo build --release -p catabolic-cli`, the maturin wheel and
+  `catabolic-dist`) build without dev-dependencies, so it is off there.
+- **Without the feature.** A request that carries either field, even as
+  `null`, is refused with `failpoint_injection_unavailable: …`. The refusal
+  comes before any journal row or filesystem effect.
+- **Where it is checked.** The check runs at every symlink and hardlink
+  publication entry point and in manifest writes. The failpoint hook itself
+  repeats the check as a backstop.
+- **Fallback forwarding.** The fallback runtime now forwards these fields
+  whenever they are present, so that they are refused rather than silently
+  dropped.
+
+Tests:
+
+- `default_feature_builds_refuse_failpoint_requests_before_effects` runs the
+  disabled path end to end, through a test-only switch.
+- `tests/failpoint_feature_shipping.rs` checks that only that one
+  dev-dependency enables the feature. It also checks that no default feature
+  set, maturin feature list or release build command selects it.
+
+The operator `--migration-failpoint` flag of `catabolic-native db` is a
+separate, documented CLI option. It only returns an injected error, never
+exits, and is unchanged.
+
 ## 2. Safe replace and remove protocol
 
 **Exists.** Frozen-compatible symlink replace (a temporary link and then

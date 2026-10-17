@@ -148,6 +148,7 @@ pub fn execute_mut_locked(
     probe: &mut crate::fallback_resolution::Probe<'_>,
     guard: &PublicationGuard,
 ) -> Result<Value> {
+    admit_failpoints(args)?;
     require_writer(store)?;
     if guard.path != store.path || guard.database_id != store.database_id {
         return Err(Error(
@@ -191,6 +192,7 @@ pub fn execute_mut(
     args: &Value,
     probe: &mut crate::fallback_resolution::Probe<'_>,
 ) -> Result<Value> {
+    admit_failpoints(args)?;
     let catalog = args
         .get("catalog")
         .and_then(Value::as_str)
@@ -601,6 +603,7 @@ pub(crate) fn claim_output_at(
 /// Preview or execute native symlink reconciliation. Unsupported modes are
 /// refused before journaling or modifying any output.
 pub fn execute(store: &Store, profile: &str, action: &str, args: &Value) -> Result<Value> {
+    admit_failpoints(args)?;
     notify_consumers(args)?;
     if args.get("catalog").is_some_and(Value::is_null) {
         return all_catalogs(store, profile, action, args);
@@ -1198,6 +1201,7 @@ pub fn execute_locked(
     args: &Value,
     guard: &PublicationGuard,
 ) -> Result<Value> {
+    admit_failpoints(args)?;
     require_writer(store)?;
     if guard.path != store.path || guard.database_id != store.database_id {
         return Err(Error(
@@ -1239,7 +1243,42 @@ pub const PUBLICATION_FAILPOINTS: &[&str] = &[
     "before_commit",
     "after_commit",
 ];
+/// Whether this build accepts the request fields `failpoint` and `crash`.
+/// Only the workspace test build enables the `failpoints` feature (through
+/// `catabolic-cli`'s dev-dependency). Shipped binaries and wheels are built
+/// without dev-dependencies, so the feature is off there.
+pub const FAILPOINTS_ENABLED: bool = cfg!(feature = "failpoints");
+/// Structured refusal of a failpoint request in a build without the feature.
+/// Frozen Python has no failpoint fields, so no compatibility contract keeps
+/// them; refusing is preferred to silently ignoring them.
+pub const FAILPOINT_REFUSAL: &str = "failpoint_injection_unavailable: the request fields failpoint and crash are accepted only by test builds with the failpoints feature";
+#[cfg(test)]
+thread_local! {
+    // Lets unit tests in a feature-enabled test build exercise the default
+    // (feature-disabled) admission path end to end.
+    pub(crate) static SIMULATE_DEFAULT_FEATURES: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+fn failpoints_enabled() -> bool {
+    #[cfg(test)]
+    if SIMULATE_DEFAULT_FEATURES.with(std::cell::Cell::get) {
+        return false;
+    }
+    FAILPOINTS_ENABLED
+}
+/// Refuse, before any effect, a request carrying `failpoint` or `crash` when
+/// this build does not accept failpoints.
+pub fn admit_failpoints(args: &Value) -> Result<()> {
+    let carries = args
+        .as_object()
+        .is_some_and(|o| o.contains_key("failpoint") || o.contains_key("crash"));
+    if carries && !failpoints_enabled() {
+        return Err(Error(FAILPOINT_REFUSAL.into()));
+    }
+    Ok(())
+}
 pub(crate) fn failpoint(args: &Value, stage: &str) -> Result<()> {
+    // Entry points admit first; this keeps the refusal if one was missed.
+    admit_failpoints(args)?;
     if args["failpoint"] == stage {
         if args["crash"] == true {
             std::process::exit(86);
@@ -2581,6 +2620,70 @@ mod tests {
         let report = execute(&store, "default", "recover", &json!({})).unwrap();
         assert_eq!(report["cancelled"].as_array().unwrap().len(), 1);
         assert!(std::fs::symlink_metadata(output.join("folder/one.txt")).is_err());
+    }
+    #[test]
+    fn default_feature_builds_refuse_failpoint_requests_before_effects() {
+        struct Reset;
+        impl Drop for Reset {
+            fn drop(&mut self) {
+                SIMULATE_DEFAULT_FEATURES.with(|s| s.set(false));
+            }
+        }
+        let reset = Reset;
+        SIMULATE_DEFAULT_FEATURES.with(|s| s.set(true));
+        for request in [
+            json!({"failpoint":"after_journal"}),
+            json!({"crash":true}),
+            json!({"failpoint":"after_journal","crash":true}),
+            json!({"failpoint":null}),
+        ] {
+            let (_root, store, source, output) = catalog();
+            for action in ["apply", "recover", "preview", "verify"] {
+                let error = execute(&store, "default", action, &request).unwrap_err();
+                assert_eq!(error.0, FAILPOINT_REFUSAL, "{action} {request}");
+            }
+            let guard = publication_lock(&store).unwrap();
+            let mut locked = request.clone();
+            locked["catalog"] = json!("global");
+            let error = execute_locked(&store, "default", "apply", &locked, &guard).unwrap_err();
+            assert_eq!(error.0, FAILPOINT_REFUSAL);
+            drop(guard);
+            let error = crate::hardlink_mutation::execute(
+                &store,
+                "default",
+                &json!({"kind":"hard_create","catalog":"global","path":"x"}),
+                &request,
+            )
+            .unwrap_err();
+            assert_eq!(error.0, FAILPOINT_REFUSAL);
+            // Refused before any journal row, marker or link exists.
+            assert_eq!(
+                store
+                    .db
+                    .query_row("SELECT count(*) FROM journal", [], |r| r.get::<_, i64>(0))
+                    .unwrap(),
+                0
+            );
+            assert!(leaves(&output).is_empty());
+            assert_eq!(
+                std::fs::read(source.join("one.txt")).unwrap(),
+                b"original source"
+            );
+            // A request without the fields is unaffected.
+            assert_eq!(
+                execute(&store, "default", "apply", &json!({})).unwrap()["healthy"],
+                true
+            );
+        }
+        assert!(admit_failpoints(&json!({"crash":false})).is_err());
+        assert!(admit_failpoints(&json!({"failpoints":"x"})).is_ok());
+        drop(reset);
+        // The workspace test build itself enables the feature.
+        assert!(
+            failpoints_enabled(),
+            "workspace test builds enable failpoints"
+        );
+        assert!(admit_failpoints(&json!({"failpoint":"after_journal"})).is_ok());
     }
     #[test]
     fn completed_effect_is_acknowledged_once_after_crash() {

@@ -618,6 +618,7 @@ fn create(
     fs::failpoint(args, "after_link")
 }
 pub fn execute(store: &Store, profile: &str, op: &Value, args: &Value) -> Result<()> {
+    fs::admit_failpoints(args)?;
     execute_with(store, profile, op, args, &|_, _| Ok(()))
 }
 fn execute_with(

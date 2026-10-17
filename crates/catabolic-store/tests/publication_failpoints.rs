@@ -524,6 +524,10 @@ fn exchange_supported(base: &Path) -> bool {
 }
 
 fn run_matrix(base: &Path) -> usize {
+    assert!(
+        filesystem_mutation::FAILPOINTS_ENABLED,
+        "the crash matrix needs the failpoints feature; run it from the workspace test build or with --features catabolic-store/failpoints"
+    );
     let exchange = exchange_supported(base);
     let directory = tempfile::tempdir_in(base).unwrap();
     let executable = worker_executable(directory.path());

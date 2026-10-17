@@ -292,6 +292,7 @@ fn publish(
 /// Publish a validated manifest under the existing writer lock and transaction.
 /// The descriptor-relative path guards are independent of the document builder.
 pub fn write(store: &Store, profile: &str, document: &Value, options: &Value) -> Result<Value> {
+    crate::filesystem_mutation::admit_failpoints(options)?;
     if store.lock.is_none() || store.db.is_autocommit() {
         return fail("manifest publication requires the catalog writer lock and snapshot");
     }
