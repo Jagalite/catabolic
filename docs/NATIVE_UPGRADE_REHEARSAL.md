@@ -198,7 +198,7 @@ It is fail-closed and passes these checkpoints, in order:
 | Checkpoint | Work before it | After a crash here |
 | --- | --- | --- |
 | `verified` | Requires the three quiescence assertions. Verifies the manifest, the snapshot's checksum, full validation and identity manifest. Takes the native lifecycle lease, the Catabolic writer lock and an exclusive SQLite lock on the live catalog (opened in EXCLUSIVE locking mode before anything is read). Requires rollback-journal mode and the same database and catalog IDs. | Live catalog unchanged; no staging directory |
-| `retained` | Creates `.<name>.restore-<id>/` beside the catalog and copies the live catalog byte for byte into `previous.sqlite3` (the exclusive lock is held and no journal exists) | Live catalog unchanged |
+| `retained` | Creates `.<name>.restore-<id>/` beside the catalog and copies the live catalog into `previous.sqlite3` with SQLite's backup API through the locked live connection, recording its whole-file SHA-256 | Live catalog unchanged |
 | `staged` | Copies the snapshot into the staging directory, rechecks its checksum and records the staged file's identity | Live catalog unchanged |
 | `rotated` | Changes the staged copy's incarnation through the schema's restore-scoped permit, to a fresh value different from both the live and the snapshot incarnation. Checks that only `catalog_state` changed, that identities are preserved and that no worker ownership is left unresolved (see below). Records the whole-row digest of the rotated file and writes the staging `manifest.json` record (`catabolic-native-restore-v1`, status `staged`). | Live catalog unchanged; record says `staged` |
 | `protected` | Rechecks that the staged path is still the same regular file with one link and no sidecars and takes an exclusive SQLite lock on it. Under that lock, runs complete native validation (schema signature, history checksums, integrity, foreign keys, native state) and requires its complete state to equal the rotated file's: table digests, every schema object, full migration history rows, `sqlite_sequence` and the identity manifest | Live catalog unchanged |
@@ -214,7 +214,12 @@ the staging directory; a crash before the rename leaves it for the operator.
 The exclusive locks mean that no SQLite user can read or write the live
 catalog between verification and the rename, or the staged copy between its
 final verification and the rename. A changed or replaced staged file is
-refused.
+refused. No descriptor is ever opened and closed on the live or staged
+file while a connection holds it, because on POSIX closing any descriptor
+drops every lock the process holds on that file. Identity checks use `lstat`
+and a descriptor that stays open until after the staged connection closes.
+A test probes the exclusion from a separate process; a probe in the same
+process would be masked.
 
 After the rename the restore is committed, so no later problem is reported as
 an ordinary failure. The command instead returns the committed result with
@@ -305,6 +310,8 @@ identity and incarnation before use and require a reopen.
 - refused backups: missing assertions, another catalog's backup, a changed
   snapshot, an edited manifest, a legacy backup, a WAL live catalog, and
   completed or unfinished worker ownership;
+- exclusion of another process from the live and staged catalogs until
+  publication;
 - refused staged mutations and replacements, and refused staged schema,
   migration-history and sequence changes;
 - injected failures at the rename and after it;

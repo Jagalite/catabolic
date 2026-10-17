@@ -636,6 +636,64 @@ fn staged_mutation_or_replacement_is_refused_before_publication() {
     assert_eq!(count, 0);
 }
 
+const PROBE_REFUSED: i32 = 3;
+
+/// Child process: try to take an exclusive SQLite lock without waiting.
+/// Same-process probes would be masked, because POSIX locks do not conflict
+/// within one process.
+#[test]
+fn exclusion_probe_worker() {
+    let Ok(path) = std::env::var("CATABOLIC_TEST_RESTORE_PROBE") else {
+        return;
+    };
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.busy_timeout(Duration::ZERO).unwrap();
+    match db.execute_batch("BEGIN EXCLUSIVE") {
+        Err(error) if error.to_string().contains("database is locked") => {
+            std::process::exit(PROBE_REFUSED)
+        }
+        Err(error) => panic!("unexpected probe failure: {error}"),
+        Ok(()) => std::process::exit(0),
+    }
+}
+fn probe(path: &Path) -> Option<i32> {
+    Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "exclusion_probe_worker", "--nocapture"])
+        .env("CATABOLIC_TEST_RESTORE_PROBE", path)
+        .status()
+        .unwrap()
+        .code()
+}
+
+/// Another process cannot take the live catalog after the retained copy is
+/// made, nor the live or staged catalog just before publication: no separate
+/// descriptor opened and closed on a locked file has released the lock.
+#[test]
+fn another_process_is_excluded_from_live_and_staged_catalogs_until_publication() {
+    let (_root, path, receipt) = backed_up();
+    let report = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+        match at {
+            "retained" | "staged" | "rotated" => {
+                assert_eq!(probe(&path), Some(PROBE_REFUSED), "live at {at}");
+            }
+            "publishing" => {
+                assert_eq!(probe(&path), Some(PROBE_REFUSED), "live at {at}");
+                assert_eq!(
+                    probe(&staged_file(&path)),
+                    Some(PROBE_REFUSED),
+                    "staged at {at}"
+                );
+            }
+            _ => {}
+        }
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(report["durability"], "durable");
+    // Every lock is released once the restore returns.
+    assert_eq!(probe(&path), Some(0));
+}
+
 /// Replace the staged pathname with an unrotated copy of the backup snapshot.
 fn substitute_staged(path: &Path, backup: &Path) {
     let staged = staged_file(path);

@@ -326,27 +326,6 @@ fn identity_json(identity: (u64, u64)) -> Value {
     json!([identity.0, identity.1])
 }
 
-/// Byte copy of a file that the caller holds an exclusive SQLite lock on, with
-/// no journal present, so the copy is consistent and byte-identical.
-fn byte_copy(source: &Path, target: &Path) -> Result<()> {
-    use std::{io::Write, os::unix::fs::OpenOptionsExt};
-    let bytes = fs::read(source)?;
-    let mut file = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
-        .custom_flags(libc::O_NOFOLLOW)
-        .open(target)?;
-    file.write_all(&bytes)?;
-    file.sync_all()?;
-    if sha256(fs::read(target)?) != sha256(&bytes) {
-        return Err(Error(
-            "retained copy of the live catalog does not match it".into(),
-        ));
-    }
-    Ok(())
-}
-
 /// Refuse if a path is no longer the exact file verified earlier, or if any
 /// SQLite sidecar exists for it; a stray journal would apply to the new file.
 fn require_exact_file(path: &Path, expected: (u64, u64), what: &str) -> Result<()> {
@@ -656,10 +635,12 @@ pub fn restore(
     let staged = staging.join("catalog.sqlite3");
     let prepared = (|| -> Result<(String, Value, PathBuf, rusqlite::Connection, fs::File)> {
         let retained = staging.join("previous.sqlite3");
-        // The exclusive lock is held and no journal exists, so a byte copy is
-        // consistent, and a substitution rollback restores identical bytes.
-        require_exact_file(&target, live_file, "live catalog")?;
-        byte_copy(&target, &retained)?;
+        // Copied through the live connection with SQLite's backup API. No
+        // separate descriptor may ever be opened and closed on the live (or
+        // staged) file while a connection holds it: on POSIX, closing any
+        // descriptor drops every fcntl lock this process holds on the inode.
+        migration::copy(&live, &retained)?;
+        migration::fsync(&retained)?;
         migration::fsync(&staging)?;
         checkpoint("retained")?;
 
