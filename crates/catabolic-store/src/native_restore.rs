@@ -100,15 +100,19 @@ pub fn backup(path: &Path, parent: Option<&Path>) -> Result<Value> {
 
 pub const RESTORE_CONTRACT: &str = "catabolic-native-restore-v1";
 
-/// Restore checkpoints, in order. `published` follows the atomic rename,
-/// which is the single commit point of a restore.
-pub const RESTORE_STAGES: [&str; 6] = [
+/// Restore checkpoints, in order. The rename between `protected` and
+/// `renamed` is the single commit point: stages up to `protected` precede it,
+/// and every later stage reports a committed restore.
+pub const RESTORE_STAGES: [&str; 9] = [
     "verified",
     "retained",
     "staged",
     "rotated",
     "protected",
+    "renamed",
     "published",
+    "finalizing",
+    "finalized",
 ];
 
 fn sidecar(path: &Path, suffix: &str) -> PathBuf {
@@ -295,6 +299,29 @@ fn require_exact_file(path: &Path, expected: (u64, u64), what: &str) -> Result<(
     Ok(())
 }
 
+/// Restore records for this catalog left by earlier runs, newest first.
+fn previous_records(target: &Path) -> Vec<(PathBuf, Value)> {
+    let parent = target.parent().expect("database parent");
+    let prefix = format!(
+        ".{}.restore-",
+        target.file_name().expect("database name").to_string_lossy()
+    );
+    let mut records = fs::read_dir(parent)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|entry| entry.file_name().to_string_lossy().starts_with(&prefix))
+        .filter_map(|entry| {
+            let path = entry.path().join("manifest.json");
+            let value: Value = serde_json::from_slice(&fs::read(&path).ok()?).ok()?;
+            (value["contract"] == RESTORE_CONTRACT && value["database"] == json!(target))
+                .then_some((path, value))
+        })
+        .collect::<Vec<_>>();
+    records.sort_by(|a, b| b.0.cmp(&a.0));
+    records
+}
+
 /// Controlled restore of a native catalog from a verified native backup.
 ///
 /// The operator asserts quiescence exactly as for native upgrade and journal
@@ -304,7 +331,9 @@ fn require_exact_file(path: &Path, expected: (u64, u64), what: &str) -> Result<(
 /// an exclusive SQLite lock on the staged file while verifying its identity
 /// and whole-row digest, and publishes it by one atomic rename followed by a
 /// directory fsync. Anything that fails before the rename leaves the live
-/// catalog untouched and removes the staging directory.
+/// catalog untouched and removes the staging directory. After the rename the
+/// restore is committed: later problems are returned as warnings on a
+/// committed result, and a rerun recognizes the published state.
 pub fn restore(
     target: &Path,
     backup_directory: &Path,
@@ -344,6 +373,35 @@ pub fn restore(
         .as_str()
         .ok_or_else(|| Error("live catalog has no native incarnation".into()))?
         .to_owned();
+    // A record whose rotated incarnation is the live one proves that this
+    // backup was already published; never rotate it a second time.
+    if let Some((record_path, mut record)) = previous_records(&target)
+        .into_iter()
+        .find(|(_, record)| record["incarnation"] == previous_incarnation.as_str())
+    {
+        if record["backup_sha256"] != receipt["sha256"] {
+            return Err(Error(
+                "the live catalog was published by a restore of a different backup; inspect it before restoring again".into(),
+            ));
+        }
+        let mut warnings = Vec::new();
+        if record["status"] != "published" {
+            record["status"] = json!("published");
+            if let Err(error) =
+                migration::manifest(record_path.parent().expect("record directory"), &record)
+            {
+                warnings.push(format!("restore record could not be finalized: {error}"));
+            }
+        }
+        return Ok(json!({
+            "database":target, "database_id":identity["database_id"],
+            "catalog_id":identity["catalog"]["catalog_id"], "schema":identity["schema"],
+            "previous_incarnation":record["previous_incarnation"], "incarnation":previous_incarnation,
+            "backup":snapshot, "backup_sha256":receipt["sha256"], "retained":record["retained"],
+            "restore_record":record_path, "restored":true, "already_published":true,
+            "durability":"durable", "warnings":warnings,
+        }));
+    }
     let live_file = file_identity(&target)?;
     checkpoint("verified")?;
 
@@ -437,32 +495,72 @@ pub fn restore(
         }
     };
 
-    // The single commit point.
+    // The single commit point. Every result from here on reports a committed
+    // restore; durability is uncertain until the directory fsync succeeds.
     fs::rename(&staged, &target)?;
-    migration::fsync(&parent)?;
     drop(protected);
     drop(live);
+    let mut warnings = Vec::new();
+    let mut durable = match checkpoint("renamed") {
+        Ok(()) => true,
+        Err(error) => {
+            warnings.push(format!("failure after publication rename: {error}"));
+            false
+        }
+    };
+    if durable {
+        if let Err(error) = migration::fsync(&parent) {
+            warnings.push(format!(
+                "publication rename may not be durable; the directory fsync failed: {error}"
+            ));
+            durable = false;
+        }
+    }
+    if durable {
+        if let Err(error) = checkpoint("published") {
+            warnings.push(format!("failure after durable publication: {error}"));
+        }
+    }
     record["status"] = json!("published");
-    migration::manifest(&staging, &record)?;
-    checkpoint("published")?;
-
-    let db = connect(&target, false)?;
-    db.execute_batch("BEGIN")?;
-    migration::validate(&db, true)?;
-    let restored = identity_manifest::manifest(&db)?;
-    drop(db);
-    if restored["catalog"]["incarnation"] != incarnation {
-        return Err(Error(
-            "published catalog does not carry the rotated incarnation".into(),
+    record["durability"] = json!(if durable { "durable" } else { "uncertain" });
+    if let Err(error) =
+        checkpoint("finalizing").and_then(|()| migration::manifest(&staging, &record))
+    {
+        warnings.push(format!("restore record could not be finalized: {error}"));
+    } else if let Err(error) = checkpoint("finalized") {
+        warnings.push(format!(
+            "failure after finalizing the restore record: {error}"
         ));
     }
-    identity_manifest::require_preserved(&identity, &restored)?;
+    let verified = (|| -> Result<Value> {
+        let db = connect(&target, false)?;
+        db.execute_batch("BEGIN")?;
+        migration::validate(&db, true)?;
+        let restored = identity_manifest::manifest(&db)?;
+        drop(db);
+        if restored["catalog"]["incarnation"] != incarnation {
+            return Err(Error(
+                "published catalog does not carry the rotated incarnation".into(),
+            ));
+        }
+        identity_manifest::require_preserved(&identity, &restored)?;
+        Ok(restored)
+    })();
+    let generation = match verified {
+        Ok(restored) => restored["catalog"]["generation"].clone(),
+        Err(error) => {
+            warnings.push(format!("post-publication verification failed: {error}"));
+            Value::Null
+        }
+    };
     Ok(json!({
         "database":target, "database_id":identity["database_id"],
         "catalog_id":identity["catalog"]["catalog_id"], "schema":identity["schema"],
         "previous_incarnation":previous_incarnation, "incarnation":incarnation,
-        "generation":restored["catalog"]["generation"], "backup":snapshot,
+        "generation":generation, "backup":snapshot,
         "backup_sha256":receipt["sha256"], "retained":retained,
         "restore_record":staging.join("manifest.json"), "restored":true,
+        "already_published":false,
+        "durability":if durable { "durable" } else { "uncertain" }, "warnings":warnings,
     }))
 }

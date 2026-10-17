@@ -220,6 +220,9 @@ fn restore_round_trip_publishes_the_backup_under_a_fresh_incarnation() {
     let expected = tables_without_state(Path::new(receipt["backup"].as_str().unwrap()));
     let report = restore(&path, &receipt).unwrap();
     assert_eq!(report["restored"], true);
+    assert_eq!(report["already_published"], false);
+    assert_eq!(report["durability"], "durable");
+    assert_eq!(report["warnings"], json!([]));
     assert_eq!(report["previous_incarnation"], live_incarnation);
     let rotated = report["incarnation"].as_str().unwrap();
     assert_eq!(rotated.len(), 32);
@@ -407,7 +410,9 @@ fn restore_exit_worker() {
 
 #[test]
 fn crash_at_every_restore_stage_is_recoverable() {
-    for stage in native_restore::RESTORE_STAGES {
+    let stages = native_restore::RESTORE_STAGES;
+    let position = |name: &str| stages.iter().position(|stage| *stage == name).unwrap();
+    for stage in stages {
         let (_root, path, receipt) = backed_up();
         let before = fs::read(&path).unwrap();
         let live_incarnation = incarnation(&path);
@@ -419,15 +424,9 @@ fn crash_at_every_restore_stage_is_recoverable() {
             .status()
             .unwrap();
         assert_eq!(status.code(), Some(86), "{stage}");
-        let reached = |name: &str| {
-            native_restore::RESTORE_STAGES
-                .iter()
-                .position(|s| *s == stage)
-                >= native_restore::RESTORE_STAGES
-                    .iter()
-                    .position(|s| *s == name)
-        };
-        // Staging begins after verification and is left for the operator.
+        let reached = |name: &str| position(stage) >= position(name);
+        let committed = reached("renamed");
+        // Staging begins after verification and survives a crash.
         let staging = staging_directories(&path);
         assert_eq!(staging.len(), usize::from(reached("retained")), "{stage}");
         let record = staging
@@ -440,34 +439,116 @@ fn crash_at_every_restore_stage_is_recoverable() {
                 reached("rotated"),
                 "{stage}"
             );
+            assert_eq!(
+                directory.join("catalog.sqlite3").exists(),
+                reached("staged") && !committed,
+                "{stage}"
+            );
         }
         migration::validate(&connect(&path, true).unwrap(), true).unwrap();
-        if stage == "published" {
+        let read =
+            |path: &PathBuf| -> Value { serde_json::from_slice(&fs::read(path).unwrap()).unwrap() };
+        if committed {
             // The rename is the commit point: the restore is in effect.
-            let record: Value =
-                serde_json::from_slice(&fs::read(record.unwrap()).unwrap()).unwrap();
-            assert_eq!(record["status"], "published");
-            assert_eq!(incarnation(&path), record["incarnation"].as_str().unwrap());
-            assert_eq!(items(&path, "later-item"), 0);
+            let published = read(record.as_ref().unwrap());
+            assert_eq!(
+                incarnation(&path),
+                published["incarnation"].as_str().unwrap()
+            );
+            assert_eq!(items(&path, "later-item"), 0, "{stage}");
+            let expected = if reached("finalized") {
+                "published"
+            } else {
+                "staged"
+            };
+            assert_eq!(published["status"], expected, "{stage}");
+            // A rerun recognizes the published state and does not rotate again.
+            let rotated = incarnation(&path);
+            let rerun = restore(&path, &receipt).unwrap();
+            assert_eq!(rerun["already_published"], true, "{stage}");
+            assert_eq!(rerun["incarnation"], rotated.as_str(), "{stage}");
+            assert_eq!(incarnation(&path), rotated, "{stage}");
+            assert_eq!(
+                read(record.as_ref().unwrap())["status"],
+                "published",
+                "{stage}"
+            );
         } else {
             // Before the rename the live catalog is exactly as it was.
             assert_eq!(fs::read(&path).unwrap(), before, "{stage}");
             assert_eq!(incarnation(&path), live_incarnation, "{stage}");
             assert_eq!(items(&path, "later-item"), 1, "{stage}");
             if reached("rotated") {
-                let record: Value =
-                    serde_json::from_slice(&fs::read(record.unwrap()).unwrap()).unwrap();
-                assert_eq!(record["status"], "staged", "{stage}");
+                assert_eq!(
+                    read(record.as_ref().unwrap())["status"],
+                    "staged",
+                    "{stage}"
+                );
             }
+            // Rerunning the restore completes it from any interrupted stage.
+            let report = restore(&path, &receipt).unwrap();
+            assert_eq!(report["already_published"], false, "{stage}");
+            assert_eq!(incarnation(&path), report["incarnation"].as_str().unwrap());
         }
-        // Rerunning the restore completes it from any interrupted stage.
-        let report = restore(&path, &receipt).unwrap();
-        assert_eq!(incarnation(&path), report["incarnation"].as_str().unwrap());
         assert_eq!(items(&path, "kept-item"), 1, "{stage}");
         assert_eq!(items(&path, "later-item"), 0, "{stage}");
         identity_manifest::require_preserved(&receipt["identity_manifest"], &manifest(&path))
             .unwrap();
         Store::open(&path, true, false).unwrap();
+    }
+}
+
+/// An injected failure after the rename never turns a committed restore into
+/// an ordinary failure, and a rerun does not rotate the incarnation again.
+#[test]
+fn failures_after_publication_report_a_committed_restore() {
+    for (stage, durability, warning) in [
+        ("renamed", "uncertain", "failure after publication rename"),
+        ("published", "durable", "failure after durable publication"),
+        (
+            "finalizing",
+            "durable",
+            "restore record could not be finalized",
+        ),
+    ] {
+        let (_root, path, receipt) = backed_up();
+        let report =
+            native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+                if at == stage {
+                    Err(catabolic_store::Error(format!("injected {at}")))
+                } else {
+                    Ok(())
+                }
+            })
+            .unwrap();
+        assert_eq!(report["restored"], true, "{stage}");
+        assert_eq!(report["durability"], durability, "{stage}");
+        let warnings = report["warnings"].as_array().unwrap();
+        assert!(
+            warnings
+                .iter()
+                .any(|text| text.as_str().unwrap().contains(warning)),
+            "{stage}: {warnings:?}"
+        );
+        let rotated = report["incarnation"].as_str().unwrap().to_owned();
+        assert_eq!(incarnation(&path), rotated, "{stage}");
+        let record: Value =
+            serde_json::from_slice(&fs::read(report["restore_record"].as_str().unwrap()).unwrap())
+                .unwrap();
+        let expected = if stage == "finalizing" {
+            "staged"
+        } else {
+            "published"
+        };
+        assert_eq!(record["status"], expected, "{stage}");
+        if stage != "finalizing" {
+            assert_eq!(record["durability"], durability, "{stage}");
+        }
+        let rerun = restore(&path, &receipt).unwrap();
+        assert_eq!(rerun["already_published"], true, "{stage}");
+        assert_eq!(rerun["incarnation"], rotated.as_str(), "{stage}");
+        assert_eq!(incarnation(&path), rotated, "{stage}");
+        assert_eq!(items(&path, "later-item"), 0, "{stage}");
     }
 }
 
@@ -543,7 +624,7 @@ fn staged_mutation_or_replacement_is_refused_before_publication() {
         Ok(())
     })
     .unwrap();
-    assert_eq!(report["restored"], true);
+    assert_eq!(report["durability"], "durable");
     let count: i64 = connect(&path, false)
         .unwrap()
         .query_row(
