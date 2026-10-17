@@ -232,9 +232,10 @@ established from the evidence listed in step 4, reset instead.
    preserves the damaged state. It is not evidence for step 4.
 3. **Inspect.** `catabolic watcher show NAME` prints `pending_reaction`, and
    `catabolic watcher history NAME` prints the latest 100 runs. To walk the
-   whole chain, use this query, replacing `:profile` and `:name`. Every JSON
-   function is guarded by `json_valid`, so null and malformed results are
-   reported instead of aborting the query:
+   whole chain, use this query, replacing `:profile` and `:name`. Like the
+   engine, it follows a link only to a run owned by the same profile and
+   watcher. Every JSON function is guarded by `json_valid`, so null and
+   malformed results are reported instead of aborting the query:
 
    ```sql
    WITH RECURSIVE chain(id, depth) AS (
@@ -243,7 +244,8 @@ established from the evidence listed in step 4, reset instead.
      UNION ALL
      SELECT CASE WHEN json_valid(r.result) THEN json_extract(r.result,'$.retry_of') END,
             c.depth+1
-     FROM chain c JOIN watcher_runs r ON r.id=c.id
+     FROM chain c JOIN watcher_runs r
+       ON r.id=c.id AND r.profile=:profile AND r.watcher=:name
      WHERE CASE WHEN json_valid(r.result)
                 THEN json_type(r.result,'$.phase')='text'
                  AND json_extract(r.result,'$.phase')='planned'
@@ -252,7 +254,8 @@ established from the evidence listed in step 4, reset instead.
                 ELSE 0 END
        AND c.depth<1000)
    SELECT c.depth, c.id, r.state, r.started_at,
-          CASE WHEN r.id IS NULL THEN 'missing row'
+          CASE WHEN r.id IS NULL AND o.id IS NOT NULL THEN 'other owner'
+               WHEN r.id IS NULL THEN 'missing row'
                WHEN r.result IS NULL THEN 'null result'
                WHEN NOT json_valid(r.result) THEN 'malformed result'
                ELSE 'valid' END AS result_status,
@@ -260,19 +263,28 @@ established from the evidence listed in step 4, reset instead.
           CASE WHEN json_valid(r.result) THEN json_extract(r.result,'$.phase') END AS phase,
           CASE WHEN json_valid(r.result) THEN json_type(r.result,'$.evaluation.changed') END AS changed,
           CASE WHEN json_valid(r.result) THEN json_type(r.result,'$.retry_of') END AS link
-   FROM chain c LEFT JOIN watcher_runs r ON r.id=c.id ORDER BY c.depth;
+   FROM chain c
+   LEFT JOIN watcher_runs r ON r.id=c.id AND r.profile=:profile AND r.watcher=:name
+   LEFT JOIN watcher_runs o ON o.id=c.id
+   ORDER BY c.depth;
    ```
 
    The last row is where the walk stops. The chain is intact if that row is
    valid with phase `planned` and either `changed` is `true`, or `changed` is
-   `false` and `link` is `null`. Otherwise the last row is the damaged run. A
-   missing row, `phase_type` other than `text`, `changed` other than
-   `true`/`false`, or `link` other than `text`/`null` is damage. If the chain
-   has a cycle, the query lists repeating IDs until depth 1000.
+   `false` and `link` is `null`. Otherwise the walk stopped at damage:
+   - `missing row`, or `other owner` (the ID belongs to another profile or
+     watcher). The damage is then the link in the previous row, which points
+     to a run the engine will not follow. Its correct value can come only from
+     a pre-damage backup.
+   - `phase_type` other than `text`.
+   - `changed` other than `true`/`false`.
+   - `link` other than `text`/`null`.
+
+   If the chain has a cycle, the query lists repeating IDs until depth 1000.
 4. **Establish each damaged value from trustworthy evidence only.** Leave
    intact fields untouched. Only these sources count:
-   - **A backup taken before the damage**, holding the same run with a valid
-     result. It is trustworthy for every field, and the only trustworthy
+   - **A backup taken before the damage**, holding the same run, with the same
+     profile and watcher, and a valid result. It is trustworthy for every field, and the only trustworthy
      source for `retry_of`. For a null or malformed result, it is the only
      source at all.
    - **`phase`.** Any run that `pending_reaction` or a successor's `retry_of`
@@ -294,13 +306,15 @@ established from the evidence listed in step 4, reset instead.
 
      ```sql
      UPDATE watcher_runs SET result=json_set(result,'$.evaluation.changed',json('true'))
-     WHERE id=:run AND json_valid(result);
+     WHERE id=:run AND profile=:profile AND watcher=:name AND json_valid(result);
      UPDATE watcher_runs SET result=json_set(result,'$.retry_of',:previous_run)
-     WHERE id=:run AND json_valid(result);
+     WHERE id=:run AND profile=:profile AND watcher=:name AND json_valid(result)
+       AND EXISTS(SELECT 1 FROM watcher_runs p
+                  WHERE p.id=:previous_run AND p.profile=:profile AND p.watcher=:name);
      UPDATE watcher_runs SET result=json_set(result,'$.retry_of',json('null'))
-     WHERE id=:run AND json_valid(result);
+     WHERE id=:run AND profile=:profile AND watcher=:name AND json_valid(result);
      UPDATE watcher_runs SET result=json_set(result,'$.phase','planned')
-     WHERE id=:run AND json_valid(result);
+     WHERE id=:run AND profile=:profile AND watcher=:name AND json_valid(result);
      ```
 
    - For a null or malformed result, `json_set` does not help: it fails on
@@ -310,13 +324,21 @@ established from the evidence listed in step 4, reset instead.
      ```sql
      ATTACH 'PRE_DAMAGE_BACKUP' AS b;
      UPDATE main.watcher_runs
-     SET result=(SELECT result FROM b.watcher_runs WHERE id=:run)
-     WHERE id=:run
-       AND (SELECT json_valid(result) FROM b.watcher_runs WHERE id=:run);
+     SET result=(SELECT result FROM b.watcher_runs
+                 WHERE id=:run AND profile=:profile AND watcher=:name)
+     WHERE id=:run AND profile=:profile AND watcher=:name
+       AND (SELECT json_valid(result) FROM b.watcher_runs
+            WHERE id=:run AND profile=:profile AND watcher=:name);
      DETACH b;
      ```
 
      Without such a backup, reset.
+
+   Every statement matches the run by ID, profile and watcher, as the engine
+   does. A statement that would touch another owner's run, or link to it,
+   changes nothing. The event-key lookup in step 4 matches `id` and `profile`,
+   as the engine's admission check does. The key already encodes the profile
+   and the run ID, and the run's ownership is checked by the query in step 3.
 
    Do not edit `pending_reaction`, `baseline`, `pending_generation`,
    `requested_generation`, `consumer_events` or `notification_deliveries`.
