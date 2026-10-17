@@ -194,6 +194,9 @@ fn run(app: &App, input: &Input, handle: &tokio::runtime::Handle, reply: &mut Re
                 }
                 return Ok(());
             }
+            // A complete body of a ready generated output is hashed while it
+            // streams; its final chunk is withheld unless the digest matches.
+            let mut chunks = evidence.body(file, stat, prepared.start, prepared.length)?;
             let (sender, receiver) =
                 tokio::sync::mpsc::channel::<std::result::Result<Bytes, std::io::Error>>(1);
             let body = Body::from_stream(futures::stream::unfold(
@@ -211,24 +214,16 @@ fn run(app: &App, input: &Input, handle: &tokio::runtime::Handle, reply: &mut Re
             {
                 return Err(Error("transfer_disconnected".into()));
             }
-            let mut offset = prepared.start;
-            let mut remaining = prepared.length;
-            while remaining > 0 {
+            while chunks.remaining() > 0 {
                 // Reserve before opening authorization so network backpressure owns no Store.
                 let permit = handle
                     .block_on(sender.reserve())
                     .map_err(|_| Error("transfer_disconnected".into()))?;
-                let read = (|| {
-                    evidence.revalidate()?;
-                    content::read_chunk(file, stat, offset, remaining.min(65536) as usize)
-                })();
-                match read {
-                    Ok(bytes) => {
-                        offset += bytes.len() as u64;
-                        remaining -= bytes.len() as u64;
-                        permit.send(Ok(Bytes::from(bytes)));
-                    }
+                match chunks.next_chunk() {
+                    Ok(bytes) => permit.send(Ok(Bytes::from(bytes))),
                     Err(error) => {
+                        // An error item aborts the response before its declared
+                        // length, so the client never sees a completed body.
                         permit.send(Err(std::io::Error::other(
                             "content authorization or revision changed",
                         )));

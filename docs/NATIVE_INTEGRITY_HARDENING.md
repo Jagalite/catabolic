@@ -38,8 +38,8 @@ than one second, the whole cache is discarded.
 
 ### Remaining limits
 
-- A same-tick rewrite made while bytes are streaming is not fenced. The
-  after-transfer metadata check can miss it.
+- A same-tick rewrite made while a partial range is streaming is not fenced.
+  Complete responses are hashed while they stream (A4, below).
 - Someone who can step the system clock backwards and forwards between two
   lookups could defeat the cache. That requires root-equivalent privileges.
 - On coarse and untrusted filesystems, digest verification adds a full read.
@@ -47,6 +47,45 @@ than one second, the whole cache is discarded.
   requests that go through `with_transfer`.
 - Source files have no recorded digest. They keep the metadata contract until
   the ctime and stat-time schema step (work plan item A5).
+
+## Complete responses are hashed while they stream (A4)
+
+The up-front digest check runs only on coarse and untrusted filesystems, and
+only before the first byte. A rewrite that the metadata revision cannot see,
+such as a same-tick rewrite or one that restores every timestamp, could still
+be delivered as a complete body. Content delivery now hashes every response
+that covers the whole file of a ready generated output while it streams:
+
+- This covers a full `GET` and a range that spans the whole file, on every
+  filesystem class. The hash needs no extra read; it uses the bytes being sent.
+- The chunk that completes the body is released only after the streamed
+  SHA-256 matches the recorded digest. On a mismatch the response stream ends
+  with an error before its declared `Content-Length`, so the connection is
+  aborted. The client sees a failed or truncated transfer, never a completed
+  wrong body. An empty body is checked before the response is sent.
+- `HEAD`, `304` responses and partial ranges stay cheap: they are never
+  hashed. Sources have no recorded digest, so they keep the metadata contract.
+- A mismatch is reported as `revision_mismatch`. Consistent with A1, the
+  catalog is not changed. The exact revision (device, inode, size, mtime, ctime
+  and digest) is quarantined for the process: any cached verification of it is
+  discarded, and every later use of it, including reuse checks, `HEAD` and range
+  requests, is refused on every filesystem class. A file that changes again has
+  a new revision, which the metadata checks refuse until the artifact is
+  regenerated or re-verified.
+
+`TransferEvidence::body` in `crates/catabolic-store/src/content_access.rs`
+owns the per-chunk revalidation, reads and hashing. The HTTP crate only
+forwards chunks.
+
+Remaining limits:
+
+- The quarantine is process-local and holds the 4,096 most recent mismatched
+  revisions. It is not persisted, because recording it in the catalog would be
+  a state transition that A1–A3 deliberately avoid. A new process, or an
+  evicted entry, hashes the next complete response again and refuses it then.
+- Every chunk except the last (at most 64 KiB) has already been delivered when
+  the mismatch is found. Clients must treat an aborted transfer as failed and
+  discard what they received.
 
 ## Output claims never delete temporaries (FS1)
 

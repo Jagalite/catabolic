@@ -10,7 +10,7 @@ use crate::{Error, Result};
 use sha2::{Digest, Sha256};
 use std::{
     cell::Cell,
-    collections::HashMap,
+    collections::{HashMap, HashSet, VecDeque},
     fs::File,
     os::unix::fs::{FileExt, MetadataExt},
     time::{Instant, SystemTime, UNIX_EPOCH},
@@ -195,9 +195,69 @@ fn observe_clock(verified: &mut Verified, wall: i128) {
     verified.monotonic = Instant::now();
 }
 
+/// Bound the process-local record of revisions whose streamed bytes did not
+/// match their digest. The oldest record is evicted first; an evicted revision
+/// is still hashed on every complete response.
+const MISMATCHED_LIMIT: usize = 4096;
+
+/// Revisions (exact metadata key and recorded digest) whose bytes were proven
+/// not to match while a complete response streamed (work plan A4).
+struct Mismatched {
+    keys: HashSet<Key>,
+    order: VecDeque<Key>,
+}
+
+static MISMATCHED: std::sync::Mutex<Option<Mismatched>> = std::sync::Mutex::new(None);
+
+fn with_mismatched<T>(operation: impl FnOnce(&mut Mismatched) -> T) -> T {
+    let mut guard = MISMATCHED
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    operation(guard.get_or_insert_with(|| Mismatched {
+        keys: HashSet::new(),
+        order: VecDeque::new(),
+    }))
+}
+
+/// Quarantine one exact revision of a generated output after a streamed
+/// response proved that its bytes differ from the recorded digest. Like the
+/// rest of this module it never changes the catalog: the quarantine is
+/// process-local, any cached verification of the revision is discarded, and
+/// every later use of the same revision is refused on every filesystem class.
+/// A changed file has a different key, which the metadata revision refuses.
+pub(crate) fn record_mismatch(stat: &std::fs::Metadata, expected: &str) {
+    let entry = key(stat, expected);
+    with_cache(|verified| {
+        if let Some(verified) = verified.as_mut() {
+            verified.entries.remove(&entry);
+        }
+    });
+    with_mismatched(|mismatched| {
+        if mismatched.keys.insert(entry.clone()) {
+            mismatched.order.push_back(entry);
+            while mismatched.order.len() > MISMATCHED_LIMIT {
+                if let Some(oldest) = mismatched.order.pop_front() {
+                    mismatched.keys.remove(&oldest);
+                }
+            }
+        }
+    });
+}
+
+fn quarantined(stat: &std::fs::Metadata, expected: &str) -> bool {
+    let entry = key(stat, expected);
+    with_mismatched(|mismatched| mismatched.keys.contains(&entry))
+}
+
 /// Verify `file` against its recorded SHA-256 when metadata cannot prove its
-/// bytes. Fine-grained filesystems keep the cheap metadata revision.
+/// bytes. Fine-grained filesystems keep the cheap metadata revision, except
+/// for a revision already proven wrong by a streamed response.
 pub(crate) fn verify_if_coarse(file: &File, expected: &str) -> Result<()> {
+    if quarantined(&file.metadata()?, expected) {
+        return Err(Error(
+            "artifact checksum mismatch was observed while streaming this revision".into(),
+        ));
+    }
     match granularity(file) {
         Granularity::Fine => Ok(()),
         Granularity::CoarseLocal => verify_digest(file, expected, true),

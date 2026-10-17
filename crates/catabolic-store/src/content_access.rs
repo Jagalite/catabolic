@@ -515,8 +515,42 @@ pub struct TransferEvidence {
     file_id: String,
     revision: String,
     ticket: Option<String>,
+    /// Recorded SHA-256 of a ready generated output; sources have none.
+    digest: Option<String>,
 }
 impl TransferEvidence {
+    /// Deliver `length` bytes from `start`. A response that covers the whole
+    /// file of a ready generated output (a full GET, or a range that spans the
+    /// whole file) is hashed while it streams, and its final chunk is released
+    /// only after the digest matches. Partial ranges and HEAD stay cheap: they
+    /// never construct a body, or carry no digest check.
+    pub fn body<'a>(
+        &'a self,
+        file: &'a File,
+        stat: &'a std::fs::Metadata,
+        start: u64,
+        length: u64,
+    ) -> Result<TransferBody<'a>> {
+        let digest = self
+            .digest
+            .as_ref()
+            .filter(|_| start == 0 && length == stat.len())
+            .map(|expected| (<sha2::Sha256 as sha2::Digest>::new(), expected.clone()));
+        let mut body = TransferBody {
+            evidence: self,
+            file,
+            stat,
+            offset: start,
+            remaining: length,
+            digest,
+        };
+        if length == 0 {
+            // Nothing streams, so the empty representation is proven up front.
+            body.finish()?;
+        }
+        Ok(body)
+    }
+
     pub fn revalidate(&self) -> Result<()> {
         let store = Store::open(&self.path, false, false)?;
         if store.database_id != self.database_id {
@@ -528,6 +562,58 @@ impl TransferEvidence {
         }
         authorize_snapshot(&mut access, &self.file_id, &self.revision)?;
         if let Some(ticket)=&self.ticket&&!access.store().db.prepare("SELECT 1 FROM api_tickets WHERE id=? AND token_id=? AND file_id=? AND revision=? AND revoked=0 AND expires>?")?.exists(params![ticket,self.token,self.file_id,self.revision,crate::notifications::now()])?{return Err(denied("unauthorized"))}
+        Ok(())
+    }
+}
+/// One response body. Each chunk revalidates current authorization and the
+/// descriptor revision. A digest mismatch withholds the final chunk, so the
+/// client sees a failed or truncated transfer rather than a complete wrong body.
+pub struct TransferBody<'a> {
+    evidence: &'a TransferEvidence,
+    file: &'a File,
+    stat: &'a std::fs::Metadata,
+    offset: u64,
+    remaining: u64,
+    digest: Option<(sha2::Sha256, String)>,
+}
+impl TransferBody<'_> {
+    pub fn remaining(&self) -> u64 {
+        self.remaining
+    }
+    /// Read the next bounded chunk. The chunk that completes a hashed body is
+    /// returned only once the streamed bytes match the recorded digest.
+    pub fn next_chunk(&mut self) -> Result<Vec<u8>> {
+        if self.remaining == 0 {
+            return Err(denied("transfer already complete"));
+        }
+        self.evidence.revalidate()?;
+        let bytes = read_chunk(
+            self.file,
+            self.stat,
+            self.offset,
+            self.remaining.min(65536) as usize,
+        )?;
+        let read = (bytes.len() as u64).min(self.remaining);
+        self.offset += read;
+        self.remaining -= read;
+        if let Some((hasher, _)) = &mut self.digest {
+            sha2::Digest::update(hasher, &bytes[..read as usize]);
+        }
+        if self.remaining == 0 {
+            self.finish()?;
+        }
+        Ok(bytes[..read as usize].to_vec())
+    }
+    fn finish(&mut self) -> Result<()> {
+        let Some((hasher, expected)) = self.digest.take() else {
+            return Ok(());
+        };
+        if format!("{:x}", sha2::Digest::finalize(hasher)) != expected {
+            // Quarantine this exact revision for the process: later reuse,
+            // HEAD and range requests refuse it on every filesystem class.
+            crate::timestamps::record_mismatch(self.stat, &expected);
+            return Err(denied("revision_mismatch"));
+        }
         Ok(())
     }
 }
@@ -552,6 +638,7 @@ pub fn with_transfer<P, T>(
         file_id: id.into(),
         revision: revision.into(),
         ticket: ticket.map(str::to_owned),
+        digest: digest.clone(),
     };
     source::with_validated_source(&row, |file| {
         refuse_sqlite_payload(file)?;
@@ -559,8 +646,9 @@ pub fn with_transfer<P, T>(
         let prepared = prepare(&mut access, &stat, &row)?;
         drop(access);
         // Digest verification runs after catalog ownership is released and
-        // before any byte is delivered. A rewrite made while streaming is not
-        // fenced; the after-transfer revision check reports it as an error.
+        // before any byte is delivered. A complete response is also hashed
+        // while it streams (`TransferEvidence::body`), which catches a rewrite
+        // the metadata revision cannot see before the final chunk is released.
         verify_artifact_bytes(file, digest.as_deref())?;
         deliver(file, &stat, evidence, prepared)
     })
@@ -591,10 +679,13 @@ mod tests {
         });
     }
     fn fixture() -> (tempfile::TempDir, Access, String, String) {
+        fixture_with(b"test bytes")
+    }
+    fn fixture_with(bytes: &[u8]) -> (tempfile::TempDir, Access, String, String) {
         let root = tempfile::tempdir().unwrap();
         let media = root.path().join("media");
         std::fs::create_dir(&media).unwrap();
-        std::fs::write(media.join("file.bin"), b"test bytes").unwrap();
+        std::fs::write(media.join("file.bin"), bytes).unwrap();
         let path = root.path().join("catalog.sqlite3");
         crate::migration::initialize(&path).unwrap();
         let store = Store::open(&path, true, false).unwrap();
@@ -620,6 +711,120 @@ mod tests {
             id,
             revision,
         )
+    }
+    /// Record the fixture file as a ready generated output with `digest`. The
+    /// processing job chain is irrelevant to delivery, so its keys are absent.
+    fn ready_artifact(access: &Access, id: &str, digest: &str) {
+        let db = &access.store().db;
+        db.execute_batch("PRAGMA foreign_keys=OFF").unwrap();
+        db.execute("INSERT INTO processing_artifacts(id,job_id,attempt,profile,location,path,temporary_path,binding,state,file_id,item_id,role,sha256) VALUES ('artifact','job',1,'default','media','file.bin','.artifact.partial','{}','ready',?,'item','rendition',?)",params![id,digest]).unwrap();
+        db.execute_batch("PRAGMA foreign_keys=ON").unwrap();
+    }
+    fn sha(bytes: &[u8]) -> String {
+        format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(bytes))
+    }
+    /// Stream one response through `with_transfer`, collecting every chunk
+    /// released before the body completes or fails.
+    fn stream(
+        access: Access,
+        id: &str,
+        revision: &str,
+        start: u64,
+        length: Option<u64>,
+    ) -> (Vec<u8>, Result<()>) {
+        let mut delivered = Vec::new();
+        let result = with_transfer(
+            access,
+            id,
+            revision,
+            None,
+            |_, _, _| Ok(()),
+            |file, stat, evidence, ()| {
+                let mut body =
+                    evidence.body(file, stat, start, length.unwrap_or(stat.len() - start))?;
+                while body.remaining() > 0 {
+                    delivered.extend(body.next_chunk()?);
+                }
+                Ok(())
+            },
+        );
+        (delivered, result)
+    }
+    #[test]
+    fn complete_responses_are_hashed_and_withhold_the_final_chunk_on_mismatch() {
+        let bytes = (0..200_000u32).map(|i| (i % 251) as u8).collect::<Vec<_>>();
+        // Correct digest: the whole body is delivered on a fine filesystem.
+        let (_root, access, id, revision) = fixture_with(&bytes);
+        ready_artifact(&access, &id, &sha(&bytes));
+        crate::timestamps::with_forced_granularity(false, || {
+            let (delivered, result) = stream(access, &id, &revision, 0, None);
+            result.unwrap();
+            assert_eq!(delivered, bytes);
+        });
+        // A rewrite the metadata revision cannot see (modelled by a recorded
+        // digest that differs from the bytes) aborts before the final chunk.
+        let (_root, access, id, revision) = fixture_with(&bytes);
+        ready_artifact(&access, &id, &sha(b"other bytes"));
+        let retry = access.current().unwrap();
+        let ranged = access.current().unwrap();
+        crate::timestamps::with_forced_granularity(false, || {
+            let digests = crate::timestamps::digests_computed();
+            let (delivered, result) = stream(access, &id, &revision, 0, None);
+            assert_eq!(result.unwrap_err().0, "revision_mismatch");
+            // The fine filesystem skipped the up-front digest; only the
+            // streamed hash, which needs no extra read, found the mismatch.
+            assert_eq!(crate::timestamps::digests_computed(), digests);
+            assert!(!delivered.is_empty());
+            assert!(delivered.len() < bytes.len());
+            assert_eq!(delivered[..], bytes[..delivered.len()]);
+            // The exact revision is now quarantined for this process: even a
+            // cheap range request is refused before any byte is delivered.
+            let (delivered, result) = stream(ranged, &id, &revision, 0, Some(10));
+            assert_eq!(result.unwrap_err().0, "revision_mismatch");
+            assert!(delivered.is_empty());
+            let (delivered, result) = stream(retry, &id, &revision, 0, None);
+            assert_eq!(result.unwrap_err().0, "revision_mismatch");
+            assert!(delivered.is_empty());
+        });
+    }
+    #[test]
+    fn partial_responses_and_sources_stay_cheap() {
+        let bytes = b"partial content bytes";
+        let (_root, access, id, revision) = fixture_with(bytes);
+        ready_artifact(&access, &id, &sha(b"different"));
+        let whole = access.current().unwrap();
+        crate::timestamps::with_forced_granularity(false, || {
+            // A strict sub-range is never hashed, so it is not refused.
+            let (delivered, result) = stream(access, &id, &revision, 1, Some(5));
+            result.unwrap();
+            assert_eq!(delivered, &bytes[1..6]);
+            // A range that spans the whole file is a complete body.
+            let (delivered, result) = stream(whole, &id, &revision, 0, Some(bytes.len() as u64));
+            assert_eq!(result.unwrap_err().0, "revision_mismatch");
+            assert!(delivered.is_empty());
+        });
+        // Sources have no recorded digest and keep the metadata contract.
+        let (_root, access, id, revision) = fixture_with(bytes);
+        let (delivered, result) = stream(access, &id, &revision, 0, None);
+        result.unwrap();
+        assert_eq!(delivered, bytes);
+    }
+    #[test]
+    fn an_empty_complete_body_is_proven_before_the_response() {
+        let (_root, access, id, revision) = fixture_with(b"");
+        ready_artifact(&access, &id, &sha(b"not empty"));
+        crate::timestamps::with_forced_granularity(false, || {
+            let (delivered, result) = stream(access, &id, &revision, 0, None);
+            assert_eq!(result.unwrap_err().0, "revision_mismatch");
+            assert!(delivered.is_empty());
+        });
+        let (_root, access, id, revision) = fixture_with(b"");
+        ready_artifact(&access, &id, &sha(b""));
+        crate::timestamps::with_forced_granularity(false, || {
+            let (delivered, result) = stream(access, &id, &revision, 0, None);
+            result.unwrap();
+            assert!(delivered.is_empty());
+        });
     }
     #[test]
     fn mutation_boundaries_recheck_current_authorization() {
