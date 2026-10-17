@@ -201,8 +201,9 @@ It is fail-closed and passes these checkpoints, in order:
 | `retained` | Creates `.<name>.restore-<id>/` beside the catalog and copies the live catalog into `previous.sqlite3` with SQLite's backup API | Live catalog unchanged |
 | `staged` | Copies the snapshot into the staging directory, rechecks its checksum and records the staged file's identity | Live catalog unchanged |
 | `rotated` | Changes the staged copy's incarnation through the schema's restore-scoped permit, to a fresh value different from both the live and the snapshot incarnation. Checks that only `catalog_state` changed, that identities are preserved and that no worker ownership is left unresolved (see below). Records the whole-row digest of the rotated file and writes the staging `manifest.json` record (`catabolic-native-restore-v1`, status `staged`). | Live catalog unchanged; record says `staged` |
-| `protected` | Rechecks that the staged path is still the same regular file with one link and no sidecars, takes an exclusive SQLite lock on it, and requires its whole-row digest and incarnation to equal the rotated file's | Live catalog unchanged |
-| `renamed` | Rechecks the staged file, the live pathname, the lease and the absence of `-journal`, `-wal` and `-shm` files, then renames the staged copy over the live path. This rename is the single commit point. | Restore in effect; durability not yet confirmed |
+| `protected` | Rechecks that the staged path is still the same regular file with one link and no sidecars and takes an exclusive SQLite lock on it. Under that lock, runs complete native validation (schema signature, history checksums, integrity, foreign keys, native state) and requires its complete state to equal the rotated file's: table digests, every schema object, full migration history rows, `sqlite_sequence` and the identity manifest | Live catalog unchanged |
+| `publishing` | Rechecks the staged file, the live pathname, the lease and the absence of `-journal`, `-wal` and `-shm` files. A failed rename here closes both connections and removes only this run's staging directory. | Live catalog unchanged |
+| `renamed` | Renames the staged copy over the live path. This rename is the single commit point. | Restore in effect; durability not yet confirmed |
 | `published` | Fsyncs the containing directory | Restore in effect and durable |
 | `finalizing` | Prepares the final record | Restore in effect; record still says `staged` |
 | `finalized` | Writes the record with status `published` and its durability | Restore in effect; record final |
@@ -221,7 +222,16 @@ an ordinary failure. The command instead returns the committed result with
 anything failed before it) and `warnings`, for example when the record could
 not be finalized. A rerun with the same backup finds the record whose
 incarnation is the live one and returns `already_published: true` without
-rotating again, finalizing the record if needed. A rerun after a crash before
+rotating again. It first retries the directory fsync while holding the
+exclusive locks; it reports `durable` only if that succeeds, otherwise
+`uncertain` with a warning, and writes the resulting durability into the
+record. If any existing restore record, its staging directory or the
+catalog's directory cannot be read, or a record is not valid, restore
+refuses with `restore record reconciliation required` and changes nothing.
+An unreadable record could describe a published restore, and treating it as
+absent would rotate the catalog again and discard later writes. The
+operator inspects and repairs or removes the record by hand. A staging
+directory without a record never reached rotation, so it is ignored. A rerun after a crash before
 the rename performs the restore. Successful restores keep their staging
 directory, with `previous.sqlite3`, for the operator to inspect and remove.
 Idle, unused descriptors and users on other hosts remain undetectable, as for
@@ -253,8 +263,11 @@ identity and incarnation before use and require a reopen.
 - refused backups: missing assertions, another catalog's backup, a changed
   snapshot, an edited manifest, a legacy backup, a WAL live catalog, and
   completed or unfinished worker ownership;
-- refused staged mutations and replacements;
-- injected failures after the rename;
+- refused staged mutations and replacements, and refused staged schema,
+  migration-history and sequence changes;
+- injected failures at the rename and after it;
+- rerun durability after an uncertain publication;
+- unreadable or corrupt restore records;
 - a process exit at every checkpoint, followed by a rerun.
 
 Each refusal leaves the catalog unchanged. A restore returns the database to
