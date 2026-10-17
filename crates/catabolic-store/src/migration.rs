@@ -617,7 +617,7 @@ pub fn inspect(path: &Path, full: bool) -> Result<Value> {
     );
     Ok(info)
 }
-fn fsync(path: &Path) -> Result<()> {
+pub(crate) fn fsync(path: &Path) -> Result<()> {
     OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW)
@@ -625,7 +625,7 @@ fn fsync(path: &Path) -> Result<()> {
         .sync_all()?;
     Ok(())
 }
-fn manifest(directory: &Path, value: &Value) -> Result<()> {
+pub(crate) fn manifest(directory: &Path, value: &Value) -> Result<()> {
     let temporary = directory.join(format!("manifest-{}.tmp", Uuid::new_v4().simple()));
     let mut f = OpenOptions::new()
         .write(true)
@@ -639,7 +639,7 @@ fn manifest(directory: &Path, value: &Value) -> Result<()> {
     fs::rename(temporary, directory.join("manifest.json"))?;
     fsync(directory)
 }
-fn copy(db: &Connection, path: &Path) -> Result<()> {
+pub(crate) fn copy(db: &Connection, path: &Path) -> Result<()> {
     OpenOptions::new()
         .write(true)
         .create_new(true)

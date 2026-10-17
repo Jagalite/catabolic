@@ -59,6 +59,7 @@ pub mod mapping_history;
 pub mod media_mutation;
 pub mod migration;
 mod native_admission;
+pub mod native_restore;
 mod native_writer_vm;
 pub use native_admission::{NativeAdmissionLock, native_admission_exclusive};
 pub mod mime;

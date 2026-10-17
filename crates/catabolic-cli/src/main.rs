@@ -392,6 +392,9 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             catabolic_store::identity_manifest::require_preserved(&before, &after)?;
             Ok(catabolic_store::identity_manifest::diff(&before, &after))
         }
+        [command, sub] if command == "db" && sub == "native-backup" => {
+            catabolic_store::native_restore::backup(&path, backup.as_deref())
+        }
         [command, sub] if command == "db" && sub == "convert-journal" => {
             let target = journal_target
                 .ok_or_else(|| Error("db convert-journal requires --to delete".into()))?;
@@ -641,7 +644,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             )
         }
         _ => Err(Error(
-            "supported commands: init, db inspect, db upgrade, db snapshot, db native-inspect, db native-plan, db native-upgrade, db identity-manifest, db identity-diff, db convert-journal, encode, --version"
+            "supported commands: init, db inspect, db upgrade, db snapshot, db native-inspect, db native-plan, db native-upgrade, db identity-manifest, db identity-diff, db convert-journal, db native-backup, encode, --version"
                 .into(),
         )),
     }
