@@ -128,6 +128,10 @@ pub const BACKUP_OPENED: &str = "backup_opened";
 /// Checkpoint after SQLite wrote the retained copy and before its name is
 /// rechecked. Only tests use it.
 pub const RETAINED_WRITTEN: &str = "retained_written";
+/// Checkpoints before and after restore records are enumerated. Only tests
+/// use them, to swap the catalog directory's pathname during enumeration.
+pub const RECORDS_LISTING: &str = "records_listing";
+pub const RECORDS_LISTED: &str = "records_listed";
 
 /// One controlled restore at a time in this process. Lifecycle admission
 /// excludes other processes; this also keeps a second restore in the same
@@ -145,6 +149,17 @@ fn name_cstring(name: &str) -> Result<std::ffi::CString> {
 
 fn os_error() -> Error {
     std::io::Error::last_os_error().into()
+}
+
+#[cfg(target_os = "macos")]
+fn errno_location() -> *mut libc::c_int {
+    // SAFETY: returns this thread's errno slot.
+    unsafe { libc::__error() }
+}
+#[cfg(target_os = "linux")]
+fn errno_location() -> *mut libc::c_int {
+    // SAFETY: returns this thread's errno slot.
+    unsafe { libc::__errno_location() }
 }
 
 /// What `fstatat(..., AT_SYMLINK_NOFOLLOW)` reports for one directory entry.
@@ -320,6 +335,53 @@ impl Dir {
         Ok(self.file.sync_all()?)
     }
 
+    /// Entry names, read through a duplicate of the held descriptor with
+    /// fdopendir/readdir. The pathname is never consulted, so a directory
+    /// swapped at that name during enumeration cannot hide an entry.
+    fn entries(&self) -> Result<Vec<String>> {
+        // SAFETY: duplicating a valid descriptor.
+        let duplicate = unsafe { libc::dup(self.fd()) };
+        if duplicate < 0 {
+            return Err(os_error());
+        }
+        // SAFETY: on success fdopendir owns the duplicate; on failure we close it.
+        let stream = unsafe { libc::fdopendir(duplicate) };
+        if stream.is_null() {
+            let error = os_error();
+            // SAFETY: the duplicate is still ours.
+            unsafe { libc::close(duplicate) };
+            return Err(error);
+        }
+        // The duplicate shares the held descriptor's offset; start at the top.
+        // SAFETY: stream is a valid directory stream.
+        unsafe { libc::rewinddir(stream) };
+        let mut names = Vec::new();
+        let failure = loop {
+            // SAFETY: errno is thread-local; readdir signals errors through it.
+            unsafe { *errno_location() = 0 };
+            // SAFETY: stream is a valid directory stream.
+            let entry = unsafe { libc::readdir(stream) };
+            if entry.is_null() {
+                // SAFETY: reading this thread's errno.
+                let code = unsafe { *errno_location() };
+                break (code != 0).then(|| std::io::Error::from_raw_os_error(code));
+            }
+            // SAFETY: readdir returned a valid entry with a NUL-terminated name.
+            let name = unsafe { std::ffi::CStr::from_ptr((*entry).d_name.as_ptr()) }
+                .to_string_lossy()
+                .into_owned();
+            if name != "." && name != ".." {
+                names.push(name);
+            }
+        };
+        // SAFETY: closes the stream and the duplicate it owns.
+        unsafe { libc::closedir(stream) };
+        match failure {
+            Some(error) => Err(error.into()),
+            None => Ok(names),
+        }
+    }
+
     /// The held descriptor is unchanged and its pathname still resolves to
     /// it, so SQLite opening a file by name below it reaches this directory.
     fn require_unchanged(&self) -> Result<()> {
@@ -370,13 +432,8 @@ fn write_record(parent: &Dir, staging_name: &str, staging: &Dir, record: &Value)
 /// Remove this run's unpublished staging directory, entry by entry through
 /// its held descriptor. Anything unexpected is left for the operator.
 fn remove_staging(parent: &Dir, staging_name: &str, staging: &Dir) {
-    if staging.require_unchanged().is_err() || parent.require_child(staging_name, staging).is_err()
-    {
-        return;
-    }
-    if let Ok(entries) = fs::read_dir(&staging.path) {
-        for entry in entries.flatten() {
-            let name = entry.file_name().to_string_lossy().into_owned();
+    if let Ok(names) = staging.entries() {
+        for name in names {
             // unlinkat removes a symbolic link itself and never follows it.
             if staging.entry(&name).is_some_and(|entry| !entry.directory) {
                 let _ = staging.unlink_at(&name, false);
@@ -690,27 +747,20 @@ fn previous_records(
     target: &Path,
     target_name: &str,
     database_id: &Value,
+    checkpoint: &dyn Fn(&str) -> Result<()>,
 ) -> Result<Vec<Record>> {
     use std::io::Read;
     let prefix = format!(".{target_name}.restore-");
-    let listing = |error: std::io::Error| {
-        reconciliation_required(format!("cannot list {}: {error}", parent.path.display()))
-    };
-    let mut names = Vec::new();
-    for entry in fs::read_dir(&parent.path).map_err(listing)? {
-        let name = entry
-            .map_err(listing)?
-            .file_name()
-            .to_string_lossy()
-            .into_owned();
-        if name.starts_with(&prefix) {
-            names.push(name);
-        }
-    }
-    // The listing came from the pathname; it must have been the held directory.
-    parent
-        .require_unchanged()
-        .map_err(|error| reconciliation_required(error.0))?;
+    checkpoint(RECORDS_LISTING)?;
+    let mut names = parent
+        .entries()
+        .map_err(|error| {
+            reconciliation_required(format!("cannot list {}: {error}", parent.path.display()))
+        })?
+        .into_iter()
+        .filter(|name| name.starts_with(&prefix))
+        .collect::<Vec<_>>();
+    checkpoint(RECORDS_LISTED)?;
     names.sort();
     let mut records = Vec::new();
     for name in names {
@@ -848,7 +898,13 @@ pub fn restore(
     // Records are read and classified before ANY SQLite access to the live
     // path: opening it could replay and delete a hot journal, altering a
     // preserved unexpected file and destroying evidence.
-    let mut records = previous_records(&parent, &target, &target_name, &receipt["database_id"])?;
+    let mut records = previous_records(
+        &parent,
+        &target,
+        &target_name,
+        &receipt["database_id"],
+        checkpoint,
+    )?;
     let volume = crate::source::volume_uuid(&parent.file).ok_or_else(|| {
         Error(
             "controlled restore requires a filesystem that reports a volume UUID, so that restore records stay valid across reboots".into(),

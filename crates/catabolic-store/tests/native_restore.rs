@@ -1294,6 +1294,36 @@ fn retained_copy_replaced_by_a_live_hard_link_is_refused() {
     assert_eq!(probe(&path), Some(0));
 }
 
+/// Records are enumerated through the held catalog directory descriptor, so a
+/// directory swapped in at the catalog's pathname during enumeration cannot
+/// hide a published record and cause a second rotation.
+#[test]
+fn directory_swap_during_record_enumeration_hides_nothing() {
+    let _serial = serial();
+    let (root, path, receipt) = backed_up();
+    let first = restore(&path, &receipt).unwrap();
+    put(&path, "after-restore", "after-restore-item");
+    let published = incarnation(&path);
+    let directory = fs::canonicalize(root.path()).unwrap();
+    let moved = directory.with_extension("moved");
+    let rerun = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+        if at == native_restore::RECORDS_LISTING {
+            fs::rename(&directory, &moved).unwrap();
+            fs::create_dir(&directory).unwrap();
+        }
+        if at == native_restore::RECORDS_LISTED {
+            fs::remove_dir(&directory).unwrap();
+            fs::rename(&moved, &directory).unwrap();
+        }
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(rerun["already_published"], true);
+    assert_eq!(rerun["incarnation"], first["incarnation"]);
+    assert_eq!(incarnation(&path), published);
+    assert_eq!(items(&path, "after-restore-item"), 1);
+}
+
 /// Schema objects, migration history and sequences are not covered by table
 /// digests; each is verified under the held lock before the rename.
 #[test]

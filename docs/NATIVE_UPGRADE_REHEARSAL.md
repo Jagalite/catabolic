@@ -226,7 +226,9 @@ order:
 
 Every create, open, rename, unlink and fsync in restore runs through a held
 directory descriptor (`openat`, `mkdirat`, `renameat`, `unlinkat`, `fsync`),
-never through a pathname that could have been swapped. Records are written
+never through a pathname that could have been swapped. Directory listings,
+of restore records and of a staging directory being removed, are read with
+`fdopendir`/`readdir` on a duplicate of the held descriptor. Records are written
 as a private temporary file through the staging descriptor, fsynced, renamed
 within it and followed by a directory fsync. Before each rename restore
 checks that the held directories are still the entries it created. SQLite
@@ -370,7 +372,8 @@ identity and incarnation before use and require a reopen.
 - a substitution in the rename window, detected and preserved for
   reconciliation;
 - rerun durability after an uncertain publication;
-- unreadable or corrupt restore records;
+- unreadable or corrupt restore records, and a directory swapped in during
+  record enumeration;
 - volume-UUID file identities in records;
 - a rerun after a detected substitution that leaves a hot journal or WAL
   byte-identical;
