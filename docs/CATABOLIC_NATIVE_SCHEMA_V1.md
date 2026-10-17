@@ -487,6 +487,9 @@ else:
   ("rescan and start a new operation"). The next scan records the new ctime and
   rotates the revision, so tokens, pins and ETags for the old bytes stop
   authorizing content.
+- Playback admission pins the snapshot with the live ctime it verified. The
+  worker's viewer check compares that pinned ctime with the bound one; only a
+  snapshot without a bound ctime is compared without it, as before schema 39.
 - A ctime-only change does not mark the scan as changed and does not
   invalidate derived facts. The Components v1 revision, retained
   `catalog_exact_file_revisions` snapshots and fact currentness keep excluding

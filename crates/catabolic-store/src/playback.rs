@@ -431,11 +431,10 @@ pub fn interested(store: &Store, job: &Value) -> Result<u32> {
     let pinned_body = decode(job, "body")?;
     let pinned_recipe = decode(job, "recipe")?;
     let pinned_destination = decode(job, "destination")?;
-    let mut pinned_source = decode(job, "snapshot")?;
-    pinned_source
-        .as_object_mut()
-        .ok_or_else(|| Error("invalid_playback_request".into()))?
-        .remove("ctime_ns");
+    let pinned_source = decode(job, "snapshot")?;
+    if !pinned_source.is_object() {
+        return Err(Error("invalid_playback_request".into()));
+    }
     let mut count = 0;
     for session in sessions {
         let fresh = Store::open(&store.path, false, false)?;
@@ -477,11 +476,14 @@ pub fn interested(store: &Store, job: &Value) -> Result<u32> {
                     "source",
                     text(&operation, "location")?,
                 )? != pinned_destination
-                || content_access::snapshot(
-                    access.store(),
-                    access.profile(),
-                    text(&body, "source_file_id")?,
-                )? != pinned_source
+                || !same_source(
+                    &content_access::snapshot(
+                        access.store(),
+                        access.profile(),
+                        text(&body, "source_file_id")?,
+                    )?,
+                    &pinned_source,
+                )
             {
                 return Ok(false);
             }
@@ -494,6 +496,20 @@ pub fn interested(store: &Store, job: &Value) -> Result<u32> {
     Ok(count)
 }
 
+/// Admission pins the content snapshot with the live ctime it verified. From
+/// schema 39 the current snapshot carries the ctime a native scan bound to the
+/// observation, which must equal the pinned one; a snapshot without a bound
+/// ctime (schema 32, or before the first native scan) is compared without it.
+fn same_source(current: &Value, pinned: &Value) -> bool {
+    if current.get("ctime_ns").is_some() {
+        return current == pinned;
+    }
+    let mut pinned = pinned.clone();
+    if let Some(object) = pinned.as_object_mut() {
+        object.remove("ctime_ns");
+    }
+    *current == pinned
+}
 /// Fenced persistence for decisions from the shared production reducer.
 pub fn apply_decision(
     store: &Store,
