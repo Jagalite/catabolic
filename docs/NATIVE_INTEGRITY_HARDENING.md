@@ -104,9 +104,11 @@ prove it owns. It refuses to serve the file, with a structured error, and
 leaves the decision to the operator.
 
 - **By name.** SQLite names every sidecar after its database. A file whose name
-  ends in `-wal`, `-shm` or `-journal`, or in the super-journal form
-  `-mjXXXXXXXX` (eight hex digits), is refused as `private_content` whatever
-  its bytes. Matching ignores ASCII case and requires the suffix to end the
+  ends in `-wal`, `-shm` or `-journal`, or in a super-journal form, is refused
+  as `private_content` whatever its bytes. A super-journal name is `-mj`
+  followed by nine hex digits, as the pinned SQLite 3.53.2 writes it
+  (`-mj%06X9%02X`, for example `-mj1234569AB`), or by eight, as older releases
+  did. Matching ignores ASCII case and requires the suffix to end the
   name, so ordinary media such as `diary-journal.mkv` is unaffected. The name
   survives a renamed, moved or deleted database, which is how orphans arise in
   practice.

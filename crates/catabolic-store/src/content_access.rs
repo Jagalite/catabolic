@@ -38,7 +38,9 @@ fn refuse_sqlite_payload(file: &File) -> Result<()> {
     Ok(())
 }
 /// SQLite names every sidecar after its database: `-wal`, `-shm`, `-journal`
-/// and the super-journal `-mjXXXXXXXX` (eight hex digits). An orphaned sidecar
+/// and the super-journal `-mj` followed by hex digits. The pinned SQLite 3.53.2
+/// (libsqlite3-sys 0.38.2) writes `-mj%06X9%02X`, nine digits such as
+/// `-mj1234569AB`; older releases wrote eight. An orphaned sidecar
 /// keeps that name after its database is renamed, moved or deleted, while its
 /// header may be zeroed (a persisted or never-synced rollback journal) or
 /// truncated, so no content check can recognize it. Content is refused by name,
@@ -53,9 +55,13 @@ fn sqlite_sidecar_name(name: &str) -> bool {
         return true;
     }
     let bytes = lower.as_bytes();
-    bytes.len() >= 11
-        && &bytes[bytes.len() - 11..bytes.len() - 8] == b"-mj"
-        && bytes[bytes.len() - 8..].iter().all(u8::is_ascii_hexdigit)
+    [8, 9].iter().any(|&digits| {
+        bytes.len() >= digits + 3
+            && &bytes[bytes.len() - digits - 3..bytes.len() - digits] == b"-mj"
+            && bytes[bytes.len() - digits..]
+                .iter()
+                .all(u8::is_ascii_hexdigit)
+    })
 }
 impl Access {
     /// Reopen the current catalog snapshot for a new authorization boundary.
@@ -1034,6 +1040,9 @@ mod tests {
             "renamed-wal",
             "-shm",
             "catalog.sqlite3-mj7f3319fa",
+            // The pinned SQLite's nine-digit `-mj%06X9%02X` form.
+            "old.db-mj1234569AB",
+            "catalog.sqlite3-mjABCDEF9FF",
             "catalog.sqlite3-MJ7F3319FA",
             "\u{e9}t\u{e9}.db-wal",
         ] {
@@ -1047,6 +1056,8 @@ mod tests {
             "show-shm.srt",
             "catalog.sqlite3-mj7f3319f",
             "catalog.sqlite3-mj7f3319fz",
+            "catalog.sqlite3-mj1234569ABC",
+            "catalog.sqlite3-mj1234569AZ",
             "\u{e9}\u{e9}\u{e9}\u{e9}\u{e9}\u{e9}",
             "",
         ] {
@@ -1067,7 +1078,7 @@ mod tests {
             ("old-catalog.sqlite3-wal", zeroed_wal.as_slice()),
             ("old-catalog.sqlite3-shm", b"".as_slice()),
             (
-                "old-catalog.sqlite3-mj0A1B2C3D",
+                "old-catalog.sqlite3-mj0A1B2C9D3",
                 b"old-catalog.sqlite3-journal\0".as_slice(),
             ),
             ("nested-WAL", b"private".as_slice()),
