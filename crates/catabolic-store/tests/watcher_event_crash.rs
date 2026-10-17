@@ -255,31 +255,39 @@ fn rewrite(path: &Path, run: &Value, expression: &str) {
     assert_eq!(store.db.execute(&sql, [run.as_str().unwrap()]).unwrap(), 1);
 }
 
-/// A retry over an unresolvable chain fails closed promptly, admits nothing
-/// and leaves the reaction pending.
-fn retry_fails_closed(path: &Path) {
+/// A retry over an unresolvable chain fails closed, admits nothing and leaves
+/// the reaction pending. Returns the number of run lookups the chain walk made
+/// (a debug-only counter); the wall clock is only a generous hang guard.
+fn retry_fails_closed(path: &Path) -> usize {
     let mut store = Store::open(path, true, false).unwrap();
+    watcher::take_transition_lookups();
     let started = std::time::Instant::now();
     let retry = run(&mut store);
-    let elapsed = started.elapsed();
+    let lookups = watcher::take_transition_lookups();
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(60),
+        "hang guard"
+    );
     assert_eq!(retry["complete"], false, "{retry}");
     assert_eq!(retry["error"], "watcher_transition_unresolved", "{retry}");
-    assert!(elapsed < std::time::Duration::from_secs(2), "{elapsed:?}");
     assert_eq!(notifications(&store), 0);
     let row = watcher::execute(&store, "default", "get", &json!({"name":"changes"})).unwrap();
     assert!(!row["pending_reaction"].is_null(), "{row}");
+    lookups
 }
 
 #[test]
-fn self_linked_and_mutually_linked_chains_fail_closed_quickly() {
+fn self_linked_and_mutually_linked_chains_fail_closed_in_bounded_steps() {
+    // Retry C -> A -> A: the repeat is detected before a third lookup.
     let (_root, path, first) = crash_before_completion();
     rewrite(
         &path,
         &first["pending_reaction"],
         "json_set(result,'$.evaluation.changed',json('false'),'$.retry_of',id)",
     );
-    retry_fails_closed(&path);
+    assert_eq!(retry_fails_closed(&path), 2);
 
+    // Retry C -> B -> A -> B: the repeat is detected before a fourth lookup.
     let (_root, path, first) = crash_before_completion();
     let second = crash_worker(&path);
     rewrite(
@@ -290,7 +298,7 @@ fn self_linked_and_mutually_linked_chains_fail_closed_quickly() {
             second["pending_reaction"].as_str().unwrap()
         ),
     );
-    retry_fails_closed(&path);
+    assert_eq!(retry_fails_closed(&path), 3);
 }
 
 #[test]
@@ -300,6 +308,10 @@ fn missing_or_malformed_comparison_and_link_fields_fail_closed() {
         "json_set(result,'$.evaluation.changed','yes')",
         "json_set(result,'$.evaluation.changed',json('false'),'$.retry_of',7)",
         "json_remove(json_set(result,'$.evaluation.changed',json('false')),'$.retry_of')",
+        // The changed run that ends the walk has its link validated too.
+        "json_remove(result,'$.retry_of')",
+        "json_set(result,'$.retry_of',7)",
+        "json_set(result,'$.retry_of',json('{}'))",
         "json_set(result,'$.phase','observing')",
         "json_set(result,'$.phase',3)",
         "'{not json'",
@@ -307,6 +319,7 @@ fn missing_or_malformed_comparison_and_link_fields_fail_closed() {
     ] {
         let (_root, path, first) = crash_before_completion();
         rewrite(&path, &first["pending_reaction"], expression);
-        retry_fails_closed(&path);
+        // Retry C -> A: never more than the two runs in this chain.
+        assert_eq!(retry_fails_closed(&path), 2, "{expression}");
     }
 }

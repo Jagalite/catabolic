@@ -1070,6 +1070,8 @@ fn transition(
             return Err(unresolved());
         }
         chain.push(current.clone());
+        #[cfg(debug_assertions)]
+        TRANSITION_LOOKUPS.with(|count| count.set(count.get() + 1));
         let (phase, changed, link_type, link): Fields = statement
             .query_row(params![current, profile, watcher], |r| {
                 Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
@@ -1079,18 +1081,32 @@ fn transition(
         if phase.as_deref() != Some("planned") {
             return Err(unresolved());
         }
-        match changed.as_deref() {
-            Some("true") => return Ok(Some(chain)),
-            Some("false") => (),
+        // The link is validated for every run, including the changed run that
+        // ends the walk, so a damaged record never admits or clears anything.
+        let previous = match (link_type.as_deref(), link) {
+            (Some("null"), _) => None,
+            (Some("text"), Some(previous)) => Some(previous),
             _ => return Err(unresolved()),
-        }
-        match (link_type.as_deref(), link) {
-            (Some("null"), _) => return Ok(None),
-            (Some("text"), Some(previous)) => current = previous,
+        };
+        match (changed.as_deref(), previous) {
+            (Some("true"), _) => return Ok(Some(chain)),
+            (Some("false"), None) => return Ok(None),
+            (Some("false"), Some(previous)) => current = previous,
             _ => return Err(unresolved()),
         }
     }
     Err(unresolved())
+}
+#[cfg(debug_assertions)]
+thread_local! {
+    static TRANSITION_LOOKUPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+/// Debug/test-only: the number of run lookups the retry-chain walk performed
+/// on this thread since the previous call. Not compiled into release builds.
+#[cfg(debug_assertions)]
+#[doc(hidden)]
+pub fn take_transition_lookups() -> usize {
+    TRANSITION_LOOKUPS.with(|count| count.replace(0))
 }
 /// Crash-injection hook compiled only into debug/test builds. It never alters
 /// watcher completion semantics in release binaries.

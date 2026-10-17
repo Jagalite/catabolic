@@ -144,7 +144,8 @@ session state, with the time each source was last invalidated:
 - **Restoration retries do not invalidate.** Retries start at the existing
   one-second delay and double up to 30 seconds. The old subscriptions stay
   installed until the new set is registered, and are then drained, so a source
-  that was covered loses no hint in the overlap.
+  that was covered loses no hint in the overlap. This changes production
+  behavior: earlier builds retried restoration every second, with no backoff.
 - **Periodic reconciliation is bounded.** A degraded source is invalidated again
   at most once every 30 seconds, the frozen polling `watch` default interval.
   `source_events::invalidate_with_reconciliation` does this only after a scan
@@ -191,7 +192,8 @@ engine corrects it without a schema change:
   - a missing run row, or a result that is not valid JSON;
   - a phase other than the text `planned`;
   - a `changed` flag that is not a boolean;
-  - a `retry_of` that is neither null nor text;
+  - a `retry_of` that is missing, or neither null nor text, on any run,
+    including the changed run that ends the walk;
   - a cycle;
   - a chain longer than 100,000 runs.
 
@@ -202,8 +204,75 @@ engine corrects it without a schema change:
 Native admission emits at most one `watcher_changed` event for each change.
 That holds across crashes and retries when the retry chain consists of
 well-formed planned runs. This includes chains that began under the frozen
-Python protocol. A damaged chain never produces a notification: the watcher
-then needs repair.
+Python protocol. A damaged chain never produces a notification.
+
+### Repairing a damaged retry chain
+
+A damaged chain does not heal by itself. While the watched input stays
+unchanged, every retry fails again with `watcher_transition_unresolved`, and
+`recover` does not help, because it only clears dead owners. No CLI command or
+API restores a chain. The procedure below is manual and uses only existing
+read commands and SQLite.
+
+1. **Stop every writer.** Stop the supervisor and any `watch` or
+   `watcher run` process for the catalog. Do not run `watcher disable`: it
+   resets `requested_generation` and drops pending manual demand.
+2. **Back up the catalog** with `sqlite3 CATALOG ".backup BACKUP"`.
+3. **Inspect.** `catabolic watcher show NAME` prints `pending_reaction`.
+   `catabolic watcher history NAME` prints the latest 100 runs with their
+   results. For a longer chain, walk it in SQL, replacing `:profile` and
+   `:name`:
+
+   ```sql
+   WITH RECURSIVE chain(id, depth) AS (
+     SELECT pending_reaction, 0 FROM watchers WHERE profile=:profile AND name=:name
+     UNION ALL
+     SELECT json_extract(r.result,'$.retry_of'), c.depth+1
+     FROM chain c JOIN watcher_runs r ON r.id=c.id
+     WHERE json_valid(r.result) AND json_type(r.result,'$.retry_of')='text'
+       AND json_type(r.result,'$.evaluation.changed')='false' AND c.depth<1000)
+   SELECT c.depth, c.id, r.state, r.started_at, json_valid(r.result) AS valid,
+          json_extract(r.result,'$.phase') AS phase,
+          json_type(r.result,'$.evaluation.changed') AS changed,
+          json_type(r.result,'$.retry_of') AS link
+   FROM chain c LEFT JOIN watcher_runs r ON r.id=c.id ORDER BY c.depth;
+   ```
+
+   The last row is the first run the engine cannot read. A null `state`
+   means the run's row is missing.
+4. **Restore only the damaged run's result fields**, with `json_set` on that
+   run:
+   - `phase` is `planned`.
+   - `retry_of` is the ID of the same watcher's previous planned run, that is,
+     the newest earlier run started after the last `complete` run. It is null
+     if there is no such run.
+   - `evaluation.changed` is `true` only for the oldest run after the last
+     completed run, because that run first saw the change. Otherwise it is
+     `false`.
+
+   Do not edit `pending_reaction`, `baseline`, `pending_generation`,
+   `requested_generation`, `consumer_events` or `notification_deliveries`.
+   Event identity and pending demand are derived from those columns, so they
+   stay intact.
+5. **Re-run the step 3 query**, confirm the chain now ends at a changed run or
+   an unchanged run with a null link, and restart the writers.
+
+**A run row that is missing entirely cannot be restored.** Its run ID, which
+is the event identity, is gone. In that case, and as the only alternative to
+the procedure above, reset the watcher's comparison state: run
+`catabolic watcher disable NAME`, then `catabolic watcher put NAME --file DEFINITION`
+with the unchanged definition, then enable it again. `put` clears `baseline`
+and `pending_reaction`. Its consequences:
+
+- The next run compares against no baseline, so it reports a change.
+- That run emits a new `watcher_changed` event under its own run ID.
+  - If the lost chain's notification was already admitted, consumers receive
+    the change a second time.
+  - If it was not admitted, this event is its only delivery.
+- `disable` resets pending manual demand, so request it again with
+  `watcher run` after enabling if it is still needed.
+- Run history is kept. The reset is visible as a new completed run whose
+  comparison has no previous baseline.
 
 The guarantee covers only events admitted by the native engine. While frozen
 Python itself runs the retries, it can still emit duplicates. The stored
@@ -222,6 +291,11 @@ exits the process at the old crash window. The test
 - an event committed under an unchanged legacy retry's own identity;
 - a completed change, then an unchanged run that crashes, then an unchanged
   run, which together admit no new event;
-- self-linked and mutually linked chains, which fail closed within two
-  seconds;
-- missing or malformed comparison, link and phase fields, and results that are not JSON.
+- self-linked and mutually linked chains, which fail closed after exactly two
+  and three run lookups;
+- missing or malformed comparison, link and phase fields (including the link
+  of a changed run), and results that are not JSON.
+
+The lookup counts come from a debug-only per-thread counter,
+`watcher::take_transition_lookups`, which is not compiled into release
+builds. A 60-second wall-clock limit serves only as a hang guard.
