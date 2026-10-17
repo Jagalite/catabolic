@@ -72,7 +72,16 @@ pub fn manifest(db: &Connection) -> Result<Value> {
         let columns = key_columns(db, name)?;
         tables.insert(name.into(), migration::digest_table(db, name, &columns)?);
     }
+    // Every AUTOINCREMENT table the schema declares is recorded, with null when
+    // SQLite has no sequence row, so an emptied table's sequence cannot be
+    // dropped silently. Any other sqlite_sequence row is kept for validation.
+    let schema = info["schema"].as_u64().expect("validated schema") as u32;
     let mut sequences = Map::new();
+    for (name, (_, autoincrement)) in expected_inventory(schema).map_err(Error)? {
+        if autoincrement {
+            sequences.insert(name, Value::Null);
+        }
+    }
     if table_exists(db, "sqlite_sequence")? {
         for row in migration::rows(
             db,
@@ -310,18 +319,24 @@ pub fn validate(manifest: &Value) -> std::result::Result<(), String> {
     let sequences = manifest["sequences"]
         .as_object()
         .ok_or_else(|| "sequences is not an object".to_owned())?;
-    for (name, seq) in sequences {
-        if !seq.is_i64() || !inventory.get(name).is_some_and(|(_, auto)| *auto) {
-            return Err(format!(
-                "sequence {name} is not an AUTOINCREMENT table's integer"
-            ));
-        }
+    let autoincrement = inventory
+        .iter()
+        .filter(|(_, (_, auto))| *auto)
+        .map(|(name, _)| name)
+        .collect::<std::collections::BTreeSet<_>>();
+    if sequences.keys().collect::<std::collections::BTreeSet<_>>() != autoincrement {
+        return Err(format!(
+            "sequence inventory does not list exactly the AUTOINCREMENT tables of schema {schema}"
+        ));
     }
-    // A row in an AUTOINCREMENT table proves sqlite_sequence recorded it.
-    for (name, (_, autoincrement)) in &inventory {
-        if *autoincrement && tables[name]["rows"] != 0 && !sequences.contains_key(name) {
+    for (name, seq) in sequences {
+        if !(seq.is_i64() || seq.is_null()) {
+            return Err(format!("sequence {name} is neither an integer nor null"));
+        }
+        // A row in an AUTOINCREMENT table proves sqlite_sequence recorded it.
+        if seq.is_null() && tables[name]["rows"] != 0 {
             return Err(format!(
-                "sequence for {name} is missing although the table has rows"
+                "sequence for {name} is absent although the table has rows"
             ));
         }
     }

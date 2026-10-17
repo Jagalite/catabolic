@@ -69,18 +69,22 @@ Catalogs older than schema 32 are first upgraded with the existing
   `catalog_id`, incarnation and generation;
 - the complete migration history;
 - a digest of every table's primary-key set (rowid for tables without one);
-- every AUTOINCREMENT sequence;
+- the sequence of every AUTOINCREMENT table the schema declares, recorded as
+  null when SQLite has no sequence row for it;
 - the `identities` rows, and the schema-34 `catalog_legacy_identity_evidence`
   baseline when present.
 
 `diff` first validates both manifests: the exact field set and types, a
 canonical database ID, history contiguous up to the schema, a native catalog
-identity exactly for native schemas, well-formed digests for the core tables,
-the schema-34 baseline exactly from schema 34, and the fingerprint. An
+identity exactly for native schemas, exactly the declared schema's tables with
+their key columns, exactly its AUTOINCREMENT tables in `sequences` (null only
+for an empty table), the schema-34 baseline exactly from schema 34, and the
+fingerprint. The expected tables and keys come from the frozen schema signature. An
 incomplete, mistyped or unsigned manifest is reported as `invalid_manifest`
-and nothing else is compared. It then reports each changed `database_id`, `catalog_id`, history prefix,
-table key set, sequence and legacy evidence entry, plus schema downgrades.
-New tables, sequences and history rows are allowed. Incarnation and
+and nothing else is compared. It then reports each changed `database_id`,
+`catalog_id`, history prefix, table key set, sequence state (including a
+sequence appearing or changing on an empty table) and legacy evidence entry,
+plus schema downgrades. New tables, sequences and history rows are allowed. Incarnation and
 generation may change. The key digests do not look at non-key values; the
 migration owner's whole-row preservation check and the harness's table
 snapshots cover those. The schema-34 entity index gains its legacy baseline

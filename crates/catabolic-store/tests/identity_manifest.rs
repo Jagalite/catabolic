@@ -427,3 +427,67 @@ fn resigned_omissions_from_the_inventory_are_rejected() {
         );
     }
 }
+
+/// An emptied AUTOINCREMENT table keeps its sqlite_sequence value. Every such
+/// table is recorded (null when SQLite has none), so the sequence can neither
+/// be omitted from a re-signed manifest nor change unnoticed.
+#[test]
+fn emptied_table_sequences_are_recorded_and_compared() {
+    let (root, path) = populated();
+    connect(&path, true)
+        .unwrap()
+        .execute_batch("DELETE FROM api_events")
+        .unwrap();
+    let before = identity_manifest::manifest_path(&path).unwrap();
+    assert_eq!(before["tables"]["api_events"]["rows"], 0);
+    assert_eq!(before["sequences"]["api_events"], 2);
+    // Declared AUTOINCREMENT tables never used still appear, as null.
+    let declared = before["sequences"].as_object().unwrap();
+    assert!(declared.len() > 1);
+    assert!(declared.values().any(Value::is_null));
+
+    let mut omitted = before.clone();
+    omitted["sequences"]
+        .as_object_mut()
+        .unwrap()
+        .remove("api_events");
+    let omitted = sign(omitted);
+    assert!(identity_manifest::validate(&omitted).is_err());
+    let mut absent = before.clone();
+    absent["sequences"]["api_events"] = Value::Null;
+    // Null is accepted only for an empty table; here it is a changed state.
+    let absent = sign(absent);
+    identity_manifest::validate(&absent).unwrap();
+
+    let advanced = copy(root.path(), &path, "advanced.sqlite3");
+    connect(&advanced, true)
+        .unwrap()
+        .execute_batch(
+            "INSERT INTO api_events(profile,resource_type,resource_id,state) VALUES('default','job','three','complete');
+             DELETE FROM api_events;",
+        )
+        .unwrap();
+    let after = identity_manifest::manifest_path(&advanced).unwrap();
+    assert_eq!(after["tables"]["api_events"]["rows"], 0);
+    assert_eq!(after["sequences"]["api_events"], 3);
+    assert_eq!(kinds(&before, &after), vec![pair("sequence", "api_events")]);
+    assert_eq!(
+        kinds(&omitted, &after),
+        vec![pair("invalid_manifest", "before")]
+    );
+    assert_eq!(kinds(&absent, &after), vec![pair("sequence", "api_events")]);
+    // A sequence row appearing for a never-used table is also a change.
+    let fresh = before["sequences"]
+        .as_object()
+        .unwrap()
+        .iter()
+        .find(|(_, seq)| seq.is_null())
+        .map(|(name, _)| name.clone())
+        .unwrap();
+    let mut appeared = before.clone();
+    appeared["sequences"][&fresh] = json!(7);
+    assert_eq!(
+        kinds(&before, &sign(appeared)),
+        vec![pair("sequence", &fresh)]
+    );
+}
