@@ -103,6 +103,127 @@ pub(crate) fn prepare_evaluated(
         digest: seal,
     })
 }
+/// Lend a caller's `&mut Store` to an owner that needs `&mut Option<Store>`.
+/// The Store is moved into a local slot and back; owners such as
+/// `Evaluation::with_store` restore the slot on every result and unwind. If the
+/// slot were ever left empty, `*store` would be a moved-from value, so the
+/// process aborts instead of continuing.
+fn lend<T>(store: &mut Store, operation: impl FnOnce(&mut Option<Store>) -> T) -> T {
+    // SAFETY: `store` is exclusively borrowed for this call, so no other
+    // reference observes it while its value lives in `slot`; it is written
+    // back before returning or unwinding, or the process aborts.
+    let mut slot = Some(unsafe { std::ptr::read(store) });
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| operation(&mut slot)));
+    match slot.take() {
+        // SAFETY: restores the value read above into the same location.
+        Some(owner) => unsafe { std::ptr::write(store, owner) },
+        None => std::process::abort(),
+    }
+    match result {
+        Ok(value) => value,
+        Err(panic) => std::panic::resume_unwind(panic),
+    }
+}
+
+/// Why maintenance planning stopped.
+pub struct StageFailure {
+    pub error: Error,
+    /// A layout or output-plan blocker (frozen `_Blocked`), not an error.
+    pub blocked: bool,
+}
+
+/// Frozen maintenance planning. Inside one transaction, each catalog's saved
+/// layout is evaluated against the state the previous ones left and applied,
+/// then `plan` returns the reconciliation preview and whether it is safe.
+/// The transaction commits only if every layout and the plan are safe; any
+/// blocker, error or unwind rolls everything back. Returns the layout reports
+/// (always, for the planning stage) and the plan or the failure.
+pub fn stage_saved_layouts(
+    store: &mut Store,
+    profile: &str,
+    catalogs: &[String],
+    limit: usize,
+    plan: &mut dyn FnMut(&Store) -> Result<(Value, bool)>,
+) -> (Vec<Value>, std::result::Result<Value, StageFailure>) {
+    let failure = |error: Error| StageFailure {
+        error,
+        blocked: false,
+    };
+    let mut layouts = Vec::new();
+    let scope = match store.begin_transaction() {
+        Ok(scope) => scope,
+        Err(error) => return (layouts, Err(failure(error))),
+    };
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+        || -> std::result::Result<Value, StageFailure> {
+            for catalog in catalogs {
+                let owner = crate::migration::rows(
+                    &store.db,
+                    "SELECT value FROM meta WHERE key=?",
+                    &[format!("layout-catalog:{catalog}").into()],
+                )
+                .map_err(failure)?;
+                let Some(owner) = owner.first() else {
+                    continue;
+                };
+                let owner = catabolic_core::decode_json(owner["value"].as_str().unwrap_or(""))
+                    .map_err(|e| failure(e.into()))?;
+                let Some(layout) = owner["layout"].as_str().filter(|l| !l.is_empty()) else {
+                    continue;
+                };
+                let layout = layout.to_owned();
+                let mut evaluation = Evaluation::unbound(profile, 60000, 100000, false);
+                let prepared = lend(store, |slot| {
+                    evaluation.with_store(slot, |evaluation| {
+                        prepare_evaluated(evaluation, &layout, catalog, &mut |flag| {
+                            Ok(matches!(flag, layout::RunFlag::Apply))
+                        })
+                    })
+                });
+                // Evaluation removes its SQLite handler; restore the bridge.
+                crate::embedding::restore_interrupt_handler(store).map_err(failure)?;
+                let report =
+                    apply(store, profile, &prepared.map_err(failure)?, limit).map_err(failure)?;
+                let safe = report["safe"] == true;
+                layouts.push(report);
+                if !safe {
+                    return Err(StageFailure {
+                        error: Error("layout has blockers; all staged mappings rolled back".into()),
+                        blocked: true,
+                    });
+                }
+            }
+            let (planned, safe) = plan(store).map_err(failure)?;
+            if !safe {
+                return Err(StageFailure {
+                    error: Error("unsafe output plan; all staged mappings rolled back".into()),
+                    blocked: true,
+                });
+            }
+            Ok(planned)
+        },
+    ));
+    match outcome {
+        Ok(Ok(planned)) => match store.finish_transaction(scope, Ok(planned)) {
+            Ok(planned) => (layouts, Ok(planned)),
+            Err(error) => (layouts, Err(failure(error))),
+        },
+        Ok(Err(stopped)) => {
+            let rolled = store.finish_transaction::<()>(scope, Err(Error(stopped.error.0.clone())));
+            match rolled {
+                // finish_transaction returns the original error after rollback.
+                Err(error) if error.0 == stopped.error.0 => (layouts, Err(stopped)),
+                Err(error) => (layouts, Err(failure(error))),
+                Ok(()) => (layouts, Err(stopped)),
+            }
+        }
+        Err(panic) => {
+            let _ = store.rollback_transaction(scope.as_deref());
+            std::panic::resume_unwind(panic)
+        }
+    }
+}
+
 /// Can be nested in a caller transaction that rolls back mappings on a blocked
 /// filesystem preview. The complete mapping set never comes from display JSON.
 pub fn apply(

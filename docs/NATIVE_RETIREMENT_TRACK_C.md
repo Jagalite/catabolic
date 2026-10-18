@@ -562,6 +562,26 @@ gate and the fallback-bound refusal all stay closed.
   through the catalog refresh owner, which already publishes through the
   executor.
 
+**Sol round 6 fixes.**
+
+- **Several saved layouts.** Maintenance used to prepare every layout
+  against one snapshot, so applying the first made the others stale.
+  `layout_mutation::stage_saved_layouts` now runs the planning stage as one
+  transaction. Each layout is evaluated against the state the previous ones
+  left, with the writer lent to the evaluator, and is then applied. The
+  reconciler preview follows. Every blocker, error or unwind rolls everything
+  back. A paired test runs `--all-catalogs` over two layout-managed catalogs.
+- **Preparation errors.** Preparation now runs inside the planning stage, so
+  a preparation error records `planning` as incomplete before it propagates,
+  as frozen does.
+- **Interrupts during automatic refresh.** An interrupt during automatic
+  refresh propagates. It is no longer recorded as a refresh attempt with
+  backoff, nor folded into the processing result.
+- **Embedding signals.** `NativeStore.reconcile_publish` bridges Python
+  signals into the executor's interrupt check. A KeyboardInterrupt therefore
+  stops publication before the next journaled operation and is re-raised
+  unchanged.
+
 **Not opened: fallback publication.** Fallback apply and recover still
 require the private `disposable_fixture` option (`require_fallback_fixture`).
 That is a release refusal, so it stays closed until the user approves opening
@@ -654,4 +674,5 @@ The per-case outcomes are in `evidence/track-c/handover-report.json`.
 | 4 (folder; export/import stay gated) | Implemented | `5fa6e7c` |
 | Sol round 5 (item 4 review): interrupts, unbounded budgets, `save_secret`, verified-record failure | Fixed | `8c9f476` |
 | 5 (dependent paths; fallback publication stays gated) | Implemented | `91841d4` |
-| 6 | Implemented (handover matrix; residuals documented) | this commit |
+| 6 | Implemented (handover matrix; residuals documented) | `8aa2319` |
+| Sol round 6 (item 5 review): multi-layout staging, preparation errors, refresh and embedding interrupts | Fixed | this commit |

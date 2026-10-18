@@ -281,6 +281,7 @@ impl NativeStore {
         }
         let raised: Arc<Mutex<Option<PyErr>>> = Arc::new(Mutex::new(None));
         let captured = raised.clone();
+        let signal: Arc<Mutex<Option<PyErr>>> = Arc::new(Mutex::new(None));
         let value = self.run(py, |session| {
             let store = session.store()?;
             let observe = |operation: &Value| -> Result<()> {
@@ -304,11 +305,34 @@ impl NativeStore {
                     Error("after_filesystem callback raised".into())
                 })
             };
-            catabolic_store::public_reconcile::publish(
-                store, profile, operation, &request, &observe,
+            // Python signals are bridged into the executor's interrupt check:
+            // a KeyboardInterrupt stops publication before the next journaled
+            // operation and is re-raised unchanged, as in frozen Python.
+            let pending = signal.clone();
+            catabolic_store::embedding::with_interrupt_check(
+                move || {
+                    if pending.lock().unwrap().is_some() {
+                        return true;
+                    }
+                    Python::attach(|py| match py.check_signals() {
+                        Ok(()) => false,
+                        Err(error) => {
+                            *pending.lock().unwrap() = Some(error);
+                            true
+                        }
+                    })
+                },
+                || {
+                    catabolic_store::public_reconcile::publish(
+                        store, profile, operation, &request, &observe,
+                    )
+                },
             )
         });
         if let Some(error) = raised.lock().unwrap().take() {
+            return Err(error);
+        }
+        if let Some(error) = signal.lock().unwrap().take() {
             return Err(error);
         }
         value.map(|v| v.to_string())

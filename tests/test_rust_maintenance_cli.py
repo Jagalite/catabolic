@@ -68,6 +68,19 @@ with Store(path,writable=True) as store:
             app.media.associate(row['id'],item)
         Layouts(app).put('saved', PRESETS['catabolic'])
         Layouts(app).run('saved', 'global', apply=True)
+    if mode=='two-layouts':
+        from catabolic.layouts import Layouts, PRESETS
+        import os
+        second=output+'-second'
+        os.makedirs(second, exist_ok=True)
+        app.bind('output','second',second)
+        app.scan()
+        for row in store.rows('SELECT * FROM files ORDER BY path'):
+            item=app.put_item('document',{'fixture':row['path']},{'title':row['path']})['id']
+            app.media.associate(row['id'],item)
+        Layouts(app).put('saved', PRESETS['catabolic'])
+        Layouts(app).run('saved', 'global', apply=True)
+        Layouts(app).run('saved', 'second', apply=True)
     if mode=='summary':
         for status in ('pending','in_progress','complete','deferred','ignored'):
             item=app.put_item('document',{'fixture':status},{'title':status})['id']
@@ -511,6 +524,49 @@ class NativeMaintenanceCliTest(unittest.TestCase):
         report = json.loads(result.stdout)["data"]
         self.assertEqual(report["stopped_at"], "rules")
         self.assertIn("not yet qualified", report["errors"][0]["message"])
+
+    def test_two_saved_layouts_stage_in_one_transaction_like_frozen(self):
+        # Sol round 6: each saved layout is evaluated against the state the
+        # previous one left, inside one transaction, as frozen does.
+        self.setup("two-layouts", files=2)
+        second = Path(str(self.output) + "-second")
+        base = self.root / "base.db"
+        shutil.copyfile(self.ref, base)
+        snapshots = {}
+        for root in (self.output, second):
+            snapshots[root] = self.root / f"snapshot-{root.name}"
+            shutil.copytree(root, snapshots[root], symlinks=True)
+        outcome = {}
+        for reference in (True, False):
+            path = self.ref if reference else self.native
+            shutil.copyfile(base, path)
+            for root, snapshot in snapshots.items():
+                for child in root.iterdir():
+                    if child.is_dir() and not child.is_symlink():
+                        shutil.rmtree(child)
+                    else:
+                        child.unlink()
+                shutil.copytree(snapshot, root, symlinks=True, dirs_exist_ok=True)
+            result = self.run_cli(
+                reference, ["--machine", "maintenance", "--all-catalogs"]
+            )
+            outcome[reference] = (
+                result,
+                self.rows(
+                    path,
+                    "SELECT profile,catalog,path,target FROM owned_links ORDER BY catalog,path",
+                ),
+            )
+        (old, old_links), (new, new_links) = outcome[True], outcome[False]
+        self.assertEqual(new.returncode, old.returncode, (old.stdout, new.stdout))
+        expected = self.without_scan(self.normalize(json.loads(old.stdout)))
+        actual = self.without_scan(self.normalize(json.loads(new.stdout)))
+        self.assertEqual(actual, expected)
+        self.assertEqual(new_links, old_links)
+        self.assertEqual(
+            sorted({row[1] for row in new_links}), ["global", "second"], new_links
+        )
+        self.assertIsNone(actual["data"]["stopped_at"], actual["data"]["errors"])
 
     def test_pending_journal_precedes_inventory(self):
         self.setup()

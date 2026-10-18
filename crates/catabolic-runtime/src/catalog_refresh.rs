@@ -118,8 +118,14 @@ fn require_writer(store: &Store) -> Result<()> {
     }
     Ok(())
 }
+fn interrupted(error: &Error) -> bool {
+    error.0 == catabolic_store::filesystem_mutation::PUBLICATION_INTERRUPTED
+}
 pub fn finish(store: &mut Store, profile: &str, mut result: Value) -> Result<Value> {
     match run(store, profile, None, 100, false) {
+        // An interrupt is not a refresh failure: like a frozen
+        // KeyboardInterrupt it escapes without being folded into the result.
+        Err(error) if interrupted(&error) => return Err(error),
         Ok(report) if report["processed"] != 0 || report["pending"] != 0 => {
             result["catalog_refresh"] = report
         }
@@ -247,6 +253,9 @@ fn run_with_options(
         match attempt {
             Ok(true) => refreshed.push(catalog.to_string()),
             Ok(false) => {}
+            // Never recorded as an attempt with backoff; the journal stays
+            // recoverable and the row stays pending.
+            Err(error) if interrupted(&error) => return Err(error),
             Err(error) => {
                 let message = error.0.chars().take(4000).collect::<String>();
                 catabolic_store::catalog_refresh::retry(store, profile, row, &message)?;

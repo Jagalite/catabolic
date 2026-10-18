@@ -1039,6 +1039,14 @@ pub(crate) fn poll_interrupt() -> bool {
     let mut check = Restore(INTERRUPT.with(|slot| slot.borrow_mut().take()));
     check.0.as_mut().is_some_and(|check| check())
 }
+/// After a bounded evaluation removed its own SQLite progress handler, restore
+/// the caller's interrupt bridge if one is installed on this thread.
+pub(crate) fn restore_interrupt_handler(store: &crate::Store) -> Result<()> {
+    if INTERRUPT.with(|slot| slot.borrow().is_some()) {
+        store.db.progress_handler(1000, Some(poll_interrupt))?;
+    }
+    Ok(())
+}
 pub fn with_interrupt_check<T>(
     check: impl FnMut() -> bool + Send + 'static,
     action: impl FnOnce() -> Result<T>,

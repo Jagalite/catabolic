@@ -392,58 +392,37 @@ pub fn run_with_progress(
                 "max_removals":args.get("max_removals").cloned().unwrap_or(json!(0)),
                 "max_removal_percent":args["max_removal_percent"],
             });
-            // Saved layouts are evaluated first (their own bounded snapshot),
-            // then applied and planned in one transaction, as frozen does.
-            let mut prepared = vec![];
-            for selected in catalogs.as_array().unwrap() {
-                let selected = selected.as_str().unwrap();
-                let owner = rows(
-                    &store.db,
-                    "SELECT value FROM meta WHERE key=?",
-                    &[format!("layout-catalog:{selected}").into()],
-                )?;
-                if let Some(owner) = owner.first() {
-                    let owner = catabolic_core::decode_json(owner["value"].as_str().unwrap_or(""))?;
-                    if let Some(layout) = owner["layout"].as_str().filter(|l| !l.is_empty()) {
-                        cancelled(&cancel)?;
-                        prepared.push(catabolic_store::layout_mutation::prepare(
-                            store, profile, layout, selected, false, false,
-                        )?);
-                    }
-                }
-            }
-            let mut layouts: Vec<Value> = vec![];
-            let mut unsafe_plan = false;
-            let staged = store.transaction(|_| {
-                for layout in &prepared {
-                    cancelled(&cancel)?;
-                    let plan =
-                        catabolic_store::layout_mutation::apply(store, profile, layout, limit)?;
-                    let safe = plan["safe"] == true;
-                    layouts.push(plan);
-                    if !safe {
-                        unsafe_plan = true;
-                        return Err(Error(
-                            "layout has blockers; all staged mappings rolled back".into(),
-                        ));
-                    }
-                }
-                let plan =
-                    catabolic_store::public_reconcile::call(store, profile, "preview", &budget)?;
-                let safe = plan["safe"] == true
-                    && !plan["actions"]
-                        .as_array()
-                        .is_some_and(|a| a.iter().any(|a| a["kind"] == "blocked_source"));
+            // Frozen order: inside one transaction each saved layout is
+            // evaluated against the state the previous ones left and applied,
+            // then the reconciler preview is planned; any failure rolls back.
+            let selected_catalogs: Vec<String> = catalogs
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|c| c.as_str().unwrap().to_owned())
+                .collect();
+            let mut preview = None;
+            let (mut layouts, staged) = catabolic_store::layout_mutation::stage_saved_layouts(
+                store,
+                profile,
+                &selected_catalogs,
+                limit,
+                &mut |store| {
+                    let plan = catabolic_store::public_reconcile::call(
+                        store, profile, "preview", &budget,
+                    )?;
+                    let safe = plan["safe"] == true
+                        && !plan["actions"]
+                            .as_array()
+                            .is_some_and(|a| a.iter().any(|a| a["kind"] == "blocked_source"));
+                    preview = Some(plan.clone());
+                    Ok((plan, safe))
+                },
+            );
+            if let Some(plan) = preview {
                 record(&mut report, "preview", plan, limit, &mut forward)?;
-                if !safe {
-                    unsafe_plan = true;
-                    return Err(Error(
-                        "unsafe output plan; all staged mappings rolled back".into(),
-                    ));
-                }
-                Ok(())
-            });
-            if let Err(error) = staged {
+            }
+            if let Err(stopped) = staged {
                 for entry in &mut layouts {
                     entry["applied"] = json!(false);
                 }
@@ -454,8 +433,8 @@ pub fn run_with_progress(
                     limit,
                     &mut forward,
                 )?;
-                blocked = unsafe_plan;
-                return Err(error);
+                blocked = stopped.blocked;
+                return Err(stopped.error);
             }
             record(
                 &mut report,
