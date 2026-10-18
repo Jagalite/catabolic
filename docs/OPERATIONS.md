@@ -266,17 +266,6 @@ atomic compare-and-delete primitive: simultaneous external renames or writes to
 the output tree are outside the supported concurrency model. This is not a sandbox
 against a malicious process running as the same user.
 
-The native engine replaces or removes an owned link without destroying a
-foreign entry that appears in its place. It first moves the existing link to a
-private name and checks it there. A foreign entry is put back instead of being
-overwritten or deleted, and the operation stops with an error. Link
-replacement is atomic where the filesystem supports exchanging two names, as
-APFS does. HFS+ does not support it. On HFS+ and similar filesystems, a
-replaced link is briefly absent while the new link is published, which frozen
-Python's atomic replacement never shows. A media server that scans at that
-instant can miss the item until its next scan. This is a known platform
-difference.
-
 Scanning stages inventory in disposable SQLite storage with 500-row Python
 buffers. Synchronization preflights the full selected scope, then revalidates the
 affected source and destination before each mutation. Synthetic scale benchmarks

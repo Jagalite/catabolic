@@ -202,7 +202,8 @@ otherwise. Both modes are equally safe for data:
 In quarantine mode, readers can briefly see the leaf missing between steps 1
 and 3. Frozen `os.replace` never shows that gap. The coordinator accepted this
 as a known platform difference, data safety first. It is documented for users
-in [OPERATIONS.md](OPERATIONS.md#operating-assumptions-and-limits) and is
+in [NATIVE_INTEGRITY_HARDENING.md](NATIVE_INTEGRITY_HARDENING.md#replace-and-remove-never-destroy-an-unverified-entry-track-c2)
+and is
 pending the user's final acknowledgement.
 
 Three crash points are new:

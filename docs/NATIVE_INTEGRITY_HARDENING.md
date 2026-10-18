@@ -545,6 +545,20 @@ the private name, and a foreign entry is moved back. Deletion happens only
 inside a freshly created, verified 0700 directory. Hardlink retirement
 likewise returns a raced foreign file to its name.
 
+User-facing statement of the behavior and of the platform difference (moved
+from the bundled operations guide, which describes the frozen Python release):
+
+> The native engine replaces or removes an owned link without destroying a
+> foreign entry that appears in its place. It first moves the existing link to a
+> private name and checks it there. A foreign entry is put back instead of being
+> overwritten or deleted, and the operation stops with an error. Link
+> replacement is atomic where the filesystem supports exchanging two names, as
+> APFS does. HFS+ does not support it. On HFS+ and similar filesystems, a
+> replaced link is briefly absent while the new link is published, which frozen
+> Python's atomic replacement never shows. A media server that scans at that
+> instant can miss the item until its next scan. This is a known platform
+> difference.
+
 The remaining residual is a same-user writer inside that directory. On
 filesystems without exchange, such as HFS+, a replaced link is briefly absent.
 Details, crash states and evidence are in
