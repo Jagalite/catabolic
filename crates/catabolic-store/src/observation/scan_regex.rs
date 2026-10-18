@@ -13,6 +13,12 @@
 //! dialects (`\<` is a literal in Python and a word boundary in fancy-regex)
 //! and no decoded digit can extend a preceding backreference.
 //!
+//! Filters only decide whether a path matches, so a group captures only when
+//! a backreference refers to it: the pattern is translated twice, and the
+//! second pass emits every other group non-capturing and renumbers the
+//! references. The engine keeps capture state for at most
+//! [`MAX_REFERENCED_GROUPS`] groups.
+//!
 //! Everything outside the subset is refused with [`UNQUALIFIED`], never
 //! approximated: bare inline flags after the start, contradictory or unknown
 //! flags, `(*VERB)`, duplicate group names, capturing groups inside any
@@ -285,14 +291,23 @@ struct Translator<'a> {
     works: Vec<Sequence>,
     capture_widths: std::collections::HashMap<usize, u64>,
     last: Last,
+    /// Groups to emit capturing (`None`: all, in the first pass).
+    keep: Option<HashSet<usize>>,
+    /// Groups a backreference refers to.
+    referenced: HashSet<usize>,
+    /// Emitted group number of each capturing group.
+    numbering: std::collections::HashMap<usize, usize>,
 }
 
 /// Any pattern whose minimum match is wider than this can never match a scan
 /// path; refusing it keeps the engine's own width arithmetic from overflowing.
 const MAX_MIN_WIDTH: u64 = 1 << 16;
-/// Most capture groups: bounds capture bookkeeping in the engine and the
-/// capture tables of delegated searches.
+/// Most groups: bounds the translator's bookkeeping.
 const MAX_CAPTURE_GROUPS: usize = 32;
+/// Most groups a backreference may refer to, which are the only capturing
+/// groups emitted: bounds the engine's capture state and the capture tables
+/// of delegated searches.
+pub(super) const MAX_REFERENCED_GROUPS: usize = 9;
 /// Largest forward work, in engine steps per path character.
 const MAX_STEPS_PER_CHARACTER: u64 = 1_000;
 /// Path length at which fixed work is weighed against per-character work.
@@ -677,8 +692,10 @@ impl Translator<'_> {
         for frame in &mut self.stack {
             frame.backreference = true;
         }
+        self.referenced.insert(group);
         // Wrapped so a following digit cannot extend the number.
-        let _ = write!(self.out, "(?:\\{group})");
+        let emitted = self.numbering[&group];
+        let _ = write!(self.out, "(?:\\{emitted})");
         self.i = next;
         let width = self.capture_widths.get(&group).copied().unwrap_or(0);
         self.atom_with_work(
@@ -778,6 +795,16 @@ impl Translator<'_> {
         Ok(())
     }
 
+    /// Whether `group` is emitted capturing; numbers it if so.
+    fn capturing(&mut self, group: usize) -> bool {
+        let keep = self.keep.as_ref().is_none_or(|keep| keep.contains(&group));
+        if keep {
+            let number = self.numbering.len() + 1;
+            self.numbering.insert(group, number);
+        }
+        keep
+    }
+
     fn open_group(&mut self) -> Result<()> {
         let chars = self.chars;
         let mut frame = Frame {
@@ -805,7 +832,12 @@ impl Translator<'_> {
             for open in &mut self.stack {
                 open.captures.push(self.groups);
             }
-            self.out.push('(');
+            let open = if self.capturing(self.groups) {
+                "("
+            } else {
+                "(?:"
+            };
+            self.out.push_str(open);
             self.i += 1;
         } else {
             let rest: String = chars[self.i + 2..].iter().take(2).collect();
@@ -869,7 +901,11 @@ impl Translator<'_> {
                 for open in &mut self.stack {
                     open.captures.push(self.groups);
                 }
-                self.out.push_str(&format!("(?P<{name}>"));
+                if self.capturing(self.groups) {
+                    self.out.push_str(&format!("(?P<{name}>"));
+                } else {
+                    self.out.push_str("(?:");
+                }
                 self.i = end + 1;
             } else {
                 // Scoped flags only; bare flags after the start are refused.
@@ -938,7 +974,18 @@ impl Translator<'_> {
 }
 
 /// Translate a frozen VERSION0 scan pattern, or refuse it (see module docs).
-pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
+/// Returns the translation and whether it has backreferences.
+pub(super) fn qualify_pattern(pattern: &str) -> Result<(String, bool)> {
+    let (_, referenced) = translate(pattern, None)?;
+    if referenced.len() > MAX_REFERENCED_GROUPS {
+        return Err(Error(UNQUALIFIED.into()));
+    }
+    let backreferences = !referenced.is_empty();
+    let (out, _) = translate(pattern, Some(referenced))?;
+    Ok((out, backreferences))
+}
+
+fn translate(pattern: &str, keep: Option<HashSet<usize>>) -> Result<(String, HashSet<usize>)> {
     let chars: Vec<char> = pattern.chars().collect();
     let refuse = || Error(UNQUALIFIED.into());
     let mut translator = Translator {
@@ -960,6 +1007,9 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
         works: vec![Sequence::EMPTY],
         capture_widths: std::collections::HashMap::new(),
         last: Last::Nothing,
+        keep,
+        referenced: HashSet::new(),
+        numbering: std::collections::HashMap::new(),
     };
     // Leading global flags, in one or more groups at the very start.
     let mut global_insensitive = false;
@@ -1090,5 +1140,5 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
     {
         return Err(refuse());
     }
-    Ok(translator.out)
+    Ok((translator.out, translator.referenced))
 }

@@ -1093,8 +1093,17 @@ fn run_with<S: HaystackInput + ?Sized, T>(
                 return Err(Error::RuntimeError(RuntimeError::StorageLimitExceeded));
             }
             instructions = instructions.wrapping_add(1);
+            // Every delegated search, which runs uninterrupted, is preceded
+            // by a check.
             #[cfg(feature = "std")]
-            if instructions % DEADLINE_CHECK_INTERVAL == 0
+            if (instructions % DEADLINE_CHECK_INTERVAL == 0
+                || matches!(
+                    prog.body[pc],
+                    Insn::Delegate(_)
+                        | Insn::BackwardsDelegate(_)
+                        | Insn::AbsentRepeater(_)
+                        | Insn::Seek(_)
+                ))
                 && deadline.is_some_and(|d| std::time::Instant::now() >= d)
             {
                 return Err(Error::RuntimeError(RuntimeError::DeadlineExceeded));

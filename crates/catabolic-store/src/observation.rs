@@ -663,6 +663,9 @@ const SCAN_REGEX_STORAGE_LIMIT: usize = 1_000_000;
 /// Delegated (regex-automata) automaton size: with the path limit, bounds
 /// the one call a deadline cannot interrupt.
 const SCAN_REGEX_DELEGATE_LIMIT: usize = 131_072;
+/// The same for patterns with backreferences, whose delegated searches may
+/// also record up to `MAX_REFERENCED_GROUPS` captures.
+const SCAN_REGEX_CAPTURE_DELEGATE_LIMIT: usize = 32_768;
 /// Longest path, in bytes, a filter is evaluated on; longer paths are a
 /// `regex_filter_timeout`.
 const SCAN_REGEX_MAX_PATH: usize = 4096;
@@ -672,7 +675,7 @@ fn compile_pattern(pattern: &str) -> Result<fancy_regex::Regex> {
     // Only the qualified VERSION0 subset is translated; everything else,
     // including patterns frozen admission crashes on such as `(?V1)`, is
     // refused with a structured error rather than approximated.
-    let translated = qualify_pattern(pattern)?;
+    let (translated, backreferences) = qualify_pattern(pattern)?;
     // Searches run under the frozen per-path deadline (see `search`); the
     // storage and delegate limits bound memory and the uninterruptible
     // delegated calls.
@@ -680,7 +683,11 @@ fn compile_pattern(pattern: &str) -> Result<fancy_regex::Regex> {
         .storage_limit(SCAN_REGEX_STORAGE_LIMIT)
         .backtrack_limit(100_000)
         .seek(false)
-        .delegate_size_limit(SCAN_REGEX_DELEGATE_LIMIT)
+        .delegate_size_limit(if backreferences {
+            SCAN_REGEX_CAPTURE_DELEGATE_LIMIT
+        } else {
+            SCAN_REGEX_DELEGATE_LIMIT
+        })
         .delegate_dfa_size_limit(1_048_576)
         .build()
         .map_err(|e| Error(format!("invalid scan regex: {e}")))
@@ -742,10 +749,10 @@ impl ScanFilter {
         if !included(path, &self.extensions) {
             return Ok(false);
         }
-        let deadline = Instant::now() + SCAN_REGEX_TIMEOUT;
+        // Like the frozen engine, every search has its own timeout.
         let any = |patterns: &[fancy_regex::Regex]| -> Result<bool> {
             for pattern in patterns {
-                if search(pattern, path, deadline)? {
+                if search(pattern, path, Instant::now() + SCAN_REGEX_TIMEOUT)? {
                     return Ok(true);
                 }
             }
@@ -2801,6 +2808,8 @@ mod tests {
         let capture_atomic = format!(r"\A(?:{many}(?>)){{4000}}x\Z");
         let ab = format!("{}a", "ab/".repeat(1365));
         let lookbehind_path = format!("{}x", "a/".repeat(2000));
+        let thirty_two = format!(r"(?>({}[ab]*a[ab]{{1000}}))(?!)", "()".repeat(31));
+        let near_path_limit = format!("{}.mkv", "a".repeat(4091));
         for (pattern, path) in [
             (r"\A(?:(?>.*b|).)*\Z", near_limit.as_str()),
             (r"\A(?:a|aa)*(?>){200000}b\Z", "aaaaaaaaaaaaaaaaaaaaaaaa"),
@@ -2809,6 +2818,7 @@ mod tests {
             (capture_atomic.as_str(), "x"),
             (r"\A(?>[ab/]*a[ab/]{12000})\Z", ab.as_str()),
             (r"(?<=a{20000})b", lookbehind_path.as_str()),
+            (thirty_two.as_str(), near_path_limit.as_str()),
         ] {
             let Ok(regex) = compile_pattern(pattern) else {
                 continue;
@@ -2824,13 +2834,29 @@ mod tests {
                 assert_eq!(error.0, "regex_filter_timeout", "{pattern:?}");
             }
         }
-        // More than 32 capture groups are refused outright.
+        // More than 32 groups are refused outright.
         for pattern in [&captures, &capture_delegate, &capture_atomic] {
             assert_eq!(
                 compile_pattern(pattern).unwrap_err().0,
                 scan_regex::UNQUALIFIED
             );
         }
+        // Only referenced groups capture, renumbered in order; at most nine.
+        let (translated, backreferences) =
+            scan_regex::qualify_pattern(r"(a)()()()()()()()()()()(?P<b>b)(?P=b)").unwrap();
+        assert!(backreferences);
+        assert_eq!(translated.matches("(?:)").count(), 10, "{translated}");
+        assert!(translated.contains(r"(?P<b>"), "{translated}");
+        assert!(translated.contains(r"(?:\1)"), "{translated}");
+        let ten: String = (1..=10).map(|n| format!("(?P<g{n}>a)(?P=g{n})")).collect();
+        assert!(scan_regex::qualify_pattern(&ten).is_err());
+        let nine: String = (1..=9).map(|n| format!("(a)\\{n}")).collect();
+        assert!(
+            compile_pattern(&nine)
+                .unwrap()
+                .is_match("aaaaaaaaaaaaaaaaaa")
+                .unwrap()
+        );
         // Over-long paths are never evaluated.
         let regex = compile_pattern(r"\.mkv$").unwrap();
         let long = format!("{}.mkv", "a".repeat(SCAN_REGEX_MAX_PATH));

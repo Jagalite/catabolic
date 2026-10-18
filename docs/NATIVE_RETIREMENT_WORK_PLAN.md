@@ -747,3 +747,28 @@ The patch now follows the frozen engine's own rule, a deadline.
 A test runs every round 9 and 10 input. Each must be refused, or finish or
 time out within 500 ms. Ordinary lookaround and nested-repeat filters must
 match a 1,059-byte path.
+
+#### Review round 11 correction (October 18)
+
+Two gaps remained:
+
+- **Repeated delegated calls.** Several expensive delegated calls could run
+  back to back before the next 64-instruction deadline check. In the example,
+  each call recorded 32 capture groups.
+- **Shared deadline.** One 10 ms deadline covered every pattern of a path,
+  where the frozen engine times each search separately.
+
+The fix:
+
+- **Deadline checks.** The VM now checks the deadline before every delegated
+  search. Each pattern's search gets its own 10 ms.
+- **Captures.** A filter only decides whether a path matches, so a group
+  captures only when a backreference refers to it. The translator runs twice:
+  the second pass emits every other group non-capturing and renumbers the
+  references.
+- **Limits.**
+  - At most 9 groups may be referenced, which bounds capture state and
+    delegated capture tables.
+  - Patterns with backreferences get 32 KiB delegate automata.
+  - Backreference parity, including the `^(a+)\1+$` timeout case, is
+    unchanged.
