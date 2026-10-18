@@ -118,8 +118,12 @@ fn require_writer(store: &Store) -> Result<()> {
     }
     Ok(())
 }
+/// Cancellation, in whatever form it surfaced: the publication sentinel, or
+/// any error raised while the caller's interrupt check has fired (an
+/// interrupted SQL selection during layout preparation, for example).
 fn interrupted(error: &Error) -> bool {
     error.0 == catabolic_store::filesystem_mutation::PUBLICATION_INTERRUPTED
+        || catabolic_store::embedding::interrupt_requested()
 }
 pub fn finish(store: &mut Store, profile: &str, mut result: Value) -> Result<Value> {
     match run(store, profile, None, 100, false) {

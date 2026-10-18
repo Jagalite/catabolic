@@ -1039,6 +1039,13 @@ pub(crate) fn poll_interrupt() -> bool {
     let mut check = Restore(INTERRUPT.with(|slot| slot.borrow_mut().take()));
     check.0.as_mut().is_some_and(|check| check())
 }
+/// Whether the caller's interrupt check (a CLI signal or the embedding's
+/// Python signal bridge) has fired. Used to classify an error as cancellation
+/// whatever form it surfaced in (SQLite interruption, evaluation cancellation
+/// or the publication sentinel).
+pub fn interrupt_requested() -> bool {
+    poll_interrupt()
+}
 /// After a bounded evaluation removed its own SQLite progress handler, restore
 /// the caller's interrupt bridge if one is installed on this thread.
 pub(crate) fn restore_interrupt_handler(store: &crate::Store) -> Result<()> {

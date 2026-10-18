@@ -401,7 +401,9 @@ pub fn run_with_progress(
                 .iter()
                 .map(|c| c.as_str().unwrap().to_owned())
                 .collect();
-            let mut preview = None;
+            // The preview stage and its progress line are delivered inside
+            // the transaction, as frozen does: a failing progress callback
+            // rolls the staged mappings back.
             let (mut layouts, staged) = catabolic_store::layout_mutation::stage_saved_layouts(
                 store,
                 profile,
@@ -415,13 +417,10 @@ pub fn run_with_progress(
                         && !plan["actions"]
                             .as_array()
                             .is_some_and(|a| a.iter().any(|a| a["kind"] == "blocked_source"));
-                    preview = Some(plan.clone());
+                    record(&mut report, "preview", plan.clone(), limit, &mut forward)?;
                     Ok((plan, safe))
                 },
             );
-            if let Some(plan) = preview {
-                record(&mut report, "preview", plan, limit, &mut forward)?;
-            }
             if let Err(stopped) = staged {
                 for entry in &mut layouts {
                     entry["applied"] = json!(false);
