@@ -596,6 +596,48 @@ engine in each direction. The frozen oracle is invoked through
 leftover private link or staged entry, and the native cleanup that resolves
 it.
 
+**Implemented.** `tests/test_native_publication_handover.py` runs both
+directions on the frozen `CatalogTest` fixture. HFS+ under `TMPDIR` runs
+quarantine mode, so the exchange stage is not reached here.
+
+- **Native to frozen (29 cases).** The native CLI is killed at every crash
+  point that a create, replace and remove can reach, and frozen
+  `Reconciler.recover` runs.
+- **Frozen to native (6 cases).** Frozen apply is interrupted after the effect
+  (a raising `after_filesystem`) and before it (a failing `symlink`, `replace`
+  or `unlink`) for create, replace and remove, and native code recovers.
+
+Every case must hold four invariants:
+
+- A frozen refusal changes nothing.
+- Native recovery plus a fresh apply then converge: verified healthy, an
+  empty journal, no reserved-name entry left, and the source bytes unchanged.
+- Explicit blocks take only their documented operator step.
+- Residuals appear only in the known states listed below.
+
+| Crash state (native) | Frozen recovery | What remains | Resolution |
+| --- | --- | --- | --- |
+| create: `after_journal`, `after_marker_write`, `after_filesystem`, `before_commit`; replace: `after_journal`, `after_temporary`, `after_private_remove`, `after_filesystem`, `before_commit`; remove: `after_journal`, `after_private_remove`, `after_filesystem`, `before_commit` | Recovers (acknowledges or cancels) | Nothing | Native apply converges |
+| `after_commit` (all kinds) | Nothing to recover | Nothing | None needed |
+| create `after_marker_create` | Refuses: `invalid output ownership marker`; nothing changed | The empty marker | Operator removes the empty marker, as in item 1; native recovery converges |
+| replace `after_quarantine` | Refuses: `replacement destination changed externally`; nothing changed | The native quarantine | Native recovery finishes it |
+| replace `after_publish`, remove `after_quarantine` | Acknowledges | Inert quarantined symlink `.catabolic-unlink-<id>` | Operator removes the symlink after inspection |
+| replace or remove `after_private_create`, `after_private_record`, `after_private_move`, `after_private_mark` | Acknowledges | The quarantined symlink and/or `<name>.private`, either empty or holding only its `entry` symlink, plus an orphaned `publication-private:` meta record | Operator removes the symlink and the directory after inspection; the inert meta record is never consulted again |
+
+Frozen acknowledgement removes the journal row that native recovery would
+need. Native code deliberately never adopts an unjournaled or unrecorded name
+(item 2), so these inert entries are left for the operator rather than
+deleted automatically.
+
+In the frozen-to-native direction, native recovery finishes every interrupted
+frozen journal, including the frozen `.catabolic-link-*` temporary left by an
+interrupted replace. Native cleanup removes it.
+
+Hardlink staging is outside this matrix, as the hardening note records:
+frozen Python cannot see native hardlink staging.
+
+The per-case outcomes are in `evidence/track-c/handover-report.json`.
+
 ## Status
 
 | Item | Status | Commit |
@@ -611,5 +653,5 @@ it.
 | Sol round 4 P2 #1 (helper stdin) and #2 (`access_admin`) | Fixed | `dc23281` |
 | 4 (folder; export/import stay gated) | Implemented | `5fa6e7c` |
 | Sol round 5 (item 4 review): interrupts, unbounded budgets, `save_secret`, verified-record failure | Fixed | `8c9f476` |
-| 5 (dependent paths; fallback publication stays gated) | Implemented | this commit |
-| 6 | Not started | |
+| 5 (dependent paths; fallback publication stays gated) | Implemented | `91841d4` |
+| 6 | Implemented (handover matrix; residuals documented) | this commit |
