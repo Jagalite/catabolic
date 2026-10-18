@@ -232,6 +232,10 @@ PATTERNS = [
     # Sol round 5: composed repeat widths beyond any path.
     r"(a{100})(\1{100})(\2{100})(\3{100})(\4{100})(\5{100})(\6{100})(\7{100})(\8{100})(\9{100})",
     r"a{1000}b",
+    # Sol round 6: zero-width repeats bounded by composed repeat counts.
+    r"(?>){1000000000}",
+    r"(?:(?:a{100}){100}){100}",
+    r"(?:a{100}){100}",
 ]
 
 

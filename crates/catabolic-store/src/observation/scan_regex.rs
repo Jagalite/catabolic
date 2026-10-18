@@ -281,6 +281,10 @@ struct Translator<'a> {
     /// narrowest completed alternative), the last atom, and each capture.
     widths: Vec<(u64, Option<u64>)>,
     last_width: u64,
+    /// Composed repeat counts: per open sequence the largest product of
+    /// nested repeat counts inside it, and that of the last atom.
+    costs: Vec<u64>,
+    last_cost: u64,
     capture_widths: std::collections::HashMap<usize, u64>,
     last: Last,
 }
@@ -288,6 +292,9 @@ struct Translator<'a> {
 /// Any pattern whose minimum match is wider than this can never match a scan
 /// path; refusing it keeps the engine's own width arithmetic from overflowing.
 const MAX_MIN_WIDTH: u64 = 1 << 20;
+/// Largest product of nested explicit repeat counts. Zero-width bodies have
+/// no width to bound, so execution cost is bounded by this instead.
+const MAX_REPEAT_PRODUCT: u64 = 100_000;
 
 /// Parse inline flags at `self.i` (just after `(?`): returns (on, off, close).
 fn flags(chars: &[char], start: usize) -> Result<(String, String, char, usize)> {
@@ -354,12 +361,32 @@ impl Translator<'_> {
     }
 
     fn atom(&mut self, width: u64) -> Result<()> {
+        self.atom_with_cost(width, 1)
+    }
+
+    fn atom_with_cost(&mut self, width: u64, cost: u64) -> Result<()> {
         self.add_width(width)?;
+        self.last_cost = cost;
+        let top = self.costs.last_mut().expect("root sequence");
+        *top = (*top).max(cost);
         self.last = Last::Atom;
         Ok(())
     }
 
     /// Repeat the last atom at least `low` times in the minimum width.
+    /// Repeat the last atom up to `count` times in the composed repeat cost.
+    fn repeat_cost(&mut self, count: u64) -> Result<()> {
+        let cost = self
+            .last_cost
+            .checked_mul(count.max(1))
+            .filter(|c| *c <= MAX_REPEAT_PRODUCT)
+            .ok_or_else(|| Error(UNQUALIFIED.into()))?;
+        self.last_cost = cost;
+        let top = self.costs.last_mut().expect("root sequence");
+        *top = (*top).max(cost);
+        Ok(())
+    }
+
     fn repeat_width(&mut self, low: u64) -> Result<()> {
         let width = self.last_width;
         let top = self.widths.last_mut().expect("root sequence");
@@ -686,6 +713,7 @@ impl Translator<'_> {
         self.lookaround = frame.lookaround;
         self.stack.push(frame);
         self.widths.push((0, None));
+        self.costs.push(1);
         self.last = Last::Nothing;
         Ok(())
     }
@@ -708,6 +736,7 @@ impl Translator<'_> {
         self.lookbehind = lookbehind;
         self.lookaround = lookaround;
         let (sequence, narrowest) = self.widths.pop().expect("group sequence");
+        let cost = self.costs.pop().expect("group sequence");
         let width = narrowest.map_or(sequence, |n| n.min(sequence));
         if let Some(group) = frame.capture {
             self.capture_widths.insert(group, width);
@@ -715,8 +744,10 @@ impl Translator<'_> {
         if frame.assertion {
             self.last_width = 0;
             self.last = Last::Assertion;
+            let top = self.costs.last_mut().expect("root sequence");
+            *top = (*top).max(cost);
         } else {
-            self.atom(width)?;
+            self.atom_with_cost(width, cost)?;
         }
         Ok(())
     }
@@ -742,6 +773,8 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
         closed_at: None,
         widths: vec![(0, None)],
         last_width: 0,
+        costs: vec![1],
+        last_cost: 1,
         capture_widths: std::collections::HashMap::new(),
         last: Last::Nothing,
     };
@@ -802,6 +835,9 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
                 translator.out.push(c);
                 translator.i += 1;
                 translator.repeat_width(u64::from(c == '+'))?;
+                // Unbounded repeats stop at an empty iteration; bound them
+                // like one explicit repetition of the body.
+                translator.repeat_cost(1)?;
                 translator.after_quantifier()?;
             }
             '{' => {
@@ -842,8 +878,14 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
                 }
                 translator.out.push('}');
                 translator.i = end + 1;
-                let low = if low.is_empty() { 0 } else { bound(low)? };
-                translator.repeat_width(u64::from(low))?;
+                let low_count = if low.is_empty() { 0 } else { bound(low)? };
+                translator.repeat_width(u64::from(low_count))?;
+                let high_count = match high {
+                    Some(h) if !h.is_empty() => bound(h)?,
+                    Some(_) => low_count,
+                    None => low_count,
+                };
+                translator.repeat_cost(u64::from(high_count.max(low_count)))?;
                 translator.after_quantifier()?;
             }
             '}' | ']' => return Err(refuse()),

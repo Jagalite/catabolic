@@ -2921,6 +2921,9 @@ mod tests {
             r"(?<=(?<=a)a+)b",
             // Sol round 5: minimum widths beyond any path overflow the engine.
             r"(a{100})(\1{100})(\2{100})(\3{100})(\4{100})(\5{100})(\6{100})(\7{100})(\8{100})(\9{100})",
+            // Sol round 6: composed repeat counts beyond the execution bound.
+            r"(?>){1000000000}",
+            r"(?:(?:a{100}){100}){100}",
         ] {
             assert!(refused.contains(pattern), "{pattern:?} should be refused");
         }

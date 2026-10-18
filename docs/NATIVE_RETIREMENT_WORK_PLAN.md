@@ -631,3 +631,12 @@ characters, which no scan path can reach, is refused. The fixture (159
 patterns) adds the chained case. A triple-nested `a{1000}` repeat, which the
 frozen engine runs out of memory compiling, is pinned as refused in the unit
 test instead.
+
+#### Review round 6 correction (October 18)
+
+A zero-width body has no width to bound, so `(?>){1000000000}` ran a billion
+engine iterations. The frozen engine returns at once. The translator now
+also composes explicit repeat counts through nesting, taking the upper bound,
+and counting an unbounded repeat as one repetition of its body. It refuses a
+pattern whose composed count exceeds 100,000. The fixture (162 patterns) adds
+this case, a nested `{100}` cube (refused) and its accepted square.
