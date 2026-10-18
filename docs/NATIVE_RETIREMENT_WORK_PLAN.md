@@ -547,3 +547,42 @@ it as a structured error. That is a deliberate safety difference.
 
 Results: store unit tests, 521 passed, 6 ignored, including the fixture test
 and the existing strict-anchor and backtracking-budget test.
+
+
+#### Review round 1 corrections (October 18)
+
+Sol found eleven ways the first translator still differed from frozen
+matching. The translator was rewritten as `observation/scan_regex.rs` so
+that it no longer depends on fancy-regex's Unicode data or case folding.
+
+- **Frozen tables.** `scripts/generate_scan_regex_tables.py` records, from
+  the pinned oracle, the `\w`, `\d` and `\s` membership of every code
+  point. For every code point whose case-insensitive literal matches more
+  than itself, it records the exact set it matches; frozen folding is
+  asymmetric, for example `(?i)i` matches `İ` but `(?i)İ` does not match
+  `I`. The tables are in `resources/scan-regex-tables-v1.json`.
+- **Expansion.** `\d \D \w \W \s \S` become explicit code point classes.
+  `\b` and `\B` become lookarounds over the word class. Under
+  case-insensitive matching every literal and class is expanded through the
+  fold table (a class matches `x` when one of its members matches `x`;
+  negation applies after expansion), and the `i` flag is never passed to
+  fancy-regex. This fixes Turkish and long-s folding and Unicode 17 class
+  members.
+- **Literals.** Every literal other than an ASCII letter is emitted as a
+  hexadecimal escape. `\<` and `\>` stay literal angle brackets, and a
+  decoded digit can no longer extend a backreference, which is itself
+  wrapped as `(?:\N)`.
+- **Flags.** Inline flags are accepted only at the very start (global) or
+  scoped as `(?flags:…)`. A bare flag group later in the pattern, a flag
+  both set and cleared, or any flag other than `i` and `s` is refused.
+- **Refused constructs.** `(*VERB)`, duplicate group names, capturing groups
+  or backreferences inside lookbehind, backreferences to groups that are not
+  yet closed or under case-insensitive matching, multi-digit backreferences,
+  and quantifiers after an assertion or another quantifier.
+- **Named backreferences.** `(?P=name)` is accepted under the same rules as
+  numbered ones; `tests/test_rust_observation_scheduler.py` already pairs it.
+
+The fixture now holds 144 patterns over 32 paths, adding Sol's cases and
+paths with `İ`, `ı`, `ſ`, `ẞ`, the Kelvin sign, Unicode 17 digits and
+letters, angle brackets and trailing newlines. The pinned lists name each
+newly qualified and refused construct.

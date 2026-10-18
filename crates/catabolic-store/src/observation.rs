@@ -5,7 +5,9 @@
 //! Inventory absence is authorized by an unchanged completed directory only;
 //! deferred, excluded and failed child scopes retain their prior observations.
 mod report;
+mod scan_regex;
 use report::{Reuse, Statistics};
+use scan_regex::qualify_pattern;
 
 use crate::filesystem_mutation::{entries, identity, now, open_at, open_root, stat_at, version};
 use crate::{Error, Result, Store, migration::rows};
@@ -656,244 +658,6 @@ fn configure_policy(store: &Store, profile: &str, source: &str, args: &Value) ->
     }
     Ok(json!({"previous":old,"policy":new,"revision":revision,"applied":apply}))
 }
-const UNQUALIFIED: &str = "native scan regex construct is not qualified";
-
-/// Translate the qualified subset of Python `regex.VERSION0` into the pinned
-/// fancy-regex syntax. Everything outside it is refused explicitly, never
-/// approximated. Qualified: literals; `.`; `^`; `$` (Python's end-or-before-a-
-/// final-newline, written as a lookahead); `\A` and strict `\Z`; the classes
-/// `\d \D \w \W \s \S` and `\b \B` (Unicode, as in Python for `str`); simple
-/// escapes `\t \n \r \f \v`, `\xHH`, `\uHHHH`, `\UHHHHHHHH` and escaped
-/// punctuation; single-digit backreferences; bracket classes without nested
-/// `[`, POSIX classes or set operators; greedy and lazy quantifiers, with
-/// Python's `{,n}` as `{0,n}`; capturing, non-capturing, atomic and named
-/// groups; lookahead and lookbehind; and the inline flags `i` and `s`, global or
-/// scoped. The frozen fixture `scan-regex-dialect-v1.json` checks this subset.
-fn qualify_pattern(pattern: &str) -> Result<String> {
-    let refuse = || Error(UNQUALIFIED.into());
-    let chars: Vec<char> = pattern.chars().collect();
-    let mut out = String::with_capacity(pattern.len() + 8);
-    let mut i = 0;
-    // Emit one literal character valid both inside and outside a class.
-    let literal = |out: &mut String, character: char| {
-        if character.is_ascii_punctuation() {
-            out.push('\\');
-        }
-        out.push(character);
-    };
-    // Escapes shared by classes and the main pattern: the qualified set only.
-    let escape = |i: &mut usize, out: &mut String, in_class: bool| -> Result<()> {
-        let next = *chars.get(*i + 1).ok_or_else(refuse)?;
-        let hex = |count: usize| -> Result<String> {
-            let digits: String = chars.iter().skip(*i + 2).take(count).collect();
-            if digits.chars().count() == count && digits.chars().all(|c| c.is_ascii_hexdigit()) {
-                Ok(digits)
-            } else {
-                Err(refuse())
-            }
-        };
-        match next {
-            'd' | 'D' | 'w' | 'W' | 's' | 'S' | 't' | 'n' | 'r' | 'f' | 'v' => {
-                out.push('\\');
-                out.push(next);
-                *i += 2;
-            }
-            'b' | 'B' | 'A' if !in_class => {
-                out.push('\\');
-                out.push(next);
-                *i += 2;
-            }
-            'Z' if !in_class => {
-                // Python's \Z is strict; fancy's \Z also accepts a final newline.
-                out.push_str("\\z");
-                *i += 2;
-            }
-            'x' | 'u' | 'U' => {
-                let count = match next {
-                    'x' => 2,
-                    'u' => 4,
-                    _ => 8,
-                };
-                let digits = hex(count)?;
-                let character = u32::from_str_radix(&digits, 16)
-                    .ok()
-                    .and_then(char::from_u32)
-                    .ok_or_else(refuse)?;
-                literal(out, character);
-                *i += 2 + count;
-            }
-            '1'..='9' if !in_class => {
-                // Two digits would be an ambiguous octal/backreference.
-                if chars.get(*i + 2).is_some_and(char::is_ascii_digit) {
-                    return Err(refuse());
-                }
-                out.push('\\');
-                out.push(next);
-                *i += 2;
-            }
-            c if c.is_ascii() && !c.is_ascii_alphanumeric() && !c.is_ascii_whitespace() => {
-                out.push('\\');
-                out.push(c);
-                *i += 2;
-            }
-            _ => return Err(refuse()),
-        }
-        Ok(())
-    };
-    while i < chars.len() {
-        let c = chars[i];
-        match c {
-            '\\' => escape(&mut i, &mut out, false)?,
-            '$' => {
-                // Python: end of string, or before a final newline.
-                out.push_str("(?=\\n?\\z)");
-                i += 1;
-            }
-            '[' => {
-                out.push('[');
-                i += 1;
-                if chars.get(i) == Some(&'^') {
-                    out.push('^');
-                    i += 1;
-                }
-                // A leading `]` is literal in Python.
-                if chars.get(i) == Some(&']') {
-                    out.push_str("\\]");
-                    i += 1;
-                }
-                loop {
-                    let c = *chars.get(i).ok_or_else(refuse)?;
-                    match c {
-                        ']' => {
-                            out.push(']');
-                            i += 1;
-                            break;
-                        }
-                        '\\' => escape(&mut i, &mut out, true)?,
-                        '[' => return Err(refuse()),
-                        '&' | '-' | '~' | '|' if chars.get(i + 1) == Some(&c) => {
-                            return Err(refuse());
-                        }
-                        _ => {
-                            out.push(c);
-                            i += 1;
-                        }
-                    }
-                }
-            }
-            '(' => {
-                if chars.get(i + 1) != Some(&'?') {
-                    out.push('(');
-                    i += 1;
-                    continue;
-                }
-                let rest: String = chars[i + 2..].iter().take(4).collect();
-                if rest.starts_with(':')
-                    || rest.starts_with('>')
-                    || rest.starts_with('=')
-                    || rest.starts_with('!')
-                    || rest.starts_with("<=")
-                    || rest.starts_with("<!")
-                {
-                    let width = if rest.starts_with('<') { 4 } else { 3 };
-                    out.extend(&chars[i..i + width]);
-                    i += width;
-                } else if rest.starts_with("P<") || (rest.starts_with('<')) {
-                    let start = i + if rest.starts_with('P') { 4 } else { 3 };
-                    let end = chars[start..]
-                        .iter()
-                        .position(|c| *c == '>')
-                        .map(|p| start + p)
-                        .ok_or_else(refuse)?;
-                    let name: String = chars[start..end].iter().collect();
-                    if name.is_empty()
-                        || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-                        || name.starts_with(|c: char| c.is_ascii_digit())
-                    {
-                        return Err(refuse());
-                    }
-                    out.push_str(&format!("(?P<{name}>"));
-                    i = end + 1;
-                } else {
-                    // Inline flags: only i and s, set or cleared, global or scoped.
-                    let mut j = i + 2;
-                    let mut flags = String::new();
-                    while let Some(&f) = chars.get(j) {
-                        if matches!(f, 'i' | 's' | '-') {
-                            flags.push(f);
-                            j += 1;
-                        } else {
-                            break;
-                        }
-                    }
-                    let close = *chars.get(j).ok_or_else(refuse)?;
-                    if flags.is_empty()
-                        || flags.matches('-').count() > 1
-                        || flags.ends_with('-')
-                        || !matches!(close, ')' | ':')
-                    {
-                        return Err(refuse());
-                    }
-                    out.push_str("(?");
-                    out.push_str(&flags);
-                    out.push(close);
-                    i = j + 1;
-                }
-            }
-            '{' => {
-                let end = chars[i..]
-                    .iter()
-                    .position(|c| *c == '}')
-                    .map(|p| i + p)
-                    .ok_or_else(refuse)?;
-                let body: String = chars[i + 1..end].iter().collect();
-                let (low, high) = match body.split_once(',') {
-                    Some((low, high)) => (low, Some(high)),
-                    None => (body.as_str(), None),
-                };
-                let numeric = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit());
-                if !(numeric(low) || (low.is_empty() && high.is_some_and(numeric)))
-                    || high.is_some_and(|h| !h.is_empty() && !numeric(h))
-                {
-                    return Err(refuse());
-                }
-                // Python refuses a minimum above the maximum.
-                let bound = |s: &str| s.parse::<u32>().map_err(|_| refuse());
-                if let Some(high) = high.filter(|h| !h.is_empty())
-                    && !low.is_empty()
-                    && bound(low)? > bound(high)?
-                {
-                    return Err(refuse());
-                }
-                out.push('{');
-                out.push_str(if low.is_empty() { "0" } else { low });
-                if let Some(high) = high {
-                    out.push(',');
-                    out.push_str(high);
-                }
-                out.push('}');
-                i = end + 1;
-                if chars.get(i) == Some(&'+') {
-                    return Err(refuse());
-                }
-            }
-            '*' | '+' | '?' => {
-                out.push(c);
-                i += 1;
-                if chars.get(i) == Some(&'+') {
-                    // Possessive quantifiers are a regex-module extension here.
-                    return Err(refuse());
-                }
-            }
-            _ => {
-                out.push(c);
-                i += 1;
-            }
-        }
-    }
-    Ok(out)
-}
-
 fn compile_pattern(pattern: &str) -> Result<fancy_regex::Regex> {
     // Only the qualified VERSION0 subset is translated; everything else,
     // including patterns frozen admission crashes on such as `(?V1)`, is
@@ -3046,7 +2810,8 @@ mod tests {
                     }
                     Err(error) => {
                         assert!(
-                            error.0 == UNQUALIFIED || error.0.starts_with("invalid scan regex: "),
+                            error.0 == scan_regex::UNQUALIFIED
+                                || error.0.starts_with("invalid scan regex: "),
                             "{pattern:?}: {}",
                             error.0
                         );
@@ -3080,6 +2845,37 @@ mod tests {
             r"(?<=Movies|Music)/",
             r"(?>a+)b",
             r"Alien(?!\.mkv)",
+            // Sol round 1: frozen folding and classes from the oracle tables,
+            // hexadecimal literals, explicit flag scope.
+            r"(?i)i",
+            r"(?i)I",
+            r"(?i)İ",
+            r"(?i)ı",
+            r"(?i)idea",
+            r"(?i)[a-z]+\.mkv",
+            r"(?i)[^a-z]",
+            r"(?i)[h-j]",
+            r"(?i)k",
+            r"(?i)ß",
+            r"(?i)strasse",
+            r"\<Alien\>",
+            r"\x3cAlien",
+            r"(a)()()()()()()()()()()(b)\1\x32",
+            r"(a)\1\x32",
+            r"(?i:alien)\.mkv",
+            r"(?s:a.)",
+            r"(?is)a.b",
+            r"(?i)(?s)A.",
+            r"[\d_]+",
+            r"[^\W]",
+            r"\W",
+            r"\D",
+            r"\B",
+            r"\b",
+            r"\d\d",
+            r"\w+/\w+",
+            r"(?<!a)b",
+            r"(?P<n>a)(?P=n)",
         ] {
             if fixture["cases"]
                 .as_array()
@@ -3104,12 +2900,24 @@ mod tests {
             r"a++b",
             r"(?x) A l i e n  # verbose",
             r"(?a)\w+\.flac$",
+            // Sol round 1: constructs whose semantics cannot be reproduced.
+            r"(*FAIL)",
+            r"(?i)(s)\1",
+            r"(a(?i)b)c",
+            r"((?s).).",
+            r"(?P<n>a)(?P<n>b)\1",
+            r"(?<=(a)\1)b",
+            r"a(?=b)*",
+            r"^*a",
         ] {
             assert!(refused.contains(pattern), "{pattern:?} should be refused");
         }
         // Frozen admission crashes on `(?V1)` with an uncaught KeyError; native
         // refuses it with a structured error (a versioned safety difference).
-        assert_eq!(compile_pattern("(?V1)a").unwrap_err().0, UNQUALIFIED);
+        assert_eq!(
+            compile_pattern("(?V1)a").unwrap_err().0,
+            scan_regex::UNQUALIFIED
+        );
         // Python's `$` also matches before one final newline, never two.
         let dollar = compile_pattern(r"\.mkv$").unwrap();
         assert!(dollar.is_match("a.mkv\n").unwrap());
