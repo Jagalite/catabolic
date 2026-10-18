@@ -578,7 +578,8 @@ fn staged_file(path: &Path) -> PathBuf {
 fn staged_mutation_or_replacement_is_refused_before_publication() {
     let _serial = serial();
     let tamper = "INSERT INTO meta VALUES('restore-tamper','1')";
-    let refusals: [(&str, &str, &dyn Fn(&Path)); 3] = [
+    type StagedRefusal<'a> = (&'a str, &'a str, &'a dyn Fn(&Path));
+    let refusals: [StagedRefusal<'_>; 3] = [
         (
             "rotated",
             "staged catalog changed after rotation",
@@ -887,7 +888,8 @@ fn rerun_retries_the_publication_fsync_before_reporting_durability() {
 #[test]
 fn unreadable_or_corrupt_restore_records_require_reconciliation() {
     let _serial = serial();
-    let damages: [(&str, &dyn Fn(&Path) -> PathBuf); 4] = [
+    type RecordDamage<'a> = (&'a str, &'a dyn Fn(&Path) -> PathBuf);
+    let damages: [RecordDamage<'_>; 4] = [
         ("unreadable record", &|record: &Path| {
             fs::set_permissions(record, fs::Permissions::from_mode(0o000)).unwrap();
             record.to_path_buf()
@@ -1367,7 +1369,8 @@ fn staged_schema_history_and_sequence_changes_are_refused() {
         )
         .unwrap()
     };
-    let changes: [(&str, &dyn Fn(&rusqlite::Connection)); 5] = [
+    type CatalogChange<'a> = (&'a str, &'a dyn Fn(&rusqlite::Connection));
+    let changes: [CatalogChange<'_>; 5] = [
         ("dropped trigger", &|db| {
             db.execute_batch("DROP TRIGGER catalog_permit_current_incarnation")
                 .unwrap();

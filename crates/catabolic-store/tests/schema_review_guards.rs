@@ -600,7 +600,8 @@ fn sc3_schema38_curation_records_cannot_reuse_a_committed_receipt() {
         f.store.database_id.clone(),
         f.store.catalog_incarnation.clone().unwrap(),
     );
-    let attempts: Vec<(&str, Box<dyn Fn(&Connection, &str) -> rusqlite::Result<()>>)> = vec![
+    type HistoryMutation<'a> = Box<dyn Fn(&Connection, &str) -> rusqlite::Result<()> + 'a>;
+    let attempts: Vec<(&str, HistoryMutation<'_>)> = vec![
         (
             "catalog_tag_suppression_revisions",
             Box::new(|db, op| {

@@ -1049,8 +1049,9 @@ fn supervisor_admitted(descriptors: &[RawFd]) -> bool {
     };
     leader
         && descriptors.iter().all(|&fd| {
-            // SAFETY: fstat writes into a local, zero-initialized stat buffer.
+            // SAFETY: libc::stat is a C struct whose fields admit zero initialization.
             let mut status: libc::stat = unsafe { std::mem::zeroed() };
+            // SAFETY: status is writable stat storage; an invalid fd returns an error.
             (unsafe { libc::fstat(fd, &mut status) }) == 0
                 && status.st_mode & libc::S_IFMT == libc::S_IFIFO
         })
@@ -2358,8 +2359,8 @@ mod tests {
         // SAFETY: the read end is nonblocking so counting cannot hang.
         unsafe { libc::fcntl(fds[0], libc::F_SETFL, libc::O_NONBLOCK) };
         ATFORK_PIPE.store(fds[1], Ordering::Relaxed);
-        // SAFETY: registers an async-signal-safe child handler for this fixture.
         assert_eq!(
+            // SAFETY: registers an async-signal-safe child handler for this fixture.
             unsafe { libc::pthread_atfork(None, None, Some(atfork_child)) },
             0
         );
@@ -2541,14 +2542,15 @@ mod tests {
         static SUPERVISOR_OVERRIDE: std::cell::RefCell<Option<Supervisor>> =
             const { std::cell::RefCell::new(None) };
     }
+    type SupervisorResolution = Result<Option<(std::path::PathBuf, Vec<OsString>)>, String>;
     /// Per-thread supervisor substitute for fail-closed tests.
-    pub(super) fn supervisor_override()
-    -> Option<Result<Option<(std::path::PathBuf, Vec<OsString>)>, String>> {
+    pub(super) fn supervisor_override() -> Option<SupervisorResolution> {
         SUPERVISOR_OVERRIDE.with(|slot| slot.borrow().as_ref().map(|s| s.resolve().map(Some)))
     }
 
+    type BeforeSpawnHook = Box<dyn Fn(&std::path::Path)>;
     thread_local! {
-        static BEFORE_SPAWN: std::cell::RefCell<Option<Box<dyn Fn(&std::path::Path)>>> =
+        static BEFORE_SPAWN: std::cell::RefCell<Option<BeforeSpawnHook>> =
             const { std::cell::RefCell::new(None) };
     }
     /// Test hook between supervisor identity verification and its exec.
