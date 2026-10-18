@@ -1116,8 +1116,15 @@ fn send_command<S: AsRef<OsStr>>(
             ));
         }
     }
+    let expired = || CommandFailure::new("timeout", "command exceeded the elapsed-time limit");
     let mut written = 0;
     while written < payload.len() {
+        // Checked before every write: nothing more is delivered after expiry,
+        // whatever the supervisor drained meanwhile.
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(expired());
+        }
         // SAFETY: writes from a live local buffer to a descriptor we own.
         let count = unsafe {
             libc::write(
@@ -1134,13 +1141,6 @@ fn send_command<S: AsRef<OsStr>>(
         match error.raw_os_error() {
             Some(libc::EINTR) => continue,
             Some(libc::EAGAIN) => {
-                let remaining = deadline.saturating_duration_since(Instant::now());
-                if remaining.is_zero() {
-                    return Err(CommandFailure::new(
-                        "timeout",
-                        "command exceeded the elapsed-time limit",
-                    ));
-                }
                 let mut poll = libc::pollfd {
                     fd,
                     events: libc::POLLOUT,
@@ -1148,7 +1148,16 @@ fn send_command<S: AsRef<OsStr>>(
                 };
                 let millis = remaining.as_millis().clamp(1, i32::MAX as u128) as libc::c_int;
                 // SAFETY: poll reads one initialized pollfd during the call.
-                unsafe { libc::poll(&mut poll, 1, millis) };
+                match unsafe { libc::poll(&mut poll, 1, millis) } {
+                    0 => return Err(expired()),
+                    -1 if io::Error::last_os_error().kind() != io::ErrorKind::Interrupted => {
+                        return Err(CommandFailure::from_io(
+                            "cannot start command",
+                            io::Error::last_os_error(),
+                        ));
+                    }
+                    _ => {}
+                }
             }
             _ => return Err(CommandFailure::from_io("cannot start command", error)),
         }
@@ -2634,6 +2643,33 @@ mod tests {
                 argv.display()
             )
         });
+    }
+
+    /// A payload larger than the pipe buffer, with nobody reading: the send
+    /// stops at its deadline after a partial write and delivers nothing more.
+    #[test]
+    fn command_send_stops_at_its_deadline_during_a_partial_write() {
+        let (read, write) = lifeline().unwrap();
+        let big = "x".repeat(1024 * 1024);
+        let argv = ["/bin/sh", "-c", big.as_str()];
+        let started = Instant::now();
+        let failure =
+            send_command(write, &argv, Instant::now() + Duration::from_millis(200)).unwrap_err();
+        assert_eq!(failure.state, "timeout");
+        assert!(started.elapsed() < Duration::from_secs(5));
+        // Some bytes were written before expiry, never the whole payload.
+        let mut pending: libc::c_int = 0;
+        // SAFETY: FIONREAD writes the pending byte count to a local integer.
+        unsafe { libc::ioctl(read.as_raw_fd(), libc::FIONREAD, &mut pending) };
+        assert!(pending > 0 && (pending as usize) < encode_command(&argv).len());
+        // An already expired deadline writes nothing at all.
+        let (read, write) = lifeline().unwrap();
+        let failure = send_command(write, &["/bin/true"], Instant::now()).unwrap_err();
+        assert_eq!(failure.state, "timeout");
+        let mut pending: libc::c_int = 0;
+        // SAFETY: as above.
+        unsafe { libc::ioctl(read.as_raw_fd(), libc::FIONREAD, &mut pending) };
+        assert_eq!(pending, 0);
     }
 
     #[test]

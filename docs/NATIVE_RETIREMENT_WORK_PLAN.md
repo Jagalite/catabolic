@@ -496,3 +496,14 @@ diagnostics 12 and `api_worker` 5 passed. `sigterm` (4) failed once during a
 56-second run that overlapped another track's suites, then passed three
 times in about 9 seconds each.
 
+#### Review round 6 corrections (October 18)
+
+- **Command delivery stops at the deadline.** `send_command` checks the
+  deadline before every write, including after partial writes and `EINTR`
+  retries. A poll timeout or poll error ends the send. The command then fails
+  through the usual retirement path, and nothing more is delivered after
+  expiry.
+- **Test.** A 1 MiB argv sent to a pipe nobody reads stops with `timeout`
+  after a partial write, and an already-expired deadline writes nothing.
+  `process` and `helper` unit tests: 52 passed.
+
