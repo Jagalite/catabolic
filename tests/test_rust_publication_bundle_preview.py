@@ -294,6 +294,10 @@ class PublicationBundlePreviewTest(unittest.TestCase):
         self.assertIn("unresolved_write_recover_past", str(self.pair()))
 
     def test_apply_and_recovery_still_refuse_before_bundle_effects(self):
+        # Folder publication is open (track C4); export and import apply stay
+        # gated. With the reviewed plan, a safe plan reaches the gate after
+        # frozen admission and an unsafe one returns unapplied; a stale plan
+        # is refused as in frozen. Nothing is written either way.
         before = self.snapshot()
         for operation, adapter in [
             ("export", "nfo"),
@@ -302,20 +306,47 @@ class PublicationBundlePreviewTest(unittest.TestCase):
         ]:
             definition = copy.deepcopy(self.definition)
             definition["destination"].update(operation=operation, adapter=adapter)
-            result = self.cli(
+            path = self.write(definition)
+            preview = self.cli(
                 False,
-                [
-                    "projection",
-                    "mapping-apply",
-                    "--definition",
-                    self.write(definition),
-                    "--expected-plan",
-                    "anything",
-                    "--machine",
-                ],
+                ["projection", "mapping-preview", "--definition", path, "--machine"],
             )
-            self.assertEqual(result.returncode, 2)
-            self.assertIn("publication mapping apply/recover is blocked", result.stdout)
+            reviewed = json.loads(preview.stdout).get("data", {})
+            # A preview that fails (this immich fixture has no valid base URL)
+            # fails apply identically, before any plan comparison.
+            failure = reviewed["error"]["message"] if preview.returncode else None
+            for expected in ("stale", reviewed.get("plan_id")):
+                if expected is None:
+                    continue
+                with self.subTest(operation=operation, adapter=adapter, plan=expected):
+                    result = self.cli(
+                        False,
+                        [
+                            "projection",
+                            "mapping-apply",
+                            "--definition",
+                            path,
+                            "--expected-plan",
+                            expected,
+                            "--machine",
+                        ],
+                    )
+                    if failure is not None:
+                        self.assertEqual(result.returncode, 2, result.stdout)
+                        self.assertIn(failure, result.stdout)
+                    elif expected == "stale":
+                        self.assertEqual(result.returncode, 2, result.stdout)
+                        self.assertIn("stale_plan_preview_again", result.stdout)
+                    elif reviewed["safe"]:
+                        self.assertEqual(result.returncode, 2, result.stdout)
+                        self.assertIn(
+                            "publication mapping apply/recover is blocked",
+                            result.stdout,
+                        )
+                    else:
+                        self.assertFalse(
+                            json.loads(result.stdout)["data"]["applied"], result.stdout
+                        )
         self.assertEqual(before, self.snapshot())
 
     def serve_identity(self):

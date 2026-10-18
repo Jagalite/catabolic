@@ -261,7 +261,8 @@ pub fn recover(
         ));
     }
     if event["version"].as_f64() == Some(2.0) {
-        return Ok(None);
+        return catabolic_store::publication_mappings::recover(database, profile, id, request)
+            .map(Some);
     }
     if !request["resolution"].is_null() || !request["expected_plan"].is_null() {
         return Err(policy::error("unsupported_recovery_options"));

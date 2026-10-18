@@ -419,6 +419,71 @@ same stale-plan, budget and authorized-action checks. Export and import
 publication stay gated as a separate sub-item. They depend on official
 application execution, which needs real-service acceptance.
 
+**Implemented (folder).** `publication_mappings::run_with_account` now
+follows frozen `run(apply=True)` for folder destinations:
+
+1. **Admission, in frozen order.** An apply without a truthy
+   `expected_plan` is refused (`mapping_apply_requires_expected_plan`). Then
+   the removal budget is checked, then the preview runs. A plan id that
+   differs from the expected one is refused (`stale_plan_preview_again`). An
+   unsafe plan is returned unapplied. Removals over the budget are refused
+   (`removal_budget_exceeded`).
+2. **Restage and record.** In one transaction, the folder is restaged
+   (layout and projection) and compared with the previewed data
+   (`folder_changed_preview_again`), and the version-two event is recorded as
+   `started`.
+3. **Publish and verify.** The catalog is published through the shared
+   executor (`public_reconcile::publish`, `notify_consumers` true) and
+   verified. The event becomes `verified`. Any failure after the record, from
+   publication or verification, marks it `uncertain`. The result is then
+   `complete: false`, `state: uncertain`, `safe_to_retry: false`, as in
+   frozen Python.
+
+`publication_mappings::recover` follows frozen `recover` for version-two
+events. The CLI's `mapping-recover` dispatcher now reaches it instead of the
+gate.
+
+- **Lookup.** The event must be found exactly once, its database must match
+  the catalog, and a terminal event returns at once.
+- **Resolution.** A resolution is refused for anything but import.
+- **Folder recovery.** It refuses a changed folder configuration
+  (`folder_configuration_changed`). With `--apply` it recovers the journal and
+  previews again, refusing any non-unchanged action the staged plan did not
+  authorize (`folder_recovery_requires_new_plan`). It then applies with the
+  staged removal budget. The state is `verified` when verification is
+  healthy, and the event is recorded only with `--apply`.
+
+Export and import apply, and their recovery, still return `PUBLICATION_GATE`.
+Apply now reaches the gate only after frozen admission and the preview, so a
+stale plan is refused first, as in frozen Python. Nothing is written either
+way.
+
+Differences, all fail-closed:
+
+- **Events without `database_id`.** Hand-written fixture events have none.
+  Frozen recovery raises `KeyError` on them; native refuses with
+  `mapping_event_database_changed`.
+
+**Evidence.** `tests/test_native_publication_mapping_folder.py` runs each
+command on both engines, on identical catalogs at the same paths: frozen
+first, then the catalog and the output contents are restored and native
+runs. It compares the normalized results, events, owned links, journal,
+mappings and output tree. Six tests cover:
+
+- apply, and a repeat that publishes nothing;
+- a stale, empty or invalid plan or budget;
+- an interrupted event, staged and recorded by frozen code without
+  publication, recovered with and without `--apply`;
+- an unauthorized lost link, and a changed folder configuration, both
+  refused;
+- a publication failure (read-only output root) that leaves an `uncertain`
+  event, which each engine then recovers;
+- verified, unknown and resolution events.
+
+The previously gated expectations in the mapping preview, legacy projection,
+mapping history and bundle preview suites were changed to the new admission
+and refusals.
+
 ## 5. Dependent and fallback publication
 
 **Exists.**
@@ -464,4 +529,5 @@ it.
 | Sol round 2 P2 #1 (private directory identity) | Fixed | `5aa37ce` |
 | Sol round 2 P2 #2 (refuse failpoints before admission) and #3 (callback truthiness) | Fixed | `9e75f15` |
 | Sol round 3 P2 #1 (removal record and inode reuse) and #2 (ingress admission) | Fixed | this commit |
-| 4–6 | Not started | |
+| 4 (folder; export/import stay gated) | Implemented | this commit |
+| 5–6 | Not started | |

@@ -264,7 +264,7 @@ class NativeLegacyMappingHistoryTest(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout)["owner"], "collision")
         self.assert_unchanged(before)
 
-    def test_publication_version_two_stays_explicitly_unavailable(self):
+    def test_publication_version_two_without_identity_refuses_explicitly(self):
         self.seed(http=0)
         before = self.snapshot(False)
         for version in (2,):
@@ -277,11 +277,11 @@ class NativeLegacyMappingHistoryTest(unittest.TestCase):
                 result = self.run_cli(
                     False, ["--machine", "projection", "mapping-recover", event] + flags
                 )
+                # These fixture events carry no database_id. Frozen recovery
+                # raises KeyError; native refuses them as a structured,
+                # documented safety difference, with nothing written.
                 self.assertEqual(result.returncode, 2, result.stdout)
-                self.assertIn(
-                    "native publication mapping apply/recover is blocked",
-                    result.stdout,
-                )
+                self.assertIn("mapping_event_database_changed", result.stdout)
         self.assertEqual(before, self.snapshot(False))
 
     def test_missing_database_admission(self):

@@ -405,13 +405,12 @@ class NativeLegacyProjectionTest(unittest.TestCase):
                 ]
             )
         before = self.snapshot(False)
+        # Version-two folder apply is open (track C4): an invalid definition is
+        # refused by the same admission in both engines.
         for args in cases:
-            result = self.run_cli(False, ["--machine"] + args)
-            self.assertEqual(result.returncode, 2)
-            self.assertIn(
-                "native publication mapping apply/recover is blocked",
-                result.stdout,
-            )
+            old, new = self.compare(["--machine"] + args)
+            self.assertEqual(new.returncode, 2)
+            self.assertIn("invalid_publication_definition", new.stdout)
         # Ordinary projection preview now has a rollback-only owner; execute
         # retains an earlier explicit publication gate. Neither publishes.
         for operation, diagnostic in [

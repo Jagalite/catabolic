@@ -357,20 +357,26 @@ with Store(sys.argv[1],writable=True) as store:
                 str(result),
             )
             self.assertFalse((self.root / "destination").exists())
-        result = self.cli(
-            False,
-            [
-                "projection",
-                "mapping-apply",
-                "--definition",
-                self.write(self.definition),
-                "--expected-plan",
-                "unreviewed",
-                "--machine",
-            ],
+        # Folder apply is open (track C4); an unreviewed plan is refused as
+        # stale in both engines before any effect.
+        old, new = (
+            self.cli(
+                flag,
+                [
+                    "projection",
+                    "mapping-apply",
+                    "--definition",
+                    self.write(self.definition),
+                    "--expected-plan",
+                    "unreviewed",
+                    "--machine",
+                ],
+            )
+            for flag in (True, False)
         )
-        self.assertEqual(result.returncode, 2, result.stdout)
-        self.assertIn("publication mapping apply/recover is blocked", result.stdout)
+        self.assertEqual(new.returncode, 2, new.stdout)
+        self.assertEqual(self.normalize(new.stdout), self.normalize(old.stdout))
+        self.assertIn("stale_plan_preview_again", new.stdout)
         self.assertEqual(before, self.snapshot())
         event = {
             "version": 2,
@@ -385,13 +391,16 @@ with Store(sys.argv[1],writable=True) as store:
             (json.dumps(event),),
         )
         before = self.snapshot()
+        # This hand-written event has no database_id. Frozen recovery raises
+        # KeyError on it; native refuses it as a structured, documented
+        # safety difference, with nothing written.
         for options in ([], ["--apply"]):
             result = self.cli(
                 False,
                 ["projection", "mapping-recover", "publication", "--machine", *options],
             )
             self.assertEqual(result.returncode, 2, result.stdout)
-            self.assertIn("publication mapping apply/recover is blocked", result.stdout)
+            self.assertIn("mapping_event_database_changed", result.stdout)
         self.assertEqual(before, self.snapshot())
 
 

@@ -1,8 +1,11 @@
 // SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 // SPDX-License-Identifier: MIT
-//! Ordinary version-two mapping admission and read-only publication previews.
-//! Existing owners evaluate the complete query and stage desired mappings. No
-//! publication, source staging, import submission, or recovery effects are exposed.
+//! Ordinary version-two mapping admission, previews, and folder publication.
+//! Existing owners evaluate the complete query and stage desired mappings.
+//! Folder apply and recover publish through the shared native journal
+//! executor (`public_reconcile::publish`), as frozen Python runs
+//! `Reconciler.apply`/`recover`. Export and import publication stay gated:
+//! they need official application execution and real-service acceptance.
 use crate::{
     Error, Result, definitions,
     embedding::{Session, poll_interrupt},
@@ -13,6 +16,8 @@ use serde_json::{Value, json};
 use std::path::Path;
 
 pub const PUBLICATION_GATE: &str = "native publication mapping apply/recover is blocked: filesystem publication and recovery are not yet qualified";
+/// Frozen terminal event states.
+const TERMINAL: [&str; 3] = ["verified", "submitted", "not_applied"];
 pub const IMPORT_ACCOUNT_GATE: &str =
     "native Immich mapping preview requires the runtime account identity owner";
 const MAX_PLAN: usize = 4 * 1024 * 1024;
@@ -218,13 +223,17 @@ fn stage_folder(session: &mut Session, profile: &str, definition: &Value) -> Res
         reconciliation["removal_budget"]["percent"] = json!(0);
     }
     let safe = layout["safe"] == true && reconciliation["safe"] == true && !blocked;
-    let state = json!({
+    let state = folder_state(store, profile, catalog)?;
+    cancelled()?;
+    Ok(json!({"layout":layout,"reconciliation":reconciliation,"safe":safe,"state":state}))
+}
+
+fn folder_state(store: &crate::Store, profile: &str, catalog: &str) -> Result<Value> {
+    Ok(json!({
         "projection":definitions::projection_get(store, profile, catalog)?,
         "mappings":rows(&store.db, "SELECT * FROM mappings WHERE catalog=? ORDER BY id", &[catalog.to_owned().into()])?,
         "output":crate::observation::binding(store, profile, "output", catalog)?,
-    });
-    cancelled()?;
-    Ok(json!({"layout":layout,"reconciliation":reconciliation,"safe":safe,"state":state}))
+    }))
 }
 
 fn stable_document(document: &Value) -> Value {
@@ -669,9 +678,10 @@ pub fn run_with_account(
     options: &Value,
     account: &mut dyn FnMut(&str) -> Result<Value>,
 ) -> Result<Value> {
-    // Explicit early nonparity: qualification, not a private flag, opens effects.
-    if options["apply"] == true {
-        return Err(Error(PUBLICATION_GATE.into()));
+    let apply = options["apply"] == true;
+    let expected = &options["expected_plan"];
+    if apply && !truthy(expected) {
+        return fail("apply_requires_expected_plan");
     }
     let budget = options
         .get("max_removals")
@@ -686,11 +696,268 @@ pub fn run_with_account(
     }
     let mut session = Session::open(database, true, false)?;
     crate::query::CatalogQuery::new(session.store()?, profile)?;
-    preview_with_account(&mut session, profile, definition, account)
+    let mut result = preview_with_account(&mut session, profile, definition, account)?;
+    if !apply {
+        return Ok(result);
+    }
+    if *expected != result["plan_id"] {
+        return fail("stale_plan_preview_again");
+    }
+    if result["safe"] != true {
+        return Ok(result);
+    }
+    // A budget too large for u64 can never be exceeded.
+    let removals = result["removals"].as_u64().unwrap_or(0);
+    if budget.as_u64().is_some_and(|budget| removals > budget) {
+        return fail("removal_budget_exceeded");
+    }
+    if definition["destination"]["operation"] != "folder" {
+        // Export and import publication run official applications and stay
+        // gated until real-service acceptance; nothing was effected.
+        return Err(Error(PUBLICATION_GATE.into()));
+    }
+    apply_folder(&mut session, profile, definition, &mut result, &budget)?;
+    Ok(result)
 }
 
-pub fn recover() -> Result<Value> {
-    Err(Error(PUBLICATION_GATE.into()))
+/// Python truthiness of a JSON value.
+fn truthy(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::Bool(value) => *value,
+        Value::Number(number) => number.as_f64() != Some(0.0),
+        Value::String(text) => !text.is_empty(),
+        Value::Array(values) => !values.is_empty(),
+        Value::Object(values) => !values.is_empty(),
+    }
+}
+
+fn record(session: &Session, profile: &str, id: &str, payload: &Value, create: bool) -> Result<()> {
+    session.store()?.transaction(|db| {
+        if create {
+            db.execute(
+                "INSERT INTO consumer_events(id,profile,event,severity,subject) VALUES (?,?,'mapping_publish','info',?)",
+                rusqlite::params![id, profile, encode(payload)],
+            )?;
+        } else {
+            let severity = if TERMINAL.iter().any(|state| payload["state"] == *state) {
+                "info"
+            } else {
+                "warning"
+            };
+            db.execute(
+                "UPDATE consumer_events SET subject=?,severity=? WHERE id=? AND profile=? AND event='mapping_publish'",
+                rusqlite::params![encode(payload), severity, id, profile],
+            )?;
+        }
+        Ok(())
+    })
+}
+
+fn event_base(definition: &Value, plan: &Value, key: &str) -> Value {
+    json!({
+        "version":2,
+        "owner":definition["id"],
+        "key":key,
+        "definition":definition,
+        "scope":plan["scope"],
+        "state":"started",
+        "plan_id":plan_digest(plan),
+        "database_id":plan["database_id"],
+    })
+}
+
+/// Frozen folder apply: restage and record the event in one transaction, then
+/// publish through the shared executor and verify. Any failure after the
+/// event is recorded leaves it `uncertain` for recovery.
+fn apply_folder(
+    session: &mut Session,
+    profile: &str,
+    definition: &Value,
+    result: &mut Value,
+    budget: &Value,
+) -> Result<()> {
+    let catalog = definition["destination"]["catalog"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let identifier = uuid::Uuid::new_v4().to_string();
+    let plan = result["plan"].clone();
+    let token = session.begin()?;
+    let staged = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        stage_folder(session, profile, definition)
+    }));
+    session.clear_interrupt_handler();
+    let staged = match staged {
+        Ok(Ok(staged)) => staged,
+        Ok(Err(error)) => {
+            let _ = session.finish(token, false);
+            return Err(error);
+        }
+        Err(panic) => {
+            let _ = session.finish(token, false);
+            std::panic::resume_unwind(panic)
+        }
+    };
+    let mut event = event_base(definition, &plan, &catalog);
+    let written = if staged != plan["data"] {
+        fail("folder_changed_preview_again")
+    } else {
+        event["data"] = staged;
+        record(session, profile, &identifier, &event, true)
+    };
+    if let Err(error) = written {
+        let _ = session.finish(token, false);
+        return Err(error);
+    }
+    session.finish(token, true)?;
+    let published = (|| -> Result<(Value, Value)> {
+        let store = session.store()?;
+        let execution = crate::public_reconcile::publish(
+            store,
+            profile,
+            "apply",
+            &json!({"catalog":catalog,"max_removals":budget,"notify_consumers":true}),
+            &|_| Ok(()),
+        )?;
+        let verified =
+            crate::public_reconcile::call(store, profile, "verify", &json!({"catalog":catalog}))?;
+        if execution["healthy"] != true || verified["healthy"] != true {
+            return fail("folder_verification_failed");
+        }
+        Ok((execution, verified))
+    })();
+    match published {
+        Ok((execution, verified)) => {
+            event["state"] = json!("verified");
+            record(session, profile, &identifier, &event, false)?;
+            result["applied"] = json!(true);
+            result["execution"] = execution;
+            result["verification"] = verified;
+        }
+        Err(_) => {
+            event["state"] = json!("uncertain");
+            record(session, profile, &identifier, &event, false)?;
+            result["complete"] = json!(false);
+            result["event_id"] = json!(identifier);
+            result["state"] = json!("uncertain");
+            result["safe_to_retry"] = json!(false);
+        }
+    }
+    result["results"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"event_id":identifier,"state":event["state"]}));
+    Ok(())
+}
+
+/// Frozen `publication_mappings.recover` for a version-two event. Folder
+/// events recover through the shared executor; export and import recovery
+/// stay gated with their publication.
+pub fn recover(database: &Path, profile: &str, identifier: &str, request: &Value) -> Result<Value> {
+    let apply = request["apply"] == true;
+    let resolution = &request["resolution"];
+    let session = Session::open(database, true, false)?;
+    let mut found = Vec::new();
+    for row in rows(
+        &session.store()?.db,
+        "SELECT id,subject FROM consumer_events WHERE profile=? AND event='mapping_publish' ORDER BY rowid",
+        &[profile.to_owned().into()],
+    )? {
+        let subject = catabolic_core::decode_json(
+            row["subject"]
+                .as_str()
+                .ok_or_else(|| Error("mapping history subject must be JSON text".into()))?,
+        )?;
+        if subject["version"].as_f64() == Some(2.0) && row["id"] == identifier {
+            let mut event = subject;
+            event["id"] = row["id"].clone();
+            found.push(event);
+        }
+    }
+    if found.len() != 1 {
+        return fail("unknown_event");
+    }
+    let mut event = found.pop().unwrap();
+    let plan_id = sha256(encode(&event));
+    if event["database_id"] != json!(session.store()?.database_id) {
+        return fail("event_database_changed");
+    }
+    if TERMINAL.iter().any(|state| event["state"] == *state) {
+        return Ok(json!({"event_id":identifier,"state":event["state"],"complete":true}));
+    }
+    let operation = event["definition"]["destination"]["operation"].clone();
+    if operation == "import" {
+        // Import recovery probes the destination identity first; it stays
+        // gated with import publication.
+        return Err(Error(PUBLICATION_GATE.into()));
+    }
+    if !resolution.is_null() {
+        return fail("unsupported_recovery_resolution");
+    }
+    if operation != "folder" {
+        return Err(Error(PUBLICATION_GATE.into()));
+    }
+    let catalog = event["definition"]["destination"]["catalog"]
+        .as_str()
+        .ok_or_else(|| Error("mapping event catalog must be text".into()))?
+        .to_owned();
+    let store = session.store()?;
+    if folder_state(store, profile, &catalog)? != event["data"]["state"] {
+        return fail("folder_configuration_changed");
+    }
+    let target = json!({"catalog":catalog});
+    if apply {
+        crate::public_reconcile::publish(
+            store,
+            profile,
+            "recover",
+            &json!({"catalog":catalog,"cancel_unapplied":false}),
+            &|_| Ok(()),
+        )?;
+        let remaining = crate::public_reconcile::call(store, profile, "preview", &target)?;
+        let authorized = event["data"]["reconciliation"]["actions"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        let unauthorized = remaining["actions"].as_array().is_none_or(|actions| {
+            actions
+                .iter()
+                .any(|action| action["kind"] != "unchanged" && !authorized.contains(action))
+        });
+        if remaining["safe"] != true || unauthorized {
+            return fail("folder_recovery_requires_new_plan");
+        }
+        crate::public_reconcile::publish(
+            store,
+            profile,
+            "apply",
+            &json!({"catalog":catalog,"max_removals":event["data"]["reconciliation"]["removal_budget"]["removals"],"notify_consumers":true}),
+            &|_| Ok(()),
+        )?;
+    }
+    let state =
+        if crate::public_reconcile::call(store, profile, "verify", &target)?["healthy"] == true {
+            "verified"
+        } else {
+            "uncertain"
+        };
+    let data = event["data"].clone();
+    if apply {
+        event.as_object_mut().unwrap().remove("id");
+        event["state"] = json!(state);
+        record(&session, profile, identifier, &event, false)?;
+    }
+    Ok(json!({
+        "event_id":identifier,
+        "state":state,
+        "complete":TERMINAL.contains(&state),
+        "plan_id":plan_id,
+        "recorded":apply,
+        "requires_destination_inspection":false,
+        "destination_identity":event.get("destination_identity").cloned().unwrap_or(Value::Null),
+        "data":data,
+    }))
 }
 
 #[cfg(test)]
@@ -954,18 +1221,31 @@ mod tests {
     fn admission_scalar_types_and_explicit_effect_gates() {
         let root = tempfile::tempdir().unwrap();
         let absent = root.path().join("absent.db");
-        for options in [
-            json!({"apply":true}),
-            json!({"apply":true,"disposable_fixture":true,"expected_plan":"anything","max_removals":100000}),
-        ] {
+        // Frozen order: an apply without a truthy expected plan is refused
+        // before the removal budget or the database is examined.
+        for expected in [Value::Null, json!(""), json!(0), json!(false)] {
             assert_eq!(
-                run(&absent, "default", &Value::Null, &options)
-                    .unwrap_err()
-                    .0,
-                PUBLICATION_GATE
+                run(
+                    &absent,
+                    "default",
+                    &Value::Null,
+                    &json!({"apply":true,"expected_plan":expected,"max_removals":-1})
+                )
+                .unwrap_err()
+                .0,
+                "mapping_apply_requires_expected_plan"
             );
         }
-        assert_eq!(recover().unwrap_err().0, PUBLICATION_GATE);
+        // A private option cannot open anything; an absent catalog refuses.
+        assert!(
+            run(
+                &absent,
+                "default",
+                &Value::Null,
+                &json!({"apply":true,"disposable_fixture":true,"expected_plan":"anything","max_removals":100000})
+            )
+            .is_err()
+        );
         assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 0);
         for value in [json!(true), json!(0.0), json!(-1), Value::Null] {
             assert_eq!(
