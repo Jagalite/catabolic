@@ -113,6 +113,30 @@ EXPECTED_TESTS = (
     "test_sigint_worker_wait",
     "test_sigint_blocked_stdin",
 )
+REFERENCE_RELEASE = "0.2.0"
+# Recorded groups and the positions of their `--version` results.
+VERSION_RESULTS = {"parser_system_exit": (1,), "argv_none_and_iterables": (0, 1, 2)}
+
+
+def expected_release_version(groups, release, engine):
+    """Assert the engine's own `--version` output, then mask only that text.
+
+    Every other field of those results, and every other group, is untouched.
+    """
+    groups = json.loads(json.dumps(groups))
+    for name, positions in VERSION_RESULTS.items():
+        for position in positions:
+            result = groups[name][position]
+            assert result.get("stdout") == f"catabolic {release}\n", (
+                engine,
+                name,
+                position,
+                result,
+            )
+            result["stdout"] = "catabolic <RELEASE>\n"
+    return groups
+
+
 EXPECTED_GROUPS = tuple(name.removeprefix("test_") for name in EXPECTED_TESTS)
 REQUIRED_COUNT = 15
 MAXIMUM = 1024 * 1024
@@ -940,9 +964,14 @@ def main():
             outputs[engine] = json.loads(completed.stdout)
             assert outputs[engine]["tests"] == REQUIRED_COUNT
             assert len(outputs[engine]["successful_scenarios"]) == REQUIRED_COUNT
+        # The one intentional difference: each engine reports its own release.
         qualification.paired_groups(
-            outputs["reference"]["groups"],
-            outputs["native"]["groups"],
+            expected_release_version(
+                outputs["reference"]["groups"], REFERENCE_RELEASE, "reference"
+            ),
+            expected_release_version(
+                outputs["native"]["groups"], identity.native.__version__, "native"
+            ),
             EXPECTED_GROUPS,
             REQUIRED_COUNT,
         )
