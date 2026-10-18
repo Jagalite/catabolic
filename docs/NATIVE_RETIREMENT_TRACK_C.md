@@ -383,8 +383,12 @@ Known differences, all fail-closed:
   already in use`. Frozen Python allows reads there.
 - **Caller transactions.** A caller inside a transaction is refused. Frozen
   Python nests.
-- **Signals.** No signal bridge runs during publication. An interrupt takes
-  effect after the call, and the journal stays recoverable.
+- **Signals (Sol round 5 fix).** The shared executor checks the caller's
+  interrupt (a CLI signal, or the embedding's Python signal poll) before it
+  journals each operation, and stops with `filesystem publication
+  interrupted`. Earlier operations are acknowledged, and nothing later was
+  journaled. This is the analogue of a frozen KeyboardInterrupt between
+  operations.
 
 **Evidence.**
 
@@ -468,6 +472,19 @@ Apply now reaches the gate only after frozen admission and the preview, so a
 stale plan is refused first, as in frozen Python. Nothing is written either
 way.
 
+Sol round 5 fixes:
+
+- **Interrupts.** An interrupt during publication propagates without marking
+  the event `uncertain`; it stays `started`, as after a frozen
+  KeyboardInterrupt.
+- **Unbounded budgets.** Frozen integers are unbounded. A removal budget
+  beyond u64 is accepted by the executor, kept as written in reports, and can
+  never be exceeded.
+- **The verified record.** Recording `verified` is inside the protected
+  block, so a failure there records `uncertain`, as frozen's `try` does.
+- **`save_secret`.** It refuses the failpoint fields before creating the file
+  or its registration.
+
 Differences, all fail-closed:
 
 - **Events without `database_id`.** Hand-written fixture events have none.
@@ -514,6 +531,58 @@ bookkeeping that is already ported in `published_context`.
 Each path gets its own failpoint rows in the item 1 matrix and paired frozen
 checks.
 
+**Implemented (dependent paths).** Each path now publishes through the shared
+executor. Inside it, the symlink replace/remove gate, the hardlink retirement
+gate and the fallback-bound refusal all stay closed.
+
+- **Projection execute.** `projection_run::execute` follows frozen
+  `Projections.run(apply=True)`. A safe staging (layout and plan) commits with
+  the layout reported applied. Then `Reconciler(notify_consumers=False).apply`
+  with the requested removal budget and `verify` run outside any transaction,
+  after the evaluation interrupt handler is removed. `applied_count` and
+  `details_truncated` are added and `applied` is bounded by `limit`.
+  `complete` is the conjunction of the execution and verification health. An
+  unsafe plan rolls back as in a preview. Fallback bindings keep
+  `FALLBACK_GATE`.
+- **Maintenance output synchronization.** This follows frozen `maintenance`.
+  - *Planning.* Each catalog's saved layout is evaluated, then applied in one
+    transaction with the reconciler preview, which is recorded as the
+    `preview` stage. A blocked layout or an unsafe plan rolls everything back
+    and records `planning` as incomplete with `mappings_committed: false`, as
+    `_Blocked`.
+  - *Sync and verify.* `sync` publishes with the removal budget and
+    percentage (consumers notified). Its verification becomes the `verify`
+    stage, whose issues are bounded by `limit`.
+  - *Manifest.* `--manifest` writes each catalog's manifest in the catalog,
+    built from a read snapshot after sync.
+  - The output summary now comes from the last `verify` stage. Rule rendering
+    keeps `RULE_RENDER_GATE`.
+- **Watch automatic refresh.** The polling cycle no longer refuses pending
+  refresh work. `Processing.run` refreshes catalogs afterwards, as frozen does,
+  through the catalog refresh owner, which already publishes through the
+  executor.
+
+**Not opened: fallback publication.** Fallback apply and recover still
+require the private `disposable_fixture` option (`require_fallback_fixture`).
+That is a release refusal, so it stays closed until the user approves opening
+it. Its execution already uses the shared executor and the symlink-only
+scope.
+
+**Evidence.**
+
+- `tests/test_native_projection_execute.py` pairs execute and its repeat,
+  limit truncation, an unsafe plan from a missing source, admission errors,
+  and a preview that still rolls back.
+- `tests/test_rust_maintenance_cli.py` pairs maintenance with no flags, with
+  `--manifest`, and with `--all-catalogs` plus budgets. The comparison covers
+  the full normalized report, owned links, the journal and the output tree,
+  and the rule rendering refusal is kept.
+- `tests/test_rust_scan_watch_cli.py` pairs automatic refresh publication,
+  and shows that refresh work added during a processing wait is published by
+  the same cycle.
+- Expectations that assumed the old gates were changed in
+  `test_rust_legacy_projection_run.py` and `test_rust_legacy_projection.py`.
+
 ## 6. Handover
 
 **Exists.** Python-journal-to-native recovery and native-crash-to-Python
@@ -539,6 +608,8 @@ it.
 | Sol round 2 P2 #1 (private directory identity) | Fixed | `5aa37ce` |
 | Sol round 2 P2 #2 (refuse failpoints before admission) and #3 (callback truthiness) | Fixed | `9e75f15` |
 | Sol round 3 P2 #1 (removal record and inode reuse) and #2 (ingress admission) | Fixed | `8abb6ee` |
-| Sol round 4 P2 #1 (helper stdin) and #2 (`access_admin`) | Fixed | this commit |
+| Sol round 4 P2 #1 (helper stdin) and #2 (`access_admin`) | Fixed | `dc23281` |
 | 4 (folder; export/import stay gated) | Implemented | `5fa6e7c` |
-| 5–6 | Not started | |
+| Sol round 5 (item 4 review): interrupts, unbounded budgets, `save_secret`, verified-record failure | Fixed | `8c9f476` |
+| 5 (dependent paths; fallback publication stays gated) | Implemented | this commit |
+| 6 | Not started | |

@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 // SPDX-License-Identifier: MIT
-//! Rollback-only ordinary projection orchestration over the existing owners.
-//! This does not expose publication, fallback probing, or private fixture gates.
+//! Ordinary projection orchestration over the existing owners. A preview
+//! rolls back all staging; an execute commits a safe staging and publishes
+//! through the shared journal executor, as frozen `Projections.run` does.
+//! Fallback bindings stay gated (fallback probing and publication).
 use crate::{
     Error, Result, Store, definitions,
     embedding::poll_interrupt,
@@ -53,6 +55,18 @@ impl Drop for Interrupt<'_> {
 }
 
 pub fn preview(store: &Store, profile: &str, args: &Value) -> Result<Value> {
+    run(store, profile, args, false)
+}
+
+/// Frozen `Projections.run(apply=True)` for a non-fallback projection: a safe
+/// staging commits, then `Reconciler(notify_consumers=False).apply` and
+/// `verify` run through the shared executor, outside any transaction and
+/// without the evaluation interrupt handler.
+pub fn execute(store: &Store, profile: &str, args: &Value) -> Result<Value> {
+    run(store, profile, args, true)
+}
+
+fn run(store: &Store, profile: &str, args: &Value, apply: bool) -> Result<Value> {
     let limit = args
         .get("limit")
         .unwrap_or(&json!(100))
@@ -88,9 +102,35 @@ pub fn preview(store: &Store, profile: &str, args: &Value) -> Result<Value> {
     cancelled()?;
     // Evaluation owns a separate bounded snapshot. Apply checks its sealed
     // identity and epoch again before writes on this writer-owned connection.
-    preview_prepared(store, profile, catalog, args, limit, &prepared)
+    let (mut report, committed) = stage(store, profile, catalog, args, limit, &prepared, apply)?;
+    if !committed {
+        return Ok(report);
+    }
+    // Publication has no interrupt bridge; a latched evaluation cancellation
+    // must not interrupt the journal executor.
+    drop(_interrupt);
+    let max_removals = args.get("max_removals").cloned().unwrap_or(json!(0));
+    let mut execution = public_reconcile::publish(
+        store,
+        profile,
+        "apply",
+        &json!({"catalog":catalog,"max_removals":max_removals,"notify_consumers":false}),
+        &|_| Ok(()),
+    )?;
+    let applied = execution["applied"].as_array().cloned().unwrap_or_default();
+    execution["applied_count"] = json!(applied.len());
+    execution["details_truncated"] = json!(applied.len() > limit);
+    execution["applied"] = json!(applied.into_iter().take(limit).collect::<Vec<_>>());
+    let verification =
+        public_reconcile::call(store, profile, "verify", &json!({"catalog":catalog}))?;
+    report["complete"] = json!(execution["healthy"] == true && verification["healthy"] == true);
+    report["execution"] = execution;
+    report["verification"] = verification;
+    report["applied"] = json!(true);
+    Ok(report)
 }
 
+#[cfg(test)]
 fn preview_prepared(
     store: &Store,
     profile: &str,
@@ -99,14 +139,27 @@ fn preview_prepared(
     limit: usize,
     prepared: &PreparedLayout,
 ) -> Result<Value> {
-    let outcome: std::result::Result<(), Rollback> = store.transaction_detailed(|_| {
+    stage(store, profile, catalog, args, limit, prepared, false).map(|(report, _)| report)
+}
+
+/// Stage the layout and plan. Returns the report and whether the staging was
+/// committed (only for an execute whose plan is safe).
+fn stage(
+    store: &Store,
+    profile: &str,
+    catalog: &str,
+    args: &Value,
+    limit: usize,
+    prepared: &PreparedLayout,
+    apply: bool,
+) -> Result<(Value, bool)> {
+    let outcome: std::result::Result<Value, Rollback> = store.transaction_detailed(|_| {
         let _interrupt = Interrupt::new(store)?;
         cancelled()?;
-        let mut layout = layout_mutation::apply(store, profile, prepared, limit)?;
+        let layout = layout_mutation::apply(store, profile, prepared, limit)?;
         cancelled()?;
-        // A report never leaves this owner until the entire staging scope has
-        // rolled back. Store converts cleanup failure into Failure, not Report.
-        layout["applied"] = json!(false);
+        // A preview report never leaves this owner until the entire staging
+        // scope has rolled back. Store converts cleanup failure into Failure.
         let mut report = json!({"projection":catalog,"layout":layout,
             "complete":false,"safe":false,"applied":false});
         if report["layout"]["safe"] == true {
@@ -143,12 +196,17 @@ fn preview_prepared(
             report["reconciliation"] = plan;
         }
         cancelled()?;
+        if apply && report["safe"] == true {
+            // Frozen commits the staging with the layout reported applied.
+            return Ok(report);
+        }
+        report["layout"]["applied"] = json!(false);
         Err(Rollback::Report(report))
     });
     match outcome {
-        Err(Rollback::Report(report)) => Ok(report),
+        Ok(report) => Ok((report, true)),
+        Err(Rollback::Report(report)) => Ok((report, false)),
         Err(Rollback::Failure(error)) => Err(error),
-        Ok(()) => Err(Error("projection preview unexpectedly committed".into())),
     }
 }
 

@@ -411,11 +411,11 @@ class NativeLegacyProjectionTest(unittest.TestCase):
             old, new = self.compare(["--machine"] + args)
             self.assertEqual(new.returncode, 2)
             self.assertIn("invalid_publication_definition", new.stdout)
-        # Ordinary projection preview now has a rollback-only owner; execute
-        # retains an earlier explicit publication gate. Neither publishes.
+        # Preview rolls back; execute publishes through the shared executor
+        # (track C5). An unknown catalog is refused by both before any effect.
         for operation, diagnostic in [
             ("preview", "unknown catalog"),
-            ("execute", "native projection execute is blocked"),
+            ("execute", "unknown catalog"),
         ]:
             result = self.run_cli(
                 False, ["--machine", "projection", operation, "missing"]

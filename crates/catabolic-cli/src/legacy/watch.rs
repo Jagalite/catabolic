@@ -59,27 +59,6 @@ fn with_cycle_cancel<T>(
     })
 }
 
-fn require_no_output_refresh(store: &Store, profile: &str) -> Result<()> {
-    if catabolic_store::catalog_refresh::pending_count(store, profile, None)? == 0 {
-        return Ok(());
-    }
-    let pending = catabolic_store::catalog_refresh::pending(store, profile, 1)?;
-    // The current automatic refresh owner can stage desired mappings before
-    // reaching its output boundary. This new adapter is deliberately partial:
-    // refuse at the public gate before entering that dependent path at all.
-    store.transaction(|_| {
-        catabolic_store::public_reconcile::call(
-            store,
-            profile,
-            "apply",
-            &json!({"catalog":pending["pending"][0]["catalog"]}),
-        )
-    })?;
-    Err(Error(
-        "native watch automatic output refresh remains unqualified".into(),
-    ))
-}
-
 fn cycle(args: &Value, cancel: Arc<AtomicBool>) -> Result<Value> {
     let mut store = Store::open(Path::new(text(args, "db")), true, false)?;
     let profile = text(args, "profile");
@@ -158,19 +137,17 @@ fn cycle(args: &Value, cancel: Arc<AtomicBool>) -> Result<Value> {
                 }
                 cancelled(&cancel)?;
                 // Frozen watch runs the whole queued backlog up to batch, even
-                // jobs not enqueued by this cycle. Its automatic output refresh
-                // remains explicitly refused until that path is qualified.
-                require_no_output_refresh(&store, profile)?;
+                // jobs not enqueued by this cycle, and Processing.run then
+                // refreshes pending catalogs through the shared executor.
                 let processing = catabolic_runtime::public_processing::execute(
                     &mut store,
                     profile,
                     "run",
-                    &json!({"workers":args["workers"],"limit":batch,"_refresh":false,
+                    &json!({"workers":args["workers"],"limit":batch,
                         "retry_transient":args["retry_transient"],"retry_delay":args["retry_delay"]}),
                     cancel.clone(),
                 )?;
                 cancelled(&cancel)?;
-                require_no_output_refresh(&store, profile)?;
                 Ok(
                     json!({"complete":scan["complete"]==true && errors.is_empty() && processing["complete"]==true,
                     "scan":scan,"queued":queued,"cached":cached,"errors":errors,"processing":processing}),

@@ -369,9 +369,10 @@ with Store(sys.argv[1],writable=True) as store:
             self.assertEqual(before, self.effects())
         self.pair(["--machine", "projection", "preview", "global"])
 
-    def test_execute_early_gate_is_explicit_nonparity_and_no_effects(self):
-        # Frozen execute with an invalid limit proves the intentionally earlier
-        # gate. No frozen publication is invoked by this fixture.
+    def test_execute_admission_matches_frozen_without_effects(self):
+        # Execute publishes through the shared executor (track C5; paired in
+        # tests/test_native_projection_execute.py). Its admission errors match
+        # frozen and leave no effects.
         for mode in ([], ["--json"], ["--machine"]):
             before = self.effects()
             old, new = (
@@ -383,9 +384,7 @@ with Store(sys.argv[1],writable=True) as store:
             self.assertEqual(old.returncode, 2)
             self.assertEqual(new.returncode, 2)
             self.assertIn("limit must be between 1 and 1000", old.stdout + old.stderr)
-            self.assertIn(
-                "native projection execute is blocked", new.stdout + new.stderr
-            )
+            self.assertIn("limit must be between 1 and 1000", new.stdout + new.stderr)
             self.assertEqual(before, self.effects())
         absent = self.root / "absent.db"
         result = subprocess.run(
@@ -395,7 +394,7 @@ with Store(sys.argv[1],writable=True) as store:
             text=True,
             timeout=10,
         )
-        self.assertIn("native projection execute is blocked", result.stderr)
+        self.assertNotEqual(result.returncode, 0, result.stderr)
         self.assertFalse(absent.exists())
         self.assertFalse(Path(str(absent) + ".lock").exists())
 

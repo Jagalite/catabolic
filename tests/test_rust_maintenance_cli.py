@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: MIT
 """Narrow frozen-oracle checks for the ordinary maintenance owner.
 
-Only disposable sources/catalogs are used. Output publication is expected to
-refuse; these tests cannot qualify M6 or the underlying effect owners.
+Only disposable sources/catalogs are used. Output synchronization publishes
+through the shared executor (track C5) and is compared with frozen Python by
+running each command sequentially on identical catalogs; rule rendering
+still refuses. These tests cannot qualify the underlying effect owners.
 """
 
 import json
@@ -58,6 +60,14 @@ with Store(path,writable=True) as store:
         operation=Operations(app).put('sniff',{'kind':'analysis','operation':'sniff'})
         rule=Rules(app).put('sniff',operation['id'],None,{'language':'sql','query':'SELECT item_id FROM catalog_items'},required=True)
         Rules(app).enable(rule['id'],True)
+    if mode=='layout':
+        from catabolic.layouts import Layouts, PRESETS
+        app.scan()
+        for row in store.rows('SELECT * FROM files ORDER BY path'):
+            item=app.put_item('document',{'fixture':row['path']},{'title':row['path']})['id']
+            app.media.associate(row['id'],item)
+        Layouts(app).put('saved', PRESETS['catabolic'])
+        Layouts(app).run('saved', 'global', apply=True)
     if mode=='summary':
         for status in ('pending','in_progress','complete','deferred','ignored'):
             item=app.put_item('document',{'fixture':status},{'title':status})['id']
@@ -380,55 +390,127 @@ class NativeMaintenanceCliTest(unittest.TestCase):
         self.compare(["maintenance", "--process", "sniff", "--settle", "0"])
         self.assertEqual(list(self.output.iterdir()), [])
 
-    def test_output_and_rule_render_refusals_preserve_desired_state(self):
-        self.setup()
-        (self.output / "unowned.txt").write_text("must remain unchanged")
-        before = {
-            table: self.rows(self.native, f"SELECT * FROM {table}")
-            for table in ("mappings", "journal", "owned_links")
-        }
-        desired_meta = self.rows(
-            self.native,
-            "SELECT * FROM meta WHERE key NOT LIKE 'scan:%' AND key NOT LIKE 'observation:%' ORDER BY key",
-        )
-        for flags, stage in (
-            ([], "planning"),
-            (["--manifest"], "planning"),
+    def tree(self):
+        return sorted(
             (
-                [
-                    "--all-catalogs",
-                    "--max-removals",
-                    "100",
-                    "--max-removal-percent",
-                    "100",
-                ],
-                "planning",
-            ),
-            (["--inventory-only", "--rules", "--render-rules", "1"], "rules"),
-        ):
-            result = self.run_cli(False, ["--machine", "maintenance"] + flags)
-            self.assertEqual(result.returncode, 3, result.stderr)
-            report = json.loads(result.stdout)["data"]
-            self.assertFalse(report["complete"])
-            self.assertEqual(report["stopped_at"], stage)
-            self.assertIn("not yet qualified", report["errors"][0]["message"])
-            self.assertFalse(report["summary"]["outputs"]["checked"])
-        for table, expected in before.items():
-            self.assertEqual(
-                self.rows(self.native, f"SELECT * FROM {table}"), expected, table
+                str(p.relative_to(self.output)),
+                os.readlink(p) if p.is_symlink() else None,
+                p.read_text()
+                if p.is_file() and not p.is_symlink() and p.name == "unowned.txt"
+                else None,
             )
-        self.assertEqual(
-            self.rows(
-                self.native,
-                "SELECT * FROM meta WHERE key NOT LIKE 'scan:%' AND key NOT LIKE 'observation:%' ORDER BY key",
-            ),
-            desired_meta,
+            for p in self.output.rglob("*")
         )
-        self.assertEqual(
-            {p.name: p.read_text() for p in self.output.iterdir()},
-            {"unowned.txt": "must remain unchanged"},
+
+    def restore_output(self, snapshot):
+        # The bound output root keeps its identity; only contents are replaced.
+        for child in self.output.iterdir():
+            if child.is_dir() and not child.is_symlink():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+        shutil.copytree(snapshot, self.output, symlinks=True, dirs_exist_ok=True)
+
+    def without_scan(self, report):
+        # The forwarded scan payload has known, documented nonparity (timing
+        # bytes, claim tokens, freshness); it must be present and is compared
+        # elsewhere. Every other stage and field is compared exactly.
+        report = json.loads(json.dumps(report))
+        stages = report["data"]["stages"]
+        scans = [stage for stage in stages if stage["stage"] == "scan"]
+        self.assertEqual(len(scans), 1)
+        self.assertIn("observations", scans[0])
+        report["data"]["stages"] = [s for s in stages if s["stage"] != "scan"]
+        for stage in report["data"]["stages"]:
+            # Each run's own scan stamps observation times on the wall clock.
+            for layout in stage.get("layouts", []):
+                statistics = layout.get("selection_statistics", {})
+                for key in ("newest_observation_at", "oldest_observation_at"):
+                    if statistics.get(key) is not None:
+                        statistics[key] = "<clock>"
+            if stage["stage"] == "manifest":
+                # The manifest document carries its generation time.
+                self.assertRegex(stage["content_sha256"], "^[0-9a-f]{64}$")
+                stage["content_sha256"] = "<generated>"
+        return report
+
+    def maintenance_pair(self, base, snapshot, flags):
+        outcome = {}
+        for reference in (True, False):
+            path = self.ref if reference else self.native
+            shutil.copyfile(base, path)
+            self.restore_output(snapshot)
+            result = self.run_cli(reference, ["--machine", "maintenance"] + flags)
+            outcome[reference] = (
+                result,
+                self.rows(
+                    path,
+                    "SELECT profile,catalog,path,target FROM owned_links ORDER BY path",
+                ),
+                self.rows(path, "SELECT count(*) FROM journal"),
+                self.tree(),
+            )
+        (old, old_links, old_journal, old_tree) = outcome[True]
+        (new, new_links, new_journal, new_tree) = outcome[False]
+        self.assertEqual(new.returncode, old.returncode, (old.stdout, new.stdout))
+        expected = self.without_scan(self.normalize(json.loads(old.stdout)))
+        actual = self.without_scan(self.normalize(json.loads(new.stdout)))
+        self.assertEqual(actual, expected)
+        self.assertEqual(new_links, old_links)
+        self.assertEqual(new_journal, old_journal)
+        self.assertEqual(new_journal, [(0,)])
+        self.assertEqual(new_tree, old_tree)
+        return actual["data"], new_links, new_tree
+
+    def test_output_synchronization_matches_frozen_and_rendering_refuses(self):
+        self.setup("layout", files=3)
+        snapshot = self.root / "output-snapshot"
+        base = self.root / "base.db"
+        shutil.copyfile(self.ref, base)
+        # An unowned file in a never-published output blocks both engines
+        # identically, before any mapping commits.
+        (self.output / "unowned.txt").write_text("must remain unchanged")
+        shutil.copytree(self.output, snapshot, symlinks=True)
+        report, links, tree = self.maintenance_pair(base, snapshot, [])
+        self.assertEqual(report["stopped_at"], "planning")
+        self.assertEqual(links, [])
+        self.assertEqual(tree, [("unowned.txt", None, "must remain unchanged")])
+        shutil.rmtree(snapshot)
+        (self.output / "unowned.txt").unlink()
+        shutil.copytree(self.output, snapshot, symlinks=True)
+        for flags in (
+            [],
+            ["--manifest"],
+            ["--all-catalogs", "--max-removals", "100", "--max-removal-percent", "100"],
+        ):
+            with self.subTest(flags=flags):
+                report, links, tree = self.maintenance_pair(base, snapshot, flags)
+                self.assertIsNone(report["stopped_at"], report["errors"])
+                self.assertTrue(report["summary"]["outputs"]["checked"], report)
+                self.assertTrue(links, "links were published")
+                stages = [s["stage"] for s in report["stages"]]
+                self.assertEqual(
+                    [s for s in stages if s in ("planning", "sync", "verify")],
+                    ["planning", "sync", "verify"],
+                )
+                if "--manifest" in flags:
+                    self.assertIn("manifest", stages)
+        # Rule rendering stays gated in native code; nothing is rendered.
+        result = self.run_cli(
+            False,
+            [
+                "--machine",
+                "maintenance",
+                "--inventory-only",
+                "--rules",
+                "--render-rules",
+                "1",
+            ],
         )
-        self.assertFalse(Path(str(self.native) + ".publication").exists())
+        self.assertEqual(result.returncode, 3, result.stderr)
+        report = json.loads(result.stdout)["data"]
+        self.assertEqual(report["stopped_at"], "rules")
+        self.assertIn("not yet qualified", report["errors"][0]["message"])
 
     def test_pending_journal_precedes_inventory(self):
         self.setup()

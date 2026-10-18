@@ -104,6 +104,16 @@ fn record(
     limit: usize,
     progress: &mut dyn FnMut(&Value) -> Result<()>,
 ) -> Result<()> {
+    if name == "verify"
+        && let Some(catalogs) = result["catalogs"].as_array_mut()
+    {
+        for entry in catalogs {
+            let issues = entry["issues"].as_array().cloned().unwrap_or_default();
+            entry["issue_count"] = json!(issues.len());
+            entry["issues_truncated"] = json!(issues.len() > limit);
+            entry["issues"] = json!(&issues[..issues.len().min(limit)]);
+        }
+    }
     for key in ["actions", "applied", "blockers"] {
         if let Some(entries) = result[key].as_array().cloned() {
             result[format!("{key}_count")] = json!(entries.len());
@@ -377,28 +387,140 @@ pub fn run_with_progress(
         }
         if !catalogs.as_array().unwrap().is_empty() {
             stage = "planning";
-            // Refuse before staging desired mappings, so an incomplete native
-            // cycle cannot commit a layout it is not qualified to synchronize.
-            // Call the public gate, never the private fixture executor.
-            let gate = store.transaction(|_| {
-                catabolic_store::public_reconcile::call(
-                    store,
-                    profile,
-                    "apply",
-                    &json!({"catalog":selected}),
-                )
+            let budget = json!({
+                "catalog":selected,
+                "max_removals":args.get("max_removals").cloned().unwrap_or(json!(0)),
+                "max_removal_percent":args["max_removal_percent"],
             });
+            // Saved layouts are evaluated first (their own bounded snapshot),
+            // then applied and planned in one transaction, as frozen does.
+            let mut prepared = vec![];
+            for selected in catalogs.as_array().unwrap() {
+                let selected = selected.as_str().unwrap();
+                let owner = rows(
+                    &store.db,
+                    "SELECT value FROM meta WHERE key=?",
+                    &[format!("layout-catalog:{selected}").into()],
+                )?;
+                if let Some(owner) = owner.first() {
+                    let owner = catabolic_core::decode_json(owner["value"].as_str().unwrap_or(""))?;
+                    if let Some(layout) = owner["layout"].as_str().filter(|l| !l.is_empty()) {
+                        cancelled(&cancel)?;
+                        prepared.push(catabolic_store::layout_mutation::prepare(
+                            store, profile, layout, selected, false, false,
+                        )?);
+                    }
+                }
+            }
+            let mut layouts: Vec<Value> = vec![];
+            let mut unsafe_plan = false;
+            let staged = store.transaction(|_| {
+                for layout in &prepared {
+                    cancelled(&cancel)?;
+                    let plan =
+                        catabolic_store::layout_mutation::apply(store, profile, layout, limit)?;
+                    let safe = plan["safe"] == true;
+                    layouts.push(plan);
+                    if !safe {
+                        unsafe_plan = true;
+                        return Err(Error(
+                            "layout has blockers; all staged mappings rolled back".into(),
+                        ));
+                    }
+                }
+                let plan =
+                    catabolic_store::public_reconcile::call(store, profile, "preview", &budget)?;
+                let safe = plan["safe"] == true
+                    && !plan["actions"]
+                        .as_array()
+                        .is_some_and(|a| a.iter().any(|a| a["kind"] == "blocked_source"));
+                record(&mut report, "preview", plan, limit, &mut forward)?;
+                if !safe {
+                    unsafe_plan = true;
+                    return Err(Error(
+                        "unsafe output plan; all staged mappings rolled back".into(),
+                    ));
+                }
+                Ok(())
+            });
+            if let Err(error) = staged {
+                for entry in &mut layouts {
+                    entry["applied"] = json!(false);
+                }
+                record(
+                    &mut report,
+                    stage,
+                    json!({"complete":false,"layouts":layouts,"mappings_committed":false}),
+                    limit,
+                    &mut forward,
+                )?;
+                blocked = unsafe_plan;
+                return Err(error);
+            }
             record(
                 &mut report,
                 stage,
-                json!({"complete":false,"layouts":[],"mappings_committed":false}),
+                json!({"complete":true,"layouts":layouts,"mappings_committed":true}),
                 limit,
                 &mut forward,
             )?;
-            gate?;
-            return Err(Error(
-                "native maintenance output synchronization remains unqualified".into(),
-            ));
+            stage = "sync";
+            cancelled(&cancel)?;
+            let mut request = budget.clone();
+            request["notify_consumers"] = json!(true);
+            let mut synced = catabolic_store::public_reconcile::publish(
+                store,
+                profile,
+                "apply",
+                &request,
+                &|_| Ok(()),
+            )?;
+            let verification = synced
+                .as_object_mut()
+                .and_then(|s| s.remove("verification"));
+            let healthy = synced["safe"] == true && synced["healthy"] == true;
+            record(&mut report, stage, synced, limit, &mut forward)?;
+            // Apply already verifies its result; the walk is not repeated.
+            if let Some(verification) = verification {
+                record(&mut report, "verify", verification, limit, &mut forward)?;
+            }
+            if !healthy {
+                blocked = true;
+                return Err(Error(
+                    "output synchronization or verification incomplete".into(),
+                ));
+            }
+            if args["manifest"] == true {
+                stage = "manifest";
+                for selected in catalogs.as_array().unwrap() {
+                    let selected = selected.as_str().unwrap();
+                    cancelled(&cancel)?;
+                    // Built from a read snapshot of the committed catalog; the
+                    // writer still holds the lock, so nothing changes between.
+                    let reader = Store::open(&store.path, false, false)?;
+                    let mut evaluation = catabolic_store::selection::Evaluation::new(
+                        reader, profile, 60000, 100000, false,
+                    )?;
+                    let document =
+                        catabolic_store::manifest::build(&mut evaluation, selected, None, None)?;
+                    drop(evaluation);
+                    let mut exported = store.transaction(|_| {
+                        catabolic_store::manifest::write(
+                            store,
+                            profile,
+                            &document,
+                            &json!({"in_catalog":true,"replace":true}),
+                        )
+                    })?;
+                    let mut entry = json!({"catalog":selected});
+                    if let Some(fields) = exported.as_object_mut() {
+                        for (key, value) in std::mem::take(fields) {
+                            entry[key] = value;
+                        }
+                    }
+                    record(&mut report, stage, entry, limit, &mut forward)?;
+                }
+            }
         }
         report["complete"] = json!(complete);
         Ok(())
@@ -440,7 +562,27 @@ pub fn run_with_progress(
         }
     }
     report["warnings"] = json!(warnings);
-    report["summary"]["outputs"] = json!({"checked":false,"healthy":null,"catalogs":[]});
+    let verification = report["stages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .rev()
+        .find(|entry| entry["stage"] == "verify")
+        .cloned();
+    report["summary"]["outputs"] = match verification {
+        Some(verification) => json!({
+            "checked":true,
+            "healthy":verification["healthy"],
+            "catalogs":verification["catalogs"].as_array().into_iter().flatten().map(|entry| json!({
+                "catalog":entry["catalog"],
+                "healthy":entry["healthy"],
+                "verified_links":entry.get("verified_links").cloned().unwrap_or(json!(0)),
+                "issue_count":entry["issue_count"],
+                "retained_count":entry.get("retained_count").cloned().unwrap_or(json!(0)),
+            })).collect::<Vec<_>>(),
+        }),
+        None => json!({"checked":false,"healthy":null,"catalogs":[]}),
+    };
     Ok(report)
 }
 

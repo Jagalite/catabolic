@@ -11,6 +11,7 @@ import io
 import json
 import os
 import select
+import shutil
 import signal
 import sqlite3
 import subprocess
@@ -38,6 +39,8 @@ class ScanWatchCliTest(unittest.TestCase):
     normalize = maintenance.NativeMaintenanceCliTest.normalize
     rows = maintenance.NativeMaintenanceCliTest.rows
     compare = maintenance.NativeMaintenanceCliTest.compare
+    tree = maintenance.NativeMaintenanceCliTest.tree
+    restore_output = maintenance.NativeMaintenanceCliTest.restore_output
 
     def shell_pair(self, flags=(), mode="--json", code=0):
         args = [mode, "watch", "--kind", "sniff", *flags]
@@ -273,16 +276,14 @@ class ScanWatchCliTest(unittest.TestCase):
                 [("queued",), ("queued",)],
             )
 
-    def test_automatic_refresh_keeps_publication_gate_closed(self):
-        self.setup()
-        (self.output / "unowned.txt").write_text("preserve fixture bytes")
+    def saved_refresh(self, path):
         saved = subprocess.run(
             [
                 str(PYTHON),
                 "-c",
-                "import sys;sys.path.insert(0,sys.argv.pop(1));from catabolic.store import Store;from catabolic.app import Application;from catabolic.layouts import Layouts,PRESETS\nwith Store(sys.argv[1],writable=True) as store:\n app=Application(store);Layouts(app).put('saved',PRESETS['catabolic']);Layouts(app).run('saved','global',apply=True)",
+                "import sys;sys.path.insert(0,sys.argv.pop(1));from catabolic.store import Store;from catabolic.app import Application;from catabolic.layouts import Layouts,PRESETS\nwith Store(sys.argv[1],writable=True) as store:\n app=Application(store);app.scan()\n for row in store.rows('SELECT * FROM files ORDER BY path'):\n  app.media.associate(row['id'],app.put_item('document',{'fixture':row['path']},{'title':row['path']})['id'])\n Layouts(app).put('saved',PRESETS['catabolic']);Layouts(app).run('saved','global',apply=True)",
                 str(REFERENCE / "src"),
-                str(self.native),
+                str(path),
             ],
             capture_output=True,
             text=True,
@@ -290,35 +291,57 @@ class ScanWatchCliTest(unittest.TestCase):
             timeout=30,
         )
         self.assertEqual(saved.returncode, 0, saved.stderr)
-        with closing(sqlite3.connect(self.native)) as db, db:
+
+    def queue_refresh(self, path):
+        with closing(sqlite3.connect(path)) as db, db:
             db.execute(
                 "INSERT INTO catalog_refresh_settings VALUES ('default','global',1,100)"
             )
             db.execute(
                 "INSERT INTO catalog_refresh_queue(profile,catalog) VALUES ('default','global')"
             )
-        before = {
-            table: self.rows(self.native, f"SELECT * FROM {table}")
-            for table in ("mappings", "owned_links", "journal")
+
+    def published(self, path):
+        return {
+            "owned_links": self.rows(
+                path,
+                "SELECT profile,catalog,path,target FROM owned_links ORDER BY path",
+            ),
+            "journal": self.rows(path, "SELECT count(*) FROM journal"),
+            "queue": self.rows(path, "SELECT count(*) FROM catalog_refresh_queue"),
+            "jobs": self.rows(path, "SELECT state FROM processing_jobs ORDER BY rowid"),
         }
-        result = self.run_cli(
-            False, ["--machine", "watch", "--kind", "sniff", "--settle", "0"]
+
+    def test_automatic_refresh_publishes_like_frozen(self):
+        # Processing.run refreshes pending catalogs through the shared
+        # executor (track C5). Each engine runs on an identical catalog with
+        # the same output contents; the published state must match.
+        self.setup()
+        self.saved_refresh(self.ref)
+        self.queue_refresh(self.ref)
+        base = self.root / "base.db"
+        shutil.copyfile(self.ref, base)
+        snapshot = self.root / "output-snapshot"
+        shutil.copytree(self.output, snapshot, symlinks=True)
+        outcome = {}
+        for reference in (True, False):
+            path = self.ref if reference else self.native
+            shutil.copyfile(base, path)
+            self.restore_output(snapshot)
+            result = self.run_cli(
+                reference, ["--machine", "watch", "--kind", "sniff", "--settle", "0"]
+            )
+            outcome[reference] = (result, self.published(path), self.tree())
+        (old, old_state, old_tree), (new, new_state, new_tree) = (
+            outcome[True],
+            outcome[False],
         )
-        self.assertEqual(result.returncode, 2, result)
-        report = json.loads(result.stdout)
-        self.assertEqual(report["outcome"], "error")
-        self.assertIn("not yet qualified", report["data"]["error"]["message"])
-        self.assertEqual(result.stderr, "")
-        self.assertEqual(
-            self.rows(self.native, "SELECT state FROM processing_jobs"), [("queued",)]
-        )
-        for table, rows in before.items():
-            self.assertEqual(self.rows(self.native, f"SELECT * FROM {table}"), rows)
-        self.assertEqual(
-            {p.name: p.read_text() for p in self.output.iterdir()},
-            {"unowned.txt": "preserve fixture bytes"},
-        )
-        self.assertFalse(Path(str(self.native) + ".publication").exists())
+        self.assertEqual(new.returncode, old.returncode, (old.stdout, new.stdout))
+        self.assertEqual(new.returncode, 0, new.stdout)
+        self.assertEqual(new_state, old_state)
+        self.assertEqual(new_tree, old_tree)
+        self.assertTrue(new_state["owned_links"], "the refresh published links")
+        self.assertEqual(new_state["queue"], [(0,)])
 
     def nonparity(self, mode):
         self.setup()
@@ -550,40 +573,24 @@ class ScanWatchCliTest(unittest.TestCase):
             [(0,)],
         )
 
-    def test_refresh_work_added_during_processing_wait_is_refused(self):
+    def test_refresh_work_added_during_processing_wait_is_published(self):
+        # Refresh work queued while a tool runs is published by the same
+        # cycle's post-run refresh, through the shared executor (track C5).
         marker, resume = self.blocking_probe()
-        (self.output / "unowned.txt").write_text("preserve fixture bytes")
-        before = {
-            table: self.rows(self.native, f"SELECT * FROM {table}")
-            for table in ("mappings", "owned_links", "journal")
-        }
+        self.saved_refresh(self.native)
         process = self.start(False, "--kind", "probe", "--settle", "0")
         self.wait_for_probe(process, self.native, marker)
         self.assert_writer_available(self.native, timeout=3)
         with self.writer_lock(self.native, timeout=3):
-            with closing(sqlite3.connect(self.native)) as db, db:
-                db.execute(
-                    "INSERT INTO catalog_refresh_settings VALUES ('default','global',1,100)"
-                )
-                db.execute(
-                    "INSERT INTO catalog_refresh_queue(profile,catalog) VALUES ('default','global')"
-                )
+            self.queue_refresh(self.native)
         resume.touch()
-        stdout, stderr = process.communicate(timeout=10)
-        self.assertEqual(process.returncode, 2, (stdout, stderr))
-        self.assertIn(
-            "not yet qualified", json.loads(stdout)["data"]["error"]["message"]
-        )
-        self.assertEqual(
-            self.rows(self.native, "SELECT state FROM processing_jobs"), [("complete",)]
-        )
-        self.assertEqual(stderr, b"")
-        for table, rows in before.items():
-            self.assertEqual(self.rows(self.native, f"SELECT * FROM {table}"), rows)
-        self.assertEqual(
-            {p.name: p.read_text() for p in self.output.iterdir()},
-            {"unowned.txt": "preserve fixture bytes"},
-        )
+        stdout, stderr = process.communicate(timeout=30)
+        self.assertEqual(process.returncode, 0, (stdout, stderr))
+        state = self.published(self.native)
+        self.assertEqual(state["jobs"][-1], ("complete",))
+        self.assertEqual(state["queue"], [(0,)])
+        self.assertEqual(state["journal"], [(0,)])
+        self.assertTrue(state["owned_links"], "the refresh published links")
         self.assert_writer_available(self.native)
 
 

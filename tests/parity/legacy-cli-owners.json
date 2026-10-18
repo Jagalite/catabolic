@@ -1609,10 +1609,10 @@
       "id": "cli:projection mapping-apply",
       "command": "projection mapping-apply",
       "status": "partial",
-      "native_owner": "catabolic_cli::legacy::projection::mapping -> catabolic_runtime::destination_mappings::run(v1) | catabolic_store::{writer_lock,http_mappings::execute(v3)}",
+      "native_owner": "catabolic_cli::legacy::projection::mapping -> catabolic_runtime::destination_mappings::run(v1) | catabolic_store::{publication_mappings::run_with_account(v2),writer_lock,http_mappings::execute(v3)}",
       "parser": "native_frozen_tree",
-      "qualification": "Selected pinned Python/Rust v1 isolated publication/recovery and v3 durable queue, plus lock/interruption fixtures; leaf remains partial",
-      "gap": "Native v1 reviewed metadata/collection apply and v3 durable HTTP queue share existing metadata serialization; v2 apply remains explicitly M6-gated. Installed artifacts, live consumers, platforms and full-leaf parity remain unqualified; M6 gates unchanged",
+      "qualification": "Selected pinned Python/Rust v1 isolated publication/recovery and v3 durable queue, plus lock/interruption fixtures; sequential paired v2 folder apply (tests/test_native_publication_mapping_folder.py); leaf remains partial",
+      "gap": "Native v1 reviewed metadata/collection apply and v3 durable HTTP queue share existing metadata serialization; v2 folder apply publishes through the shared executor (track C4) and v2 export/import apply remains gated. Installed artifacts, live consumers, platforms and full-leaf parity remain unqualified",
       "owner_mapping": "entrypoint"
     },
     {
@@ -1621,8 +1621,8 @@
       "status": "partial",
       "native_owner": "catabolic_cli::legacy::projection::history -> catabolic_runtime::destination_mappings::recover",
       "parser": "native_frozen_tree",
-      "qualification": "Selected pinned Python/Rust v1 durable readback states and HTTP-v3 queue/error/status, lock and interruption fixtures; full leaf remains unqualified",
-      "gap": "Combined history resolves native v1 readback-only recovery and HTTP-v3 queue status; v2 publication recovery remains explicitly M6-gated. Installed artifacts, arbitrary payload ordering, live consumers and full-leaf parity remain unqualified",
+      "qualification": "Selected pinned Python/Rust v1 durable readback states and HTTP-v3 queue/error/status, lock and interruption fixtures; sequential paired v2 folder recovery (tests/test_native_publication_mapping_folder.py); full leaf remains unqualified",
+      "gap": "Combined history resolves native v1 readback-only recovery, HTTP-v3 queue status and v2 folder recovery through the shared executor (track C4); v2 export/import recovery remains gated. Installed artifacts, arbitrary payload ordering, live consumers and full-leaf parity remain unqualified",
       "owner_mapping": "entrypoint"
     },
     {
@@ -1657,10 +1657,10 @@
       "id": "cli:projection execute",
       "command": "projection execute",
       "status": "partial",
-      "native_owner": "catabolic_runtime::projection::run -> unconditional EXECUTION_GATE before Store::open",
+      "native_owner": "catabolic_runtime::projection::run -> catabolic_store::projection_run::execute -> layout_mutation::{prepare,apply} + public_reconcile::{publish(apply),call(verify)}",
       "parser": "native_frozen_tree",
-      "qualification": "Explicit early gate/nonparity and no-effect witnesses only; no frozen or native publication call",
-      "gap": "Early unconditional filesystem publication gate before database admission or dependent planning; refusal-only, not commit/apply/verify parity",
+      "qualification": "Sequential paired frozen/native execute, repeat and refusal fixtures over identical catalogs (tests/test_native_projection_execute.py)",
+      "gap": "Commits a safe staging, then publishes through the shared journal executor (Reconciler notify_consumers=False) and verifies, as frozen Projections.run; symlink replace/remove, hardlink retirement and fallback bindings keep their gates (track C5)",
       "owner_mapping": "entrypoint"
     },
     {
