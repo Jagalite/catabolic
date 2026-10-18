@@ -48,7 +48,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake pkg-config libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev libffi-dev liblzma-dev libncurses-dev libgdbm-dev uuid-dev libzstd-dev
-          python scripts/prepare_ci_python_oracle.py --prefix "$RUNNER_TEMP/catabolic-oracle" --work-dir "$RUNNER_TEMP/catabolic-oracle-build" --receipt "$RUNNER_TEMP/oracle-runtime.json"
+          python scripts/prepare_ci_python_oracle.py --prefix "$RUNNER_TEMP/catabolic-oracle" --work-dir "$RUNNER_TEMP/catabolic-oracle-build" --receipt "$RUNNER_TEMP/native-oracle-runtime.json"
           printf '%s\n' "$RUNNER_TEMP/catabolic-oracle/bin" >> "$GITHUB_PATH"
       - name: Prepare exact Rust in an isolated toolchain home
         run: |
@@ -104,7 +104,7 @@ jobs:
         with:
           name: opt-in-native-linux-evidence
           path: |
-            ${{ runner.temp }}/oracle-runtime.json
+            ${{ runner.temp }}/native-oracle-runtime.json
             .local-tests/rust-migration/m4-plus/native-results.json
             .local-tests/rust-migration/m4-plus/release-output-gate.json
             ${{ runner.temp }}/native-http/report.json
@@ -133,7 +133,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake pkg-config libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev libffi-dev liblzma-dev libncurses-dev libgdbm-dev uuid-dev libzstd-dev
-          python scripts/prepare_ci_python_oracle.py --prefix "$RUNNER_TEMP/catabolic-oracle" --work-dir "$RUNNER_TEMP/catabolic-oracle-build" --receipt "$RUNNER_TEMP/oracle-runtime.json"
+          python scripts/prepare_ci_python_oracle.py --prefix "$RUNNER_TEMP/catabolic-oracle" --work-dir "$RUNNER_TEMP/catabolic-oracle-build" --receipt "$RUNNER_TEMP/native-oracle-runtime.json"
           printf 'python-path=%s/bin/python\n' "$RUNNER_TEMP/catabolic-oracle" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
@@ -213,7 +213,7 @@ jobs:
         with:
           name: opt-in-native-installed-${{ matrix.python }}
           path: |
-            ${{ runner.temp }}/oracle-runtime.json
+            ${{ runner.temp }}/native-oracle-runtime.json
             ${{ runner.temp }}/native-asgi*.json
             ${{ runner.temp }}/native-wheel.json
             ${{ runner.temp }}/native-wheel-after.json
