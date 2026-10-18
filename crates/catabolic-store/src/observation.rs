@@ -2857,6 +2857,13 @@ mod tests {
                 .is_match("aaaaaaaaaaaaaaaaaa")
                 .unwrap()
         );
+        // Sol round 12: reverse (lookbehind) delegates obey the same size
+        // limits, so huge ones are refused quickly at compile time.
+        for pattern in [r"(?<=a{0,4294967295})b", r"(?<=[ab]{0,100000})b"] {
+            let started = Instant::now();
+            assert!(compile_pattern(pattern).is_err(), "{pattern:?}");
+            assert!(started.elapsed() < Duration::from_secs(2), "{pattern:?}");
+        }
         // Over-long paths are never evaluated.
         let regex = compile_pattern(r"\.mkv$").unwrap();
         let long = format!("{}.mkv", "a".repeat(SCAN_REGEX_MAX_PATH));

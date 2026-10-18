@@ -772,3 +772,13 @@ The fix:
   - Patterns with backreferences get 32 KiB delegate automata.
   - Backreference parity, including the `^(a+)\1+$` timeout case, is
     unchanged.
+
+#### Review round 12 correction (October 18)
+
+Upstream builds reverse lookbehind delegates without any size limit, so
+`(?<=a{0,4294967295})b` could exhaust memory at compile time. The patch now
+gives them the same NFA size limit and DFA cache capacity as forward
+delegates, and a test checks that huge lookbehinds are refused within
+seconds. The VM's delegate check is feature-gated, so the vendored crate
+builds with and without `variable-lookbehinds`. Both configurations were
+checked through Kyoto. No renumbering defect was found.

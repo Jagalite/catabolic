@@ -15,6 +15,10 @@ unless a limit is set.
   the search fails with `RuntimeError::StorageLimitExceeded` once the held
   backtracking branches plus saved capture values exceed the limit. It is
   checked before every instruction.
+- The VM also checks the deadline before every delegated search.
+- Reverse (lookbehind) delegates, built in `compile.rs`, take the same NFA
+  size limit and DFA cache capacity as forward delegates. Upstream builds
+  them without limits.
 
 A single delegated regex-automata call is not interrupted. Catabolic bounds
 it ahead of time:
@@ -28,6 +32,7 @@ them in time linear in the path, under the same limits.
 
 To review the patch, compare with the published crate:
 `diff -r ~/.cargo/registry/src/*/fancy-regex-0.19.2 vendor/fancy-regex`.
-The differences are `src/lib.rs`, `src/error.rs`, `src/vm.rs` and this file,
+The differences are `src/lib.rs`, `src/error.rs`, `src/vm.rs`,
+`src/compile.rs` and this file,
 plus the removed `.cargo_vcs_info.json` and `Cargo.lock` (unused for a path
 dependency).

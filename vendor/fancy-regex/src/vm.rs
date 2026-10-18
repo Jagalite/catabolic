@@ -974,6 +974,18 @@ pub fn run_trace(prog: &Prog, s: &str, pos: usize) -> Result<Option<Vec<usize>>>
     )
 }
 
+/// Catabolic patch: whether `insn` runs a delegated regex-automata search,
+/// which is not interrupted once started.
+#[cfg(feature = "std")]
+fn delegates(insn: &Insn) -> bool {
+    match insn {
+        Insn::Delegate(_) | Insn::AbsentRepeater(_) | Insn::Seek(_) => true,
+        #[cfg(feature = "variable-lookbehinds")]
+        Insn::BackwardsDelegate(_) => true,
+        _ => false,
+    }
+}
+
 /// Catabolic patch: instructions between deadline checks.
 #[cfg(feature = "std")]
 const DEADLINE_CHECK_INTERVAL: usize = 64;
@@ -1096,14 +1108,7 @@ fn run_with<S: HaystackInput + ?Sized, T>(
             // Every delegated search, which runs uninterrupted, is preceded
             // by a check.
             #[cfg(feature = "std")]
-            if (instructions % DEADLINE_CHECK_INTERVAL == 0
-                || matches!(
-                    prog.body[pc],
-                    Insn::Delegate(_)
-                        | Insn::BackwardsDelegate(_)
-                        | Insn::AbsentRepeater(_)
-                        | Insn::Seek(_)
-                ))
+            if (instructions % DEADLINE_CHECK_INTERVAL == 0 || delegates(&prog.body[pc]))
                 && deadline.is_some_and(|d| std::time::Instant::now() >= d)
             {
                 return Err(Error::RuntimeError(RuntimeError::DeadlineExceeded));

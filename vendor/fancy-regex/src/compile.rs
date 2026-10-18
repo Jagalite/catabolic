@@ -783,10 +783,19 @@ impl<'a> Compiler<'a> {
         // Use reverse matching for variable-sized lookbehinds without fancy features
         use regex_automata::hybrid::dfa;
         use regex_automata::nfa::thompson;
-        // Build a reverse DFA for the pattern
+        // Build a reverse DFA for the pattern. Catabolic patch: under the same
+        // NFA and cache limits as forward delegates.
+        let mut dfa_config = dfa::Config::new().unicode_word_boundary(true);
+        if let Some(limit) = self.options.delegate_dfa_size_limit {
+            dfa_config = dfa_config.cache_capacity(limit);
+        }
         let dfa = match dfa::DFA::builder()
-            .configure(dfa::Config::new().unicode_word_boundary(true))
-            .thompson(thompson::Config::new().reverse(true))
+            .configure(dfa_config)
+            .thompson(
+                thompson::Config::new()
+                    .reverse(true)
+                    .nfa_size_limit(self.options.delegate_size_limit),
+            )
             .build(pattern)
         {
             Ok(dfa) => Arc::new(dfa),
