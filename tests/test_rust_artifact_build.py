@@ -401,6 +401,14 @@ class NativeArtifactBuildTest(unittest.TestCase):
             stack.enter_context(
                 patch.object(QUALIFIER.subprocess, "check_output", return_value="{}")
             )
+            # platform.platform() shells out to `file` through the shared
+            # subprocess.check_output on macOS and would receive the fake "{}"
+            # text above; keep that fixture stub from leaking into it.
+            stack.enter_context(
+                patch.object(
+                    QUALIFIER.platform, "architecture", return_value=("64bit", "")
+                )
+            )
             stack.enter_context(redirect_stderr(io.StringIO()))
             return QUALIFIER.main()
 
