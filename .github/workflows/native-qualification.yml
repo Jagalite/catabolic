@@ -57,6 +57,10 @@ jobs:
           npm --prefix tests/clients ci --ignore-scripts
           npm --prefix tests/clients test
           npm --prefix tests/clients run test:1.7
+      - name: Shipped crates must not enable test-only failpoints
+        run: |
+          python -m unittest tests.test_check_failpoints_graph
+          python scripts/check_failpoints_graph.py
       - name: Required native tests, journal oracles, models and release refusals
         run: |
           export CATABOLIC_QUALIFICATION_PYTHON="$(command -v python)"

@@ -352,6 +352,17 @@ production `restore`, `backup` and `convert` take no observer.
 `scripts/check_failpoints_graph.py` inspects the normal and build feature
 graph of catabolic-cli, catabolic-python and catabolic-dist offline with
 `cargo tree` and fails if any of them enables `catabolic-store/failpoints`.
+It fails closed: a cargo error, empty or malformed output, a graph rooted at
+another package, or a missing catabolic-store for catabolic-cli or
+catabolic-python all fail. The feature field is parsed apart from the package
+path, so punctuation in a checkout path cannot hide it. The check is enforced
+where shipped artifacts are made:
+
+- `scripts/build_native_wheel.py` runs it before building, and rejects a
+  release `cargo build` artifact of catabolic-store compiled with the feature.
+- `catabolic-dist` rejects the same in its own release build's artifacts.
+- The native qualification workflow runs it and its unit tests
+  (`tests/test_check_failpoints_graph.py`).
 
 Restore refuses backups with retained worker ownership. Cleanup witnesses for
 completed processing jobs and observation companions name the incarnation

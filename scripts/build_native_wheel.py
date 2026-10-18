@@ -113,6 +113,14 @@ def main():
             ).encode()
         ).hexdigest(),
     }
+    # Test-only failpoint hooks must not reach the helpers or the extension.
+    # The graph check covers the maturin build, whose artifacts Cargo does not
+    # report here; the release build's own artifacts are checked below.
+    subprocess.run(
+        [sys.executable, str(root / "scripts" / "check_failpoints_graph.py")],
+        cwd=root,
+        check=True,
+    )
     command = [
         "cargo",
         "build",
@@ -132,6 +140,12 @@ def main():
     executables = {"catabolic-native": [], "catabolic-legacy-native": []}
     for line in build.stdout.splitlines():
         message = json.loads(line)
+        if (
+            message.get("reason") == "compiler-artifact"
+            and message["target"]["name"] == "catabolic_store"
+            and "failpoints" in message.get("features", [])
+        ):
+            raise SystemExit("release build compiled catabolic-store with failpoints")
         if (
             message.get("reason") == "compiler-artifact"
             and message["target"]["name"] in executables

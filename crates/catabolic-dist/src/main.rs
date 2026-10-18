@@ -398,6 +398,16 @@ fn artifact_paths(
                 .ok_or("missing artifact package ID")?
                 .to_string(),
         );
+        // Test-only failpoint hooks must never reach a shipped binary.
+        if v["target"]["name"] == "catabolic_store"
+            && v["features"]
+                .as_array()
+                .ok_or("missing artifact features")?
+                .iter()
+                .any(|feature| feature == "failpoints")
+        {
+            return fail("release build compiled catabolic-store with failpoints");
+        }
         let Some(executable) = v["executable"].as_str() else {
             continue;
         };
@@ -979,6 +989,34 @@ fn smoke(candidate: &Path, hash: &str, report: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn release_artifacts_with_store_failpoints_are_refused() {
+        let store = |features: Value| {
+            json!({
+                "reason": "compiler-artifact",
+                "package_id": "path+file:///w/crates/catabolic-store#0.2.0",
+                "target": {"name": "catabolic_store", "kind": ["lib"]},
+                "features": features,
+                "executable": null,
+            })
+            .to_string()
+        };
+        let refused = artifact_paths(
+            store(json!(["failpoints"])).as_bytes(),
+            "cli",
+            Path::new("/w"),
+        )
+        .unwrap_err();
+        assert!(refused.to_string().contains("failpoints"), "{refused}");
+        let missing =
+            artifact_paths(store(Value::Null).as_bytes(), "cli", Path::new("/w")).unwrap_err();
+        assert!(missing.to_string().contains("features"), "{missing}");
+        // Without the feature the artifact is accepted; the build then fails
+        // only for lacking the two CLI executables.
+        let clean =
+            artifact_paths(store(json!([])).as_bytes(), "cli", Path::new("/w")).unwrap_err();
+        assert!(clean.to_string().contains("exactly the two"), "{clean}");
+    }
     #[test]
     fn environment_provenance_excludes_credentials_and_arbitrary_variables() {
         for name in [
