@@ -875,17 +875,43 @@ const GUARDIAN_IGNORED: [libc::c_int; 10] = [
     libc::SIGUSR2,
 ];
 
+/// Whether this process may act as a supervisor: it leads its own session
+/// and process group, and every protocol descriptor is an open pipe/FIFO.
+fn supervisor_admitted(descriptors: &[RawFd]) -> bool {
+    // SAFETY: getpid, getpgrp and getsid(0) only query this process.
+    let leader = unsafe {
+        let pid = libc::getpid();
+        libc::getpgrp() == pid && libc::getsid(0) == pid
+    };
+    leader
+        && descriptors.iter().all(|&fd| {
+            // SAFETY: fstat writes into a local, zero-initialized stat buffer.
+            let mut status: libc::stat = unsafe { std::mem::zeroed() };
+            (unsafe { libc::fstat(fd, &mut status) }) == 0
+                && status.st_mode & libc::S_IFMT == libc::S_IFIFO
+        })
+}
+
 /// Supervisor mode: `<lifeline-fd> <exec-error-fd> -- <tool> [args...]`.
+/// A misused invocation exits 127 without signalling anything.
 /// Runs in a fresh process image that is already the session leader, with the
 /// worker's environment, directory, umask and descriptors for the tool.
 pub fn supervise(args: &[OsString]) -> ! {
     fn number(value: Option<&OsString>) -> Option<RawFd> {
         value?.to_str()?.parse().ok().filter(|fd: &RawFd| *fd >= 3)
     }
+    // Refuse anything but the worker's exact protocol, before touching any
+    // descriptor and without ever signalling: this process must be the leader
+    // of its own new session (so the guardian's group kill reaches only the
+    // tool's group), and both protocol descriptors must be pipes.
     let (Some(lifeline), Some(errors)) = (number(args.first()), number(args.get(1))) else {
         // SAFETY: immediate exit of a misused supervisor process.
         unsafe { libc::_exit(127) }
     };
+    if !supervisor_admitted(&[lifeline, errors]) {
+        // SAFETY: immediate exit of a misused supervisor process.
+        unsafe { libc::_exit(127) }
+    }
     let fail = |code: i32| -> ! {
         let bytes = code.to_ne_bytes();
         // SAFETY: writes four bytes from a local buffer, then exits.
@@ -897,7 +923,7 @@ pub fn supervise(args: &[OsString]) -> ! {
     if args.get(2).is_none_or(|arg| arg != "--") || args.len() < 4 {
         fail(libc::EINVAL);
     }
-    // Both supervisor descriptors close when the tool is execed.
+    // All supervisor descriptors close when the tool is execed.
     for fd in [lifeline, errors] {
         // SAFETY: marks an inherited descriptor of this process close-on-exec.
         if unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) } == -1 {
@@ -2156,6 +2182,46 @@ mod tests {
         *const *const libc::c_char,
         *const *const libc::c_char,
     ) = supervisor_hook;
+
+    /// Invoked directly by an ordinary (non-leader) process, or as a leader
+    /// with non-pipe descriptors, the supervisor exits non-zero and signals
+    /// nothing: its caller and the caller's other children survive.
+    #[test]
+    fn misused_supervisor_refuses_without_killing_anything() {
+        use std::os::unix::process::CommandExt as _;
+        let mut sibling = Command::new("/bin/sleep").arg("30").spawn().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let marker = dir.path().join("ran");
+        let script = format!("touch '{}'", marker.display());
+        for leader in [false, true] {
+            let null = fs::File::open("/dev/null").unwrap();
+            let null = null.as_raw_fd();
+            let mut command = Command::new(std::env::current_exe().unwrap());
+            command.args([SUPERVISE_ARGUMENT, "3", "4", "--", "/bin/sh", "-c", &script]);
+            command.stdout(Stdio::null()).stderr(Stdio::null());
+            // SAFETY: dup2 and setsid are async-signal-safe.
+            unsafe {
+                command.pre_exec(move || {
+                    for fd in [3, 4] {
+                        if libc::dup2(null, fd) == -1 {
+                            return Err(io::Error::last_os_error());
+                        }
+                    }
+                    if leader && libc::setsid() == -1 {
+                        return Err(io::Error::last_os_error());
+                    }
+                    Ok(())
+                });
+            }
+            let status = command.status().unwrap();
+            assert_eq!(status.code(), Some(127), "leader={leader}: {status:?}");
+        }
+        assert!(!marker.exists());
+        // The caller's other child (same process group) is still running.
+        assert!(sibling.try_wait().unwrap().is_none());
+        sibling.kill().unwrap();
+        sibling.wait().unwrap();
+    }
 
     #[test]
     fn supervised_tool_keeps_exact_status_output_and_session() {
