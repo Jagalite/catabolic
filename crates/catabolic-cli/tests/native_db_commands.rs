@@ -592,11 +592,3 @@ fn native_backup_and_controlled_restore_commands_rotate_the_incarnation() {
     assert_eq!(inspected.code, Some(0), "{}", inspected.stderr);
     assert_eq!(inspected.stdout["schema"], migration::NATIVE_SCHEMA_VERSION);
 }
-
-/// The shipped CLI is built against catabolic-store without the test-only
-/// `failpoints` feature, so no restore, backup or journal-conversion
-/// observation hook exists in it.
-#[test]
-fn shipped_cli_build_has_no_failpoint_hooks() {
-    assert!(!catabolic_store::FAILPOINTS_ENABLED);
-}

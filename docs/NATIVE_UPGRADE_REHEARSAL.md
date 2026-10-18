@@ -345,11 +345,13 @@ The observation hooks (`restore_observed`, `backup_observed`,
 `convert_observed`, the checkpoint and hook name constants, and every hook
 call) exist only with the catabolic-store `failpoints` feature. That feature
 is off by default and is required by the `native_restore` and
-`journal_conversion` test targets; build them with `--features
-failpoints`. Without it every hook call compiles to `Ok(())`, and the
+`journal_conversion` test targets. catabolic-cli's dev-dependency enables it
+for test builds, so the ordinary `cargo test --workspace` build compiles and
+runs those targets. Without it every hook call compiles to `Ok(())`, and the
 production `restore`, `backup` and `convert` take no observer.
-catabolic-cli and the wheel do not enable the feature, and a CLI test asserts
-`catabolic_store::FAILPOINTS_ENABLED` is false in the shipped build.
+`scripts/check_failpoints_graph.py` inspects the normal and build feature
+graph of catabolic-cli, catabolic-python and catabolic-dist offline with
+`cargo tree` and fails if any of them enables `catabolic-store/failpoints`.
 
 Restore refuses backups with retained worker ownership. Cleanup witnesses for
 completed processing jobs and observation companions name the incarnation
@@ -426,8 +428,10 @@ later writes or filesystem and network effects.
 
 Build the targets through Kyoto with `cargo test --offline --locked -p
 catabolic-store --test upgrade_rehearsal` (and `--test identity_manifest`,
-`--test journal_conversion --features failpoints`, `--test native_restore
---features failpoints`, and, separately and without that feature, `-p
-catabolic-cli --test native_db_commands`).
+`--test journal_conversion`, `--test native_restore`, and `-p catabolic-cli
+--test native_db_commands`), or build the whole workspace with `cargo test
+--offline --locked --workspace`. The workspace build enables the test-only
+feature through catabolic-cli's dev-dependency; a build of only the gated
+catabolic-store targets needs `--features catabolic-store/failpoints`.
 Then run the compiled executables directly, with `TMPDIR` on a physical
 volume. Add `--ignored scale_database_rehearsal` for the scale fixture.

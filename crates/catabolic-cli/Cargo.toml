@@ -23,6 +23,10 @@ libc.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+# Test builds only: enables catabolic-store's test-only observation hooks for
+# the workspace test build, so its failpoint-gated test targets build and run.
+# The normal dependency above never enables them (scripts/check_failpoints_graph.py).
+catabolic-store = { workspace = true, features = ["failpoints"] }
 
 [lints]
 workspace = true
