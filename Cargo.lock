@@ -354,6 +354,7 @@ dependencies = [
  "catabolic-core",
  "catabolic-store",
  "chrono",
+ "chrono-tz",
  "libc",
  "num-bigint",
  "roxmltree",

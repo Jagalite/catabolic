@@ -59,6 +59,8 @@ struct Settings {
     optional: bool,
     // Apprise `+Name=value` headers, in first-seen order (exact-name upsert).
     headers: Vec<(String, String)>,
+    // Explicit Date-header zone; None keeps the reference's local-time default.
+    tz: Option<chrono_tz::Tz>,
 }
 
 type Parsed<T> = Result<T, ()>;
@@ -139,6 +141,59 @@ fn custom_header(raw_name: &str, raw_value: &str) -> Parsed<Option<(String, Stri
         return Err(());
     }
     Ok(Some((name, value)))
+}
+
+const UTC_ALIASES: &[&str] = &["utc", "z", "gmt", "etc/utc", "etc/gmt", "gmt0", "utc0"];
+
+// Apprise's forgiving `zoneinfo()`: UTC aliases, an exact IANA key, a
+// case-insensitive key, then a trailing path suffix after the region
+// (`Tokyo`, `Argentina/Buenos_Aires`). The reference scans an unordered set,
+// so a suffix that names zones whose UTC offsets ever differ is rejected here
+// rather than guessed. Offsets are sampled across a year.
+fn resolve_zone(name: &str) -> Parsed<chrono_tz::Tz> {
+    let name = name.trim();
+    let lowered = name.to_lowercase();
+    if name.is_empty() || name.len() > 64 {
+        return Err(());
+    }
+    if UTC_ALIASES.contains(&lowered.as_str()) {
+        return Ok(chrono_tz::UTC);
+    }
+    if let Some(zone) = chrono_tz::TZ_VARIANTS.iter().find(|z| z.name() == name) {
+        return Ok(*zone);
+    }
+    if let Some(zone) = chrono_tz::TZ_VARIANTS
+        .iter()
+        .find(|z| z.name().to_lowercase() == lowered)
+    {
+        return Ok(*zone);
+    }
+    let matches: Vec<_> = chrono_tz::TZ_VARIANTS
+        .iter()
+        .filter(|zone| {
+            let lower = zone.name().to_lowercase();
+            let parts: Vec<_> = lower.split('/').skip(1).take(2).collect();
+            !parts.is_empty() && parts.join("/") == lowered
+        })
+        .collect();
+    let first = **matches.first().ok_or(())?;
+    let now = chrono::Utc::now();
+    let offset = |zone: chrono_tz::Tz, days: i64| {
+        use chrono::Offset;
+        (now + chrono::Duration::days(days))
+            .with_timezone(&zone)
+            .offset()
+            .fix()
+    };
+    for days in [0, 91, 182, 273] {
+        if matches
+            .iter()
+            .any(|z| offset(**z, days) != offset(first, days))
+        {
+            return Err(());
+        }
+    }
+    Ok(first)
 }
 
 fn boolean(value: &str) -> Parsed<bool> {
@@ -449,7 +504,7 @@ impl Settings {
             match key.as_str() {
                 "from" | "name" | "smtp" | "mode" | "to" | "cc" | "bcc" | "reply" | "user"
                 | "password" | "pass" | "port" | "format" | "cto" | "rto" | "retry" | "wait"
-                | "optional" => (),
+                | "optional" | "tz" => (),
                 "verify" if boolean(value)? => (),
                 "redirect" | "wkd" | "store" if !boolean(value)? => (),
                 "pgp"
@@ -688,6 +743,7 @@ impl Settings {
                 .transpose()?
                 .unwrap_or(false),
             headers,
+            tz: options.get("tz").map(|v| resolve_zone(v)).transpose()?,
         })
     }
 }
@@ -972,6 +1028,17 @@ fn encoded_words(text: &str) -> String {
     words.join("\r\n ")
 }
 
+fn date_header(zone: Option<chrono_tz::Tz>) -> String {
+    const FORMAT: &str = "%a, %d %b %Y %H:%M:%S %z";
+    match zone {
+        Some(zone) => chrono::Utc::now()
+            .with_timezone(&zone)
+            .format(FORMAT)
+            .to_string(),
+        None => chrono::Local::now().format(FORMAT).to_string(),
+    }
+}
+
 fn header_value(value: &str) -> String {
     if value.is_ascii() {
         value.to_owned()
@@ -1045,7 +1112,7 @@ fn message(settings: &Settings, target: &Mailbox, body: &str) -> (Vec<String>, S
         formatted(target),
         uuid::Uuid::new_v4(),
         settings.host,
-        chrono::Local::now().format("%a, %d %b %Y %H:%M:%S %z")
+        date_header(settings.tz)
     ));
     if !cc.is_empty() {
         content.push_str(&format!(
@@ -1470,6 +1537,61 @@ mod tests {
     }
 
     #[test]
+    fn explicit_timezone_sets_date_offset_and_ambiguous_names_fail_closed() {
+        use chrono::Offset;
+        let zone = |name: &str| {
+            Settings::parse(&format!(
+                "mailto://127.0.0.1:1/one@example.net?from=sender@example.com&tz={name}"
+            ))
+            .map(|s| s.tz)
+        };
+        assert_eq!(zone("Asia/Tokyo").unwrap(), Some(chrono_tz::Asia::Tokyo));
+        assert_eq!(zone("tokyo").unwrap(), Some(chrono_tz::Asia::Tokyo));
+        assert_eq!(zone("GMT0").unwrap(), Some(chrono_tz::UTC));
+        assert_eq!(
+            zone("%20Europe/paris%20").unwrap(),
+            Some(chrono_tz::Europe::Paris)
+        );
+        // US/Pacific and Canada/Pacific agree on every sampled offset.
+        assert!(zone("Pacific").unwrap().is_some());
+        for bad in [
+            "",
+            "%20",
+            "Nope",
+            "%2E%2E/Asia/Tokyo",
+            "Asia//Tokyo",
+            "Asia%00Tokyo",
+            "Etc",
+        ] {
+            assert!(zone(bad).is_err(), "{bad}");
+        }
+        assert!(zone(&"a".repeat(65)).is_err());
+        let paris = Settings::parse(
+            "mailto://127.0.0.1:1/one@example.net?from=sender@example.com&tz=Europe/Paris",
+        )
+        .unwrap();
+        let (_, content) = message(&paris, &paris.to[0], BODY);
+        let date = content
+            .lines()
+            .find_map(|line| line.strip_prefix("Date: "))
+            .unwrap();
+        let seconds = chrono::Utc::now()
+            .with_timezone(&chrono_tz::Europe::Paris)
+            .offset()
+            .fix()
+            .local_minus_utc();
+        let expected = format!(
+            "{}{:02}{:02}",
+            if seconds < 0 { '-' } else { '+' },
+            seconds.abs() / 3600,
+            seconds.abs() % 3600 / 60
+        );
+        assert!(date.ends_with(&format!(" {expected}")), "{date}");
+        let parsed = chrono::DateTime::parse_from_rfc2822(date).unwrap();
+        assert!((chrono::Utc::now() - parsed.to_utc()).num_seconds().abs() < 60);
+    }
+
+    #[test]
     fn custom_header_options_follow_pinned_apprise_and_fail_closed() {
         let base = "mailto://127.0.0.1:1/one@example.net?from=sender@example.com&";
         let headers = |suffix: &str| Settings::parse(&format!("{base}{suffix}")).map(|s| s.headers);
@@ -1609,7 +1731,8 @@ mod tests {
             "pgppub=/tmp/key",
             "pgpkey=/tmp/key",
             "store=yes",
-            "tz=Europe/Paris",
+            "tz=Nope/Zone",
+            "tz=",
             "+Bcc=other@example.com",
             "+Subject=Other",
             "template=/tmp/body",
@@ -1809,7 +1932,6 @@ mod tests {
             serde_json::from_str(include_str!("../../tests/reference/smtp_wire.json")).unwrap();
         for case in oracle["cases"].as_array().unwrap() {
             let url = case["url"].as_str().unwrap();
-            assert_eq!(case["added"], true, "synthetic oracle admission: {url}");
             if case["native_expectation"] == "reject" {
                 // Apprise admits or fails these (duplicate structural headers,
                 // invalid names, CR/LF); native rejects before connecting.
@@ -1821,6 +1943,7 @@ mod tests {
                 );
                 continue;
             }
+            assert_eq!(case["added"], true, "synthetic oracle admission: {url}");
             if case["native_expectation"] == "no_recipients" {
                 // Apprise 1.13.1 drops internationalized To targets, never
                 // connects and reports failure; it has no SMTPUTF8 path.
@@ -1887,6 +2010,15 @@ mod tests {
                 expected["wait"].as_f64().unwrap()
             );
             assert_eq!(settings.optional, expected["optional"].as_bool().unwrap());
+            if let Some(key) = expected["tz_key"].as_str() {
+                // Python on a case-insensitive filesystem keeps the spelling given.
+                assert!(
+                    settings.tz.unwrap().name().eq_ignore_ascii_case(key),
+                    "{url}: {key}"
+                );
+            } else {
+                assert!(settings.tz.is_none(), "{url}");
+            }
             for (target, expected_target) in settings
                 .to
                 .iter()
@@ -1907,6 +2039,13 @@ mod tests {
                 );
                 assert_eq!(expected_message["subject"], "Catabolic");
                 assert!(content.contains("Subject: Catabolic\r\n"));
+                if let Some(offset) = expected_message["date_offset"].as_str() {
+                    let date = content
+                        .lines()
+                        .find_map(|line| line.strip_prefix("Date: "))
+                        .unwrap();
+                    assert!(date.ends_with(&format!(" {offset}")), "{url}: {date}");
+                }
                 let application = expected_message["application"].as_str().unwrap();
                 assert!(content.contains(&format!("X-Application: {application}\r\n")));
                 assert_eq!(content.matches("X-Application:").count(), 1);

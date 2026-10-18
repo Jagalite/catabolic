@@ -12,9 +12,10 @@ import io
 import json
 import logging
 import socket
+from datetime import timezone
 from email import policy
 from email.parser import Parser
-from email.utils import getaddresses
+from email.utils import getaddresses, parsedate_to_datetime
 from unittest.mock import patch
 
 import apprise
@@ -110,6 +111,22 @@ HEADER_REJECTED = [
 ]
 CASES += [HEADER_BASE + suffix for suffix in HEADER_ACCEPTED + HEADER_REJECTED]
 
+# Explicit Date-header timezone (`tz=`). Apprise resolves names with its own
+# forgiving zoneinfo(): UTC aliases, exact IANA keys, case-insensitive keys and
+# unique trailing path components. Only zones without DST (stable offsets) have
+# their Date offset frozen; others are checked by key only. Names that match
+# several zones are excluded because Apprise iterates an unordered set.
+TZ_BASE = "mailto://user:synthetic@example.com/one@example.net?"
+TZ_FIXED_OFFSET = {
+    "UTC": "+0000", "utc": "+0000", "Z": "+0000", "Etc/GMT": "+0000", "GMT": "+0000",
+    "Asia/Tokyo": "+0900", "asia/tokyo": "+0900", "Tokyo": "+0900", "Kolkata": "+0530",
+    "%20Asia/Tokyo%20": "+0900",
+}
+TZ_ACCEPTED = list(TZ_FIXED_OFFSET) + ["Europe/Paris", "US/Pacific", "America/Argentina/Buenos_Aires", "Buenos_Aires", "Indianapolis", "EST5EDT", "Asia/Tokyo&tz=UTC"]
+TZ_REJECTED = ["Nope/Zone", "", "%20"]
+TZ_URLS = {TZ_BASE + "tz=" + name: name for name in TZ_ACCEPTED + TZ_REJECTED}
+CASES += list(TZ_URLS)
+
 # Apprise 1.13.1 prepare_emails changes reply_to from set to list at line 1269.
 # With two To recipients, the second subtraction at line 1253 raises TypeError.
 # Keep its false result and the first emitted message as frozen evidence.
@@ -118,6 +135,7 @@ KNOWN_REFERENCE_BUGS = {CASES[6]: "reply_to_set_mutation"}
 # Apprise admits these URLs but drops every invalid To target, logs "There are
 # no Email recipients to notify" and returns False without connecting.
 NATIVE_EXPECTATIONS = {CASES[34]: "no_recipients", CASES[35]: "no_recipients"}
+NATIVE_EXPECTATIONS.update({TZ_BASE + "tz=" + name: "reject" for name in TZ_REJECTED})
 NATIVE_EXPECTATIONS.update({HEADER_BASE + suffix: "reject" for suffix in HEADER_REJECTED})
 
 
@@ -155,6 +173,7 @@ for url in CASES:
                 "headers": {name.lower(): [[name, addr] for name, addr in getaddresses(parsed.get_all(name, []))]
                             for name in ["From", "To", "Cc", "Reply-To", "Bcc"]},
                 "subject": str(parsed["Subject"]),
+                "date_offset": parsedate_to_datetime(str(parsed["Date"])).strftime("%z") if TZ_URLS.get(url) in TZ_FIXED_OFFSET else None,
                 "application": str(parsed["X-Application"]),
                 "extra_headers": [[name, str(value)] for name, value in parsed.items() if name.lower() not in STANDARD_HEADERS],
                 "parts": [{"type": part.get_content_type(), "body": part.get_payload(decode=True).decode(part.get_content_charset() or "ascii")}
@@ -168,5 +187,8 @@ for url in CASES:
         server = list(obj)[0] if added else None
         complete = obj.notify(title="Catabolic", body="A Catabolic processing job completed.", notify_type="info") if added else False
         settings = {key: getattr(server, key) for key in ["smtp_host", "port", "secure_mode", "user", "password", "from_addr", "targets", "notify_format", "retry", "wait", "optional"]} if server else None
+        if server and url in TZ_URLS:
+            tzinfo = server.tzinfo
+            settings["tz_key"] = getattr(tzinfo, "key", "UTC" if tzinfo is timezone.utc else None)
     records.append({"url": url, "added": added, "complete": complete, "known_reference_bug": KNOWN_REFERENCE_BUGS.get(url), "native_expectation": NATIVE_EXPECTATIONS.get(url), "settings": settings, "messages": messages})
 print(json.dumps({"reference": "Apprise 1.13.1; frozen Catabolic notification_worker title/body", "cases": records}, indent=2))

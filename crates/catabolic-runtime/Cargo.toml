@@ -20,6 +20,7 @@ uuid.workspace = true
 ureq.workspace = true
 roxmltree.workspace = true
 chrono.workspace = true
+chrono-tz.workspace = true
 num-bigint.workspace = true
 rustls.workspace = true
 webpki-roots.workspace = true
