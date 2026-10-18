@@ -15,7 +15,7 @@ synthetic. No live third-party delivery is part of this qualification.
 | `mailto://`, `mailtos://` | Plain SMTP, STARTTLS, implicit TLS (`mode=ssl`), explicit host/port and `smtp=` | No opportunistic downgrade after a requested TLS upgrade fails |
 | Provider defaults | Gmail, Yandex, Microsoft, Yahoo, GMX, Fastmail/aliases, Zoho, SendGrid, 163, QQ/Foxmail, Comcast, localhost | Domain defaults are pinned compatibility data, not proof a provider currently accepts password SMTP |
 | Credentials | URL user/password, `user=`, `password=`, `pass=`, query precedence and password-only shorthand | ASCII AUTH credentials; no OAuth or CRAM-MD5-only servers. PLAIN and LOGIN are supported; CRAM-MD5 is not preferred when a server also offers them |
-| Addresses | Per-To fanout; path and `to=`; `from=`, `name=`, `cc=`, `bcc=`, `reply=`; common display-name forms and UTF-8 names | Deliberately bounded ASCII mailbox grammar; no SMTPUTF8, quoted local parts, underscore/Unicode domain labels, or permissive trailing junk |
+| Addresses | Per-To fanout; path and `to=`; `from=`, `name=`, `cc=`, `bcc=`, `reply=`; common display-name forms and UTF-8 names | Deliberately bounded ASCII mailbox grammar; no quoted local parts, underscore/Unicode domain labels, or permissive trailing junk. **SMTPUTF8 is not a gap in the pinned reference**: Apprise 1.13.1 never sends the `SMTPUTF8` MAIL option. Its validator drops internationalized To/Cc/Bcc/Reply-To targets (a URL with only such To targets is admitted, logs no recipients and returns failure without connecting) and rejects an internationalized `from=` address (as a display name when `user` supplies the address). Native matches this, with 5 frozen cases and a loopback test whose server advertises SMTPUTF8 but never receives it. Implementing SMTPUTF8 would be a deliberate extension beyond Apprise and is not done |
 | MIME | HTML multipart/alternative by default; text/markdown as text/plain; UTF-8 base64; Catabolic subject; pinned Apprise application header; safe static event body | Boundaries, Message-ID, folding and ordering of recipient sets differ. Date uses local time; explicit `tz=` is rejected |
 | Fanout/status | Partial RCPT refusal is successful if any envelope recipient was accepted; all-refused To transactions fail while remaining To transactions are attempted | Unrecoverable connection/protocol failure ends that SMTP session; durable retry can resend earlier successful recipients, as with the reference |
 | Pinned Reply-To bug | Native safely applies Reply-To independently to each To recipient | Apprise 1.13.1 mutates its Reply-To set into a list and fails after the first message when multiple To targets have a nonempty Reply-To set. The oracle retains the false result and first message; native intentionally sends both |
@@ -28,7 +28,7 @@ synthetic. No live third-party delivery is part of this qualification.
 The test module includes synthetic loopback SMTP, STARTTLS and implicit TLS;
 PLAIN/LOGIN authentication; per-To continuation; Cc/Bcc handling; retry and optional
 status; certificate and TLS-upgrade rejection; malformed/oversized replies;
-trickling-server deadline enforcement; and 34 frozen parser/MIME cases. The TLS
+trickling-server deadline enforcement; and 39 frozen parser/MIME cases. The TLS
 test trust root is passed only to the private test transport. Production delivery
 cannot select it or disable verification. The checked-in private key is exclusively
 for the synthetic numeric-loopback fixture; it is not an account credential.

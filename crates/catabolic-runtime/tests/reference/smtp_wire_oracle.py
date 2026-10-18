@@ -56,12 +56,24 @@ CASES = [
     "mailto://user:synthetic@comcast.net",
     "mailto://user:synthetic@example.com?retry=1&wait=0&optional=yes&cto=1&rto=2",
     "mailto://old:@example.com?user=new",
+    # Internationalized mailboxes. Apprise 1.13.1 has no SMTPUTF8 path: its
+    # address validator drops them (To) or rejects the URL (From), and it never
+    # passes the SMTPUTF8 MAIL option to smtplib.
+    "mailto://user:synthetic@example.com/j%C3%B3se@example.net",
+    "mailto://user:synthetic@example.com/one@ex%C3%A4mple.net",
+    "mailto://user:synthetic@example.com/one@example.net/j%C3%B3se@example.net",
+    "mailto://user:synthetic@example.com/one@example.net?from=s%C3%A9@example.com",
+    "mailto://user:synthetic@example.com/one@example.net?cc=j%C3%B3se@example.net&reply=r%C3%A9@example.net",
 ]
 
 # Apprise 1.13.1 prepare_emails changes reply_to from set to list at line 1269.
 # With two To recipients, the second subtraction at line 1253 raises TypeError.
 # Keep its false result and the first emitted message as frozen evidence.
 KNOWN_REFERENCE_BUGS = {CASES[6]: "reply_to_set_mutation"}
+
+# Apprise admits these URLs but drops every invalid To target, logs "There are
+# no Email recipients to notify" and returns False without connecting.
+NATIVE_EXPECTATIONS = {CASES[34]: "no_recipients", CASES[35]: "no_recipients"}
 
 
 def reject(*args, **kwargs):
@@ -107,5 +119,5 @@ for url in CASES:
         server = list(obj)[0] if added else None
         complete = obj.notify(title="Catabolic", body="A Catabolic processing job completed.", notify_type="info") if added else False
         settings = {key: getattr(server, key) for key in ["smtp_host", "port", "secure_mode", "user", "password", "from_addr", "targets", "notify_format", "retry", "wait", "optional"]} if server else None
-    records.append({"url": url, "added": added, "complete": complete, "known_reference_bug": KNOWN_REFERENCE_BUGS.get(url), "settings": settings, "messages": messages})
+    records.append({"url": url, "added": added, "complete": complete, "known_reference_bug": KNOWN_REFERENCE_BUGS.get(url), "native_expectation": NATIVE_EXPECTATIONS.get(url), "settings": settings, "messages": messages})
 print(json.dumps({"reference": "Apprise 1.13.1; frozen Catabolic notification_worker title/body", "cases": records}, indent=2))

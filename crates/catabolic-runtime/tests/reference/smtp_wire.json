@@ -6,6 +6,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -70,6 +71,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -134,6 +136,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "localhost",
         "port": 25,
@@ -198,6 +201,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 465,
@@ -262,6 +266,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 587,
@@ -326,6 +331,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "127.0.0.1",
         "port": 12345,
@@ -390,6 +396,7 @@
       "added": true,
       "complete": false,
       "known_reference_bug": "reply_to_set_mutation",
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -470,6 +477,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -565,6 +573,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -625,6 +634,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -689,6 +699,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -764,6 +775,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -828,6 +840,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -892,6 +905,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -995,6 +1009,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -1059,6 +1074,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -1123,6 +1139,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -1187,6 +1204,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "smtp.gmail.com",
         "port": 587,
@@ -1251,6 +1269,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "127.0.0.1",
         "port": 12345,
@@ -1315,6 +1334,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "smtp.mail.yahoo.com",
         "port": 465,
@@ -1379,6 +1399,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "smtp.yandex.ru",
         "port": 465,
@@ -1443,6 +1464,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "smtp-mail.outlook.com",
         "port": 587,
@@ -1507,6 +1529,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "smtp.outlook.com",
         "port": 587,
@@ -1571,6 +1594,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "smtp.office365.com",
         "port": 587,
@@ -1635,6 +1659,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "mail.gmx.com",
         "port": 587,
@@ -1699,6 +1724,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "smtp.fastmail.com",
         "port": 465,
@@ -1763,6 +1789,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "smtp.fastmail.com",
         "port": 465,
@@ -1827,6 +1854,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "smtp.zoho.com",
         "port": 587,
@@ -1891,6 +1919,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "smtp.sendgrid.net",
         "port": 465,
@@ -1955,6 +1984,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "smtp.163.com",
         "port": 465,
@@ -2019,6 +2049,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "smtp.qq.com",
         "port": 587,
@@ -2083,6 +2114,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "smtp.comcast.net",
         "port": 465,
@@ -2147,6 +2179,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -2211,6 +2244,7 @@
       "added": true,
       "complete": true,
       "known_reference_bug": null,
+      "native_expectation": null,
       "settings": {
         "smtp_host": "example.com",
         "port": 25,
@@ -2249,6 +2283,249 @@
               [
                 "",
                 "new@example.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "application": "Apprise",
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/j%C3%B3se@example.net",
+      "added": true,
+      "complete": false,
+      "known_reference_bug": null,
+      "native_expectation": "no_recipients",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": []
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@ex%C3%A4mple.net",
+      "added": true,
+      "complete": false,
+      "known_reference_bug": null,
+      "native_expectation": "no_recipients",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": []
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net/j%C3%B3se@example.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "application": "Apprise",
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?from=s%C3%A9@example.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "s\u00e9@example.com",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "s\u00e9@example.com",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "application": "Apprise",
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?cc=j%C3%B3se@example.net&reply=r%C3%A9@example.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
               ]
             ],
             "cc": [],

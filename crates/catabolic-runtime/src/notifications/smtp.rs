@@ -1582,6 +1582,21 @@ mod tests {
         for case in oracle["cases"].as_array().unwrap() {
             let url = case["url"].as_str().unwrap();
             assert_eq!(case["added"], true, "synthetic oracle admission: {url}");
+            if case["native_expectation"] == "no_recipients" {
+                // Apprise 1.13.1 drops internationalized To targets, never
+                // connects and reports failure; it has no SMTPUTF8 path.
+                assert_eq!(case["complete"], false, "{url}");
+                assert!(case["messages"].as_array().unwrap().is_empty(), "{url}");
+                assert!(case["settings"]["targets"].as_array().unwrap().is_empty());
+                let settings = Settings::parse(url).unwrap();
+                assert!(settings.to.is_empty(), "{url}");
+                assert_eq!(
+                    deliver(url, BODY, Instant::now() + Duration::from_millis(100)),
+                    Outcome::TemporarilyFailed,
+                    "{url}"
+                );
+                continue;
+            }
             if case["known_reference_bug"] == "reply_to_set_mutation" {
                 assert_eq!(case["complete"], false, "retained pinned bug: {url}");
                 assert_eq!(
@@ -1677,6 +1692,53 @@ mod tests {
                 assert!(!headers.contains("Bcc:"));
             }
         }
+    }
+
+    #[test]
+    fn internationalized_mailboxes_are_dropped_like_apprise_and_never_use_smtputf8() {
+        // The synthetic server would accept SMTPUTF8, but the pinned reference
+        // never requests it; non-ASCII targets are dropped before connecting.
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        for target in ["j%C3%B3se@example.net", "one@ex%C3%A4mple.net"] {
+            let url = format!("mailto://127.0.0.1:{port}/{target}?from=sender@example.com");
+            assert_eq!(
+                deliver(&url, BODY, Instant::now() + Duration::from_millis(500)),
+                Outcome::TemporarilyFailed
+            );
+        }
+        assert_eq!(
+            listener.accept().unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+        drop(listener);
+        let (port, server) = fixture(Mode::Plain, "", false, 1);
+        let url = format!(
+            "mailto://127.0.0.1:{port}/one@example.net/j%C3%B3se@example.net?from=sender@example.com&cc=j%C3%B3se@example.net&reply=r%C3%A9@example.net"
+        );
+        assert_eq!(
+            deliver(&url, BODY, Instant::now() + Duration::from_secs(3)),
+            Outcome::Complete
+        );
+        let capture = server.join().unwrap();
+        assert_eq!(capture.messages.len(), 1);
+        assert!(
+            capture
+                .commands
+                .iter()
+                .all(|c| c.is_ascii() && !c.to_ascii_uppercase().contains("SMTPUTF8"))
+        );
+        assert!(capture.messages[0].is_ascii());
+        assert!(
+            capture.messages[0].contains("To: one@example.net\r\n")
+                && !capture.messages[0].contains("Cc:")
+                && !capture.messages[0].contains("Reply-To:")
+        );
+        assert!(
+            Settings::parse("mailto://127.0.0.1:1/one@example.net?from=s%C3%A9@example.com")
+                .is_err()
+        );
     }
 
     #[test]
