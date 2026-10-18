@@ -672,7 +672,7 @@ const SCAN_REGEX_DELEGATE_LIMIT: usize = 131_072;
 const SCAN_REGEX_CAPTURE_DELEGATE_LIMIT: usize = 32_768;
 /// Lazy DFA cache capacity (and full DFA size) of each delegated engine. An
 /// engine whose automaton needs more simply runs without a lazy DFA.
-const SCAN_REGEX_DFA_LIMIT: usize = 256 * 1024;
+const SCAN_REGEX_DFA_LIMIT: usize = 128 * 1024;
 /// Longest path, in bytes, a filter is evaluated on; longer paths are a
 /// `regex_filter_timeout`.
 const SCAN_REGEX_MAX_PATH: usize = 4096;
@@ -682,7 +682,7 @@ const SCAN_REGEX_LIST_TRANSLATED_BYTES: usize = 4 * 1024 * 1024;
 /// caches at full capacity, charged as each engine is built.
 const SCAN_REGEX_PATTERN_MEMORY: usize = 16 * 1024 * 1024;
 /// The same for both filter lists of one policy together.
-const SCAN_REGEX_POLICY_MEMORY: usize = 64 * 1024 * 1024;
+const SCAN_REGEX_POLICY_MEMORY: usize = 160 * 1024 * 1024;
 /// The frozen engine's per-path filter timeout.
 const SCAN_REGEX_TIMEOUT: Duration = Duration::from_millis(10);
 #[cfg(test)]
@@ -2934,6 +2934,20 @@ mod tests {
         let compiled = compile_list(&json!(ordinary), &mut memory).unwrap();
         assert_eq!(compiled.len(), 32);
         assert!(memory < SCAN_REGEX_POLICY_MEMORY);
+        // Sol round 15: memoized delegates are charged per site, and a
+        // policy of 32 + 32 ordinary filters still fits.
+        let repeated = r"(?=a{3900})".repeat(90);
+        assert!(compile_pattern(&repeated).is_err());
+        let mut memory = SCAN_REGEX_POLICY_MEMORY;
+        for list in ["Movie", "Show"] {
+            let filters: Vec<String> = (0..32)
+                .map(|i| format!(r"(?=.*{list}{i})(?!.*sample).*\.mkv$"))
+                .collect();
+            assert_eq!(
+                compile_list(&json!(filters), &mut memory).unwrap().len(),
+                32
+            );
+        }
         // Over-long paths are never evaluated.
         let regex = compile_pattern(r"\.mkv$").unwrap();
         let long = format!("{}.mkv", "a".repeat(SCAN_REGEX_MAX_PATH));

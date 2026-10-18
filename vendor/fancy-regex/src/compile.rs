@@ -1091,14 +1091,32 @@ fn charge_compile(bytes: usize) -> Result<()> {
     Ok(())
 }
 
-/// Catabolic patch: a meta regex's retained memory plus its forward and
-/// reverse lazy DFA caches at full capacity.
-fn charge_meta(re: &RaRegex, options: &CompileOptions) -> Result<()> {
-    let caches = options
+/// Catabolic patch: the most one copy of a meta regex's search scratch can
+/// hold. A copy (each clone has its own cache pool) owns caches for the
+/// engines its strategy built. The PikeVM and one-pass caches are sized when
+/// created, apart from a stack bounded by the same state count, hence twice
+/// their measured size. Each lazy DFA cache (at most three: forward, reverse
+/// and a reverse inner or suffix engine) grows to the configured capacity.
+/// The bounded backtracker, whose scratch is sized independently, is disabled
+/// under limits (see `options_to_rabuilder`).
+fn cache_allowance(re: &RaRegex, options: &CompileOptions) -> usize {
+    let lazy = options
         .delegate_dfa_size_limit
         .unwrap_or(2 * 1024 * 1024)
-        .saturating_mul(2);
-    charge_compile(re.memory_usage().saturating_add(caches))
+        .saturating_mul(3);
+    re.create_cache()
+        .memory_usage()
+        .saturating_mul(2)
+        .saturating_add(lazy)
+}
+
+/// Catabolic patch: charge a newly built meta regex: retained memory plus
+/// one copy's scratch.
+fn charge_meta(re: &RaRegex, options: &CompileOptions) -> Result<()> {
+    charge_compile(
+        re.memory_usage()
+            .saturating_add(cache_allowance(re, options)),
+    )
 }
 
 pub(crate) fn compile_inner(
@@ -1146,8 +1164,9 @@ pub(crate) fn options_to_rabuilder(options: &CompileOptions, usage: DelegateUsag
     }
     if let Some(limit) = options.delegate_dfa_size_limit {
         config = config.dfa_size_limit(Some(limit));
-        // Catabolic patch: the lazy DFA cache takes the same limit.
-        config = config.hybrid_cache_capacity(limit);
+        // Catabolic patch: the lazy DFA cache takes the same limit, and the
+        // bounded backtracker (scratch sized apart from these limits) is off.
+        config = config.hybrid_cache_capacity(limit).backtrack(false);
     }
     if !usage.prefilter {
         // Anchored searches never consult a prefilter, so don't spend build time
@@ -1523,7 +1542,12 @@ impl DelegateBuilder {
         // lives in `capture_groups` below, not in the engine.
         let memo_key = (self.re.clone(), capture_groups.is_some());
         let compiled = match memo.get(&memo_key) {
-            Some(engine) => engine.clone(),
+            // Catabolic patch: a clone has its own cache pool, so its scratch
+            // is charged again.
+            Some(engine) => {
+                charge_compile(cache_allowance(engine, options))?;
+                engine.clone()
+            }
             None => {
                 let engine = match self.hirs.take() {
                     Some(hirs) => compile_inner_from_hir(&Hir::concat(hirs), options, usage)?,

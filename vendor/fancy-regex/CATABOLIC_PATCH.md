@@ -24,8 +24,14 @@ unless a limit is set.
   default.
 - **`with_compile_budget(limit, f)`** charges every regex-automata engine
   built while compiling on this thread. Each delegate, wrapped pattern and
-  reverse lookbehind is charged its retained memory plus the full capacity
-  of its lazy DFA caches, as soon as it is built. Compilation fails once the
+  reverse lookbehind is charged as soon as it is built. The charge is its
+  retained memory plus the most one copy's search scratch can hold:
+  - twice the measured PikeVM and one-pass caches;
+  - three lazy DFA caches at capacity.
+
+  A memoized delegate reused at another site is a clone with its own cache
+  pool, so it is charged again. Under limits, the bounded backtracker, whose
+  scratch is sized apart from these limits, is disabled. Compilation fails once the
   total exceeds `limit`. The call returns the bytes charged, so callers can
   budget across patterns.
 

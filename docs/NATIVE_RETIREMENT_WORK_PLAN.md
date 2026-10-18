@@ -808,3 +808,25 @@ lookaheads per pattern, each under the delegate limit, could retain about
   more runs without a lazy DFA.
 - **Tests.** The round 14 policy is refused. Thirty-two ordinary lookahead
   filters fit within the budget.
+
+#### Review round 15 correction (October 18)
+
+The cache charge was neither an upper bound nor tight:
+
+- **Clones.** A memoized delegate reused at another site is a clone with its
+  own cache pool, but it was charged once.
+- **Fallback scratch.** Fallback engines allocate scratch beyond the lazy
+  DFA caches.
+- **Over-charging.** A flat reservation could refuse a policy of 32 + 32
+  ordinary filters.
+
+The fix:
+
+- **Per-copy charge.** Each copy is charged its own scratch: twice its
+  measured PikeVM and one-pass caches, plus three lazy DFA caches at
+  capacity. A memoized clone is charged again.
+- **No backtracker.** The bounded backtracker, whose scratch is sized apart
+  from these limits, is disabled.
+- **Smaller caches, larger budget.** Lazy DFA caches drop to 128 KiB, and
+  the policy budget is now 160 MiB. Every limit is per concurrent searching
+  thread, since each thread draws its own cache from a pool.
