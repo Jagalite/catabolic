@@ -76,7 +76,14 @@ class NativeManifestTest(unittest.TestCase):
                 ),
                 120,
             )
+        # The native engine is the 1.0.0 distribution and stamps its own
+        # version; the frozen oracle stamps 0.2.0. Everything else must match.
+        self.assertEqual(expected["generator"]["version"], "0.2.0")
+        version = actual["generator"].pop("version")
+        self.assertRegex(version, r"^\d+\.\d+\.\d+$")
+        expected["generator"].pop("version")
         self.assertEqual(actual, expected)
+        actual["generator"]["version"] = version
         self.assertEqual(before, self.path.read_bytes())
         return actual
 
