@@ -110,6 +110,13 @@ fn every_available_fixed_preset_validates_actual_output_and_preserves_source() {
         )
         .unwrap_or_else(|error| panic!("{}: {error}", spec.name));
         assert!(rendered.size > 0);
+        if spec.name == "audio-normalize" {
+            let streams = rendered.validation["output"]["streams"].as_array().unwrap();
+            let audio = streams.iter().find(|s| s["codec_type"] == "audio").unwrap();
+            assert_eq!(audio["codec_name"], "flac");
+            assert_eq!(audio["sample_rate"], "48000");
+            assert_eq!(audio["sample_fmt"], "s16");
+        }
         assert_eq!(rendered.sha256, rendering::digest(&mut output).unwrap());
         assert_eq!(
             rendered.output_revision,

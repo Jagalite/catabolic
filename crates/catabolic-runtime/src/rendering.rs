@@ -932,6 +932,10 @@ pub fn render(
                     "48000",
                     "-sample_fmt",
                     "s16",
+                    // loudnorm can emit large frames; FFmpeg 9 otherwise uses
+                    // them to select a block size that FLAC cannot encode.
+                    "-frame_size",
+                    "4608",
                 ],
             );
             for key in [
