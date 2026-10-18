@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import platform
+import shlex
 import subprocess
 import tarfile
 import urllib.request
@@ -63,6 +64,18 @@ def runtime_identity(executable, prefix):
     return identity
 
 
+def configured_expat(makefile, archive):
+    settings = [
+        line.partition("=")[2].strip()
+        for line in makefile.read_text().splitlines()
+        if line.partition("=")[0].strip() == "MODULE_PYEXPAT_LDFLAGS"
+    ]
+    if len(settings) != 1 or shlex.split(settings[0]) != [str(archive), "-lm"]:
+        raise RuntimeError(
+            f"configure did not select the pinned Expat archive: {settings}"
+        )
+
+
 def build(prefix, work):
     # Fresh directories prevent an ambient installation from receiving a receipt.
     prefix.mkdir(parents=True, exist_ok=False)
@@ -105,7 +118,7 @@ def build(prefix, work):
         env.pop(key, None)
     env.update(
         LIBEXPAT_CFLAGS=f"-I{prefix}/include",
-        LIBEXPAT_LIBS=str(prefix / "lib/libexpat.a"),
+        LIBEXPAT_LDFLAGS=f"{prefix}/lib/libexpat.a -lm",
         # setup-python adds its own libpython to LD_LIBRARY_PATH. DT_RPATH
         # keeps the new executable and its child venvs on the library we built.
         LDFLAGS=f"-Wl,--disable-new-dtags -Wl,-rpath,{prefix}/lib",
@@ -122,6 +135,7 @@ def build(prefix, work):
         cwd=python_source,
         env=env,
     )
+    configured_expat(python_source / "Makefile", prefix / "lib/libexpat.a")
     run(["make", "-j2"], cwd=python_source, env=env)
     run(["make", "install"], cwd=python_source, env=env)
     executable = prefix / "bin/python"

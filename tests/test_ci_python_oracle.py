@@ -16,6 +16,25 @@ from scripts import prepare_ci_python_oracle as oracle
 
 
 class CiPythonOracleTest(unittest.TestCase):
+    def test_configured_linker_refuses_the_system_expat_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            makefile = root / "Makefile"
+            archive = root / "oracle/lib/libexpat.a"
+            for content in (
+                "MODULE_PYEXPAT_LDFLAGS=-lexpat\n",
+                f"MODULE_PYEXPAT_LDFLAGS={archive} -lexpat\n",
+                "MODULE_PYEXPAT_LDFLAGS=/ambient/libexpat.a -lm\n",
+                "MODULE_PYEXPAT_STATE=missing\n",
+                f"MODULE_PYEXPAT_LDFLAGS={archive} -lm\n" * 2,
+            ):
+                with self.subTest(content=content):
+                    makefile.write_text(content)
+                    with self.assertRaisesRegex(RuntimeError, "pinned Expat archive"):
+                        oracle.configured_expat(makefile, archive)
+            makefile.write_text(f"MODULE_PYEXPAT_LDFLAGS={archive} -lm\n")
+            oracle.configured_expat(makefile, archive)
+
     def test_source_checksum_failure_does_not_publish_download(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "source.tar.xz"
