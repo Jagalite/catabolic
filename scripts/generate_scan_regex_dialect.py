@@ -218,6 +218,10 @@ PATTERNS = [
     r"(?i)[^\uA7CE]",
     r"(?i)[\uA7CD-\uA7CE]",
     r"\uA7CE",
+    # Sol round 3: captures inside lookahead backtrack differently.
+    r"(?=(a|ab).)\1c",
+    r"(?=(?P<n>a))\w",
+    r"(?!(a))b",
 ]
 
 

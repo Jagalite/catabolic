@@ -2913,6 +2913,9 @@ mod tests {
             r"(?<=(a)\1)b",
             r"a(?=b)*",
             r"^*a",
+            // Sol round 3: captures inside lookaround.
+            r"(?=(a|ab).)\1c",
+            r"(?=(?P<n>a))\w",
         ] {
             assert!(refused.contains(pattern), "{pattern:?} should be refused");
         }

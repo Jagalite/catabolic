@@ -15,8 +15,8 @@
 //!
 //! Everything outside the subset is refused with [`UNQUALIFIED`], never
 //! approximated: bare inline flags after the start, contradictory or unknown
-//! flags, `(*VERB)`, duplicate group names, capturing groups or
-//! backreferences inside lookbehind, backreferences to open groups or under
+//! flags, `(*VERB)`, duplicate group names, capturing groups inside any
+//! lookaround, backreferences inside lookbehind, backreferences to open groups or under
 //! case-insensitive matching, multi-digit backreferences, nested or POSIX
 //! classes and set operators, possessive quantifiers, and quantifiers that
 //! follow an assertion or another quantifier.
@@ -245,6 +245,9 @@ enum Last {
 struct Frame {
     insensitive: bool,
     lookbehind: bool,
+    /// Inside any lookaround: frozen commits captures made there, while
+    /// fancy-regex can backtrack into them, so captures are refused.
+    lookaround: bool,
     capture: Option<usize>,
     assertion: bool,
 }
@@ -257,6 +260,7 @@ struct Translator<'a> {
     global: bool,
     insensitive: bool,
     lookbehind: bool,
+    lookaround: bool,
     stack: Vec<Frame>,
     names: std::collections::HashMap<String, usize>,
     groups: usize,
@@ -494,6 +498,7 @@ impl Translator<'_> {
         let mut frame = Frame {
             insensitive: self.insensitive,
             lookbehind: self.lookbehind,
+            lookaround: self.lookaround,
             capture: None,
             assertion: false,
         };
@@ -501,7 +506,7 @@ impl Translator<'_> {
             return self.refuse();
         }
         if chars.get(self.i + 1) != Some(&'?') {
-            if self.lookbehind {
+            if self.lookaround {
                 return self.refuse();
             }
             self.groups += 1;
@@ -532,14 +537,16 @@ impl Translator<'_> {
             } else if rest.starts_with('=') || rest.starts_with('!') {
                 self.out.push_str(&format!("(?{}", &rest[..1]));
                 frame.assertion = true;
+                frame.lookaround = true;
                 self.i += 3;
             } else if rest == "<=" || rest == "<!" {
                 self.out.push_str(&format!("(?{rest}"));
                 frame.assertion = true;
                 frame.lookbehind = true;
+                frame.lookaround = true;
                 self.i += 4;
             } else if rest.starts_with("P<") || rest.starts_with('<') {
-                if self.lookbehind {
+                if self.lookaround {
                     return self.refuse();
                 }
                 let start = self.i + if rest.starts_with('P') { 4 } else { 3 };
@@ -584,6 +591,7 @@ impl Translator<'_> {
         }
         self.insensitive = frame.insensitive;
         self.lookbehind = frame.lookbehind;
+        self.lookaround = frame.lookaround;
         self.stack.push(frame);
         self.last = Last::Nothing;
         Ok(())
@@ -598,12 +606,13 @@ impl Translator<'_> {
         if let Some(group) = frame.capture {
             self.closed.insert(group);
         }
-        let (insensitive, lookbehind) = self
-            .stack
-            .last()
-            .map_or((self.global, false), |f| (f.insensitive, f.lookbehind));
+        let (insensitive, lookbehind, lookaround) =
+            self.stack.last().map_or((self.global, false, false), |f| {
+                (f.insensitive, f.lookbehind, f.lookaround)
+            });
         self.insensitive = insensitive;
         self.lookbehind = lookbehind;
+        self.lookaround = lookaround;
         self.last = if frame.assertion {
             Last::Assertion
         } else {
@@ -624,6 +633,7 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
         global: false,
         insensitive: false,
         lookbehind: false,
+        lookaround: false,
         stack: Vec::new(),
         names: std::collections::HashMap::new(),
         groups: 0,

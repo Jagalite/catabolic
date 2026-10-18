@@ -596,3 +596,12 @@ engine's own case tables (`regex._regex.get_all_cases`) as well as from
 Python's mappings, and the engine still decides every pair. The table now has
 2,996 entries. The fixture (148 patterns, 33 paths) adds this pair as a
 literal, a negated class and a range.
+
+#### Review round 3 correction (October 18)
+
+Frozen VERSION0 commits a capture made inside a lookahead, while fancy-regex
+can backtrack into it. For example, `(?=(a|ab).)\1c` does not match `abc` in
+frozen Python but does natively. Capturing groups (named or not) are now
+refused inside any lookaround; they were already refused in lookbehind.
+Captures outside lookarounds are unchanged. The fixture (151 patterns) adds
+this counterexample and two more.
