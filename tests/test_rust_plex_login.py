@@ -66,6 +66,9 @@ class NativePlexLoginTest(unittest.TestCase):
             def respond(self):
                 route = urlsplit(self.path)
                 try:
+                    if self.command == "POST":
+                        fixture.assertEqual(self.headers.get("Content-Length"), "0")
+                        fixture.assertIsNone(self.headers.get("Transfer-Encoding"))
                     body = fixture.protocol(route, self.command, self.headers)
                     if fixture.block_route == route.path:
                         fixture.entered.set()

@@ -348,6 +348,12 @@ impl Service {
             .header("Accept", "application/json")
             .header("X-Plex-Product", "Catabolic")
             .header("X-Plex-Client-Identifier", client_id);
+        if method == "POST" {
+            // PIN creation has no body. Without explicit framing, ureq sends
+            // an empty chunked body that HTTP/1.0 peers may leave unread,
+            // resetting the connection before the response is consumed.
+            builder = builder.header("Content-Length", "0");
+        }
         if let Some(secret) = secret {
             builder = builder.header("X-Plex-Token", secret);
         }
