@@ -46,7 +46,7 @@ class CallableContractTest(unittest.TestCase):
 
     def test_helper_manifest_and_artifact_refusals(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             self.cli.__file__ = str(root / "cli.py")
             helper = root / "bin/catabolic-legacy-native"
             helper.parent.mkdir()
