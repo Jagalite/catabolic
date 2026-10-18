@@ -640,3 +640,21 @@ also composes explicit repeat counts through nesting, taking the upper bound,
 and counting an unbounded repeat as one repetition of its body. It refuses a
 pattern whose composed count exceeds 100,000. The fixture (162 patterns) adds
 this case, a nested `{100}` cube (refused) and its accepted square.
+
+#### Review round 7 correction (October 18)
+
+Counting an unbounded repeat as one repetition missed costly zero-width work
+inside it. With `\A(?:(?>){100000}.)*\Z`, the engine ran hundreds of
+millions of empty iterations on a long path. The bound now models cost per
+consumed character:
+
+- **Consuming repeats.** A repeat of a body that always consumes input is
+  bounded by the path length at any nesting depth, so it adds no factor.
+  `(\w+/)*\w+\.mkv` stays qualified.
+- **Empty-matchable repeats.** A repeat of a body that can match empty
+  multiplies by its explicit count. An unbounded one counts once, since it
+  stops at an empty iteration.
+- **Limits.** The composed factor is limited to 1,000 iterations per
+  character, and the minimum-width bound is now 65,536.
+
+The fixture is now 165 patterns.

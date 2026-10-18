@@ -2880,6 +2880,9 @@ mod tests {
             r"(?i)\uA7CE",
             r"(?i)[^\uA7CE]",
             r"(?i)[\uA7CD-\uA7CE]",
+            // Consuming nested repeats stay qualified (bounded by path length).
+            r"(\w+/)*\w+\.mkv",
+            r"(?:(?>){10}.)*x",
         ] {
             if fixture["cases"]
                 .as_array()
@@ -2924,6 +2927,8 @@ mod tests {
             // Sol round 6: composed repeat counts beyond the execution bound.
             r"(?>){1000000000}",
             r"(?:(?:a{100}){100}){100}",
+            // Sol round 7: zero-width work inside a consuming repeat.
+            r"\A(?:(?>){100000}.)*\Z",
         ] {
             assert!(refused.contains(pattern), "{pattern:?} should be refused");
         }

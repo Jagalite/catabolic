@@ -236,6 +236,10 @@ PATTERNS = [
     r"(?>){1000000000}",
     r"(?:(?:a{100}){100}){100}",
     r"(?:a{100}){100}",
+    # Sol round 7: zero-width work multiplied inside consuming repeats.
+    r"\A(?:(?>){100000}.)*\Z",
+    r"(?:(?>){10}.)*x",
+    r"(\w+/)*\w+\.mkv",
 ]
 
 

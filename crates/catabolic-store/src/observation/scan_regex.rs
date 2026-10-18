@@ -291,10 +291,12 @@ struct Translator<'a> {
 
 /// Any pattern whose minimum match is wider than this can never match a scan
 /// path; refusing it keeps the engine's own width arithmetic from overflowing.
-const MAX_MIN_WIDTH: u64 = 1 << 20;
-/// Largest product of nested explicit repeat counts. Zero-width bodies have
-/// no width to bound, so execution cost is bounded by this instead.
-const MAX_REPEAT_PRODUCT: u64 = 100_000;
+const MAX_MIN_WIDTH: u64 = 1 << 16;
+/// Largest number of engine iterations per consumed character. Iterations of
+/// a body that consumes input are bounded by the path length at any nesting
+/// depth; only repeats of a body that can match empty multiply work, so their
+/// explicit counts are composed and bounded by this.
+const MAX_ZERO_WIDTH_ITERATIONS: u64 = 1_000;
 
 /// Parse inline flags at `self.i` (just after `(?`): returns (on, off, close).
 fn flags(chars: &[char], start: usize) -> Result<(String, String, char, usize)> {
@@ -374,12 +376,20 @@ impl Translator<'_> {
     }
 
     /// Repeat the last atom at least `low` times in the minimum width.
-    /// Repeat the last atom up to `count` times in the composed repeat cost.
-    fn repeat_cost(&mut self, count: u64) -> Result<()> {
+    /// Repeat the last atom up to `count` times (`None`: unbounded). Only a
+    /// body that can match empty multiplies the per-character iteration cost;
+    /// an unbounded repeat of it stops at its first empty iteration.
+    /// Call before `repeat_width`, while `last_width` is the body's width.
+    fn repeat_cost(&mut self, count: Option<u64>) -> Result<()> {
+        let factor = if self.last_width == 0 {
+            count.unwrap_or(1).max(1)
+        } else {
+            1
+        };
         let cost = self
             .last_cost
-            .checked_mul(count.max(1))
-            .filter(|c| *c <= MAX_REPEAT_PRODUCT)
+            .checked_mul(factor)
+            .filter(|c| *c <= MAX_ZERO_WIDTH_ITERATIONS)
             .ok_or_else(|| Error(UNQUALIFIED.into()))?;
         self.last_cost = cost;
         let top = self.costs.last_mut().expect("root sequence");
@@ -834,10 +844,8 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
                 translator.quantifiable()?;
                 translator.out.push(c);
                 translator.i += 1;
+                translator.repeat_cost(if c == '?' { Some(1) } else { None })?;
                 translator.repeat_width(u64::from(c == '+'))?;
-                // Unbounded repeats stop at an empty iteration; bound them
-                // like one explicit repetition of the body.
-                translator.repeat_cost(1)?;
                 translator.after_quantifier()?;
             }
             '{' => {
@@ -879,13 +887,13 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
                 translator.out.push('}');
                 translator.i = end + 1;
                 let low_count = if low.is_empty() { 0 } else { bound(low)? };
-                translator.repeat_width(u64::from(low_count))?;
                 let high_count = match high {
-                    Some(h) if !h.is_empty() => bound(h)?,
-                    Some(_) => low_count,
-                    None => low_count,
+                    Some(h) if !h.is_empty() => Some(u64::from(bound(h)?)),
+                    Some(_) => None,
+                    None => Some(u64::from(low_count)),
                 };
-                translator.repeat_cost(u64::from(high_count.max(low_count)))?;
+                translator.repeat_cost(high_count)?;
+                translator.repeat_width(u64::from(low_count))?;
                 translator.after_quantifier()?;
             }
             '}' | ']' => return Err(refuse()),
