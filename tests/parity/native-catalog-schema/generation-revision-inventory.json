@@ -1504,6 +1504,7 @@
       "crates/catabolic-store/src/migration_schema34_tests.rs",
       "crates/catabolic-store/src/output_mutation.rs",
       "crates/catabolic-store/src/projection_run.rs",
+      "crates/catabolic-store/src/public_reconcile.rs",
       "crates/catabolic-store/src/publication_mappings.rs",
       "crates/catabolic-store/src/receipt_mutation.rs"
     ],
@@ -1577,6 +1578,7 @@
       "crates/catabolic-store/src/graphql.rs",
       "crates/catabolic-store/src/hardlink_mutation.rs",
       "crates/catabolic-store/src/layout_mutation.rs",
+      "crates/catabolic-store/src/public_reconcile.rs",
       "crates/catabolic-store/src/publication_mappings.rs"
     ],
     "primary_key": [
@@ -1645,6 +1647,7 @@
     "mutation_owner_files": [
       "crates/catabolic-store/src/catalog_refresh.rs",
       "crates/catabolic-store/src/definitions.rs",
+      "crates/catabolic-store/src/filesystem_mutation.rs",
       "crates/catabolic-store/src/layout_mutation.rs",
       "crates/catabolic-store/src/migration.rs",
       "crates/catabolic-store/src/observation.rs",
@@ -1722,6 +1725,7 @@
     "excluded_reason": null,
     "legacy_fallback_triggers": [],
     "mutation_owner_files": [
+      "crates/catabolic-runtime/src/source_events.rs",
       "crates/catabolic-store/src/observation.rs"
     ],
     "primary_key": [
@@ -1736,6 +1740,7 @@
     "excluded_reason": null,
     "legacy_fallback_triggers": [],
     "mutation_owner_files": [
+      "crates/catabolic-runtime/src/source_events.rs",
       "crates/catabolic-store/src/observation.rs"
     ],
     "primary_key": [
@@ -1884,7 +1889,8 @@
     ],
     "mutation_owner_files": [
       "crates/catabolic-store/src/artifact_mutation.rs",
-      "crates/catabolic-store/src/catalog_scope_components_tests.rs"
+      "crates/catabolic-store/src/catalog_scope_components_tests.rs",
+      "crates/catabolic-store/src/content_access.rs"
     ],
     "primary_key": [
       "id"
