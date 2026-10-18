@@ -313,6 +313,7 @@ fn projection_owned(
     request: &Value,
     drain_consumers: bool,
 ) -> Result<Value> {
+    catabolic_store::filesystem_mutation::admit_failpoints(request)?;
     use catabolic_store::{
         fallback_projection as projection, filesystem_mutation, selection::Evaluation,
     };
@@ -388,6 +389,7 @@ pub fn projection_store(
     action: &str,
     request: &Value,
 ) -> Result<Value> {
+    catabolic_store::filesystem_mutation::admit_failpoints(request)?;
     if !store.owns_writer_lock() || !store.db.is_autocommit() {
         return Err(Error(
             "fallback projection requires a writer outside an active transaction".into(),
@@ -421,6 +423,7 @@ pub fn apply_prepared(
     request: &Value,
     guard: &catabolic_store::filesystem_mutation::PublicationGuard,
 ) -> Result<Value> {
+    catabolic_store::filesystem_mutation::admit_failpoints(request)?;
     use catabolic_store::{fallback_projection as projection, filesystem_mutation};
     let catalog = prepared.present()["catalog"]
         .as_str()

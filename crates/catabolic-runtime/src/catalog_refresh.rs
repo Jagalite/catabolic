@@ -20,6 +20,7 @@ fn limit(request: &Value) -> Result<usize> {
     Ok(limit as usize)
 }
 pub fn execute(store: &mut Store, profile: &str, action: &str, request: &Value) -> Result<Value> {
+    catabolic_store::filesystem_mutation::admit_failpoints(request)?;
     let limit = limit(request)?;
     match action {
         "pending" => catabolic_store::catalog_refresh::pending(store, profile, limit),
@@ -56,6 +57,7 @@ pub fn execute_public(
     action: &str,
     request: &Value,
 ) -> Result<Value> {
+    catabolic_store::filesystem_mutation::admit_failpoints(request)?;
     match action {
         "configure_prevalidate" => {
             catabolic_store::catalog_refresh::validate_configuration_preconditions(store, request)?;

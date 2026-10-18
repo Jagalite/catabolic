@@ -88,6 +88,13 @@ by default.
 - **Where it is checked.** The check runs at every symlink and hardlink
   publication entry point and in manifest writes. The failpoint hook itself
   repeats the check as a backstop.
+- **Before admission (Sol round 2 fix).** Fallback projection admission used
+  to commit membership, history and generation changes before the executor
+  refused the field. Every runtime entry point that can reach publication
+  (fallback projection run/store/prepared apply, projection, public fallback
+  and its tick, public watchers, watcher workers and execution, catalog
+  refresh) now refuses first, so a refused request leaves the database and
+  output byte-identical.
 - **Fallback forwarding.** The fallback runtime now forwards these fields
   whenever they are present, so that they are refused rather than silently
   dropped.
@@ -96,6 +103,12 @@ Tests:
 
 - `default_feature_builds_refuse_failpoint_requests_before_effects` runs the
   disabled path end to end, through a test-only switch.
+- `test_default_feature_build_refuses_failpoints_before_any_admission`
+  (`tests/test_rust_fallback_projection.py`) runs the CLI with the test-only
+  `CATABOLIC_TEST_SIMULATE_DEFAULT_FEATURES` variable, which exists only in
+  `failpoints` builds. Applies with a current or stale plan, and a bare
+  request, each carrying `failpoint: null` or `crash: false`, are refused,
+  with every table and the output tree unchanged.
 - `tests/failpoint_feature_shipping.rs` checks that only that one
   dev-dependency enables the feature. It also checks that no default feature
   set, maturin feature list or release build command selects it.
@@ -297,6 +310,11 @@ Behaviour that matches frozen Python:
 - **Forwarded fields.** Only public fields are forwarded (`notify_consumers`,
   removal and change budgets, `cancel_unapplied`), so private options cannot
   relax a gate. The generic read dispatcher still refuses apply and recover.
+- **Callback truthiness (Sol round 2 fix).** Frozen Python tests
+  `if after_filesystem:` before each call. Native code now does the same per
+  operation, so a falsey callable (`__bool__` false or `__len__` zero) is never
+  called, and an exception from `__bool__` propagates like a callback error.
+  `test_callback_truthiness_matches_frozen` pairs both engines.
 - **Projection execution statistics.** Frozen `projection_stats` records an
   execution snapshot around every apply, and native code did not. The shared
   executor now records it in `meta`: begun before the first journal row,
@@ -397,9 +415,10 @@ it.
 | Item | Status | Commit |
 | --- | --- | --- |
 | 1 | Implemented (59-case matrix at the time; 62 with item 2) | `8ffd97d` |
-| 2 | Implemented; release gates still closed | this commit |
+| 2 | Implemented; release gates still closed | `505c368` |
 | Failpoint gating | Implemented | `eecc2b6` |
 | Sol round 1 P2 | Fixed | `d5b5ef0` |
-| 3 | Implemented | this commit |
-| Sol round 2 P2 #1 (private directory identity) | Fixed | this commit |
+| 3 | Implemented | `e50b453` |
+| Sol round 2 P2 #1 (private directory identity) | Fixed | `5aa37ce` |
+| Sol round 2 P2 #2 (refuse failpoints before admission) and #3 (callback truthiness) | Fixed | this commit |
 | 4–6 | Not started | |

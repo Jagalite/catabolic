@@ -1411,6 +1411,12 @@ fn failpoints_enabled() -> bool {
     if SIMULATE_DEFAULT_FEATURES.with(std::cell::Cell::get) {
         return false;
     }
+    // Test builds only (the feature is never shipped): a subprocess under test
+    // can take the default-feature admission path without another build.
+    #[cfg(feature = "failpoints")]
+    if std::env::var_os("CATABOLIC_TEST_SIMULATE_DEFAULT_FEATURES").is_some() {
+        return false;
+    }
     FAILPOINTS_ENABLED
 }
 /// Refuse, before any effect, a request carrying `failpoint` or `crash` when

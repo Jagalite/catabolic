@@ -19,6 +19,7 @@ impl DerefMut for Evaluated<'_> {
 }
 
 pub fn call(session: &mut Session, profile: &str, operation: &str, args: &Value) -> Result<Value> {
+    catabolic_store::filesystem_mutation::admit_failpoints(args)?;
     session.store()?;
     if operation == "run" {
         run(session, profile, args)

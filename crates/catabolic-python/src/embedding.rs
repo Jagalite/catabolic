@@ -289,6 +289,11 @@ impl NativeStore {
                     return Ok(());
                 };
                 Python::attach(|py| -> PyResult<()> {
+                    // Frozen Python tests `if after_filesystem:` per operation,
+                    // so a falsey callable is skipped and __bool__ errors raise.
+                    if !callback.bind(py).is_truthy()? {
+                        return Ok(());
+                    }
                     let operation = py
                         .import("json")?
                         .call_method1("loads", (operation.to_string(),))?;

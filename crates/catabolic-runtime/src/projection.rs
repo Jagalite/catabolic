@@ -8,6 +8,7 @@ use std::path::Path;
 pub const EXECUTION_GATE: &str = "native projection execute is blocked: filesystem publication and recovery are not yet qualified";
 
 pub fn run(database: &Path, profile: &str, apply: bool, args: &Value) -> Result<Value> {
+    catabolic_store::filesystem_mutation::admit_failpoints(args)?;
     // Intentionally earlier than frozen execution admission: no dependent
     // metadata staging or output planning can precede this publication refusal.
     // No debug/private request option can relax it.

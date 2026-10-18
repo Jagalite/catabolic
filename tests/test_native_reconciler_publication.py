@@ -247,6 +247,49 @@ class NativeFacadeDifferentialTest(unittest.TestCase):
                 self.assertEqual(self.state(self.frozen), self.state(self.native))
         self.assertSame(self.both("apply"))
 
+    def test_callback_truthiness_matches_frozen(self):
+        # Frozen Python tests `if after_filesystem:` before each call, so a
+        # falsey callable is never called and a raising __bool__ propagates.
+        class Falsey:
+            def __init__(self, calls):
+                self.calls = calls
+
+            def __bool__(self):
+                return False
+
+            def __call__(self, operation):
+                self.calls.append(operation["kind"])
+                raise AssertionError("a falsey callback must not run")
+
+        class Empty(Falsey):
+            __bool__ = None
+
+            def __len__(self):
+                return 0
+
+        class Ambiguous(Falsey):
+            def __bool__(self):
+                raise ValueError("ambiguous truth value")
+
+        for factory in (Falsey, Empty):
+            with self.subTest(callback=factory.__name__):
+                calls = {"frozen": [], "native": []}
+                for name, side in (("frozen", self.frozen), ("native", self.native)):
+                    side["engine"].apply(after_filesystem=factory(calls[name]))
+                self.assertEqual(calls, {"frozen": [], "native": []})
+                self.assertEqual(self.state(self.frozen), self.state(self.native))
+        self.assertSame(self.both("apply"))
+        for side in (self.frozen, self.native):
+            side["holder"].app.disable_mapping(side["holder"].mapping["id"])
+            side["holder"].link.unlink()
+        errors = {}
+        for name, side in (("frozen", self.frozen), ("native", self.native)):
+            with self.assertRaises(ValueError) as raised:
+                side["engine"].apply(after_filesystem=Ambiguous([]))
+            errors[name] = str(raised.exception)
+        self.assertEqual(errors["native"], errors["frozen"])
+        self.assertEqual(self.state(self.frozen), self.state(self.native))
+
     def test_removal_and_forget_match_frozen(self):
         self.assertSame(self.both("apply"))
         for side in (self.frozen, self.native):

@@ -42,6 +42,7 @@ pub fn worker_with_options(
     name: &str,
     options: &Value,
 ) -> Result<Value> {
+    catabolic_store::filesystem_mutation::admit_failpoints(options)?;
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         match Store::open(path, true, false) {
@@ -64,6 +65,7 @@ pub fn worker_with_options(
     }
 }
 pub fn execute(store: &mut Store, profile: &str, action: &str, request: &Value) -> Result<Value> {
+    catabolic_store::filesystem_mutation::admit_failpoints(request)?;
     match action {
         "run" => {
             let name = request["name"]

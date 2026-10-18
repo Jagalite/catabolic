@@ -5,6 +5,7 @@
 import copy
 import hashlib
 import json
+import os
 import subprocess
 import unittest
 from unittest.mock import patch
@@ -25,7 +26,9 @@ class NativeProjectionTest(unittest.TestCase):
     policy = fixtures.ResolverTest.policy
     maxDiff = None
 
-    def native(self, action, options, *, failure=None, surface="fallback", code=None):
+    def native(
+        self, action, options, *, failure=None, surface="fallback", code=None, env=None
+    ):
         options = {"disposable_fixture": True, **options}
         with self.store.detached():
             p = subprocess.run(
@@ -43,6 +46,7 @@ class NativeProjectionTest(unittest.TestCase):
                 text=True,
                 capture_output=True,
                 timeout=60,
+                env=None if env is None else {**os.environ, **env},
             )
         if code is not None:
             self.assertEqual(p.returncode, code, p.stdout + p.stderr)
@@ -254,6 +258,39 @@ class NativeProjectionTest(unittest.TestCase):
         )
         self.assertEqual(self.store.rows("SELECT * FROM fallback_entries"), [])
         self.assertEqual(list(self.output.rglob("*")), [])
+
+    def database_state(self):
+        tables = [
+            row["name"]
+            for row in self.store.rows(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+            )
+        ]
+        return {table: self.store.rows(f'SELECT * FROM "{table}"') for table in tables}
+
+    def test_default_feature_build_refuses_failpoints_before_any_admission(self):
+        # Sol round 2: projection admission used to commit membership,
+        # history and generation changes before the executor refused a
+        # failpoint field. A default-feature build now refuses first.
+        self.bind()
+        plan = self.plan_pair()
+        before = self.database_state()
+        simulate = {"CATABOLIC_TEST_SIMULATE_DEFAULT_FEATURES": "1"}
+        for options in (
+            {"apply": True, "expected_plan": plan["plan_id"], "failpoint": None},
+            {"apply": True, "expected_plan": plan["plan_id"], "crash": False},
+            {"apply": True, "expected_plan": "stale", "failpoint": None},
+            {"failpoint": None},
+        ):
+            with self.subTest(options=options):
+                self.native(
+                    "run",
+                    {"catalog": "global", **options},
+                    failure="failpoint_injection_unavailable",
+                    env=simulate,
+                )
+                self.assertEqual(self.database_state(), before)
+                self.assertEqual(list(self.output.rglob("*")), [])
 
     def test_native_crash_boundaries_recover_in_frozen_python(self):
         self.bind()

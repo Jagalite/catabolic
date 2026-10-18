@@ -12,6 +12,7 @@ use std::{
 };
 
 pub fn call(session: &mut Session, profile: &str, operation: &str, args: &Value) -> Result<Value> {
+    catabolic_store::filesystem_mutation::admit_failpoints(args)?;
     session.store()?;
     match operation {
         "binding" => public::binding(session.store()?, profile, public::text(args, "catalog")?),
@@ -195,6 +196,7 @@ fn prepare(
 /// The frozen worker's entry point is genuinely path based. It owns one writer
 /// for the whole bounded tick; each ordinary facade invocation lends that owner.
 pub fn tick(database: &Path, profile: &str, args: &Value, cancelled: &AtomicBool) -> Result<Value> {
+    catabolic_store::filesystem_mutation::admit_failpoints(args)?;
     let limit = args
         .get("limit")
         .map_or(Some(10), Value::as_u64)
