@@ -748,6 +748,9 @@ class NativeLegacyExternalRuleTest(unittest.TestCase):
             ),
         ):
             with self.subTest(response=response):
+                # Each subcase re-polls the job the previous one leased: see
+                # after_lease_second.
+                self.after_lease_second()
                 results, requests = self.pair(self.run_args(), responses=[response])
                 self.assertEqual(len(requests), 1)
                 report = self.report(results[False])
