@@ -807,6 +807,17 @@ impl<'a> Compiler<'a> {
             }
         };
 
+        // Catabolic patch: the reverse NFA and the lazy DFA cache.
+        charge_compile(
+            dfa.memory_usage()
+                .saturating_add(dfa.get_nfa().memory_usage())
+                .saturating_add(
+                    self.options
+                        .delegate_dfa_size_limit
+                        .unwrap_or(2 * 1024 * 1024),
+                ),
+        )?;
+
         let create: CachePoolFn = alloc::boxed::Box::new({
             let dfa = Arc::clone(&dfa);
             move || dfa.create_cache()
@@ -1028,6 +1039,68 @@ impl DelegateUsage {
     }
 }
 
+#[cfg(feature = "std")]
+std::thread_local! {
+    /// Catabolic patch: (charged, limit) for `with_compile_budget`.
+    static COMPILE_BUDGET: core::cell::Cell<Option<(usize, usize)>> =
+        const { core::cell::Cell::new(None) };
+}
+
+/// Catabolic patch: compile under a memory budget on this thread. Every
+/// regex-automata engine built for a delegate or a wrapped pattern is
+/// charged its retained memory plus the most its lazy DFA caches may grow
+/// to, as soon as it is built; compilation fails once the total exceeds
+/// `limit`. Returns `f`'s result and the bytes charged.
+#[cfg(feature = "std")]
+pub fn with_compile_budget<R>(limit: usize, f: impl FnOnce() -> R) -> (R, usize) {
+    struct Restore(Option<(usize, usize)>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            COMPILE_BUDGET.with(|b| b.set(self.0));
+        }
+    }
+    let restore = Restore(COMPILE_BUDGET.with(|b| b.replace(Some((0, limit)))));
+    let result = f();
+    let charged = COMPILE_BUDGET
+        .with(|b| b.get())
+        .map_or(0, |(charged, _)| charged);
+    drop(restore);
+    (result, charged)
+}
+
+/// Catabolic patch: charge `bytes` against the active compile budget.
+fn charge_compile(bytes: usize) -> Result<()> {
+    #[cfg(feature = "std")]
+    {
+        let exceeded = COMPILE_BUDGET.with(|b| match b.get() {
+            Some((charged, limit)) => {
+                let charged = charged.saturating_add(bytes);
+                b.set(Some((charged, limit)));
+                charged > limit
+            }
+            None => false,
+        });
+        if exceeded {
+            return Err(Error::CompileError(Box::new(
+                CompileError::UnexpectedGeneralError("compile budget exceeded".into()),
+            )));
+        }
+    }
+    #[cfg(not(feature = "std"))]
+    let _ = bytes;
+    Ok(())
+}
+
+/// Catabolic patch: a meta regex's retained memory plus its forward and
+/// reverse lazy DFA caches at full capacity.
+fn charge_meta(re: &RaRegex, options: &CompileOptions) -> Result<()> {
+    let caches = options
+        .delegate_dfa_size_limit
+        .unwrap_or(2 * 1024 * 1024)
+        .saturating_mul(2);
+    charge_compile(re.memory_usage().saturating_add(caches))
+}
+
 pub(crate) fn compile_inner(
     inner_re: &str,
     options: &CompileOptions,
@@ -1039,6 +1112,7 @@ pub(crate) fn compile_inner(
         .build(inner_re)
         .map_err(CompileError::InnerError)
         .map_err(|e| Error::CompileError(Box::new(e)))?;
+    charge_meta(&re, options)?;
 
     Ok(re)
 }
@@ -1058,6 +1132,7 @@ pub(crate) fn compile_inner_from_hir(
         .build_from_hir(hir)
         .map_err(CompileError::InnerError)
         .map_err(|e| Error::CompileError(Box::new(e)))?;
+    charge_meta(&re, options)?;
 
     Ok(re)
 }

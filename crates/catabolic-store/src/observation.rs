@@ -15,7 +15,7 @@ use catabolic_core::{coordination as lifecycle, encode, sha256};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     fs::File,
     ops::Deref,
     os::{
@@ -648,8 +648,12 @@ fn configure_policy(store: &Store, profile: &str, source: &str, args: &Value) ->
     new["exclusions"] = json!(paths(&new["exclusions"], false)?);
     new["extensions"] = normalize_extensions(&new["extensions"])?;
     new["budgets"] = budgets(Some(&new["budgets"]))?;
-    new["include_regex"] = patterns(&new["include_regex"])?;
-    new["exclude_regex"] = patterns(&new["exclude_regex"])?;
+    // Both lists of a policy share one compiled-memory budget.
+    let mut memory = SCAN_REGEX_POLICY_MEMORY;
+    for key in ["include_regex", "exclude_regex"] {
+        let compiled = compile_list(&new[key], &mut memory)?;
+        new[key] = json!(compiled.into_keys().collect::<Vec<_>>());
+    }
     let changed = new.as_object().unwrap().iter().any(|(k, v)| old[k] != *v);
     let revision = old["revision"].as_i64().unwrap() + i64::from(changed);
     let apply = args["apply"].as_bool().unwrap_or(false);
@@ -666,14 +670,28 @@ const SCAN_REGEX_DELEGATE_LIMIT: usize = 131_072;
 /// The same for patterns with backreferences, whose delegated searches may
 /// also record up to `MAX_REFERENCED_GROUPS` captures.
 const SCAN_REGEX_CAPTURE_DELEGATE_LIMIT: usize = 32_768;
+/// Lazy DFA cache capacity (and full DFA size) of each delegated engine. An
+/// engine whose automaton needs more simply runs without a lazy DFA.
+const SCAN_REGEX_DFA_LIMIT: usize = 256 * 1024;
 /// Longest path, in bytes, a filter is evaluated on; longer paths are a
 /// `regex_filter_timeout`.
 const SCAN_REGEX_MAX_PATH: usize = 4096;
 /// Largest total translation of one filter list (include or exclude), bytes.
 const SCAN_REGEX_LIST_TRANSLATED_BYTES: usize = 4 * 1024 * 1024;
+/// Compiled memory one pattern may use: retained engines plus their lazy DFA
+/// caches at full capacity, charged as each engine is built.
+const SCAN_REGEX_PATTERN_MEMORY: usize = 16 * 1024 * 1024;
+/// The same for both filter lists of one policy together.
+const SCAN_REGEX_POLICY_MEMORY: usize = 64 * 1024 * 1024;
 /// The frozen engine's per-path filter timeout.
 const SCAN_REGEX_TIMEOUT: Duration = Duration::from_millis(10);
+#[cfg(test)]
 fn compile_pattern(pattern: &str) -> Result<fancy_regex::Regex> {
+    compile_measured(pattern, SCAN_REGEX_PATTERN_MEMORY).map(|(regex, _)| regex)
+}
+/// Compile under a memory budget of at most `memory` bytes; returns the
+/// regex and the memory charged.
+fn compile_measured(pattern: &str, memory: usize) -> Result<(fancy_regex::Regex, usize)> {
     // Only the qualified VERSION0 subset is translated; everything else,
     // including patterns frozen admission crashes on such as `(?V1)`, is
     // refused with a structured error rather than approximated.
@@ -681,7 +699,8 @@ fn compile_pattern(pattern: &str) -> Result<fancy_regex::Regex> {
     // Searches run under the frozen per-path deadline (see `search`); the
     // storage and delegate limits bound memory and the uninterruptible
     // delegated calls.
-    fancy_regex::RegexBuilder::new(&translated)
+    let mut builder = fancy_regex::RegexBuilder::new(&translated);
+    builder
         .storage_limit(SCAN_REGEX_STORAGE_LIMIT)
         .backtrack_limit(100_000)
         .seek(false)
@@ -690,9 +709,10 @@ fn compile_pattern(pattern: &str) -> Result<fancy_regex::Regex> {
         } else {
             SCAN_REGEX_DELEGATE_LIMIT
         })
-        .delegate_dfa_size_limit(1_048_576)
-        .build()
-        .map_err(|e| Error(format!("invalid scan regex: {e}")))
+        .delegate_dfa_size_limit(SCAN_REGEX_DFA_LIMIT);
+    let (regex, charged) = fancy_regex::with_compile_budget(memory, || builder.build());
+    let regex = regex.map_err(|e| Error(format!("invalid scan regex: {e}")))?;
+    Ok((regex, charged))
 }
 /// One filter search before `deadline`: any engine limit, the deadline or
 /// an over-long path is a `regex_filter_timeout`.
@@ -708,26 +728,46 @@ fn search(regex: &fancy_regex::Regex, path: &str, deadline: Instant) -> Result<b
     }
     Ok(matched)
 }
+#[cfg(test)]
 fn patterns(value: &Value) -> Result<Value> {
+    let compiled = compile_list(value, &mut SCAN_REGEX_POLICY_MEMORY.clone())?;
+    Ok(json!(compiled.into_keys().collect::<Vec<_>>()))
+}
+/// Validate and compile one filter list, each distinct pattern once, in
+/// normalized order. `memory` is the compiled-memory budget left for the
+/// policy; each pattern's charge is deducted.
+fn compile_list(value: &Value, memory: &mut usize) -> Result<BTreeMap<String, fancy_regex::Regex>> {
     let values = value
         .as_array()
         .filter(|v| v.len() <= 32)
         .ok_or_else(|| Error("regex filters must be lists of at most 32 patterns".into()))?;
-    let mut normalized = BTreeSet::new();
+    let mut compiled = BTreeMap::new();
     let mut translated = 0usize;
     for value in values {
         let pattern = value
             .as_str()
             .filter(|v| (1..=1024).contains(&v.chars().count()))
             .ok_or_else(|| Error("regex patterns must contain 1 to 1024 characters".into()))?;
-        // Bounds the compiled matchers one filter list keeps in memory.
-        translated += compile_pattern(pattern)?.as_str().len();
-        if translated > SCAN_REGEX_LIST_TRANSLATED_BYTES {
-            return Err(Error(scan_regex::UNQUALIFIED.into()));
+        if compiled.contains_key(pattern) {
+            continue;
         }
-        normalized.insert(pattern);
+        let refused = || Error(scan_regex::UNQUALIFIED.into());
+        let budget = SCAN_REGEX_PATTERN_MEMORY.min(*memory);
+        let (regex, charged) = compile_measured(pattern, budget)
+            .map_err(|e| if charged_out(&e) { refused() } else { e })?;
+        *memory = memory.checked_sub(charged).ok_or_else(refused)?;
+        // Bounds the translated matchers one filter list keeps in memory.
+        translated += regex.as_str().len();
+        if translated > SCAN_REGEX_LIST_TRANSLATED_BYTES {
+            return Err(refused());
+        }
+        compiled.insert(pattern.to_owned(), regex);
     }
-    Ok(json!(normalized))
+    Ok(compiled)
+}
+/// Whether compilation stopped at its memory budget.
+fn charged_out(error: &Error) -> bool {
+    error.0.contains("compile budget exceeded")
 }
 #[derive(Clone)]
 struct ScanFilter {
@@ -737,19 +777,13 @@ struct ScanFilter {
 }
 impl ScanFilter {
     fn new(execution: &Value) -> Result<Self> {
-        let compile = |key: &str| -> Result<Vec<fancy_regex::Regex>> {
-            let normalized = patterns(&execution[key])?;
-            normalized
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|value| compile_pattern(value.as_str().unwrap()))
-                .collect()
-        };
+        let mut memory = SCAN_REGEX_POLICY_MEMORY;
+        let include = compile_list(&execution["include_regex"], &mut memory)?;
+        let exclude = compile_list(&execution["exclude_regex"], &mut memory)?;
         Ok(Self {
             extensions: execution["extensions"].clone(),
-            include: compile("include_regex")?,
-            exclude: compile("exclude_regex")?,
+            include: include.into_values().collect(),
+            exclude: exclude.into_values().collect(),
         })
     }
     fn matches(&self, path: &str) -> Result<bool> {
@@ -2886,6 +2920,20 @@ mod tests {
             patterns(&json!(list)).unwrap_err().0,
             scan_regex::UNQUALIFIED
         );
+        // Sol round 14: compiled engines are budgeted per pattern and per
+        // policy, so many distinct lookaheads cannot retain gigabytes.
+        let prefix: String = (3900..3990).map(|n| format!("(?=a{{{n}}})")).collect();
+        let list: Vec<String> = (0..32).map(|i| format!("{prefix}b{i:02}")).collect();
+        let started = Instant::now();
+        assert!(patterns(&json!(list)).is_err());
+        assert!(started.elapsed() < Duration::from_secs(20));
+        let mut memory = SCAN_REGEX_POLICY_MEMORY;
+        let ordinary: Vec<String> = (0..32)
+            .map(|i| format!(r"\bAlien{i}(?=[^/]*\.mkv$)"))
+            .collect();
+        let compiled = compile_list(&json!(ordinary), &mut memory).unwrap();
+        assert_eq!(compiled.len(), 32);
+        assert!(memory < SCAN_REGEX_POLICY_MEMORY);
         // Over-long paths are never evaluated.
         let regex = compile_pattern(r"\.mkv$").unwrap();
         let long = format!("{}.mkv", "a".repeat(SCAN_REGEX_MAX_PATH));

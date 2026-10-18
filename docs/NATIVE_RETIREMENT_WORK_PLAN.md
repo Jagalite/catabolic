@@ -792,3 +792,19 @@ limited to 512 KiB per pattern, checked while it is emitted, and to 4 MiB
 per include or exclude list. The 1 MiB delegate DFA limit now also caps
 the lazy DFA cache of forward delegates and wrapped regexes, which
 regex-automata otherwise sets to 2 MiB.
+
+#### Review round 14 correction (October 18)
+
+Translation budgets did not bound the compiled automata. Ninety distinct
+lookaheads per pattern, each under the delegate limit, could retain about
+1 GiB across a policy. Each pattern was also compiled twice.
+
+- **Compile budget.** The patch adds `with_compile_budget`. Every
+  regex-automata engine built for a pattern is charged its retained memory
+  plus its lazy DFA caches at full capacity, as soon as it is built.
+- **Limits.** Native allows 16 MiB per pattern and 64 MiB across both lists
+  of a policy, and each pattern compiles only once.
+- **Cache capacity.** Lazy DFA caches drop to 256 KiB. An engine that needs
+  more runs without a lazy DFA.
+- **Tests.** The round 14 policy is refused. Thirty-two ordinary lookahead
+  filters fit within the budget.

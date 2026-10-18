@@ -76,6 +76,8 @@ use crate::vm::OPTION_LEFTMOST_LONGEST;
 use crate::vm::{Prog, OPTION_FIND_NOT_EMPTY, OPTION_NOT_CONTINUED_FROM_PREVIOUS_MATCH};
 
 pub use crate::bytes::MatchBytes;
+#[cfg(feature = "std")]
+pub use crate::compile::with_compile_budget;
 pub use crate::error::{CompileError, Error, ParseError, Result, RuntimeError};
 pub use crate::expand::Expander;
 pub use crate::input::{Input, RegexInput};
