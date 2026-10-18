@@ -10,12 +10,113 @@ import copy
 import hashlib
 import json
 import os
+import re
+import sqlite3
 import unittest
+from contextlib import closing
 from datetime import datetime, timezone
+from pathlib import Path
 
 import tests.test_rust_publication_mapping_preview as mapping_preview
 from tests.test_rust_legacy_review import REFERENCE
 from tests.test_rust_publication_mapping_preview import typed
+
+
+ORACLE_VERSION = "0.2.0"
+CARGO_TOML = Path(__file__).resolve().parents[1] / "Cargo.toml"
+
+
+def native_version():
+    """The workspace crate version the native engine stamps into manifests."""
+    match = re.search(
+        r'^\[workspace\.package\][^\[]*?^version = "([^"]+)"',
+        CARGO_TOML.read_text(),
+        re.M | re.S,
+    )
+    if match is None:
+        raise AssertionError("workspace.package version not found in Cargo.toml")
+    return match.group(1)
+
+
+# The frozen plan digests (publication_mappings.plan_digest, digest of an
+# export spec, store.encode), restated so each engine's own claimed plan_id and
+# signature can be recomputed from the plan it returned.
+def encode(value):
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False)
+
+
+def digest(value):
+    return hashlib.sha256(encode(value).encode()).hexdigest()
+
+
+def stable_document(document):
+    return {k: v for k, v in document.items() if k != "generated_at"}
+
+
+def plan_digest(plan):
+    value = copy.deepcopy(plan)
+    if "document" in value:
+        value["document"] = stable_document(value["document"])
+    data = value.get("data")
+    if isinstance(data, dict) and "document" in data:
+        data["document"] = stable_document(data["document"])
+    elif isinstance(data, list):
+        for group in data:
+            group["document"] = stable_document(group["document"])
+    return digest(value)
+
+
+def export_signature(plan):
+    data = plan["data"]
+    return digest({**data, "document": stable_document(data["document"])})
+
+
+def plan_documents(plan):
+    yield plan["document"]
+    data = plan.get("data")
+    if isinstance(data, dict) and "document" in data:
+        yield data["document"]
+    elif isinstance(data, list):
+        for group in data:
+            yield group["document"]
+
+
+def has_export_signature(plan):
+    return isinstance(plan.get("data"), dict) and "signature" in plan
+
+
+def attest(case, result, version):
+    """Check the engine's exact version and that its digests match its plan."""
+    plan = result.get("plan")
+    if plan is None:
+        return
+    for document in plan_documents(plan):
+        case.assertEqual(
+            document["generator"], {"name": "catabolic", "version": version}
+        )
+    if has_export_signature(plan):
+        case.assertEqual(plan["signature"], export_signature(plan))
+    case.assertEqual(result["plan_id"], plan_digest(plan))
+
+
+def rebase(result, version):
+    """Restamp the manifest version and recompute only the version-derived digests."""
+    result = copy.deepcopy(result)
+    plan = result.get("plan")
+    if plan is None:
+        return result
+    for document in plan_documents(plan):
+        document["generator"]["version"] = version
+    if has_export_signature(plan):
+        plan["signature"] = export_signature(plan)
+    result["plan_id"] = plan_digest(plan)
+    return result
+
+
+def rebase_envelope(envelope, version):
+    if "data" in envelope:
+        return {**envelope, "data": rebase(envelope["data"], version)}
+    return rebase(envelope, version)
 
 
 def stable(value):
@@ -95,17 +196,31 @@ class PublicationBundlePreviewTest(unittest.TestCase):
         state["launched"] = (self.root / "unexpected-launch").exists()
         return state
 
-    def pair(self, definition=None):
+    def pair(self, definition=None, stage=None):
+        """Run both engines; ``stage(is_oracle)`` may lay out per-engine fixtures."""
         definition = self.definition if definition is None else definition
         path = self.write(definition)
         before = self.snapshot()
-        old, new = (
-            self.cli(
-                flag,
-                ["projection", "mapping-preview", "--definition", path, "--machine"],
+        runs = []
+        for flag in (True, False):
+            if stage:
+                stage(flag)
+                before = self.snapshot()
+            runs.append(
+                self.cli(
+                    flag,
+                    [
+                        "projection",
+                        "mapping-preview",
+                        "--definition",
+                        path,
+                        "--machine",
+                    ],
+                )
             )
-            for flag in (True, False)
-        )
+            if stage:
+                self.assertEqual(before, self.snapshot())
+        old, new = runs
         self.assertEqual(
             new.returncode,
             old.returncode,
@@ -113,7 +228,15 @@ class PublicationBundlePreviewTest(unittest.TestCase):
         )
         self.assertEqual(self.normalize(new.stderr), self.normalize(old.stderr))
         a, b = json.loads(old.stdout), json.loads(new.stdout)
-        self.assertEqual(typed(stable(b)), typed(stable(a)))
+        # Each engine stamps its own manifest version (oracle 0.2.0, native the
+        # crate version); assert both exactly, then compare every other byte,
+        # including the version-derived plan_id and signature, after restamping
+        # the native plan to the oracle version and recomputing those digests.
+        for value, version in ((a, ORACLE_VERSION), (b, native_version())):
+            attest(self, value.get("data", value), version)
+        self.assertEqual(
+            typed(stable(rebase_envelope(b, ORACLE_VERSION))), typed(stable(a))
+        )
         self.assertEqual(before, self.snapshot())
         for value in (a, b):
             result = value.get("data", value)
@@ -240,8 +363,14 @@ class PublicationBundlePreviewTest(unittest.TestCase):
         self.assertIn("export path collision", str(self.pair()))
 
     def test_export_verified_bundle_history_and_changed_artifact(self):
-        plan = self.pair()["plan"]
-        data = plan["data"]
+        native_plan = self.pair()["plan"]
+        # The signature and the bundle's manifest bytes embed the engine's own
+        # manifest version, so each engine gets history and an on-disk bundle
+        # that match its own plan (the oracle one is the same plan restamped).
+        oracle_plan = rebase({"plan": native_plan, "plan_id": ""}, ORACLE_VERSION)[
+            "plan"
+        ]
+        data = native_plan["data"]
         self.destination.mkdir()
         for entry in data["document"]["content"]["entries"]:
             target = self.destination / entry["path"]
@@ -250,32 +379,50 @@ class PublicationBundlePreviewTest(unittest.TestCase):
             target.symlink_to(
                 os.path.relpath(self.source / source["path"], target.parent)
             )
-        for artifact in [
-            *data["export"]["files"],
-            {
-                "path": "catalog-manifest.json",
-                "content": json.dumps(
-                    data["document"], sort_keys=True, ensure_ascii=False
-                )
-                + "\n",
-            },
-        ]:
-            target = self.destination / artifact["path"]
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(artifact["content"])
+
+        def lay_out(is_oracle):
+            plan = oracle_plan if is_oracle else native_plan
+            for artifact in [
+                *plan["data"]["export"]["files"],
+                {
+                    "path": "catalog-manifest.json",
+                    "content": json.dumps(
+                        plan["data"]["document"], sort_keys=True, ensure_ascii=False
+                    )
+                    + "\n",
+                },
+            ]:
+                target = self.destination / artifact["path"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(artifact["content"])
+
+        lay_out(False)
         stat = self.destination.stat()
-        self.event(
-            {
-                "version": 2,
-                "state": "verified",
-                "scope": plan["scope"],
-                "signature": plan["signature"],
-                "owner": self.definition["id"],
-                "data": data,
-                "output_identity": {"device": stat.st_dev, "inode": stat.st_ino},
-            }
-        )
-        self.assertTrue(self.pair()["plan"]["unchanged"])
+        for is_oracle, plan in ((True, oracle_plan), (False, native_plan)):
+            with closing(sqlite3.connect(self.db[is_oracle])) as db:
+                db.execute(
+                    "INSERT INTO consumer_events(id,profile,event,severity,subject) VALUES (?,?,'mapping_publish','info',?)",
+                    (
+                        "past",
+                        "default",
+                        json.dumps(
+                            {
+                                "version": 2,
+                                "state": "verified",
+                                "scope": plan["scope"],
+                                "signature": plan["signature"],
+                                "owner": self.definition["id"],
+                                "data": plan["data"],
+                                "output_identity": {
+                                    "device": stat.st_dev,
+                                    "inode": stat.st_ino,
+                                },
+                            }
+                        ),
+                    ),
+                )
+                db.commit()
+        self.assertTrue(self.pair(stage=lay_out)["plan"]["unchanged"])
         (self.destination / "catalog-manifest.json").write_text("changed toy fixture")
         self.assertIn("owned_export_changed", str(self.pair()))
 

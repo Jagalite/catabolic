@@ -5,6 +5,7 @@
 import copy
 import json
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -28,6 +29,14 @@ from tests.test_rust_migration import BINARY
 
 
 @unittest.skipUnless(BINARY.is_file(), "build catabolic-cli before qualification")
+def crate_version():
+    """The workspace version the native engine stamps as generator.version."""
+    text = (Path(__file__).resolve().parents[1] / "Cargo.toml").read_text()
+    return re.search(
+        r'^\[workspace\.package\][^\[]*?^version = "([^"]+)"', text, re.M | re.S
+    ).group(1)
+
+
 class NativeManifestTest(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
@@ -80,7 +89,7 @@ class NativeManifestTest(unittest.TestCase):
         # version; the frozen oracle stamps 0.2.0. Everything else must match.
         self.assertEqual(expected["generator"]["version"], "0.2.0")
         version = actual["generator"].pop("version")
-        self.assertRegex(version, r"^\d+\.\d+\.\d+$")
+        self.assertEqual(version, crate_version())
         expected["generator"].pop("version")
         self.assertEqual(actual, expected)
         actual["generator"]["version"] = version
