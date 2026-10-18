@@ -14,8 +14,8 @@ import contextlib
 import io
 import json
 import logging
-import socket
 import smtplib
+import socket
 from unittest.mock import patch
 
 import apprise
@@ -28,7 +28,11 @@ CHALLENGE = b"<1896.697170952@postoffice.reston.mci.net>"
 
 # name, advertised AUTH words, mechanisms the server accepts
 SCENARIOS = [
-    ("cram_preferred_over_plain_and_login", "PLAIN LOGIN CRAM-MD5", ["CRAM-MD5", "PLAIN", "LOGIN"]),
+    (
+        "cram_preferred_over_plain_and_login",
+        "PLAIN LOGIN CRAM-MD5",
+        ["CRAM-MD5", "PLAIN", "LOGIN"],
+    ),
     ("cram_rejected_falls_back_to_plain", "CRAM-MD5 PLAIN LOGIN", ["PLAIN", "LOGIN"]),
     ("cram_and_plain_rejected_falls_back_to_login", "CRAM-MD5 PLAIN LOGIN", ["LOGIN"]),
     ("cram_before_login_without_plain", "LOGIN CRAM-MD5", ["CRAM-MD5", "LOGIN"]),
@@ -67,7 +71,11 @@ class Server:
 
     def verdict(self, mechanism):
         self.state = None
-        self.say("235 authenticated" if mechanism in self.accepted else "535 authentication failed")
+        self.say(
+            "235 authenticated"
+            if mechanism in self.accepted
+            else "535 authentication failed"
+        )
 
     def line(self, line):
         if self.in_data:
@@ -144,7 +152,11 @@ for name, advertised, accepted in SCENARIOS:
     server = Server(advertised, accepted)
     url = f"mailto://{USER}:{PASSWORD}@127.0.0.1:2525/one@example.net?from=sender@example.com&mode=insecure"
     with (
-        patch.object(smtplib.SMTP, "_get_socket", lambda self, *a, **k: FakeSocket(server)),
+        patch.object(
+            smtplib.SMTP,
+            "_get_socket",
+            lambda self, *a, _server=server, **k: FakeSocket(_server),
+        ),
         patch.object(socket, "socket", reject),
         patch.object(socket, "create_connection", reject),
         patch.object(socket, "getfqdn", lambda *a: "localhost"),
@@ -154,9 +166,16 @@ for name, advertised, accepted in SCENARIOS:
     ):
         obj = apprise.Apprise(asset=apprise.AppriseAsset(async_mode=False))
         assert obj.add(url)
-        complete = obj.notify(title="Catabolic", body="A Catabolic processing job completed.", notify_type="info")
+        complete = obj.notify(
+            title="Catabolic",
+            body="A Catabolic processing job completed.",
+            notify_type="info",
+        )
     commands = server.commands
-    mail = next((i for i, c in enumerate(commands) if c.upper().startswith("MAIL FROM")), len(commands))
+    mail = next(
+        (i for i, c in enumerate(commands) if c.upper().startswith("MAIL FROM")),
+        len(commands),
+    )
     records.append(
         {
             "name": name,
