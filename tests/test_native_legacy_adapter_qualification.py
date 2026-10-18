@@ -141,8 +141,8 @@ class LegacyAdapterQualificationControls(unittest.TestCase):
 
     def test_exact_inventory_and_stdlib_only_native_fixture_imports(self):
         SCENARIOS.validate_sources(ROOT)
-        self.assertEqual(len(SCENARIOS.REQUIRED_IDS), 105)
-        self.assertEqual(len(set(SCENARIOS.REQUIRED_IDS)), 105)
+        self.assertEqual(len(SCENARIOS.REQUIRED_IDS), 108)
+        self.assertEqual(len(set(SCENARIOS.REQUIRED_IDS)), 108)
         self.assertEqual(
             {
                 name.rpartition(".")[2]: len(methods)
@@ -156,12 +156,12 @@ class LegacyAdapterQualificationControls(unittest.TestCase):
                 "NativeLegacyExternalRuleTest": 18,
                 "NativeLegacyMappingHistoryTest": 11,
                 "NativeLegacyMappingEventOrderTest": 6,
-                "ExternalWorkerDiagnosticsTest": 9,
+                "ExternalWorkerDiagnosticsTest": 12,
             },
         )
         witness = (
             "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest."
-            "test_publication_version_two_stays_explicitly_unavailable"
+            "test_publication_version_two_without_identity_refuses_explicitly"
         )
         self.assertIn(witness, SCENARIOS.NONPARITY_WITNESSES)
         self.assertIn(witness, SCENARIOS.NATIVE_ONLY_WITNESSES)
@@ -200,7 +200,7 @@ modules = gate.load_fixtures(root, scenarios, binary, reference, python)
 selection = gate.loaded_selection(modules, root, binary, reference, python)
 suite, expected = gate.required_suite(modules, scenarios)
 ids = list(load('native_qualification_results').scenario_ids(suite))
-assert len(ids) == len(set(ids)) == 105
+assert len(ids) == len(set(ids)) == 108
 assert set(ids) == set(scenarios.REQUIRED_IDS)
 assert not any(name == 'catabolic' or name.startswith('catabolic.') for name in sys.modules)
 assert all(not pathlib.Path(value or '.').resolve().is_relative_to(root) for value in sys.path)
@@ -263,20 +263,25 @@ print(json.dumps({'count': len(ids), 'unique': len(set(ids)), 'modules': list(mo
             timeout=30,
         )
         if not Path("/proc/self/task").exists():
-            # The mandatory Linux process-tree witness must fail closed here;
+            # The mandatory Linux descriptor witness must fail closed here;
             # importing fixtures does not qualify unavailable product scenarios.
+            # (The external-rule interrupt test no longer needs /proc since
+            # 363bcb8 made tests/process_tree.py portable, so the first skipped
+            # required method is the event-order one that still requires Linux
+            # process descriptors.)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(
                 "RuntimeError: legacy fixture method is skipped: "
-                "tests.test_rust_legacy_external_rule.NativeLegacyExternalRuleTest."
-                "test_interrupt_reaps_http_child_and_leaves_reclaimable_durable_lease",
+                "tests.test_rust_legacy_mapping_event_order."
+                "NativeLegacyMappingEventOrderTest."
+                "test_real_sigint_discards_selected_sidecar_and_releases_snapshot",
                 result.stderr,
             )
             self.assertEqual(result.stdout, "")
             return
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         evidence = json.loads(result.stdout)
-        self.assertEqual(evidence["count"], 105)
+        self.assertEqual(evidence["count"], 108)
         self.assertEqual(evidence["product_scenarios_executed"], 0)
 
     def test_new_inventory_routes_and_support_imports_fail_closed(self):

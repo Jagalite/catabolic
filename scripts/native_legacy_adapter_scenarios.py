@@ -88,7 +88,7 @@ DECLARED_CASES = {
         "test_http_queue_states_options_status_and_apply_refusal",
         "test_apply_metadata_lock_precedence_and_readonly_catalog_authority",
         "test_duplicate_aggregate_event_first_lookup_but_recovery_rejected",
-        "test_publication_version_two_stays_explicitly_unavailable",
+        "test_publication_version_two_without_identity_refuses_explicitly",
         "test_missing_database_admission",
         "test_arbitrary_stored_subject_order_is_preserved",
         "test_readonly_interruption_catalog_and_lock_cleanup",
@@ -111,13 +111,16 @@ DECLARED_CASES = {
         "test_writer_release_cleanup_neighbor",
         "test_cancel_cleanup_neighbor",
         "test_interrupt_cleanup_neighbor",
+        "test_protocol_and_truncation_failures_use_frozen_worker_diagnostic",
+        "test_refused_connection_uses_frozen_worker_diagnostic",
+        "test_credential_header_encoding_and_exact_request_budget",
     ),
 }
 INHERITED = {
     "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest": "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest",
     "tests.test_rust_legacy_external_worker_diagnostics.ExternalWorkerDiagnosticsTest": "tests.test_rust_legacy_external_rule.NativeLegacyExternalRuleTest",
 }
-# The diagnostic module intentionally selects only its nine own methods. Its
+# The diagnostic module intentionally selects only its twelve own methods. Its
 # complete inherited inventory is still checked, without rerunning the base 18.
 OWN_ONLY = (
     "tests.test_rust_legacy_external_worker_diagnostics.ExternalWorkerDiagnosticsTest",
@@ -142,22 +145,26 @@ REQUIRED_CASES = {
 REQUIRED_IDS = tuple(
     f"{name}.{method}" for name, methods in REQUIRED_CASES.items() for method in methods
 )
-REQUIRED_COUNT = 105
+REQUIRED_COUNT = 108
 # These selected methods include deliberate unavailable-path witnesses, not
 # evidence of Python/native parity for publication apply or recovery.
 NONPARITY_WITNESSES = (
-    "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_publication_version_two_stays_explicitly_unavailable",
+    "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_publication_version_two_without_identity_refuses_explicitly",
     "tests.test_rust_publication_bundle_preview.PublicationBundlePreviewTest.test_apply_and_recovery_still_refuse_before_bundle_effects",
     "tests.test_rust_publication_mapping_preview.PublicationMappingPreviewTest.test_nonfolder_preview_admission_and_apply_recover_no_effects",
 )
 NATIVE_ONLY_WITNESSES = (
-    "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_publication_version_two_stays_explicitly_unavailable",
+    "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_publication_version_two_without_identity_refuses_explicitly",
     "tests.test_rust_publication_bundle_preview.PublicationBundlePreviewTest.test_immich_cancellation_stops_read_only_helper",
 )
 SUPPORT_MODULES = ("tests.test_rust_legacy_projection",)
 MODULES = tuple(dict.fromkeys(name.rpartition(".")[0] for name in REQUIRED_CASES))
 LOAD_MODULES = SUPPORT_MODULES + MODULES
-FIXTURE_FILES = ("tests/__init__.py", "tests/test_rust_legacy_review.py") + tuple(
+FIXTURE_FILES = (
+    "tests/__init__.py",
+    "tests/process_tree.py",
+    "tests/test_rust_legacy_review.py",
+) + tuple(
     module.replace(".", "/") + ".py" for module in LOAD_MODULES
 )
 

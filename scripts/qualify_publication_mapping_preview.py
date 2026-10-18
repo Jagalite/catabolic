@@ -187,7 +187,7 @@ def main():
         "-m",
         "unittest",
         "tests.test_rust_legacy_projection.NativeLegacyProjectionTest.test_unimplemented_owners_stay_closed",
-        "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_publication_version_two_stays_explicitly_unavailable",
+        "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_publication_version_two_without_identity_refuses_explicitly",
         "-v",
     ]
     regression_log = args.report.parent / "legacy-gate-regressions.log"
