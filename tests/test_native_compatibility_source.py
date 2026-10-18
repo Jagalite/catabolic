@@ -254,6 +254,11 @@ class ForwardingSource(unittest.TestCase):
             },
         )
         self.assertEqual(native["tool"]["maturin"]["python-source"], "python")
+        # Maturin ships only the module-name package implicitly.
+        self.assertIn(
+            {"path": "catabolic/**/*", "format": "wheel"},
+            native["tool"]["maturin"]["include"],
+        )
         self.assertEqual(
             native["tool"]["maturin"]["module-name"], "catabolic_native._native"
         )

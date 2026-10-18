@@ -35,6 +35,9 @@ features = ["pyo3/extension-module"]
 # Source imports must not add interpreter-specific bytecode to release artifacts.
 exclude = ["**/__pycache__/**", "**/*.pyc", "**/*.pyo"]
 include = [
+    # python-source packages other than the module-name package are not
+    # shipped implicitly; the compatibility namespace is part of this wheel.
+    { path = "catabolic/**/*", format = "wheel" },
     { path = "catabolic_native/bin/catabolic-native", format = "wheel" },
     { path = "catabolic_native/native-helper.json", format = "wheel" },
     { path = "catabolic_native/bin/catabolic-legacy-native", format = "wheel" },
