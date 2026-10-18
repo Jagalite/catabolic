@@ -6,6 +6,7 @@
 import argparse
 import json
 import os
+import signal
 import socket
 import subprocess
 import time
@@ -47,6 +48,22 @@ with Store(database,writable=True) as store:
  state={'item_id':item,'source_file_id':file,'source_revision':revision_of(store,'default',file),'operation_id':'thumbnail','query_id':query['id']}
  (root/'state.json').write_text(json.dumps(state))
 """
+
+
+def stop_owned_worker(worker):
+    """Reap the fixture's writer before issuing non-replayable content tickets."""
+    if worker.poll() is not None:
+        raise RuntimeError("HTTP worker exited before fixture isolation")
+    worker.terminate()
+    code = worker.wait(timeout=10)
+    if code not in (0, -signal.SIGTERM):
+        raise RuntimeError(f"HTTP worker shutdown failed: {code}")
+    return {
+        "phase": "after_processing_ready_before_ticket",
+        "pid": worker.pid,
+        "returncode": code,
+        "reaped": True,
+    }
 
 
 def main():
@@ -196,6 +213,10 @@ def main():
             time.sleep(0.1)
         assert result["state"] == "ready", result
         ready = result["result"]
+        # Rendering and restart have completed with a real worker. Its periodic
+        # writer heartbeat must not race ticket creation or cached-client
+        # mutations; these operations must never be retried blindly.
+        worker_isolation = stop_owned_worker(worker)
         code, ticket = request(
             "/v1/content-access",
             {"file_id": ready["file_id"], "revision": ready["revision"]},
@@ -232,11 +253,13 @@ def main():
             "commands": commands,
             "generated_client": bool(args.generated_client),
             "installed_python": interpreter,
+            "worker_isolation": worker_isolation,
             "checks": [
                 "authenticated_graphql",
                 "saved_selection",
                 "durable_rendition",
                 "server_worker_restart",
+                "worker_isolated_after_ready",
                 "opaque_ticket",
                 "exact_range",
                 "original_denied",
