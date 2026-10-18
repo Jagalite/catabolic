@@ -123,6 +123,13 @@ def assert_scan_extraction(case, source):
     )
 
 
+# 15c8b64: the reviewed supervision entry point (Track D supervision rounds).
+# Every Catabolic binary must run it first: it either becomes the tool
+# supervisor (never returns) or registers this executable as the supervisor
+# helper. It takes no path, Python or PATH input.
+SUPERVISOR_ENTRY = """    // First: tool supervisor mode (never returns) or supervisor registration.
+    catabolic_runtime::process::supervise_or_configure();
+"""
 NOTIFICATION_HELPER_REGISTRATION = """    if let Err(error) = std::env::current_exe()
         .map_err(catabolic_store::Error::from)
         .and_then(|path| catabolic_runtime::notifications::register_provider_helper(&path))
@@ -137,10 +144,14 @@ def assert_entrypoint_separation(case, relative, source):
     # Keep the original exclusions everywhere. Only the exact native blocks
     # below may obtain the current executable; no general exemption exists.
     if relative == "legacy_main.rs":
-        # Only the exact native notification worker registration at the entry
-        # boundary is allowed. It cannot choose a Python executable or PATH.
+        # Only the exact supervision entry point followed by the exact native
+        # notification worker registration at the entry boundary is allowed.
+        # Neither can choose a Python executable or PATH.
         before = (
-            "fn main() {\n" + NOTIFICATION_HELPER_REGISTRATION + "    let mut args ="
+            "fn main() {\n"
+            + SUPERVISOR_ENTRY
+            + NOTIFICATION_HELPER_REGISTRATION
+            + "    let mut args ="
         )
         source = replace_once(case, source, before, "fn main() {\n    let mut args =")
     case.assertNotRegex(source, r"Command::|helper::register")
@@ -226,6 +237,19 @@ class LegacySourceContractGuards(unittest.TestCase):
             ("duplicate", source + block),
             ("moved", source.replace(block, "", 1) + block),
             ("extra", source + "std::env::current_exe()"),
+            ("supervisor missing", source.replace(SUPERVISOR_ENTRY, "", 1)),
+            (
+                "supervisor changed",
+                source.replace(
+                    "supervise_or_configure()", "supervise_or_configure(&path)", 1
+                ),
+            ),
+            (
+                "supervisor after registration",
+                source.replace(SUPERVISOR_ENTRY, "", 1).replace(
+                    block, block + SUPERVISOR_ENTRY, 1
+                ),
+            ),
         ):
             with self.subTest(label=label), self.assertRaises(AssertionError):
                 assert_entrypoint_separation(self, relative, changed)
