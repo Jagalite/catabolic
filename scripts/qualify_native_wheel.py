@@ -52,9 +52,10 @@ def verify_installed_wheel(wheel):
         if relative.is_absolute() or ".." in relative.parts:
             # pip's generated launcher is tested independently, and is not
             # an archive payload. No other outside-root file is qualified.
-            assert relative.name == "catabolic-native" and "bin" in relative.parts, (
-                "unexpected relocated distribution payload"
-            )
+            assert (
+                relative.name in {"catabolic", "catabolic-native"}
+                and "bin" in relative.parts
+            ), "unexpected relocated distribution payload"
             continue
         installed_payloads.add(str(relative))
     assert installed_payloads, "installed distribution has no payload inventory"
@@ -324,10 +325,11 @@ def main():
     assert launched["version"] == native.__version__
     compat_launcher = Path(sys.executable).parent / "catabolic"
     assert compat_launcher.is_file(), "installed catabolic launcher missing"
-    compat_launched = json.loads(
-        subprocess.check_output([compat_launcher, "--version"], text=True)
+    compat_launched = subprocess.check_output([compat_launcher, "--version"], text=True)
+    assert compat_launched == f"catabolic {native.__version__}\n", (
+        "catabolic launcher does not report the installed release",
+        compat_launched,
     )
-    assert compat_launched == launched, "catabolic launcher differs from native CLI"
     with tempfile.TemporaryDirectory(prefix="catabolic-installed-") as temporary:
         path = Path(temporary) / "catalog.sqlite3"
         native.initialize_database(path)

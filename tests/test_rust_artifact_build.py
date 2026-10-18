@@ -831,6 +831,7 @@ class NativeArtifactBuildTest(unittest.TestCase):
             + [
                 "catabolic-1.0.0.dist-info/RECORD",
                 "../../../bin/catabolic-native",
+                "../../../bin/catabolic",
             ],
             locate_file=lambda name: installed / name,
             version="1.0.0",
