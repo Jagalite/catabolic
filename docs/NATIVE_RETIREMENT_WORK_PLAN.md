@@ -830,3 +830,35 @@ The fix:
 - **Smaller caches, larger budget.** Lazy DFA caches drop to 128 KiB, and
   the policy budget is now 160 MiB. Every limit is per concurrent searching
   thread, since each thread draws its own cache from a pool.
+
+#### Review round 16 and accepted residual (October 18)
+
+Round 16 found that the compile-memory accounting is an estimate, not a
+strict heap bound:
+
+- **PikeVM scratch.** It is allocated on first use, so the measured initial
+  cache misses it.
+- **VM storage.** The fancy VM's pooled scratch and program are capped by
+  entry count (1,000,000 held entries), not charged in bytes.
+- **Lazy DFA caches.** regex-automata reports their lengths and approximates
+  map overhead, not allocation capacity.
+- **Clones.** A cloned scan filter clones each wrapped regex's cache pool.
+
+Round 16 also showed a realistic 45-clause blacklist filter exceeding the
+per-pattern budget. That budget is now 32 MiB, with a test.
+
+On October 18 the user accepted the remaining memory accounting as a
+documented residual, instead of isolating matching in a worker process.
+
+- **What is bounded.**
+  - Search time follows the frozen 10 ms per-search deadline, with at most
+    one delegate call of overrun. Each delegate call is bounded by the
+    4,096-byte path limit and the 128/32 KiB automaton limits.
+  - Held backtracking state is limited by entry count.
+  - Compiled engines are limited by an estimate: 32 MiB per pattern and
+    160 MiB per policy, per searching thread.
+- **What is not exact.** Lazily allocated engine scratch, vector capacity
+  slack, VM buffer bytes and duplicated pools of cloned filters can exceed
+  the estimate by a bounded factor.
+- **Who can trigger it.** Only filter patterns configured by the catalog
+  operator can do so.

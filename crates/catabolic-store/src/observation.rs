@@ -680,7 +680,7 @@ const SCAN_REGEX_MAX_PATH: usize = 4096;
 const SCAN_REGEX_LIST_TRANSLATED_BYTES: usize = 4 * 1024 * 1024;
 /// Compiled memory one pattern may use: retained engines plus their lazy DFA
 /// caches at full capacity, charged as each engine is built.
-const SCAN_REGEX_PATTERN_MEMORY: usize = 16 * 1024 * 1024;
+const SCAN_REGEX_PATTERN_MEMORY: usize = 32 * 1024 * 1024;
 /// The same for both filter lists of one policy together.
 const SCAN_REGEX_POLICY_MEMORY: usize = 160 * 1024 * 1024;
 /// The frozen engine's per-path filter timeout.
@@ -2948,6 +2948,9 @@ mod tests {
                 32
             );
         }
+        // A single filter of 45 blacklist clauses fits one pattern's budget.
+        let clauses: String = (0..45).map(|i| format!("(?!.*sample{i:02})")).collect();
+        compile_pattern(&format!(r"{clauses}.*\.mkv$")).unwrap();
         // Over-long paths are never evaluated.
         let regex = compile_pattern(r"\.mkv$").unwrap();
         let long = format!("{}.mkv", "a".repeat(SCAN_REGEX_MAX_PATH));
