@@ -61,7 +61,9 @@ def fake_provider():
     modules = {}
     for source in PACKAGE.rglob("*.py"):
         for node in ast.parse(source.read_text()).body:
-            if not isinstance(node, ast.ImportFrom):
+            if not isinstance(node, ast.ImportFrom) or not node.module.startswith(
+                "catabolic_native"
+            ):
                 continue
             module = modules.setdefault(node.module, types.ModuleType(node.module))
             for alias in node.names:
@@ -107,6 +109,7 @@ def isolated_modules(provider=None):
 
     saved = {name: module for name, module in sys.modules.items() if relevant(name)}
     old_path = sys.path[:]
+    old_finders = sys.meta_path[:]
     try:
         for name in saved:
             del sys.modules[name]
@@ -116,6 +119,7 @@ def isolated_modules(provider=None):
         yield
     finally:
         sys.path[:] = old_path
+        sys.meta_path[:] = old_finders
         for name in tuple(sys.modules):
             if relevant(name):
                 del sys.modules[name]
@@ -134,13 +138,40 @@ class ForwardingSource(unittest.TestCase):
         )
         self.assertEqual(sum(r["status"] == "module_proxy_present" for r in result), 3)
 
-    def test_modules_are_only_docstrings_and_explicit_native_reexports(self):
-        files = list(PACKAGE.rglob("*.py"))
+    def test_modules_are_only_docstrings_explicit_reexports_and_disposition(self):
+        files = [p for p in PACKAGE.rglob("*.py") if p.name != "_disposition.py"]
         self.assertEqual(len(files), 35)
         for source in files:
             for node in ast.parse(source.read_text()).body:
                 if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
                     self.assertIsInstance(node.value.value, str)
+                    continue
+                if isinstance(node, ast.ImportFrom) and node.module == (
+                    "catabolic._disposition"
+                ):
+                    self.assertEqual(node.level, 0)
+                    self.assertIn(
+                        [(a.name, a.asname) for a in node.names],
+                        [
+                            [("getattr_for", "_getattr_for")],
+                            [("install", "_install")],
+                        ],
+                    )
+                    continue
+                if isinstance(node, ast.Assign):
+                    # Only the disposition hooks: no engine logic of any kind.
+                    self.assertIn(
+                        ast.unparse(node),
+                        ["__getattr__ = _getattr_for(__name__)"],
+                    )
+                    continue
+                if isinstance(node, ast.AnnAssign):
+                    self.assertEqual(source.name, "access.py")
+                    self.assertEqual(ast.unparse(node), "__path__: list[str] = []")
+                    continue
+                if isinstance(node, ast.Expr):
+                    self.assertEqual(source.name, "__init__.py")
+                    self.assertEqual(ast.unparse(node), "_install()")
                     continue
                 self.assertIsInstance(node, ast.ImportFrom, source)
                 self.assertEqual(node.level, 0)

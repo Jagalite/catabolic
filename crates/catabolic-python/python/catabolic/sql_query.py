@@ -3,3 +3,7 @@
 """Opt-in compatibility names; behavior remains owned by catabolic_native.sql_query."""
 
 from catabolic_native.sql_query import execute_sql as execute_sql
+
+from catabolic._disposition import getattr_for as _getattr_for
+
+__getattr__ = _getattr_for(__name__)

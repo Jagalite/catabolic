@@ -7,3 +7,7 @@ from catabolic_native.store import NativeCommandHandle as NativeCommandHandle
 from catabolic_native.store import NativeResult as NativeResult
 from catabolic_native.store import NativeRow as NativeRow
 from catabolic_native.store import Store as Store
+
+from catabolic._disposition import getattr_for as _getattr_for
+
+__getattr__ = _getattr_for(__name__)

@@ -3,3 +3,7 @@
 """Opt-in compatibility names; behavior remains owned by catabolic_native.tagging."""
 
 from catabolic_native.tagging import Tagging as Tagging
+
+from catabolic._disposition import getattr_for as _getattr_for
+
+__getattr__ = _getattr_for(__name__)

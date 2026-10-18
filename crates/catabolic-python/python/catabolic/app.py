@@ -4,3 +4,7 @@
 
 from catabolic_native.app import Application as Application
 from catabolic_native.app import BoundRoot as BoundRoot
+
+from catabolic._disposition import getattr_for as _getattr_for
+
+__getattr__ = _getattr_for(__name__)

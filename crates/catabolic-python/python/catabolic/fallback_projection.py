@@ -6,3 +6,7 @@ from catabolic_native.fallback_projection import (
     FallbackProjection as FallbackProjection,
 )
 from catabolic_native.fallback_projection import binding as binding
+
+from catabolic._disposition import getattr_for as _getattr_for
+
+__getattr__ = _getattr_for(__name__)

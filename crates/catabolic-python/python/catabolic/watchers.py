@@ -3,3 +3,7 @@
 """Opt-in compatibility names; behavior remains owned by catabolic_native.watchers."""
 
 from catabolic_native.watchers import Watchers as Watchers
+
+from catabolic._disposition import getattr_for as _getattr_for
+
+__getattr__ = _getattr_for(__name__)

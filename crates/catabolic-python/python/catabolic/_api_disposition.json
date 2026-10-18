@@ -1,0 +1,1948 @@
+{
+ "deprecated": {
+  "catabolic.access": [
+   "Access",
+   "Access.__init__",
+   "Access.component",
+   "Access.file",
+   "Access.fingerprint",
+   "Access.item",
+   "Access.matching",
+   "Access.members",
+   "Access.metadata",
+   "Access.operator",
+   "Access.processing",
+   "Access.require",
+   "AccessError",
+   "AccessError.__init__",
+   "authenticate",
+   "revoke",
+   "secret_pair"
+  ],
+  "catabolic.access.catalog": [
+   "Catalog",
+   "Catalog.__init__",
+   "Catalog.after",
+   "Catalog.cursor",
+   "Catalog.get",
+   "Catalog.install",
+   "Catalog.listing",
+   "Catalog.present"
+  ],
+  "catabolic.access.graphql": [
+   "AuthorizedContext",
+   "AuthorizedContext.__init__",
+   "AuthorizedContext.resolve"
+  ],
+  "catabolic.api_cli": [
+   "dispatch",
+   "register"
+  ],
+  "catabolic.api_events": [
+   "page",
+   "prune"
+  ],
+  "catabolic.artifact_cli": [
+   "dispatch",
+   "register"
+  ],
+  "catabolic.callback_urls": [
+   "origin"
+  ],
+  "catabolic.catalog_refresh_cli": [
+   "dispatch",
+   "register"
+  ],
+  "catabolic.catalog_state": [
+   "rendition_condition"
+  ],
+  "catabolic.cli": [
+   "dispatch",
+   "item_filters",
+   "options",
+   "page_arguments",
+   "parser",
+   "read_text",
+   "render",
+   "tag_filters"
+  ],
+  "catabolic.component_claims": [
+   "Attributes",
+   "Claim",
+   "Compatibility",
+   "Dependency",
+   "accept",
+   "validate"
+  ],
+  "catabolic.component_cli": [
+   "register",
+   "run"
+  ],
+  "catabolic.component_packages": [
+   "PackageBlocked",
+   "capture",
+   "compatible",
+   "decision",
+   "projection_members",
+   "publication_capture"
+  ],
+  "catabolic.component_packaging": [
+   "enqueue",
+   "extraction",
+   "packet_evidence",
+   "record_lineage",
+   "render_mux",
+   "render_selected",
+   "resolved_artifact",
+   "validate",
+   "verify_packets"
+  ],
+  "catabolic.component_sql": [
+   "install",
+   "language",
+   "normalize"
+  ],
+  "catabolic.consumer_adapters": [
+   "Adapter",
+   "Adapter.choices",
+   "Adapter.create",
+   "Adapter.indexed",
+   "Adapter.inspect",
+   "Adapter.libraries",
+   "Adapter.scan",
+   "Capabilities",
+   "ConsumerError",
+   "ConsumerError.__init__",
+   "ConsumerError.result",
+   "HTTPAdapter",
+   "HTTPAdapter.__init__",
+   "HTTPAdapter.call",
+   "HTTPAdapter.choices",
+   "HTTPAdapter.create",
+   "HTTPAdapter.indexed",
+   "Jellyfin",
+   "Jellyfin.data",
+   "Jellyfin.inspect",
+   "Jellyfin.libraries",
+   "Jellyfin.scan",
+   "Plex",
+   "Plex.choices",
+   "Plex.create",
+   "Plex.indexed",
+   "Plex.inspect",
+   "Plex.libraries",
+   "Plex.scan",
+   "Plex.xml",
+   "adapter",
+   "consumer_credential_ref",
+   "credential_ref",
+   "endpoint",
+   "path",
+   "segment",
+   "text",
+   "translate",
+   "validate_remote",
+   "within"
+  ],
+  "catabolic.consumer_cli": [
+   "dispatch",
+   "register"
+  ],
+  "catabolic.consumer_setup": [
+   "bind",
+   "creation",
+   "discover",
+   "get_connection",
+   "put_connection",
+   "verify_indexing"
+  ],
+  "catabolic.consumers": [
+   "acknowledge",
+   "binding",
+   "claim",
+   "connection",
+   "deliver",
+   "drain",
+   "fence",
+   "group_bindings",
+   "group_id",
+   "local_valid",
+   "publication_verified",
+   "published",
+   "record_change",
+   "recover_publications",
+   "status"
+  ],
+  "catabolic.content_access": [
+   "authorize",
+   "byte_range",
+   "chunks",
+   "opened",
+   "snapshot"
+  ],
+  "catabolic.copy_selection": [
+   "CopySelection",
+   "CopySelection.__init__",
+   "CopySelection.filter",
+   "CopySelection.get",
+   "CopySelection.plan",
+   "CopySelection.put",
+   "rank_candidate"
+  ],
+  "catabolic.curation": [
+   "bounded_rows",
+   "bounded_text",
+   "page_limit",
+   "payload_object"
+  ],
+  "catabolic.database_io": [
+   "CatalogBusy",
+   "acquire_writer_lock",
+   "connect_database",
+   "database_path",
+   "is_catalog_busy",
+   "writer_lock"
+  ],
+  "catabolic.destination_mappings": [
+   "digest",
+   "evaluate",
+   "events",
+   "expression",
+   "fail",
+   "ownership",
+   "prepare",
+   "recover",
+   "run",
+   "save_event",
+   "write_event"
+  ],
+  "catabolic.document_text": [
+   "extract",
+   "tool_identity"
+  ],
+  "catabolic.documentation": [
+   "documentation",
+   "render_documentation"
+  ],
+  "catabolic.domain": [
+   "Action",
+   "Action.to_dict",
+   "CatabolicError",
+   "name",
+   "relative_path",
+   "source_health"
+  ],
+  "catabolic.enrichment_cli": [
+   "dispatch",
+   "paging",
+   "register",
+   "retries",
+   "writable"
+  ],
+  "catabolic.estimate_calibration": [
+   "calibrated",
+   "calibration"
+  ],
+  "catabolic.evaluation": [
+   "EvaluationSession",
+   "EvaluationSession.__init__",
+   "EvaluationSession.account",
+   "EvaluationSession.check",
+   "EvaluationSession.pause_for_io",
+   "EvaluationSession.rows",
+   "EvaluationSession.select"
+  ],
+  "catabolic.execution_claims": [
+   "active",
+   "claim",
+   "detached",
+   "fence",
+   "live",
+   "release"
+  ],
+  "catabolic.exports": [
+   "build_export",
+   "http_base",
+   "metadata_text",
+   "publish_bundle",
+   "validate_bundle",
+   "xml",
+   "xml_text"
+  ],
+  "catabolic.fallback_cli": [
+   "register",
+   "run"
+  ],
+  "catabolic.fallback_models": [
+   "Budgets",
+   "ComponentPackage",
+   "ComponentRequirement",
+   "Decision",
+   "Failback",
+   "LogicalEntry",
+   "Model",
+   "Policy",
+   "Preference",
+   "Ranking",
+   "Tier"
+  ],
+  "catabolic.fallback_probe": [
+   "alive",
+   "check",
+   "close_pipes",
+   "probe"
+  ],
+  "catabolic.fallback_projection": [
+   "effective_mappings"
+  ],
+  "catabolic.fallback_records": [
+   "page"
+  ],
+  "catabolic.fallback_resolution": [
+   "entry_id",
+   "epoch",
+   "require_epoch"
+  ],
+  "catabolic.fallback_worker": [
+   "run"
+  ],
+  "catabolic.filesystem": [
+   "BoundRoot",
+   "BoundRoot.__init__",
+   "claim_output",
+   "link_state",
+   "open_directory",
+   "owner_state",
+   "parent_handle",
+   "rename_noreplace",
+   "root_handle",
+   "source_stat",
+   "walk_files"
+  ],
+  "catabolic.graphql_query": [
+   "QueryContext",
+   "QueryContext.__init__",
+   "QueryContext.bound_path",
+   "QueryContext.charge",
+   "QueryContext.check",
+   "QueryContext.count_field",
+   "QueryContext.introspection_middleware",
+   "QueryContext.lookup",
+   "QueryContext.page",
+   "QueryContext.records",
+   "QueryContext.resolve",
+   "budget_introspection",
+   "check_document",
+   "schema_description"
+  ],
+  "catabolic.hardlinks": [
+   "Hardlinks",
+   "Hardlinks.__init__",
+   "Hardlinks.cancel_obsolete",
+   "Hardlinks.delta",
+   "Hardlinks.execute",
+   "Hardlinks.verify",
+   "check_count",
+   "checkpoint",
+   "identity",
+   "matches",
+   "state",
+   "target_identity"
+  ],
+  "catabolic.http.contract": [
+   "install_contract"
+  ],
+  "catabolic.http.fallback": [
+   "PolicySummary",
+   "ResolutionPage",
+   "ResolutionRecord",
+   "install_routes",
+   "logical_resolve",
+   "require_policy"
+  ],
+  "catabolic.http.mappings": [
+   "install_routes"
+  ],
+  "catabolic.http.models": [
+   "CallbackDemand",
+   "Capabilities",
+   "CapabilityLimits",
+   "ContentCapabilities",
+   "ContentTicket",
+   "CopyPolicy",
+   "CopyPreference",
+   "Definition",
+   "Demand",
+   "DemandStatus",
+   "EventEnvelope",
+   "EventPage",
+   "File",
+   "GraphQL",
+   "GraphQLError",
+   "GraphQLLocation",
+   "GraphQLResult",
+   "HTTPMappedRequest",
+   "HTTPMappedRow",
+   "HTTPMappingDelivery",
+   "HTTPMappingHistory",
+   "HTTPMappingInput",
+   "HTTPMappingPlan",
+   "HTTPOperationControl",
+   "HTTPOperationCreate",
+   "HTTPOperationDetail",
+   "HTTPOperationPage",
+   "HTTPOperationStatus",
+   "Identity",
+   "Item",
+   "LogicalDemand",
+   "MetadataPage",
+   "Model",
+   "OperatorApplied",
+   "OperatorPreview",
+   "Page",
+   "PlaybackCapabilities",
+   "PlaybackDemand",
+   "PlaybackStatus",
+   "Problem",
+   "Projection",
+   "ProjectionEntry",
+   "ProjectionPage",
+   "RefreshSetting",
+   "Rendition",
+   "RenditionPolicy",
+   "RenditionResult",
+   "RequestCallbackEvent",
+   "RequestChanged",
+   "Resolve",
+   "ResolvedContent",
+   "Revocation",
+   "Rule",
+   "SQL",
+   "SQLResult",
+   "SavedQuery",
+   "SelectionResult",
+   "Snapshot",
+   "Ticket",
+   "WebhookCreate",
+   "WebhookDeliveries",
+   "WebhookDelivery",
+   "WebhookEvent",
+   "WebhookPage",
+   "WebhookStatus"
+  ],
+  "catabolic.http.playback": [
+   "install_routes"
+  ],
+  "catabolic.http.transport": [
+   "BodyLimit",
+   "BodyLimit.__init__",
+   "Limits",
+   "Limits.__init__",
+   "Limits.admit",
+   "Limits.release",
+   "Limits.request",
+   "OwnedStream",
+   "OwnedStream.__init__"
+  ],
+  "catabolic.http.watchers": [
+   "WatcherAdmission",
+   "WatcherControl",
+   "WatcherDetail",
+   "WatcherHistory",
+   "WatcherPage",
+   "WatcherRun",
+   "WatcherStatus",
+   "fields",
+   "install_routes"
+  ],
+  "catabolic.http.webhooks": [
+   "install_routes"
+  ],
+  "catabolic.http_mappings": [
+   "complete_rows",
+   "delivery_request",
+   "enqueue",
+   "history",
+   "history_page",
+   "mapped",
+   "prepare",
+   "request_for",
+   "run",
+   "validate_definition"
+  ],
+  "catabolic.http_worker": [
+   "NoRedirect",
+   "NoRedirect.redirect_request",
+   "fetch",
+   "main"
+  ],
+  "catabolic.http_worker_local": [
+   "hls_available",
+   "run",
+   "tick"
+  ],
+  "catabolic.importers": [
+   "import_catalog",
+   "import_source",
+   "stage_file"
+  ],
+  "catabolic.inbox_cli": [
+   "register",
+   "run"
+  ],
+  "catabolic.interchange.specification": [
+   "changes",
+   "check_release",
+   "model",
+   "reference_text",
+   "schema",
+   "schema_text"
+  ],
+  "catabolic.interchange.v1": [
+   "Association",
+   "Catalog",
+   "Content",
+   "Counts",
+   "Document",
+   "Entry",
+   "File",
+   "Generator",
+   "Identity",
+   "Item",
+   "Layout",
+   "Record",
+   "RecordedLink",
+   "Relationship",
+   "label"
+  ],
+  "catabolic.interchange.v2": [
+   "Content",
+   "Counts",
+   "Document",
+   "Tag",
+   "TagName",
+   "TagParent",
+   "Tagging",
+   "label"
+  ],
+  "catabolic.interchange.v3": [
+   "Catalog",
+   "Content",
+   "Counts",
+   "Document",
+   "Hardlink",
+   "RetainedHardlink",
+   "label"
+  ],
+  "catabolic.interchange.validation": [
+   "decode_document",
+   "digest",
+   "document_value",
+   "encode_document",
+   "validate_document",
+   "validate_tags"
+  ],
+  "catabolic.item_workflow": [
+   "text"
+  ],
+  "catabolic.layouts": [
+   "native_definition",
+   "render_candidate",
+   "render_path",
+   "validate_layout"
+  ],
+  "catabolic.legacy_refresh_delivery": [
+   "drain"
+  ],
+  "catabolic.maintenance": [
+   "register",
+   "render_report",
+   "run",
+   "statistics"
+  ],
+  "catabolic.manifest": [
+   "Manifest",
+   "Manifest.__init__",
+   "Manifest.build",
+   "Manifest.write",
+   "batches",
+   "bounded",
+   "digest",
+   "path_key"
+  ],
+  "catabolic.mapping_adapters": [
+   "CollectionMapping",
+   "CollectionMapping.__init__",
+   "CollectionMapping.matches",
+   "CollectionMapping.read",
+   "CollectionMapping.validate",
+   "CollectionMapping.write",
+   "JellyfinMapping",
+   "JellyfinMapping.__init__",
+   "JellyfinMapping.matches",
+   "JellyfinMapping.payload",
+   "JellyfinMapping.read",
+   "JellyfinMapping.validate",
+   "JellyfinMapping.write",
+   "PlexMapping",
+   "PlexMapping.__init__",
+   "PlexMapping.matches",
+   "PlexMapping.parameters",
+   "PlexMapping.read",
+   "PlexMapping.validate",
+   "PlexMapping.write",
+   "capabilities",
+   "destination_adapter"
+  ],
+  "catabolic.media": [
+   "describe_types",
+   "media_kind",
+   "ordinal",
+   "relationship",
+   "vocabulary"
+  ],
+  "catabolic.media_catalog": [
+   "MediaCatalog",
+   "MediaCatalog.__init__",
+   "MediaCatalog.associate",
+   "MediaCatalog.associate_in_transaction",
+   "MediaCatalog.disable_association",
+   "MediaCatalog.disable_relationship",
+   "MediaCatalog.relate"
+  ],
+  "catabolic.media_health": [
+   "check_at",
+   "inspect_header",
+   "live_reason",
+   "recorded_reason"
+  ],
+  "catabolic.metadata_publication": [
+   "serialize_writes",
+   "value"
+  ],
+  "catabolic.migration": [
+   "Migration",
+   "Migration.checksum",
+   "Migration.description",
+   "connect_database",
+   "data_snapshot",
+   "execute_migration",
+   "initialize_database",
+   "inspect_database",
+   "load_migrations",
+   "upgrade_database",
+   "validate_database",
+   "validate_preservation",
+   "validate_sequence"
+  ],
+  "catabolic.native_monitor": [
+   "NativeMonitor",
+   "NativeMonitor.__init__",
+   "NativeMonitor.close",
+   "NativeMonitor.drain",
+   "NativeMonitor.set_exclusions",
+   "NativeMonitor.start"
+  ],
+  "catabolic.network_adapters": [
+   "Refresh",
+   "Refresh.__init__",
+   "Refresh.after_sync",
+   "Refresh.configure",
+   "Refresh.list",
+   "Refresh.retry",
+   "Refresh.run",
+   "record_output_change",
+   "request",
+   "tmdb_candidates",
+   "token"
+  ],
+  "catabolic.notification_worker": [
+   "NoRedirect",
+   "NoRedirect.redirect_request",
+   "main",
+   "notify",
+   "validate_response",
+   "webhook"
+  ],
+  "catabolic.notifications": [
+   "configure",
+   "defer_drain",
+   "drain",
+   "emit",
+   "pending_publications",
+   "retry_delivery",
+   "send",
+   "send_request"
+  ],
+  "catabolic.observations": [
+   "cancel",
+   "claim",
+   "compatibility",
+   "continue_request",
+   "dirty",
+   "execute",
+   "finish",
+   "inventory_signature",
+   "observe",
+   "recover",
+   "renew",
+   "request",
+   "resume",
+   "scan_report",
+   "validate"
+  ],
+  "catabolic.openapi_operations": [
+   "authorize",
+   "compile_operation",
+   "disable",
+   "fail",
+   "get",
+   "listing",
+   "present",
+   "put",
+   "require_operator",
+   "resolve",
+   "retry",
+   "validator"
+  ],
+  "catabolic.operations": [
+   "Operations",
+   "Operations.__init__",
+   "Operations.get",
+   "Operations.list",
+   "Operations.put",
+   "capabilities"
+  ],
+  "catabolic.output_cli": [
+   "dispatch",
+   "register"
+  ],
+  "catabolic.outputs": [
+   "Outputs",
+   "Outputs.__init__",
+   "Outputs.decode",
+   "Outputs.define",
+   "Outputs.get",
+   "Outputs.get_definition",
+   "Outputs.list",
+   "Outputs.record",
+   "Outputs.register",
+   "Outputs.validate_source_item",
+   "definition"
+  ],
+  "catabolic.plans": [
+   "FallbackPlan",
+   "ObservationPlan",
+   "ObservationPlan.valid_exclusions",
+   "ObservationPlan.valid_sources",
+   "ProjectionPlan",
+   "QueryPlan",
+   "compare",
+   "describe",
+   "evaluate",
+   "observation_requirements",
+   "semantic"
+  ],
+  "catabolic.playback": [
+   "admit",
+   "cancel",
+   "existing_result",
+   "live_job",
+   "media",
+   "permitted",
+   "session_row",
+   "status"
+  ],
+  "catabolic.playback_cache": [
+   "cache_size",
+   "cleanup",
+   "destination_root",
+   "directory_name",
+   "job_directory",
+   "playlist",
+   "read_file",
+   "reserved_bytes"
+  ],
+  "catabolic.playback_process": [
+   "main"
+  ],
+  "catabolic.playback_worker": [
+   "execute",
+   "hls_command",
+   "interested",
+   "recover",
+   "tick"
+  ],
+  "catabolic.plex_import": [
+   "candidate",
+   "integer",
+   "mappings",
+   "page",
+   "run"
+  ],
+  "catabolic.plex_login": [
+   "call",
+   "complete",
+   "credential",
+   "directory",
+   "identity",
+   "read_private",
+   "start",
+   "write_private"
+  ],
+  "catabolic.plex_matching": [
+   "match",
+   "matched_snapshot",
+   "published_snapshot"
+  ],
+  "catabolic.plex_metadata": [
+   "local_snapshot",
+   "parameters",
+   "record_attempt",
+   "remote_snapshot",
+   "run"
+  ],
+  "catabolic.probe_health": [
+   "failure_health",
+   "probe_health"
+  ],
+  "catabolic.process_runner": [
+   "CommandFailure",
+   "CommandFailure.__init__",
+   "command_output"
+  ],
+  "catabolic.processing": [
+   "current_fact",
+   "operation_config",
+   "process",
+   "text_payload",
+   "tool_signature",
+   "tool_version",
+   "words",
+   "worker_pool"
+  ],
+  "catabolic.processor_cli": [
+   "dispatch",
+   "register"
+  ],
+  "catabolic.processors": [
+   "Processors",
+   "Processors.__init__",
+   "Processors.cancel",
+   "Processors.claim",
+   "Processors.complete",
+   "Processors.enqueue",
+   "Processors.get",
+   "Processors.heartbeat",
+   "Processors.job",
+   "Processors.jobs",
+   "Processors.prepare",
+   "Processors.put",
+   "Processors.retry",
+   "Processors.transition",
+   "dispatch_job",
+   "now",
+   "seconds"
+  ],
+  "catabolic.program_bundle": [
+   "Programs",
+   "Programs.__init__",
+   "Programs.export",
+   "Programs.import_bundle",
+   "Programs.validate"
+  ],
+  "catabolic.program_cli": [
+   "envelope",
+   "exit_code",
+   "operation",
+   "program",
+   "projection",
+   "query",
+   "register"
+  ],
+  "catabolic.program_contracts": [
+   "definition_schema"
+  ],
+  "catabolic.projection_stats": [
+   "begin_execution",
+   "exported",
+   "file_totals",
+   "finish_execution",
+   "key",
+   "now",
+   "read",
+   "recorded",
+   "rule_evaluation",
+   "save",
+   "selection"
+  ],
+  "catabolic.projections": [
+   "Projections",
+   "Projections.__init__",
+   "Projections.get",
+   "Projections.put",
+   "Projections.run"
+  ],
+  "catabolic.publication_lock": [
+   "serialized"
+  ],
+  "catabolic.publication_mappings": [
+   "Rollback",
+   "bundle_entries",
+   "capabilities",
+   "document_sources",
+   "event_base",
+   "folder_state",
+   "group_document",
+   "history",
+   "immich_identity",
+   "import_identity",
+   "import_signature",
+   "pending",
+   "plan_digest",
+   "prepare",
+   "record",
+   "recover",
+   "resume_bundle",
+   "root_identity",
+   "run",
+   "source_check",
+   "stable_document",
+   "stage_folder",
+   "validate",
+   "verify_bundle"
+  ],
+  "catabolic.query": [
+   "CatalogQuery",
+   "CatalogQuery.__init__",
+   "CatalogQuery.associations",
+   "CatalogQuery.files",
+   "CatalogQuery.item",
+   "CatalogQuery.items",
+   "CatalogQuery.mappings",
+   "CatalogQuery.relationships",
+   "CatalogQuery.taggings",
+   "CatalogQuery.tags",
+   "identity_pair"
+  ],
+  "catabolic.receipts": [
+   "import_receipt",
+   "source_receipt"
+  ],
+  "catabolic.reconcile": [
+   "StaleFallbackIntent"
+  ],
+  "catabolic.remount": [
+   "recover_device_numbers",
+   "repair"
+  ],
+  "catabolic.rendering": [
+   "capabilities",
+   "definition",
+   "digest",
+   "duration",
+   "input_error",
+   "probe",
+   "render",
+   "streams",
+   "tools"
+  ],
+  "catabolic.rendition_publication": [
+   "Publication",
+   "Publication.__init__",
+   "Publication.candidates",
+   "Publication.decide",
+   "Publication.get",
+   "Publication.put",
+   "fallback_evidence",
+   "ready"
+  ],
+  "catabolic.rendition_requests": [
+   "admit",
+   "cancel",
+   "retry",
+   "status"
+  ],
+  "catabolic.rule_analysis": [
+   "plan"
+  ],
+  "catabolic.rule_cli": [
+   "dispatch",
+   "register",
+   "run_external",
+   "writable"
+  ],
+  "catabolic.rule_estimates": [
+   "estimate",
+   "human_bytes",
+   "options",
+   "positive",
+   "total"
+  ],
+  "catabolic.rule_external": [
+   "ExternalRule",
+   "ExternalRule.__init__",
+   "ExternalRule.apply",
+   "ExternalRule.attach",
+   "ExternalRule.plan"
+  ],
+  "catabolic.rules": [
+   "Rules",
+   "Rules.__init__",
+   "Rules.apply",
+   "Rules.decode",
+   "Rules.enable",
+   "Rules.get",
+   "Rules.list",
+   "Rules.preview",
+   "Rules.put",
+   "Rules.run",
+   "Rules.statistics",
+   "maintain",
+   "render_preview"
+  ],
+  "catabolic.scan_execution": [
+   "PublicationStopped",
+   "execute",
+   "writer"
+  ],
+  "catabolic.scan_policy": [
+   "compile_pattern",
+   "configure",
+   "effective",
+   "execution",
+   "extensions",
+   "included",
+   "limits",
+   "patterns"
+  ],
+  "catabolic.scan_staging": [
+   "ScanStaging",
+   "ScanStaging.__enter__",
+   "ScanStaging.__exit__",
+   "ScanStaging.append",
+   "ScanStaging.flush"
+  ],
+  "catabolic.scan_traversal": [
+   "ScanResourceStop",
+   "reopen",
+   "storage_exhausted",
+   "walk"
+  ],
+  "catabolic.selection": [
+   "graphql_contract",
+   "paged_sql_ids",
+   "select_ids",
+   "selected_associations",
+   "validate_selection"
+  ],
+  "catabolic.source_access": [
+   "validated_source"
+  ],
+  "catabolic.source_events": [
+   "startup"
+  ],
+  "catabolic.source_trust": [
+   "configure",
+   "effective",
+   "source_policy"
+  ],
+  "catabolic.sql_query": [
+   "parameters",
+   "render_table"
+  ],
+  "catabolic.store": [
+   "encode"
+  ],
+  "catabolic.supervisor": [
+   "due",
+   "recover",
+   "recover_run",
+   "run",
+   "tick"
+  ],
+  "catabolic.tagging": [
+   "Tagging",
+   "Tagging.__init__",
+   "Tagging.alias",
+   "Tagging.assign",
+   "Tagging.parent",
+   "Tagging.put",
+   "Tagging.rename",
+   "reserve_name",
+   "resolve_tag",
+   "tag_filters",
+   "tag_name",
+   "text_value"
+  ],
+  "catabolic.targets": [
+   "audio_rules",
+   "book_rules",
+   "definitions",
+   "describe",
+   "music_rules",
+   "photo_rules",
+   "relation",
+   "rule",
+   "video_rules"
+  ],
+  "catabolic.volume_identity": [
+   "volume_uuid"
+  ],
+  "catabolic.watcher_cli": [
+   "register",
+   "run"
+  ],
+  "catabolic.watcher_models": [
+   "Schedule",
+   "Schedule.valid",
+   "WatcherDefinition",
+   "WatcherDefinition.reaction_contract"
+  ],
+  "catabolic.watcher_processing": [
+   "admit"
+  ],
+  "catabolic.watcher_schedule": [
+   "fields",
+   "next_due"
+  ],
+  "catabolic.watchers": [
+   "dirty"
+  ],
+  "catabolic.watching": [
+   "cycle",
+   "stable_batches",
+   "watch"
+  ],
+  "catabolic.webhooks": [
+   "allow_callback",
+   "control",
+   "deliveries",
+   "delivery_url",
+   "inspect",
+   "listing",
+   "origin",
+   "register",
+   "request_callback",
+   "require_operator"
+  ],
+  "catabolic.work_inbox": [
+   "action",
+   "branch",
+   "decode",
+   "evidence_token",
+   "install",
+   "owner_pause",
+   "validate_evidence"
+  ],
+  "catabolic.workflow_cli": [
+   "dispatch",
+   "register",
+   "writable"
+  ]
+ },
+ "format": 1,
+ "inventory_sha256": "81b697a595556ded943bef59c167314a6ffbbfc68706ed134cfea66afe012cc2",
+ "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+ "removed_modules": [
+  "catabolic.access.catalog",
+  "catabolic.access.graphql",
+  "catabolic.api_events",
+  "catabolic.artifact_cli",
+  "catabolic.callback_urls",
+  "catabolic.catalog_refresh_cli",
+  "catabolic.catalog_state",
+  "catabolic.component_claims",
+  "catabolic.component_cli",
+  "catabolic.component_packages",
+  "catabolic.component_packaging",
+  "catabolic.consumer_adapters",
+  "catabolic.consumer_cli",
+  "catabolic.consumer_setup",
+  "catabolic.consumers",
+  "catabolic.copy_selection",
+  "catabolic.database_io",
+  "catabolic.destination_mappings",
+  "catabolic.document_text",
+  "catabolic.enrichment_cli",
+  "catabolic.estimate_calibration",
+  "catabolic.evaluation",
+  "catabolic.execution_claims",
+  "catabolic.exports",
+  "catabolic.fallback_cli",
+  "catabolic.fallback_models",
+  "catabolic.fallback_probe",
+  "catabolic.fallback_records",
+  "catabolic.filesystem",
+  "catabolic.hardlinks",
+  "catabolic.http.fallback",
+  "catabolic.http.mappings",
+  "catabolic.http.models",
+  "catabolic.http.playback",
+  "catabolic.http.transport",
+  "catabolic.http.watchers",
+  "catabolic.http.webhooks",
+  "catabolic.http_mappings",
+  "catabolic.http_worker",
+  "catabolic.http_worker_local",
+  "catabolic.importers",
+  "catabolic.inbox_cli",
+  "catabolic.interchange",
+  "catabolic.interchange.specification",
+  "catabolic.interchange.v1",
+  "catabolic.interchange.v2",
+  "catabolic.interchange.v3",
+  "catabolic.interchange.validation",
+  "catabolic.legacy_refresh_delivery",
+  "catabolic.maintenance",
+  "catabolic.manifest",
+  "catabolic.mapping_adapters",
+  "catabolic.media",
+  "catabolic.media_health",
+  "catabolic.metadata_publication",
+  "catabolic.migration",
+  "catabolic.native_monitor",
+  "catabolic.network_adapters",
+  "catabolic.notification_worker",
+  "catabolic.notifications",
+  "catabolic.observations",
+  "catabolic.openapi_operations",
+  "catabolic.operations",
+  "catabolic.output_cli",
+  "catabolic.outputs",
+  "catabolic.playback",
+  "catabolic.playback_cache",
+  "catabolic.playback_process",
+  "catabolic.playback_worker",
+  "catabolic.plex_import",
+  "catabolic.plex_login",
+  "catabolic.plex_matching",
+  "catabolic.plex_metadata",
+  "catabolic.probe_health",
+  "catabolic.process_runner",
+  "catabolic.processor_cli",
+  "catabolic.processors",
+  "catabolic.program_bundle",
+  "catabolic.program_cli",
+  "catabolic.program_contracts",
+  "catabolic.projection_stats",
+  "catabolic.projections",
+  "catabolic.publication_lock",
+  "catabolic.publication_mappings",
+  "catabolic.receipts",
+  "catabolic.remount",
+  "catabolic.rendering",
+  "catabolic.rendition_publication",
+  "catabolic.rendition_requests",
+  "catabolic.rule_analysis",
+  "catabolic.rule_cli",
+  "catabolic.rule_estimates",
+  "catabolic.rule_external",
+  "catabolic.rules",
+  "catabolic.scan_policy",
+  "catabolic.scan_staging",
+  "catabolic.scan_traversal",
+  "catabolic.selection",
+  "catabolic.source_access",
+  "catabolic.source_trust",
+  "catabolic.supervisor",
+  "catabolic.targets",
+  "catabolic.volume_identity",
+  "catabolic.watcher_cli",
+  "catabolic.watcher_models",
+  "catabolic.watcher_processing",
+  "catabolic.watcher_schedule",
+  "catabolic.watching",
+  "catabolic.webhooks",
+  "catabolic.work_inbox",
+  "catabolic.workflow_cli"
+ ],
+ "retained": {
+  "catabolic.access": [
+   "AccessError"
+  ],
+  "catabolic.domain": [
+   "CatabolicError"
+  ],
+  "catabolic.media_catalog": [
+   "MediaCatalog"
+  ],
+  "catabolic.query": [
+   "CatalogQuery"
+  ],
+  "catabolic.tagging": [
+   "Tagging"
+  ]
+ },
+ "supported": [
+  {
+   "module": "catabolic",
+   "name": ""
+  },
+  {
+   "module": "catabolic.access",
+   "name": "grant_put"
+  },
+  {
+   "module": "catabolic.access",
+   "name": "issue"
+  },
+  {
+   "module": "catabolic.access",
+   "name": "principal_put"
+  },
+  {
+   "module": "catabolic.api_cli",
+   "name": "save_secret"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application.__init__"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application.add_profile"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application.bind"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application.binding"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application.disable_mapping"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application.files"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application.link_mode"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application.mapping_id"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application.put_item"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application.put_mapping"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application.require_recovered"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application.scan"
+  },
+  {
+   "module": "catabolic.app",
+   "name": "Application.status"
+  },
+  {
+   "module": "catabolic.artifacts",
+   "name": "Artifacts"
+  },
+  {
+   "module": "catabolic.artifacts",
+   "name": "Artifacts.__init__"
+  },
+  {
+   "module": "catabolic.artifacts",
+   "name": "Artifacts.bind"
+  },
+  {
+   "module": "catabolic.artifacts",
+   "name": "Artifacts.default_output"
+  },
+  {
+   "module": "catabolic.artifacts",
+   "name": "Artifacts.enqueue"
+  },
+  {
+   "module": "catabolic.artifacts",
+   "name": "Artifacts.get"
+  },
+  {
+   "module": "catabolic.artifacts",
+   "name": "Artifacts.get_recipe"
+  },
+  {
+   "module": "catabolic.artifacts",
+   "name": "Artifacts.list"
+  },
+  {
+   "module": "catabolic.artifacts",
+   "name": "Artifacts.recipe"
+  },
+  {
+   "module": "catabolic.artifacts",
+   "name": "Artifacts.recipes"
+  },
+  {
+   "module": "catabolic.artifacts",
+   "name": "Artifacts.recover"
+  },
+  {
+   "module": "catabolic.artifacts",
+   "name": "Artifacts.run"
+  },
+  {
+   "module": "catabolic.catalog_refresh",
+   "name": ""
+  },
+  {
+   "module": "catabolic.catalog_refresh",
+   "name": "CatalogRefresh"
+  },
+  {
+   "module": "catabolic.catalog_refresh",
+   "name": "CatalogRefresh.__init__"
+  },
+  {
+   "module": "catabolic.catalog_refresh",
+   "name": "CatalogRefresh.configure"
+  },
+  {
+   "module": "catabolic.catalog_refresh",
+   "name": "CatalogRefresh.pending"
+  },
+  {
+   "module": "catabolic.catalog_refresh",
+   "name": "CatalogRefresh.run"
+  },
+  {
+   "module": "catabolic.catalog_refresh",
+   "name": "enqueue"
+  },
+  {
+   "module": "catabolic.catalog_refresh",
+   "name": "finish"
+  },
+  {
+   "module": "catabolic.cli",
+   "name": "main"
+  },
+  {
+   "module": "catabolic.component_sql",
+   "name": "OCCURRENCES_SQL"
+  },
+  {
+   "module": "catabolic.components",
+   "name": ""
+  },
+  {
+   "module": "catabolic.components",
+   "name": "backfill"
+  },
+  {
+   "module": "catabolic.components",
+   "name": "get"
+  },
+  {
+   "module": "catabolic.components",
+   "name": "index_file"
+  },
+  {
+   "module": "catabolic.components",
+   "name": "revision"
+  },
+  {
+   "module": "catabolic.content_access",
+   "name": "revision_of"
+  },
+  {
+   "module": "catabolic.curation",
+   "name": "Curation"
+  },
+  {
+   "module": "catabolic.curation",
+   "name": "Curation.__init__"
+  },
+  {
+   "module": "catabolic.curation",
+   "name": "Curation.accept_existing_association_evidence"
+  },
+  {
+   "module": "catabolic.curation",
+   "name": "Curation.completeness"
+  },
+  {
+   "module": "catabolic.curation",
+   "name": "Curation.decide"
+  },
+  {
+   "module": "catabolic.curation",
+   "name": "Curation.expected_put"
+  },
+  {
+   "module": "catabolic.curation",
+   "name": "Curation.get"
+  },
+  {
+   "module": "catabolic.curation",
+   "name": "Curation.history"
+  },
+  {
+   "module": "catabolic.curation",
+   "name": "Curation.list"
+  },
+  {
+   "module": "catabolic.curation",
+   "name": "Curation.put"
+  },
+  {
+   "module": "catabolic.curation",
+   "name": "Curation.sidecars"
+  },
+  {
+   "module": "catabolic.curation",
+   "name": "Curation.snapshot"
+  },
+  {
+   "module": "catabolic.curation",
+   "name": "occurrence"
+  },
+  {
+   "module": "catabolic.documentation",
+   "name": "TOPICS"
+  },
+  {
+   "module": "catabolic.fallback_policies",
+   "name": "Policies"
+  },
+  {
+   "module": "catabolic.fallback_policies",
+   "name": "Policies.__init__"
+  },
+  {
+   "module": "catabolic.fallback_policies",
+   "name": "Policies.get"
+  },
+  {
+   "module": "catabolic.fallback_policies",
+   "name": "Policies.listing"
+  },
+  {
+   "module": "catabolic.fallback_policies",
+   "name": "Policies.put"
+  },
+  {
+   "module": "catabolic.fallback_projection",
+   "name": "FallbackProjection"
+  },
+  {
+   "module": "catabolic.fallback_projection",
+   "name": "FallbackProjection.__init__"
+  },
+  {
+   "module": "catabolic.fallback_projection",
+   "name": "FallbackProjection.apply_prepared"
+  },
+  {
+   "module": "catabolic.fallback_projection",
+   "name": "FallbackProjection.bind"
+  },
+  {
+   "module": "catabolic.fallback_projection",
+   "name": "FallbackProjection.plan"
+  },
+  {
+   "module": "catabolic.fallback_projection",
+   "name": "FallbackProjection.present"
+  },
+  {
+   "module": "catabolic.fallback_projection",
+   "name": "FallbackProjection.run"
+  },
+  {
+   "module": "catabolic.fallback_projection",
+   "name": "binding"
+  },
+  {
+   "module": "catabolic.fallback_resolution",
+   "name": "Resolver"
+  },
+  {
+   "module": "catabolic.fallback_resolution",
+   "name": "Resolver.__init__"
+  },
+  {
+   "module": "catabolic.fallback_resolution",
+   "name": "Resolver.capture"
+  },
+  {
+   "module": "catabolic.fallback_resolution",
+   "name": "Resolver.health"
+  },
+  {
+   "module": "catabolic.fallback_resolution",
+   "name": "Resolver.resolve"
+  },
+  {
+   "module": "catabolic.fallback_worker",
+   "name": "configure"
+  },
+  {
+   "module": "catabolic.fallback_worker",
+   "name": "tick"
+  },
+  {
+   "module": "catabolic.graphql_query",
+   "name": "SDL"
+  },
+  {
+   "module": "catabolic.graphql_query",
+   "name": "execute_graphql"
+  },
+  {
+   "module": "catabolic.http.app",
+   "name": "create_app"
+  },
+  {
+   "module": "catabolic.http.contract",
+   "name": "VERSION"
+  },
+  {
+   "module": "catabolic.item_workflow",
+   "name": "ItemWorkflow"
+  },
+  {
+   "module": "catabolic.item_workflow",
+   "name": "ItemWorkflow.__init__"
+  },
+  {
+   "module": "catabolic.item_workflow",
+   "name": "ItemWorkflow.checks"
+  },
+  {
+   "module": "catabolic.item_workflow",
+   "name": "ItemWorkflow.get"
+  },
+  {
+   "module": "catabolic.item_workflow",
+   "name": "ItemWorkflow.log"
+  },
+  {
+   "module": "catabolic.item_workflow",
+   "name": "ItemWorkflow.note"
+  },
+  {
+   "module": "catabolic.item_workflow",
+   "name": "ItemWorkflow.require"
+  },
+  {
+   "module": "catabolic.item_workflow",
+   "name": "ItemWorkflow.resolve"
+  },
+  {
+   "module": "catabolic.item_workflow",
+   "name": "ItemWorkflow.set_status"
+  },
+  {
+   "module": "catabolic.layouts",
+   "name": "Layouts"
+  },
+  {
+   "module": "catabolic.layouts",
+   "name": "Layouts.__init__"
+  },
+  {
+   "module": "catabolic.layouts",
+   "name": "Layouts.effective_definition"
+  },
+  {
+   "module": "catabolic.layouts",
+   "name": "Layouts.get"
+  },
+  {
+   "module": "catabolic.layouts",
+   "name": "Layouts.list"
+  },
+  {
+   "module": "catabolic.layouts",
+   "name": "Layouts.put"
+  },
+  {
+   "module": "catabolic.layouts",
+   "name": "Layouts.run"
+  },
+  {
+   "module": "catabolic.layouts",
+   "name": "PRESETS"
+  },
+  {
+   "module": "catabolic.plans",
+   "name": "projection_digest"
+  },
+  {
+   "module": "catabolic.processing",
+   "name": "Processing"
+  },
+  {
+   "module": "catabolic.processing",
+   "name": "Processing.__init__"
+  },
+  {
+   "module": "catabolic.processing",
+   "name": "Processing.attempts"
+  },
+  {
+   "module": "catabolic.processing",
+   "name": "Processing.cancel"
+  },
+  {
+   "module": "catabolic.processing",
+   "name": "Processing.duplicates"
+  },
+  {
+   "module": "catabolic.processing",
+   "name": "Processing.enqueue"
+  },
+  {
+   "module": "catabolic.processing",
+   "name": "Processing.facts"
+  },
+  {
+   "module": "catabolic.processing",
+   "name": "Processing.get"
+  },
+  {
+   "module": "catabolic.processing",
+   "name": "Processing.list"
+  },
+  {
+   "module": "catabolic.processing",
+   "name": "Processing.retry"
+  },
+  {
+   "module": "catabolic.processing",
+   "name": "Processing.run"
+  },
+  {
+   "module": "catabolic.processing",
+   "name": "Processing.search"
+  },
+  {
+   "module": "catabolic.reconcile",
+   "name": "Reconciler"
+  },
+  {
+   "module": "catabolic.reconcile",
+   "name": "Reconciler.__init__"
+  },
+  {
+   "module": "catabolic.reconcile",
+   "name": "Reconciler.apply"
+  },
+  {
+   "module": "catabolic.reconcile",
+   "name": "Reconciler.catalogs"
+  },
+  {
+   "module": "catabolic.reconcile",
+   "name": "Reconciler.owner"
+  },
+  {
+   "module": "catabolic.reconcile",
+   "name": "Reconciler.preview"
+  },
+  {
+   "module": "catabolic.reconcile",
+   "name": "Reconciler.recover"
+  },
+  {
+   "module": "catabolic.reconcile",
+   "name": "Reconciler.verify"
+  },
+  {
+   "module": "catabolic.saved_queries",
+   "name": "Queries"
+  },
+  {
+   "module": "catabolic.saved_queries",
+   "name": "Queries.__init__"
+  },
+  {
+   "module": "catabolic.saved_queries",
+   "name": "Queries.get"
+  },
+  {
+   "module": "catabolic.saved_queries",
+   "name": "Queries.list"
+  },
+  {
+   "module": "catabolic.saved_queries",
+   "name": "Queries.put"
+  },
+  {
+   "module": "catabolic.saved_queries",
+   "name": "Queries.run"
+  },
+  {
+   "module": "catabolic.saved_queries",
+   "name": "Queries.select"
+  },
+  {
+   "module": "catabolic.saved_queries",
+   "name": "Queries.validate"
+  },
+  {
+   "module": "catabolic.scan_execution",
+   "name": "Publisher"
+  },
+  {
+   "module": "catabolic.scan_execution",
+   "name": "Publisher.__init__"
+  },
+  {
+   "module": "catabolic.scan_execution",
+   "name": "Publisher.checkpoint"
+  },
+  {
+   "module": "catabolic.scan_execution",
+   "name": "Publisher.directory"
+  },
+  {
+   "module": "catabolic.scan_execution",
+   "name": "Publisher.flush"
+  },
+  {
+   "module": "catabolic.scan_execution",
+   "name": "Publisher.initial_scopes"
+  },
+  {
+   "module": "catabolic.scan_execution",
+   "name": "Publisher.stop"
+  },
+  {
+   "module": "catabolic.source_events",
+   "name": "invalidate"
+  },
+  {
+   "module": "catabolic.sql_query",
+   "name": "execute_sql"
+  },
+  {
+   "module": "catabolic.store",
+   "name": "Store"
+  },
+  {
+   "module": "catabolic.store",
+   "name": "Store.__enter__"
+  },
+  {
+   "module": "catabolic.store",
+   "name": "Store.__exit__"
+  },
+  {
+   "module": "catabolic.store",
+   "name": "Store.__init__"
+  },
+  {
+   "module": "catabolic.store",
+   "name": "Store.close"
+  },
+  {
+   "module": "catabolic.store",
+   "name": "Store.detached"
+  },
+  {
+   "module": "catabolic.store",
+   "name": "Store.initialize"
+  },
+  {
+   "module": "catabolic.store",
+   "name": "Store.rows"
+  },
+  {
+   "module": "catabolic.store",
+   "name": "Store.transaction"
+  },
+  {
+   "module": "catabolic.watchers",
+   "name": "Watchers"
+  },
+  {
+   "module": "catabolic.watchers",
+   "name": "Watchers.__init__"
+  },
+  {
+   "module": "catabolic.watchers",
+   "name": "Watchers.admit"
+  },
+  {
+   "module": "catabolic.watchers",
+   "name": "Watchers.enable"
+  },
+  {
+   "module": "catabolic.watchers",
+   "name": "Watchers.get"
+  },
+  {
+   "module": "catabolic.watchers",
+   "name": "Watchers.history"
+  },
+  {
+   "module": "catabolic.watchers",
+   "name": "Watchers.list"
+  },
+  {
+   "module": "catabolic.watchers",
+   "name": "Watchers.put"
+  },
+  {
+   "module": "catabolic.watchers",
+   "name": "Watchers.require_run"
+  },
+  {
+   "module": "catabolic.watchers",
+   "name": "Watchers.run"
+  }
+ ],
+ "supported_modules": [
+  "catabolic",
+  "catabolic.access",
+  "catabolic.api_cli",
+  "catabolic.app",
+  "catabolic.artifacts",
+  "catabolic.catalog_refresh",
+  "catabolic.cli",
+  "catabolic.component_sql",
+  "catabolic.components",
+  "catabolic.content_access",
+  "catabolic.curation",
+  "catabolic.documentation",
+  "catabolic.fallback_policies",
+  "catabolic.fallback_projection",
+  "catabolic.fallback_resolution",
+  "catabolic.fallback_worker",
+  "catabolic.graphql_query",
+  "catabolic.http.app",
+  "catabolic.http.contract",
+  "catabolic.item_workflow",
+  "catabolic.layouts",
+  "catabolic.plans",
+  "catabolic.processing",
+  "catabolic.reconcile",
+  "catabolic.saved_queries",
+  "catabolic.scan_execution",
+  "catabolic.source_events",
+  "catabolic.sql_query",
+  "catabolic.store",
+  "catabolic.watchers"
+ ],
+ "version": "1.0.0"
+}

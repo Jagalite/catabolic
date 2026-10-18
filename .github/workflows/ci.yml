@@ -48,6 +48,8 @@ jobs:
           TMPDIR="$reference_tmp" python scripts/run_reference_tests.py --report python-unit-results.json
       - run: ruff check src tests scripts
       - run: ruff format --check src tests scripts
+      - name: Refuse stale 1.0 API disposition outputs
+        run: python scripts/generate_api_disposition.py --check
       - run: catabolic spec check
       - name: Preserve previously released schemas and references
         env:

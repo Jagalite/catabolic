@@ -3,3 +3,7 @@
 """Opt-in compatibility names; behavior remains owned by catabolic_native.documentation."""
 
 from catabolic_native.documentation import TOPICS as TOPICS
+
+from catabolic._disposition import getattr_for as _getattr_for
+
+__getattr__ = _getattr_for(__name__)
