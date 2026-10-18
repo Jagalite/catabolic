@@ -16,7 +16,9 @@
 //! Everything outside the subset is refused with [`UNQUALIFIED`], never
 //! approximated: bare inline flags after the start, contradictory or unknown
 //! flags, `(*VERB)`, duplicate group names, capturing groups inside any
-//! lookaround, backreferences inside lookbehind, backreferences to open groups or under
+//! lookaround, backreferences inside lookbehind or to captures inside a
+//! repeated group, a backreference inside a repeated group, assertions
+//! inside lookbehind, backreferences to open groups or under
 //! case-insensitive matching, multi-digit backreferences, nested or POSIX
 //! classes and set operators, possessive quantifiers, and quantifiers that
 //! follow an assertion or another quantifier.
@@ -250,6 +252,10 @@ struct Frame {
     lookaround: bool,
     capture: Option<usize>,
     assertion: bool,
+    /// Captures opened inside this group, including its own.
+    captures: Vec<usize>,
+    /// Whether a backreference appears inside this group.
+    backreference: bool,
 }
 
 struct Translator<'a> {
@@ -265,6 +271,12 @@ struct Translator<'a> {
     names: std::collections::HashMap<String, usize>,
     groups: usize,
     closed: HashSet<usize>,
+    /// Captures inside a repeated group: fancy-regex simplifies nested
+    /// repetition (`(a+)+`), so references to them are refused.
+    repeated: HashSet<usize>,
+    /// The group that just closed: (index after its `)`, its captures,
+    /// whether it holds a backreference).
+    closed_at: Option<(usize, Vec<usize>, bool)>,
     last: Last,
 }
 
@@ -304,8 +316,27 @@ impl Translator<'_> {
         Err(Error(UNQUALIFIED.into()))
     }
 
-    fn quantifiable(&self) -> Result<()> {
+    fn quantifiable(&mut self) -> Result<()> {
         if self.last != Last::Atom {
+            return self.refuse();
+        }
+        // A repeated group: its captures cannot be referenced afterwards, and
+        // a backreference inside it is refused (repetition semantics differ).
+        if let Some((end, captures, backreference)) = self.closed_at.take()
+            && end == self.i
+        {
+            if backreference {
+                return self.refuse();
+            }
+            self.repeated.extend(captures);
+        }
+        Ok(())
+    }
+
+    /// Assertions inside a lookbehind: fancy-regex's reverse search cannot
+    /// backtrack into the variable-width body the way the frozen engine does.
+    fn assertion_allowed(&self) -> Result<()> {
+        if self.lookbehind {
             return self.refuse();
         }
         Ok(())
@@ -326,6 +357,7 @@ impl Translator<'_> {
     }
 
     fn word_boundary(&mut self, boundary: bool) -> Result<()> {
+        self.assertion_allowed()?;
         let mut word = String::new();
         emit_set(&mut word, &tables().word)?;
         let text = if boundary {
@@ -360,12 +392,14 @@ impl Translator<'_> {
                 return self.word_boundary(next == 'b');
             }
             'A' => {
+                self.assertion_allowed()?;
                 self.out.push_str("\\A");
                 self.i += 2;
                 self.last = Last::Assertion;
                 return Ok(());
             }
             'Z' => {
+                self.assertion_allowed()?;
                 // Python's \Z is strict; fancy's \Z also accepts a final newline.
                 self.out.push_str("\\z");
                 self.i += 2;
@@ -397,8 +431,15 @@ impl Translator<'_> {
     /// A backreference to a closed group, outside lookbehind and outside
     /// case-insensitive matching; `next` is the index after its syntax.
     fn backreference(&mut self, group: usize, next: usize) -> Result<()> {
-        if !self.closed.contains(&group) || self.lookbehind || self.insensitive {
+        if !self.closed.contains(&group)
+            || self.repeated.contains(&group)
+            || self.lookbehind
+            || self.insensitive
+        {
             return self.refuse();
+        }
+        for frame in &mut self.stack {
+            frame.backreference = true;
         }
         // Wrapped so a following digit cannot extend the number.
         let _ = write!(self.out, "(?:\\{group})");
@@ -501,6 +542,8 @@ impl Translator<'_> {
             lookaround: self.lookaround,
             capture: None,
             assertion: false,
+            captures: Vec::new(),
+            backreference: false,
         };
         if chars.get(self.i + 1) == Some(&'*') {
             return self.refuse();
@@ -511,6 +554,10 @@ impl Translator<'_> {
             }
             self.groups += 1;
             frame.capture = Some(self.groups);
+            frame.captures.push(self.groups);
+            for open in &mut self.stack {
+                open.captures.push(self.groups);
+            }
             self.out.push('(');
             self.i += 1;
         } else {
@@ -535,11 +582,13 @@ impl Translator<'_> {
                     .push_str(if rest.starts_with(':') { "(?:" } else { "(?>" });
                 self.i += 3;
             } else if rest.starts_with('=') || rest.starts_with('!') {
+                self.assertion_allowed()?;
                 self.out.push_str(&format!("(?{}", &rest[..1]));
                 frame.assertion = true;
                 frame.lookaround = true;
                 self.i += 3;
             } else if rest == "<=" || rest == "<!" {
+                self.assertion_allowed()?;
                 self.out.push_str(&format!("(?{rest}"));
                 frame.assertion = true;
                 frame.lookbehind = true;
@@ -566,6 +615,10 @@ impl Translator<'_> {
                 self.groups += 1;
                 self.names.insert(name.clone(), self.groups);
                 frame.capture = Some(self.groups);
+                frame.captures.push(self.groups);
+                for open in &mut self.stack {
+                    open.captures.push(self.groups);
+                }
                 self.out.push_str(&format!("(?P<{name}>"));
                 self.i = end + 1;
             } else {
@@ -606,6 +659,7 @@ impl Translator<'_> {
         if let Some(group) = frame.capture {
             self.closed.insert(group);
         }
+        self.closed_at = Some((self.i, frame.captures.clone(), frame.backreference));
         let (insensitive, lookbehind, lookaround) =
             self.stack.last().map_or((self.global, false, false), |f| {
                 (f.insensitive, f.lookbehind, f.lookaround)
@@ -638,6 +692,8 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
         names: std::collections::HashMap::new(),
         groups: 0,
         closed: HashSet::new(),
+        repeated: HashSet::new(),
+        closed_at: None,
         last: Last::Nothing,
     };
     // Leading global flags, in one or more groups at the very start.
@@ -672,11 +728,13 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
                 translator.last = Last::Nothing;
             }
             '^' => {
+                translator.assertion_allowed()?;
                 translator.out.push('^');
                 translator.i += 1;
                 translator.last = Last::Assertion;
             }
             '$' => {
+                translator.assertion_allowed()?;
                 // Python: end of string, or before a final newline.
                 translator.out.push_str("(?=\\n?\\z)");
                 translator.i += 1;

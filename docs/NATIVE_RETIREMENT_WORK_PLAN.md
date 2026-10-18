@@ -605,3 +605,17 @@ frozen Python but does natively. Capturing groups (named or not) are now
 refused inside any lookaround; they were already refused in lookbehind.
 Captures outside lookarounds are unchanged. The fixture (151 patterns) adds
 this counterexample and two more.
+
+#### Review round 4 correction (October 18)
+
+- **Repeated captures.** fancy-regex simplifies nested repetition such as
+  `(a+)+`, so `^(a+)+\1$` failed `aaa` natively while frozen matched it.
+  Two things are now refused: a backreference to any capture inside a
+  repeated group, and a backreference inside a repeated group.
+- **Assertions in lookbehind.** fancy-regex's reverse search cannot backtrack
+  into a variable-width lookbehind body the way the frozen engine does, so
+  `(?<=(?<=a)a+)b` failed `aab` natively. Every assertion inside a
+  lookbehind is now refused: a nested lookaround, `\b`, `\B`, `\A`, `\Z`,
+  `^` and `$`.
+- **Fixture.** Now 157 patterns, adding both counterexamples and four
+  neighbours.

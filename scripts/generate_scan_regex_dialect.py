@@ -222,6 +222,13 @@ PATTERNS = [
     r"(?=(a|ab).)\1c",
     r"(?=(?P<n>a))\w",
     r"(?!(a))b",
+    # Sol round 4: repeated captures and assertions inside lookbehind.
+    r"^(a+)+\1$",
+    r"(a)+\1",
+    r"(?:(a)\1)+",
+    r"(?<=(?<=a)a+)b",
+    r"(?<=\ba)b",
+    r"(?<=^a)b",
 ]
 
 

@@ -2916,6 +2916,9 @@ mod tests {
             // Sol round 3: captures inside lookaround.
             r"(?=(a|ab).)\1c",
             r"(?=(?P<n>a))\w",
+            // Sol round 4: repeated captures and assertions in lookbehind.
+            r"^(a+)+\1$",
+            r"(?<=(?<=a)a+)b",
         ] {
             assert!(refused.contains(pattern), "{pattern:?} should be refused");
         }
