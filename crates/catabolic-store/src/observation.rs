@@ -658,12 +658,18 @@ fn configure_policy(store: &Store, profile: &str, source: &str, args: &Value) ->
     }
     Ok(json!({"previous":old,"policy":new,"revision":revision,"applied":apply}))
 }
+/// Engine steps (and held backtracking entries) allowed per filter search.
+const SCAN_REGEX_STEP_LIMIT: usize = 1_000_000;
 fn compile_pattern(pattern: &str) -> Result<fancy_regex::Regex> {
     // Only the qualified VERSION0 subset is translated; everything else,
     // including patterns frozen admission crashes on such as `(?V1)`, is
     // refused with a structured error rather than approximated.
     let translated = qualify_pattern(pattern)?;
+    // The step limit bounds the time and backtracking memory of every
+    // search, whatever the pattern; exceeding it is a `regex_filter_timeout`,
+    // the outcome of the frozen engine's per-search timeout.
     fancy_regex::RegexBuilder::new(&translated)
+        .step_limit(SCAN_REGEX_STEP_LIMIT)
         .backtrack_limit(100_000)
         .seek(false)
         .delegate_size_limit(1_048_576)
@@ -2774,6 +2780,43 @@ mod tests {
     /// `scripts/generate_scan_regex_dialect.py`. A frozen-admitted pattern must
     /// either match identically on every sample path or be refused; it may
     /// never be silently approximated. Frozen refusals and crashes stay refused.
+    #[test]
+    fn scan_regex_search_work_is_bounded_at_run_time() {
+        // Sol round 9: inputs whose search work the admission screen cannot
+        // bound. Each must stop at the step limit, quickly.
+        let long = format!("{}a", format!("{}/", "a".repeat(250)).repeat(1000));
+        let captures = format!(r"\A(?:{}(?>.))*\Z", "()".repeat(250));
+        for (pattern, path) in [
+            (r"\A(?:(?>.*b|).)*\Z", long.as_str()),
+            (r"\A(?:a|aa)*(?>){200000}b\Z", "aaaaaaaaaaaaaaaaaaaaaaaa"),
+            (captures.as_str(), long.as_str()),
+        ] {
+            let regex = compile_pattern(pattern).unwrap();
+            let started = Instant::now();
+            let error = regex.is_match(path).unwrap_err();
+            assert!(
+                matches!(
+                    error,
+                    fancy_regex::Error::RuntimeError(fancy_regex::RuntimeError::StepLimitExceeded)
+                ),
+                "{pattern:?}: {error}"
+            );
+            assert!(started.elapsed() < Duration::from_secs(5), "{pattern:?}");
+        }
+        // Ordinary hard patterns stay well inside the limit on long paths.
+        let path = format!("{}Alien.mkv", "Movies/".repeat(600));
+        for pattern in [
+            r"^(?!.*sample).*\.mkv$",
+            r"(?:(?!sample).)*\.mkv$",
+            r"(?<=/)Alien",
+        ] {
+            assert!(
+                compile_pattern(pattern).unwrap().is_match(&path).unwrap(),
+                "{pattern:?}"
+            );
+        }
+    }
+
     #[test]
     fn scan_regex_dialect_matches_frozen_or_refuses_explicitly() {
         let raw = std::fs::read_to_string(concat!(

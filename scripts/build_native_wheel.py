@@ -52,6 +52,8 @@ def source_digest(root):
         and str(path.relative_to(root)) not in generated
     )
     paths.extend(path for path in (root / ".cargo").rglob("*") if path.is_file())
+    # Vendored crates selected by `[patch.crates-io]` are compiled in too.
+    paths.extend(path for path in (root / "vendor").rglob("*") if path.is_file())
     digest = hashlib.sha256()
     for path in sorted(set(paths)):
         if path.is_file():

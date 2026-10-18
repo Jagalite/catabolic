@@ -124,8 +124,11 @@ fn source_snapshot(root: &Path) -> Result<BTreeMap<String, FileIdentity>> {
     for name in NATIVE_CRATES {
         collect(root, &root.join("crates").join(name), &mut files)?;
     }
-    if root.join(".cargo").exists() {
-        collect(root, &root.join(".cargo"), &mut files)?;
+    // Vendored crates selected by `[patch.crates-io]` are compiled in too.
+    for name in [".cargo", "vendor"] {
+        if root.join(name).exists() {
+            collect(root, &root.join(name), &mut files)?;
+        }
     }
     Ok(files)
 }
@@ -521,7 +524,7 @@ fn stage_licenses(
                     .to_string(),
             );
         }
-        let mut record = json!({"package":name,"version":version,"package_id":package["id"],"license_expression":package["license"],"notice_files":staged,"project_license":package["source"].is_null()});
+        let mut record = json!({"package":name,"version":version,"package_id":package["id"],"license_expression":package["license"],"notice_files":staged,"project_license":package["source"].is_null() && !manifest_dir.starts_with(root.join("vendor"))});
         if let Some(notice) = supplement {
             record["supplemental_notice"] = notice;
         }

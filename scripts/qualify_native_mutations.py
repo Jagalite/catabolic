@@ -371,7 +371,7 @@ def source_snapshot(root):
             "pyproject.toml",
         )
     ]
-    for name in (".cargo", "crates", "src", "scripts", "tests"):
+    for name in (".cargo", "crates", "src", "scripts", "tests", "vendor"):
         paths.append(root / name)
         paths.extend((root / name).rglob("*"))
     dependency_links = {}

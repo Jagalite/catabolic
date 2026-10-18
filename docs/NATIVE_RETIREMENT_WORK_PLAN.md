@@ -684,3 +684,36 @@ Common forms stay qualified, such as `(?:(?!sample).)*\.mkv$` and
 `^(?!.*sample).*\.mkv$`. The nested-lookahead pattern also exhausts the
 frozen engine's memory. Like the `a{1000}` cube, it is asserted refused
 natively rather than recorded in the fixture, which is now 170 patterns.
+
+#### Review round 9 correction (October 18)
+
+Round 9 showed three ways a search could still run away. No admission check
+of the pattern alone can bound fancy-regex here:
+
+- a delegated sub-search inspects more input than it consumes
+  (`\A(?:(?>.*b|).)*\Z`);
+- the backtrack limit multiplies whatever forward work each attempt does
+  (`\A(?:a|aa)*(?>){200000}b\Z`);
+- capture undo records grow without bound (`\A(?:()…()(?>.))*\Z`).
+
+The workspace therefore vendors fancy-regex 0.19.2 under `vendor/fancy-regex`
+with one documented patch (`CATABOLIC_PATCH.md`): a per-search step limit.
+
+- **Cost.** Each VM instruction costs one step. An instruction that inspects
+  the haystack costs one step plus the haystack length: delegated searches,
+  literals and backreferences.
+- **Memory.** The search also fails when held backtracking branches plus saved
+  capture values exceed the limit.
+- **Limit.** Native filters use 1,000,000 steps. Exceeding it is a
+  `regex_filter_timeout`, the outcome of the frozen engine's 10 ms per-search
+  timeout.
+- **Admission screen.** The per-node work bound stays, refusing patterns that
+  could never run within reasonable work. The guarantee comes from the
+  run-time limit.
+
+The vendored tree is part of every source fingerprint: the distribution
+preparation inventory, the wheel builder's source digest and the mutation
+qualification snapshot. Packaging records it as a third-party MIT crate with
+its own notices. A test checks that Sol's three inputs stop at the limit
+within seconds, and that ordinary lookaround filters still match on long
+paths.

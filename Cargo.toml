@@ -2,6 +2,7 @@
 members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli", "crates/catabolic-python", "crates/catabolic-verification", "crates/catabolic-runtime", "crates/catabolic-http", "crates/catabolic-dist"]
 default-members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli"]
 resolver = "3"
+exclude = ["vendor/fancy-regex"]
 
 [workspace.package]
 version = "1.0.0"
@@ -51,3 +52,7 @@ unsafe_op_in_unsafe_fn = "deny"
 
 [workspace.lints.clippy]
 undocumented_unsafe_blocks = "deny"
+
+# fancy-regex 0.19.2 with a search step limit (vendor/fancy-regex/CATABOLIC_PATCH.md).
+[patch.crates-io]
+fancy-regex = { path = "vendor/fancy-regex" }
