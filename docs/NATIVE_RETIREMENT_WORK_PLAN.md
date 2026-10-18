@@ -619,3 +619,15 @@ this counterexample and two more.
   `^` and `$`.
 - **Fixture.** Now 157 patterns, adding both counterexamples and four
   neighbours.
+
+#### Review round 5 correction (October 18)
+
+Composed repeats could overflow fancy-regex's minimum-width arithmetic and
+panic at compile time, for example ten chained `(\N{100})` groups. The
+translator now tracks a conservative minimum match width with checked
+arithmetic: per sequence, per alternative, for each capture, and through
+backreferences and repeats. A pattern whose minimum width exceeds 2^20
+characters, which no scan path can reach, is refused. The fixture (159
+patterns) adds the chained case. A triple-nested `a{1000}` repeat, which the
+frozen engine runs out of memory compiling, is pinned as refused in the unit
+test instead.

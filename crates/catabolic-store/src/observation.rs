@@ -2919,6 +2919,8 @@ mod tests {
             // Sol round 4: repeated captures and assertions in lookbehind.
             r"^(a+)+\1$",
             r"(?<=(?<=a)a+)b",
+            // Sol round 5: minimum widths beyond any path overflow the engine.
+            r"(a{100})(\1{100})(\2{100})(\3{100})(\4{100})(\5{100})(\6{100})(\7{100})(\8{100})(\9{100})",
         ] {
             assert!(refused.contains(pattern), "{pattern:?} should be refused");
         }
@@ -2926,6 +2928,14 @@ mod tests {
         // refuses it with a structured error (a versioned safety difference).
         assert_eq!(
             compile_pattern("(?V1)a").unwrap_err().0,
+            scan_regex::UNQUALIFIED
+        );
+        // Too memory-hungry for the frozen engine to record; its minimum
+        // width (10^9) can never match a path, and native refuses it.
+        assert_eq!(
+            compile_pattern("(?:(?:(?:a{1000}){1000}){1000})")
+                .unwrap_err()
+                .0,
             scan_regex::UNQUALIFIED
         );
         // Python's `$` also matches before one final newline, never two.

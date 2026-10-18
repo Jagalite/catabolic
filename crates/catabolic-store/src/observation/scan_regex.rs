@@ -277,8 +277,17 @@ struct Translator<'a> {
     /// The group that just closed: (index after its `)`, its captures,
     /// whether it holds a backreference).
     closed_at: Option<(usize, Vec<usize>, bool)>,
+    /// Minimum widths, checked: per open sequence (current alternative,
+    /// narrowest completed alternative), the last atom, and each capture.
+    widths: Vec<(u64, Option<u64>)>,
+    last_width: u64,
+    capture_widths: std::collections::HashMap<usize, u64>,
     last: Last,
 }
+
+/// Any pattern whose minimum match is wider than this can never match a scan
+/// path; refusing it keeps the engine's own width arithmetic from overflowing.
+const MAX_MIN_WIDTH: u64 = 1 << 20;
 
 /// Parse inline flags at `self.i` (just after `(?`): returns (on, off, close).
 fn flags(chars: &[char], start: usize) -> Result<(String, String, char, usize)> {
@@ -333,6 +342,36 @@ impl Translator<'_> {
         Ok(())
     }
 
+    fn add_width(&mut self, width: u64) -> Result<()> {
+        let top = self.widths.last_mut().expect("root sequence");
+        top.0 = top
+            .0
+            .checked_add(width)
+            .filter(|w| *w <= MAX_MIN_WIDTH)
+            .ok_or_else(|| Error(UNQUALIFIED.into()))?;
+        self.last_width = width;
+        Ok(())
+    }
+
+    fn atom(&mut self, width: u64) -> Result<()> {
+        self.add_width(width)?;
+        self.last = Last::Atom;
+        Ok(())
+    }
+
+    /// Repeat the last atom at least `low` times in the minimum width.
+    fn repeat_width(&mut self, low: u64) -> Result<()> {
+        let width = self.last_width;
+        let top = self.widths.last_mut().expect("root sequence");
+        top.0 = width
+            .checked_mul(low)
+            .and_then(|repeated| (top.0 - width).checked_add(repeated))
+            .filter(|w| *w <= MAX_MIN_WIDTH)
+            .ok_or_else(|| Error(UNQUALIFIED.into()))?;
+        self.last_width = width.saturating_mul(low);
+        Ok(())
+    }
+
     /// Assertions inside a lookbehind: fancy-regex's reverse search cannot
     /// backtrack into the variable-width body the way the frozen engine does.
     fn assertion_allowed(&self) -> Result<()> {
@@ -383,7 +422,7 @@ impl Translator<'_> {
             };
             emit_set(&mut self.out, &set)?;
             self.i += 2;
-            self.last = Last::Atom;
+            self.atom(1)?;
             return Ok(());
         }
         match next {
@@ -421,7 +460,7 @@ impl Translator<'_> {
             Some(character) => {
                 emit_char(&mut self.out, character, self.insensitive)?;
                 self.i = i;
-                self.last = Last::Atom;
+                self.atom(1)?;
                 Ok(())
             }
             None => self.refuse(),
@@ -444,8 +483,8 @@ impl Translator<'_> {
         // Wrapped so a following digit cannot extend the number.
         let _ = write!(self.out, "(?:\\{group})");
         self.i = next;
-        self.last = Last::Atom;
-        Ok(())
+        let width = self.capture_widths.get(&group).copied().unwrap_or(0);
+        self.atom(width)
     }
 
     fn class(&mut self) -> Result<()> {
@@ -530,7 +569,7 @@ impl Translator<'_> {
             set = complement(&set);
         }
         emit_set(&mut self.out, &set)?;
-        self.last = Last::Atom;
+        self.atom(1)?;
         Ok(())
     }
 
@@ -646,6 +685,7 @@ impl Translator<'_> {
         self.lookbehind = frame.lookbehind;
         self.lookaround = frame.lookaround;
         self.stack.push(frame);
+        self.widths.push((0, None));
         self.last = Last::Nothing;
         Ok(())
     }
@@ -667,11 +707,17 @@ impl Translator<'_> {
         self.insensitive = insensitive;
         self.lookbehind = lookbehind;
         self.lookaround = lookaround;
-        self.last = if frame.assertion {
-            Last::Assertion
+        let (sequence, narrowest) = self.widths.pop().expect("group sequence");
+        let width = narrowest.map_or(sequence, |n| n.min(sequence));
+        if let Some(group) = frame.capture {
+            self.capture_widths.insert(group, width);
+        }
+        if frame.assertion {
+            self.last_width = 0;
+            self.last = Last::Assertion;
         } else {
-            Last::Atom
-        };
+            self.atom(width)?;
+        }
         Ok(())
     }
 }
@@ -694,6 +740,9 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
         closed: HashSet::new(),
         repeated: HashSet::new(),
         closed_at: None,
+        widths: vec![(0, None)],
+        last_width: 0,
+        capture_widths: std::collections::HashMap::new(),
         last: Last::Nothing,
     };
     // Leading global flags, in one or more groups at the very start.
@@ -725,6 +774,9 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
             '|' => {
                 translator.out.push('|');
                 translator.i += 1;
+                let top = translator.widths.last_mut().expect("root sequence");
+                top.1 = Some(top.1.map_or(top.0, |n| n.min(top.0)));
+                top.0 = 0;
                 translator.last = Last::Nothing;
             }
             '^' => {
@@ -743,12 +795,13 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
             '.' => {
                 translator.out.push('.');
                 translator.i += 1;
-                translator.last = Last::Atom;
+                translator.atom(1)?;
             }
             '*' | '+' | '?' => {
                 translator.quantifiable()?;
                 translator.out.push(c);
                 translator.i += 1;
+                translator.repeat_width(u64::from(c == '+'))?;
                 translator.after_quantifier()?;
             }
             '{' => {
@@ -789,13 +842,15 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
                 }
                 translator.out.push('}');
                 translator.i = end + 1;
+                let low = if low.is_empty() { 0 } else { bound(low)? };
+                translator.repeat_width(u64::from(low))?;
                 translator.after_quantifier()?;
             }
             '}' | ']' => return Err(refuse()),
             _ => {
                 emit_char(&mut translator.out, c, translator.insensitive)?;
                 translator.i += 1;
-                translator.last = Last::Atom;
+                translator.atom(1)?;
             }
         }
     }
