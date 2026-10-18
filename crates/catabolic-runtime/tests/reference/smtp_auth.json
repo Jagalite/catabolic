@@ -1,0 +1,118 @@
+{
+  "reference": "Apprise 1.13.1 with CPython smtplib; scripted in-memory server",
+  "user": "tim",
+  "password": "tanstaaftanstaaf",
+  "challenge_b64": "PDE4OTYuNjk3MTcwOTUyQHBvc3RvZmZpY2UucmVzdG9uLm1jaS5uZXQ+",
+  "scenarios": [
+    {
+      "name": "cram_preferred_over_plain_and_login",
+      "advertised": "PLAIN LOGIN CRAM-MD5",
+      "accepted": [
+        "CRAM-MD5",
+        "PLAIN",
+        "LOGIN"
+      ],
+      "complete": true,
+      "auth_commands": [
+        "AUTH CRAM-MD5",
+        "dGltIGI5MTNhNjAyYzdlZGE3YTQ5NWI0ZTZlNzMzNGQzODkw"
+      ],
+      "mail_sent": true
+    },
+    {
+      "name": "cram_rejected_falls_back_to_plain",
+      "advertised": "CRAM-MD5 PLAIN LOGIN",
+      "accepted": [
+        "PLAIN",
+        "LOGIN"
+      ],
+      "complete": true,
+      "auth_commands": [
+        "AUTH CRAM-MD5",
+        "dGltIGI5MTNhNjAyYzdlZGE3YTQ5NWI0ZTZlNzMzNGQzODkw",
+        "AUTH PLAIN AHRpbQB0YW5zdGFhZnRhbnN0YWFm"
+      ],
+      "mail_sent": true
+    },
+    {
+      "name": "cram_and_plain_rejected_falls_back_to_login",
+      "advertised": "CRAM-MD5 PLAIN LOGIN",
+      "accepted": [
+        "LOGIN"
+      ],
+      "complete": true,
+      "auth_commands": [
+        "AUTH CRAM-MD5",
+        "dGltIGI5MTNhNjAyYzdlZGE3YTQ5NWI0ZTZlNzMzNGQzODkw",
+        "AUTH PLAIN AHRpbQB0YW5zdGFhZnRhbnN0YWFm",
+        "AUTH LOGIN dGlt",
+        "dGFuc3RhYWZ0YW5zdGFhZg=="
+      ],
+      "mail_sent": true
+    },
+    {
+      "name": "cram_before_login_without_plain",
+      "advertised": "LOGIN CRAM-MD5",
+      "accepted": [
+        "CRAM-MD5",
+        "LOGIN"
+      ],
+      "complete": true,
+      "auth_commands": [
+        "AUTH CRAM-MD5",
+        "dGltIGI5MTNhNjAyYzdlZGE3YTQ5NWI0ZTZlNzMzNGQzODkw"
+      ],
+      "mail_sent": true
+    },
+    {
+      "name": "cram_only_rejected_fails",
+      "advertised": "CRAM-MD5",
+      "accepted": [],
+      "complete": false,
+      "auth_commands": [
+        "AUTH CRAM-MD5",
+        "dGltIGI5MTNhNjAyYzdlZGE3YTQ5NWI0ZTZlNzMzNGQzODkw",
+        "quit"
+      ],
+      "mail_sent": false
+    },
+    {
+      "name": "plain_and_login_unchanged",
+      "advertised": "PLAIN LOGIN",
+      "accepted": [
+        "PLAIN",
+        "LOGIN"
+      ],
+      "complete": true,
+      "auth_commands": [
+        "AUTH PLAIN AHRpbQB0YW5zdGFhZnRhbnN0YWFm"
+      ],
+      "mail_sent": true
+    },
+    {
+      "name": "login_only_unchanged",
+      "advertised": "LOGIN",
+      "accepted": [
+        "LOGIN"
+      ],
+      "complete": true,
+      "auth_commands": [
+        "AUTH LOGIN dGlt",
+        "dGFuc3RhYWZ0YW5zdGFhZg=="
+      ],
+      "mail_sent": true
+    },
+    {
+      "name": "unknown_mechanisms_fail",
+      "advertised": "XOAUTH2 NTLM",
+      "accepted": [
+        "XOAUTH2"
+      ],
+      "complete": false,
+      "auth_commands": [
+        "quit"
+      ],
+      "mail_sent": false
+    }
+  ]
+}

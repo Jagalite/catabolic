@@ -14,7 +14,7 @@ synthetic. No live third-party delivery is part of this qualification.
 | --- | --- | --- |
 | `mailto://`, `mailtos://` | Plain SMTP, STARTTLS, implicit TLS (`mode=ssl`), explicit host/port and `smtp=` | No opportunistic downgrade after a requested TLS upgrade fails |
 | Provider defaults | Gmail, Yandex, Microsoft, Yahoo, GMX, Fastmail/aliases, Zoho, SendGrid, 163, QQ/Foxmail, Comcast, localhost | Domain defaults are pinned compatibility data, not proof a provider currently accepts password SMTP |
-| Credentials | URL user/password, `user=`, `password=`, `pass=`, query precedence and password-only shorthand | ASCII AUTH credentials; no OAuth or CRAM-MD5-only servers. PLAIN and LOGIN are supported; CRAM-MD5 is not preferred when a server also offers them |
+| Credentials | URL user/password, `user=`, `password=`, `pass=`, query precedence and password-only shorthand | ASCII AUTH credentials only; no OAuth. Mechanisms follow CPython `smtplib.login()` as used by the pinned adapter: advertised `CRAM-MD5` first (HMAC-MD5 over the decoded challenge, response `user hexdigest`; at most five challenges, then the whole login aborts), then `PLAIN`, then `LOGIN`, falling through to the next on a rejection. Advertisement matching is case-insensitive, whereas smtplib matches the server's spelling exactly. CRAM-MD5 adds the RustCrypto `md-5` 0.10.6 crate (MIT OR Apache-2.0, ships both license files; reuses the already locked `hmac` 0.12.1, `digest` 0.10.7 and `cfg-if`). MD5 is used only inside this challenge-response MAC, as the protocol requires; it is the reference's own first choice, and does not send the password even over plain SMTP |
 | Addresses | Per-To fanout; path and `to=`; `from=`, `name=`, `cc=`, `bcc=`, `reply=`; common display-name forms and UTF-8 names | Deliberately bounded ASCII mailbox grammar; no quoted local parts, underscore/Unicode domain labels, or permissive trailing junk. **SMTPUTF8 is not a gap in the pinned reference**: Apprise 1.13.1 never sends the `SMTPUTF8` MAIL option. Its validator drops internationalized To/Cc/Bcc/Reply-To targets (a URL with only such To targets is admitted, logs no recipients and returns failure without connecting) and rejects an internationalized `from=` address (as a display name when `user` supplies the address). Native matches this, with 5 frozen cases and a loopback test whose server advertises SMTPUTF8 but never receives it. Implementing SMTPUTF8 would be a deliberate extension beyond Apprise and is not done |
 | MIME | HTML multipart/alternative by default; text/markdown as text/plain; UTF-8 base64; Catabolic subject; pinned Apprise application header; safe static event body | Boundaries, Message-ID, folding and ordering of recipient sets differ. Date uses local time unless `tz=` is given (below) |
 | Fanout/status | Partial RCPT refusal is successful if any envelope recipient was accepted; all-refused To transactions fail while remaining To transactions are attempted | Unrecoverable connection/protocol failure ends that SMTP session; durable retry can resend earlier successful recipients, as with the reference |
@@ -28,12 +28,14 @@ synthetic. No live third-party delivery is part of this qualification.
 | Safe no-op options | `tag`, valid `overflow`, `inline`, `emojis`, disabled PGP/WKD/store/redirect | The fixed short ASCII event summaries have no attachment, emoji, overflow or rendering work to perform |
 
 The test module includes synthetic loopback SMTP, STARTTLS and implicit TLS;
-PLAIN/LOGIN authentication; per-To continuation; Cc/Bcc handling; retry and optional
+PLAIN/LOGIN/CRAM-MD5 authentication (8 frozen smtplib AUTH transcripts from `smtp_auth_oracle.py`, plus the RFC 2195 example vector); per-To continuation; Cc/Bcc handling; retry and optional
 status; certificate and TLS-upgrade rejection; malformed/oversized replies;
 trickling-server deadline enforcement; and 90 frozen parser/MIME cases. The TLS
 test trust root is passed only to the private test transport. Production delivery
 cannot select it or disable verification. The checked-in private key is exclusively
 for the synthetic numeric-loopback fixture; it is not an account credential.
+
+`smtp_auth_oracle.py` runs the pinned Apprise with the real `smtplib` AUTH logic against a scripted in-memory server (sockets and name resolution denied) and records the client AUTH commands; the Rust test replays the same server script over loopback and compares the command lines exactly. `smtp_wire_oracle.py` replaces SMTP wholesale and so cannot show AUTH.
 
 Pinned source evidence: `apprise/plugins/email/base.py` constructor lines 267–550,
 `apply_email_defaults` 552–644, `send` 646–777, `parse_url` 983–1136, and

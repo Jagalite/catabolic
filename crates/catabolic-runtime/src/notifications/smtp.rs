@@ -5,6 +5,8 @@
 //! module. The only background work is bounded DNS resolution, never delivery.
 use base64::{Engine, engine::general_purpose::STANDARD};
 use catabolic_store::notifications::Outcome;
+use hmac::{Hmac, Mac};
+use md5::Md5;
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned, pki_types::ServerName};
 use std::{
     collections::BTreeMap,
@@ -23,6 +25,7 @@ const MAX_RECIPIENTS: usize = 100;
 const MAX_REPLY: usize = 65536;
 const MAX_LINE: usize = 4096;
 const MAX_OUTPUT: usize = 262144;
+const MAX_CHALLENGES: usize = 5;
 const MAX_HEADERS: usize = 32;
 const MAX_HEADER_NAME: usize = 64;
 const MAX_HEADER_VALUE: usize = 512;
@@ -989,6 +992,35 @@ impl Session {
                     .collect::<Vec<_>>()
             })
             .collect();
+        // smtplib's preference order is CRAM-MD5, PLAIN, LOGIN; a rejected
+        // mechanism falls through to the next advertised one.
+        if mechanisms.iter().any(|m| m == "CRAM-MD5") {
+            let mut reply = self.command("AUTH CRAM-MD5")?;
+            let mut challenges = 0;
+            while reply.code == 334 {
+                challenges += 1;
+                let challenge = STANDARD
+                    .decode(reply.lines.concat().trim())
+                    .map_err(|_| failed())?;
+                let mut mac = Hmac::<Md5>::new_from_slice(settings.password.as_bytes())
+                    .map_err(|_| failed())?;
+                mac.update(&challenge);
+                let digest: String = mac
+                    .finalize()
+                    .into_bytes()
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect();
+                reply = self.command(&STANDARD.encode(format!("{} {digest}", settings.user)))?;
+                // smtplib aborts the whole login after more than five challenges.
+                if challenges > MAX_CHALLENGES {
+                    return Err(failed());
+                }
+            }
+            if matches!(reply.code, 235 | 503) {
+                return Ok(());
+            }
+        }
         if mechanisms.iter().any(|m| m == "PLAIN") {
             let token = STANDARD.encode(format!("\0{}\0{}", settings.user, settings.password));
             let mut reply = self.command(&format!("AUTH PLAIN {token}"))?;
@@ -1534,6 +1566,176 @@ mod tests {
                 Some((name.to_owned(), value.trim().to_owned()))
             })
             .collect()
+    }
+
+    // Scripted AUTH server mirroring tests/reference/smtp_auth_oracle.py.
+    // Returns client command lines from after EHLO until MAIL FROM (or EOF) and
+    // whether MAIL FROM arrived.
+    fn auth_server(
+        advertised: String,
+        accepted: Vec<String>,
+        challenge: String,
+        challenges: usize,
+    ) -> (u16, thread::JoinHandle<(Vec<String>, bool)>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let task = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(3)))
+                .unwrap();
+            say(&mut socket, "220 scripted fixture\r\n");
+            assert_eq!(line(&mut socket).unwrap(), "EHLO [127.0.0.1]\r\n");
+            say(
+                &mut socket,
+                &format!("250-scripted fixture\r\n250-SIZE 262144\r\n250 AUTH {advertised}\r\n"),
+            );
+            let accepts = |name: &str| accepted.iter().any(|a| a == name);
+            let verdict = |socket: &mut TcpStream, name: &str| {
+                say(
+                    socket,
+                    if accepts(name) {
+                        "235 authenticated\r\n"
+                    } else {
+                        "535 authentication failed\r\n"
+                    },
+                );
+            };
+            let mut seen = Vec::new();
+            let mut mail = false;
+            let mut awaiting: Option<&str> = None;
+            let mut sent_challenges = 0;
+            while let Ok(text) = line(&mut socket) {
+                let command = text.trim_end().to_owned();
+                if command.starts_with("MAIL FROM:") {
+                    say(&mut socket, "250 ok\r\n");
+                    mail = true;
+                    break;
+                }
+                seen.push(command.clone());
+                match awaiting {
+                    Some("cram") => {
+                        if sent_challenges < challenges {
+                            sent_challenges += 1;
+                            say(&mut socket, &format!("334 {challenge}\r\n"));
+                        } else {
+                            awaiting = None;
+                            verdict(&mut socket, "CRAM-MD5");
+                        }
+                        continue;
+                    }
+                    Some("login") => {
+                        awaiting = None;
+                        verdict(&mut socket, "LOGIN");
+                        continue;
+                    }
+                    _ => {}
+                }
+                if command == "AUTH CRAM-MD5" {
+                    awaiting = Some("cram");
+                    sent_challenges = 1;
+                    say(&mut socket, &format!("334 {challenge}\r\n"));
+                } else if command.starts_with("AUTH PLAIN ") {
+                    verdict(&mut socket, "PLAIN");
+                } else if command.starts_with("AUTH LOGIN ") {
+                    awaiting = Some("login");
+                    say(&mut socket, "334 UGFzc3dvcmQ6\r\n");
+                } else {
+                    say(&mut socket, "504 mechanism unavailable\r\n");
+                }
+            }
+            (seen, mail)
+        });
+        (port, task)
+    }
+
+    #[test]
+    fn frozen_apprise_smtp_auth_transcripts_include_cram_md5() {
+        let oracle: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/reference/smtp_auth.json")).unwrap();
+        let (user, password) = (
+            oracle["user"].as_str().unwrap(),
+            oracle["password"].as_str().unwrap(),
+        );
+        for scenario in oracle["scenarios"].as_array().unwrap() {
+            let name = scenario["name"].as_str().unwrap();
+            let accepted = scenario["accepted"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_owned())
+                .collect();
+            let (port, server) = auth_server(
+                scenario["advertised"].as_str().unwrap().to_owned(),
+                accepted,
+                oracle["challenge_b64"].as_str().unwrap().to_owned(),
+                1,
+            );
+            let url = format!(
+                "mailto://{user}:{password}@127.0.0.1:{port}/one@example.net?from=sender@example.com&mode=insecure"
+            );
+            // The fixture ends at MAIL FROM, so a native success then reads EOF.
+            let actual = deliver(&url, BODY, Instant::now() + Duration::from_secs(3));
+            let (seen, mail) = server.join().unwrap();
+            let expected: Vec<_> = scenario["auth_commands"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_owned())
+                .filter(|c| !c.eq_ignore_ascii_case("quit"))
+                .collect();
+            assert_eq!(seen, expected, "{name}");
+            assert_eq!(scenario["mail_sent"], mail, "{name}");
+            if !mail {
+                assert_eq!(actual, Outcome::TemporarilyFailed, "{name}");
+            }
+        }
+    }
+
+    #[test]
+    fn cram_md5_matches_rfc_2195_and_bounds_server_challenges() {
+        // RFC 2195 section 2 example.
+        let challenge = STANDARD.encode("<1896.697170952@postoffice.reston.mci.net>");
+        let expected = STANDARD.encode("tim b913a602c7eda7a495b4e6e7334d3890");
+        let (port, server) = auth_server(
+            "CRAM-MD5".into(),
+            vec!["CRAM-MD5".into()],
+            challenge.clone(),
+            1,
+        );
+        let url = format!(
+            "mailto://tim:tanstaaftanstaaf@127.0.0.1:{port}/one@example.net?from=sender@example.com&mode=insecure"
+        );
+        let _ = deliver(&url, BODY, Instant::now() + Duration::from_secs(3));
+        assert_eq!(
+            server.join().unwrap().0,
+            ["AUTH CRAM-MD5".to_owned(), expected]
+        );
+        // smtplib gives up after more than five challenges and never tries
+        // another mechanism; each response is for the newest challenge.
+        let (port, server) =
+            auth_server("CRAM-MD5 PLAIN".into(), vec!["PLAIN".into()], challenge, 50);
+        let url = format!(
+            "mailto://tim:tanstaaftanstaaf@127.0.0.1:{port}/one@example.net?from=sender@example.com&mode=insecure"
+        );
+        assert_eq!(
+            deliver(&url, BODY, Instant::now() + Duration::from_secs(3)),
+            Outcome::TemporarilyFailed
+        );
+        let seen = server.join().unwrap().0;
+        assert_eq!(seen.len(), 7, "AUTH plus six responses: {seen:?}");
+        assert!(seen.iter().all(|c| !c.starts_with("AUTH PLAIN")));
+        // Invalid challenge encodings and non-ASCII credentials fail closed.
+        let (port, server) =
+            auth_server("CRAM-MD5".into(), vec!["CRAM-MD5".into()], "!!!".into(), 1);
+        let url = format!(
+            "mailto://tim:tanstaaftanstaaf@127.0.0.1:{port}/one@example.net?from=sender@example.com&mode=insecure"
+        );
+        assert_eq!(
+            deliver(&url, BODY, Instant::now() + Duration::from_secs(3)),
+            Outcome::TemporarilyFailed
+        );
+        assert_eq!(server.join().unwrap().0, ["AUTH CRAM-MD5".to_owned()]);
     }
 
     #[test]

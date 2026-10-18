@@ -78,7 +78,7 @@ are rejected before any outbound request. SMTP has a stricter explicit key list.
 | Gotify | HTTP/HTTPS, reverse-proxy path, X-Gotify-Key, priority aliases, text and Markdown extras | No additional provider-specific option gaps established for the fixed summaries; see shared restrictions |
 | Discord | Fixed HTTPS webhook endpoint, text/HTML or Markdown embeds, username/botname, avatar, image, footer/logo, href/url, thread, flags, TTS, explicit pings; exact 200/204 success and one 429 retry | No file/remote JSON templates or template-token evaluation. Multiple mention set ordering is deterministic and may differ from Python set ordering |
 | Telegram | Fixed HTTPS Bot API; numeric/named chat targets, per-target/default thread, silent/preview, text/HTML/Markdown versions, multiple targets and bounded optional owner discovery | No `image=yes` bundled-image upload; no file/remote rich-message templates or tokens. Owner detection retains the frozen first-message-sender rule and is not proof of administrative ownership |
-| SMTP | Plain, STARTTLS and implicit TLS; provider SMTP defaults; PLAIN/LOGIN; sender/name/to/cc/bcc/reply; default HTML or text/markdown MIME; Apprise `+Header=value` custom headers (stricter validation, structural names rejected); explicit `tz=` Date zone (ambiguous suffix names fail closed); local retry/wait/optional behavior | CRAM-MD5-only and permissive exotic mailbox forms (SMTPUTF8 is not offered by the pinned Apprise either: internationalized targets are dropped, never sent with `SMTPUTF8`, and native matches); PGP/WKD/key files; templates; storage; custom/OS TLS roots. Full details and pinned evidence are in [SMTP compatibility](../crates/catabolic-runtime/tests/reference/SMTP_COMPATIBILITY.md) |
+| SMTP | Plain, STARTTLS and implicit TLS; provider SMTP defaults; CRAM-MD5/PLAIN/LOGIN in smtplib's order; sender/name/to/cc/bcc/reply; default HTML or text/markdown MIME; Apprise `+Header=value` custom headers (stricter validation, structural names rejected); explicit `tz=` Date zone (ambiguous suffix names fail closed); local retry/wait/optional behavior | Permissive exotic mailbox forms (SMTPUTF8 is not offered by the pinned Apprise either: internationalized targets are dropped, never sent with `SMTPUTF8`, and native matches); PGP/WKD/key files; templates; storage; custom/OS TLS roots. Full details and pinned evidence are in [SMTP compatibility](../crates/catabolic-runtime/tests/reference/SMTP_COMPATIBILITY.md) |
 
 Shared HTTP inherited options `retry` (clamped to 10), `wait` (clamped to 20
 seconds, default 0.5), `optional`, `cto` and `rto` are implemented under the
@@ -140,12 +140,23 @@ requests/SMTP and reject socket creation before executing the already installed,
 pinned Apprise 1.13.1. They are test-only Python, not runtime helpers; no downloaded
 source or packages are installed or run.
 
+The SMTP fixtures `smtp_wire.json` and `smtp_auth.json` were regenerated with
+`python -I smtp_wire_oracle.py` and `python -I smtp_auth_oracle.py` in a scratch
+virtual environment outside the repository, installed with `--require-hashes
+--only-binary=:all:` from `requirements/notifications.lock` (Apprise 1.13.1,
+wheel hash verified). Regenerating `smtp_wire.json` reproduced the previously
+committed 34 cases byte for byte before new cases were appended. The oracle's
+`tz_key` values depend on the host's tz database for names that match no zone
+file case-sensitively, so tests compare keys case-insensitively.
+
 Commands (using the preexisting offline toolchain and an assigned build cache):
 
 ```sh
 cargo test --offline -p catabolic-runtime notifications::providers --lib
 cargo test --offline -p catabolic-cli --test native_notification_providers
 ```
+
+(Kyoto builds compile only; the resulting test executable is then run directly.)
 
 Pinned upstream source evidence: `plugins/ntfy.py` parse_url 859–1008 and send
 435–735; `plugins/gotify.py` parse_url 327 onward and send 197–276;
