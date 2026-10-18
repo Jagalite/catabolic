@@ -621,6 +621,24 @@ pub fn execute(store: &Store, profile: &str, op: &Value, args: &Value) -> Result
     fs::admit_failpoints(args)?;
     execute_with(store, profile, op, args, &|_, _| Ok(()))
 }
+/// [`execute`] with the frozen `after_filesystem` callback, called after the
+/// filesystem effect and before acknowledgement.
+pub(crate) fn execute_observed(
+    store: &Store,
+    profile: &str,
+    op: &Value,
+    args: &Value,
+    after_filesystem: &dyn Fn(&Value) -> Result<()>,
+) -> Result<()> {
+    fs::admit_failpoints(args)?;
+    execute_with(store, profile, op, args, &|stage, op| {
+        if stage == "after_filesystem" {
+            after_filesystem(op)
+        } else {
+            Ok(())
+        }
+    })
+}
 fn execute_with(
     store: &Store,
     profile: &str,
@@ -689,6 +707,7 @@ fn execute_with(
     // before acknowledging, even when the postcondition was already observed.
     fs::sync_ancestry(&root, path)?;
     fs::failpoint(args, "after_filesystem")?;
+    observer("after_filesystem", op)?;
     store.transaction(|db|{
         if was_retained{record_retention(db,profile,op)?;}
         if ["hard_create","hard_replace"].contains(&kind){db.execute("INSERT INTO owned_hardlinks VALUES (?,?,?,?) ON CONFLICT(profile,catalog,path) DO UPDATE SET target=excluded.target",params![profile,catalog,path,field(op,"target")?])?;}

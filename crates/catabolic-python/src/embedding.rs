@@ -259,6 +259,56 @@ impl NativeStore {
             .map(|value| value.unwrap_or(Value::Null).to_string())
             .map_err(error)
     }
+    /// `Reconciler.apply`/`recover`. The optional `after_filesystem` callable
+    /// receives each operation as a dict after its filesystem effect and
+    /// before acknowledgement. Its exception propagates unchanged, leaving
+    /// the operation journaled. The Store stays checked out meanwhile, so the
+    /// callback cannot reenter it.
+    #[pyo3(signature=(operation, request, profile, after_filesystem=None))]
+    fn reconcile_publish(
+        &self,
+        py: Python<'_>,
+        operation: &str,
+        request: &str,
+        profile: &str,
+        after_filesystem: Option<Py<PyAny>>,
+    ) -> PyResult<String> {
+        let request: Value = catabolic_core::decode_json(request)
+            .map_err(|e| CatabolicError::new_err(e.to_string()))?;
+        if !request.is_object() {
+            return Err(CatabolicError::new_err(
+                "native request must be a JSON object",
+            ));
+        }
+        let raised: Arc<Mutex<Option<PyErr>>> = Arc::new(Mutex::new(None));
+        let captured = raised.clone();
+        let value = self.run(py, |session| {
+            let store = session.store()?;
+            let observe = |operation: &Value| -> Result<()> {
+                let Some(callback) = after_filesystem.as_ref() else {
+                    return Ok(());
+                };
+                Python::attach(|py| -> PyResult<()> {
+                    let operation = py
+                        .import("json")?
+                        .call_method1("loads", (operation.to_string(),))?;
+                    callback.bind(py).call1((operation,))?;
+                    Ok(())
+                })
+                .map_err(|error| {
+                    *captured.lock().unwrap() = Some(error);
+                    Error("after_filesystem callback raised".into())
+                })
+            };
+            catabolic_store::public_reconcile::publish(
+                store, profile, operation, &request, &observe,
+            )
+        });
+        if let Some(error) = raised.lock().unwrap().take() {
+            return Err(error);
+        }
+        value.map(|v| v.to_string())
+    }
     fn info(&self, py: Python<'_>) -> PyResult<String> {
         self.run(py, |s| Ok(s.info())).map(|v| v.to_string())
     }

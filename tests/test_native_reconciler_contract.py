@@ -81,6 +81,19 @@ class ReconcilerContract(unittest.TestCase):
         )
         self.assertNotIn("execute_mut", owner)
 
+    def test_apply_and_recover_use_the_shared_observed_executor(self):
+        # Track C3: publication goes through one native entry point with the
+        # frozen after_filesystem callback, never through the read dispatcher.
+        source = SOURCE.read_text()
+        self.assertIn("reconcile_publish(", source)
+        self.assertEqual(source.count('_publish(self, "apply"'), 1)
+        self.assertEqual(source.count('_publish(self, "recover"'), 1)
+        owner = (ROOT / "crates/catabolic-store/src/public_reconcile.rs").read_text()
+        self.assertIn("filesystem_mutation::execute_observed(", owner)
+        publish = owner[owner.index("pub fn publish(") : owner.index("pub fn call(")]
+        for private in ("disposable_fixture", "failpoint", "crash"):
+            self.assertNotIn(f'"{private}"', publish)
+
     def test_qualification_rejects_optimized_python(self):
         result = subprocess.run(
             [

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 # SPDX-License-Identifier: MIT
-"""Strict installed eight-row Reconciler read facade and refusal qualification.
+"""Strict installed eight-row Reconciler facade qualification.
 
 Only disposable metadata and empty output roots. Never runs reference apply or
-recover, and never admits managed-output effects. Gate witnesses are not parity.
+recover, and never admits managed-output effects here: apply is called only
+while a pending journal makes its plan unsafe. Publication parity (track C3)
+is paired separately in tests/test_native_reconciler_publication.py.
 """
 
 import argparse
@@ -355,19 +357,25 @@ class InstalledReconciler(unittest.TestCase):
                     )
                 )
                 self.assertEqual(observed, {"type": "CatabolicError", "message": GATE})
-            observed = error(
-                lambda operation=operation: getattr(self.reconciler, operation)(
-                    after_filesystem=callback
-                )
-            )
-            self.assertEqual(observed, {"type": "CatabolicError", "message": GATE})
-            WITNESSES[operation] = {
-                "classification": "gate-refusal-only; not effect/recovery parity",
-                "error": observed,
-            }
+        # The public method publishes through the shared executor. A pending
+        # journal makes the plan unsafe, so nothing is journaled or written
+        # and the callback never runs. Recover would execute the pending
+        # claim, so it is exercised only by the paired publication tests.
+        plan = self.reconciler.apply(after_filesystem=callback)
+        self.assertFalse(plan["safe"])
+        self.assertEqual(plan["applied"], [])
+        self.assertIn(
+            "pending operations require recover", json.dumps(plan["blockers"])
+        )
+        WITNESSES["apply"] = {
+            "classification": "publication-routed; unsafe pending-journal plan only",
+            "blockers": plan["blockers"],
+        }
+        WITNESSES["recover"] = {
+            "classification": "publication-routed; parity in tests/test_native_reconciler_publication.py",
+        }
         self.assertEqual(self.store.rows("SELECT * FROM journal"), before)
         self.assertEqual(list(self.output.iterdir()), [])
-        self.assertFalse(Path(str(self.database) + ".publication").exists())
 
     def test_readonly_and_closed_state(self):
         from catabolic_native import Application, Reconciler, Store
@@ -392,8 +400,11 @@ class InstalledReconciler(unittest.TestCase):
             self.assertTrue(reconciler.preview()["safe"])
             self.assertFalse(reconciler.verify()["healthy"])
             self.assertEqual(reconciler.catalogs(None), ["global"])
-            self.assertEqual(error(reconciler.apply)["message"], GATE)
-            self.assertEqual(error(reconciler.recover)["message"], GATE)
+            for method in (reconciler.apply, reconciler.recover):
+                self.assertIn(
+                    "filesystem publication requires a writer",
+                    error(method)["message"],
+                )
 
     def test_readonly_snapshot_remains_on_caller_store(self):
         from catabolic_native import Application, Reconciler, Store
@@ -569,7 +580,7 @@ def main():
                 "id": row["id"],
                 "installed_calls": calls[key],
                 "paired_calls": paired["native"]["calls"].get(key, 0),
-                "qualification": "gate-refusal-witness-only"
+                "qualification": "publication-routed; paired separately"
                 if gated
                 else "selected-read-contracts-with-gaps",
             }
@@ -605,7 +616,7 @@ def main():
         "reference_runtime": runtime,
         **fence,
         "gaps": [
-            "apply/recover intentionally refuse before effects and are not parity",
+            "apply/recover effect parity is paired in tests/test_native_reconciler_publication.py, not by this installed receipt",
             "Closed read error class remains native CatabolicError versus frozen AttributeError",
             "Fallback/live sources, hardlinks, filesystem safety, managed publication/recovery, all input coercions and platform/Python combinations remain unqualified",
             "No milestone or release qualification is implied by this adapter receipt",

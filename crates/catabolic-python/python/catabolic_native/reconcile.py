@@ -1,13 +1,28 @@
-"""Ordinary reconciliation reads through the caller's persistent native Store.
+"""Ordinary reconciliation through the caller's persistent native Store.
 
-Publication and recovery stay explicitly unqualified and refuse before effects.
+Apply and recover use the shared native journal executor. Its existing gates
+(symlink replace/remove, hardlink retirement, fallback-bound catalogs) apply.
 """
 
 from __future__ import annotations
 
+import json
 import math
 
 from .app import Application
+
+
+def _publish(reconciler, operation, request, after_filesystem):
+    """Run apply/recover in the shared native executor on the caller's Store."""
+    request["notify_consumers"] = bool(reconciler.notify_consumers)
+    return json.loads(
+        reconciler.store._owner.reconcile_publish(
+            operation,
+            json.dumps(request, allow_nan=False),
+            reconciler.profile,
+            after_filesystem,
+        )
+    )
 
 
 class Reconciler:
@@ -69,7 +84,22 @@ class Reconciler:
         max_removals=None,
         max_removal_percent=None,
     ) -> dict:
-        return self.store._call("reconcile", "apply", {}, self.profile)
+        request = {
+            "catalog": catalog,
+            "max_removals": max_removals
+            if type(max_removals) is int or max_removals is None
+            else "invalid",
+            "max_removal_percent": max_removal_percent,
+            "max_changes": max_changes
+            if type(max_changes) is int or max_changes is None
+            else "invalid",
+        }
+        if max_removal_percent is not None and (
+            type(max_removal_percent) not in (int, float)
+            or not math.isfinite(max_removal_percent)
+        ):
+            request["max_removal_percent"] = "invalid"
+        return _publish(self, "apply", request, after_filesystem)
 
     def recover(
         self,
@@ -78,4 +108,5 @@ class Reconciler:
         after_filesystem=None,
         cancel_unapplied=False,
     ) -> dict:
-        return self.store._call("reconcile", "recover", {}, self.profile)
+        request = {"catalog": catalog, "cancel_unapplied": bool(cancel_unapplied)}
+        return _publish(self, "recover", request, after_filesystem)

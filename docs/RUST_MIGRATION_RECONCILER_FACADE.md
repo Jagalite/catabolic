@@ -31,7 +31,15 @@ second connection, commit a caller transaction, or invoke a companion process.
 - Signals use the existing interruptible read owner. The installed regression
   checks exact Python KeyboardInterrupt identity and subsequent Store reuse
 
-## Publication is intentionally unavailable
+## Publication (track C3, October 17, 2026)
+
+Apply and recover now publish through `NativeStore.reconcile_publish` and the
+shared journal executor, with the frozen `after_filesystem` callback. The
+contract, known differences and evidence are recorded in
+[track C](NATIVE_RETIREMENT_TRACK_C.md). The section below describes the
+earlier refusal-only checkpoint and its historical receipt.
+
+## Earlier checkpoint: publication was intentionally unavailable
 
 `apply` and `recover` retain their exact public signatures but always raise a
 native CatabolicError before catalog resolution, publication locking, journal

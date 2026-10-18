@@ -252,6 +252,63 @@ and before acknowledgement, matching the frozen order. Pair the results with
 frozen Python on disposable fixtures. The facade inherits the item 2 gates, so
 replace and remove refusals stay until those gates lift.
 
+**Implemented.** `Reconciler.apply` and `Reconciler.recover` call the new
+PyO3 method `NativeStore.reconcile_publish`. It runs
+`public_reconcile::publish` and then `filesystem_mutation::execute_observed`,
+on the caller's Store.
+
+Behaviour that matches frozen Python:
+
+- **Locking.** Publication is serialized by the publication lock, and the
+  writer-outside-transaction rule applies.
+- **The `after_filesystem` callback.** It receives each operation as a dict,
+  after the filesystem effect and before acknowledgement. This covers
+  prepare, forget and hardlink operations too. An exception raised by the
+  callback propagates unchanged and leaves the operation journaled.
+- **Validation order.** Budget and catalog errors come in the frozen order.
+- **Forwarded fields.** Only public fields are forwarded (`notify_consumers`,
+  removal and change budgets, `cancel_unapplied`), so private options cannot
+  relax a gate. The generic read dispatcher still refuses apply and recover.
+- **Projection execution statistics.** Frozen `projection_stats` records an
+  execution snapshot around every apply, and native code did not. The shared
+  executor now records it in `meta`: begun before the first journal row,
+  finished after verification. This applies to every native apply, including
+  CLI `sync` and fallback projection.
+
+Known differences, all fail-closed:
+
+- **Gated operations.** Symlink replace/remove and hardlink retirement return
+  an unsafe plan with the existing gate blocker. Fallback-bound catalogs keep
+  their refusal (item 5).
+- **Callback reentry.** The callback runs while the native Store is checked
+  out, so reentering that Store from the callback raises `native store is
+  already in use`. Frozen Python allows reads there.
+- **Caller transactions.** A caller inside a transaction is refused. Frozen
+  Python nests.
+- **Signals.** No signal bridge runs during publication. An interrupt takes
+  effect after the call, and the journal stays recoverable.
+
+**Evidence.**
+
+- `public_reconcile` unit tests (3), plus the store filesystem, hardlink,
+  publication-mapping and manifest unit tests: 42 passed. Crash matrix: 3
+  passed.
+- `tests/test_native_reconciler_publication.py` ran against the Kyoto-built
+  debug extension, compiled without the `failpoints` feature: 22 passed.
+  - 15 unchanged frozen `CatalogTest` reconciler assertions ran on the native
+    facade.
+  - 7 twin-catalog differentials compared frozen and native results,
+    callback operation streams, the journal, owned links, publication
+    generations, refresh state, execution statistics and the output tree.
+    They cover cross-engine recovery after a callback failure in both
+    directions, budget errors, `max_changes` and `notify_consumers=False`.
+- The updated installed-gate cases in `scripts/native_reconciler_embedding_tests.py`
+  ran against the same debug extension: 6 passed. The strict wheel-bound
+  receipt was not re-run; that belongs to the track E installed lane.
+- `tests/test_native_reconciler_contract.py`, `test_rust_maintenance_cli`,
+  `test_rust_layout_mutation`, `test_rust_rules`,
+  `test_rust_observation_filesystem` and `test_rust_hardlinks` all passed.
+
 ## 4. Publication mappings v2
 
 **Exists.** `publication_mappings::run_with_account` previews fully. Apply and
@@ -313,4 +370,7 @@ it.
 | --- | --- | --- |
 | 1 | Implemented (59-case matrix at the time; 62 with item 2) | `8ffd97d` |
 | 2 | Implemented; release gates still closed | this commit |
-| 3–6 | Not started | |
+| Failpoint gating | Implemented | `eecc2b6` |
+| Sol round 1 P2 | Fixed | `d5b5ef0` |
+| 3 | Implemented | this commit |
+| 4–6 | Not started | |

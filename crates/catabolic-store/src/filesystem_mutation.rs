@@ -30,12 +30,22 @@ enum Reconciliation<'s, 'p> {
         &'s mut crate::fallback_resolution::Probe<'p>,
         crate::fallback_publication::Selections,
     ),
+    /// A fixed Store whose caller observes each operation after its
+    /// filesystem effect and before its acknowledgement, like the frozen
+    /// `after_filesystem` callback.
+    Observed(&'s Store, &'s dyn Fn(&Value) -> Result<()>),
 }
 impl Reconciliation<'_, '_> {
     fn store(&self) -> &Store {
         match self {
-            Self::Fixed(s) => s,
+            Self::Fixed(s) | Self::Observed(s, _) => s,
             Self::Mutable(s, _, _) => s,
+        }
+    }
+    fn observe(&self, operation: &Value) -> Result<()> {
+        match self {
+            Self::Observed(_, observer) => observer(operation),
+            _ => Ok(()),
         }
     }
     fn supported(&self, profile: &str, catalog: &str) -> Result<()> {
@@ -756,6 +766,7 @@ fn all_catalogs_context(
     {
         return Err(Error("fallback_change_or_removal_budget".into()));
     }
+    let statistics = begin_execution(context.store(), profile, &catalogs, &actions)?;
     let mut applied = Vec::new();
     for mut op in actions {
         if matches!(op["kind"].as_str(), Some("unchanged" | "blocked_source")) {
@@ -770,6 +781,7 @@ fn all_catalogs_context(
         applied.push(action);
     }
     let verified = verify_catalogs_context(context, profile, &catalogs)?;
+    finish_execution(context.store(), profile, statistics, &applied, &verified)?;
     let mut result = json!({"safe":true,"applied":applied,"healthy":verified["healthy"],"verification":verified});
     if let Some(warnings) = plan.get("warnings") {
         result["warnings"] = warnings.clone();
@@ -1220,6 +1232,139 @@ pub fn execute_locked(
         _ => Err(Error(format!("unknown filesystem action: {action}"))),
     }
 }
+/// Apply or recover with a caller callback after each operation's
+/// filesystem effect and before its acknowledgement, matching the frozen
+/// `Reconciler.apply`/`recover` `after_filesystem` order. A callback error
+/// propagates and leaves the operation journaled for recovery. Gates,
+/// locking and journal semantics are those of [`execute`].
+pub fn execute_observed(
+    store: &Store,
+    profile: &str,
+    action: &str,
+    args: &Value,
+    observer: &dyn Fn(&Value) -> Result<()>,
+) -> Result<Value> {
+    admit_failpoints(args)?;
+    notify_consumers(args)?;
+    if !matches!(action, "apply" | "recover") {
+        return Err(Error(format!(
+            "unknown observed filesystem action: {action}"
+        )));
+    }
+    let mut context = Reconciliation::Observed(store, observer);
+    if args.get("catalog").is_some_and(Value::is_null) {
+        return all_catalogs_context(&mut context, profile, action, args);
+    }
+    let catalog = args
+        .get("catalog")
+        .map(|v| {
+            v.as_str()
+                .ok_or_else(|| Error("catalog must be text or null".into()))
+        })
+        .transpose()?
+        .unwrap_or("global");
+    require_writer(store)?;
+    let _lock = publication_lock(store)?;
+    if action == "apply" {
+        apply_locked_context(&mut context, profile, catalog, args)
+    } else {
+        recover_locked_context(&mut context, profile, catalog, args)
+    }
+}
+/// Durable publication snapshots, as frozen `projection_stats` records them
+/// around every apply: begun before the first journal row and finished
+/// after verification.
+struct Execution {
+    started: std::time::Instant,
+    snapshots: BTreeMap<String, Value>,
+}
+fn statistics_key(profile: &str, catalog: &str) -> String {
+    format!(
+        "statistics:{}",
+        encode(&json!([profile, "execution", catalog]))
+    )
+}
+fn statistics_now() -> String {
+    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Micros, false)
+}
+fn kinds(actions: &[Value], catalog: &str) -> Value {
+    let mut counts = serde_json::Map::new();
+    for action in actions.iter().filter(|a| a["catalog"] == catalog) {
+        let kind = action["kind"].as_str().unwrap_or_default().to_owned();
+        let next = counts.get(&kind).and_then(Value::as_u64).unwrap_or(0) + 1;
+        counts.insert(kind, json!(next));
+    }
+    Value::Object(counts)
+}
+fn save_execution(
+    db: &rusqlite::Connection,
+    profile: &str,
+    catalog: &str,
+    snapshot: &Value,
+) -> Result<()> {
+    db.execute(
+        "INSERT INTO meta(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        params![statistics_key(profile, catalog), encode(snapshot)],
+    )?;
+    Ok(())
+}
+fn begin_execution(
+    store: &Store,
+    profile: &str,
+    catalogs: &[String],
+    actions: &[Value],
+) -> Result<Execution> {
+    let mut snapshots = BTreeMap::new();
+    for catalog in catalogs {
+        let inputs =
+            crate::manifest::statistics(store, profile, catalog)?["current_recorded"].take();
+        snapshots.insert(
+            catalog.clone(),
+            json!({"started_at":statistics_now(),"finished_at":null,"elapsed_seconds":null,"status":"completion_unknown","planned_actions":kinds(actions,catalog),"applied_actions":null,"verification":null,"inputs":inputs}),
+        );
+    }
+    store.transaction(|db| {
+        for (catalog, snapshot) in &snapshots {
+            save_execution(db, profile, catalog, snapshot)?;
+        }
+        Ok(())
+    })?;
+    Ok(Execution {
+        started: std::time::Instant::now(),
+        snapshots,
+    })
+}
+fn finish_execution(
+    store: &Store,
+    profile: &str,
+    mut execution: Execution,
+    applied: &[Value],
+    verification: &Value,
+) -> Result<()> {
+    let elapsed = execution.started.elapsed().as_secs_f64();
+    store.transaction(|db| {
+        for report in verification["catalogs"].as_array().into_iter().flatten() {
+            let catalog = report["catalog"]
+                .as_str()
+                .ok_or_else(|| Error("verification report has no catalog".into()))?;
+            let snapshot = execution
+                .snapshots
+                .get_mut(catalog)
+                .ok_or_else(|| Error(format!("no execution snapshot for {catalog}")))?;
+            snapshot["finished_at"] = json!(statistics_now());
+            snapshot["elapsed_seconds"] = json!(elapsed);
+            snapshot["status"] = json!(if report["healthy"] == true {
+                "complete"
+            } else {
+                "verification_failed"
+            });
+            snapshot["applied_actions"] = kinds(applied, catalog);
+            snapshot["verification"] = json!({"verified_at":statistics_now(),"healthy":report["healthy"],"verified_links":report.get("verified_links").cloned().unwrap_or(Value::Null),"issue_count":report["issues"].as_array().map_or(0,Vec::len)});
+            save_execution(db, profile, catalog, snapshot)?;
+        }
+        Ok(())
+    })
+}
 /// Every crash point of symlink and hardlink publication, retirement and
 /// recovery. `tests/publication_failpoints.rs` crashes a real process at each
 /// one and checks recovery. It also fails if a literal stage passed to `failpoint`
@@ -1326,6 +1471,7 @@ fn apply_locked_context(
     {
         return Err(Error("fallback_change_or_removal_budget".into()));
     }
+    let statistics = begin_execution(context.store(), profile, &[catalog.to_owned()], &actions)?;
     let mut applied = Vec::new();
     for mut operation in actions {
         if matches!(
@@ -1344,6 +1490,7 @@ fn apply_locked_context(
         applied.push(operation);
     }
     let verified = verify_context(context, profile, catalog)?;
+    finish_execution(context.store(), profile, statistics, &applied, &verified)?;
     let mut result = json!({"safe":true,"applied":applied,"healthy":verified["healthy"],"verification":verified});
     if let Some(warnings) = plan.get("warnings") {
         result["warnings"] = warnings.clone();
@@ -1784,7 +1931,12 @@ fn execute_operation_context(
         .as_str()
         .is_some_and(|kind| kind.starts_with("hard_"))
     {
-        return crate::hardlink_mutation::execute(context.store(), profile, op, args);
+        return match context {
+            Reconciliation::Observed(store, observer) => {
+                crate::hardlink_mutation::execute_observed(store, profile, op, args, *observer)
+            }
+            _ => crate::hardlink_mutation::execute(context.store(), profile, op, args),
+        };
     }
 
     let output = crate::observation::binding(context.store(), profile, "output", catalog)?;
@@ -1947,6 +2099,7 @@ fn execute_operation_context(
         sync_ancestry(&root, path)?;
     }
     failpoint(args, "after_filesystem")?;
+    context.observe(op)?;
     context.store().transaction(|db|{
         if matches!(kind,"create"|"replace"){db.execute("INSERT INTO owned_links VALUES(?,?,?,?) ON CONFLICT(profile,catalog,path) DO UPDATE SET target=excluded.target",params![profile,catalog,path,target])?;}
         else if matches!(kind,"remove"|"forget"){db.execute("DELETE FROM owned_links WHERE profile=? AND catalog=? AND path=?",[profile,catalog,path])?;}
