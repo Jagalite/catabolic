@@ -631,8 +631,10 @@ leftover private link or staged entry, and the native cleanup that resolves
 it.
 
 **Implemented.** `tests/test_native_publication_handover.py` runs both
-directions on the frozen `CatalogTest` fixture. HFS+ under `TMPDIR` runs
-quarantine mode, so the exchange stage is not reached here.
+directions on the frozen `CatalogTest` fixture. The original HFS+ temporary
+root exercised quarantine mode. The current APFS temporary root also exercises
+replace exchange; mode-specific stages are recorded as not reached when the
+filesystem uses the other mode.
 
 - **Native to frozen (29 cases).** The native CLI is killed at every crash
   point that a create, replace and remove can reach, and frozen
@@ -655,13 +657,19 @@ Every case must hold four invariants:
 | `after_commit` (all kinds) | Nothing to recover | Nothing | None needed |
 | create `after_marker_create` | Refuses: `invalid output ownership marker`; nothing changed | The empty marker | Operator removes the empty marker, as in item 1; native recovery converges |
 | replace `after_quarantine` | Refuses: `replacement destination changed externally`; nothing changed | The native quarantine | Native recovery finishes it |
+| replace `after_exchange` | Acknowledges | The previous owned symlink at `.catabolic-link-<id>` | Operator removes the displaced link after inspection |
 | replace `after_publish`, remove `after_quarantine` | Acknowledges | Inert quarantined symlink `.catabolic-unlink-<id>` | Operator removes the symlink after inspection |
 | replace or remove `after_private_create`, `after_private_record`, `after_private_move`, `after_private_mark` | Acknowledges | The quarantined symlink and/or `<name>.private`, either empty or holding only its `entry` symlink, plus an orphaned `publication-private:` meta record | Operator removes the symlink and the directory after inspection; the inert meta record is never consulted again |
 
 Frozen acknowledgement removes the journal row that native recovery would
 need. Native code deliberately never adopts an unjournaled or unrecorded name
 (item 2), so these inert entries are left for the operator rather than
-deleted automatically.
+deleted automatically. For `after_exchange`, the test pins the displaced
+link to the original journal operation ID, path and previous target before
+frozen recovery, after its acknowledgement and before operator cleanup. A
+negative control replaces that link with a foreign target and requires the
+fixture to refuse cleanup while leaving the changed link untouched. This
+characterizes an operator-assisted handover, not automatic convergence.
 
 In the frozen-to-native direction, native recovery finishes every interrupted
 frozen journal, including the frozen `.catabolic-link-*` temporary left by an

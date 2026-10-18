@@ -8,7 +8,8 @@ interrupted before or after each filesystem effect and native code recovers.
 
 Frozen recovery may succeed or refuse; a refusal must leave the output tree
 and journal exactly as it found them. In every case native recovery and a
-fresh apply then converge: healthy, an empty journal, no leftover private or
+fresh apply, with the documented operator cleanup where needed, then converge:
+healthy, an empty journal, no leftover private or
 temporary entries, and the source bytes unchanged. Each outcome, including
 every non-destructive residual the other engine left, is written to
 ``$CATABOLIC_HANDOVER_REPORT`` when set.
@@ -68,12 +69,13 @@ STAGES = {
 }
 REPORT = []
 # Native crash points after which frozen recovery acknowledges the operation
-# but cannot know native's quarantine link or private directory: these inert
+# but cannot know native's displaced/quarantine link or private directory: these inert
 # entries remain, and native recovery (which never adopts unjournaled names)
 # leaves them for the documented operator cleanup.
 HANDOVER_RESIDUAL_STAGES = {
     ("replace", stage)
     for stage in (
+        "after_exchange",
         "after_publish",
         "after_private_create",
         "after_private_record",
@@ -224,6 +226,12 @@ class PublicationHandoverTest(unittest.TestCase):
             self.assertIn(
                 (record["kind"], record["stage"]), HANDOVER_RESIDUAL_STAGES, record
             )
+            if "expected_exchange_residual" in record:
+                self.assertEqual(
+                    residual,
+                    record["expected_exchange_residual"],
+                    "exchange handover residual changed",
+                )
             record["handover_residuals"] = residual
             self.inert_cleanup(record)
         self.assertTrue(self.reconciler.verify()["healthy"], record)
@@ -235,6 +243,21 @@ class PublicationHandoverTest(unittest.TestCase):
 
     def frozen_recover(self, record):
         before = (self.tree(), self.journal())
+        if (record["kind"], record["stage"]) == ("replace", "after_exchange"):
+            self.assertEqual(len(before[1]), 1, record)
+            operation = before[1][0]
+            expected = [
+                (
+                    os.path.join(
+                        os.path.dirname(operation["path"]),
+                        ".catabolic-link-" + operation["id"],
+                    ),
+                    "link",
+                    operation["previous"],
+                )
+            ]
+            self.assertEqual(self.residuals(), expected, record)
+            record["expected_exchange_residual"] = expected
         try:
             result = self.reconciler.recover()
         except CatabolicError as error:
@@ -247,6 +270,11 @@ class PublicationHandoverTest(unittest.TestCase):
             "cancelled": len(result["cancelled"]),
         }
         record["residuals_after_frozen"] = self.residuals()
+        if "expected_exchange_residual" in record:
+            self.assertEqual(self.journal(), [], record)
+            self.assertEqual(
+                self.residuals(), record["expected_exchange_residual"], record
+            )
 
     def test_native_crash_states_recovered_by_frozen_python(self):
         for kind, stages in STAGES.items():
@@ -271,6 +299,29 @@ class PublicationHandoverTest(unittest.TestCase):
                     self.frozen_recover(record)
                     self.converge(record)
                     REPORT.append(record)
+
+    def test_changed_exchange_residual_is_not_operator_cleaned(self):
+        self.desire("replace")
+        code = self.crash("after_exchange")
+        if code == 0:
+            self.skipTest("filesystem uses quarantine rather than exchange")
+        self.assertEqual(code, 86)
+        record = {
+            "direction": "native→frozen",
+            "kind": "replace",
+            "stage": "after_exchange",
+        }
+        self.frozen_recover(record)
+        relative, _, _ = record["expected_exchange_residual"][0]
+        displaced = self.output / relative
+        displaced.unlink()
+        displaced.symlink_to("unexpected-target")
+        with self.assertRaisesRegex(
+            AssertionError, "exchange handover residual changed"
+        ):
+            self.converge(record)
+        self.assertTrue(displaced.is_symlink())
+        self.assertEqual(os.readlink(displaced), "unexpected-target")
 
     def crash(self, stage):
         with self.store.detached():

@@ -231,19 +231,13 @@ class NativeRenderTest(unittest.TestCase):
                 "-i",
                 "testsrc2=size=160x120:rate=10:duration=2",
                 "-c:v",
-                # Explicit encoder VUI is needed on FFmpeg 7.1.5: generic
-                # output color flags alone can be lost during format conversion.
+                # Encoder VUI preserves the HDR stimulus across FFmpeg versions.
+                # Generic output color flags override these tags on FFmpeg 9.
                 "libx264",
                 "-x264-params",
                 "colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc",
                 "-pix_fmt",
                 "yuv420p10le",
-                "-color_primaries",
-                "bt2020",
-                "-color_trc",
-                "smpte2084",
-                "-colorspace",
-                "bt2020nc",
                 "-color_range",
                 "tv",
                 "-threads",
