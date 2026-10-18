@@ -156,45 +156,13 @@ fn run(store: &Store, command: &CommandEnvelope) -> CommandOutcome {
     )
     .unwrap()
 }
-/// Fixture data written through the durable command owner. Its internal
-/// operation budget can time out on a loaded host before anything commits;
-/// setup retries only that transient, never a result or another failure.
 fn put(path: &Path, operation: &str, id: &str) {
-    for attempt in 1..=5 {
-        let store = Store::open(path, true, false).unwrap();
-        let command = envelope(&store, operation, id);
-        let outcome = commands::execute(
-            &store,
-            &command,
-            TrustedCommandAuthority {
-                host_namespace: "test-host",
-                receipt_visibility: ReceiptVisibility::FullResult,
-                allow_new_commands: true,
-                identity_authority: None,
-            },
-            ReceiptPolicy {
-                retention: Duration::from_secs(3600),
-                max_receipts: 1000,
-                max_logical_bytes: 16 * 1024 * 1024,
-                max_hold_records: 1000,
-            },
-        );
-        match outcome {
-            Ok(outcome) => {
-                // A retry may find that the timed-out attempt had committed.
-                assert!(
-                    matches!(outcome, CommandOutcome::Committed { .. })
-                        || (attempt > 1 && matches!(outcome, CommandOutcome::Replay { .. })),
-                    "{outcome:?}"
-                );
-                return;
-            }
-            Err(error) if attempt < 5 && format!("{error:?}").contains("Timeout") => {
-                std::thread::sleep(Duration::from_millis(500));
-            }
-            Err(error) => panic!("fixture command failed: {error:?}"),
-        }
-    }
+    let store = Store::open(path, true, false).unwrap();
+    let outcome = run(&store, &envelope(&store, operation, id));
+    assert!(
+        matches!(outcome, CommandOutcome::Committed { .. }),
+        "{outcome:?}"
+    );
 }
 fn items(path: &Path, id: &str) -> i64 {
     connect(path, false)
