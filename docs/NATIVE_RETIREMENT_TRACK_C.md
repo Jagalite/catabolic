@@ -104,7 +104,11 @@ by default.
   - the runtime API dispatchers `execute_ordered` and every
     `execute_*_with_poll` (which serve CLI `operation`, the legacy CLI and the
     embedding's generic calls);
-  - every request the Python embedding decodes;
+  - every request the Python embedding decodes, including the dictionary
+    `access_admin` request after translation;
+  - every private helper's stdin request (consumer watch tick, processor
+    HTTP transport, notification provider, legacy refresh, Immich identity
+    and TMDB identify) before it normalizes, dispatches or transmits;
   - HTTP request bodies, refused as `invalid_request` 422.
 
   Entry-point checks stay as a second line.
@@ -128,7 +132,13 @@ Tests:
   refresh, watchers, import, artifacts, outputs and an unknown surface. Each
   is refused, with tables and output unchanged.
   `test_default_feature_build_refuses_failpoints_in_the_embedding` does the
-  same through the embedding's generic call and `reconcile_publish`.
+  same through the embedding's generic call, `reconcile_publish` and
+  `access_admin` (no principal is created).
+- `tests/test_rust_failpoint_helpers.py` sends both fields to each private
+  helper with a loopback server recording requests. The processor transport
+  transmits without the fields (control) and refuses with them; the network
+  helpers send nothing; the consumer watch tick refuses with the catalog
+  dump unchanged.
 - `tests/failpoint_feature_shipping.rs` checks that only that one
   dev-dependency enables the feature. It also checks that no default feature
   set, maturin feature list or release build command selects it.
@@ -528,6 +538,7 @@ it.
 | 3 | Implemented | `e50b453` |
 | Sol round 2 P2 #1 (private directory identity) | Fixed | `5aa37ce` |
 | Sol round 2 P2 #2 (refuse failpoints before admission) and #3 (callback truthiness) | Fixed | `9e75f15` |
-| Sol round 3 P2 #1 (removal record and inode reuse) and #2 (ingress admission) | Fixed | this commit |
-| 4 (folder; export/import stay gated) | Implemented | this commit |
+| Sol round 3 P2 #1 (removal record and inode reuse) and #2 (ingress admission) | Fixed | `8abb6ee` |
+| Sol round 4 P2 #1 (helper stdin) and #2 (`access_admin`) | Fixed | this commit |
+| 4 (folder; export/import stay gated) | Implemented | `5fa6e7c` |
 | 5–6 | Not started | |

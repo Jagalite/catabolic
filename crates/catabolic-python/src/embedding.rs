@@ -397,6 +397,8 @@ impl NativeStore {
         request: &Bound<'_, pyo3::types::PyDict>,
     ) -> PyResult<String> {
         let request = crate::public_access::arguments(operation, request)?;
+        catabolic_store::filesystem_mutation::admit_failpoints(&request)
+            .map_err(|e| CatabolicError::new_err(e.to_string()))?;
         let signal = Arc::new(Mutex::new(None));
         let captured = signal.clone();
         let value = self.run(py, |session| {

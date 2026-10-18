@@ -294,6 +294,7 @@ pub fn identity_worker_main() {
         }
         let value =
             catabolic_core::decode_json_bytes(&bytes).map_err(|_| Error(IDENTITY_ERROR.into()))?;
+        catabolic_store::filesystem_mutation::admit_failpoints(&value)?;
         fetch_identity(
             value["destination"]
                 .as_str()

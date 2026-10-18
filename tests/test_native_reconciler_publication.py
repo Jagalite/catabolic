@@ -307,12 +307,17 @@ class NativeFacadeDifferentialTest(unittest.TestCase):
                     lambda: store._owner.reconcile_publish(
                         "apply", json.dumps({"crash": False}), "default", None
                     ),
+                    lambda: store._owner.access_admin(
+                        "principal_put",
+                        {"profile": "default", "identifier": "review", "crash": False},
+                    ),
                 ):
                     with self.assertRaisesRegex(
                         Exception, "failpoint_injection_unavailable"
                     ):
                         call()
         self.assertEqual(self.state(self.native), before)
+        self.assertEqual(holder.store.rows("SELECT * FROM api_principals"), [])
 
     def test_removal_and_forget_match_frozen(self):
         self.assertSame(self.both("apply"))

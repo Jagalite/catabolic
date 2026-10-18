@@ -1432,6 +1432,13 @@ pub fn admit_failpoints(args: &Value) -> Result<()> {
     }
     Ok(())
 }
+/// Decode a request read by a private helper (stdin) and refuse failpoint
+/// fields before the helper normalizes, dispatches or transmits anything.
+pub fn admitted_json_bytes(raw: &[u8]) -> Result<Value> {
+    let value = catabolic_core::decode_json_bytes(raw)?;
+    admit_failpoints(&value)?;
+    Ok(value)
+}
 pub(crate) fn failpoint(args: &Value, stage: &str) -> Result<()> {
     // Entry points admit first; this keeps the refusal if one was missed.
     admit_failpoints(args)?;

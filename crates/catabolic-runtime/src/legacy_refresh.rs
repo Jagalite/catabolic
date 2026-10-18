@@ -23,7 +23,7 @@ pub fn worker_main() {
         if raw.len() > 262144 {
             return Ok(false);
         }
-        let target = catabolic_core::decode_json_bytes(&raw)?;
+        let target = catabolic_store::filesystem_mutation::admitted_json_bytes(&raw)?;
         if !target.is_object()
             || target["application"] != "jellyfin"
             || !target["endpoint"].as_str().is_some_and(|v| v.len() <= 4096)

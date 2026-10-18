@@ -59,7 +59,7 @@ pub fn worker_main() {
                 "consumer watch tick input exceeds byte budget".into(),
             ));
         }
-        let args = catabolic_core::decode_json_bytes(&bytes)?;
+        let args = catabolic_store::filesystem_mutation::admitted_json_bytes(&bytes)?;
         if !args.is_object() || !args["db"].is_string() || !args["profile"].is_string() {
             return Err(Error("invalid_configuration".into()));
         }

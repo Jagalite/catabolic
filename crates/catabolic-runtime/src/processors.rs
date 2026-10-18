@@ -62,7 +62,9 @@ pub fn worker_main() {
         if bytes.len() > 262144 {
             return Err(Error("HTTP request exceeds input limit".into()));
         }
-        HttpTransport.request(&catabolic_core::decode_json_bytes(&bytes)?)
+        HttpTransport.request(&catabolic_store::filesystem_mutation::admitted_json_bytes(
+            &bytes,
+        )?)
     })();
     let result = match result {
         Ok(bytes) => json!({"bytes":base64::engine::general_purpose::STANDARD.encode(bytes)}),

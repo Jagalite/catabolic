@@ -230,7 +230,8 @@ pub fn worker_main() {
         if bytes.len() > 16384 {
             return Some(Outcome::InvalidDestination);
         }
-        let payload = catabolic_core::decode_json_bytes(&bytes).ok()?;
+        // Only constant statuses escape; a refused request sends nothing.
+        let payload = catabolic_store::filesystem_mutation::admitted_json_bytes(&bytes).ok()?;
         let (Some(url), Some(event), Some(severity)) = (
             payload["url"].as_str(),
             payload["event"].as_str(),

@@ -169,6 +169,7 @@ pub fn worker_main() {
         }
         let request =
             catabolic_core::decode_json_bytes(&bytes).map_err(|_| Error(WORKER_ERROR.into()))?;
+        catabolic_store::filesystem_mutation::admit_failpoints(&request)?;
         fetch(&request)
     })();
     let result = match result {
