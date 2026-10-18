@@ -13,6 +13,8 @@ pub struct Output {
     pub stdout: String,
     pub stderr: String,
 }
+/// The package version the frozen reference reported in `--version`.
+const FROZEN_REFERENCE_VERSION: &str = "0.2.0";
 pub fn resource() -> &'static Value {
     static DATA: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
     DATA.get_or_init(|| {
@@ -413,12 +415,16 @@ fn parse_node(
                         });
                     }
                     "_VersionAction" => {
+                        let shown = text(action, "version").replace("%(prog)s", text(node, "prog"));
+                        // The frozen data carries the reference package's own
+                        // version; this release reports its own.
+                        let shown = match shown.strip_suffix(FROZEN_REFERENCE_VERSION) {
+                            Some(prefix) => format!("{prefix}{}", env!("CARGO_PKG_VERSION")),
+                            None => shown,
+                        };
                         return Err(Output {
                             code: 0,
-                            stdout: format!(
-                                "{}\n",
-                                text(action, "version").replace("%(prog)s", text(node, "prog"))
-                            ),
+                            stdout: format!("{shown}\n"),
                             stderr: String::new(),
                         });
                     }

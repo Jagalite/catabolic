@@ -19,6 +19,7 @@ import math
 import os
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -137,6 +138,23 @@ def run_json_lines(command, requests, env):
         )
 
     return [json.loads(line, parse_int=integer) for line in lines]
+
+
+FROZEN_REFERENCE_VERSION_OUTPUT = "catabolic 0.2.0\n"
+RELEASE_VERSION = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"][
+    "package"
+]["version"]
+
+
+def release_version(result):
+    """Map only the frozen reference's exact --version output to this release.
+
+    The reference reports its own package version; the native CLI reports the
+    workspace release. No other output is rewritten.
+    """
+    if result.get("stdout") == FROZEN_REFERENCE_VERSION_OUTPUT:
+        return {**result, "stdout": f"catabolic {RELEASE_VERSION}\n"}
+    return result
 
 
 def strict(value):
@@ -307,7 +325,7 @@ class NativeLegacyParserTest(unittest.TestCase):
         mismatches = [
             {"label": label, "argv": argv, "expected": want, "actual": got}
             for (label, argv), want, got in zip(cases, expected, actual, strict=True)
-            if strict(want) != strict(got)
+            if strict(release_version(want)) != strict(got)
         ]
         report = {
             **metadata,

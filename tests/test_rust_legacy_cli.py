@@ -14,6 +14,7 @@ import sqlite3
 import subprocess
 import tempfile
 import time
+import tomllib
 import unittest
 from contextlib import closing
 from pathlib import Path
@@ -96,9 +97,24 @@ class NativeLegacyCliTest(unittest.TestCase):
                 )
             return oracle, native
 
+    def test_version_reports_this_release_not_the_frozen_reference(self):
+        # The one intentional output difference from the frozen reference.
+        release = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"][
+            "package"
+        ]["version"]
+        oracle = self.run_process(True, ["--version"])
+        native = self.run_process(False, ["--version"])
+        self.assertEqual(
+            (oracle.returncode, oracle.stdout, oracle.stderr),
+            (0, "catabolic 0.2.0\n", ""),
+        )
+        self.assertEqual(
+            (native.returncode, native.stdout, native.stderr),
+            (0, f"catabolic {release}\n", ""),
+        )
+
     def test_offline_exact_output(self):
         cases = [
-            ("LC-OFF-001", ["--version"]),
             ("LC-OFF-002", ["docs"]),
             ("LC-OFF-003", ["docs", "trust"]),
             ("LC-OFF-004", ["docs", "--search", "source trust"]),
