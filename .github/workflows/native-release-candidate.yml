@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
+# Build-only lane for the catabolic 1.0.0 macOS arm64 native wheel. It never
+# publishes, tags or changes a default: the wheel is only a workflow artifact
+# for separately approved installation and acceptance.
+name: Native release candidate (build only)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_PROFILE_DEV_DEBUG: '0'
+  CARGO_PROFILE_TEST_DEBUG: '0'
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14.6'
+      - name: Require macOS arm64 and the pinned build tools
+        run: |
+          test "$(uname -s)" = Darwin
+          test "$(uname -m)" = arm64
+          python -m pip install --only-binary=:all: maturin==1.13.1
+          python -m maturin --version
+          rustup show
+          rustc -vV
+      - name: Shipped crates must not enable test-only failpoints
+        run: |
+          cargo fetch --locked
+          python -m unittest tests.test_check_failpoints_graph
+          python scripts/check_failpoints_graph.py
+      - name: Refuse stale API disposition outputs
+        run: python scripts/generate_api_disposition.py --check
+      - name: Build one source-fenced helper, legacy CLI, extension and wheel
+        run: |
+          python scripts/build_native_wheel.py --python "$(command -v python)" --out dist/native
+          python scripts/check_native_output_gate.py dist/native/catabolic-native > dist/native/release-output-gate.json
+      - name: Verify the wheel identity before upload
+        run: |
+          wheel="$(find dist/native -maxdepth 1 -name '*.whl' -print)"
+          test "$(printf '%s\n' "$wheel" | wc -l | tr -d ' ')" = 1
+          case "$(basename "$wheel")" in
+            catabolic-1.0.0-*-macosx_*_arm64.whl) ;;
+            *) echo "unexpected wheel name: $wheel" >&2; exit 1 ;;
+          esac
+          python -m venv "$RUNNER_TEMP/candidate"
+          "$RUNNER_TEMP/candidate/bin/python" -m pip --isolated --disable-pip-version-check install --no-index --no-deps "$wheel"
+          root="$PWD"
+          chmod +x dist/native/catabolic-native dist/native/catabolic-legacy-native
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/candidate/bin/python" "$root/scripts/qualify_native_wheel.py" --binary "$root/dist/native/catabolic-native" --wheel "$root/$wheel" --receipt "$RUNNER_TEMP/candidate-wheel.json"
+          "$RUNNER_TEMP/candidate/bin/python" -I -B "$root/scripts/qualify_native_compatibility.py" --source-root "$root" --wheel "$root/$wheel" --build-manifest "$root/dist/native/build-manifest.json" > "$RUNNER_TEMP/candidate-compatibility.json"
+          shasum -a 256 "$root/$wheel" | tee "$root/dist/native/wheel.sha256"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: catabolic-1.0.0-macos-arm64-candidate
+          path: dist/native/
+          if-no-files-found: error
