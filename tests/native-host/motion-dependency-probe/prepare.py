@@ -2,17 +2,18 @@
 # SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 # SPDX-License-Identifier: MIT
 """Prepare an isolated native dependency smoke; never edit either checkout."""
+
 from __future__ import annotations
 
 import argparse
 import hashlib
 import io
 import json
-from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
 import tarfile
 import urllib.request
+from pathlib import Path, PurePosixPath
 
 ARCHIVE_URL = "https://static.crates.io/crates/sqlx-sqlite/sqlx-sqlite-0.8.6.crate"
 ARCHIVE_SHA256 = "c2d12fe70b2c1b4401038055f90f151b78208de1f9f89a7dbfd41587a10c3eea"
@@ -30,7 +31,9 @@ def prepare(motion: Path, catabolic: Path, output: Path) -> None:
     assets = Path(__file__).resolve().parent
     motion, catabolic, output = motion.resolve(), catabolic.resolve(), output.resolve()
     if output.exists():
-        raise ValueError(f"Output already exists; choose a fresh staging directory: {output}")
+        raise ValueError(
+            f"Output already exists; choose a fresh staging directory: {output}"
+        )
     for root in (motion, catabolic):
         if output == root or root in output.parents:
             raise ValueError("Output must be outside both source checkouts")
@@ -39,7 +42,9 @@ def prepare(motion: Path, catabolic: Path, output: Path) -> None:
     motion_revision = git(motion, "rev-parse", "HEAD")
     motion_status = git(motion, "status", "--porcelain")
     if motion_revision != MOTION_REVISION or motion_status:
-        raise ValueError("This qualification requires the documented clean Motion revision")
+        raise ValueError(
+            "This qualification requires the documented clean Motion revision"
+        )
     catabolic_revision = git(catabolic, "rev-parse", "HEAD")
     catabolic_status = git(catabolic, "status", "--porcelain")
     with urllib.request.urlopen(ARCHIVE_URL, timeout=60) as response:
@@ -80,16 +85,26 @@ def prepare(motion: Path, catabolic: Path, output: Path) -> None:
     (output / "src").mkdir()
     shutil.copyfile(assets / "src/main.rs", output / "src/main.rs")
     shutil.copyfile(assets / "Cargo.lock", output / "Cargo.lock")
-    (output / "preparation.json").write_text(json.dumps({
-        "archive_url": ARCHIVE_URL,
-        "archive_sha256": ARCHIVE_SHA256,
-        "motion_commit": motion_revision,
-        "motion_status": motion_status,
-        "catabolic_commit": catabolic_revision,
-        "catabolic_status": catabolic_status,
-        "patch": {"file": "vendor/sqlx-sqlite-0.8.6/Cargo.toml", "old": OLD, "new": NEW},
-        "result": "prepared_only_build_and_runtime_not_yet_verified",
-    }, indent=2) + "\n")
+    (output / "preparation.json").write_text(
+        json.dumps(
+            {
+                "archive_url": ARCHIVE_URL,
+                "archive_sha256": ARCHIVE_SHA256,
+                "motion_commit": motion_revision,
+                "motion_status": motion_status,
+                "catabolic_commit": catabolic_revision,
+                "catabolic_status": catabolic_status,
+                "patch": {
+                    "file": "vendor/sqlx-sqlite-0.8.6/Cargo.toml",
+                    "old": OLD,
+                    "new": NEW,
+                },
+                "result": "prepared_only_build_and_runtime_not_yet_verified",
+            },
+            indent=2,
+        )
+        + "\n"
+    )
     print(f"Prepared {output}; no build or runtime result is claimed")
 
 

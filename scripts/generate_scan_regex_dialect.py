@@ -42,8 +42,8 @@ PATHS = [
     "İstanbul/ılık.mkv",
     "Idea/idea.mkv",
     "sſ/x",
-    "\U00011DE0",
-    "\U0001E6C0",
+    "\U00011de0",
+    "\U0001e6c0",
     "Movies/<Alien>/x.mkv",
     "aba2",
     "abb",
@@ -55,7 +55,7 @@ PATHS = [
     "Straße/STRASSE/ẞ",
     "Kelvin/K/k",
     # Unicode 17 case pair (Sol round 2).
-    "\uA7CF",
+    "\ua7cf",
 ]
 
 PATTERNS = [

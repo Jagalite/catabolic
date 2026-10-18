@@ -3,7 +3,6 @@
 """The installed journey reaps its writer before non-replayable ticket calls."""
 
 import fcntl
-from pathlib import Path
 import runpy
 import signal
 import subprocess
@@ -11,6 +10,7 @@ import sys
 import tempfile
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import Mock
 
 STOP = runpy.run_path(

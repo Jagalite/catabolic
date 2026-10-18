@@ -21,7 +21,6 @@ import tests.test_rust_publication_mapping_preview as mapping_preview
 from tests.test_rust_legacy_review import REFERENCE
 from tests.test_rust_publication_mapping_preview import typed
 
-
 ORACLE_VERSION = "0.2.0"
 CARGO_TOML = Path(__file__).resolve().parents[1] / "Cargo.toml"
 

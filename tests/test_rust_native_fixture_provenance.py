@@ -616,7 +616,9 @@ class NativeMutationReceiptTest(unittest.TestCase):
                 self.assertNotEqual(run.returncode, 0)
                 # unlink(2) on a directory is EISDIR on Linux but EPERM on macOS.
                 self.assertIn(
-                    "PermissionError" if sys.platform == "darwin" else "IsADirectoryError",
+                    "PermissionError"
+                    if sys.platform == "darwin"
+                    else "IsADirectoryError",
                     run.stderr,
                 )
                 self.assertEqual((blocked / "keep").read_text(), "not a receipt")

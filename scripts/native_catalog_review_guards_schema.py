@@ -92,9 +92,7 @@ def generate(repo=REPO):
         "new_tables": {
             name: columns for name, columns in tables.items() if name not in old_tables
         },
-        "new_objects": sorted(
-            [obj[0], obj[1]] for obj in current if obj not in prior
-        ),
+        "new_objects": sorted([obj[0], obj[1]] for obj in current if obj not in prior),
     }
     return {
         SIGNATURE_PATH: signature,

@@ -164,9 +164,7 @@ FIXTURE_FILES = (
     "tests/__init__.py",
     "tests/process_tree.py",
     "tests/test_rust_legacy_review.py",
-) + tuple(
-    module.replace(".", "/") + ".py" for module in LOAD_MODULES
-)
+) + tuple(module.replace(".", "/") + ".py" for module in LOAD_MODULES)
 
 
 def fixture_imports(tree):
