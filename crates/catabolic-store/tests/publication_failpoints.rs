@@ -66,6 +66,8 @@ fn stages(hardlink: bool, kind: Kind, exchange: bool) -> &'static [&'static str]
             "after_private_create",
             "after_private_record",
             "after_private_move",
+            "after_private_mark",
+            "after_private_remove",
             "after_filesystem",
             "before_commit",
             "after_commit",
@@ -77,6 +79,8 @@ fn stages(hardlink: bool, kind: Kind, exchange: bool) -> &'static [&'static str]
             "after_private_create",
             "after_private_record",
             "after_private_move",
+            "after_private_mark",
+            "after_private_remove",
             "after_filesystem",
             "before_commit",
             "after_commit",
@@ -89,6 +93,8 @@ fn stages(hardlink: bool, kind: Kind, exchange: bool) -> &'static [&'static str]
             "after_private_create",
             "after_private_record",
             "after_private_move",
+            "after_private_mark",
+            "after_private_remove",
             "after_filesystem",
             "before_commit",
             "after_commit",
@@ -486,15 +492,18 @@ fn run(executable: &Path, base: &Path, case: Case) {
     crash(executable, &fixture, case.stage);
     let store = Store::open(&fixture.database, true, false).unwrap();
     let mut recovered = execute(&store, "recover", json!({}));
-    if case.stage == "after_private_create" {
-        // The directory exists but its identity was never recorded, so it is
-        // not adopted. The documented operator step removes it after
-        // inspection; nothing else was touched.
+    if matches!(case.stage, "after_private_create" | "after_private_mark") {
+        // After create the directory's identity was never recorded; after
+        // mark its removal had begun, so a directory at the name may be a
+        // later one reusing the inode. Neither is adopted. The documented
+        // operator step removes it after inspection; nothing else was touched.
         let error = recovered.unwrap_err();
-        assert!(
-            error.0.contains("was not created by this operation"),
-            "{case:?}: {error:?}"
-        );
+        let expected = if case.stage == "after_private_create" {
+            "was not created by this operation"
+        } else {
+            "present after its removal began"
+        };
+        assert!(error.0.contains(expected), "{case:?}: {error:?}");
         assert_eq!(count(&store, "SELECT count(*) FROM journal"), 1, "{case:?}");
         let folder = fixture.output.join("folder");
         let directory = std::fs::read_dir(&folder)

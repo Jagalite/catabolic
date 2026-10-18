@@ -45,6 +45,14 @@ fn native_helper(py: Python<'_>) -> PyResult<String> {
         .map(|path| path.to_string_lossy().into_owned())
         .map_err(|error| PyRuntimeError::new_err(error.to_string()))
 }
+/// Decode a request from Python. A build without the `failpoints` feature
+/// refuses the test-only `failpoint`/`crash` fields here, before dispatch, so
+/// no facade can act on such a request first.
+pub(crate) fn admitted_json(raw: &str) -> std::result::Result<serde_json::Value, String> {
+    let value = catabolic_core::decode_json(raw).map_err(|e| e.to_string())?;
+    catabolic_store::filesystem_mutation::admit_failpoints(&value).map_err(|e| e.to_string())?;
+    Ok(value)
+}
 #[pyfunction]
 fn encode_json(raw: &str) -> PyResult<String> {
     let value =
@@ -154,7 +162,7 @@ fn catalog_query(
     profile: &str,
 ) -> PyResult<String> {
     let request =
-        catabolic_core::decode_json(options).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        crate::admitted_json(options).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     detailed_result(py.detach(|| {
         let store = catabolic_store::Store::open(Path::new(path), false, false)?;
         catabolic_store::query::CatalogQuery::new(&store, profile)?
@@ -196,7 +204,7 @@ fn evaluate_read(
     profile: &str,
 ) -> PyResult<String> {
     let request: serde_json::Value =
-        catabolic_core::decode_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        crate::admitted_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     result(py.detach(|| {
         let store = catabolic_store::Store::open(Path::new(path), false, false)?;
         let mut evaluation=catabolic_store::selection::Evaluation::new(store,profile,60000,100000,false)?;
@@ -220,7 +228,7 @@ fn tag_mutation(
     profile: &str,
 ) -> PyResult<String> {
     let request: serde_json::Value =
-        catabolic_core::decode_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        crate::admitted_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     result(py.detach(|| {
         let store = catabolic_store::Store::open(Path::new(path), true, false)?;
         catabolic_store::tagging::dispatch(&store, profile, operation, &request)
@@ -239,7 +247,7 @@ fn execute_operation(
 ) -> PyResult<String> {
     let source = request;
     let request: serde_json::Value =
-        catabolic_core::decode_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        crate::admitted_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     if (matches!(surface, "plex-import" | "plex-match" | "plex-metadata") && operation == "run")
         || surface == "plex-login"
     {
@@ -324,6 +332,6 @@ fn execute_operation(
 #[pyo3(signature=(operation, request="{}"))]
 fn interchange(py: Python<'_>, operation: &str, request: &str) -> PyResult<String> {
     let request: serde_json::Value =
-        catabolic_core::decode_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        crate::admitted_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     result(py.detach(|| catabolic_store::interchange::dispatch(operation, &request)))
 }

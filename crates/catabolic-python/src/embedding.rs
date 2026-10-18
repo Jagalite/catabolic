@@ -144,8 +144,7 @@ impl NativeStore {
         profile: &str,
         job: &str,
     ) -> PyResult<crate::public_publisher::NativePublisher> {
-        let job =
-            catabolic_core::decode_json(job).map_err(|e| CatabolicError::new_err(e.to_string()))?;
+        let job = crate::admitted_json(job).map_err(|e| CatabolicError::new_err(e.to_string()))?;
         self.run(py, |session| {
             catabolic_store::observation::Publisher::new(session.store()?, profile, &job)
         })
@@ -158,8 +157,8 @@ impl NativeStore {
         request: &str,
         app: Py<PyAny>,
     ) -> PyResult<String> {
-        let request = catabolic_core::decode_json(request)
-            .map_err(|e| CatabolicError::new_err(e.to_string()))?;
+        let request =
+            crate::admitted_json(request).map_err(|e| CatabolicError::new_err(e.to_string()))?;
         let captured = Arc::new(Mutex::new(None));
         let mut factory = crate::public_publisher::Factory {
             app,
@@ -200,8 +199,8 @@ impl NativeStore {
         profile: &str,
         cancelled: Option<Py<PyAny>>,
     ) -> PyResult<crate::public_fallback::PreparedReply> {
-        let request: Value = catabolic_core::decode_json(request)
-            .map_err(|e| CatabolicError::new_err(e.to_string()))?;
+        let request: Value =
+            crate::admitted_json(request).map_err(|e| CatabolicError::new_err(e.to_string()))?;
         if !request.is_object() {
             return Err(CatabolicError::new_err(
                 "native request must be a JSON object",
@@ -231,7 +230,7 @@ impl NativeStore {
     }
     #[staticmethod]
     fn validate_query(surface: &str, request: &str, profile: &str) -> PyResult<String> {
-        let args: Value = catabolic_core::decode_json(request)
+        let args: Value = crate::admitted_json(request)
             .map_err(|error| CatabolicError::new_err(error.to_string()))?;
         let result = if surface == "graphql" {
             catabolic_store::graphql::validate_before_context(
@@ -273,8 +272,8 @@ impl NativeStore {
         profile: &str,
         after_filesystem: Option<Py<PyAny>>,
     ) -> PyResult<String> {
-        let request: Value = catabolic_core::decode_json(request)
-            .map_err(|e| CatabolicError::new_err(e.to_string()))?;
+        let request: Value =
+            crate::admitted_json(request).map_err(|e| CatabolicError::new_err(e.to_string()))?;
         if !request.is_object() {
             return Err(CatabolicError::new_err(
                 "native request must be a JSON object",
@@ -347,8 +346,8 @@ impl NativeStore {
         args: &str,
         token: Option<u64>,
     ) -> PyResult<String> {
-        let args: Value = catabolic_core::decode_json(args)
-            .map_err(|e| CatabolicError::new_err(e.to_string()))?;
+        let args: Value =
+            crate::admitted_json(args).map_err(|e| CatabolicError::new_err(e.to_string()))?;
         let signal = Arc::new(Mutex::new(None));
         let captured = signal.clone();
         let value = self.run(py, |session| {
@@ -457,8 +456,8 @@ impl NativeStore {
         } else {
             None
         };
-        let mut request: Value = catabolic_core::decode_json(request)
-            .map_err(|e| CatabolicError::new_err(e.to_string()))?;
+        let mut request: Value =
+            crate::admitted_json(request).map_err(|e| CatabolicError::new_err(e.to_string()))?;
         if !request.is_object() {
             return Err(CatabolicError::new_err(
                 "native request must be a JSON object",
@@ -492,8 +491,8 @@ impl NativeStore {
         cancelled: Option<Py<PyAny>>,
     ) -> PyResult<String> {
         let raw_request = request;
-        let request: Value = catabolic_core::decode_json(request)
-            .map_err(|e| CatabolicError::new_err(e.to_string()))?;
+        let request: Value =
+            crate::admitted_json(request).map_err(|e| CatabolicError::new_err(e.to_string()))?;
         if !request.is_object() {
             return Err(CatabolicError::new_err(
                 "native request must be a JSON object",

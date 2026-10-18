@@ -290,6 +290,30 @@ class NativeFacadeDifferentialTest(unittest.TestCase):
         self.assertEqual(errors["native"], errors["frozen"])
         self.assertEqual(self.state(self.frozen), self.state(self.native))
 
+    def test_default_feature_build_refuses_failpoints_in_the_embedding(self):
+        # The embedding refuses the test-only fields when decoding a request,
+        # before any facade or generic dispatch acts on it.
+        holder = self.native["holder"]
+        before = self.state(self.native)
+        os.environ["CATABOLIC_TEST_SIMULATE_DEFAULT_FEATURES"] = "1"
+        self.addCleanup(
+            os.environ.pop, "CATABOLIC_TEST_SIMULATE_DEFAULT_FEATURES", None
+        )
+        with holder.store.detached():
+            with catabolic_native.Store(holder.database, writable=True) as store:
+                for call in (
+                    lambda: store._call("reconcile", "apply", {"failpoint": None}),
+                    lambda: store._call("rules", "run", {"crash": False}),
+                    lambda: store._owner.reconcile_publish(
+                        "apply", json.dumps({"crash": False}), "default", None
+                    ),
+                ):
+                    with self.assertRaisesRegex(
+                        Exception, "failpoint_injection_unavailable"
+                    ):
+                        call()
+        self.assertEqual(self.state(self.native), before)
+
     def test_removal_and_forget_match_frozen(self):
         self.assertSame(self.both("apply"))
         for side in (self.frozen, self.native):

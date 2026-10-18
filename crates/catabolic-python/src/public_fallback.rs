@@ -181,7 +181,7 @@ fn fallback_present(raw: &str) -> PyResult<String> {
 }
 #[pyfunction]
 fn fallback_tick(py: Python<'_>, path: &str, profile: &str, raw: &str) -> PyResult<String> {
-    let args = catabolic_core::decode_json(raw)
+    let args = crate::admitted_json(raw)
         .map_err(|e| crate::embedding::CatabolicError::new_err(e.to_string()))?;
     let signal = Arc::new(Mutex::new(None));
     let captured = signal.clone();

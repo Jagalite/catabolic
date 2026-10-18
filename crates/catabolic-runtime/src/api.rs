@@ -52,6 +52,7 @@ pub fn execute_import_with_poll(
         return Err(Error("operation request must be a JSON object".into()));
     }
     catabolic_core::validate_finite(request)?;
+    catabolic_store::filesystem_mutation::admit_failpoints(request)?;
     let mut store = Store::open(path, request["apply"] == true, false)?;
     catabolic_store::mutation::profile(&store, profile)?;
     crate::imports::execute_with_poll(&mut store, profile, request, cancel, poll)
@@ -69,6 +70,7 @@ pub fn execute_plex_import_with_poll(
         return Err(Error("operation request must be a JSON object".into()));
     }
     catabolic_core::validate_finite(request)?;
+    catabolic_store::filesystem_mutation::admit_failpoints(request)?;
     let mut store = Store::open(path, request["apply"] == true, false)?;
     catabolic_store::mutation::profile(&store, profile)?;
     crate::plex_import::execute_with_poll(&mut store, profile, request, cancel, poll)
@@ -85,6 +87,7 @@ pub fn execute_plex_login_with_poll(
         return Err(Error("operation request must be a JSON object".into()));
     }
     catabolic_core::validate_finite(request)?;
+    catabolic_store::filesystem_mutation::admit_failpoints(request)?;
     crate::plex_login::execute_with_poll(operation, request, cancel, poll)
 }
 
@@ -100,6 +103,7 @@ pub fn execute_plex_match_with_poll(
         return Err(Error("operation request must be a JSON object".into()));
     }
     catabolic_core::validate_finite(request)?;
+    catabolic_store::filesystem_mutation::admit_failpoints(request)?;
     let mut store = Store::open(path, request["apply"] == true, false)?;
     catabolic_store::mutation::profile(&store, profile)?;
     crate::plex_matching::execute_with_poll(&mut store, profile, request, cancel, poll)
@@ -117,6 +121,7 @@ pub fn execute_plex_metadata_with_poll(
         return Err(Error("operation request must be a JSON object".into()));
     }
     catabolic_core::validate_finite(request)?;
+    catabolic_store::filesystem_mutation::admit_failpoints(request)?;
     let mut store = Store::open(path, request["apply"] == true, false)?;
     catabolic_store::mutation::profile(&store, profile)?;
     crate::plex_metadata::execute_with_poll(&mut store, profile, request, cancel, poll)
@@ -164,6 +169,7 @@ pub fn execute_ordered(
         return Err(Error("operation request must be a JSON object".into()));
     }
     catabolic_core::validate_finite(request)?;
+    catabolic_store::filesystem_mutation::admit_failpoints(request)?;
     if surface == "plex-login" {
         return crate::plex_login::execute(operation, request);
     }

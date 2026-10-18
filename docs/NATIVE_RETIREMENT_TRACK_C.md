@@ -95,6 +95,19 @@ by default.
   and its tick, public watchers, watcher workers and execution, catalog
   refresh) now refuses first, so a refused request leaves the database and
   output byte-identical.
+- **At ingress (Sol round 3 fix).** Some routes still acted before any check:
+  playback-worker cleanup, `rules run` (whose refresh rebuilt options and
+  dropped the fields), and the artifact, processing and maintenance facades.
+  Every external request is now checked where it is decoded, before
+  dispatch:
+  - the CLI's `--options` and payload decoding, and fallback probe input;
+  - the runtime API dispatchers `execute_ordered` and every
+    `execute_*_with_poll` (which serve CLI `operation`, the legacy CLI and the
+    embedding's generic calls);
+  - every request the Python embedding decodes;
+  - HTTP request bodies, refused as `invalid_request` 422.
+
+  Entry-point checks stay as a second line.
 - **Fallback forwarding.** The fallback runtime now forwards these fields
   whenever they are present, so that they are refused rather than silently
   dropped.
@@ -109,6 +122,13 @@ Tests:
   `failpoints` builds. Applies with a current or stale plan, and a bare
   request, each carrying `failpoint: null` or `crash: false`, are refused,
   with every table and the output tree unchanged.
+- `test_default_feature_build_refuses_failpoints_on_every_route` sends
+  `failpoint: null` and `crash: false` through ten CLI routes, including
+  playback-worker cleanup, rules run, the rendition and API workers, catalog
+  refresh, watchers, import, artifacts, outputs and an unknown surface. Each
+  is refused, with tables and output unchanged.
+  `test_default_feature_build_refuses_failpoints_in_the_embedding` does the
+  same through the embedding's generic call and `reconcile_publish`.
 - `tests/failpoint_feature_shipping.rs` checks that only that one
   dev-dependency enables the feature. It also checks that no default feature
   set, maturin feature list or release build command selects it.
@@ -233,6 +253,31 @@ Two new crash points cover this:
   inspection, and recovery then converges.
 - **`after_private_record`.** This state converges.
 
+**Sol round 3 fix: a removal record never authorizes a present directory.**
+The directory used to be removed before its record was forgotten. A crash
+between the two left a record whose device and inode a later directory at the
+same name could reuse; recovery would then have emptied and removed it. Now,
+after the entry is unlinked and before `AT_REMOVEDIR`, the record is durably
+marked `removing`. An inode can be reused only after our directory is
+removed, and by then the record is already marked. Recovery never acts on a
+directory present at the name while its record is marked `removing`: it
+fails with `… is present after its removal began; … retained untouched`. If
+the name is absent, recovery forgets the record and continues. This holds on
+any filesystem, whatever its inode allocation policy.
+
+Two more crash points cover this:
+
+- **`after_private_mark`.** Our empty directory is still present. It blocks
+  like `after_private_create`, and the operator removes it after inspection.
+- **`after_private_remove`.** This state converges.
+
+`removal_record_never_authorizes_a_directory_reusing_the_inode` crashes at
+`after_private_remove`. It then recreates a 0700 directory at the name,
+holding a link to the allowed target, and rewrites the record to that
+directory's device and inode to simulate reuse. Recovery refuses and keeps
+the link. After the operator removes the directory, recovery converges and
+the record is gone.
+
 Track B may record volume UUIDs. If it does, the record can carry the same
 identity.
 
@@ -240,10 +285,7 @@ identity.
 directory and the unlink, a writer running as the same user can still replace
 `entry`, and that replacement is deleted. The directory is 0700 and owned by
 us, so other users cannot reach it. A same-user writer must find the
-per-operation name and act inside that window. A second residual is inode reuse. A crash between removing the directory
-and clearing its record leaves a stale record. A writer would then have to
-recreate a directory at the same per-operation name that reuses the same
-inode number.
+per-operation name and act inside that window.
 
 The test
 `characterize_residual_same_user_writer_inside_the_private_directory`
@@ -420,5 +462,6 @@ it.
 | Sol round 1 P2 | Fixed | `d5b5ef0` |
 | 3 | Implemented | `e50b453` |
 | Sol round 2 P2 #1 (private directory identity) | Fixed | `5aa37ce` |
-| Sol round 2 P2 #2 (refuse failpoints before admission) and #3 (callback truthiness) | Fixed | this commit |
+| Sol round 2 P2 #2 (refuse failpoints before admission) and #3 (callback truthiness) | Fixed | `9e75f15` |
+| Sol round 3 P2 #1 (removal record and inode reuse) and #2 (ingress admission) | Fixed | this commit |
 | 4–6 | Not started | |

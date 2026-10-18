@@ -292,6 +292,42 @@ class NativeProjectionTest(unittest.TestCase):
                 self.assertEqual(self.database_state(), before)
                 self.assertEqual(list(self.output.rglob("*")), [])
 
+    def test_default_feature_build_refuses_failpoints_on_every_route(self):
+        # Sol round 3: playback-worker cleanup, rules run, artifact and
+        # processing routes reached effects before any failpoint admission.
+        # The CLI now refuses the fields when decoding the request, before
+        # dispatch, so even an unknown surface is refused the same way.
+        self.bind()
+        self.apply()
+        before = self.database_state()
+        tree = sorted(str(p) for p in self.output.rglob("*"))
+        simulate = {"CATABOLIC_TEST_SIMULATE_DEFAULT_FEATURES": "1"}
+        for surface, action in (
+            ("playback-worker", "cleanup"),
+            ("rules", "run"),
+            ("rendition-worker", "tick"),
+            ("api-worker", "tick"),
+            ("catalog-refresh", "run"),
+            ("watcher", "run"),
+            ("import", "catalog"),
+            ("artifact", "build"),
+            ("outputs", "apply"),
+            ("no-such-surface", "anything"),
+        ):
+            for field in ({"failpoint": None}, {"crash": False}):
+                with self.subTest(surface=surface, action=action, field=field):
+                    self.native(
+                        action,
+                        {"catalog": "global", **field},
+                        surface=surface,
+                        failure="failpoint_injection_unavailable",
+                        env=simulate,
+                    )
+                    self.assertEqual(self.database_state(), before)
+                    self.assertEqual(
+                        sorted(str(p) for p in self.output.rglob("*")), tree
+                    )
+
     def test_native_crash_boundaries_recover_in_frozen_python(self):
         self.bind()
         self.apply()

@@ -23,7 +23,7 @@ pub struct NativePublisher {
 #[pymethods]
 impl NativePublisher {
     fn call(&self, py: Python<'_>, operation: &str, request: &str) -> PyResult<String> {
-        let request: Value = catabolic_core::decode_json(request)
+        let request: Value = crate::admitted_json(request)
             .map_err(|e| crate::embedding::CatabolicError::new_err(e.to_string()))?;
         py.check_signals()?;
         py.detach(|| match operation {

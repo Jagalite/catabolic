@@ -289,7 +289,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             if input.len() > 1024 * 1024 {
                 return Err(Error("fallback probe input exceeds 1 MiB".into()));
             }
-            let request = catabolic_core::decode_json_bytes(&input)?;
+            let request = admitted_json_bytes(&input)?;
             let value = if command == catabolic_runtime::fallback::NATIVE_PROBE_COMMAND {
                 catabolic_runtime::fallback::probe_check_v1(&request)?
             } else {
@@ -305,7 +305,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
                 &path,
                 &profile,
                 name,
-                &catabolic_core::decode_json(&options)?,
+                &admitted_json(&options)?,
             )
         }
         [command, name] if command == "watcher-worker" => {
@@ -313,35 +313,35 @@ fn run(mut args: Vec<String>) -> Result<Value> {
                 &path,
                 &profile,
                 name,
-                &catabolic_core::decode_json(&options)?,
+                &admitted_json(&options)?,
             )
         }
         [command, payload] if command == catabolic_runtime::observation::SHARED_WORKER_COMMAND => {
             catabolic_runtime::observation::shared_worker_v1(
                 &path,
                 &profile,
-                &catabolic_core::decode_json(payload)?,
+                &admitted_json(payload)?,
             )
         }
         [command, payload] if command == catabolic_runtime::observation::CLOSED_WORKER_COMMAND => {
             catabolic_runtime::observation::worker_v2(
                 &path,
                 &profile,
-                &catabolic_core::decode_json(payload)?,
+                &admitted_json(payload)?,
             )
         }
         [command, payload] if command == catabolic_runtime::observation::NATIVE_WORKER_COMMAND => {
             catabolic_runtime::observation::worker_v1(
                 &path,
                 &profile,
-                &catabolic_core::decode_json(payload)?,
+                &admitted_json(payload)?,
             )
         }
         [command, payload] if command == "observation-worker" => {
             catabolic_runtime::observation::worker(
                 &path,
                 &profile,
-                &catabolic_core::decode_json(payload)?,
+                &admitted_json(payload)?,
             )
         }
         [command] if command == "--version" || command == "version" => Ok(
@@ -428,7 +428,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         }
         [command] if command == "manifest-build" => {
             let store = catabolic_store::Store::open(&path, false, false)?;
-            let request = catabolic_core::decode_json(&options)?;
+            let request = admitted_json(&options)?;
             let mut evaluation =
                 catabolic_store::selection::Evaluation::new(store, &profile, 60000, 100000, http)?;
             catabolic_store::manifest::build(
@@ -443,12 +443,12 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             &profile,
             "manifest",
             "write",
-            &catabolic_core::decode_json(&options)?,
+            &admitted_json(&options)?,
         ),
         [command, surface, operation]
             if command == "operation" && surface == "import" && operation == "catalog" =>
         {
-            let request = catabolic_core::decode_json(&options)?;
+            let request = admitted_json(&options)?;
             catabolic_http::interruptible(move |cancel| {
                 catabolic_runtime::api::execute_import_with_poll(
                     &path,
@@ -462,7 +462,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         [command, surface, operation]
             if command == "operation" && surface == "plex-import" && operation == "run" =>
         {
-            let request = catabolic_core::decode_json(&options)?;
+            let request = admitted_json(&options)?;
             catabolic_http::interruptible(move |cancel| {
                 catabolic_runtime::api::execute_plex_import_with_poll(
                     &path,
@@ -476,7 +476,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         [command, surface, operation]
             if command == "operation" && surface == "plex-match" && operation == "run" =>
         {
-            let request = catabolic_core::decode_json(&options)?;
+            let request = admitted_json(&options)?;
             catabolic_http::interruptible(move |cancel| {
                 catabolic_runtime::api::execute_plex_match_with_poll(
                     &path,
@@ -490,13 +490,13 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         [command, surface, operation]
             if command == "operation" && surface == "plex-metadata" && operation == "run" =>
         {
-            let request = catabolic_core::decode_json(&options)?;
+            let request = admitted_json(&options)?;
             catabolic_runtime::plex_metadata::execute_cli(&path, &profile, &request)
         }
         [command, surface, operation] if command == "operation" && surface == "plex-login" => {
             catabolic_runtime::plex_login::execute_cli(
                 operation,
-                &catabolic_core::decode_json(&options)?,
+                &admitted_json(&options)?,
             )
         }
 
@@ -505,7 +505,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             &profile,
             surface,
             operation,
-            &catabolic_core::decode_json(&options)?,
+            &admitted_json(&options)?,
         ),
         [command, action] if command == "observe" || command == "outputs" => {
             catabolic_runtime::api::execute(
@@ -513,12 +513,12 @@ fn run(mut args: Vec<String>) -> Result<Value> {
                 &profile,
                 command,
                 action,
-                &catabolic_core::decode_json(&options)?,
+                &admitted_json(&options)?,
             )
         }
         [command, op, ids @ ..] if command == "media-enqueue" => {
             let store = catabolic_store::Store::open(&path, true, false)?;
-            let request: Value = catabolic_core::decode_json(&options)?;
+            let request: Value = admitted_json(&options)?;
             catabolic_runtime::media::enqueue(&store, &profile, op, ids, &request, false, None)
         }
         [command, ids @ ..] if command == "media-run" => {
@@ -557,10 +557,10 @@ fn run(mut args: Vec<String>) -> Result<Value> {
             &profile,
             "notify",
             action,
-            &catabolic_core::decode_json(&options)?,
+            &admitted_json(&options)?,
         ),
         [command, action, request] if command == "interchange" => {
-            catabolic_store::interchange::dispatch(action, &catabolic_core::decode_json(request)?)
+            catabolic_store::interchange::dispatch(action, &admitted_json(request)?)
         }
         [command, action, request]
             if command == "definitions"
@@ -576,7 +576,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
                 &profile,
                 command,
                 action,
-                &catabolic_core::decode_json(request)?,
+                &admitted_json(request)?,
                 request,
             )
         }
@@ -586,12 +586,12 @@ fn run(mut args: Vec<String>) -> Result<Value> {
                 &store,
                 &profile,
                 action,
-                &catabolic_core::decode_json(&options)?,
+                &admitted_json(&options)?,
             )
         }
         [command, id, catalog] if command == "layout-plan" => {
             let store = catabolic_store::Store::open(&path, false, false)?;
-            let request: Value = catabolic_core::decode_json(&options)?;
+            let request: Value = admitted_json(&options)?;
             let mut evaluation =
                 catabolic_store::selection::Evaluation::new(store, &profile, 60000, 100000, http)?;
             catabolic_store::layout::plan(
@@ -631,7 +631,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
         [command, entity] if command == "catalog" => {
             let store = catabolic_store::Store::open(&path, false, false)?;
             catabolic_store::query::CatalogQuery::new(&store, &profile)?
-                .execute(entity, &catabolic_core::decode_json(&options)?)
+                .execute(entity, &admitted_json(&options)?)
         }
         [command, _document] if command == "graphql" && http => Err(Error(
             "GraphQL HTTP evaluation requires authorization context".into(),
@@ -667,6 +667,17 @@ fn run(mut args: Vec<String>) -> Result<Value> {
                 .into(),
         )),
     }
+}
+/// Decode an external request. A build without the `failpoints` feature
+/// refuses the test-only `failpoint`/`crash` fields here, before dispatch, so
+/// no route can act on such a request first.
+fn admitted_json(raw: &str) -> Result<Value> {
+    let value = catabolic_core::decode_json(raw)?;
+    catabolic_store::filesystem_mutation::admit_failpoints(&value)?;
+    Ok(value)
+}
+fn admitted_json_bytes(raw: &[u8]) -> Result<Value> {
+    admitted_json(std::str::from_utf8(raw).map_err(|e| Error(e.to_string()))?)
 }
 fn main() {
     // First: tool supervisor mode (never returns) or supervisor registration.

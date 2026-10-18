@@ -196,6 +196,10 @@ pub fn body(method: &str, template: &str, raw: &[u8]) -> Result<Value> {
     if !strict(&mut value, schema, 0) {
         return Err(Problem::new("invalid_request", 422));
     }
+    // Test-only failpoint fields are refused before any route acts.
+    if catabolic_store::filesystem_mutation::admit_failpoints(&value).is_err() {
+        return Err(Problem::new("invalid_request", 422));
+    }
     Ok(value)
 }
 pub fn page(query: &std::collections::BTreeMap<String, String>) -> Result<usize> {

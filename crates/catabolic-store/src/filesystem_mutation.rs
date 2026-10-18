@@ -1380,6 +1380,8 @@ pub const PUBLICATION_FAILPOINTS: &[&str] = &[
     "after_private_create",
     "after_private_record",
     "after_private_move",
+    "after_private_mark",
+    "after_private_remove",
     "after_retention_marker_create",
     "after_retention_marker_write",
     "before_retention_rename",
@@ -1704,12 +1706,21 @@ fn verify_private_directory(parent: &File, directory: &str, held: &File) -> Resu
 }
 /// Delete the verified entry inside a held private directory, then the
 /// directory itself. Unexpected content is retained and reported.
+///
+/// Before the directory is removed its record is durably marked as removing.
+/// Its inode can only be reused after the removal, so a record marked
+/// removing never authorizes acting on a directory present at the name:
+/// recovery retains it (see `discard_private`).
+#[allow(clippy::too_many_arguments)]
 fn finish_private(
+    store: &Store,
+    key: &str,
     parent: &File,
     name: &str,
     directory: &str,
     held: &File,
     allowed: &[Option<&str>],
+    args: &Value,
 ) -> Result<()> {
     let mut names = Vec::new();
     entries(held, |entry| {
@@ -1729,6 +1740,16 @@ fn finish_private(
         }
         _ => return Err(retained(name, directory)),
     }
+    let mut removing = private_identity(held)?;
+    removing["removing"] = json!(true);
+    store.transaction(|db| {
+        db.execute(
+            "UPDATE meta SET value=? WHERE key=?",
+            params![encode(&removing), key],
+        )?;
+        Ok(())
+    })?;
+    failpoint(args, "after_private_mark")?;
     let path = cstring(directory)?;
     // SAFETY: live descriptor and NUL-terminated name. AT_REMOVEDIR removes
     // only an empty directory, so nothing added meanwhile can be lost.
@@ -1739,6 +1760,7 @@ fn finish_private(
         )));
     }
     parent.sync_all()?;
+    failpoint(args, "after_private_remove")?;
     Ok(())
 }
 /// Durable evidence that operation `id` created `directory`: a `meta` row,
@@ -1766,6 +1788,11 @@ fn forget_private(store: &Store, key: &str) -> Result<()> {
         db.execute("DELETE FROM meta WHERE key=?", [key])?;
         Ok(())
     })
+}
+fn removal_interrupted(directory: &str) -> Error {
+    Error(format!(
+        "private publication directory {directory} is present after its removal began; it may not be the directory this operation created; retained untouched; inspect it"
+    ))
 }
 fn unrecognized(directory: &str) -> Error {
     Error(format!(
@@ -1796,11 +1823,14 @@ fn discard_private(
     // An interrupted predecessor may have left its recorded directory behind.
     match open_at(parent, &directory, true) {
         Ok(held) => {
+            if recorded.as_ref().is_some_and(|r| r["removing"] == true) {
+                return Err(removal_interrupted(&directory));
+            }
             if recorded.as_ref() != Some(&private_identity(&held)?) {
                 return Err(unrecognized(&directory));
             }
             verify_private_directory(parent, &directory, &held)?;
-            finish_private(parent, name, &directory, &held, allowed)?;
+            finish_private(store, &key, parent, name, &directory, &held, allowed, args)?;
             forget_private(store, &key)?;
         }
         Err(e) if e.0.contains("No such file or directory") => {
@@ -1838,14 +1868,14 @@ fn discard_private(
     if let Err(e) = rename_between(parent, name, &held, PRIVATE_ENTRY, Rename::Exclusive) {
         let missing = e.kind() == std::io::ErrorKind::NotFound;
         // The directory is still empty and ours; remove it either way.
-        finish_private(parent, name, &directory, &held, allowed)?;
+        finish_private(store, &key, parent, name, &directory, &held, allowed, args)?;
         forget_private(store, &key)?;
         return if missing { Ok(()) } else { Err(e.into()) };
     }
     held.sync_all()?;
     parent.sync_all()?;
     failpoint(args, "after_private_move")?;
-    finish_private(parent, name, &directory, &held, allowed)?;
+    finish_private(store, &key, parent, name, &directory, &held, allowed, args)?;
     forget_private(store, &key)
 }
 /// Return a displaced foreign entry to its leaf, never overwriting.
@@ -3026,6 +3056,85 @@ mod tests {
                 );
             }
         }
+    }
+    #[test]
+    fn removal_record_never_authorizes_a_directory_reusing_the_inode() {
+        // Sol round 3: a crash after the private directory was removed but
+        // before its record was forgotten must not let a later directory at
+        // the same name, reusing the inode, be adopted and emptied, even a
+        // same-owner 0700 directory holding a link to an allowed target.
+        use std::os::unix::fs::{MetadataExt as _, PermissionsExt};
+        let (_root, store, _source, output) = destructive_catalog(false);
+        let folder = output.join("folder");
+        assert!(
+            execute(
+                &store,
+                "default",
+                "apply",
+                &json!({"max_removals":1,"failpoint":"after_private_remove"})
+            )
+            .is_err()
+        );
+        let (key, recorded): (String, String) = store
+            .db
+            .query_row(
+                "SELECT key,value FROM meta WHERE key LIKE 'publication-private:%'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            catabolic_core::decode_json(&recorded).unwrap()["removing"],
+            true
+        );
+        let named = catabolic_core::decode_json(&key["publication-private:".len()..]).unwrap();
+        let directory = folder.join(named[1].as_str().unwrap());
+        assert!(!directory.exists());
+        let previous: String = store
+            .db
+            .query_row("SELECT previous FROM journal", [], |r| r.get(0))
+            .unwrap();
+        // A later directory at the name, simulated to reuse the inode.
+        std::fs::create_dir(&directory).unwrap();
+        std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o700)).unwrap();
+        std::os::unix::fs::symlink(&previous, directory.join("entry")).unwrap();
+        let metadata = std::fs::metadata(&directory).unwrap();
+        store
+            .db
+            .execute(
+                "UPDATE meta SET value=? WHERE key=?",
+                params![
+                    encode(
+                        &json!({"device":metadata.dev(),"inode":metadata.ino(),"removing":true})
+                    ),
+                    key
+                ],
+            )
+            .unwrap();
+        let error = execute(&store, "default", "recover", &json!({})).unwrap_err();
+        assert!(
+            error.0.contains("present after its removal began"),
+            "{error:?}"
+        );
+        assert_eq!(
+            std::fs::read_link(directory.join("entry")).unwrap(),
+            std::path::PathBuf::from(&previous)
+        );
+        assert_eq!(journal_rows(&store), 1);
+        // Once the operator removes it, recovery forgets the record and ends.
+        std::fs::remove_file(directory.join("entry")).unwrap();
+        std::fs::remove_dir(&directory).unwrap();
+        execute(&store, "default", "recover", &json!({})).unwrap();
+        assert_eq!(journal_rows(&store), 0);
+        let records: i64 = store
+            .db
+            .query_row(
+                "SELECT count(*) FROM meta WHERE key LIKE 'publication-private:%'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(records, 0);
     }
     #[test]
     fn crash_after_private_create_blocks_until_the_unrecorded_directory_is_removed() {
