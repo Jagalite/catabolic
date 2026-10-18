@@ -220,7 +220,7 @@ fn backup_directory(receipt: &Value) -> PathBuf {
         .to_path_buf()
 }
 fn restore(path: &Path, receipt: &Value) -> catabolic_store::Result<Value> {
-    native_restore::restore(path, &backup_directory(receipt), quiescent(), &|_| Ok(()))
+    native_restore::restore(path, &backup_directory(receipt), quiescent())
 }
 
 #[test]
@@ -343,7 +343,7 @@ fn mismatched_or_unverified_backups_are_refused_without_touching_the_catalog() {
         assert!(staging_directories(&path).is_empty(), "{message}");
     };
     check(
-        native_restore::restore(
+        native_restore::restore_observed(
             &path,
             &backup_directory(&receipt),
             migration::NativeUpgradeQuiescence::default(),
@@ -389,7 +389,7 @@ fn mismatched_or_unverified_backups_are_refused_without_touching_the_catalog() {
     fs::create_dir(&legacy).unwrap();
     fs::write(legacy.join("manifest.json"), br#"{"status":"committed"}"#).unwrap();
     check(
-        native_restore::restore(&path, &legacy, quiescent(), &|_| Ok(())).unwrap_err(),
+        native_restore::restore_observed(&path, &legacy, quiescent(), &|_| Ok(())).unwrap_err(),
         "not a native backup",
     );
     // A WAL live catalog must be converted first.
@@ -413,13 +413,17 @@ fn restore_exit_worker() {
     };
     let backup = std::env::var("CATABOLIC_TEST_RESTORE_BACKUP").unwrap();
     let stage = std::env::var("CATABOLIC_TEST_RESTORE_STAGE").unwrap();
-    let result =
-        native_restore::restore(Path::new(&path), Path::new(&backup), quiescent(), &|at| {
+    let result = native_restore::restore_observed(
+        Path::new(&path),
+        Path::new(&backup),
+        quiescent(),
+        &|at| {
             if at == stage {
                 std::process::exit(86);
             }
             Ok(())
-        });
+        },
+    );
     panic!("restore stage {stage} was not reached: {result:?}");
 }
 
@@ -530,15 +534,19 @@ fn failures_after_publication_report_a_committed_restore() {
         ("finalizing", "finalizing the restore record"),
     ] {
         let (_root, path, receipt) = backed_up();
-        let error =
-            native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+        let error = native_restore::restore_observed(
+            &path,
+            &backup_directory(&receipt),
+            quiescent(),
+            &|at| {
                 if at == stage {
                     Err(catabolic_store::Error(format!("injected {at}")))
                 } else {
                     Ok(())
                 }
-            })
-            .unwrap_err();
+            },
+        )
+        .unwrap_err();
         assert!(
             error.0.contains("restore committed") && error.0.contains(step),
             "{stage}: {error}"
@@ -604,14 +612,18 @@ fn staged_mutation_or_replacement_is_refused_before_publication() {
     for (stage, message, change) in refusals {
         let (_root, path, receipt) = backed_up();
         let before = fs::read(&path).unwrap();
-        let error =
-            native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+        let error = native_restore::restore_observed(
+            &path,
+            &backup_directory(&receipt),
+            quiescent(),
+            &|at| {
                 if at == stage {
                     change(&staged_file(&path));
                 }
                 Ok(())
-            })
-            .unwrap_err();
+            },
+        )
+        .unwrap_err();
         assert!(error.0.contains(message), "{stage}: {error}");
         assert_eq!(fs::read(&path).unwrap(), before, "{stage}");
         assert_eq!(items(&path, "later-item"), 1, "{stage}");
@@ -619,18 +631,19 @@ fn staged_mutation_or_replacement_is_refused_before_publication() {
     }
     // While protected, a writer cannot change the staged file at all.
     let (_root, path, receipt) = backed_up();
-    let report = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
-        if at == "protected" {
-            let mut writer = connect(&staged_file(&path), true);
-            let refused = match writer.as_mut() {
-                Ok(db) => db.execute_batch(tamper).unwrap_err().to_string(),
-                Err(error) => error.to_string(),
-            };
-            assert!(refused.contains("database is locked"), "{refused}");
-        }
-        Ok(())
-    })
-    .unwrap();
+    let report =
+        native_restore::restore_observed(&path, &backup_directory(&receipt), quiescent(), &|at| {
+            if at == "protected" {
+                let mut writer = connect(&staged_file(&path), true);
+                let refused = match writer.as_mut() {
+                    Ok(db) => db.execute_batch(tamper).unwrap_err().to_string(),
+                    Err(error) => error.to_string(),
+                };
+                assert!(refused.contains("database is locked"), "{refused}");
+            }
+            Ok(())
+        })
+        .unwrap();
     assert_eq!(report["durability"], "durable");
     let count: i64 = connect(&path, false)
         .unwrap()
@@ -680,24 +693,25 @@ fn probe(path: &Path) -> Option<i32> {
 fn another_process_is_excluded_from_live_and_staged_catalogs_until_publication() {
     let _serial = serial();
     let (_root, path, receipt) = backed_up();
-    let report = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
-        match at {
-            "retained" | "staged" | "rotated" => {
-                assert_eq!(probe(&path), Some(PROBE_REFUSED), "live at {at}");
+    let report =
+        native_restore::restore_observed(&path, &backup_directory(&receipt), quiescent(), &|at| {
+            match at {
+                "retained" | "staged" | "rotated" => {
+                    assert_eq!(probe(&path), Some(PROBE_REFUSED), "live at {at}");
+                }
+                "publishing" => {
+                    assert_eq!(probe(&path), Some(PROBE_REFUSED), "live at {at}");
+                    assert_eq!(
+                        probe(&staged_file(&path)),
+                        Some(PROBE_REFUSED),
+                        "staged at {at}"
+                    );
+                }
+                _ => {}
             }
-            "publishing" => {
-                assert_eq!(probe(&path), Some(PROBE_REFUSED), "live at {at}");
-                assert_eq!(
-                    probe(&staged_file(&path)),
-                    Some(PROBE_REFUSED),
-                    "staged at {at}"
-                );
-            }
-            _ => {}
-        }
-        Ok(())
-    })
-    .unwrap();
+            Ok(())
+        })
+        .unwrap();
     assert_eq!(report["durability"], "durable");
     // Every lock is released once the restore returns.
     assert_eq!(probe(&path), Some(0));
@@ -707,15 +721,19 @@ fn another_process_is_excluded_from_live_and_staged_catalogs_until_publication()
     let (_root, path, receipt) = backed_up();
     let snapshot = PathBuf::from(receipt["backup"].as_str().unwrap());
     let snapshot_bytes = fs::read(&snapshot).unwrap();
-    let error =
-        native_restore::restore(&snapshot, &backup_directory(&receipt), quiescent(), &|at| {
+    let error = native_restore::restore_observed(
+        &snapshot,
+        &backup_directory(&receipt),
+        quiescent(),
+        &|at| {
             assert!(
                 !native_restore::RESTORE_STAGES.contains(&at),
                 "restore onto its own snapshot reached {at}"
             );
             Ok(())
-        })
-        .unwrap_err();
+        },
+    )
+    .unwrap_err();
     assert!(
         error
             .0
@@ -763,13 +781,14 @@ fn replacement_at_publishing_is_refused_before_the_rename() {
     let _serial = serial();
     let (_root, path, receipt) = backed_up();
     let before = fs::read(&path).unwrap();
-    let error = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
-        if at == "publishing" {
-            substitute_staged(&path, &backup_directory(&receipt));
-        }
-        Ok(())
-    })
-    .unwrap_err();
+    let error =
+        native_restore::restore_observed(&path, &backup_directory(&receipt), quiescent(), &|at| {
+            if at == "publishing" {
+                substitute_staged(&path, &backup_directory(&receipt));
+            }
+            Ok(())
+        })
+        .unwrap_err();
     assert!(error.0.contains("staged catalog was replaced"), "{error}");
     assert_eq!(fs::read(&path).unwrap(), before);
     assert!(staging_directories(&path).is_empty());
@@ -784,13 +803,14 @@ fn substitution_in_the_rename_window_is_preserved_for_reconciliation() {
     let (_root, path, receipt) = backed_up();
     let before = fs::read(&path).unwrap();
     let snapshot = fs::read(Path::new(receipt["backup"].as_str().unwrap())).unwrap();
-    let error = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
-        if at == native_restore::RENAME_WINDOW {
-            substitute_staged(&path, &backup_directory(&receipt));
-        }
-        Ok(())
-    })
-    .unwrap_err();
+    let error =
+        native_restore::restore_observed(&path, &backup_directory(&receipt), quiescent(), &|at| {
+            if at == native_restore::RENAME_WINDOW {
+                substitute_staged(&path, &backup_directory(&receipt));
+            }
+            Ok(())
+        })
+        .unwrap_err();
     assert!(error.0.contains("hostile substitution detected"), "{error}");
     assert!(
         error.0.contains("restore record reconciliation required"),
@@ -836,14 +856,15 @@ fn rerun_retries_the_publication_fsync_before_reporting_durability() {
     let record_path = staging_directories(&path)[0].join("manifest.json");
     let record = || -> Value { serde_json::from_slice(&fs::read(&record_path).unwrap()).unwrap() };
     assert_eq!(record()["status"], "publishing");
-    let failed = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
-        if at == native_restore::RERUN_FSYNC {
-            Err(catabolic_store::Error("injected fsync failure".into()))
-        } else {
-            Ok(())
-        }
-    })
-    .unwrap_err();
+    let failed =
+        native_restore::restore_observed(&path, &backup_directory(&receipt), quiescent(), &|at| {
+            if at == native_restore::RERUN_FSYNC {
+                Err(catabolic_store::Error("injected fsync failure".into()))
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap_err();
     assert!(
         failed.0.contains("restore committed")
             && failed
@@ -923,14 +944,15 @@ fn failed_publication_rename_removes_only_its_staging_directory() {
     ));
     fs::create_dir(&earlier).unwrap();
     let before = fs::read(&path).unwrap();
-    let error = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
-        if at == native_restore::RENAME_WINDOW {
-            Err(catabolic_store::Error("injected rename failure".into()))
-        } else {
-            Ok(())
-        }
-    })
-    .unwrap_err();
+    let error =
+        native_restore::restore_observed(&path, &backup_directory(&receipt), quiescent(), &|at| {
+            if at == native_restore::RENAME_WINDOW {
+                Err(catabolic_store::Error("injected rename failure".into()))
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap_err();
     assert!(
         error
             .0
@@ -1087,14 +1109,18 @@ fn rerun_after_substitution_preserves_journal_and_wal_evidence() {
     let _serial = serial();
     for (mode, sidecars) in [("hot", &["-journal"][..]), ("wal", &["-wal", "-shm"][..])] {
         let (_root, path, receipt) = backed_up();
-        let error =
-            native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+        let error = native_restore::restore_observed(
+            &path,
+            &backup_directory(&receipt),
+            quiescent(),
+            &|at| {
                 if at == native_restore::RENAME_WINDOW {
                     substitute_staged(&path, &backup_directory(&receipt));
                 }
                 Ok(())
-            })
-            .unwrap_err();
+            },
+        )
+        .unwrap_err();
         assert!(
             error.0.contains("hostile substitution detected"),
             "{mode}: {error}"
@@ -1149,15 +1175,16 @@ fn staging_symlink_swap_at_finalizing_cannot_reach_the_catalog() {
     let receipt = native_restore::backup(&path, None).unwrap();
     put(&path, "later", "later-item");
     let parent = fs::canonicalize(root.path()).unwrap();
-    let error = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
-        if at == "finalizing" {
-            let staging = staging_directories(&path).remove(0);
-            fs::rename(&staging, staging.with_extension("moved")).unwrap();
-            std::os::unix::fs::symlink(&parent, &staging).unwrap();
-        }
-        Ok(())
-    })
-    .unwrap_err();
+    let error =
+        native_restore::restore_observed(&path, &backup_directory(&receipt), quiescent(), &|at| {
+            if at == "finalizing" {
+                let staging = staging_directories(&path).remove(0);
+                fs::rename(&staging, staging.with_extension("moved")).unwrap();
+                std::os::unix::fs::symlink(&parent, &staging).unwrap();
+            }
+            Ok(())
+        })
+        .unwrap_err();
     assert!(
         error.0.contains("restore committed") && error.0.contains("was replaced"),
         "{error}"
@@ -1183,20 +1210,21 @@ fn snapshot_symlink_to_a_locked_catalog_is_never_opened() {
     fs::remove_file(&other_snapshot).unwrap();
     std::os::unix::fs::symlink(&path, &other_snapshot).unwrap();
     let other_before = fs::read(&other).unwrap();
-    let report = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
-        if at == "retained" {
-            let error = restore(&other, &other_receipt).unwrap_err();
-            assert!(
-                error
-                    .0
-                    .contains("another controlled restore is running in this process"),
-                "{error}"
-            );
-            assert_eq!(probe(&path), Some(PROBE_REFUSED), "live lock lost at {at}");
-        }
-        Ok(())
-    })
-    .unwrap();
+    let report =
+        native_restore::restore_observed(&path, &backup_directory(&receipt), quiescent(), &|at| {
+            if at == "retained" {
+                let error = restore(&other, &other_receipt).unwrap_err();
+                assert!(
+                    error
+                        .0
+                        .contains("another controlled restore is running in this process"),
+                    "{error}"
+                );
+                assert_eq!(probe(&path), Some(PROBE_REFUSED), "live lock lost at {at}");
+            }
+            Ok(())
+        })
+        .unwrap();
     assert_eq!(report["already_published"], false);
     // Alone, the symlinked snapshot is refused without being followed.
     let error = restore(&other, &other_receipt).unwrap_err();
@@ -1217,7 +1245,7 @@ fn backup_directory_swap_after_opening_is_not_followed() {
     let (_root, path, receipt) = backed_up();
     let (_other_root, _other, other_receipt) = backed_up();
     let directory = backup_directory(&receipt);
-    let report = native_restore::restore(&path, &directory, quiescent(), &|at| {
+    let report = native_restore::restore_observed(&path, &directory, quiescent(), &|at| {
         if at == native_restore::BACKUP_OPENED {
             fs::rename(&directory, directory.with_extension("moved")).unwrap();
             std::os::unix::fs::symlink(backup_directory(&other_receipt), &directory).unwrap();
@@ -1240,19 +1268,20 @@ fn retained_copy_replaced_by_a_live_hard_link_is_refused() {
     let _serial = serial();
     let (_root, path, receipt) = backed_up();
     let before = fs::read(&path).unwrap();
-    let error = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
-        if at == native_restore::RETAINED_WRITTEN {
-            let retained = staging_directories(&path)[0].join("previous.sqlite3");
-            fs::remove_file(&retained).unwrap();
-            fs::hard_link(&path, &retained).unwrap();
-            assert_eq!(probe(&path), Some(PROBE_REFUSED), "live lock lost");
-        }
-        if at == "retained" {
-            panic!("a substituted retained copy was accepted");
-        }
-        Ok(())
-    })
-    .unwrap_err();
+    let error =
+        native_restore::restore_observed(&path, &backup_directory(&receipt), quiescent(), &|at| {
+            if at == native_restore::RETAINED_WRITTEN {
+                let retained = staging_directories(&path)[0].join("previous.sqlite3");
+                fs::remove_file(&retained).unwrap();
+                fs::hard_link(&path, &retained).unwrap();
+                assert_eq!(probe(&path), Some(PROBE_REFUSED), "live lock lost");
+            }
+            if at == "retained" {
+                panic!("a substituted retained copy was accepted");
+            }
+            Ok(())
+        })
+        .unwrap_err();
     assert!(error.0.contains("retained copy was replaced"), "{error}");
     // The hard link is removed with the staging directory; the catalog is
     // unchanged and no lock was lost while restore held it.
@@ -1274,18 +1303,19 @@ fn directory_swap_during_record_enumeration_hides_nothing() {
     let published = incarnation(&path);
     let directory = fs::canonicalize(root.path()).unwrap();
     let moved = directory.with_extension("moved");
-    let rerun = native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
-        if at == native_restore::RECORDS_LISTING {
-            fs::rename(&directory, &moved).unwrap();
-            fs::create_dir(&directory).unwrap();
-        }
-        if at == native_restore::RECORDS_LISTED {
-            fs::remove_dir(&directory).unwrap();
-            fs::rename(&moved, &directory).unwrap();
-        }
-        Ok(())
-    })
-    .unwrap();
+    let rerun =
+        native_restore::restore_observed(&path, &backup_directory(&receipt), quiescent(), &|at| {
+            if at == native_restore::RECORDS_LISTING {
+                fs::rename(&directory, &moved).unwrap();
+                fs::create_dir(&directory).unwrap();
+            }
+            if at == native_restore::RECORDS_LISTED {
+                fs::remove_dir(&directory).unwrap();
+                fs::rename(&moved, &directory).unwrap();
+            }
+            Ok(())
+        })
+        .unwrap();
     assert_eq!(rerun["already_published"], true);
     assert_eq!(rerun["incarnation"], first["incarnation"]);
     assert_eq!(incarnation(&path), published);
@@ -1366,15 +1396,19 @@ fn staged_schema_history_and_sequence_changes_are_refused() {
     for (label, change) in changes {
         let (_root, path, receipt) = backed_up();
         let before = fs::read(&path).unwrap();
-        let error =
-            native_restore::restore(&path, &backup_directory(&receipt), quiescent(), &|at| {
+        let error = native_restore::restore_observed(
+            &path,
+            &backup_directory(&receipt),
+            quiescent(),
+            &|at| {
                 if at == "rotated" {
                     let db = rusqlite::Connection::open(staged_file(&path)).unwrap();
                     change(&db);
                 }
                 Ok(())
-            })
-            .unwrap_err();
+            },
+        )
+        .unwrap_err();
         assert!(
             error
                 .0

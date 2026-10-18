@@ -7,7 +7,11 @@
 //! manifest. Controlled restore (below) publishes such a snapshot at the live
 //! path under a fresh incarnation, so sessions, permits and receipts bound to
 //! the previous incarnation are refused or reported as uncertain.
-use crate::{Error, Result, connect, database_path, identity_manifest, migration};
+use crate::{
+    Error, Result, connect, database_path,
+    failpoints::{self, Observer, failpoint_name, hit},
+    identity_manifest, migration,
+};
 use serde_json::{Value, json};
 use std::{
     fs,
@@ -17,20 +21,31 @@ use uuid::Uuid;
 
 pub const BACKUP_CONTRACT: &str = "catabolic-native-backup-v1";
 
-/// Checkpoint in native backup after the snapshot was renamed into place and
-/// before the manifest is written. Only tests use it.
-pub const BACKUP_SNAPSHOT_SAVED: &str = "backup_snapshot_saved";
+failpoint_name! {
+    /// Checkpoint in native backup after the snapshot was renamed into place
+    /// and before the manifest is written.
+    BACKUP_SNAPSHOT_SAVED = "backup_snapshot_saved"
+}
 
 /// Take a verified backup of a native catalog. The snapshot is copied with
 /// SQLite's backup API inside one read transaction, validated, digested and
 /// fsynced before its manifest is written. `parent` must already exist,
 /// except for the default `<catalog>.backups`, which is created once.
 pub fn backup(path: &Path, parent: Option<&Path>) -> Result<Value> {
-    backup_observed(path, parent, &|_| Ok(()))
+    backup_with(path, parent, failpoints::none())
 }
 
-/// `backup` with an observer called at `BACKUP_SNAPSHOT_SAVED`.
-///
+/// `backup` with a test observer called at `BACKUP_SNAPSHOT_SAVED`. Only in
+/// builds with the test-only `failpoints` feature.
+#[cfg(feature = "failpoints")]
+pub fn backup_observed(
+    path: &Path,
+    parent: Option<&Path>,
+    observer: &dyn Fn(&str) -> Result<()>,
+) -> Result<Value> {
+    backup_with(path, parent, observer)
+}
+
 /// Like restore, every file operation runs through held directory
 /// descriptors: the parent and the new backup directory are opened with
 /// `O_DIRECTORY|O_NOFOLLOW`, files are created with `openat(O_EXCL)`,
@@ -40,11 +55,7 @@ pub fn backup(path: &Path, parent: Option<&Path>) -> Result<Value> {
 /// directory names still resolve to the held descriptors and the snapshot
 /// entry is still the inode created through them. Every fsync failure is an
 /// error.
-pub fn backup_observed(
-    path: &Path,
-    parent: Option<&Path>,
-    observer: &dyn Fn(&str) -> Result<()>,
-) -> Result<Value> {
+fn backup_with(path: &Path, parent: Option<&Path>, observer: Observer<'_>) -> Result<Value> {
     let path = database_path(path)?;
     let db = connect(&path, false)?;
     db.execute_batch("BEGIN")?;
@@ -142,7 +153,7 @@ pub fn backup_observed(
         "generation":identity["catalog"]["generation"], "schema":schema,
         "backup":directory.child(saved_name), "sha256":digest, "identity_manifest":identity,
     });
-    observer(BACKUP_SNAPSHOT_SAVED)?;
+    hit(observer, BACKUP_SNAPSHOT_SAVED)?;
     write_record(&holder, &directory_name, &directory, &receipt)?;
     Ok(receipt)
 }
@@ -152,6 +163,7 @@ pub const RESTORE_CONTRACT: &str = "catabolic-native-restore-v1";
 /// Restore checkpoints, in order. The rename between `publishing` and
 /// `renamed` is the single commit point: stages up to `publishing` precede it,
 /// and every later stage belongs to a committed restore.
+#[cfg(feature = "failpoints")]
 pub const RESTORE_STAGES: [&str; 10] = [
     "staged",
     "verified",
@@ -165,22 +177,32 @@ pub const RESTORE_STAGES: [&str; 10] = [
     "finalized",
 ];
 
-/// Checkpoint on the rerun path, before retrying the directory fsync of an
-/// already published restore.
-pub const RERUN_FSYNC: &str = "rerun_fsync";
-/// Checkpoint between the final checks and the publication rename. Only tests
-/// use it, to model a substitution in that unavoidable window.
-pub const RENAME_WINDOW: &str = "rename_window";
-/// Checkpoint after the backup directory and its manifest were opened through
-/// held descriptors and before the snapshot is opened. Only tests use it.
-pub const BACKUP_OPENED: &str = "backup_opened";
-/// Checkpoint after SQLite wrote the retained copy and before its name is
-/// rechecked. Only tests use it.
-pub const RETAINED_WRITTEN: &str = "retained_written";
-/// Checkpoints before and after restore records are enumerated. Only tests
-/// use them, to swap the catalog directory's pathname during enumeration.
-pub const RECORDS_LISTING: &str = "records_listing";
-pub const RECORDS_LISTED: &str = "records_listed";
+failpoint_name! {
+    /// Checkpoint on the rerun path, before retrying the directory fsync of an
+    /// already published restore.
+    RERUN_FSYNC = "rerun_fsync"
+}
+failpoint_name! {
+    /// Checkpoint between the final checks and the publication rename. Only tests
+    /// use it, to model a substitution in that unavoidable window.
+    RENAME_WINDOW = "rename_window"
+}
+failpoint_name! {
+    /// Checkpoint after the backup directory and its manifest were opened through
+    /// held descriptors and before the snapshot is opened. Only tests use it.
+    BACKUP_OPENED = "backup_opened"
+}
+failpoint_name! {
+    /// Checkpoint after SQLite wrote the retained copy and before its name is
+    /// rechecked. Only tests use it.
+    RETAINED_WRITTEN = "retained_written"
+}
+failpoint_name! {
+    /// Checkpoints before and after restore records are enumerated. Only tests
+    /// use them, to swap the catalog directory's pathname during enumeration.
+    RECORDS_LISTING = "records_listing"
+}
+failpoint_name! { RECORDS_LISTED = "records_listed" }
 
 /// One controlled restore at a time in this process. Lifecycle admission
 /// excludes other processes; this also keeps a second restore in the same
@@ -796,11 +818,11 @@ fn previous_records(
     target: &Path,
     target_name: &str,
     database_id: &Value,
-    checkpoint: &dyn Fn(&str) -> Result<()>,
+    checkpoint: Observer<'_>,
 ) -> Result<Vec<Record>> {
     use std::io::Read;
     let prefix = format!(".{target_name}.restore-");
-    checkpoint(RECORDS_LISTING)?;
+    hit(checkpoint, RECORDS_LISTING)?;
     let mut names = parent
         .entries()
         .map_err(|error| {
@@ -809,7 +831,7 @@ fn previous_records(
         .into_iter()
         .filter(|name| name.starts_with(&prefix))
         .collect::<Vec<_>>();
-    checkpoint(RECORDS_LISTED)?;
+    hit(checkpoint, RECORDS_LISTED)?;
     names.sort();
     let mut records = Vec::new();
     for name in names {
@@ -899,7 +921,27 @@ pub fn restore(
     target: &Path,
     backup_directory: &Path,
     quiescence: migration::NativeUpgradeQuiescence,
-    checkpoint: &dyn Fn(&str) -> Result<()>,
+) -> Result<Value> {
+    restore_with(target, backup_directory, quiescence, failpoints::none())
+}
+
+/// `restore` with a test observer called at every checkpoint. Only in builds
+/// with the test-only `failpoints` feature.
+#[cfg(feature = "failpoints")]
+pub fn restore_observed(
+    target: &Path,
+    backup_directory: &Path,
+    quiescence: migration::NativeUpgradeQuiescence,
+    observer: &dyn Fn(&str) -> Result<()>,
+) -> Result<Value> {
+    restore_with(target, backup_directory, quiescence, observer)
+}
+
+fn restore_with(
+    target: &Path,
+    backup_directory: &Path,
+    quiescence: migration::NativeUpgradeQuiescence,
+    checkpoint: Observer<'_>,
 ) -> Result<Value> {
     quiescence.require()?;
     let target = database_path(target)?;
@@ -936,7 +978,7 @@ pub fn restore(
     let snapshot_name = "snapshot.sqlite3";
     let snapshot_path = backup_path.join(snapshot_name);
     let receipt = read_backup_manifest(&backup, &parent, &target_name)?;
-    checkpoint(BACKUP_OPENED)?;
+    hit(checkpoint, BACKUP_OPENED)?;
     if receipt["backup"].as_str() != snapshot_path.to_str() {
         return Err(Error(
             "native backup manifest names a different snapshot".into(),
@@ -1038,7 +1080,7 @@ pub fn restore(
         // An earlier run may have stopped before or during the directory
         // fsync. Retry it under the held exclusion; only its success makes
         // the publication durable, and its failure is an error.
-        let retried = checkpoint(RERUN_FSYNC).and_then(|()| parent.fsync());
+        let retried = hit(checkpoint, RERUN_FSYNC).and_then(|()| parent.fsync());
         let durability = json!(if retried.is_ok() {
             "durable"
         } else {
@@ -1120,7 +1162,7 @@ pub fn restore(
             }
         }
         staging.fsync()?;
-        checkpoint("staged")?;
+        hit(checkpoint, "staged")?;
 
         staged_check(staged_file)?;
         let (identity, snapshot_tables) = {
@@ -1146,7 +1188,7 @@ pub fn restore(
             (identity, tables)
         };
         staged_check(staged_file)?;
-        checkpoint("verified")?;
+        hit(checkpoint, "verified")?;
 
         // Copied through the live connection with SQLite's backup API. No
         // separate descriptor may ever be opened and closed on the live (or
@@ -1179,14 +1221,14 @@ pub fn restore(
         };
         retained_check()?;
         backup_into(&live, &retained)?;
-        checkpoint(RETAINED_WRITTEN)?;
+        hit(checkpoint, RETAINED_WRITTEN)?;
         retained_check()?;
         retained_handle.sync_all()?;
         let previous_sha256 = hash_descriptor(&mut retained_handle)?;
         // No SQLite connection holds the retained inode any more.
         drop(retained_handle);
         staging.fsync()?;
-        checkpoint("retained")?;
+        hit(checkpoint, "retained")?;
 
         let snapshot_incarnation = identity["catalog"]["incarnation"]
             .as_str()
@@ -1213,7 +1255,7 @@ pub fn restore(
             "previous_sha256":previous_sha256,
         });
         write_record(&parent, &staging_name, &staging, &record)?;
-        checkpoint("rotated")?;
+        hit(checkpoint, "rotated")?;
 
         // From here to the rename the staged file is exclusively locked, and
         // it must be exactly the rotated file, row for row and object for
@@ -1240,8 +1282,8 @@ pub fn restore(
                 "staged catalog changed after rotation; refusing to publish".into(),
             ));
         }
-        checkpoint("protected")?;
-        checkpoint("publishing")?;
+        hit(checkpoint, "protected")?;
+        hit(checkpoint, "publishing")?;
         // The final checks follow every observable checkpoint; both connections
         // and the staged descriptor stay open through them and the rename.
         staged_check(staged_file)?;
@@ -1275,7 +1317,7 @@ pub fn restore(
     record["status"] = json!("publishing");
     let staged_file = descriptor_identity(&staged)?;
     if let Err(error) = write_record(&parent, &staging_name, &staging, &record)
-        .and_then(|()| checkpoint(RENAME_WINDOW))
+        .and_then(|()| hit(checkpoint, RENAME_WINDOW))
         .and_then(|()| parent.require_child(&staging_name, &staging))
         .and_then(|()| staging.rename_at(staged_name, &parent, &target_name))
     {
@@ -1309,20 +1351,20 @@ pub fn restore(
 
     // The single commit point has passed. Every failure from here on is a
     // committed restore that a rerun confirms.
-    checkpoint("renamed")
+    hit(checkpoint, "renamed")
         .map_err(|error| committed_failure(&incarnation, "the step after the rename", error))?;
     parent.fsync().map_err(|error| {
         committed_failure(&incarnation, "the publication directory fsync", error)
     })?;
-    checkpoint("published").map_err(|error| {
+    hit(checkpoint, "published").map_err(|error| {
         committed_failure(&incarnation, "the step after the directory fsync", error)
     })?;
     record["status"] = json!("published");
     record["durability"] = json!("durable");
-    checkpoint("finalizing")
+    hit(checkpoint, "finalizing")
         .and_then(|()| write_record(&parent, &staging_name, &staging, &record))
         .map_err(|error| committed_failure(&incarnation, "finalizing the restore record", error))?;
-    checkpoint("finalized")
+    hit(checkpoint, "finalized")
         .map_err(|error| committed_failure(&incarnation, "the step after finalizing", error))?;
     let restored = (|| -> Result<Value> {
         let db = connect(&target, false)?;

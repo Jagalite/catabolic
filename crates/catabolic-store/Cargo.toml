@@ -28,5 +28,18 @@ async-graphql-value.workspace = true
 futures.workspace = true
 async-trait.workspace = true
 
+[features]
+# Test-only observation hooks in native restore, native backup and journal
+# conversion. Off by default; catabolic-cli and the wheel never enable it.
+failpoints = []
+
+[[test]]
+name = "native_restore"
+required-features = ["failpoints"]
+
+[[test]]
+name = "journal_conversion"
+required-features = ["failpoints"]
+
 [lints]
 workspace = true

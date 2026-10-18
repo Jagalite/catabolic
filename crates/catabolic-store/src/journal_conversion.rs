@@ -120,17 +120,28 @@ pub fn convert(
     target: &str,
     quiescence: migration::NativeUpgradeQuiescence,
 ) -> Result<Value> {
-    convert_observed(path, target, quiescence, &|_| Ok(()))
+    convert_with(path, target, quiescence, crate::failpoints::none())
 }
 
-/// `convert` with an observer called at `locked` (exclusion held, nothing read
-/// yet) and `converted` (journal switched, before verification). An observer
-/// error aborts the conversion; it cannot release the held lock early.
+/// `convert` with a test observer called at `locked` (exclusion held, nothing
+/// read yet) and `converted` (journal switched, before verification). An
+/// observer error aborts the conversion; it cannot release the held lock
+/// early. Only in builds with the test-only `failpoints` feature.
+#[cfg(feature = "failpoints")]
 pub fn convert_observed(
     path: &Path,
     target: &str,
     quiescence: migration::NativeUpgradeQuiescence,
     observer: &dyn Fn(&str) -> Result<()>,
+) -> Result<Value> {
+    convert_with(path, target, quiescence, observer)
+}
+
+fn convert_with(
+    path: &Path,
+    target: &str,
+    quiescence: migration::NativeUpgradeQuiescence,
+    observer: crate::failpoints::Observer<'_>,
 ) -> Result<Value> {
     if target != "delete" {
         return Err(Error(format!(
@@ -146,7 +157,7 @@ pub fn convert_observed(
         return Err(busy());
     }
     let db = connect_exclusive(&path)?;
-    observer("locked")?;
+    crate::failpoints::hit(observer, "locked")?;
     let from = journal_mode(&db)?;
     let (info, before) = state(&db)?;
     let report = json!({"database":path,"database_id":info["database_id"],"schema":info["schema"],"from_journal_mode":from});
@@ -172,7 +183,7 @@ pub fn convert_observed(
     if mode != "delete" {
         return Err(busy());
     }
-    observer("converted")?;
+    crate::failpoints::hit(observer, "converted")?;
     let (_, after) = state(&db)?;
     if after != before {
         return Err(Error(

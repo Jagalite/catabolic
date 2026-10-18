@@ -412,7 +412,7 @@ fn run(mut args: Vec<String>) -> Result<Value> {
                 Error("db native-restore requires --backup DIRECTORY from db native-backup".into())
             })?;
             let quiescence = quiescence(&assertions)?;
-            catabolic_store::native_restore::restore(&path, &source, quiescence, &|_| Ok(()))
+            catabolic_store::native_restore::restore(&path, &source, quiescence)
         }
         [command, sub] if command == "db" && sub == "convert-journal" => {
             let target = journal_target

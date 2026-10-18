@@ -339,6 +339,18 @@ To recover by hand:
 
 `rename_window` is a checkpoint used only by these tests.
 
+### Test hooks
+
+The observation hooks (`restore_observed`, `backup_observed`,
+`convert_observed`, the checkpoint and hook name constants, and every hook
+call) exist only with the catabolic-store `failpoints` feature. That feature
+is off by default and is required by the `native_restore` and
+`journal_conversion` test targets; build them with `--features
+failpoints`. Without it every hook call compiles to `Ok(())`, and the
+production `restore`, `backup` and `convert` take no observer.
+catabolic-cli and the wheel do not enable the feature, and a CLI test asserts
+`catabolic_store::FAILPOINTS_ENABLED` is false in the shipped build.
+
 Restore refuses backups with retained worker ownership. Cleanup witnesses for
 completed processing jobs and observation companions name the incarnation
 that sealed them, and the schema's guards forbid rebinding them. Rewriting
@@ -414,7 +426,8 @@ later writes or filesystem and network effects.
 
 Build the targets through Kyoto with `cargo test --offline --locked -p
 catabolic-store --test upgrade_rehearsal` (and `--test identity_manifest`,
-`--test journal_conversion`, `--test native_restore`, and `-p catabolic-cli
---test native_db_commands`).
+`--test journal_conversion --features failpoints`, `--test native_restore
+--features failpoints`, and, separately and without that feature, `-p
+catabolic-cli --test native_db_commands`).
 Then run the compiled executables directly, with `TMPDIR` on a physical
 volume. Add `--ignored scale_database_rehearsal` for the scale fixture.
