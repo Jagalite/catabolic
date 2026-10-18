@@ -63,6 +63,8 @@ fn stages(hardlink: bool, kind: Kind, exchange: bool) -> &'static [&'static str]
         (false, Remove) => &[
             "after_journal",
             "after_quarantine",
+            "after_private_create",
+            "after_private_record",
             "after_private_move",
             "after_filesystem",
             "before_commit",
@@ -72,6 +74,8 @@ fn stages(hardlink: bool, kind: Kind, exchange: bool) -> &'static [&'static str]
             "after_journal",
             "after_temporary",
             "after_exchange",
+            "after_private_create",
+            "after_private_record",
             "after_private_move",
             "after_filesystem",
             "before_commit",
@@ -82,6 +86,8 @@ fn stages(hardlink: bool, kind: Kind, exchange: bool) -> &'static [&'static str]
             "after_temporary",
             "after_quarantine",
             "after_publish",
+            "after_private_create",
+            "after_private_record",
             "after_private_move",
             "after_filesystem",
             "before_commit",
@@ -369,6 +375,14 @@ fn converged(store: &Store, fixture: &Fixture, case: Case, before: i64, recovere
     let verified = execute(store, "verify", json!({})).unwrap();
     assert_eq!(verified["healthy"], true, "{label}: {verified}");
     assert_eq!(
+        count(
+            store,
+            "SELECT count(*) FROM meta WHERE key LIKE 'publication-private:%'"
+        ),
+        0,
+        "{label}: private directory records must be cleared"
+    );
+    assert_eq!(
         std::fs::read(fixture.source.join("one.txt")).unwrap(),
         b"original source",
         "{label}"
@@ -472,6 +486,26 @@ fn run(executable: &Path, base: &Path, case: Case) {
     crash(executable, &fixture, case.stage);
     let store = Store::open(&fixture.database, true, false).unwrap();
     let mut recovered = execute(&store, "recover", json!({}));
+    if case.stage == "after_private_create" {
+        // The directory exists but its identity was never recorded, so it is
+        // not adopted. The documented operator step removes it after
+        // inspection; nothing else was touched.
+        let error = recovered.unwrap_err();
+        assert!(
+            error.0.contains("was not created by this operation"),
+            "{case:?}: {error:?}"
+        );
+        assert_eq!(count(&store, "SELECT count(*) FROM journal"), 1, "{case:?}");
+        let folder = fixture.output.join("folder");
+        let directory = std::fs::read_dir(&folder)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .find(|p| p.to_str().unwrap().ends_with(".private"))
+            .unwrap();
+        assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 0);
+        std::fs::remove_dir(&directory).unwrap();
+        recovered = execute(&store, "recover", json!({}));
+    }
     if let Some(marker) = blocked_marker(&fixture, case) {
         let error = recovered.unwrap_err();
         assert!(
@@ -601,7 +635,7 @@ fn every_failpoint_in_the_source_is_in_the_matrix() {
         .map(|c| c.stage.to_owned())
         .collect();
     let in_source = source_failpoints();
-    assert!(in_source.len() >= 17, "{in_source:?}");
+    assert!(in_source.len() >= 20, "{in_source:?}");
     assert_eq!(in_source, declared, "source and declared list differ");
     assert_eq!(covered, declared, "matrix misses a declared failpoint");
 }

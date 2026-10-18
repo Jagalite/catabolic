@@ -200,11 +200,39 @@ that holds exactly our link, or nothing. Any other content, or a squatter
 that is not a directory, blocks recovery and is retained. The new crash point
 `after_private_move` covers the window between the move and the unlink.
 
+**Sol round 2 fix: identity before adoption.** An existing directory at the
+private directory name is never adopted, not even a same-owner 0700 directory
+that is empty or holds a link to an allowed target. After `mkdirat`, which
+fails with `EEXIST` rather than reuse a name, the directory's device and inode
+are committed to a `meta` row keyed by the journal operation and the directory
+name. Only then does anything move into it. The schema-32 journal has no
+column for this, and `meta` needs no schema change.
+
+Execution and recovery act only on a directory whose identity matches that
+record. Any other file, link or directory at the name is retained untouched,
+and the operation fails with `… was not created by this operation; retained
+untouched`. The record is cleared once the directory is removed.
+
+Two new crash points cover this:
+
+- **`after_private_create`.** The directory exists but was never recorded.
+  This state blocks explicitly. The operator removes the empty directory after
+  inspection, and recovery then converges.
+- **`after_private_record`.** This state converges.
+
+Track B may record volume UUIDs. If it does, the record can carry the same
+identity.
+
 **Remaining residual, stated plainly.** Between verification inside the
 directory and the unlink, a writer running as the same user can still replace
 `entry`, and that replacement is deleted. The directory is 0700 and owned by
 us, so other users cannot reach it. A same-user writer must find the
-per-operation name and act inside that window. The test
+per-operation name and act inside that window. A second residual is inode reuse. A crash between removing the directory
+and clearing its record leaves a stale record. A writer would then have to
+recreate a directory at the same per-operation name that reuses the same
+inode number.
+
+The test
 `characterize_residual_same_user_writer_inside_the_private_directory`
 demonstrates this residual; it does not qualify it. As in
 [OPERATIONS.md](OPERATIONS.md), a malicious process running as the same user
@@ -373,4 +401,5 @@ it.
 | Failpoint gating | Implemented | `eecc2b6` |
 | Sol round 1 P2 | Fixed | `d5b5ef0` |
 | 3 | Implemented | this commit |
+| Sol round 2 P2 #1 (private directory identity) | Fixed | this commit |
 | 4–6 | Not started | |

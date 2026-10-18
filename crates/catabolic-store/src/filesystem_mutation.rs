@@ -1377,6 +1377,8 @@ pub const PUBLICATION_FAILPOINTS: &[&str] = &[
     "after_exchange",
     "after_quarantine",
     "after_publish",
+    "after_private_create",
+    "after_private_record",
     "after_private_move",
     "after_retention_marker_create",
     "after_retention_marker_write",
@@ -1733,53 +1735,112 @@ fn finish_private(
     parent.sync_all()?;
     Ok(())
 }
+/// Durable evidence that operation `id` created `directory`: a `meta` row,
+/// committed after `mkdirat` and before anything moves into the directory.
+/// Recorded as device and inode; the schema-32 journal has no column for it.
+fn private_key(id: &str, directory: &str) -> String {
+    format!("publication-private:{}", encode(&json!([id, directory])))
+}
+fn private_identity(held: &File) -> Result<Value> {
+    let metadata = held.metadata()?;
+    Ok(json!({"device":metadata.dev(),"inode":metadata.ino()}))
+}
+fn recorded_private(store: &Store, key: &str) -> Result<Option<Value>> {
+    store
+        .db
+        .query_row("SELECT value FROM meta WHERE key=?", [key], |r| {
+            r.get::<_, String>(0)
+        })
+        .optional()?
+        .map(|raw| catabolic_core::decode_json(&raw).map_err(Into::into))
+        .transpose()
+}
+fn forget_private(store: &Store, key: &str) -> Result<()> {
+    store.transaction(|db| {
+        db.execute("DELETE FROM meta WHERE key=?", [key])?;
+        Ok(())
+    })
+}
+fn unrecognized(directory: &str) -> Error {
+    Error(format!(
+        "private publication directory {directory} was not created by this operation; retained untouched; inspect it"
+    ))
+}
 /// Delete the private entry `name` only after moving it into a freshly and
 /// exclusively created 0700 directory and verifying it there as a symlink to
 /// one of `allowed`. A writer who swaps `name` after the caller's check moves
 /// its own entry into that directory, where verification retains it.
-/// Anything unexpected, including a leftover directory with other content,
-/// is retained and reported; nothing unverified is deleted.
+///
+/// An existing directory is never adopted: it is acted on only when its
+/// device and inode match the record this operation committed after creating
+/// it. Any other directory, file or link at that name is retained untouched
+/// and the operation fails. Anything unexpected inside a recorded directory
+/// is retained too; nothing unverified is deleted.
 fn discard_private(
+    store: &Store,
+    id: &str,
     parent: &File,
     name: &str,
     allowed: &[Option<&str>],
     args: &Value,
 ) -> Result<()> {
     let directory = private_directory(name);
-    // An interrupted predecessor may have left its directory behind.
+    let key = private_key(id, &directory);
+    let recorded = recorded_private(store, &key)?;
+    // An interrupted predecessor may have left its recorded directory behind.
     match open_at(parent, &directory, true) {
         Ok(held) => {
+            if recorded.as_ref() != Some(&private_identity(&held)?) {
+                return Err(unrecognized(&directory));
+            }
             verify_private_directory(parent, &directory, &held)?;
             finish_private(parent, name, &directory, &held, allowed)?;
+            forget_private(store, &key)?;
         }
-        Err(e) if e.0.contains("No such file or directory") => {}
-        Err(_) => return Err(retained(name, &directory)),
+        Err(e) if e.0.contains("No such file or directory") => {
+            if recorded.is_some() {
+                forget_private(store, &key)?;
+            }
+        }
+        Err(_) => return Err(unrecognized(&directory)),
     }
     if state_at(parent, name)?.0 == "absent" {
         return Ok(());
     }
     let path = cstring(&directory)?;
-    // SAFETY: live descriptor and NUL-terminated name; mkdirat fails rather
-    // than reuse an existing entry.
+    // SAFETY: live descriptor and NUL-terminated name; mkdirat fails with
+    // EEXIST rather than reuse an existing entry.
     if unsafe { libc::mkdirat(parent.as_raw_fd(), path.as_ptr(), 0o700) } < 0 {
         return Err(Error(format!(
             "cannot create private publication directory {directory} ({}); nothing was removed",
             std::io::Error::last_os_error()
         )));
     }
+    failpoint(args, "after_private_create")?;
     let held = open_at(parent, &directory, true)?;
     verify_private_directory(parent, &directory, &held)?;
+    let identity = private_identity(&held)?;
+    store.transaction(|db| {
+        db.execute(
+            "INSERT INTO meta(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            params![key, encode(&identity)],
+        )?;
+        Ok(())
+    })?;
+    failpoint(args, "after_private_record")?;
     before_private_move();
     if let Err(e) = rename_between(parent, name, &held, PRIVATE_ENTRY, Rename::Exclusive) {
         let missing = e.kind() == std::io::ErrorKind::NotFound;
         // The directory is still empty and ours; remove it either way.
         finish_private(parent, name, &directory, &held, allowed)?;
+        forget_private(store, &key)?;
         return if missing { Ok(()) } else { Err(e.into()) };
     }
     held.sync_all()?;
     parent.sync_all()?;
     failpoint(args, "after_private_move")?;
-    finish_private(parent, name, &directory, &held, allowed)
+    finish_private(parent, name, &directory, &held, allowed)?;
+    forget_private(store, &key)
 }
 /// Return a displaced foreign entry to its leaf, never overwriting.
 fn restore_displaced(parent: &File, private: &str, leaf: &str, path: &str, what: &str) -> Error {
@@ -1798,6 +1859,7 @@ fn restore_displaced(parent: &File, private: &str, leaf: &str, path: &str, what:
 /// Publish the staged new link after the previous link was quarantined, then
 /// delete the verified previous link.
 fn publish_quarantined(
+    store: &Store,
     parent: &File,
     leaf: &str,
     id: &str,
@@ -1813,10 +1875,12 @@ fn publish_quarantined(
     }
     parent.sync_all()?;
     failpoint(args, "after_publish")?;
-    discard_private(parent, &quarantine, &[previous], args)
+    discard_private(store, id, parent, &quarantine, &[previous], args)
 }
 /// Replace the verified owned link at `leaf` with the staged temporary.
+#[allow(clippy::too_many_arguments)]
 fn replace_leaf(
+    store: &Store,
     parent: &File,
     leaf: &str,
     id: &str,
@@ -1834,7 +1898,7 @@ fn replace_leaf(
             after_destructive_leaf();
             // The displaced entry is now at the temporary name.
             if state_at(parent, &temporary)? == ("link".into(), previous.map(str::to_owned)) {
-                return discard_private(parent, &temporary, &[previous], args);
+                return discard_private(store, id, parent, &temporary, &[previous], args);
             }
             // A foreign entry was displaced: swap it back atomically.
             if let Err(e) = rename_in(parent, &temporary, leaf, Rename::Exchange) {
@@ -1874,13 +1938,14 @@ fn replace_leaf(
                     "replacement",
                 ));
             }
-            publish_quarantined(parent, leaf, id, previous, path, args)
+            publish_quarantined(store, parent, leaf, id, previous, path, args)
         }
         Err(e) => Err(e.into()),
     }
 }
 /// Remove the verified owned link at `leaf` by quarantining it first.
 fn remove_leaf(
+    store: &Store,
     parent: &File,
     leaf: &str,
     id: &str,
@@ -1908,7 +1973,7 @@ fn remove_leaf(
             "removal",
         ));
     }
-    discard_private(parent, &quarantine, &[previous], args)
+    discard_private(store, id, parent, &quarantine, &[previous], args)
 }
 /// The leaf's parent, if it exists.
 fn existing_parent(root: &File, path: &str) -> Result<Option<(File, String)>> {
@@ -1987,12 +2052,21 @@ fn execute_operation_context(
                         // An interrupted replacement may have left the
                         // displaced previous link at a private name.
                         discard_private(
+                            context.store(),
+                            id,
                             &parent,
                             &temporary_name(id),
                             &[previous, Some(target)],
                             args,
                         )?;
-                        discard_private(&parent, &quarantine_name(id), &[previous], args)?;
+                        discard_private(
+                            context.store(),
+                            id,
+                            &parent,
+                            &quarantine_name(id),
+                            &[previous],
+                            args,
+                        )?;
                     }
                 } else if let Some((parent, leaf)) = quarantined {
                     // Interrupted between quarantining the previous link and
@@ -2017,7 +2091,7 @@ fn execute_operation_context(
                             ));
                         }
                     }
-                    publish_quarantined(&parent, &leaf, id, previous, path, args)?;
+                    publish_quarantined(context.store(), &parent, &leaf, id, previous, path, args)?;
                     verify_containment(
                         &crate::observation::checked_root(context.store(), profile, &output)?.0,
                         path,
@@ -2057,7 +2131,16 @@ fn execute_operation_context(
                                 "owned link changed before replacement: {path}"
                             )));
                         }
-                        replace_leaf(&parent, &leaf, id, target, previous, path, args)?;
+                        replace_leaf(
+                            context.store(),
+                            &parent,
+                            &leaf,
+                            id,
+                            target,
+                            previous,
+                            path,
+                            args,
+                        )?;
                     }
                     parent.sync_all()?;
                     verify_containment(
@@ -2081,7 +2164,7 @@ fn execute_operation_context(
                     if state_at(&parent, &leaf)? != ("link".into(), previous.map(str::to_owned)) {
                         return Err(Error(format!("owned link changed before removal: {path}")));
                     }
-                    remove_leaf(&parent, &leaf, id, previous, path, args)?;
+                    remove_leaf(context.store(), &parent, &leaf, id, previous, path, args)?;
                     verify_containment(
                         &crate::observation::checked_root(context.store(), profile, &output)?.0,
                         path,
@@ -2091,7 +2174,14 @@ fn execute_operation_context(
                     && let Some((parent, _)) = existing_parent(&root, path)?
                 {
                     // Interrupted after quarantining the owned link.
-                    discard_private(&parent, &quarantine_name(id), &[previous], args)?;
+                    discard_private(
+                        context.store(),
+                        id,
+                        &parent,
+                        &quarantine_name(id),
+                        &[previous],
+                        args,
+                    )?;
                 }
             }
             _ => return Err(Error(format!("unknown journal operation: {kind}"))),
@@ -2234,7 +2324,14 @@ fn recover_locked_context(
                         if leftover != "absent" && !symlink_leaf_allowed(kind, args) {
                             return Err(Error(SYMLINK_RACE_GATE.into()));
                         }
-                        discard_private(&parent, &name, &[op["target"].as_str()], args)?;
+                        discard_private(
+                            context.store(),
+                            op["id"].as_str().unwrap(),
+                            &parent,
+                            &name,
+                            &[op["target"].as_str()],
+                            args,
+                        )?;
                     }
                     context.store().transaction(|db| {
                         db.execute(
@@ -2762,6 +2859,7 @@ mod tests {
                 "after_exchange",
                 "after_quarantine",
                 "after_publish",
+                "after_private_record",
                 "after_private_move",
             ] {
                 let (_root, store, _source, output) = destructive_catalog(replacement);
@@ -2862,9 +2960,12 @@ mod tests {
     }
     #[test]
     fn private_directory_squatter_blocks_without_deleting() {
-        // A non-directory, or a directory with other content, at the private
-        // directory name is never removed or reused.
-        for squat in ["file", "directory"] {
+        // Sol round 2: an existing entry at the private directory name is never
+        // adopted, even a same-owner 0700 directory that is empty or holds a
+        // link to an allowed target. Only a directory whose identity this
+        // operation recorded is acted on; anything else is retained untouched.
+        use std::os::unix::fs::PermissionsExt;
+        for squat in ["file", "foreign directory", "empty 0700", "matching link"] {
             let (_root, store, _source, output) = destructive_catalog(false);
             let folder = output.join("folder");
             assert!(
@@ -2877,21 +2978,92 @@ mod tests {
                 .is_err()
             );
             let entry = private_entry(&folder);
+            let previous = std::fs::read_link(&entry).unwrap();
             let directory = std::path::PathBuf::from(format!("{}.private", entry.display()));
-            if squat == "file" {
-                std::fs::write(&directory, "squatter").unwrap();
-            } else {
-                std::fs::create_dir(&directory).unwrap();
-                std::fs::write(directory.join("other"), "squatter").unwrap();
+            match squat {
+                "file" => std::fs::write(&directory, "squatter").unwrap(),
+                "foreign directory" => {
+                    std::fs::create_dir(&directory).unwrap();
+                    std::fs::write(directory.join("other"), "squatter").unwrap();
+                }
+                _ => {
+                    std::fs::create_dir(&directory).unwrap();
+                    std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o700))
+                        .unwrap();
+                    if squat == "matching link" {
+                        std::os::unix::fs::symlink(&previous, directory.join("entry")).unwrap();
+                    }
+                }
             }
-            let error = execute(&store, "default", "recover", &json!({})).unwrap_err();
-            assert!(
-                error.0.contains("retained in") || error.0.contains("failed verification"),
-                "{squat}: {error:?}"
-            );
-            assert!(std::fs::symlink_metadata(&entry).is_ok(), "{squat}");
-            assert_eq!(journal_rows(&store), 1);
+            let snapshot = |path: &std::path::Path| -> Vec<String> {
+                if path.is_dir() {
+                    leaves(path)
+                } else {
+                    vec![std::fs::read_to_string(path).unwrap()]
+                }
+            };
+            let before = snapshot(&directory);
+            for _ in 0..2 {
+                let error = execute(&store, "default", "recover", &json!({})).unwrap_err();
+                assert!(
+                    error.0.contains("was not created by this operation"),
+                    "{squat}: {error:?}"
+                );
+                assert_eq!(snapshot(&directory), before, "{squat}");
+                assert_eq!(std::fs::read_link(&entry).unwrap(), previous, "{squat}");
+                assert_eq!(journal_rows(&store), 1);
+            }
+            if squat == "matching link" {
+                assert_eq!(
+                    std::fs::read_link(directory.join("entry")).unwrap(),
+                    previous
+                );
+            }
         }
+    }
+    #[test]
+    fn crash_after_private_create_blocks_until_the_unrecorded_directory_is_removed() {
+        let (_root, store, _source, output) = destructive_catalog(false);
+        let folder = output.join("folder");
+        assert!(
+            execute(
+                &store,
+                "default",
+                "apply",
+                &json!({"max_removals":1,"failpoint":"after_private_create"})
+            )
+            .is_err()
+        );
+        let directory = folder.join(
+            leaves(&folder)
+                .into_iter()
+                .find(|n| n.ends_with(".private"))
+                .unwrap(),
+        );
+        let error = execute(&store, "default", "recover", &json!({})).unwrap_err();
+        assert!(
+            error.0.contains("was not created by this operation"),
+            "{error:?}"
+        );
+        assert!(directory.is_dir());
+        // The documented operator step after inspection.
+        std::fs::remove_dir(&directory).unwrap();
+        execute(&store, "default", "recover", &json!({})).unwrap();
+        assert_eq!(journal_rows(&store), 0);
+        assert!(
+            leaves(&folder)
+                .iter()
+                .all(|n| !n.starts_with(".catabolic-"))
+        );
+        let records: i64 = store
+            .db
+            .query_row(
+                "SELECT count(*) FROM meta WHERE key LIKE 'publication-private:%'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(records, 0);
     }
     #[test]
     fn characterize_residual_same_user_writer_inside_the_private_directory() {
