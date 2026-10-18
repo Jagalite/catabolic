@@ -54,6 +54,14 @@ fn only_dev_dependencies_enable_the_failpoints_feature() {
             if store && section == "[features]" && line.starts_with("failpoints") {
                 continue;
             }
+            // A test target that requires the feature does not enable it: a
+            // build without the feature simply skips that target.
+            if store
+                && section == "[[test]]"
+                && line.replace(' ', "") == "required-features=[\"failpoints\"]"
+            {
+                continue;
+            }
             if section == "[dev-dependencies]" {
                 enabling.push(manifest.display().to_string());
                 continue;
@@ -91,15 +99,27 @@ fn shipped_build_commands_do_not_select_features() {
     assert_eq!(maturin.len(), 1, "{maturin:?}");
     assert!(!maturin[0].1.contains("failpoints"), "{maturin:?}");
     // The standalone preparation tool and the wheel builder both build
-    // release artifacts with default features only.
+    // release artifacts with default features only: no feature-selecting
+    // flag appears in either. (Both also reject a release artifact of
+    // catabolic-store compiled with failpoints, which is why the word itself
+    // may appear there.)
     for tool in [
         "crates/catabolic-dist/src/main.rs",
         "scripts/build_native_wheel.py",
     ] {
         let text = std::fs::read_to_string(root.join(tool)).unwrap();
         assert!(text.contains("\"--release\""), "{tool}");
-        for flag in ["\"--features\"", "\"--all-features\"", "failpoints"] {
+        for flag in [
+            "\"--features\"",
+            "\"-F\"",
+            "\"--all-features\"",
+            "--features=",
+        ] {
             assert!(!text.contains(flag), "{tool} selects {flag}");
         }
+        assert!(
+            text.contains("release build compiled catabolic-store with failpoints"),
+            "{tool} must reject a failpoints release artifact"
+        );
     }
 }
