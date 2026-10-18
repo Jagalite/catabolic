@@ -295,6 +295,7 @@ class NativeFacadeDifferentialTest(unittest.TestCase):
         # before any facade or generic dispatch acts on it.
         holder = self.native["holder"]
         before = self.state(self.native)
+        secret = holder.root / "secret.json"
         os.environ["CATABOLIC_TEST_SIMULATE_DEFAULT_FEATURES"] = "1"
         self.addCleanup(
             os.environ.pop, "CATABOLIC_TEST_SIMULATE_DEFAULT_FEATURES", None
@@ -311,6 +312,9 @@ class NativeFacadeDifferentialTest(unittest.TestCase):
                         "principal_put",
                         {"profile": "default", "identifier": "review", "crash": False},
                     ),
+                    lambda: store._owner.save_secret(
+                        str(secret), {"token_id": "x", "expires": 0, "crash": False}
+                    ),
                 ):
                     with self.assertRaisesRegex(
                         Exception, "failpoint_injection_unavailable"
@@ -318,6 +322,7 @@ class NativeFacadeDifferentialTest(unittest.TestCase):
                         call()
         self.assertEqual(self.state(self.native), before)
         self.assertEqual(holder.store.rows("SELECT * FROM api_principals"), [])
+        self.assertFalse(secret.exists())
 
     def test_removal_and_forget_match_frozen(self):
         self.assertSame(self.both("apply"))

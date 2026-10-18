@@ -708,14 +708,7 @@ fn all_catalogs_context(
     } else {
         100.0 * removals as f64 / count as f64
     };
-    let max = args
-        .get("max_removals")
-        .filter(|v| !v.is_null())
-        .map(|v| {
-            v.as_u64()
-                .ok_or_else(|| Error("max removals must be a nonnegative integer".into()))
-        })
-        .transpose()?;
+    let (max, echoed) = removal_limit(args)?;
     let maximum_percent = args
         .get("max_removal_percent")
         .filter(|v| !v.is_null())
@@ -730,7 +723,7 @@ fn all_catalogs_context(
     if max.is_some_and(|n| removals > n) || maximum_percent.is_some_and(|n| percent > n) {
         blockers.push(json!({"catalog":null,"reason":"bulk-removal limit exceeded; review the full plan before increasing the explicit limit"}));
     }
-    let mut plan = json!({"safe":blockers.is_empty(),"actions":actions,"blockers":blockers,"removal_budget":{"removals":removals,"owned_entries":count,"percent":percent,"max_removals":max,"max_removal_percent":maximum_percent}});
+    let mut plan = json!({"safe":blockers.is_empty(),"actions":actions,"blockers":blockers,"removal_budget":{"removals":removals,"owned_entries":count,"percent":percent,"max_removals":echoed,"max_removal_percent":maximum_percent}});
     let mut hard_catalogs = Vec::new();
     for catalog in &catalogs {
         if hardlink_mode(context.store(), catalog)? {
@@ -772,6 +765,7 @@ fn all_catalogs_context(
         if matches!(op["kind"].as_str(), Some("unchanged" | "blocked_source")) {
             continue;
         }
+        interrupted()?;
         let action = op.clone();
         op["id"] = json!(uuid::Uuid::new_v4().to_string());
         op["profile"] = json!(profile);
@@ -1097,14 +1091,7 @@ fn preview_context(
     catalog: &str,
     args: &Value,
 ) -> Result<Value> {
-    let max = args
-        .get("max_removals")
-        .filter(|v| !v.is_null())
-        .map(|v| {
-            v.as_u64()
-                .ok_or_else(|| Error("max removals must be a nonnegative integer".into()))
-        })
-        .transpose()?;
+    let (max, echoed) = removal_limit(args)?;
     let percent = args
         .get("max_removal_percent")
         .filter(|v| !v.is_null())
@@ -1172,7 +1159,7 @@ fn preview_context(
     if max.is_some_and(|m| removals as u64 > m) || percent.is_some_and(|p| actual > p) {
         blockers.push(json!({"catalog":catalog,"reason":"bulk-removal limit exceeded; review the full plan before increasing the explicit limit"}));
     }
-    let mut result = json!({"safe":blockers.is_empty(),"removal_budget":{"removals":removals,"owned_entries":count,"percent":actual,"max_removals":max,"max_removal_percent":percent},"actions":actions,"blockers":blockers});
+    let mut result = json!({"safe":blockers.is_empty(),"removal_budget":{"removals":removals,"owned_entries":count,"percent":actual,"max_removals":echoed,"max_removal_percent":percent},"actions":actions,"blockers":blockers});
     if hard {
         result["warnings"] = json!([crate::hardlink_mutation::WARNING]);
         result["hardlink_catalogs"] = json!([catalog]);
@@ -1398,6 +1385,39 @@ pub const PUBLICATION_FAILPOINTS: &[&str] = &[
 /// `catabolic-cli`'s dev-dependency). Shipped binaries and wheels are built
 /// without dev-dependencies, so the feature is off there.
 pub const FAILPOINTS_ENABLED: bool = cfg!(feature = "failpoints");
+/// An interrupt observed between publication operations. Earlier operations
+/// are acknowledged and no later one was journaled, so nothing needs recovery.
+pub const PUBLICATION_INTERRUPTED: &str = "filesystem publication interrupted";
+/// Stop before journaling the next operation when the caller's interrupt
+/// check (a CLI signal or the embedding's Python signal poll) has fired, as a
+/// frozen KeyboardInterrupt stops between operations.
+fn interrupted() -> Result<()> {
+    if crate::embedding::poll_interrupt() {
+        return Err(Error(PUBLICATION_INTERRUPTED.into()));
+    }
+    Ok(())
+}
+/// A removal budget: the comparison bound and the value echoed in reports.
+/// Frozen Python integers are unbounded, so a nonnegative integer beyond u64
+/// is kept as written and can never be exceeded.
+pub(crate) fn removal_limit(args: &Value) -> Result<(Option<u64>, Value)> {
+    match args.get("max_removals").filter(|v| !v.is_null()) {
+        None => Ok((None, Value::Null)),
+        Some(value) => {
+            if let Some(limit) = value.as_u64() {
+                return Ok((Some(limit), value.clone()));
+            }
+            let unbounded = value
+                .as_number()
+                .is_some_and(|n| n.to_string().bytes().all(|b| b.is_ascii_digit()));
+            if unbounded {
+                Ok((None, value.clone()))
+            } else {
+                Err(Error("max removals must be a nonnegative integer".into()))
+            }
+        }
+    }
+}
 /// Structured refusal of a failpoint request in a build without the feature.
 /// Frozen Python has no failpoint fields, so no compatibility contract keeps
 /// them; refusing is preferred to silently ignoring them.
@@ -1497,6 +1517,7 @@ fn apply_locked_context(
         ) {
             continue;
         }
+        interrupted()?;
         operation["id"] = json!(uuid::Uuid::new_v4().to_string());
         operation["profile"] = json!(profile);
         context.store().transaction(|db|{db.execute("INSERT INTO journal(id,profile,catalog,path,kind,target,previous) VALUES(?,?,?,?,?,?,?)",params![operation["id"].as_str(),profile,catalog,operation["path"].as_str(),operation["kind"].as_str(),operation["target"].as_str(),operation["previous"].as_str()])?;Ok(())})?;
@@ -2288,6 +2309,7 @@ fn recover_locked_context(
     let mut recovered = Vec::new();
     let mut cancelled = Vec::new();
     for op in operations {
+        interrupted()?;
         uuid::Uuid::parse_str(op["id"].as_str().unwrap())
             .map_err(|_| Error("invalid journal operation identity".into()))?;
         let kind = op["kind"].as_str().unwrap();
@@ -3063,6 +3085,40 @@ mod tests {
                 );
             }
         }
+    }
+    #[test]
+    fn an_interrupt_stops_publication_before_the_next_journal_row() {
+        // Sol round 5: the caller's interrupt check is observed between
+        // operations; nothing is journaled after it fires.
+        let (_root, store, _source, output) = destructive_catalog(false);
+        let before = leaves(&output.join("folder"));
+        let error = crate::embedding::with_interrupt_check(
+            || true,
+            || execute(&store, "default", "apply", &json!({"max_removals":1})),
+        )
+        .unwrap_err();
+        assert_eq!(error.0, PUBLICATION_INTERRUPTED);
+        assert_eq!(journal_rows(&store), 0);
+        assert_eq!(leaves(&output.join("folder")), before);
+        // Without the interrupt the same apply proceeds.
+        execute(&store, "default", "recover", &json!({})).unwrap();
+    }
+    #[test]
+    fn removal_budgets_beyond_u64_are_unbounded_and_echoed() {
+        let huge: Value = serde_json::from_str("18446744073709551616").unwrap();
+        let (limit, echoed) = removal_limit(&json!({"max_removals":huge})).unwrap();
+        assert_eq!(limit, None);
+        assert_eq!(echoed.to_string(), "18446744073709551616");
+        for bad in [json!(-1), json!(1.5), json!(true), json!("1")] {
+            assert!(
+                removal_limit(&json!({"max_removals":bad})).is_err(),
+                "{bad}"
+            );
+        }
+        assert_eq!(
+            removal_limit(&json!({"max_removals":3})).unwrap().0,
+            Some(3)
+        );
     }
     #[test]
     fn removal_record_never_authorizes_a_directory_reusing_the_inode() {

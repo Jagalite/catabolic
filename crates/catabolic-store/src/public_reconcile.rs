@@ -50,12 +50,7 @@ fn catalogs(store: &Store, selected: Option<&str>) -> Result<Value> {
 /// Frozen preview budget validation, which also precedes apply's catalog
 /// lookup because frozen apply starts with a preview.
 fn removal_budget(args: &Value) -> Result<()> {
-    if args
-        .get("max_removals")
-        .is_some_and(|v| !v.is_null() && v.as_u64().is_none())
-    {
-        return Err(Error("max removals must be a nonnegative integer".into()));
-    }
+    filesystem_mutation::removal_limit(args)?;
     if args.get("max_removal_percent").is_some_and(|v| {
         !v.is_null()
             && !v

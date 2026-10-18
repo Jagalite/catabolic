@@ -422,6 +422,18 @@ impl NativeStore {
             .call_method0("expanduser")?
             .call_method0("absolute")?;
         let native_path: std::path::PathBuf = path.extract()?;
+        // Test-only failpoint fields are refused before the file or its
+        // registration exists, as every other embedding request is.
+        if let Ok(fields) = result.cast::<pyo3::types::PyDict>() {
+            for key in ["failpoint", "crash"] {
+                if fields.contains(key)? {
+                    catabolic_store::filesystem_mutation::admit_failpoints(
+                        &serde_json::json!({ key: null }),
+                    )
+                    .map_err(|e| CatabolicError::new_err(e.to_string()))?;
+                }
+            }
+        }
         let serialized = result.clone().unbind();
         let raised = Arc::new(Mutex::new(None));
         let captured = raised.clone();

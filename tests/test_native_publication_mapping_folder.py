@@ -87,7 +87,9 @@ def payload(stdout):
     return value.get("data", value)
 
 
-class NativeFolderMappingTest(unittest.TestCase):
+class FolderHarness(unittest.TestCase):
+    """Sequential frozen/native harness; holds no tests itself."""
+
     def setUp(self):
         for path in (PYTHON, REFERENCE / "catabolic/publication_mappings.py", BINARY):
             self.assertTrue(path.is_file(), str(path))
@@ -276,6 +278,8 @@ class NativeFolderMappingTest(unittest.TestCase):
             *extra,
         ]
 
+
+class NativeFolderMappingTest(FolderHarness):
     def test_folder_apply_publishes_records_and_repeats_like_frozen(self):
         plan = self.preview_plan()
         result = self.assertSame(self.sequential(self.apply_args(plan)))
@@ -286,6 +290,15 @@ class NativeFolderMappingTest(unittest.TestCase):
         plan = self.preview_plan()
         result = self.assertSame(self.sequential(self.apply_args(plan)))
         self.assertEqual(result["execution"]["applied"], [])
+
+    def test_unbounded_removal_budget_publishes_like_frozen(self):
+        # Frozen integers are unbounded; a budget beyond u64 is accepted and
+        # can never be exceeded (Sol round 5).
+        plan = self.preview_plan()
+        args = self.apply_args(plan, "--max-removals", str(2**64))
+        result = self.assertSame(self.sequential(args))
+        self.assertTrue(result["applied"], result)
+        self.assertEqual(sum(1 for _, target in self.tree() if target), 3)
 
     def test_stale_plan_budget_and_missing_plan_match_frozen(self):
         plan = self.preview_plan()

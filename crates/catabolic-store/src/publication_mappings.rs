@@ -811,6 +811,8 @@ fn apply_folder(
         return Err(error);
     }
     session.finish(token, true)?;
+    // Frozen's `try` covers publication, verification and the verified
+    // record; an ordinary failure anywhere there records `uncertain`.
     let published = (|| -> Result<(Value, Value)> {
         let store = session.store()?;
         let execution = crate::public_reconcile::publish(
@@ -825,15 +827,22 @@ fn apply_folder(
         if execution["healthy"] != true || verified["healthy"] != true {
             return fail("folder_verification_failed");
         }
+        let mut done = event.clone();
+        done["state"] = json!("verified");
+        record(session, profile, &identifier, &done, false)?;
         Ok((execution, verified))
     })();
     match published {
         Ok((execution, verified)) => {
             event["state"] = json!("verified");
-            record(session, profile, &identifier, &event, false)?;
             result["applied"] = json!(true);
             result["execution"] = execution;
             result["verification"] = verified;
+        }
+        // An interrupt is not an ordinary failure: like a frozen
+        // KeyboardInterrupt it propagates and leaves the event `started`.
+        Err(error) if error.0 == crate::filesystem_mutation::PUBLICATION_INTERRUPTED => {
+            return Err(error);
         }
         Err(_) => {
             event["state"] = json!("uncertain");
