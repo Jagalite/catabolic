@@ -918,6 +918,23 @@ fn rendition(a: &Value) -> Result<Value> {
     }
 }
 fn manifest(a: &Value) -> Result<Value> {
+    let extra = raw(a, "extra")?;
+    if a["in_catalog"] == true || a["output"].as_str().is_some_and(|v| v != "-") {
+        // Publication: the writer lock and transaction come first, and the
+        // document is built and published inside them, so no other writer can
+        // interleave between the described state and the published bytes.
+        let request = nonnull(a);
+        catabolic_core::validate_finite(&request)?;
+        let store = Store::open(Path::new(text(a, "db")), true, false)?;
+        catabolic_store::mutation::profile(&store, text(a, "profile"))?;
+        return catabolic_store::manifest::build_and_publish(
+            store,
+            text(a, "profile"),
+            text(a, "catalog"),
+            Some(&extra),
+            &request,
+        );
+    }
     let store = Store::open(Path::new(text(a, "db")), false, false)?;
     let mut evaluation = catabolic_store::selection::Evaluation::new(
         store,
@@ -926,18 +943,9 @@ fn manifest(a: &Value) -> Result<Value> {
         100000,
         false,
     )?;
-    let extra = raw(a, "extra")?;
     let document =
         catabolic_store::manifest::build(&mut evaluation, text(a, "catalog"), Some(&extra), None)?;
-    // The read snapshot must end before publication opens the writer: under a
-    // rollback journal the open reader makes the writer's commit report
-    // "database is locked".
-    drop(evaluation);
-    if a["in_catalog"] == true || a["output"].as_str().is_some_and(|v| v != "-") {
-        let mut r = a.clone();
-        r["document"] = document;
-        runtime(a, "manifest", "write", &r)
-    } else if a["replace"] == true {
+    if a["replace"] == true {
         Err(Error("--replace requires --output or --in-catalog".into()))
     } else {
         Ok(document)

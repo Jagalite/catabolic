@@ -289,6 +289,44 @@ fn publish(
     Ok(result)
 }
 
+/// Build a manifest and publish it inside one writer transaction.
+///
+/// The writer lock is held and a write transaction is open before the document
+/// is built, and publication happens in that same transaction. Nothing can
+/// change the catalog between the snapshot the document describes and the
+/// publication of its bytes. `store` must be opened writable.
+pub fn build_and_publish(
+    store: Store,
+    profile: &str,
+    catalog: &str,
+    extra: Option<&Value>,
+    options: &Value,
+) -> Result<Value> {
+    publish_between(store, profile, catalog, extra, options, |_| {})
+}
+
+/// `build_and_publish` with a hook that runs after the document is built and before it
+/// is written. It exists so tests can prove the gap is closed: the hook sees
+/// the same writer lock and open transaction that the build and the write use.
+#[doc(hidden)]
+pub fn publish_between(
+    store: Store,
+    profile: &str,
+    catalog: &str,
+    extra: Option<&Value>,
+    options: &Value,
+    between: impl FnOnce(&Store),
+) -> Result<Value> {
+    let scope = store.begin_transaction()?;
+    // A failed constructor drops the Store, releasing the lock and transaction.
+    let mut evaluation = Evaluation::new(store, profile, 60000, 100000, false)?;
+    let outcome = build(&mut evaluation, catalog, extra, None).and_then(|document| {
+        between(evaluation.store());
+        write(evaluation.store(), profile, &document, options)
+    });
+    evaluation.into_store().finish_transaction(scope, outcome)
+}
+
 /// Publish a validated manifest under the existing writer lock and transaction.
 /// The descriptor-relative path guards are independent of the document builder.
 pub fn write(store: &Store, profile: &str, document: &Value, options: &Value) -> Result<Value> {
