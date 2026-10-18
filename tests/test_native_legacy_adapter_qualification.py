@@ -206,8 +206,8 @@ assert not any(name == 'catabolic' or name.startswith('catabolic.') for name in 
 assert all(not pathlib.Path(value or '.').resolve().is_relative_to(root) for value in sys.path)
 module = modules['tests.test_rust_legacy_external_worker_diagnostics']
 case = module.ExternalWorkerDiagnosticsTest
-assert len(unittest.defaultTestLoader.getTestCaseNames(case)) == 27
-assert len([value for value in ids if value.startswith(case.__module__ + '.')]) == 9
+assert len(unittest.defaultTestLoader.getTestCaseNames(case)) == 30
+assert len([value for value in ids if value.startswith(case.__module__ + '.')]) == 12
 assert case.__bases__ == (modules['tests.test_rust_legacy_external_rule'].NativeLegacyExternalRuleTest,)
 def refuses(call, text):
     try:

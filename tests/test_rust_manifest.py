@@ -28,7 +28,6 @@ from tests.test_media_model import populate_media
 from tests.test_rust_migration import BINARY
 
 
-@unittest.skipUnless(BINARY.is_file(), "build catabolic-cli before qualification")
 def crate_version():
     """The workspace version the native engine stamps as generator.version."""
     text = (Path(__file__).resolve().parents[1] / "Cargo.toml").read_text()
@@ -37,6 +36,7 @@ def crate_version():
     ).group(1)
 
 
+@unittest.skipUnless(BINARY.is_file(), "build catabolic-cli before qualification")
 class NativeManifestTest(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
