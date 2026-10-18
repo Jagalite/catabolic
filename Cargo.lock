@@ -285,7 +285,7 @@ dependencies = [
 
 [[package]]
 name = "catabolic-cli"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "catabolic-core",
  "catabolic-http",
@@ -298,7 +298,7 @@ dependencies = [
 
 [[package]]
 name = "catabolic-core"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -307,7 +307,7 @@ dependencies = [
 
 [[package]]
 name = "catabolic-dist"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "libc",
  "serde",
@@ -318,7 +318,7 @@ dependencies = [
 
 [[package]]
 name = "catabolic-http"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "axum",
  "catabolic-core",
@@ -336,7 +336,7 @@ dependencies = [
 
 [[package]]
 name = "catabolic-python"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "catabolic-core",
  "catabolic-http",
@@ -348,7 +348,7 @@ dependencies = [
 
 [[package]]
 name = "catabolic-runtime"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "base64 0.22.1",
  "catabolic-core",
@@ -369,7 +369,7 @@ dependencies = [
 
 [[package]]
 name = "catabolic-store"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "async-graphql",
  "async-graphql-parser",
@@ -396,7 +396,7 @@ dependencies = [
 
 [[package]]
 name = "catabolic-verification"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "catabolic-core",
  "serde",

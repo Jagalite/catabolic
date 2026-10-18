@@ -13,6 +13,7 @@ import importlib.util
 import json
 import os
 import sys
+import tempfile
 import tomllib
 import types
 import unittest
@@ -21,7 +22,7 @@ from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE = Path(os.environ.get("CATABOLIC_NATIVE_COMPAT_SOURCE_ROOT", ROOT))
-PROJECT = ROOT / "crates/catabolic-python/compatibility"
+PROJECT = ROOT / "crates/catabolic-python"
 PACKAGE = PROJECT / "python/catabolic"
 INVENTORY = json.loads((REFERENCE / "tests/parity/python-api.json").read_text())
 ROWS = [r for r in INVENTORY["rows"] if r["classification"].startswith("preserve-")]
@@ -65,7 +66,7 @@ def fake_provider():
             module = modules.setdefault(node.module, types.ModuleType(node.module))
             for alias in node.names:
                 setattr(module, alias.name, object())
-    modules["catabolic_native"].__version__ = "0.2.0"
+    modules["catabolic_native"].__version__ = "1.0.0"
     for row in ROWS:
         module = modules[
             DRIVER.module_name(row).replace("catabolic", "catabolic_native", 1)
@@ -202,34 +203,31 @@ class ForwardingSource(unittest.TestCase):
             with self.assertRaises(ModuleNotFoundError):
                 importlib.import_module("catabolic")
 
-    def test_candidate_metadata_does_not_replace_default_projects(self):
-        candidate = tomllib.loads((PROJECT / "pyproject.toml").read_text())
+    def test_single_distribution_metadata_does_not_replace_default_project(self):
+        native = tomllib.loads((PROJECT / "pyproject.toml").read_text())
         original = tomllib.loads((REFERENCE / "pyproject.toml").read_text())
-        native = tomllib.loads(
-            (REFERENCE / "crates/catabolic-python/pyproject.toml").read_text()
-        )
-        self.assertEqual(candidate["project"]["name"], "catabolic-native-compat")
+        self.assertFalse((PROJECT / "compatibility").exists())
+        self.assertEqual(native["project"]["name"], "catabolic")
+        self.assertEqual(native["project"]["version"], "1.0.0")
+        self.assertEqual(native["project"]["requires-python"], ">=3.11")
+        self.assertNotIn("dependencies", native["project"])
         self.assertEqual(
-            candidate["project"]["dependencies"], ["catabolic-native==0.2.0"]
-        )
-        self.assertEqual(
-            candidate["project"]["scripts"], {"catabolic": "catabolic.cli:main"}
-        )
-        self.assertNotIn("optional-dependencies", candidate["project"])
-        self.assertEqual(
-            candidate["tool"]["setuptools"]["packages"]["find"],
+            native["project"]["scripts"],
             {
-                "where": ["python"],
-                "include": ["catabolic", "catabolic.*"],
-                "namespaces": False,
+                "catabolic": "catabolic.cli:main",
+                "catabolic-native": "catabolic_native:main",
             },
         )
+        self.assertEqual(native["tool"]["maturin"]["python-source"], "python")
+        self.assertEqual(
+            native["tool"]["maturin"]["module-name"], "catabolic_native._native"
+        )
+        workspace = tomllib.loads((REFERENCE / "Cargo.toml").read_text())
+        self.assertEqual(workspace["workspace"]["package"]["version"], "1.0.0")
+        # The root project is untouched until the separately approved switch.
         self.assertEqual(original["project"]["name"], "catabolic")
         self.assertEqual(
             original["tool"]["setuptools"]["packages"]["find"]["where"], ["src"]
-        )
-        self.assertEqual(
-            native["project"]["scripts"], {"catabolic-native": "catabolic_native:main"}
         )
 
     def test_inventory_requires_exact_count_and_frozen_reference(self):
@@ -281,11 +279,17 @@ class ForwardingSource(unittest.TestCase):
                 DRIVER.select_rows(value, SHARED)
 
 
+def owner(files=("catabolic/__init__.py", "catabolic_native/__init__.py")):
+    return types.SimpleNamespace(
+        metadata={"Name": "catabolic"}, files=[Path(name) for name in files]
+    )
+
+
 class CleanQualificationBoundary(unittest.TestCase):
-    def test_legacy_and_candidate_distributions_refuse_before_provider_loading(self):
+    def test_obsolete_split_distributions_refuse_before_provider_loading(self):
         for name in (
-            "catabolic",
-            "CATABOLIC",
+            "catabolic-native",
+            "CATABOLIC_NATIVE",
             "catabolic-native-compat",
             "catabolic_native.compat",
         ):
@@ -294,7 +298,10 @@ class CleanQualificationBoundary(unittest.TestCase):
                 patch.object(
                     DRIVER.importlib.metadata,
                     "distributions",
-                    return_value=[types.SimpleNamespace(metadata={"Name": name})],
+                    return_value=[
+                        owner(),
+                        types.SimpleNamespace(metadata={"Name": name}),
+                    ],
                 ),
                 patch.object(DRIVER, "load_shared") as shared,
                 patch.object(DRIVER.importlib.util, "find_spec") as find,
@@ -304,10 +311,46 @@ class CleanQualificationBoundary(unittest.TestCase):
             shared.assert_not_called()
             find.assert_not_called()
 
+    def test_missing_or_duplicate_catabolic_distribution_refuses(self):
+        for distributions in ([], [owner(), owner()]):
+            with (
+                self.subTest(count=len(distributions)),
+                patch.object(
+                    DRIVER.importlib.metadata,
+                    "distributions",
+                    return_value=distributions,
+                ),
+                patch.object(DRIVER, "load_shared") as shared,
+                self.assertRaisesRegex(RuntimeError, "exactly one catabolic"),
+            ):
+                DRIVER.qualify(REFERENCE, Path("unused.whl"), Path("unused.json"))
+            shared.assert_not_called()
+
+    def test_legacy_catabolic_distribution_refuses_mixed_installation(self):
+        for files in (
+            (),
+            ("catabolic/__init__.py",),
+            ("catabolic_native/__init__.py",),
+        ):
+            with (
+                self.subTest(files=files),
+                patch.object(
+                    DRIVER.importlib.metadata,
+                    "distributions",
+                    return_value=[owner(files)],
+                ),
+                patch.object(DRIVER, "load_shared") as shared,
+                self.assertRaisesRegex(RuntimeError, "mixed installation"),
+            ):
+                DRIVER.qualify(REFERENCE, Path("unused.whl"), Path("unused.json"))
+            shared.assert_not_called()
+
     def test_preloaded_namespace_refuses(self):
         with (
             isolated_modules(),
-            patch.object(DRIVER.importlib.metadata, "distributions", return_value=[]),
+            patch.object(
+                DRIVER.importlib.metadata, "distributions", return_value=[owner()]
+            ),
         ):
             sys.modules["catabolic.already_loaded"] = types.ModuleType(
                 "catabolic.already_loaded"
@@ -315,28 +358,46 @@ class CleanQualificationBoundary(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "already imported"):
                 DRIVER.refuse_existing_namespace()
 
-    def test_orphan_importable_namespace_refuses(self):
-        with (
-            isolated_modules(),
-            patch.object(DRIVER.importlib.metadata, "distributions", return_value=[]),
-            patch.object(DRIVER.importlib.util, "find_spec", return_value=object()),
-            self.assertRaisesRegex(RuntimeError, "mixed installation"),
-        ):
-            DRIVER.refuse_existing_namespace()
-
-    def test_native_only_environment_is_eligible_for_strict_verification(self):
+    def test_single_native_distribution_is_eligible_for_strict_verification(self):
         with (
             isolated_modules(),
             patch.object(
-                DRIVER.importlib.metadata,
-                "distributions",
-                return_value=[
-                    types.SimpleNamespace(metadata={"Name": "catabolic-native"})
-                ],
+                DRIVER.importlib.metadata, "distributions", return_value=[owner()]
             ),
-            patch.object(DRIVER.importlib.util, "find_spec", return_value=None),
         ):
-            DRIVER.refuse_existing_namespace()
+            self.assertIsNotNone(DRIVER.refuse_existing_namespace())
+
+    def test_installed_files_must_equal_checked_in_source(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            site = Path(temporary)
+            names = []
+            for source in PACKAGE.rglob("*"):
+                if source.is_file() and "__pycache__" not in source.parts:
+                    relative = Path("catabolic") / source.relative_to(PACKAGE)
+                    (site / relative).parent.mkdir(parents=True, exist_ok=True)
+                    (site / relative).write_bytes(source.read_bytes())
+                    names.append(relative)
+            distribution = types.SimpleNamespace(
+                files=names, locate_file=lambda name: site / name
+            )
+            self.assertEqual(
+                DRIVER.verify_installed_source(distribution, PACKAGE), site.resolve()
+            )
+            changed = site / "catabolic/__init__.py"
+            changed.write_bytes(changed.read_bytes() + b"# changed\n")
+            with self.assertRaisesRegex(
+                RuntimeError, "installed compatibility file differs"
+            ):
+                DRIVER.verify_installed_source(distribution, PACKAGE)
+            changed.unlink()
+            with self.assertRaisesRegex(RuntimeError, "file set differs"):
+                DRIVER.verify_installed_source(
+                    types.SimpleNamespace(
+                        files=[n for n in names if n != Path("catabolic/__init__.py")],
+                        locate_file=lambda name: site / name,
+                    ),
+                    PACKAGE,
+                )
 
     def test_strict_native_mismatch_prevents_forwarding(self):
         shared = Mock()
@@ -346,6 +407,7 @@ class CleanQualificationBoundary(unittest.TestCase):
         )
         with (
             patch.object(DRIVER, "refuse_existing_namespace"),
+            patch.object(DRIVER, "verify_installed_source"),
             patch.object(DRIVER, "load_shared", return_value=shared),
             patch.object(DRIVER, "verify_forwarding") as forwarding,
             self.assertRaisesRegex(AssertionError, "identity mismatch"),
@@ -374,6 +436,7 @@ class CleanQualificationBoundary(unittest.TestCase):
                 side_effect=lambda: events.append("clean"),
             ),
             patch.object(DRIVER, "load_shared", return_value=shared),
+            patch.object(DRIVER, "verify_installed_source"),
             patch.object(
                 DRIVER,
                 "verify_forwarding",
@@ -390,7 +453,7 @@ class CleanQualificationBoundary(unittest.TestCase):
         )
         shared.NativeIdentity.return_value.verify.assert_called_once_with()
         self.assertIs(result["native_artifacts"], artifacts)
-        self.assertFalse(result["installed_compatibility_wheel_qualified"])
+        self.assertTrue(result["installed_compatibility_wheel_qualified"])
         self.assertFalse(result["behavioral_parity_qualified"])
         self.assertFalse(result["defaults_changed"])
         self.assertEqual(result["engine_operations_executed"], 0)
@@ -404,6 +467,7 @@ class CleanQualificationBoundary(unittest.TestCase):
         ]
         with (
             patch.object(DRIVER, "refuse_existing_namespace"),
+            patch.object(DRIVER, "verify_installed_source"),
             patch.object(DRIVER, "load_shared", return_value=shared),
             patch.object(DRIVER, "verify_forwarding", return_value=[]),
             self.assertRaisesRegex(RuntimeError, "inputs changed"),

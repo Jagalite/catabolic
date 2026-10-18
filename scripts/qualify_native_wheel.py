@@ -6,6 +6,7 @@
 import argparse
 import hashlib
 import importlib.metadata
+import importlib.util
 import json
 import math
 import os
@@ -32,7 +33,7 @@ if not __debug__:
 
 def verify_installed_wheel(wheel):
     """Bind the supplied archive to every installed payload, not just its label."""
-    distribution = importlib.metadata.distribution("catabolic-native")
+    distribution = importlib.metadata.distribution("catabolic")
     root = Path(distribution.locate_file("")).resolve()
     imported = Path(native.__file__).resolve()
     extension = Path(native._native.__file__).resolve()
@@ -129,6 +130,33 @@ def verify_installed_wheel(wheel):
     assert distribution.version == native.__version__, (
         "distribution/import version mismatch"
     )
+    assert distribution.metadata["Name"] == "catabolic", "wrong distribution name"
+    # The single distribution also ships the thin compatibility namespace.
+    compatibility = importlib.util.find_spec("catabolic")
+    assert compatibility and compatibility.origin, "compatibility package missing"
+    compat_root = Path(compatibility.origin).resolve().parent
+    assert compat_root == root / "catabolic", "compatibility package not installed"
+    for required in ("__init__.py", "cli.py", "_api_disposition.json"):
+        assert "catabolic/" + required in hashes, (
+            "missing packaged compatibility file",
+            required,
+        )
+    for path in compat_root.rglob("*"):
+        assert not path.is_symlink(), "compatibility package contains a symlink"
+        if path.is_file() and "__pycache__" not in path.parts:
+            assert str(path.relative_to(root)) in hashes, (
+                "installed compatibility file missing from supplied wheel",
+                str(path.relative_to(root)),
+            )
+    scripts = {
+        entry.name: entry.value
+        for entry in distribution.entry_points
+        if entry.group == "console_scripts"
+    }
+    assert scripts == {
+        "catabolic": "catabolic.cli:main",
+        "catabolic-native": "catabolic_native:main",
+    }, ("wrong console scripts", scripts)
     return {
         "installed_payloads_sha256": hashes,
         "imported_extension_sha256": extension_hash,
@@ -294,6 +322,12 @@ def main():
     assert launcher.is_file(), "installed native launcher missing"
     launched = json.loads(subprocess.check_output([launcher, "--version"], text=True))
     assert launched["version"] == native.__version__
+    compat_launcher = Path(sys.executable).parent / "catabolic"
+    assert compat_launcher.is_file(), "installed catabolic launcher missing"
+    compat_launched = json.loads(
+        subprocess.check_output([compat_launcher, "--version"], text=True)
+    )
+    assert compat_launched == launched, "catabolic launcher differs from native CLI"
     with tempfile.TemporaryDirectory(prefix="catabolic-installed-") as temporary:
         path = Path(temporary) / "catalog.sqlite3"
         native.initialize_database(path)

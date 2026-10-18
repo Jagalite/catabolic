@@ -804,9 +804,12 @@ class NativeArtifactBuildTest(unittest.TestCase):
             "catabolic_native/native-helper.json": b"{}",
             "catabolic_native/bin/catabolic-legacy-native": b"fixture legacy helper",
             "catabolic_native/legacy-helper.json": b"{}",
-            "catabolic_native-0.2.0.dist-info/WHEEL": b"Wheel-Version: 1.0",
-            "catabolic_native-0.2.0.dist-info/METADATA": b"Name: catabolic-native",
-            "catabolic_native-0.2.0.dist-info/entry_points.txt": b"fixture launcher",
+            "catabolic/__init__.py": b"fixture compatibility package",
+            "catabolic/cli.py": b"fixture compatibility console",
+            "catabolic/_api_disposition.json": b"{}",
+            "catabolic-1.0.0.dist-info/WHEEL": b"Wheel-Version: 1.0",
+            "catabolic-1.0.0.dist-info/METADATA": b"Name: catabolic",
+            "catabolic-1.0.0.dist-info/entry_points.txt": b"fixture launcher",
         }
         for name, content in payloads.items():
             path = installed / name
@@ -814,7 +817,7 @@ class NativeArtifactBuildTest(unittest.TestCase):
             path.write_bytes(content)
         stub = types.SimpleNamespace(
             __file__=str(package / "__init__.py"),
-            __version__="0.2.0",
+            __version__="1.0.0",
             _native=types.SimpleNamespace(__file__=str(package / "_native.abi3.so")),
         )
         spec = importlib.util.spec_from_file_location(
@@ -826,14 +829,31 @@ class NativeArtifactBuildTest(unittest.TestCase):
         distribution = types.SimpleNamespace(
             files=list(payloads)
             + [
-                "catabolic_native-0.2.0.dist-info/RECORD",
+                "catabolic-1.0.0.dist-info/RECORD",
                 "../../../bin/catabolic-native",
             ],
             locate_file=lambda name: installed / name,
-            version="0.2.0",
+            version="1.0.0",
+            metadata={"Name": "catabolic"},
+            entry_points=[
+                types.SimpleNamespace(group="console_scripts", name=name, value=value)
+                for name, value in (
+                    ("catabolic", "catabolic.cli:main"),
+                    ("catabolic-native", "catabolic_native:main"),
+                )
+            ],
         )
-        with patch.object(
-            verifier.importlib.metadata, "distribution", return_value=distribution
+        modules = {
+            key: value
+            for key, value in sys.modules.items()
+            if key != "catabolic" and not key.startswith("catabolic.")
+        }
+        with (
+            patch.object(
+                verifier.importlib.metadata, "distribution", return_value=distribution
+            ),
+            patch.object(sys, "path", [str(installed), *sys.path]),
+            patch.dict(sys.modules, modules, clear=True),
         ):
             wheel = self.root / "fixture.whl"
             for omitted in (
@@ -844,6 +864,8 @@ class NativeArtifactBuildTest(unittest.TestCase):
                 "catabolic_native/native-helper.json",
                 "catabolic_native/bin/catabolic-legacy-native",
                 "catabolic_native/legacy-helper.json",
+                "catabolic/cli.py",
+                "catabolic/_api_disposition.json",
             ):
                 with zipfile.ZipFile(wheel, "w") as archive:
                     for name, content in payloads.items():

@@ -1148,7 +1148,7 @@ def verify_development_wheel(path):
     """Explicit helperless development bytes, never the strict release verifier."""
     import catabolic_native
 
-    distribution = importlib.metadata.distribution("catabolic-native")
+    distribution = importlib.metadata.distribution("catabolic")
     installed = Path(distribution.locate_file("")).resolve()
     package = Path(catabolic_native.__file__).resolve().parent
     hashes = {}

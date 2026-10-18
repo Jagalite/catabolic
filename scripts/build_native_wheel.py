@@ -250,7 +250,23 @@ def main():
                     raise SystemExit(
                         f"wheel {name} helper manifest differs from the staged artifact"
                     )
-            launcher_metadata = f"catabolic_native-{release}.dist-info/entry_points.txt"
+            launcher_metadata = f"catabolic-{release}.dist-info/entry_points.txt"
+            metadata_member = f"catabolic-{release}.dist-info/METADATA"
+            if archive.namelist().count(metadata_member) != 1:
+                raise SystemExit("wheel must contain exactly one metadata file")
+            metadata_lines = archive.read(metadata_member).decode().splitlines()
+            if (
+                "Name: catabolic" not in metadata_lines
+                or f"Version: {release}" not in metadata_lines
+            ):
+                raise SystemExit("wheel metadata is not the catabolic distribution")
+            for required in (
+                "catabolic/__init__.py",
+                "catabolic/cli.py",
+                "catabolic_native/__init__.py",
+            ):
+                if archive.namelist().count(required) != 1:
+                    raise SystemExit(f"wheel must contain exactly one {required}")
             if archive.namelist().count(launcher_metadata) != 1:
                 raise SystemExit(
                     "wheel must contain exactly one native launcher metadata file"
@@ -266,15 +282,15 @@ def main():
                 )
             except (configparser.Error, UnicodeError) as error:
                 raise SystemExit("wheel native launcher metadata is invalid") from error
-            if (
-                entry_points.defaults()
-                or entry_points.get(
-                    "console_scripts", "catabolic-native", fallback=None
+            if entry_points.defaults() or any(
+                entry_points.get("console_scripts", name, fallback=None) != target
+                for name, target in (
+                    ("catabolic", "catabolic.cli:main"),
+                    ("catabolic-native", "catabolic_native:main"),
                 )
-                != "catabolic_native:main"
             ):
                 raise SystemExit(
-                    "wheel native launcher entry point is missing or mismatched"
+                    "wheel launcher entry points are missing or mismatched"
                 )
             extensions = [
                 name

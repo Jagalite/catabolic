@@ -126,7 +126,10 @@ class RefuseOptional(importlib.abc.MetaPathFinder):
             raise AssertionError('unexpected engine import: ' + fullname)
 sys.meta_path.insert(0, RefuseOptional())
 installed = {d.metadata['Name'].lower().replace('_', '-') for d in importlib.metadata.distributions()}
-assert not (installed & {'catabolic', 'graphql-core', 'fastapi', 'pydantic', 'uvicorn'})
+assert not (installed & {'graphql-core', 'fastapi', 'pydantic', 'uvicorn'})
+# The single distribution is the native engine; a legacy catabolic would lack the native package.
+owner = importlib.metadata.distribution('catabolic')
+assert {'catabolic_native/__init__.py', 'catabolic/__init__.py'} <= {str(f) for f in owner.files}
 def audit(event, args):
     if event.startswith(('socket.', 'subprocess.', 'sqlite3.connect')) or event in {'os.system', 'os.fork', 'os.posix_spawn'}:
         raise AssertionError('unexpected import side effect: ' + event)

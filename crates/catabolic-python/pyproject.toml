@@ -3,12 +3,29 @@ requires = ["maturin==1.13.1"]
 build-backend = "maturin"
 
 [project]
-name = "catabolic-native"
-version = "0.2.0"
+name = "catabolic"
+version = "1.0.0"
 requires-python = ">=3.11"
-description = "Opt-in native storage and query engine for Catabolic's Rust migration"
+description = "Programmable media catalog with query-driven rules and safe output projections (native engine)"
+readme = "README.md"
+license = "MIT"
+license-files = ["../../LICENSE"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Rust",
+]
+
+[project.urls]
+Homepage = "https://github.com/Jagalite/catabolic"
+Documentation = "https://github.com/Jagalite/catabolic/wiki"
+Repository = "https://github.com/Jagalite/catabolic"
+Issues = "https://github.com/Jagalite/catabolic/issues"
 
 [project.scripts]
+catabolic = "catabolic.cli:main"
 catabolic-native = "catabolic_native:main"
 
 [tool.maturin]

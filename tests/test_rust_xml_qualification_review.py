@@ -50,22 +50,33 @@ class XmlDriverChecks:
             "catabolic_native/native-helper.json": b'{"disposable": true}',
             "catabolic_native/bin/catabolic-legacy-native": b"disposable legacy helper",
             "catabolic_native/legacy-helper.json": b'{"disposable": true}',
-            "catabolic_native-0.2.0.dist-info/WHEEL": b"Wheel-Version: 1.0\n",
-            "catabolic_native-0.2.0.dist-info/METADATA": b"Version: 0.2.0\n",
-            "catabolic_native-0.2.0.dist-info/entry_points.txt": b"[console_scripts]\n",
-            "catabolic_native-0.2.0.dist-info/RECORD": b"fixture record\n",
+            "catabolic/__init__.py": b"# disposable compatibility package\n",
+            "catabolic/cli.py": b"# disposable compatibility console\n",
+            "catabolic/_api_disposition.json": b"{}\n",
+            "catabolic-1.0.0.dist-info/WHEEL": b"Wheel-Version: 1.0\n",
+            "catabolic-1.0.0.dist-info/METADATA": b"Name: catabolic\nVersion: 1.0.0\n",
+            "catabolic-1.0.0.dist-info/entry_points.txt": b"[console_scripts]\n",
+            "catabolic-1.0.0.dist-info/RECORD": b"fixture record\n",
         }
         self.restore_payloads()
         self.extension = self.installed / "catabolic_native/_native.so"
         self.digest = hashlib.sha256(self.extension.read_bytes()).hexdigest()
         self.native = types.ModuleType("catabolic_native")
         self.native.__file__ = str(self.installed / "catabolic_native/__init__.py")
-        self.native.__version__ = "0.2.0"
+        self.native.__version__ = "1.0.0"
         self.native._native = types.SimpleNamespace(__file__=str(self.extension))
         self.distribution = types.SimpleNamespace(
-            version="0.2.0",
+            version="1.0.0",
             files=[Path(name) for name in self.payloads],
             locate_file=lambda name: self.installed / name,
+            metadata={"Name": "catabolic"},
+            entry_points=[
+                types.SimpleNamespace(group="console_scripts", name=name, value=value)
+                for name, value in (
+                    ("catabolic", "catabolic.cli:main"),
+                    ("catabolic-native", "catabolic_native:main"),
+                )
+            ],
         )
         self.wheel = self.root / "fixture.whl"
         self.write_wheel()
@@ -107,6 +118,16 @@ class XmlDriverChecks:
         with contextlib.ExitStack() as stack:
             stack.enter_context(
                 patch.dict(sys.modules, {"catabolic_native": self.native})
+            )
+            for name in [
+                key
+                for key in sys.modules
+                if key == "catabolic" or key.startswith("catabolic.")
+            ]:
+                stack.enter_context(patch.dict(sys.modules))
+                del sys.modules[name]
+            stack.enter_context(
+                patch.object(sys, "path", [str(self.installed), *sys.path])
             )
             stack.enter_context(patch.object(sys, "argv", argv))
             self.distribution_lookup = stack.enter_context(
@@ -334,7 +355,7 @@ class XmlDriverChecks:
 
     def test_even_unverified_record_bytes_cannot_change_the_supplied_archive(self):
         payloads = self.payloads | {
-            "catabolic_native-0.2.0.dist-info/RECORD": b"rewritten record"
+            "catabolic-1.0.0.dist-info/RECORD": b"rewritten record"
         }
         with self.assertRaisesRegex(AssertionError, "supplied wheel changed"):
             self.run_driver(action=lambda case: self.write_wheel(payloads))

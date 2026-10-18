@@ -25,6 +25,10 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
+ENTRY_POINTS = (
+    "[console_scripts]\ncatabolic = catabolic.cli:main\n"
+    "catabolic-native = catabolic_native:main\n"
+)
 
 
 def load(path):
@@ -92,7 +96,7 @@ class FacadeDriverChecks:
         }
         self.metadata = {
             "format": 1,
-            "version": "0.2.0",
+            "version": "1.0.0",
             "path": "bin/catabolic-native",
             "sha256": digest(self.native_path.read_bytes()),
             "source_sha256": self.builder.source_digest(self.source),
@@ -112,10 +116,13 @@ class FacadeDriverChecks:
             "catabolic_native/legacy-helper.json": json.dumps(
                 self.legacy_metadata
             ).encode(),
-            "catabolic_native-0.2.0.dist-info/WHEEL": b"Wheel-Version: 1.0\n",
-            "catabolic_native-0.2.0.dist-info/METADATA": b"Version: 0.2.0\n",
-            "catabolic_native-0.2.0.dist-info/entry_points.txt": b"[console_scripts]\ncatabolic-native = catabolic_native:main\n",
-            "catabolic_native-0.2.0.dist-info/RECORD": b"fixture record\n",
+            "catabolic/__init__.py": b"# disposable compatibility package\n",
+            "catabolic/cli.py": b"# disposable compatibility console\n",
+            "catabolic/_api_disposition.json": b"{}\n",
+            "catabolic-1.0.0.dist-info/WHEEL": b"Wheel-Version: 1.0\n",
+            "catabolic-1.0.0.dist-info/METADATA": b"Name: catabolic\nVersion: 1.0.0\n",
+            "catabolic-1.0.0.dist-info/entry_points.txt": b"[console_scripts]\ncatabolic = catabolic.cli:main\ncatabolic-native = catabolic_native:main\n",
+            "catabolic-1.0.0.dist-info/RECORD": b"fixture record\n",
         }
         for name, data in self.payloads.items():
             path = self.installed / name
@@ -151,7 +158,7 @@ class FacadeDriverChecks:
         self.write_manifest()
         self.native = types.ModuleType("catabolic_native")
         self.native.__file__ = str(self.installed / "catabolic_native/__init__.py")
-        self.native.__version__ = "0.2.0"
+        self.native.__version__ = "1.0.0"
         self.native._native = types.SimpleNamespace(
             __file__=str(self.installed / "catabolic_native/_native.so")
         )
@@ -162,9 +169,17 @@ class FacadeDriverChecks:
             initialize=lambda path: Path(path).write_bytes(b"fixture database")
         )
         self.distribution = types.SimpleNamespace(
-            version="0.2.0",
+            version="1.0.0",
             files=[Path(name) for name in self.payloads],
             locate_file=lambda name: self.installed / name,
+            metadata={"Name": "catabolic"},
+            entry_points=[
+                types.SimpleNamespace(group="console_scripts", name=name, value=value)
+                for name, value in (
+                    ("catabolic", "catabolic.cli:main"),
+                    ("catabolic-native", "catabolic_native:main"),
+                )
+            ],
         )
         self.inventory = self.root / "inventory.json"
         inventory = json.loads((ROOT / "tests/parity/python-api.json").read_text())
@@ -281,6 +296,13 @@ class FacadeDriverChecks:
                     {"catabolic_native": self.native, "catabolic_native.cli": self.cli},
                 )
             )
+            stack.enter_context(patch.dict(sys.modules))
+            for name in [
+                key
+                for key in sys.modules
+                if key == "catabolic" or key.startswith("catabolic.")
+            ]:
+                del sys.modules[name]
             stack.enter_context(
                 patch.object(
                     sys,
@@ -306,6 +328,9 @@ class FacadeDriverChecks:
             )
             stack.enter_context(
                 patch("importlib.metadata.distribution", return_value=self.distribution)
+            )
+            stack.enter_context(
+                patch.object(sys, "path", [str(self.installed), *sys.path])
             )
             stack.enter_context(
                 patch.object(self.driver, "trace", return_value=self.calls)
@@ -797,7 +822,7 @@ class PairedBuilderChecks(unittest.TestCase):
         shutil.copyfile(SCRIPTS / self.script.name, self.script)
         self.builder = load(self.script)
         (self.root / "Cargo.toml").write_text(
-            '[workspace.package]\nversion = "0.2.0"\n'
+            '[workspace.package]\nversion = "1.0.0"\n'
         )
         self.source = self.root / "crates/fixture/src/lib.rs"
         self.source.parent.mkdir(parents=True)
@@ -822,10 +847,13 @@ class PairedBuilderChecks(unittest.TestCase):
         wheel_missing=None,
         wheel_change=None,
         extra_payload=None,
-        entry_points="[console_scripts]\ncatabolic-native = catabolic_native:main\n",
+        entry_points=ENTRY_POINTS,
         duplicate_entry_points=False,
+        metadata=None,
+        omit_member=None,
     ):
         self.commands = []
+        self.graph_checks = []
 
         def check_output(command, **kwargs):
             if "maturin" in command:
@@ -835,6 +863,9 @@ class PairedBuilderChecks(unittest.TestCase):
             return "Python 3.14.6"
 
         def run(command, **kwargs):
+            if Path(command[-1]).name == "check_failpoints_graph.py":
+                self.graph_checks.append(command)
+                return subprocess.CompletedProcess(command, 0)
             self.commands.append(command)
             if command[0] == "cargo":
                 artifacts = [
@@ -872,14 +903,27 @@ class PairedBuilderChecks(unittest.TestCase):
                 archive.writestr(
                     "catabolic_native/_native.abi3.so", b"fixture native extension"
                 )
+                for member in (
+                    "catabolic_native/__init__.py",
+                    "catabolic/__init__.py",
+                    "catabolic/cli.py",
+                ):
+                    if member != omit_member:
+                        archive.writestr(member, b"# fixture\n")
+                archive.writestr(
+                    "catabolic-1.0.0.dist-info/METADATA",
+                    metadata
+                    if metadata is not None
+                    else "Name: catabolic\nVersion: 1.0.0\n",
+                )
                 if entry_points is not None:
                     archive.writestr(
-                        "catabolic_native-0.2.0.dist-info/entry_points.txt",
+                        "catabolic-1.0.0.dist-info/entry_points.txt",
                         entry_points,
                     )
                     if duplicate_entry_points:
                         archive.writestr(
-                            "catabolic_native-0.2.0.dist-info/entry_points.txt",
+                            "catabolic-1.0.0.dist-info/entry_points.txt",
                             entry_points,
                         )
                 if extra_payload:
@@ -906,6 +950,7 @@ class PairedBuilderChecks(unittest.TestCase):
 
     def test_both_cli_artifacts_and_extension_share_release_sidecar(self):
         result = self.run_builder()
+        self.assertEqual(len(self.graph_checks), 1)
         manifest = json.loads(self.manifest.read_text())
         self.assertEqual(manifest["profile"], "release")
         self.assertEqual(manifest["source_sha256"], manifest["source_sha256_after"])
@@ -961,7 +1006,7 @@ class PairedBuilderChecks(unittest.TestCase):
                     json.loads(archive.read("catabolic_native/" + filename)),
                     {
                         "format": 1,
-                        "version": "0.2.0",
+                        "version": "1.0.0",
                         "path": "bin/" + helper,
                         "sha256": manifest[field],
                         "source_sha256": manifest["source_sha256"],
@@ -1044,6 +1089,10 @@ class PairedBuilderChecks(unittest.TestCase):
     def test_launcher_requires_exact_console_script_name_and_target(self):
         for metadata in (
             "[console_scripts]\nother = catabolic_native:main\n",
+            "[console_scripts]\ncatabolic-native = catabolic_native:main\n",
+            "[console_scripts]\ncatabolic = catabolic.cli:main\n",
+            "[console_scripts]\ncatabolic = catabolic_native.cli:main\n"
+            "catabolic-native = catabolic_native:main\n",
             "[gui_scripts]\ncatabolic-native = catabolic_native:main\n",
             "[console_scripts]\n# catabolic-native = catabolic_native:main\n",
             "[console_scripts]\ncatabolic-native = catabolic_native:main_other\n",
@@ -1057,6 +1106,21 @@ class PairedBuilderChecks(unittest.TestCase):
                 self.manifest.write_text('{"passed": true}')
                 with self.assertRaisesRegex(SystemExit, "launcher"):
                     self.run_builder(entry_points=metadata)
+                self.assertFalse(self.manifest.exists())
+                self.assertEqual(list(self.out.glob("*.whl")), [])
+
+    def test_wrong_distribution_identity_or_missing_compatibility_refuses(self):
+        for options, error in (
+            ({"metadata": "Name: catabolic-native\nVersion: 1.0.0\n"}, "catabolic"),
+            ({"metadata": "Name: catabolic\nVersion: 0.2.0\n"}, "catabolic"),
+            ({"omit_member": "catabolic/__init__.py"}, "exactly one"),
+            ({"omit_member": "catabolic/cli.py"}, "exactly one"),
+            ({"omit_member": "catabolic_native/__init__.py"}, "exactly one"),
+        ):
+            with self.subTest(options=options):
+                self.manifest.write_text('{"passed": true}')
+                with self.assertRaisesRegex(SystemExit, error):
+                    self.run_builder(**options)
                 self.assertFalse(self.manifest.exists())
                 self.assertEqual(list(self.out.glob("*.whl")), [])
 
@@ -1094,6 +1158,7 @@ class PairedBuilderChecks(unittest.TestCase):
     def test_exact_launcher_accepts_standard_spacing_and_unrelated_entries(self):
         result = self.run_builder(
             entry_points="# native companion\n[console_scripts]\n"
+            "catabolic  =  catabolic.cli:main\n"
             "catabolic-native  =  catabolic_native:main\n"
             "other = other:main\n"
         )

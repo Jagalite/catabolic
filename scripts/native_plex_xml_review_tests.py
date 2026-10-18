@@ -198,7 +198,7 @@ def main():
     import catabolic_native as native
 
     package = Path(native.__file__).resolve()
-    dist = importlib.metadata.distribution("catabolic-native")
+    dist = importlib.metadata.distribution("catabolic")
     assert package.is_relative_to(Path(dist.locate_file("")).resolve()), "not installed"
     native_extension = native._native
     extension = Path(native_extension.__file__).resolve()
