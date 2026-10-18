@@ -1096,28 +1096,60 @@ fn header_field(name: &str, value: &str) -> String {
     }
 }
 
-fn formatted(mailbox: &Mailbox) -> String {
+// Length of the physical line on which `text` ends, given that it starts at
+// column `start` of a line.
+fn end_column(text: &str, start: usize) -> usize {
+    match text.rfind("\r\n") {
+        Some(index) => text.len() - index - 2,
+        None => start + text.len(),
+    }
+}
+
+// One mailbox starting at `column` of its line. `trailing` reserves room for a
+// list comma that follows the address. Lines carrying an encoded word stay
+// within 76 characters including that comma; "<address>" moves to its own
+// line when it would not fit.
+fn formatted(mailbox: &Mailbox, column: usize, trailing: usize) -> String {
     if mailbox.name.is_empty() {
         return mailbox.address.clone();
     }
-    let name = if mailbox.name.is_ascii() {
-        format!(
-            "\"{}\"",
-            mailbox.name.replace('\\', "\\\\").replace('"', "\\\"")
-        )
-    } else {
-        encoded_words(&mailbox.name, 8)
-    };
-    // Keep "<address>" off a line that carries an encoded word when it would
-    // pass 76 characters (8 is a conservative bound for "Reply-To: ").
-    let last =
-        name.rsplit("\r\n").next().unwrap_or("").len() + 8 * usize::from(!name.contains("\r\n"));
-    let separator = if name.contains("=?utf-8?") && last + mailbox.address.len() + 3 > 76 {
+    if mailbox.name.is_ascii() {
+        return format!(
+            "\"{}\" <{}>",
+            mailbox.name.replace('\\', "\\\\").replace('"', "\\\""),
+            mailbox.address
+        );
+    }
+    let name = encoded_words(&mailbox.name, column);
+    let last = end_column(&name, column);
+    let separator = if last + 1 + mailbox.address.len() + 2 + trailing > 76 {
         "\r\n "
     } else {
         " "
     };
     format!("{name}{separator}<{}>", mailbox.address)
+}
+
+// A complete address header (without the final CRLF). Every entry after the
+// first starts on a continuation line at column 1; when the first word needs
+// the whole line the value folds right after the colon.
+fn address_field(field: &str, list: &[&Mailbox]) -> String {
+    let column = field.len() + 2;
+    let mut entries = Vec::new();
+    for (index, mailbox) in list.iter().enumerate() {
+        let trailing = usize::from(index + 1 < list.len());
+        entries.push(formatted(
+            mailbox,
+            if index == 0 { column } else { 1 },
+            trailing,
+        ));
+    }
+    let value = entries.join(",\r\n ");
+    if value.starts_with("\r\n") {
+        format!("{field}:{value}")
+    } else {
+        format!("{field}: {value}")
+    }
 }
 
 fn encoded_body(body: &str) -> String {
@@ -1166,31 +1198,20 @@ fn message(settings: &Settings, target: &Mailbox, body: &str) -> (Vec<String>, S
         content.push_str("\r\n");
     }
     content.push_str(&format!(
-        "Subject: Catabolic\r\nFrom: {}\r\nTo: {}\r\nMessage-ID: <{}@{}>\r\nDate: {}\r\n",
-        formatted(&settings.from),
-        formatted(target),
+        "Subject: Catabolic\r\n{}\r\n{}\r\nMessage-ID: <{}@{}>\r\nDate: {}\r\n",
+        address_field("From", &[&settings.from]),
+        address_field("To", &[target]),
         uuid::Uuid::new_v4(),
         settings.host,
         date_header(settings.tz)
     ));
     if !cc.is_empty() {
-        content.push_str(&format!(
-            "Cc: {}\r\n",
-            cc.iter()
-                .map(|m| formatted(m))
-                .collect::<Vec<_>>()
-                .join(",\r\n ")
-        ));
+        content.push_str(&address_field("Cc", &cc));
+        content.push_str("\r\n");
     }
     if !reply.is_empty() {
-        content.push_str(&format!(
-            "Reply-To: {}\r\n",
-            reply
-                .iter()
-                .map(|m| formatted(m))
-                .collect::<Vec<_>>()
-                .join(",\r\n ")
-        ));
+        content.push_str(&address_field("Reply-To", &reply));
+        content.push_str("\r\n");
     }
     let part = |kind: &str| {
         format!(
@@ -1881,6 +1902,126 @@ mod tests {
         let (_, content) = message(&settings, &settings.to[0], BODY);
         assert!(content.contains("MIME-Version: 1.0\r\nX-Application: Mine\r\nX-B: =?utf-8?b?Y2Fmw6k=?=\r\nSubject: Catabolic\r\n"));
         assert!(content.is_ascii());
+    }
+
+    // Decodes one address header from a message: unfolds, splits entries and
+    // decodes quoted or RFC 2047 UTF-8 names. Returns None if absent.
+    fn address_header(content: &str, field: &str) -> Option<Vec<(String, String)>> {
+        let block = content.split_once("\r\n\r\n")?.0;
+        let start = block
+            .split("\r\n")
+            .scan(false, |inside, line| {
+                let starts = line.starts_with(&format!("{field}:"));
+                if starts {
+                    *inside = true;
+                } else if !line.starts_with(' ') {
+                    *inside = false;
+                }
+                Some((*inside, line))
+            })
+            .filter(|(inside, _)| *inside)
+            .map(|(_, line)| line)
+            .collect::<Vec<_>>()
+            .join("\r\n");
+        if start.is_empty() {
+            return None;
+        }
+        let value = start.strip_prefix(&format!("{field}:")).unwrap();
+        Some(
+            value
+                .split(",\r\n ")
+                .map(|entry| {
+                    let entry = entry.replace("\r\n ", " ");
+                    let entry = entry.trim();
+                    let Some((name, address)) = entry.rsplit_once(" <") else {
+                        return (String::new(), entry.to_owned());
+                    };
+                    let address = address.strip_suffix('>').unwrap().to_owned();
+                    let name = if let Some(quoted) = name.strip_prefix('"') {
+                        quoted
+                            .strip_suffix('"')
+                            .unwrap()
+                            .replace("\\\"", "\"")
+                            .replace("\\\\", "\\")
+                    } else {
+                        name.split(' ')
+                            .map(|word| {
+                                let word = word.strip_prefix("=?utf-8?b?").unwrap();
+                                let word = word.strip_suffix("?=").unwrap();
+                                String::from_utf8(STANDARD.decode(word).unwrap()).unwrap()
+                            })
+                            .collect()
+                    };
+                    (name, address)
+                })
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn address_headers_hold_line_limits_across_every_boundary() {
+        let base = "mailto://127.0.0.1:1/one@example.net?from=sender@example.com";
+        let mailbox = |name: &str, local: usize, tag: usize| Mailbox {
+            name: name.to_owned(),
+            address: format!("{}{tag}@example.net", "a".repeat(local)),
+        };
+        let mut checked = 0;
+        // Name lengths sweep every encoded-word line from well under to well
+        // over 76; address lengths put "<address>" and a list comma on both
+        // sides of the boundary.
+        for field in ["From", "To", "Cc", "Reply-To"] {
+            for count in if matches!(field, "Cc" | "Reply-To") {
+                1..=3
+            } else {
+                1..=1
+            } {
+                for name_chars in 0..=70 {
+                    for local in [1, 8, 20, 28, 34, 35, 36, 40, 52, 64] {
+                        let names = [
+                            "\u{e9}".repeat(name_chars),
+                            // 3-byte and 4-byte characters shift word edges.
+                            "\u{20ac}".repeat(name_chars / 2),
+                            "\u{1f600}".repeat(name_chars / 3),
+                        ];
+                        for name in names {
+                            let list: Vec<_> =
+                                (0..count).map(|i| mailbox(&name, local, i)).collect();
+                            let mut settings = Settings::parse(base).unwrap();
+                            let target = mailbox("", 5, 9);
+                            match field {
+                                "From" => settings.from = list[0].clone(),
+                                "To" => settings.to = vec![list[0].clone()],
+                                "Cc" => settings.cc = list.clone(),
+                                _ => settings.reply = list.clone(),
+                            }
+                            let target = if field == "To" {
+                                settings.to[0].clone()
+                            } else {
+                                target
+                            };
+                            let (_, content) = message(&settings, &target, BODY);
+                            let context = format!("{field} x{count} {name_chars} {local}");
+                            assert_line_limits(&content, &context);
+                            let decoded = address_header(&content, field).expect(&context);
+                            let expected: Vec<_> = list
+                                .iter()
+                                .map(|m| (m.name.clone(), m.address.clone()))
+                                .collect();
+                            assert_eq!(decoded, expected, "{context}");
+                            assert!(!content.contains("Bcc:"));
+                            checked += 1;
+                        }
+                    }
+                }
+            }
+        }
+        assert!(checked > 10_000);
+        // Bcc recipients are envelope-only and never become a header.
+        let mut settings = Settings::parse(base).unwrap();
+        settings.bcc = vec![mailbox(&"\u{e9}".repeat(30), 20, 0)];
+        let (recipients, content) = message(&settings, &mailbox("", 5, 9), BODY);
+        assert_eq!(recipients.len(), 2);
+        assert!(!content.contains("Bcc"));
     }
 
     #[test]
