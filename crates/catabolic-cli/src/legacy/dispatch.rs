@@ -929,6 +929,10 @@ fn manifest(a: &Value) -> Result<Value> {
     let extra = raw(a, "extra")?;
     let document =
         catabolic_store::manifest::build(&mut evaluation, text(a, "catalog"), Some(&extra), None)?;
+    // The read snapshot must end before publication opens the writer: under a
+    // rollback journal the open reader makes the writer's commit report
+    // "database is locked".
+    drop(evaluation);
     if a["in_catalog"] == true || a["output"].as_str().is_some_and(|v| v != "-") {
         let mut r = a.clone();
         r["document"] = document;

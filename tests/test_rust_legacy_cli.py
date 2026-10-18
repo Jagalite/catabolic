@@ -716,3 +716,43 @@ class NativeLegacyCliTest(unittest.TestCase):
         self.assertFalse(value["full_surface_parity"])
         self.assertTrue(value["python_remains_default"])
         self.assertTrue(all(r["native_owner"] or r.get("gap") for r in value["rows"]))
+
+
+class NativeManifestWriteTest(unittest.TestCase):
+    """Publishing a manifest must not trip over the command's own read snapshot."""
+
+    def run_native(self, *args):
+        return subprocess.run(
+            [str(BINARY), *args],
+            capture_output=True,
+            text=True,
+            env=environment(),
+            timeout=90,
+        )
+
+    def test_output_file_is_written_under_a_rollback_journal(self):
+        self.assertTrue(BINARY.is_file(), "build catabolic-legacy-native first")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            database = str(root / "catalog.sqlite3")
+            self.assertEqual(self.run_native("--db", database, "init").returncode, 0)
+            with closing(sqlite3.connect(database)) as db:
+                self.assertEqual(
+                    db.execute("PRAGMA journal_mode").fetchone(), ("delete",)
+                )
+            output = root / "manifest.json"
+            written = self.run_native(
+                "--db", database, "--json", "manifest", "--output", str(output)
+            )
+            self.assertEqual(
+                (written.returncode, written.stderr), (0, ""), written.stdout
+            )
+            document = json.loads(output.read_text())
+            self.assertEqual(document["format"], "catabolic.catalog-manifest")
+            replaced = self.run_native(
+                "--db", database, "--json", "manifest", "--output", str(output),
+                "--replace",
+            )  # fmt: skip
+            self.assertEqual(
+                (replaced.returncode, replaced.stderr), (0, ""), replaced.stdout
+            )
