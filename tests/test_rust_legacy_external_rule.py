@@ -603,8 +603,20 @@ class NativeLegacyExternalRuleTest(unittest.TestCase):
             for identifier in (JOB_IDS[2], JOB_IDS[3], "other-profile-job"):
                 self.assertEqual(typed(jobs[identifier]), typed(original[identifier]))
 
+    @staticmethod
+    def after_lease_second():
+        """Wait for a strictly later wall-clock second than any lease written
+        so far. Both engines store lease expiries in whole seconds, and a
+        same-worker renewal changes the row (bumping fallback_epoch) only if it
+        lands in a later second. This makes that change deterministic for
+        both engines, without loosening any state comparison."""
+        claimed = int(time.time())
+        while int(time.time()) <= claimed:
+            time.sleep(0.01)
+
     def test_pending_same_worker_polls_once_without_new_generation(self):
         self.pair(self.run_args(), responses=[{"state": "running"}])
+        self.after_lease_second()
         results, requests = self.pair(self.run_args(), responses=[{"state": "queued"}])
         self.assertEqual(requests, [("GET", f"/jobs/{JOB_IDS[0]}/1", None)])
         result = self.report(results[False])["execution"]["steps"][0]["result"]

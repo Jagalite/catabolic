@@ -100,6 +100,8 @@ class ExternalWorkerDiagnosticsTest(fixture.NativeLegacyExternalRuleTest):
         self.recorded_volatile = {True: {}, False: {}}
         if method == "GET":
             self.pair(self.run_args(), responses=[Reply()])
+            # The resumed poll renews whole-second leases: see after_lease_second.
+            self.after_lease_second()
 
     def diagnostic_pair(self, reply, expected, *, method="PUT", mode="--json"):
         self.reset_catalogs(method)
