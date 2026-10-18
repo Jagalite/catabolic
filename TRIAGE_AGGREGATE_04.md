@@ -28,10 +28,10 @@ The Rust workspace result (1579 pass, 1 fail: FFmpeg libwebp preset test) is a d
 | class | modules |
 |---|---|
 | (a) environment-only | 38 |
-| (b) prerequisite / external path / declined | 8 |
+| (b) prerequisite / external path / declined | 8 (+1 residual in test_rust_legacy_review) |
 | (c) flaky | 1 (test_rust_plex_login) |
-| fixed here (test or generated-artifact defects) | 6 |
-| (d) real failures remaining (human decision) | 4 (test_rust_legacy_review also has a (b) part) |
+| fixed here (test, guard, doc or generated-artifact defects) | 10 (incl. test_rust_legacy_review, which keeps one (b) failure) |
+| (d) real failures remaining | 0 |
 
 ## Table
 
@@ -55,11 +55,27 @@ The Rust workspace result (1579 pass, 1 fail: FFmpeg libwebp preset test) is a d
 | test_rust_graphql_parser_budget_precedence, _string_diagnostics | (b) | one case each; oracle traceback embeds `File "/workspace/shared/catalog-python-qualification..."` vs local reference path (path-only diff) | needs reference at that path |
 | test_rust_http_logical_transport, test_rust_http_management | (b) | `npm run test:1.7`: `openapi-typescript: command not found`; `npm ci --offline` ENOTCACHED | `npm ci` with network |
 | test_rust_legacy_mapping_json_diagnostics | (b) | pinned oracle interpreter sha256 2f7fff38... vs this machine 71a669c1... (pinned interpreter declined) | none |
-| test_rust_legacy_review | (d)+(b) | (b) `test_resource_regeneration_is_byte_identical`: embedded interpreter build string (Jun 10 2026/Clang 21 vs Aug 4 2026/Clang 22) differs. (d) 2 failures `accepted source hunk changed: fn main() {`: 15c8b64 added `catabolic_runtime::process::supervise_or_configure();` as the first statement of `main` in `crates/catabolic-cli/src/legacy_main.rs`, ahead of the exactly-guarded notification registration | NOT refreshed (reviewed acceptance guard). Needs re-review of that one-line entry-point addition (supervisor mode never returns, chooses no Python/PATH, adds no `Command::`), then extend `assert_entrypoint_separation` to the exact new line |
-| test_native_legacy_adapter_qualification | (d) | (1) `tests.process_tree` is imported by declared fixture test_rust_legacy_external_rule since 363bcb8 but is not in `FIXTURE_FILES`; (2) beyond that, `legacy declared method inventory drift: ...MappingHistoryTest`: 2cc2df2 renamed `test_publication_version_two_stays_explicitly_unavailable` to `..._without_identity_refuses_explicitly` and changed its assertion (the gate it witnessed was lifted). The old id and fixture sha256s are pinned in scripts/native_legacy_adapter_scenarios.py, scripts/qualify_publication_mapping_preview.py, tests/parity/native-legacy-adapter-inventory-checkpoint.json, native-first-historical-qualification.json | NOT changed (reviewed inventory). Human decision: re-baseline the inventory (declare process_tree, new witness name, hashes) and re-review |
-| test_rust_publication_bundle_preview | (d) | 14 failures: the manifest embedded in the plan carries `generator.version` 1.0.0 vs oracle 0.2.0, which flows into plan/bundle sha256 values, so the version-only normalisation used for test_rust_manifest does not apply | NOT fixed. Options: test-only version stamp on the native side, or normalise version-derived digests; both change what the test proves |
-| test_documentation | (d) | `Stale bundled guides: OPERATIONS.md`: 54fdb76 added the HFS+ paragraph to docs/OPERATIONS.md but `src/catabolic/guides/OPERATIONS.md` was not synced. `src/catabolic` is the frozen 453fca9 Python tree (pinned by tests/parity/*source-manifest.json), so I did NOT keep a `scripts/sync_docs.py` run (tried and reverted). The aggregate's `PYTHONPATH=reference` imports the reference guide, which can never match docs/ | Human decision: move the paragraph to a native-only doc, or deliberately unfreeze that one guide and update the manifests |
+| test_rust_legacy_review | fixed + (b) | `test_resource_regeneration_is_byte_identical` embeds the interpreter build string (Jun 10 2026/Clang 21 vs Aug 4 2026/Clang 22): pinned interpreter declined, still failing (1 of 19). The two `accepted source hunk changed: fn main() {` failures came from 15c8b64's `supervise_or_configure()` first statement in `legacy_main.rs` | 1ed434d extends the accepted-hunk guard to exactly that reviewed supervision entry point (old form no longer accepted) with mutation controls |
+| test_native_legacy_adapter_qualification | fixed | live pins drifted: `tests.process_tree` undeclared (363bcb8); witness renamed/changed by 2cc2df2; 3 methods added to ExternalWorkerDiagnosticsTest by 86645a4; external-rule interrupt test no longer Linux-skipped (363bcb8) | 09dcfff declared process_tree, new witness name, inventory 105 -> 108, updated the non-Linux fail-closed expectation. The two historical checkpoint JSONs (`native-legacy-adapter-inventory-checkpoint.json`, `native-first-historical-qualification.json`) were deliberately NOT rewritten: dated records of earlier reviews, read by no test or script, hashed in frozen source manifests |
+| test_rust_publication_bundle_preview | fixed | `generator.version` 1.0.0 vs 0.2.0 flows into plan_id and export signature | 01ffaa5 asserts exact versions (oracle 0.2.0, native = Cargo.toml crate version), verifies each engine's own digests, restamps native to 0.2.0 with only plan_id/signature recomputed, compares all else exactly; per-engine history/bundle bytes in the export-history test; mutation controls in new `tests/test_rust_publication_version_normalisation.py` |
+| test_documentation | fixed | `Stale bundled guides: OPERATIONS.md`: 54fdb76 put a native-only paragraph into the bundled (frozen) guide | c90891d restored docs/OPERATIONS.md byte-for-byte, moved the paragraph verbatim to docs/NATIVE_INTEGRITY_HARDENING.md (track C2 section), repointed the Track C link; `src/catabolic/guides` untouched |
 
 ## Commits
 
-`git log 9602133..HEAD` on branch `worktree-agent-a69017b39abee2f6a`.
+Branch `worktree-agent-a69017b39abee2f6a`, `log 9602133..HEAD`:
+
+- 4c961a5 regenerate generation-revision inventory
+- 26bfe6e platform.architecture stub in qualification fixture
+- 6d190bd non-editable reference install in native CI job
+- 56c4b35 manifest pairing apart from engine version (exact crate version added in 01ffaa5)
+- ba363b3 darwin PermissionError expectation
+- c90891d move native note out of bundled OPERATIONS guide
+- 1ed434d supervision entry point in legacy_main.rs guard
+- 09dcfff re-baseline legacy adapter inventory
+- 01ffaa5 exact-version pairing of bundle previews
+
+Final rerun (same environment): test_documentation, test_native_legacy_adapter_qualification,
+test_rust_publication_bundle_preview, test_rust_publication_version_normalisation,
+test_native_catalog_schema_generation, test_rust_artifact_build, test_rust_qualification_plumbing_review,
+test_native_dynamic_prerequisites, test_rust_manifest and test_rust_native_fixture_provenance all OK;
+test_rust_legacy_review 18/19 (pinned interpreter prerequisite).
