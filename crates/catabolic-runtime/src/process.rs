@@ -257,6 +257,11 @@ pub fn command_output<S: AsRef<OsStr>>(
         .unwrap_or_default();
     #[cfg(target_os = "linux")]
     let parent_pid = std::process::id() as libc::pid_t;
+    let nonce = uuid::Uuid::new_v4().simple().to_string();
+    #[cfg(test)]
+    if let Some((program, _)) = &supervisor {
+        tests::before_supervisor_spawn(program);
+    }
     let mut command = match (&supervisor, &pipes) {
         (Some((program, prefix)), Some(((lifeline, _), (_, errors), (_, liveness)))) => {
             let mut command = Command::new(program);
@@ -266,6 +271,8 @@ pub fn command_output<S: AsRef<OsStr>>(
                 .arg(lifeline.as_raw_fd().to_string())
                 .arg(errors.as_raw_fd().to_string())
                 .arg(liveness.as_raw_fd().to_string())
+                .arg(SUPERVISOR_PROTOCOL.to_string())
+                .arg(&nonce)
                 .arg("--")
                 .args(argv);
             command
@@ -343,6 +350,15 @@ pub fn command_output<S: AsRef<OsStr>>(
         drop(errors_write);
         drop(liveness_write);
         process.lifeline = Some(lifeline_write);
+        if let Err(failure) = await_guardian(
+            &liveness_read,
+            &errors_read,
+            &guardian_handshake(&nonce),
+            deadline,
+        ) {
+            let _ = process.retire();
+            return Err(failure);
+        }
         process.liveness = Some(liveness_read);
         if let Some(error) = supervised_exec_error(&errors_read, deadline) {
             let _ = process.retire();
@@ -868,6 +884,82 @@ pub fn parent_death_supervised() -> bool {
     matches!(supervisor(), Ok(Some(_)))
 }
 
+/// Read exactly the guardian's handshake from the liveness pipe before the
+/// tool is accepted. The supervisor execs the tool only after the guardian has
+/// written it, so the exec-error pipe closing (or reporting) first, wrong
+/// bytes, or no handshake within thirty seconds all refuse the spawn. The
+/// command's own deadline still reports an ordinary timeout.
+fn await_guardian(
+    liveness: &OwnedFd,
+    errors: &OwnedFd,
+    expected: &[u8],
+    deadline: Instant,
+) -> Result<(), CommandFailure> {
+    let mismatch = || CommandFailure::new("failed", "parent-death supervisor protocol mismatch");
+    let cap = Instant::now() + Duration::from_secs(30);
+    let limit = deadline.min(cap);
+    let mut received = Vec::with_capacity(expected.len());
+    while received.len() < expected.len() {
+        let remaining = limit.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(if Instant::now() >= deadline {
+                CommandFailure::new("timeout", "command exceeded the elapsed-time limit")
+            } else {
+                mismatch()
+            });
+        }
+        let mut polls = [
+            libc::pollfd {
+                fd: liveness.as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            },
+            libc::pollfd {
+                fd: errors.as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            },
+        ];
+        let millis = remaining.as_millis().clamp(1, i32::MAX as u128) as libc::c_int;
+        // SAFETY: poll reads two initialized pollfd values during the call.
+        let ready = unsafe { libc::poll(polls.as_mut_ptr(), 2, millis) };
+        if ready == -1 {
+            if io::Error::last_os_error().kind() == io::ErrorKind::Interrupted {
+                continue;
+            }
+            return Err(CommandFailure::from_io(
+                "cannot await parent-death guardian",
+                io::Error::last_os_error(),
+            ));
+        }
+        if polls[0].revents != 0 {
+            let mut chunk = [0u8; 128];
+            let want = (expected.len() - received.len()).min(chunk.len());
+            // SAFETY: reads at most `want` bytes into a local buffer.
+            let read = unsafe { libc::read(liveness.as_raw_fd(), chunk.as_mut_ptr().cast(), want) };
+            match read {
+                -1 if io::Error::last_os_error().kind() == io::ErrorKind::Interrupted => continue,
+                count if count <= 0 => return Err(mismatch()),
+                count => {
+                    received.extend_from_slice(&chunk[..count as usize]);
+                    if !expected.starts_with(&received) {
+                        return Err(mismatch());
+                    }
+                }
+            }
+            continue;
+        }
+        if polls[1].revents != 0 {
+            // The supervisor failed (errno) or something else execed first.
+            return Err(match supervised_exec_error(errors, deadline) {
+                Some(Ok(error)) => CommandFailure::from_io("cannot start command", error),
+                _ => mismatch(),
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Wait for the supervisor's exec-error pipe to close (the tool was execed) or
 /// to report an errno. `Some(Err(()))` is a deadline expiry.
 fn supervised_exec_error(errors: &OwnedFd, deadline: Instant) -> Option<Result<io::Error, ()>> {
@@ -951,8 +1043,30 @@ fn supervisor_admitted(descriptors: &[RawFd]) -> bool {
         })
 }
 
-/// Supervisor mode: `<lifeline-fd> <exec-error-fd> <liveness-fd> -- <tool>
-/// [args...]`. A misused invocation exits 127 without signalling anything.
+/// Version of the worker/supervisor/guardian protocol. A supervisor speaking
+/// any other version refuses, and the worker refuses its handshake.
+pub const SUPERVISOR_PROTOCOL: u32 = 2;
+
+fn valid_nonce(nonce: &str) -> bool {
+    nonce.len() == 32 && nonce.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// The exact bytes the guardian writes on the liveness pipe.
+fn guardian_handshake(nonce: &str) -> Vec<u8> {
+    format!("catabolic-guardian {SUPERVISOR_PROTOCOL} {nonce}\n").into_bytes()
+}
+
+/// Supervisor mode: `<lifeline-fd> <exec-error-fd> <liveness-fd> <protocol>
+/// <nonce> -- <tool> [args...]`. A misused invocation exits 127 without
+/// signalling anything.
+///
+/// The worker accepts the tool only after reading, on the liveness pipe whose
+/// sole writer is the guardian, the guardian's echo of this spawn's protocol
+/// version and random nonce. An executable replaced between identity
+/// verification and exec (an upgrade, another version, or a wrapper that
+/// execs the tool directly) therefore cannot run an unguarded tool. A
+/// deliberately malicious same-user replacement that fakes the protocol is out
+/// of scope: the same user can already kill or trace the guardian.
 /// Runs in a fresh process image that is already the session leader, with the
 /// worker's environment, directory, umask and descriptors for the tool.
 pub fn supervise(args: &[OsString]) -> ! {
@@ -983,9 +1097,21 @@ pub fn supervise(args: &[OsString]) -> ! {
             libc::_exit(127)
         }
     };
-    if args.get(3).is_none_or(|arg| arg != "--") || args.len() < 5 {
-        fail(libc::EINVAL);
-    }
+    // Protocol version and the worker's per-spawn nonce, echoed back by the
+    // guardian itself once it is ready (see `guardian_handshake`).
+    let handshake = match (args.get(3).and_then(|v| v.to_str()), args.get(4)) {
+        (Some(version), Some(nonce))
+            if version == SUPERVISOR_PROTOCOL.to_string()
+                && args.get(5).is_some_and(|arg| arg == "--")
+                && args.len() >= 7 =>
+        {
+            match nonce.to_str() {
+                Some(nonce) if valid_nonce(nonce) => guardian_handshake(nonce),
+                _ => fail(libc::EINVAL),
+            }
+        }
+        _ => fail(libc::EINVAL),
+    };
     // All supervisor descriptors close when the tool is execed.
     for fd in [lifeline, errors, liveness] {
         // SAFETY: marks an inherited descriptor of this process close-on-exec.
@@ -1050,6 +1176,26 @@ pub fn supervise(args: &[OsString]) -> ! {
                 }
             }
             libc::close(ready[0]);
+            // Prove to the worker, on the guardian-owned liveness pipe, that
+            // this guardian (signals ignored, lifeline held) exists for this
+            // exact spawn. Then release the supervisor to exec the tool.
+            let mut written = 0;
+            while written < handshake.len() {
+                let count = libc::write(
+                    liveness,
+                    handshake[written..].as_ptr().cast(),
+                    handshake.len() - written,
+                );
+                if count > 0 {
+                    written += count as usize;
+                } else if count == -1
+                    && io::Error::last_os_error().raw_os_error() == Some(libc::EINTR)
+                {
+                    continue;
+                } else {
+                    libc::_exit(1);
+                }
+            }
             let byte = 1u8;
             libc::write(ready[1], (&raw const byte).cast(), 1);
             libc::close(ready[1]);
@@ -1092,7 +1238,7 @@ pub fn supervise(args: &[OsString]) -> ! {
     // Same PID: the worker observes this tool's exact status. `exec` searches
     // PATH like `Command::spawn` and restores default SIGPIPE handling.
     use std::os::unix::process::CommandExt as _;
-    let error = Command::new(&args[4]).args(&args[5..]).exec();
+    let error = Command::new(&args[6]).args(&args[7..]).exec();
     fail(error.raw_os_error().unwrap_or(libc::EIO))
 }
 
@@ -2257,6 +2403,96 @@ mod tests {
     pub(super) fn supervisor_override()
     -> Option<Result<Option<(std::path::PathBuf, Vec<OsString>)>, String>> {
         SUPERVISOR_OVERRIDE.with(|slot| slot.borrow().as_ref().map(|s| s.resolve().map(Some)))
+    }
+
+    thread_local! {
+        static BEFORE_SPAWN: std::cell::RefCell<Option<Box<dyn Fn(&std::path::Path)>>> =
+            const { std::cell::RefCell::new(None) };
+    }
+    /// Test hook between supervisor identity verification and its exec.
+    pub(super) fn before_supervisor_spawn(program: &std::path::Path) {
+        BEFORE_SPAWN.with(|hook| {
+            if let Some(hook) = hook.borrow().as_ref() {
+                hook(program)
+            }
+        });
+    }
+
+    /// Replace the pinned supervisor with `wrapper` after verification and
+    /// before exec; the spawn must be refused and no tool left running.
+    fn refused_when_replaced_during_spawn(wrapper: &'static str) {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let copy = dir.path().join("supervisor");
+        fs::copy(std::env::current_exe().unwrap(), &copy).unwrap();
+        let helper = crate::helper::pin(&copy).unwrap();
+        SUPERVISOR_OVERRIDE.with(|slot| {
+            *slot.borrow_mut() = Some(Supervisor {
+                helper,
+                prefix: Vec::new(),
+            })
+        });
+        BEFORE_SPAWN.with(|hook| {
+            *hook.borrow_mut() = Some(Box::new(move |program: &std::path::Path| {
+                // No in-workspace fork may inherit the write descriptor
+                // (ETXTBSY on exec): hold the exclusive spawn guard.
+                let _exclusive = catabolic_core::spawn_guard::descriptors();
+                fs::remove_file(program).unwrap();
+                fs::write(program, wrapper).unwrap();
+                fs::set_permissions(program, fs::Permissions::from_mode(0o755)).unwrap();
+            }))
+        });
+        struct Reset;
+        impl Drop for Reset {
+            fn drop(&mut self) {
+                SUPERVISOR_OVERRIDE.with(|slot| *slot.borrow_mut() = None);
+                BEFORE_SPAWN.with(|hook| *hook.borrow_mut() = None);
+            }
+        }
+        let _reset = Reset;
+        let pid_path = dir.path().join("pid");
+        let script = format!(
+            "printf '%s\\n' $$ > '{0}.tmp'; mv '{0}.tmp' '{0}'; exec /bin/sleep 30",
+            pid_path.display()
+        );
+        let failure = command_output(
+            &["/bin/sh", "-c", &script],
+            CommandOptions {
+                timeout: Duration::from_secs(60),
+                ..CommandOptions::default()
+            },
+        )
+        .unwrap_err();
+        assert_eq!(failure.state, "failed");
+        assert_eq!(failure.message, "parent-death supervisor protocol mismatch");
+        // If the replaced image started the tool, it has been killed.
+        if let Ok(raw) = fs::read_to_string(&pid_path)
+            && let Ok(pid) = raw.trim().parse::<libc::pid_t>()
+        {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            // SAFETY: signal 0 only probes the fixture tool, our reaped child.
+            while unsafe { libc::kill(pid, 0) } == 0 {
+                assert!(Instant::now() < deadline, "tool survived refusal");
+                thread::sleep(Duration::from_millis(10));
+            }
+        }
+    }
+
+    #[test]
+    fn wrapper_that_execs_the_tool_directly_is_refused() {
+        refused_when_replaced_during_spawn(
+            "#!/bin/sh\nwhile [ \"$1\" != \"--\" ]; do shift; done; shift; exec \"$@\"\n",
+        );
+    }
+
+    #[test]
+    fn older_protocol_supervisor_is_refused() {
+        // Echoes the nonce with the previous protocol version on the liveness
+        // pipe, then execs. argv: mode, lifeline, errors, liveness, protocol,
+        // nonce, "--", tool.
+        refused_when_replaced_during_spawn(
+            "#!/bin/sh\nprintf 'catabolic-guardian 1 %s\\n' \"$6\" > /dev/fd/$4\nwhile [ \"$1\" != \"--\" ]; do shift; done; shift; exec \"$@\"\n",
+        );
     }
 
     /// A supervisor that was configured and is later removed or replaced makes

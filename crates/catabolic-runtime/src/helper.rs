@@ -14,6 +14,26 @@ pub(crate) struct Helper {
     identity: (u64, u64, u64, i64, i64, i64, i64),
 }
 static HELPER: OnceLock<Helper> = OnceLock::new();
+static ENVIRONMENT_HELPER: OnceLock<(std::ffi::OsString, Helper)> = OnceLock::new();
+
+/// Pin `CATABOLIC_NATIVE_BINARY` the first time it is used; afterwards the
+/// value must be unchanged and the file must still be the identical file.
+fn environment_override(
+    cache: &OnceLock<(std::ffi::OsString, Helper)>,
+    value: &std::ffi::OsStr,
+) -> Result<PathBuf> {
+    if cache.get().is_none() {
+        let helper = pin(Path::new(value))?;
+        let _ = cache.set((value.to_owned(), helper));
+    }
+    let (first, helper) = cache.get().unwrap();
+    if first.as_os_str() != value {
+        return Err(Error(
+            "CATABOLIC_NATIVE_BINARY changed after first use; restart the process".into(),
+        ));
+    }
+    verified(helper)
+}
 fn identify(path: &Path) -> Result<(u64, u64, u64, i64, i64, i64, i64)> {
     let m = path.metadata()?;
     if !m.is_file() || m.mode() & 0o111 == 0 {
@@ -98,10 +118,9 @@ pub(crate) fn executable_with_fallback(fallback: Option<&Helper>) -> Result<Path
         return Ok(helper.path.clone());
     }
     // Explicit test/embedding override only, never an ambient PATH lookup.
-    if let Some(path) = std::env::var_os("CATABOLIC_NATIVE_BINARY") {
-        let path = PathBuf::from(path).canonicalize()?;
-        identify(&path)?;
-        return Ok(path);
+    // Its identity is pinned at first use and verified on every later use.
+    if let Some(value) = std::env::var_os("CATABOLIC_NATIVE_BINARY") {
+        return environment_override(&ENVIRONMENT_HELPER, &value);
     }
     if let Some(helper) = fallback {
         if identify(&helper.path)? != helper.identity {
@@ -263,5 +282,33 @@ mod closed_grant_tests {
                 .0
                 .contains("changed before enrollment")
         );
+    }
+}
+
+#[cfg(test)]
+mod environment_tests {
+    use super::*;
+    #[test]
+    fn environment_override_is_pinned_at_first_use() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("helper");
+        std::fs::write(&path, b"#!/bin/sh\nexit 0\n").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let cache = OnceLock::new();
+        let first = environment_override(&cache, path.as_os_str()).unwrap();
+        assert_eq!(
+            environment_override(&cache, path.as_os_str()).unwrap(),
+            first
+        );
+        // Replaced between commands: refused.
+        std::fs::remove_file(&path).unwrap();
+        std::fs::write(&path, b"#!/bin/sh\nexec \"$@\"\n").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(environment_override(&cache, path.as_os_str()).is_err());
+        // A different value after first use: refused.
+        let other = dir.path().join("other");
+        std::fs::copy(&path, &other).unwrap();
+        assert!(environment_override(&cache, other.as_os_str()).is_err());
     }
 }

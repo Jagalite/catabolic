@@ -417,3 +417,50 @@ Results with all three corrections on macOS arm64:
   - `test_rust_legacy_api_worker`: 5
 
   All passed at load 2.4–3.6.
+
+#### Review round 4 corrections (October 18)
+
+- **Protocol handshake.** The supervisor executable could be replaced between
+  its identity check and the exec, for example by an upgrade, another
+  version, or a wrapper that execs the tool directly, and the tool would then
+  run unguarded. The worker now passes the protocol version
+  (`SUPERVISOR_PROTOCOL`, 2) and a random 128-bit nonce for each spawn. The
+  guardian writes `catabolic-guardian <version> <nonce>` on the liveness pipe,
+  whose only writer it is, before releasing the supervisor to exec the tool.
+  The worker accepts the tool only after reading exactly those bytes. Wrong
+  bytes, an exec or exec error first, or no handshake within 30 seconds fail
+  the spawn with `parent-death supervisor protocol mismatch`, and the tool's
+  group is retired. A supervisor given another protocol version refuses with
+  exit 127. A deliberately malicious same-user replacement that fakes the
+  handshake is out of scope: the same user can already kill or trace the
+  guardian.
+- **`CATABOLIC_NATIVE_BINARY` pinning.** The override's identity is pinned at
+  first use. A changed value, or a replaced file at the same value, then
+  fails every spawn instead of running the new file.
+- **Tests.** A wrapper that execs the tool directly, and an old-protocol
+  supervisor that echoes the nonce with version 1, are both swapped in
+  between verification and exec. Both are refused, and no tool survives. The
+  override is replaced between commands, and a different value is used after
+  first use; both are refused.
+- **Fixture timing.** `test_invalid_state_and_receipt_refuse_before_any_publication`
+  reuses the job leased by the previous subcase, so it had the same
+  whole-second lease renewal drift as the diagnostics fixtures. It failed
+  deterministically on this host with both the round 3 and round 4 binaries.
+  Each subcase now starts in a later wall-clock second (`after_lease_second`).
+  No comparison is loosened.
+
+Results on macOS arm64:
+
+- `process` and `helper` unit tests: 50 passed.
+- One full run each of:
+  - `test_rust_legacy_sigterm`: 4
+  - `test_rust_legacy_fallback_worker`: 10
+  - `test_rust_legacy_consumer_watch`: 12
+  - `test_rust_playback`: 19
+  - `test_rust_legacy_api_worker`: 5
+  - `test_rust_observation_filesystem`: 36
+- `test_rust_legacy_external_rule` (18) passed three times after the fixture
+  change.
+- `test_rust_legacy_external_worker_diagnostics` (12) timed out once in one
+  subcase, during a 248-second run that overlapped another track's
+  450-second store suite. It then passed twice, in 123 and 137 seconds.
