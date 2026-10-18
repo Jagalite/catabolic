@@ -11,6 +11,7 @@ on:
       - 'rust-toolchain.toml'
       - 'LICENSE'
       - '.cargo/**'
+      - 'vendor/**'
       - 'scripts/standalone-native-ci.sh'
       - 'tests/standalone-native-ci-contract.sh'
       - '.github/workflows/standalone-native.yml'

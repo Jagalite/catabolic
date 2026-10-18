@@ -106,8 +106,10 @@ pub enum RuntimeError {
     /// Configure using
     /// [`RegexBuilder::backtrack_limit`](struct.RegexBuilder.html#method.backtrack_limit).
     BacktrackLimitExceeded,
-    /// Catabolic patch: the step limit was exceeded.
-    StepLimitExceeded,
+    /// Catabolic patch: the storage limit was exceeded.
+    StorageLimitExceeded,
+    /// Catabolic patch: the deadline set by `with_deadline` passed.
+    DeadlineExceeded,
 }
 
 #[cfg(feature = "std")]
@@ -191,7 +193,10 @@ impl fmt::Display for RuntimeError {
             RuntimeError::BacktrackLimitExceeded => {
                 write!(f, "Max limit for backtracking count exceeded")
             }
-            RuntimeError::StepLimitExceeded => write!(f, "Max limit for search steps exceeded"),
+            RuntimeError::StorageLimitExceeded => {
+                write!(f, "Max limit for backtracking storage exceeded")
+            }
+            RuntimeError::DeadlineExceeded => write!(f, "Search deadline passed"),
         }
     }
 }

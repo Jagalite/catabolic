@@ -82,6 +82,8 @@ pub use crate::input::{Input, RegexInput};
 pub use crate::regexset::{RegexSet, RegexSetMatch, RegexSetOptions};
 pub use crate::replacer::{NoExpand, Replacer, ReplacerRef};
 pub use crate::seek::seek_pattern_is_useful;
+#[cfg(feature = "std")]
+pub use crate::vm::with_deadline;
 
 /// Controls how the regex engine handles input encoding.
 ///
@@ -578,8 +580,8 @@ impl Default for RegexOptions {
 #[derive(Copy, Clone, Debug)]
 struct HardRegexRuntimeOptions {
     backtrack_limit: usize,
-    // Catabolic patch: limit on VM steps and backtracking storage.
-    step_limit: usize,
+    // Catabolic patch: limit on held backtracking storage.
+    storage_limit: usize,
     find_not_empty: bool,
     disallow_empty_match_at_eof_after_newline: bool,
     allow_input_assertion_overrides: bool,
@@ -628,7 +630,7 @@ impl Default for HardRegexRuntimeOptions {
     fn default() -> Self {
         HardRegexRuntimeOptions {
             backtrack_limit: 1_000_000,
-            step_limit: usize::MAX,
+            storage_limit: usize::MAX,
             find_not_empty: false,
             disallow_empty_match_at_eof_after_newline: false,
             allow_input_assertion_overrides: false,
@@ -755,14 +757,12 @@ impl RegexOptionsBuilder {
         self.set_config(|x| x.unicode(yes))
     }
 
-    /// Catabolic patch: limit the work of one search. Each VM instruction
-    /// costs one step, and an instruction that inspects the haystack
-    /// (delegated searches, literals, backreferences) costs one step plus the
-    /// haystack length. The search fails with
-    /// [`RuntimeError::StepLimitExceeded`] once the steps, or the backtracking
-    /// branches plus saved capture values held, exceed the limit.
-    pub fn step_limit(&mut self, limit: usize) -> &mut Self {
-        self.options.hard_regex_runtime_options.step_limit = limit;
+    /// Catabolic patch: limit the backtracking state one search may hold.
+    /// The search fails with [`RuntimeError::StorageLimitExceeded`] once the
+    /// backtracking branches plus saved capture values held exceed the
+    /// limit. See also [`with_deadline`].
+    pub fn storage_limit(&mut self, limit: usize) -> &mut Self {
+        self.options.hard_regex_runtime_options.storage_limit = limit;
         self
     }
 
@@ -1072,9 +1072,9 @@ impl RegexBuilder {
         self
     }
 
-    /// See [`RegexOptionsBuilder::step_limit`]
-    pub fn step_limit(&mut self, limit: usize) -> &mut Self {
-        self.options.step_limit(limit);
+    /// See [`RegexOptionsBuilder::storage_limit`]
+    pub fn storage_limit(&mut self, limit: usize) -> &mut Self {
+        self.options.storage_limit(limit);
         self
     }
 

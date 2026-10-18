@@ -9,7 +9,7 @@ YAML or shell interpreter, nor evidence that GitHub has executed the workflow.
 import re
 
 # Deliberately fixed metadata: unsupported YAML forms must fail closed.
-WORKFLOW_PREFIX = "# SPDX-FileCopyrightText: 2026 The Catabolic Contributors\n# SPDX-License-Identifier: MIT\n\nname: Opt-in native Linux checkpoint\non:\n  workflow_dispatch:\n  pull_request:\n    paths:\n      - 'crates/**'\n      - 'src/**'\n      - 'requirements/**'\n      - 'pyproject.toml'\n      - 'Cargo.*'\n      - 'rust-toolchain.toml'\n      - '.cargo/**'\n      - 'scripts/**'\n      - 'tests/**'\n      - '.github/workflows/**'\npermissions:\n  contents: read\nenv:\n  CARGO_INCREMENTAL: '0'\n  CARGO_PROFILE_DEV_DEBUG: '0'\n  CARGO_PROFILE_TEST_DEBUG: '0'\njobs:\n"
+WORKFLOW_PREFIX = "# SPDX-FileCopyrightText: 2026 The Catabolic Contributors\n# SPDX-License-Identifier: MIT\n\nname: Opt-in native Linux checkpoint\non:\n  workflow_dispatch:\n  pull_request:\n    paths:\n      - 'crates/**'\n      - 'src/**'\n      - 'requirements/**'\n      - 'pyproject.toml'\n      - 'Cargo.*'\n      - 'rust-toolchain.toml'\n      - '.cargo/**'\n      - 'vendor/**'\n      - 'scripts/**'\n      - 'tests/**'\n      - '.github/workflows/**'\npermissions:\n  contents: read\nenv:\n  CARGO_INCREMENTAL: '0'\n  CARGO_PROFILE_DEV_DEBUG: '0'\n  CARGO_PROFILE_TEST_DEBUG: '0'\njobs:\n"
 INSTALLED_HEADER = "    needs: native\n    runs-on: ubuntu-24.04\n    timeout-minutes: 45\n    strategy:\n      fail-fast: false\n      matrix:\n        python: ['3.11', '3.14.6']\n    steps:\n"
 
 STEP = "Outside-checkout installed helper, cancellation and persistent facade"

@@ -717,3 +717,33 @@ qualification snapshot. Packaging records it as a third-party MIT crate with
 its own notices. A test checks that Sol's three inputs stop at the limit
 within seconds, and that ordinary lookaround filters still match on long
 paths.
+
+#### Review round 10 correction (October 18)
+
+Estimating work in steps was both incomplete and too strict:
+
+- **Uncounted work.** Backward walks in lookbehinds and quadratic capture
+  bookkeeping went uncounted.
+- **Uninterruptible delegates.** Delegated searches with hundreds of captures
+  could build large tables in one call that nothing interrupted.
+- **Too strict.** Charging the whole path for every short lookahead timed out
+  `\A(?:(?![sS]ample).)*\.mkv\Z` on an ordinary 1,059-byte path.
+
+The patch now follows the frozen engine's own rule, a deadline.
+
+- **Deadline.** `fancy_regex::with_deadline` sets a per-thread deadline that
+  the VM checks every 64 instructions. `search` gives each path the frozen
+  10 ms. A storage limit of 1,000,000 held entries remains, checked before
+  every instruction.
+- **Uninterruptible delegate calls.** A single regex-automata call is
+  bounded ahead of time instead:
+  - delegate automata are limited to 128 KiB;
+  - patterns may have at most 32 capture groups;
+  - filters are not evaluated on paths longer than 4,096 bytes, which is a
+    `regex_filter_timeout`.
+- **CI.** Both native workflows now trigger on `vendor/**`, and the standalone
+  workflow's pinned hash is updated.
+
+A test runs every round 9 and 10 input. Each must be refused, or finish or
+time out within 500 ms. Ordinary lookaround and nested-repeat filters must
+match a 1,059-byte path.

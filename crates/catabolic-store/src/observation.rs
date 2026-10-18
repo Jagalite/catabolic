@@ -658,24 +658,46 @@ fn configure_policy(store: &Store, profile: &str, source: &str, args: &Value) ->
     }
     Ok(json!({"previous":old,"policy":new,"revision":revision,"applied":apply}))
 }
-/// Engine steps (and held backtracking entries) allowed per filter search.
-const SCAN_REGEX_STEP_LIMIT: usize = 1_000_000;
+/// Backtracking branches plus saved capture values one filter search may hold.
+const SCAN_REGEX_STORAGE_LIMIT: usize = 1_000_000;
+/// Delegated (regex-automata) automaton size: with the path limit, bounds
+/// the one call a deadline cannot interrupt.
+const SCAN_REGEX_DELEGATE_LIMIT: usize = 131_072;
+/// Longest path, in bytes, a filter is evaluated on; longer paths are a
+/// `regex_filter_timeout`.
+const SCAN_REGEX_MAX_PATH: usize = 4096;
+/// The frozen engine's per-path filter timeout.
+const SCAN_REGEX_TIMEOUT: Duration = Duration::from_millis(10);
 fn compile_pattern(pattern: &str) -> Result<fancy_regex::Regex> {
     // Only the qualified VERSION0 subset is translated; everything else,
     // including patterns frozen admission crashes on such as `(?V1)`, is
     // refused with a structured error rather than approximated.
     let translated = qualify_pattern(pattern)?;
-    // The step limit bounds the time and backtracking memory of every
-    // search, whatever the pattern; exceeding it is a `regex_filter_timeout`,
-    // the outcome of the frozen engine's per-search timeout.
+    // Searches run under the frozen per-path deadline (see `search`); the
+    // storage and delegate limits bound memory and the uninterruptible
+    // delegated calls.
     fancy_regex::RegexBuilder::new(&translated)
-        .step_limit(SCAN_REGEX_STEP_LIMIT)
+        .storage_limit(SCAN_REGEX_STORAGE_LIMIT)
         .backtrack_limit(100_000)
         .seek(false)
-        .delegate_size_limit(1_048_576)
+        .delegate_size_limit(SCAN_REGEX_DELEGATE_LIMIT)
         .delegate_dfa_size_limit(1_048_576)
         .build()
         .map_err(|e| Error(format!("invalid scan regex: {e}")))
+}
+/// One filter search before `deadline`: any engine limit, the deadline or
+/// an over-long path is a `regex_filter_timeout`.
+fn search(regex: &fancy_regex::Regex, path: &str, deadline: Instant) -> Result<bool> {
+    let timeout = || Error("regex_filter_timeout".into());
+    if path.len() > SCAN_REGEX_MAX_PATH || Instant::now() >= deadline {
+        return Err(timeout());
+    }
+    let matched =
+        fancy_regex::with_deadline(deadline, || regex.is_match(path)).map_err(|_| timeout())?;
+    if Instant::now() >= deadline {
+        return Err(timeout());
+    }
+    Ok(matched)
 }
 fn patterns(value: &Value) -> Result<Value> {
     let values = value
@@ -720,19 +742,10 @@ impl ScanFilter {
         if !included(path, &self.extensions) {
             return Ok(false);
         }
-        let started = Instant::now();
+        let deadline = Instant::now() + SCAN_REGEX_TIMEOUT;
         let any = |patterns: &[fancy_regex::Regex]| -> Result<bool> {
             for pattern in patterns {
-                if started.elapsed() >= Duration::from_millis(10) {
-                    return Err(Error("regex_filter_timeout".into()));
-                }
-                let matched = pattern
-                    .is_match(path)
-                    .map_err(|_| Error("regex_filter_timeout".into()))?;
-                if started.elapsed() >= Duration::from_millis(10) {
-                    return Err(Error("regex_filter_timeout".into()));
-                }
-                if matched {
+                if search(pattern, path, deadline)? {
                     return Ok(true);
                 }
             }
@@ -2776,47 +2789,75 @@ fn scan_result(
 mod tests {
     use super::*;
 
+    #[test]
+    fn scan_regex_search_work_is_bounded_at_run_time() {
+        // Sol rounds 9 and 10: searches whose work no admission check bounds.
+        // Each is refused, or stops at the deadline or a limit, promptly.
+        let a = "a".repeat(250);
+        let near_limit = format!("{}a", format!("{a}/").repeat(16));
+        let many = "()".repeat(250);
+        let captures = format!(r"\A(?:{many}(?>.))*\Z");
+        let capture_delegate = format!(r"\A(?>{many}[ab/]*a[ab/]{{12000}})\Z");
+        let capture_atomic = format!(r"\A(?:{many}(?>)){{4000}}x\Z");
+        let ab = format!("{}a", "ab/".repeat(1365));
+        let lookbehind_path = format!("{}x", "a/".repeat(2000));
+        for (pattern, path) in [
+            (r"\A(?:(?>.*b|).)*\Z", near_limit.as_str()),
+            (r"\A(?:a|aa)*(?>){200000}b\Z", "aaaaaaaaaaaaaaaaaaaaaaaa"),
+            (captures.as_str(), near_limit.as_str()),
+            (capture_delegate.as_str(), ab.as_str()),
+            (capture_atomic.as_str(), "x"),
+            (r"\A(?>[ab/]*a[ab/]{12000})\Z", ab.as_str()),
+            (r"(?<=a{20000})b", lookbehind_path.as_str()),
+        ] {
+            let Ok(regex) = compile_pattern(pattern) else {
+                continue;
+            };
+            let started = Instant::now();
+            let outcome = search(&regex, path, started + SCAN_REGEX_TIMEOUT);
+            assert!(
+                started.elapsed() < Duration::from_millis(500),
+                "{pattern:?}: {:?}",
+                started.elapsed()
+            );
+            if let Err(error) = outcome {
+                assert_eq!(error.0, "regex_filter_timeout", "{pattern:?}");
+            }
+        }
+        // More than 32 capture groups are refused outright.
+        for pattern in [&captures, &capture_delegate, &capture_atomic] {
+            assert_eq!(
+                compile_pattern(pattern).unwrap_err().0,
+                scan_regex::UNQUALIFIED
+            );
+        }
+        // Over-long paths are never evaluated.
+        let regex = compile_pattern(r"\.mkv$").unwrap();
+        let long = format!("{}.mkv", "a".repeat(SCAN_REGEX_MAX_PATH));
+        let deadline = Instant::now() + Duration::from_secs(1);
+        assert_eq!(
+            search(&regex, &long, deadline).unwrap_err().0,
+            "regex_filter_timeout"
+        );
+        // Ordinary filters match on long paths, well inside the deadline.
+        let path = format!("{}Alien.mkv", "Movies/".repeat(150));
+        for pattern in [
+            r"^(?!.*sample).*\.mkv$",
+            r"(?:(?!sample).)*\.mkv$",
+            r"\A(?:(?![sS]ample).)*\.mkv\Z",
+            r"(?<=/)Alien",
+            r"(\w+/)*\w+\.mkv",
+        ] {
+            let regex = compile_pattern(pattern).unwrap();
+            let deadline = Instant::now() + Duration::from_secs(1);
+            assert!(search(&regex, &path, deadline).unwrap(), "{pattern:?}");
+        }
+    }
+
     /// Frozen `regex.VERSION0` admission and search results, recorded by
     /// `scripts/generate_scan_regex_dialect.py`. A frozen-admitted pattern must
     /// either match identically on every sample path or be refused; it may
     /// never be silently approximated. Frozen refusals and crashes stay refused.
-    #[test]
-    fn scan_regex_search_work_is_bounded_at_run_time() {
-        // Sol round 9: inputs whose search work the admission screen cannot
-        // bound. Each must stop at the step limit, quickly.
-        let long = format!("{}a", format!("{}/", "a".repeat(250)).repeat(1000));
-        let captures = format!(r"\A(?:{}(?>.))*\Z", "()".repeat(250));
-        for (pattern, path) in [
-            (r"\A(?:(?>.*b|).)*\Z", long.as_str()),
-            (r"\A(?:a|aa)*(?>){200000}b\Z", "aaaaaaaaaaaaaaaaaaaaaaaa"),
-            (captures.as_str(), long.as_str()),
-        ] {
-            let regex = compile_pattern(pattern).unwrap();
-            let started = Instant::now();
-            let error = regex.is_match(path).unwrap_err();
-            assert!(
-                matches!(
-                    error,
-                    fancy_regex::Error::RuntimeError(fancy_regex::RuntimeError::StepLimitExceeded)
-                ),
-                "{pattern:?}: {error}"
-            );
-            assert!(started.elapsed() < Duration::from_secs(5), "{pattern:?}");
-        }
-        // Ordinary hard patterns stay well inside the limit on long paths.
-        let path = format!("{}Alien.mkv", "Movies/".repeat(600));
-        for pattern in [
-            r"^(?!.*sample).*\.mkv$",
-            r"(?:(?!sample).)*\.mkv$",
-            r"(?<=/)Alien",
-        ] {
-            assert!(
-                compile_pattern(pattern).unwrap().is_match(&path).unwrap(),
-                "{pattern:?}"
-            );
-        }
-    }
-
     #[test]
     fn scan_regex_dialect_matches_frozen_or_refuses_explicitly() {
         let raw = std::fs::read_to_string(concat!(

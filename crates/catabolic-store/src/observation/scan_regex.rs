@@ -290,6 +290,9 @@ struct Translator<'a> {
 /// Any pattern whose minimum match is wider than this can never match a scan
 /// path; refusing it keeps the engine's own width arithmetic from overflowing.
 const MAX_MIN_WIDTH: u64 = 1 << 16;
+/// Most capture groups: bounds capture bookkeeping in the engine and the
+/// capture tables of delegated searches.
+const MAX_CAPTURE_GROUPS: usize = 32;
 /// Largest forward work, in engine steps per path character.
 const MAX_STEPS_PER_CHARACTER: u64 = 1_000;
 /// Path length at which fixed work is weighed against per-character work.
@@ -794,6 +797,9 @@ impl Translator<'_> {
                 return self.refuse();
             }
             self.groups += 1;
+            if self.groups > MAX_CAPTURE_GROUPS {
+                return self.refuse();
+            }
             frame.capture = Some(self.groups);
             frame.captures.push(self.groups);
             for open in &mut self.stack {
@@ -854,6 +860,9 @@ impl Translator<'_> {
                     return self.refuse();
                 }
                 self.groups += 1;
+                if self.groups > MAX_CAPTURE_GROUPS {
+                    return self.refuse();
+                }
                 self.names.insert(name.clone(), self.groups);
                 frame.capture = Some(self.groups);
                 frame.captures.push(self.groups);

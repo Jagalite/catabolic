@@ -53,6 +53,6 @@ unsafe_op_in_unsafe_fn = "deny"
 [workspace.lints.clippy]
 undocumented_unsafe_blocks = "deny"
 
-# fancy-regex 0.19.2 with a search step limit (vendor/fancy-regex/CATABOLIC_PATCH.md).
+# fancy-regex 0.19.2 with search deadline and storage limits (vendor/fancy-regex/CATABOLIC_PATCH.md).
 [patch.crates-io]
 fancy-regex = { path = "vendor/fancy-regex" }

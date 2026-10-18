@@ -974,6 +974,34 @@ pub fn run_trace(prog: &Prog, s: &str, pos: usize) -> Result<Option<Vec<usize>>>
     )
 }
 
+/// Catabolic patch: instructions between deadline checks.
+#[cfg(feature = "std")]
+const DEADLINE_CHECK_INTERVAL: usize = 64;
+
+#[cfg(feature = "std")]
+std::thread_local! {
+    static DEADLINE: core::cell::Cell<Option<std::time::Instant>> =
+        const { core::cell::Cell::new(None) };
+}
+
+/// Catabolic patch: run `f` with a deadline for every backtracking search
+/// it performs on this thread. A search checks the deadline every
+/// `DEADLINE_CHECK_INTERVAL` VM instructions and fails with
+/// [`RuntimeError::DeadlineExceeded`] once it has passed. A single delegated
+/// regex-automata call is not interrupted; its work is bounded by the
+/// haystack length and the delegate size limits.
+#[cfg(feature = "std")]
+pub fn with_deadline<R>(deadline: std::time::Instant, f: impl FnOnce() -> R) -> R {
+    struct Restore(Option<std::time::Instant>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            DEADLINE.with(|d| d.set(self.0));
+        }
+    }
+    let _restore = Restore(DEADLINE.with(|d| d.replace(Some(deadline))));
+    f()
+}
+
 /// Run the program with default options.
 pub fn run_default(prog: &Prog, s: &str, pos: usize) -> Result<Option<Vec<usize>>> {
     run(
@@ -1039,8 +1067,11 @@ fn run_with<S: HaystackInput + ?Sized, T>(
         println!("pos\tinstruction");
     }
     let mut backtrack_count = 0;
-    // Catabolic patch: see `RegexOptionsBuilder::step_limit`.
-    let mut steps: usize = 0;
+    // Catabolic patch: see `RegexOptionsBuilder::storage_limit` and
+    // `with_deadline`.
+    #[cfg(feature = "std")]
+    let deadline = DEADLINE.with(|d| d.get());
+    let mut instructions: usize = 0;
     let mut pc = 0;
     let mut ix = pos;
     let mut slash_z_matched = false;
@@ -1058,20 +1089,15 @@ fn run_with<S: HaystackInput + ?Sized, T>(
             if option_flags & OPTION_TRACE != 0 {
                 println!("{}\t{} {:?}", ix, pc, prog.body[pc]);
             }
-            steps = steps.saturating_add(match prog.body[pc] {
-                Insn::Lit(ref literal) => literal.len().saturating_add(1),
-                Insn::Delegate(_)
-                | Insn::BackwardsDelegate(_)
-                | Insn::AbsentRepeater(_)
-                | Insn::Seek(_)
-                | Insn::LitCasei(_)
-                | Insn::Backref { .. } => haystack.len().saturating_add(1),
-                _ => 1,
-            });
-            if steps > options.step_limit
-                || state.stack.len().saturating_add(state.oldsave.len()) > options.step_limit
+            if state.stack.len().saturating_add(state.oldsave.len()) > options.storage_limit {
+                return Err(Error::RuntimeError(RuntimeError::StorageLimitExceeded));
+            }
+            instructions = instructions.wrapping_add(1);
+            #[cfg(feature = "std")]
+            if instructions % DEADLINE_CHECK_INTERVAL == 0
+                && deadline.is_some_and(|d| std::time::Instant::now() >= d)
             {
-                return Err(Error::RuntimeError(RuntimeError::StepLimitExceeded));
+                return Err(Error::RuntimeError(RuntimeError::DeadlineExceeded));
             }
             match prog.body[pc] {
                 Insn::End => {
