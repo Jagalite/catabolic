@@ -172,7 +172,8 @@ pub fn stage_saved_layouts(
                     continue;
                 };
                 let layout = layout.to_owned();
-                let mut evaluation = Evaluation::unbound(profile, 60000, 100000, false);
+                // Same per-query budgets as the standalone preparation.
+                let mut evaluation = Evaluation::lent_with_query_limits(profile, 60000, 100000);
                 let prepared = lend(store, |slot| {
                     evaluation.with_store(slot, |evaluation| {
                         prepare_evaluated(evaluation, &layout, catalog, &mut |flag| {

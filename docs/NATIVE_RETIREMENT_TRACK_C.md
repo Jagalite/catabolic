@@ -581,6 +581,10 @@ gate and the fallback-bound refusal all stay closed.
   `preview` stage and its progress line are delivered inside the planning
   transaction, so a failing progress callback rolls the staged mappings back,
   as frozen does.
+- **Saved-query budgets (round 8).** The lent evaluator keeps each saved
+  query's own root and cumulative ID and time budgets, as standalone
+  preparation does (`Evaluation::lent_with_query_limits`), rather than an
+  embedding session's shared limits.
 - **Cancellation in any form (round 7).** Refresh treats an error as
   cancellation when it is the publication sentinel or when the caller's
   interrupt check has fired. An interrupted SQL selection during layout
@@ -685,4 +689,5 @@ The per-case outcomes are in `evidence/track-c/handover-report.json`.
 | 5 (dependent paths; fallback publication stays gated) | Implemented | `91841d4` |
 | 6 | Implemented (handover matrix; residuals documented) | `8aa2319` |
 | Sol round 6 (item 5 review): multi-layout staging, preparation errors, refresh and embedding interrupts | Fixed | `99149c2` |
-| Sol round 7: preview progress inside the transaction; cancellation in any form | Fixed | this commit |
+| Sol round 7: preview progress inside the transaction; cancellation in any form | Fixed | `36e8a6c` |
+| Sol round 8: saved-query budgets with a lent writer | Fixed | this commit |

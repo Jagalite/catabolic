@@ -197,6 +197,14 @@ impl Evaluation {
             cache: BTreeMap::new(),
         }
     }
+    /// An evaluator for a lent writer Store that keeps each saved query's own
+    /// root and cumulative budgets, as `Evaluation::new` does, instead of an
+    /// embedding session's shared limits.
+    pub(crate) fn lent_with_query_limits(profile: &str, timeout: u64, maximum: usize) -> Self {
+        let mut evaluation = Self::unbound(profile, timeout, maximum, false);
+        evaluation.session_limits = false;
+        evaluation
+    }
     /// Sealed local administration preflight: HTTP SQL views, local GraphQL.
     /// The admission cannot be constructed by HTTP/evaluation request dispatch.
     pub(crate) fn for_access_grant(
@@ -1351,4 +1359,21 @@ pub fn graphql_contract(query: &str) -> Result<(String, String)> {
         entity.into(),
         root.alias.as_ref().unwrap_or(&root.name).node.to_string(),
     ))
+}
+
+#[cfg(test)]
+mod lent_evaluation_tests {
+    use super::*;
+    #[test]
+    fn lent_evaluator_keeps_each_saved_query_root_budget() {
+        // Sol round 8: a lent writer must not relax a saved query's limits.
+        let definition = json!({"max_ids":10,"timeout_ms":5000});
+        let mut lent = Evaluation::lent_with_query_limits("default", 60000, 100000);
+        lent.root_budget(&definition);
+        assert_eq!(lent.maximum, 10);
+        // An embedding session's shared limits deliberately ignore it.
+        let mut session = Evaluation::unbound("default", 60000, 100000, false);
+        session.root_budget(&definition);
+        assert_eq!(session.maximum, 100000);
+    }
 }
