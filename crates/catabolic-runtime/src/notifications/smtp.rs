@@ -1045,17 +1045,29 @@ impl Session {
     }
 }
 
-// RFC 2047 UTF-8 base64 words of at most 45 source bytes, folded by a space.
-fn encoded_words(text: &str) -> String {
+// RFC 2047 UTF-8 base64 words, folded by a space. Every physical line that
+// holds an encoded word stays within 76 characters: the first line is sized
+// for `first_prefix` characters already on it, and when that leaves no room
+// for a useful word the value folds right after the colon (returned text then
+// starts with CRLF + space). Python's email package does not fold these.
+fn encoded_words(text: &str, first_prefix: usize) -> String {
+    const OVERHEAD: usize = 12; // =?utf-8?b? ... ?=
+    let bytes_for = |line: usize| line.saturating_sub(OVERHEAD) / 4 * 3;
+    let mut limit = bytes_for(76usize.saturating_sub(first_prefix));
     let mut words = Vec::new();
     let mut rest = text;
+    if limit < 4 {
+        words.push(String::new());
+        limit = bytes_for(75);
+    }
     while !rest.is_empty() {
-        let mut end = rest.len().min(45);
+        let mut end = rest.len().min(limit);
         while !rest.is_char_boundary(end) {
             end -= 1;
         }
         words.push(format!("=?utf-8?b?{}?=", STANDARD.encode(&rest[..end])));
         rest = &rest[end..];
+        limit = bytes_for(75);
     }
     words.join("\r\n ")
 }
@@ -1071,11 +1083,16 @@ fn date_header(zone: Option<chrono_tz::Tz>) -> String {
     }
 }
 
-fn header_value(value: &str) -> String {
+// One complete header field (without the final CRLF).
+fn header_field(name: &str, value: &str) -> String {
     if value.is_ascii() {
-        value.to_owned()
+        return format!("{name}: {value}");
+    }
+    let words = encoded_words(value, name.len() + 2);
+    if words.starts_with("\r\n") {
+        format!("{name}:{words}")
     } else {
-        encoded_words(value)
+        format!("{name}: {words}")
     }
 }
 
@@ -1089,9 +1106,18 @@ fn formatted(mailbox: &Mailbox) -> String {
             mailbox.name.replace('\\', "\\\\").replace('"', "\\\"")
         )
     } else {
-        encoded_words(&mailbox.name)
+        encoded_words(&mailbox.name, 8)
     };
-    format!("{name} <{}>", mailbox.address)
+    // Keep "<address>" off a line that carries an encoded word when it would
+    // pass 76 characters (8 is a conservative bound for "Reply-To: ").
+    let last =
+        name.rsplit("\r\n").next().unwrap_or("").len() + 8 * usize::from(!name.contains("\r\n"));
+    let separator = if name.contains("=?utf-8?") && last + mailbox.address.len() + 3 > 76 {
+        "\r\n "
+    } else {
+        " "
+    };
+    format!("{name}{separator}<{}>", mailbox.address)
 }
 
 fn encoded_body(body: &str) -> String {
@@ -1128,15 +1154,16 @@ fn message(settings: &Settings, target: &Mailbox, body: &str) -> (Vec<String>, S
         .find(|(name, _)| name == "X-Application")
         .map_or("Apprise", |(_, value)| value.as_str());
     let mut content = format!(
-        "MIME-Version: 1.0\r\nX-Application: {}\r\n",
-        header_value(application)
+        "MIME-Version: 1.0\r\n{}\r\n",
+        header_field("X-Application", application)
     );
     for (name, value) in settings
         .headers
         .iter()
         .filter(|(n, _)| n != "X-Application")
     {
-        content.push_str(&format!("{name}: {}\r\n", header_value(value)));
+        content.push_str(&header_field(name, value));
+        content.push_str("\r\n");
     }
     content.push_str(&format!(
         "Subject: Catabolic\r\nFrom: {}\r\nTo: {}\r\nMessage-ID: <{}@{}>\r\nDate: {}\r\n",
@@ -1520,6 +1547,16 @@ mod tests {
         (port, task)
     }
 
+    // RFC 5322 line limit, and RFC 2047 section 2's 76 for lines with encoded words.
+    fn assert_line_limits(content: &str, context: &str) {
+        for line in content.split("\r\n") {
+            assert!(line.len() <= 998, "{context}: {line}");
+            if line.contains("=?utf-8?") {
+                assert!(line.len() <= 76, "{context}: {} {line}", line.len());
+            }
+        }
+    }
+
     // Top-level header fields other than those native always generates, with
     // RFC 2047 UTF-8 base64 words decoded and folding removed.
     fn custom_headers(content: &str) -> Vec<(String, String)> {
@@ -1844,6 +1881,53 @@ mod tests {
         let (_, content) = message(&settings, &settings.to[0], BODY);
         assert!(content.contains("MIME-Version: 1.0\r\nX-Application: Mine\r\nX-B: =?utf-8?b?Y2Fmw6k=?=\r\nSubject: Catabolic\r\n"));
         assert!(content.is_ascii());
+    }
+
+    #[test]
+    fn encoded_header_lines_respect_rfc_2047_limits() {
+        // Python leaves a 76+ character line for 25 e-acute (and never folds);
+        // native folds. Name lengths cover first-line budgets down to folding
+        // right after the colon.
+        for name_len in [1, 8, 30, 55, 60, 64] {
+            let name = format!("X{}", "a".repeat(name_len - 1));
+            for value in [
+                "\u{e9}".repeat(25),
+                "\u{e9}".repeat(256),
+                "\u{1f600}".repeat(120),
+                format!("{} caf\u{e9}", "w".repeat(300)),
+            ] {
+                let encoded = value.replace('%', "%25");
+                let encoded: String = encoded
+                    .bytes()
+                    .map(|b| {
+                        if b.is_ascii_alphanumeric() {
+                            (b as char).to_string()
+                        } else {
+                            format!("%{b:02X}")
+                        }
+                    })
+                    .collect();
+                let url = format!(
+                    "mailto://127.0.0.1:1/one@example.net?from=sender@example.com&+{name}={encoded}"
+                );
+                let settings = Settings::parse(&url).unwrap();
+                let (_, content) = message(&settings, &settings.to[0], BODY);
+                assert_line_limits(&content, &name);
+                assert_eq!(
+                    custom_headers(&content),
+                    [(name.clone(), value.clone())],
+                    "{name_len}"
+                );
+            }
+        }
+        let long_name = "\u{e9}".repeat(40);
+        let settings = Settings::parse(&format!(
+            "mailto://127.0.0.1:1/one@example.net?from=sender@example.com&name={}",
+            long_name.replace('\u{e9}', "%C3%A9")
+        ))
+        .unwrap();
+        let (_, content) = message(&settings, &settings.to[0], BODY);
+        assert_line_limits(&content, "display name");
     }
 
     #[test]
@@ -2241,6 +2325,7 @@ mod tests {
                 );
                 assert_eq!(expected_message["subject"], "Catabolic");
                 assert!(content.contains("Subject: Catabolic\r\n"));
+                assert_line_limits(&content, url);
                 if let Some(offset) = expected_message["date_offset"].as_str() {
                     let date = content
                         .lines()
