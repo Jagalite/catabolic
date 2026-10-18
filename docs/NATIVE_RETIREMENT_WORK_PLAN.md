@@ -383,3 +383,37 @@ higher 8 times and lower 14 times. Pass rates:
 
 The assertion is unchanged. Stabilizing it needs a decision: compare the epoch
 modulo no-op renewals, or schedule renewals deterministically in the fixture.
+
+#### Review round 3 corrections (October 17)
+
+- **Supervisor admission** (`245c261`). Supervisor mode runs only if the
+  process leads its own session and process group and every protocol
+  descriptor is an open pipe/FIFO. Otherwise it exits 127 and signals nothing.
+- **Fail closed** (`3c38ef0`). The supervisor executable is pinned by identity.
+  Once a supervisor or native helper is configured, a removed or replaced
+  executable makes every tool spawn fail with `parent-death supervisor
+  unavailable`; there is no fallback to direct execution.
+- **Guardian liveness.** The guardian holds the only write end of a liveness
+  pipe that the worker polls throughout the command. Any event on it means the
+  guardian died: the command fails with `parent-death guardian exited
+  unexpectedly`, and the group is retired by the tool's PGID. That PGID cannot
+  have been reused, because the tool is the worker's unreaped child.
+- **The worker-diagnostics fixtures** (`92bb986`) now start each resumed poll
+  in a later wall-clock second than the claim, so both engines' whole-second
+  lease renewals deterministically change the row. 5 of 5 full runs passed at
+  load 2.4–5.6.
+
+Results with all three corrections on macOS arm64:
+
+- Runtime unit tests: 164 passed, 2 ignored. The 46 `process` tests passed
+  three consecutive times.
+- One full run each of:
+  - `test_rust_legacy_sigterm`: 4
+  - `test_rust_legacy_external_rule`: 18
+  - `test_rust_legacy_fallback_worker`: 10
+  - `test_rust_legacy_consumer_watch`: 12
+  - `test_rust_playback`: 19
+  - `test_rust_legacy_external_worker_diagnostics`: 12
+  - `test_rust_legacy_api_worker`: 5
+
+  All passed at load 2.4–3.6.

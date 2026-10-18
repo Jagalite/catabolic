@@ -242,24 +242,30 @@ pub fn command_output<S: AsRef<OsStr>>(
             let errors = lifeline().map_err(|error| {
                 CommandFailure::from_io("cannot create parent-death lifeline", error)
             })?;
-            Some((guard, errors))
+            let liveness = lifeline().map_err(|error| {
+                CommandFailure::from_io("cannot create parent-death lifeline", error)
+            })?;
+            Some((guard, errors, liveness))
         }
         None => None,
     };
     let inherited: Vec<RawFd> = pipes
         .as_ref()
-        .map(|((read, _), (_, write))| vec![read.as_raw_fd(), write.as_raw_fd()])
+        .map(|((read, _), (_, errors), (_, liveness))| {
+            vec![read.as_raw_fd(), errors.as_raw_fd(), liveness.as_raw_fd()]
+        })
         .unwrap_or_default();
     #[cfg(target_os = "linux")]
     let parent_pid = std::process::id() as libc::pid_t;
     let mut command = match (&supervisor, &pipes) {
-        (Some((program, prefix)), Some(((lifeline, _), (_, errors)))) => {
+        (Some((program, prefix)), Some(((lifeline, _), (_, errors), (_, liveness)))) => {
             let mut command = Command::new(program);
             command
                 .args(prefix)
                 .arg(SUPERVISE_ARGUMENT)
                 .arg(lifeline.as_raw_fd().to_string())
                 .arg(errors.as_raw_fd().to_string())
+                .arg(liveness.as_raw_fd().to_string())
                 .arg("--")
                 .args(argv);
             command
@@ -326,11 +332,18 @@ pub fn command_output<S: AsRef<OsStr>>(
         .map_err(|error| CommandFailure::from_io("cannot start command", error))?;
     // Install the guard before any user callback or fallible operation.
     let mut process = ProcessGroup::new(child);
-    if let Some(((lifeline_read, lifeline_write), (errors_read, errors_write))) = pipes {
+    if let Some((
+        (lifeline_read, lifeline_write),
+        (errors_read, errors_write),
+        (liveness_read, liveness_write),
+    )) = pipes
+    {
         // Only the supervisor and guardian keep these ends.
         drop(lifeline_read);
         drop(errors_write);
+        drop(liveness_write);
         process.lifeline = Some(lifeline_write);
+        process.liveness = Some(liveness_read);
         if let Some(error) = supervised_exec_error(&errors_read, deadline) {
             let _ = process.retire();
             return Err(match error {
@@ -451,12 +464,13 @@ fn pump(
             poll_descriptor(stdout.as_ref(), libc::POLLIN),
             poll_descriptor(stderr.as_ref(), libc::POLLIN),
             poll_descriptor(stdin.as_ref(), libc::POLLOUT),
+            poll_descriptor(process.liveness.as_ref(), libc::POLLIN),
         ];
         // Round up to avoid busy-spinning in the last sub-millisecond interval.
         let millis = remaining.as_millis().saturating_add(1).min(50) as i32;
-        // SAFETY: descriptors points to three initialized pollfd values for the
+        // SAFETY: descriptors points to four initialized pollfd values for the
         // duration of the call, and all nonnegative FDs are owned by this pump.
-        let ready = unsafe { libc::poll(descriptors.as_mut_ptr(), 3, millis) };
+        let ready = unsafe { libc::poll(descriptors.as_mut_ptr(), 4, millis) };
         if ready < 0 {
             let error = io::Error::last_os_error();
             if error.kind() == io::ErrorKind::Interrupted {
@@ -471,6 +485,16 @@ fn pump(
                     io::Error::from_raw_os_error(libc::EBADF),
                 ));
             }
+        }
+        // The guardian never writes and only exits by the group kill, which
+        // happens after this pump returns: any event means it died early. The
+        // caller then retires the group by the tool's PGID, which cannot have
+        // been reused because the tool is our unreaped child.
+        if descriptors[3].revents != 0 {
+            return Err(CommandFailure::new(
+                "failed",
+                "parent-death guardian exited unexpectedly",
+            ));
         }
         // Read one chunk from each ready pipe per iteration. An unbounded drain
         // could starve cancellation, stdin, stderr, and the elapsed-time check.
@@ -722,6 +746,9 @@ struct ProcessGroup {
     /// Write end of the guardian lifeline. Field drop follows `Drop::drop`, so
     /// it closes only after the group has been killed and its leader reaped.
     lifeline: Option<OwnedFd>,
+    /// Read end of a pipe whose only writer is the guardian. Readiness or
+    /// hang-up while the command runs means the guardian died.
+    liveness: Option<OwnedFd>,
 }
 
 /// A pipe whose ends are both close-on-exec and above the standard
@@ -924,8 +951,8 @@ fn supervisor_admitted(descriptors: &[RawFd]) -> bool {
         })
 }
 
-/// Supervisor mode: `<lifeline-fd> <exec-error-fd> -- <tool> [args...]`.
-/// A misused invocation exits 127 without signalling anything.
+/// Supervisor mode: `<lifeline-fd> <exec-error-fd> <liveness-fd> -- <tool>
+/// [args...]`. A misused invocation exits 127 without signalling anything.
 /// Runs in a fresh process image that is already the session leader, with the
 /// worker's environment, directory, umask and descriptors for the tool.
 pub fn supervise(args: &[OsString]) -> ! {
@@ -935,12 +962,16 @@ pub fn supervise(args: &[OsString]) -> ! {
     // Refuse anything but the worker's exact protocol, before touching any
     // descriptor and without ever signalling: this process must be the leader
     // of its own new session (so the guardian's group kill reaches only the
-    // tool's group), and both protocol descriptors must be pipes.
-    let (Some(lifeline), Some(errors)) = (number(args.first()), number(args.get(1))) else {
+    // tool's group), and all three protocol descriptors must be pipes.
+    let (Some(lifeline), Some(errors), Some(liveness)) = (
+        number(args.first()),
+        number(args.get(1)),
+        number(args.get(2)),
+    ) else {
         // SAFETY: immediate exit of a misused supervisor process.
         unsafe { libc::_exit(127) }
     };
-    if !supervisor_admitted(&[lifeline, errors]) {
+    if !supervisor_admitted(&[lifeline, errors, liveness]) {
         // SAFETY: immediate exit of a misused supervisor process.
         unsafe { libc::_exit(127) }
     }
@@ -952,11 +983,11 @@ pub fn supervise(args: &[OsString]) -> ! {
             libc::_exit(127)
         }
     };
-    if args.get(2).is_none_or(|arg| arg != "--") || args.len() < 4 {
+    if args.get(3).is_none_or(|arg| arg != "--") || args.len() < 5 {
         fail(libc::EINVAL);
     }
     // All supervisor descriptors close when the tool is execed.
-    for fd in [lifeline, errors] {
+    for fd in [lifeline, errors, liveness] {
         // SAFETY: marks an inherited descriptor of this process close-on-exec.
         if unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) } == -1 {
             fail(
@@ -1011,8 +1042,10 @@ pub fn supervise(args: &[OsString]) -> ! {
             for signal in GUARDIAN_IGNORED {
                 libc::signal(signal, libc::SIG_IGN);
             }
+            // The guardian holds the liveness write end for its whole life:
+            // the worker treats its closure as the guardian's death.
             for &fd in &open {
-                if fd != lifeline {
+                if fd != lifeline && fd != liveness {
                     libc::close(fd);
                 }
             }
@@ -1059,7 +1092,7 @@ pub fn supervise(args: &[OsString]) -> ! {
     // Same PID: the worker observes this tool's exact status. `exec` searches
     // PATH like `Command::spawn` and restores default SIGPIPE handling.
     use std::os::unix::process::CommandExt as _;
-    let error = Command::new(&args[3]).args(&args[4..]).exec();
+    let error = Command::new(&args[4]).args(&args[5..]).exec();
     fail(error.raw_os_error().unwrap_or(libc::EIO))
 }
 
@@ -1078,6 +1111,7 @@ impl ProcessGroup {
             child,
             retired: false,
             lifeline: None,
+            liveness: None,
         }
     }
 
@@ -2293,12 +2327,21 @@ mod tests {
             let null = fs::File::open("/dev/null").unwrap();
             let null = null.as_raw_fd();
             let mut command = Command::new(std::env::current_exe().unwrap());
-            command.args([SUPERVISE_ARGUMENT, "3", "4", "--", "/bin/sh", "-c", &script]);
+            command.args([
+                SUPERVISE_ARGUMENT,
+                "3",
+                "4",
+                "5",
+                "--",
+                "/bin/sh",
+                "-c",
+                &script,
+            ]);
             command.stdout(Stdio::null()).stderr(Stdio::null());
             // SAFETY: dup2 and setsid are async-signal-safe.
             unsafe {
                 command.pre_exec(move || {
-                    for fd in [3, 4] {
+                    for fd in [3, 4, 5] {
                         if libc::dup2(null, fd) == -1 {
                             return Err(io::Error::last_os_error());
                         }
@@ -2317,6 +2360,72 @@ mod tests {
         assert!(sibling.try_wait().unwrap().is_none());
         sibling.kill().unwrap();
         sibling.wait().unwrap();
+    }
+
+    /// Killing the guardian while the tool runs is detected: the command fails
+    /// with a structured error and the tool's whole group is retired.
+    #[test]
+    fn guardian_death_retires_the_group_and_fails_the_command() {
+        let dir = tempfile::tempdir().unwrap();
+        let pid_path = dir.path().join("pid");
+        let script = format!(
+            "/bin/sleep 60 & printf '%s\\n' $$ > '{0}.tmp'; mv '{0}.tmp' '{0}'; wait",
+            pid_path.display()
+        );
+        let started = Instant::now();
+        let runner = thread::spawn(move || {
+            command_output(
+                &["/bin/sh", "-c", &script],
+                CommandOptions {
+                    timeout: Duration::from_secs(60),
+                    ..CommandOptions::default()
+                },
+            )
+        });
+        let deadline = Instant::now() + Duration::from_secs(20);
+        let tool: libc::pid_t = loop {
+            if let Ok(raw) = fs::read_to_string(&pid_path)
+                && raw.ends_with('\n')
+                && let Ok(pid) = raw.trim().parse()
+            {
+                break pid;
+            }
+            assert!(Instant::now() < deadline, "tool failed to start");
+            thread::sleep(Duration::from_millis(10));
+        };
+        // The guardian is the group member that is neither the tool nor the
+        // tool's sleeping child: the only member whose parent is not the tool.
+        let table = Command::new("/bin/ps")
+            .args(["-A", "-o", "pid=,ppid=,pgid="])
+            .output()
+            .unwrap();
+        let guardian: libc::pid_t = String::from_utf8_lossy(&table.stdout)
+            .lines()
+            .filter_map(|line| {
+                let fields: Vec<libc::pid_t> = line
+                    .split_whitespace()
+                    .filter_map(|f| f.parse().ok())
+                    .collect();
+                (fields.len() == 3 && fields[2] == tool && fields[0] != tool && fields[1] != tool)
+                    .then_some(fields[0])
+            })
+            .next()
+            .expect("guardian not found in the tool's group");
+        // SAFETY: the PID was just read as a live member of our fixture group.
+        assert_eq!(unsafe { libc::kill(guardian, libc::SIGKILL) }, 0);
+        let failure = runner.join().unwrap().unwrap_err();
+        assert_eq!(failure.state, "failed");
+        assert_eq!(failure.message, "parent-death guardian exited unexpectedly");
+        assert!(started.elapsed() < Duration::from_secs(30));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        // SAFETY: signal 0 only probes the retired fixture group.
+        while unsafe { libc::kill(-tool, 0) } == 0 {
+            assert!(
+                Instant::now() < deadline,
+                "tool group survived guardian death"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
     }
 
     #[test]
