@@ -733,7 +733,8 @@ class NativeManifestWriteTest(unittest.TestCase):
     def test_output_file_is_written_under_a_rollback_journal(self):
         self.assertTrue(BINARY.is_file(), "build catabolic-legacy-native first")
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            # Publication refuses symlinked ancestors, and /var is one on macOS.
+            root = Path(temporary).resolve()
             database = str(root / "catalog.sqlite3")
             self.assertEqual(self.run_native("--db", database, "init").returncode, 0)
             with closing(sqlite3.connect(database)) as db:
@@ -756,3 +757,19 @@ class NativeManifestWriteTest(unittest.TestCase):
             self.assertEqual(
                 (replaced.returncode, replaced.stderr), (0, ""), replaced.stdout
             )
+
+    def test_symlinked_output_ancestor_is_still_refused(self):
+        self.assertTrue(BINARY.is_file(), "build catabolic-legacy-native first")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            database = str(root / "catalog.sqlite3")
+            self.assertEqual(self.run_native("--db", database, "init").returncode, 0)
+            real = root / "real"
+            real.mkdir()
+            (root / "link").symlink_to(real, target_is_directory=True)
+            refused = self.run_native(
+                "--db", database, "--json", "manifest", "--output",
+                str(root / "link" / "manifest.json"),
+            )  # fmt: skip
+            self.assertNotEqual(refused.returncode, 0, refused.stdout)
+            self.assertEqual(list(real.iterdir()), [])
