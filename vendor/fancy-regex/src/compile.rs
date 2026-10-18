@@ -1071,6 +1071,8 @@ pub(crate) fn options_to_rabuilder(options: &CompileOptions, usage: DelegateUsag
     }
     if let Some(limit) = options.delegate_dfa_size_limit {
         config = config.dfa_size_limit(Some(limit));
+        // Catabolic patch: the lazy DFA cache takes the same limit.
+        config = config.hybrid_cache_capacity(limit);
     }
     if !usage.prefilter {
         // Anchored searches never consult a prefilter, so don't spend build time

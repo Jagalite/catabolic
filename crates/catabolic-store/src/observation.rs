@@ -669,6 +669,8 @@ const SCAN_REGEX_CAPTURE_DELEGATE_LIMIT: usize = 32_768;
 /// Longest path, in bytes, a filter is evaluated on; longer paths are a
 /// `regex_filter_timeout`.
 const SCAN_REGEX_MAX_PATH: usize = 4096;
+/// Largest total translation of one filter list (include or exclude), bytes.
+const SCAN_REGEX_LIST_TRANSLATED_BYTES: usize = 4 * 1024 * 1024;
 /// The frozen engine's per-path filter timeout.
 const SCAN_REGEX_TIMEOUT: Duration = Duration::from_millis(10);
 fn compile_pattern(pattern: &str) -> Result<fancy_regex::Regex> {
@@ -712,12 +714,17 @@ fn patterns(value: &Value) -> Result<Value> {
         .filter(|v| v.len() <= 32)
         .ok_or_else(|| Error("regex filters must be lists of at most 32 patterns".into()))?;
     let mut normalized = BTreeSet::new();
+    let mut translated = 0usize;
     for value in values {
         let pattern = value
             .as_str()
             .filter(|v| (1..=1024).contains(&v.chars().count()))
             .ok_or_else(|| Error("regex patterns must contain 1 to 1024 characters".into()))?;
-        compile_pattern(pattern)?;
+        // Bounds the compiled matchers one filter list keeps in memory.
+        translated += compile_pattern(pattern)?.as_str().len();
+        if translated > SCAN_REGEX_LIST_TRANSLATED_BYTES {
+            return Err(Error(scan_regex::UNQUALIFIED.into()));
+        }
         normalized.insert(pattern);
     }
     Ok(json!(normalized))
@@ -2864,6 +2871,21 @@ mod tests {
             assert!(compile_pattern(pattern).is_err(), "{pattern:?}");
             assert!(started.elapsed() < Duration::from_secs(2), "{pattern:?}");
         }
+        // Sol round 13: class expansion is bounded per pattern and per list.
+        let boundaries = r"\b".repeat(500);
+        let started = Instant::now();
+        assert_eq!(
+            compile_pattern(&boundaries).unwrap_err().0,
+            scan_regex::UNQUALIFIED
+        );
+        assert!(started.elapsed() < Duration::from_secs(2));
+        let list: Vec<String> = (0..32)
+            .map(|i| format!(r"{}(?:{i})?", r"\b".repeat(9)))
+            .collect();
+        assert_eq!(
+            patterns(&json!(list)).unwrap_err().0,
+            scan_regex::UNQUALIFIED
+        );
         // Over-long paths are never evaluated.
         let regex = compile_pattern(r"\.mkv$").unwrap();
         let long = format!("{}.mkv", "a".repeat(SCAN_REGEX_MAX_PATH));

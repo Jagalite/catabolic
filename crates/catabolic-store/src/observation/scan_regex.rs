@@ -302,6 +302,10 @@ struct Translator<'a> {
 /// Any pattern whose minimum match is wider than this can never match a scan
 /// path; refusing it keeps the engine's own width arithmetic from overflowing.
 const MAX_MIN_WIDTH: u64 = 1 << 16;
+/// Largest translation of one pattern, in bytes. Class expansion (a word
+/// boundary alone is about 50 KB) is checked as it is emitted, before the
+/// engine copies it into its own matchers.
+pub(super) const MAX_TRANSLATED_BYTES: usize = 512 * 1024;
 /// Most groups: bounds the translator's bookkeeping.
 const MAX_CAPTURE_GROUPS: usize = 32;
 /// Most groups a backreference may refer to, which are the only capturing
@@ -982,6 +986,9 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<(String, bool)> {
     }
     let backreferences = !referenced.is_empty();
     let (out, _) = translate(pattern, Some(referenced))?;
+    if out.len() > MAX_TRANSLATED_BYTES {
+        return Err(Error(UNQUALIFIED.into()));
+    }
     Ok((out, backreferences))
 }
 
@@ -1031,6 +1038,9 @@ fn translate(pattern: &str, keep: Option<HashSet<usize>>) -> Result<(String, Has
     translator.global = global_insensitive;
     translator.insensitive = global_insensitive;
     while translator.i < chars.len() {
+        if translator.out.len() > MAX_TRANSLATED_BYTES {
+            return Err(refuse());
+        }
         let c = chars[translator.i];
         match c {
             '\\' => translator.escape()?,

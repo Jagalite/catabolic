@@ -19,6 +19,9 @@ unless a limit is set.
 - Reverse (lookbehind) delegates, built in `compile.rs`, take the same NFA
   size limit and DFA cache capacity as forward delegates. Upstream builds
   them without limits.
+- The delegate DFA size limit also caps the lazy DFA cache of forward
+  delegates and wrapped regexes. Upstream uses regex-automata's 2 MiB
+  default.
 
 A single delegated regex-automata call is not interrupted. Catabolic bounds
 it ahead of time:

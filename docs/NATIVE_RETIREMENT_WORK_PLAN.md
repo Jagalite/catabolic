@@ -782,3 +782,13 @@ delegates, and a test checks that huge lookbehinds are refused within
 seconds. The VM's delegate check is feature-gated, so the vendored crate
 builds with and without `variable-lookbehinds`. Both configurations were
 checked through Kyoto. No renumbering defect was found.
+
+#### Review round 13 correction (October 18)
+
+Class expansion bypassed the automaton limits. A word boundary expands to
+about 50 KB of explicit classes, so 500 of them made a 26 MB pattern, and
+32 such patterns about 2 GB of compiled matchers. Translation is now
+limited to 512 KiB per pattern, checked while it is emitted, and to 4 MiB
+per include or exclude list. The 1 MiB delegate DFA limit now also caps
+the lazy DFA cache of forward delegates and wrapped regexes, which
+regex-automata otherwise sets to 2 MiB.
