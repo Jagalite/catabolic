@@ -658,3 +658,29 @@ consumed character:
   character, and the minimum-width bound is now 65,536.
 
 The fixture is now 165 patterns.
+
+#### Review round 8 correction (October 18)
+
+Two patterns still escaped the per-character factor. `\A(?>){1000000000,}`
+runs its billion mandatory empty iterations before the engine's empty-loop
+check applies. In a nest of `(?=…{100}).){100}` lookaheads, each lookahead
+restores the position, so enclosing repeats re-run its consuming work.
+
+The translator now bounds the forward work of every node as
+`per_char × consumed + per_path × path + fixed`:
+
+- **Consuming repeats.** A repeat of a body that always consumes runs at most
+  `consumed / shortest` iterations.
+- **Empty-matchable repeats.** An unbounded one runs at most
+  `low + consumed + 1` iterations, and a bounded one at most `high`.
+- **Lookarounds.** Their body's work is charged as fixed work when its width
+  is bounded, and per path character otherwise.
+- **Unbounded-width lookarounds** are refused inside a repeat.
+- **Limit.** A pattern qualifies when it needs at most 1,000 steps per path
+  character, and at most 1,024,000 steps for a 1,024-character path.
+
+Failed branches are backtracks, which the engine's limit of 100,000 counts.
+Common forms stay qualified, such as `(?:(?!sample).)*\.mkv$` and
+`^(?!.*sample).*\.mkv$`. The nested-lookahead pattern also exhausts the
+frozen engine's memory. Like the `a{1000}` cube, it is asserted refused
+natively rather than recorded in the fixture, which is now 170 patterns.

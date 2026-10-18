@@ -240,6 +240,13 @@ PATTERNS = [
     r"\A(?:(?>){100000}.)*\Z",
     r"(?:(?>){10}.)*x",
     r"(\w+/)*\w+\.mkv",
+    # Sol round 8: a large lower bound on an unbounded empty repeat, and
+    # consuming work re-run by lookaheads that restore the position.
+    r"\A(?>){1000000000,}",
+    r"(?:(?=(?>.){100}).){100}",
+    r"(?:(?=.*x).)*",
+    r"(?:(?!sample).)*\.mkv$",
+    r"^(?!.*sample).*\.mkv$",
 ]
 
 

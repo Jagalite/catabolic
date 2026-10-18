@@ -281,10 +281,8 @@ struct Translator<'a> {
     /// narrowest completed alternative), the last atom, and each capture.
     widths: Vec<(u64, Option<u64>)>,
     last_width: u64,
-    /// Composed repeat counts: per open sequence the largest product of
-    /// nested repeat counts inside it, and that of the last atom.
-    costs: Vec<u64>,
-    last_cost: u64,
+    /// Forward work bounds, per open sequence.
+    works: Vec<Sequence>,
     capture_widths: std::collections::HashMap<usize, u64>,
     last: Last,
 }
@@ -292,11 +290,172 @@ struct Translator<'a> {
 /// Any pattern whose minimum match is wider than this can never match a scan
 /// path; refusing it keeps the engine's own width arithmetic from overflowing.
 const MAX_MIN_WIDTH: u64 = 1 << 16;
-/// Largest number of engine iterations per consumed character. Iterations of
-/// a body that consumes input are bounded by the path length at any nesting
-/// depth; only repeats of a body that can match empty multiply work, so their
-/// explicit counts are composed and bounded by this.
-const MAX_ZERO_WIDTH_ITERATIONS: u64 = 1_000;
+/// Largest forward work, in engine steps per path character.
+const MAX_STEPS_PER_CHARACTER: u64 = 1_000;
+/// Path length at which fixed work is weighed against per-character work.
+const REFERENCE_PATH: u64 = 1_024;
+/// Largest value of any work coefficient; keeps the arithmetic exact.
+const MAX_STEPS: u64 = MAX_STEPS_PER_CHARACTER * REFERENCE_PATH;
+
+/// An upper bound on the engine steps of one forward execution of a node:
+/// `per_char * consumed + per_path * path + fixed`, where `consumed` is the
+/// number of characters the node consumes and `path` is the path length.
+///
+/// Failed alternatives and abandoned iterations are backtracks, which the
+/// engine's backtrack limit counts; this bounds the work between them. A
+/// repeat whose body always consumes runs at most `consumed / shortest`
+/// iterations. An unbounded repeat whose body can match empty runs at most
+/// `low + consumed + 1` (after its lower bound, the engine stops at the
+/// first empty iteration), and a bounded one at most `high`. A lookaround
+/// restores the position, so its body's work is charged as fixed work when
+/// its width is bounded, and per path character otherwise; such a
+/// lookaround is refused inside a repeat, whose iterations could each pay it.
+#[derive(Clone, Copy)]
+struct Work {
+    per_char: u64,
+    per_path: u64,
+    fixed: u64,
+    /// Longest match, `None` if unbounded.
+    longest: Option<u64>,
+}
+
+impl Work {
+    const EMPTY: Work = Work {
+        per_char: 0,
+        per_path: 0,
+        fixed: 0,
+        longest: Some(0),
+    };
+    const CHARACTER: Work = Work {
+        per_char: 1,
+        per_path: 0,
+        fixed: 0,
+        longest: Some(1),
+    };
+
+    fn assertion(steps: u64) -> Work {
+        Work {
+            fixed: steps,
+            ..Work::EMPTY
+        }
+    }
+
+    fn checked(
+        per_char: Option<u64>,
+        per_path: Option<u64>,
+        fixed: Option<u64>,
+        longest: Option<u64>,
+    ) -> Result<Work> {
+        let bound = |v: Option<u64>| {
+            v.filter(|v| *v <= MAX_STEPS)
+                .ok_or_else(|| Error(UNQUALIFIED.into()))
+        };
+        Ok(Work {
+            per_char: bound(per_char)?,
+            per_path: bound(per_path)?,
+            fixed: bound(fixed)?,
+            longest: longest.filter(|w| *w <= MAX_MIN_WIDTH),
+        })
+    }
+
+    fn then(self, next: Work) -> Result<Work> {
+        Work::checked(
+            Some(self.per_char.max(next.per_char)),
+            self.per_path.checked_add(next.per_path),
+            self.fixed.checked_add(next.fixed),
+            self.longest
+                .zip(next.longest)
+                .and_then(|(a, b)| a.checked_add(b)),
+        )
+    }
+
+    fn or(self, other: Work) -> Work {
+        Work {
+            per_char: self.per_char.max(other.per_char),
+            per_path: self.per_path.max(other.per_path),
+            fixed: self.fixed.max(other.fixed),
+            longest: self.longest.zip(other.longest).map(|(a, b)| a.max(b)),
+        }
+    }
+
+    fn reference_total(self) -> u64 {
+        (self.per_char + self.per_path) * REFERENCE_PATH + self.fixed
+    }
+
+    /// The work of a lookaround over this body, in the enclosing sequence.
+    fn lookaround(self) -> Result<Work> {
+        let (per_path, fixed) = match self.longest {
+            Some(width) => (Some(self.per_path), self.per_char.checked_mul(width)),
+            None => (self.per_path.checked_add(self.per_char), Some(0)),
+        };
+        Work::checked(
+            Some(0),
+            per_path,
+            fixed
+                .and_then(|f| f.checked_add(self.fixed))
+                .and_then(|f| f.checked_add(1)),
+            Some(0),
+        )
+    }
+
+    /// Repeat this body (minimum width `shortest`) `low..=high` times.
+    fn repeat(self, shortest: u64, low: u64, high: Option<u64>) -> Result<Work> {
+        if self.per_path > 0 {
+            return Err(Error(UNQUALIFIED.into()));
+        }
+        let step = self.fixed + 1;
+        let longest = match high {
+            Some(high) => self.longest.and_then(|w| w.checked_mul(high)),
+            None => self.longest.filter(|w| *w == 0),
+        };
+        let mut options = Vec::new();
+        if shortest > 0 {
+            options.push((self.per_char.checked_add(step.div_ceil(shortest)), Some(0)));
+        }
+        match high {
+            Some(high) => options.push((Some(self.per_char), high.checked_mul(step))),
+            None if shortest == 0 => options.push((
+                self.per_char.checked_add(step),
+                low.checked_add(1).and_then(|l| l.checked_mul(step)),
+            )),
+            None => {}
+        }
+        options
+            .into_iter()
+            .filter_map(|(per_char, fixed)| Work::checked(per_char, Some(0), fixed, longest).ok())
+            .min_by_key(|work| work.reference_total())
+            .ok_or_else(|| Error(UNQUALIFIED.into()))
+    }
+}
+
+/// The work of an open sequence: completed items, the last item (which a
+/// quantifier may still repeat) and the completed alternatives.
+#[derive(Clone, Copy)]
+struct Sequence {
+    done: Work,
+    last: Option<Work>,
+    alternatives: Option<Work>,
+}
+
+impl Sequence {
+    const EMPTY: Sequence = Sequence {
+        done: Work::EMPTY,
+        last: None,
+        alternatives: None,
+    };
+
+    fn current(self) -> Result<Work> {
+        match self.last {
+            Some(last) => self.done.then(last),
+            None => Ok(self.done),
+        }
+    }
+
+    fn finish(self) -> Result<Work> {
+        let current = self.current()?;
+        Ok(self.alternatives.map_or(current, |a| a.or(current)))
+    }
+}
 
 /// Parse inline flags at `self.i` (just after `(?`): returns (on, off, close).
 fn flags(chars: &[char], start: usize) -> Result<(String, String, char, usize)> {
@@ -363,40 +522,40 @@ impl Translator<'_> {
     }
 
     fn atom(&mut self, width: u64) -> Result<()> {
-        self.atom_with_cost(width, 1)
+        self.atom_with_work(width, Work::CHARACTER)
     }
 
-    fn atom_with_cost(&mut self, width: u64, cost: u64) -> Result<()> {
+    fn atom_with_work(&mut self, width: u64, work: Work) -> Result<()> {
         self.add_width(width)?;
-        self.last_cost = cost;
-        let top = self.costs.last_mut().expect("root sequence");
-        *top = (*top).max(cost);
+        self.push_work(work)?;
         self.last = Last::Atom;
         Ok(())
     }
 
-    /// Repeat the last atom at least `low` times in the minimum width.
-    /// Repeat the last atom up to `count` times (`None`: unbounded). Only a
-    /// body that can match empty multiplies the per-character iteration cost;
-    /// an unbounded repeat of it stops at its first empty iteration.
-    /// Call before `repeat_width`, while `last_width` is the body's width.
-    fn repeat_cost(&mut self, count: Option<u64>) -> Result<()> {
-        let factor = if self.last_width == 0 {
-            count.unwrap_or(1).max(1)
-        } else {
-            1
-        };
-        let cost = self
-            .last_cost
-            .checked_mul(factor)
-            .filter(|c| *c <= MAX_ZERO_WIDTH_ITERATIONS)
-            .ok_or_else(|| Error(UNQUALIFIED.into()))?;
-        self.last_cost = cost;
-        let top = self.costs.last_mut().expect("root sequence");
-        *top = (*top).max(cost);
+    fn push_work(&mut self, work: Work) -> Result<()> {
+        let top = self.works.last_mut().expect("root sequence");
+        top.done = top.current()?;
+        top.last = Some(work);
         Ok(())
     }
 
+    fn assertion(&mut self, steps: u64) -> Result<()> {
+        self.push_work(Work::assertion(steps))?;
+        self.last = Last::Assertion;
+        Ok(())
+    }
+
+    /// Repeat the last atom `low..=high` times (`None`: unbounded) in the
+    /// work bound. Call before `repeat_width`, while `last_width` is the
+    /// body's minimum width.
+    fn repeat_cost(&mut self, low: u64, high: Option<u64>) -> Result<()> {
+        let top = self.works.last_mut().expect("root sequence");
+        let body = top.last.expect("quantified atom");
+        top.last = Some(body.repeat(self.last_width, low, high)?);
+        Ok(())
+    }
+
+    /// Repeat the last atom at least `low` times in the minimum width.
     fn repeat_width(&mut self, low: u64) -> Result<()> {
         let width = self.last_width;
         let top = self.widths.last_mut().expect("root sequence");
@@ -442,8 +601,8 @@ impl Translator<'_> {
             format!("(?:(?<={word})(?={word})|(?<!{word})(?!{word}))")
         };
         self.out.push_str(&text);
-        self.last = Last::Assertion;
-        Ok(())
+        // Two alternatives of a one-character lookbehind and lookahead.
+        self.assertion(4)
     }
 
     fn escape(&mut self) -> Result<()> {
@@ -471,16 +630,14 @@ impl Translator<'_> {
                 self.assertion_allowed()?;
                 self.out.push_str("\\A");
                 self.i += 2;
-                self.last = Last::Assertion;
-                return Ok(());
+                return self.assertion(1);
             }
             'Z' => {
                 self.assertion_allowed()?;
                 // Python's \Z is strict; fancy's \Z also accepts a final newline.
                 self.out.push_str("\\z");
                 self.i += 2;
-                self.last = Last::Assertion;
-                return Ok(());
+                return self.assertion(1);
             }
             '1'..='9' => {
                 // Multi-digit forms are ambiguous octal or group references.
@@ -521,7 +678,15 @@ impl Translator<'_> {
         let _ = write!(self.out, "(?:\\{group})");
         self.i = next;
         let width = self.capture_widths.get(&group).copied().unwrap_or(0);
-        self.atom(width)
+        self.atom_with_work(
+            width,
+            Work {
+                per_char: 1,
+                per_path: 0,
+                fixed: 1,
+                longest: None,
+            },
+        )
     }
 
     fn class(&mut self) -> Result<()> {
@@ -723,7 +888,7 @@ impl Translator<'_> {
         self.lookaround = frame.lookaround;
         self.stack.push(frame);
         self.widths.push((0, None));
-        self.costs.push(1);
+        self.works.push(Sequence::EMPTY);
         self.last = Last::Nothing;
         Ok(())
     }
@@ -746,18 +911,18 @@ impl Translator<'_> {
         self.lookbehind = lookbehind;
         self.lookaround = lookaround;
         let (sequence, narrowest) = self.widths.pop().expect("group sequence");
-        let cost = self.costs.pop().expect("group sequence");
+        let body = self.works.pop().expect("group sequence").finish()?;
         let width = narrowest.map_or(sequence, |n| n.min(sequence));
         if let Some(group) = frame.capture {
             self.capture_widths.insert(group, width);
         }
         if frame.assertion {
             self.last_width = 0;
-            self.last = Last::Assertion;
-            let top = self.costs.last_mut().expect("root sequence");
-            *top = (*top).max(cost);
+            self.assertion(0)?;
+            let top = self.works.last_mut().expect("root sequence");
+            top.last = Some(body.lookaround()?);
         } else {
-            self.atom_with_cost(width, cost)?;
+            self.atom_with_work(width, body.then(Work::assertion(1))?)?;
         }
         Ok(())
     }
@@ -783,8 +948,7 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
         closed_at: None,
         widths: vec![(0, None)],
         last_width: 0,
-        costs: vec![1],
-        last_cost: 1,
+        works: vec![Sequence::EMPTY],
         capture_widths: std::collections::HashMap::new(),
         last: Last::Nothing,
     };
@@ -820,20 +984,25 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
                 let top = translator.widths.last_mut().expect("root sequence");
                 top.1 = Some(top.1.map_or(top.0, |n| n.min(top.0)));
                 top.0 = 0;
+                let work = translator.works.last_mut().expect("root sequence");
+                let current = work.current()?;
+                work.alternatives = Some(work.alternatives.map_or(current, |a| a.or(current)));
+                work.done = Work::EMPTY;
+                work.last = None;
                 translator.last = Last::Nothing;
             }
             '^' => {
                 translator.assertion_allowed()?;
                 translator.out.push('^');
                 translator.i += 1;
-                translator.last = Last::Assertion;
+                translator.assertion(1)?;
             }
             '$' => {
                 translator.assertion_allowed()?;
                 // Python: end of string, or before a final newline.
                 translator.out.push_str("(?=\\n?\\z)");
                 translator.i += 1;
-                translator.last = Last::Assertion;
+                translator.assertion(3)?;
             }
             '.' => {
                 translator.out.push('.');
@@ -844,7 +1013,7 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
                 translator.quantifiable()?;
                 translator.out.push(c);
                 translator.i += 1;
-                translator.repeat_cost(if c == '?' { Some(1) } else { None })?;
+                translator.repeat_cost(u64::from(c == '+'), (c == '?').then_some(1))?;
                 translator.repeat_width(u64::from(c == '+'))?;
                 translator.after_quantifier()?;
             }
@@ -892,7 +1061,7 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
                     Some(_) => None,
                     None => Some(u64::from(low_count)),
                 };
-                translator.repeat_cost(high_count)?;
+                translator.repeat_cost(u64::from(low_count), high_count)?;
                 translator.repeat_width(u64::from(low_count))?;
                 translator.after_quantifier()?;
             }
@@ -905,6 +1074,11 @@ pub(super) fn qualify_pattern(pattern: &str) -> Result<String> {
         }
     }
     if !translator.stack.is_empty() {
+        return Err(refuse());
+    }
+    let work = translator.works.pop().expect("root sequence").finish()?;
+    if work.per_char + work.per_path > MAX_STEPS_PER_CHARACTER || work.reference_total() > MAX_STEPS
+    {
         return Err(refuse());
     }
     Ok(translator.out)

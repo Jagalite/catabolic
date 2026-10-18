@@ -2883,6 +2883,11 @@ mod tests {
             // Consuming nested repeats stay qualified (bounded by path length).
             r"(\w+/)*\w+\.mkv",
             r"(?:(?>){10}.)*x",
+            // Lookarounds of bounded width inside repeats, and of unbounded
+            // width outside them.
+            r"(?:(?=(?>.){100}).){100}",
+            r"(?:(?!sample).)*\.mkv$",
+            r"^(?!.*sample).*\.mkv$",
         ] {
             if fixture["cases"]
                 .as_array()
@@ -2929,6 +2934,10 @@ mod tests {
             r"(?:(?:a{100}){100}){100}",
             // Sol round 7: zero-width work inside a consuming repeat.
             r"\A(?:(?>){100000}.)*\Z",
+            // Sol round 8: mandatory empty iterations, and lookahead work
+            // re-run by enclosing repeats.
+            r"\A(?>){1000000000,}",
+            r"(?:(?=.*x).)*",
         ] {
             assert!(refused.contains(pattern), "{pattern:?} should be refused");
         }
@@ -2944,6 +2953,16 @@ mod tests {
             compile_pattern("(?:(?:(?:a{1000}){1000}){1000})")
                 .unwrap_err()
                 .0,
+            scan_regex::UNQUALIFIED
+        );
+        // Sol round 8: lookahead work re-run by enclosing repeats; too
+        // memory-hungry for the frozen engine to record.
+        assert_eq!(
+            compile_pattern(
+                r"\A(?:(?=(?:(?=(?:(?=(?:(?=(?>.){100}).){100}).){100}).){100}).){100}"
+            )
+            .unwrap_err()
+            .0,
             scan_regex::UNQUALIFIED
         );
         // Python's `$` also matches before one final newline, never two.
