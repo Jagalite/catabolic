@@ -464,3 +464,35 @@ Results on macOS arm64:
 - `test_rust_legacy_external_worker_diagnostics` (12) timed out once in one
   subcase, during a 248-second run that overlapped another track's
   450-second store suite. It then passed twice, in 123 and 137 seconds.
+
+#### Review round 5 corrections (October 18)
+
+- **The tool never reaches an unverified supervisor.** A replaced image used
+  to receive the tool's argv on its command line. It could exec the tool at
+  once, and if the worker was SIGKILLed while waiting for the missing
+  handshake, nothing would kill that tool. In protocol 3 the supervisor
+  command line holds only the four descriptors (lifeline, exec error,
+  liveness, command), the version and the nonce. The worker writes the
+  tool's argv to the command pipe only after the guardian's handshake has
+  been read and verified. The argv is a count followed by NUL-terminated
+  arguments, at most 4 MiB, written non-blocking against the command
+  deadline. The supervisor reads it to EOF, rejects a truncated or malformed
+  payload with `EINVAL`, and execs. An upgrade, another version or a wrapper
+  swapped in between verification and exec never learns the tool, so no
+  unguarded tool can outlive the worker.
+- **A removed override fails closed.** After `CATABOLIC_NATIVE_BINARY` has
+  been used once, the process stays configured. Unsetting the variable now
+  fails every spawn instead of falling back to direct execution.
+- **Tests.** A replacement that records its argv and exits, and an
+  old-protocol replacement that echoes version 2 and then reads the command
+  pipe, are both refused. The tool never starts, and neither replacement sees
+  the tool's argv. A payload test covers round trips and every truncation.
+  The override test covers removal after first use.
+
+Results: `process` and `helper` unit tests, 51 passed in 5 seconds (the
+replacement tests no longer wait for the 30-second handshake limit).
+`external_rule` 18, `fallback_worker` 10, `consumer_watch` 12, `playback` 19,
+diagnostics 12 and `api_worker` 5 passed. `sigterm` (4) failed once during a
+56-second run that overlapped another track's suites, then passed three
+times in about 9 seconds each.
+

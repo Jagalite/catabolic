@@ -17,11 +17,20 @@ static HELPER: OnceLock<Helper> = OnceLock::new();
 static ENVIRONMENT_HELPER: OnceLock<(std::ffi::OsString, Helper)> = OnceLock::new();
 
 /// Pin `CATABOLIC_NATIVE_BINARY` the first time it is used; afterwards the
-/// value must be unchanged and the file must still be the identical file.
+/// value must be present and unchanged, and the file must still be the
+/// identical file. `None` before first use means no override.
 fn environment_override(
     cache: &OnceLock<(std::ffi::OsString, Helper)>,
-    value: &std::ffi::OsStr,
-) -> Result<PathBuf> {
+    value: Option<&std::ffi::OsStr>,
+) -> Result<Option<PathBuf>> {
+    let Some(value) = value else {
+        return match cache.get() {
+            None => Ok(None),
+            Some(_) => Err(Error(
+                "CATABOLIC_NATIVE_BINARY removed after first use; restart the process".into(),
+            )),
+        };
+    };
     if cache.get().is_none() {
         let helper = pin(Path::new(value))?;
         let _ = cache.set((value.to_owned(), helper));
@@ -32,7 +41,7 @@ fn environment_override(
             "CATABOLIC_NATIVE_BINARY changed after first use; restart the process".into(),
         ));
     }
-    verified(helper)
+    verified(helper).map(Some)
 }
 fn identify(path: &Path) -> Result<(u64, u64, u64, i64, i64, i64, i64)> {
     let m = path.metadata()?;
@@ -95,7 +104,11 @@ pub(crate) fn verified(helper: &Helper) -> Result<PathBuf> {
 /// later resolution failure must be treated as an error.
 #[cfg_attr(test, allow(dead_code))]
 pub(crate) fn configured() -> bool {
-    HELPER.get().is_some() || std::env::var_os("CATABOLIC_NATIVE_BINARY").is_some()
+    // A pinned override stays configured even if the variable is removed, so
+    // its removal fails closed rather than allowing unsupervised spawns.
+    HELPER.get().is_some()
+        || ENVIRONMENT_HELPER.get().is_some()
+        || std::env::var_os("CATABOLIC_NATIVE_BINARY").is_some()
 }
 
 pub(crate) fn pin(path: &Path) -> Result<Helper> {
@@ -119,8 +132,11 @@ pub(crate) fn executable_with_fallback(fallback: Option<&Helper>) -> Result<Path
     }
     // Explicit test/embedding override only, never an ambient PATH lookup.
     // Its identity is pinned at first use and verified on every later use.
-    if let Some(value) = std::env::var_os("CATABOLIC_NATIVE_BINARY") {
-        return environment_override(&ENVIRONMENT_HELPER, &value);
+    if let Some(path) = environment_override(
+        &ENVIRONMENT_HELPER,
+        std::env::var_os("CATABOLIC_NATIVE_BINARY").as_deref(),
+    )? {
+        return Ok(path);
     }
     if let Some(helper) = fallback {
         if identify(&helper.path)? != helper.identity {
@@ -296,19 +312,22 @@ mod environment_tests {
         std::fs::write(&path, b"#!/bin/sh\nexit 0\n").unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
         let cache = OnceLock::new();
-        let first = environment_override(&cache, path.as_os_str()).unwrap();
+        assert!(environment_override(&cache, None).unwrap().is_none());
+        let first = environment_override(&cache, Some(path.as_os_str())).unwrap();
         assert_eq!(
-            environment_override(&cache, path.as_os_str()).unwrap(),
+            environment_override(&cache, Some(path.as_os_str())).unwrap(),
             first
         );
+        // Removed after first use: refused, never an unsupervised fallback.
+        assert!(environment_override(&cache, None).is_err());
         // Replaced between commands: refused.
         std::fs::remove_file(&path).unwrap();
         std::fs::write(&path, b"#!/bin/sh\nexec \"$@\"\n").unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-        assert!(environment_override(&cache, path.as_os_str()).is_err());
+        assert!(environment_override(&cache, Some(path.as_os_str())).is_err());
         // A different value after first use: refused.
         let other = dir.path().join("other");
         std::fs::copy(&path, &other).unwrap();
-        assert!(environment_override(&cache, other.as_os_str()).is_err());
+        assert!(environment_override(&cache, Some(other.as_os_str())).is_err());
     }
 }

@@ -245,14 +245,24 @@ pub fn command_output<S: AsRef<OsStr>>(
             let liveness = lifeline().map_err(|error| {
                 CommandFailure::from_io("cannot create parent-death lifeline", error)
             })?;
-            Some((guard, errors, liveness))
+            // The tool's argv travels on this pipe, sent only after the
+            // guardian's handshake: a replaced image never learns the tool.
+            let command = lifeline().map_err(|error| {
+                CommandFailure::from_io("cannot create parent-death lifeline", error)
+            })?;
+            Some((guard, errors, liveness, command))
         }
         None => None,
     };
     let inherited: Vec<RawFd> = pipes
         .as_ref()
-        .map(|((read, _), (_, errors), (_, liveness))| {
-            vec![read.as_raw_fd(), errors.as_raw_fd(), liveness.as_raw_fd()]
+        .map(|((read, _), (_, errors), (_, liveness), (command, _))| {
+            vec![
+                read.as_raw_fd(),
+                errors.as_raw_fd(),
+                liveness.as_raw_fd(),
+                command.as_raw_fd(),
+            ]
         })
         .unwrap_or_default();
     #[cfg(target_os = "linux")]
@@ -263,7 +273,7 @@ pub fn command_output<S: AsRef<OsStr>>(
         tests::before_supervisor_spawn(program);
     }
     let mut command = match (&supervisor, &pipes) {
-        (Some((program, prefix)), Some(((lifeline, _), (_, errors), (_, liveness)))) => {
+        (Some((program, prefix)), Some(((lifeline, _), (_, errors), (_, liveness), (tool, _)))) => {
             let mut command = Command::new(program);
             command
                 .args(prefix)
@@ -271,10 +281,9 @@ pub fn command_output<S: AsRef<OsStr>>(
                 .arg(lifeline.as_raw_fd().to_string())
                 .arg(errors.as_raw_fd().to_string())
                 .arg(liveness.as_raw_fd().to_string())
+                .arg(tool.as_raw_fd().to_string())
                 .arg(SUPERVISOR_PROTOCOL.to_string())
-                .arg(&nonce)
-                .arg("--")
-                .args(argv);
+                .arg(&nonce);
             command
         }
         _ => {
@@ -343,19 +352,23 @@ pub fn command_output<S: AsRef<OsStr>>(
         (lifeline_read, lifeline_write),
         (errors_read, errors_write),
         (liveness_read, liveness_write),
+        (command_read, command_write),
     )) = pipes
     {
         // Only the supervisor and guardian keep these ends.
         drop(lifeline_read);
         drop(errors_write);
         drop(liveness_write);
+        drop(command_read);
         process.lifeline = Some(lifeline_write);
         if let Err(failure) = await_guardian(
             &liveness_read,
             &errors_read,
             &guardian_handshake(&nonce),
             deadline,
-        ) {
+        )
+        .and_then(|()| send_command(command_write, argv, deadline))
+        {
             let _ = process.retire();
             return Err(failure);
         }
@@ -1045,7 +1058,103 @@ fn supervisor_admitted(descriptors: &[RawFd]) -> bool {
 
 /// Version of the worker/supervisor/guardian protocol. A supervisor speaking
 /// any other version refuses, and the worker refuses its handshake.
-pub const SUPERVISOR_PROTOCOL: u32 = 2;
+pub const SUPERVISOR_PROTOCOL: u32 = 3;
+/// Largest encoded tool argv the supervisor accepts on its command pipe.
+const MAX_COMMAND_BYTES: usize = 4 * 1024 * 1024;
+
+/// `<count>\0` then each argument followed by `\0` (arguments cannot contain
+/// NUL), so a truncated payload is detectable.
+fn encode_command<S: AsRef<OsStr>>(argv: &[S]) -> Vec<u8> {
+    use std::os::unix::ffi::OsStrExt as _;
+    let mut payload = format!("{}\0", argv.len()).into_bytes();
+    for arg in argv {
+        payload.extend_from_slice(arg.as_ref().as_bytes());
+        payload.push(0);
+    }
+    payload
+}
+
+fn decode_command(payload: &[u8]) -> Option<Vec<OsString>> {
+    use std::os::unix::ffi::OsStringExt as _;
+    let mut parts = payload.split(|byte| *byte == 0);
+    let count: usize = std::str::from_utf8(parts.next()?).ok()?.parse().ok()?;
+    let mut argv: Vec<OsString> = parts
+        .map(|part| OsString::from_vec(part.to_vec()))
+        .collect();
+    // The payload ends with NUL, which leaves one empty trailing part.
+    if count == 0 || argv.pop()? != OsString::new() || argv.len() != count {
+        return None;
+    }
+    if argv[0].is_empty() {
+        return None;
+    }
+    Some(argv)
+}
+
+/// Send the tool's argv to the verified supervisor, then close the pipe. The
+/// write end is non-blocking and polled against the command deadline.
+fn send_command<S: AsRef<OsStr>>(
+    pipe: OwnedFd,
+    argv: &[S],
+    deadline: Instant,
+) -> Result<(), CommandFailure> {
+    let payload = encode_command(argv);
+    if payload.len() > MAX_COMMAND_BYTES {
+        return Err(CommandFailure::new(
+            "failed",
+            "command arguments are too large",
+        ));
+    }
+    let fd = pipe.as_raw_fd();
+    // SAFETY: reads and updates the status flags of a descriptor we own.
+    unsafe {
+        let flags = libc::fcntl(fd, libc::F_GETFL);
+        if flags == -1 || libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) == -1 {
+            return Err(CommandFailure::from_io(
+                "cannot start command",
+                io::Error::last_os_error(),
+            ));
+        }
+    }
+    let mut written = 0;
+    while written < payload.len() {
+        // SAFETY: writes from a live local buffer to a descriptor we own.
+        let count = unsafe {
+            libc::write(
+                fd,
+                payload[written..].as_ptr().cast(),
+                payload.len() - written,
+            )
+        };
+        if count > 0 {
+            written += count as usize;
+            continue;
+        }
+        let error = io::Error::last_os_error();
+        match error.raw_os_error() {
+            Some(libc::EINTR) => continue,
+            Some(libc::EAGAIN) => {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    return Err(CommandFailure::new(
+                        "timeout",
+                        "command exceeded the elapsed-time limit",
+                    ));
+                }
+                let mut poll = libc::pollfd {
+                    fd,
+                    events: libc::POLLOUT,
+                    revents: 0,
+                };
+                let millis = remaining.as_millis().clamp(1, i32::MAX as u128) as libc::c_int;
+                // SAFETY: poll reads one initialized pollfd during the call.
+                unsafe { libc::poll(&mut poll, 1, millis) };
+            }
+            _ => return Err(CommandFailure::from_io("cannot start command", error)),
+        }
+    }
+    Ok(())
+}
 
 fn valid_nonce(nonce: &str) -> bool {
     nonce.len() == 32 && nonce.bytes().all(|b| b.is_ascii_hexdigit())
@@ -1056,17 +1165,19 @@ fn guardian_handshake(nonce: &str) -> Vec<u8> {
     format!("catabolic-guardian {SUPERVISOR_PROTOCOL} {nonce}\n").into_bytes()
 }
 
-/// Supervisor mode: `<lifeline-fd> <exec-error-fd> <liveness-fd> <protocol>
-/// <nonce> -- <tool> [args...]`. A misused invocation exits 127 without
+/// Supervisor mode: `<lifeline-fd> <exec-error-fd> <liveness-fd>
+/// <command-fd> <protocol> <nonce>`. A misused invocation exits 127 without
 /// signalling anything.
 ///
-/// The worker accepts the tool only after reading, on the liveness pipe whose
-/// sole writer is the guardian, the guardian's echo of this spawn's protocol
-/// version and random nonce. An executable replaced between identity
-/// verification and exec (an upgrade, another version, or a wrapper that
-/// execs the tool directly) therefore cannot run an unguarded tool. A
-/// deliberately malicious same-user replacement that fakes the protocol is out
-/// of scope: the same user can already kill or trace the guardian.
+/// The tool is not on this command line. The worker sends its argv on the
+/// command pipe only after reading, on the liveness pipe whose sole writer is
+/// the guardian, the guardian's echo of this spawn's protocol version and
+/// random nonce. An executable replaced between identity verification and
+/// exec (an upgrade, another version, or a wrapper) therefore never learns
+/// which tool to run, and cannot start it unguarded even if the worker dies
+/// meanwhile. A deliberately malicious same-user replacement that fakes the
+/// handshake is out of scope: the same user can already kill or trace the
+/// guardian.
 /// Runs in a fresh process image that is already the session leader, with the
 /// worker's environment, directory, umask and descriptors for the tool.
 pub fn supervise(args: &[OsString]) -> ! {
@@ -1077,15 +1188,16 @@ pub fn supervise(args: &[OsString]) -> ! {
     // descriptor and without ever signalling: this process must be the leader
     // of its own new session (so the guardian's group kill reaches only the
     // tool's group), and all three protocol descriptors must be pipes.
-    let (Some(lifeline), Some(errors), Some(liveness)) = (
+    let (Some(lifeline), Some(errors), Some(liveness), Some(command)) = (
         number(args.first()),
         number(args.get(1)),
         number(args.get(2)),
+        number(args.get(3)),
     ) else {
         // SAFETY: immediate exit of a misused supervisor process.
         unsafe { libc::_exit(127) }
     };
-    if !supervisor_admitted(&[lifeline, errors, liveness]) {
+    if !supervisor_admitted(&[lifeline, errors, liveness, command]) {
         // SAFETY: immediate exit of a misused supervisor process.
         unsafe { libc::_exit(127) }
     }
@@ -1099,11 +1211,9 @@ pub fn supervise(args: &[OsString]) -> ! {
     };
     // Protocol version and the worker's per-spawn nonce, echoed back by the
     // guardian itself once it is ready (see `guardian_handshake`).
-    let handshake = match (args.get(3).and_then(|v| v.to_str()), args.get(4)) {
+    let handshake = match (args.get(4).and_then(|v| v.to_str()), args.get(5)) {
         (Some(version), Some(nonce))
-            if version == SUPERVISOR_PROTOCOL.to_string()
-                && args.get(5).is_some_and(|arg| arg == "--")
-                && args.len() >= 7 =>
+            if version == SUPERVISOR_PROTOCOL.to_string() && args.len() == 6 =>
         {
             match nonce.to_str() {
                 Some(nonce) if valid_nonce(nonce) => guardian_handshake(nonce),
@@ -1113,7 +1223,7 @@ pub fn supervise(args: &[OsString]) -> ! {
         _ => fail(libc::EINVAL),
     };
     // All supervisor descriptors close when the tool is execed.
-    for fd in [lifeline, errors, liveness] {
+    for fd in [lifeline, errors, liveness, command] {
         // SAFETY: marks an inherited descriptor of this process close-on-exec.
         if unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) } == -1 {
             fail(
@@ -1235,10 +1345,33 @@ pub fn supervise(args: &[OsString]) -> ! {
         }
         libc::close(ready[0]);
     }
+    // The worker sends the tool only after verifying the guardian's handshake.
+    let mut payload = Vec::new();
+    {
+        use std::io::Read as _;
+        use std::os::fd::FromRawFd as _;
+        // SAFETY: `command` is an inherited pipe this process owns exclusively;
+        // the guardian has closed its copy.
+        let pipe = unsafe { std::fs::File::from_raw_fd(command) };
+        if let Err(error) = pipe
+            .take(MAX_COMMAND_BYTES as u64 + 1)
+            .read_to_end(&mut payload)
+        {
+            fail(error.raw_os_error().unwrap_or(libc::EIO));
+        }
+    }
+    let Some(tool) = payload
+        .len()
+        .le(&MAX_COMMAND_BYTES)
+        .then(|| decode_command(&payload))
+        .flatten()
+    else {
+        fail(libc::EINVAL)
+    };
     // Same PID: the worker observes this tool's exact status. `exec` searches
     // PATH like `Command::spawn` and restores default SIGPIPE handling.
     use std::os::unix::process::CommandExt as _;
-    let error = Command::new(&args[6]).args(&args[7..]).exec();
+    let error = Command::new(&tool[0]).args(&tool[1..]).exec();
     fail(error.raw_os_error().unwrap_or(libc::EIO))
 }
 
@@ -2418,11 +2551,14 @@ mod tests {
         });
     }
 
-    /// Replace the pinned supervisor with `wrapper` after verification and
-    /// before exec; the spawn must be refused and no tool left running.
-    fn refused_when_replaced_during_spawn(wrapper: &'static str) {
+    /// Replace the pinned supervisor with `wrapper(argv_file)` after
+    /// verification and before exec. The spawn must be refused, the tool must
+    /// never start, and the replacement must never see the tool's argv.
+    fn refused_when_replaced_during_spawn(wrapper: fn(&std::path::Path) -> String) {
         use std::os::unix::fs::PermissionsExt;
         let dir = tempfile::tempdir().unwrap();
+        let argv_file = dir.path().join("argv");
+        let wrapper = wrapper(&argv_file);
         let copy = dir.path().join("supervisor");
         fs::copy(std::env::current_exe().unwrap(), &copy).unwrap();
         let helper = crate::helper::pin(&copy).unwrap();
@@ -2438,7 +2574,7 @@ mod tests {
                 // (ETXTBSY on exec): hold the exclusive spawn guard.
                 let _exclusive = catabolic_core::spawn_guard::descriptors();
                 fs::remove_file(program).unwrap();
-                fs::write(program, wrapper).unwrap();
+                fs::write(program, &wrapper).unwrap();
                 fs::set_permissions(program, fs::Permissions::from_mode(0o755)).unwrap();
             }))
         });
@@ -2465,34 +2601,54 @@ mod tests {
         .unwrap_err();
         assert_eq!(failure.state, "failed");
         assert_eq!(failure.message, "parent-death supervisor protocol mismatch");
-        // If the replaced image started the tool, it has been killed.
-        if let Ok(raw) = fs::read_to_string(&pid_path)
-            && let Ok(pid) = raw.trim().parse::<libc::pid_t>()
-        {
-            let deadline = Instant::now() + Duration::from_secs(5);
-            // SAFETY: signal 0 only probes the fixture tool, our reaped child.
-            while unsafe { libc::kill(pid, 0) } == 0 {
-                assert!(Instant::now() < deadline, "tool survived refusal");
-                thread::sleep(Duration::from_millis(10));
-            }
-        }
+        // The tool never started, so nothing can outlive a worker death.
+        assert!(!pid_path.exists(), "a replaced supervisor started the tool");
+        let seen = fs::read_to_string(&argv_file).unwrap();
+        assert!(
+            !seen.contains("sleep 30"),
+            "the replacement saw the tool: {seen}"
+        );
+        assert!(!seen.contains(&*pid_path.to_string_lossy()), "{seen}");
     }
 
     #[test]
-    fn wrapper_that_execs_the_tool_directly_is_refused() {
-        refused_when_replaced_during_spawn(
-            "#!/bin/sh\nwhile [ \"$1\" != \"--\" ]; do shift; done; shift; exec \"$@\"\n",
-        );
+    fn replaced_supervisor_never_receives_the_tool() {
+        // Records its argv and exits without a handshake: the tool is on
+        // neither its command line nor (see the next test) its command pipe.
+        refused_when_replaced_during_spawn(|argv| {
+            format!(
+                "#!/bin/sh\nprintf '%s\\n' \"$@\" > '{0}'\nexit 0\n",
+                argv.display()
+            )
+        });
     }
 
     #[test]
     fn older_protocol_supervisor_is_refused() {
         // Echoes the nonce with the previous protocol version on the liveness
-        // pipe, then execs. argv: mode, lifeline, errors, liveness, protocol,
-        // nonce, "--", tool.
-        refused_when_replaced_during_spawn(
-            "#!/bin/sh\nprintf 'catabolic-guardian 1 %s\\n' \"$6\" > /dev/fd/$4\nwhile [ \"$1\" != \"--\" ]; do shift; done; shift; exec \"$@\"\n",
-        );
+        // pipe. argv: mode, lifeline, errors, liveness, command, protocol,
+        // nonce.
+        refused_when_replaced_during_spawn(|argv| {
+            format!(
+                "#!/bin/sh\nprintf '%s\\n' \"$@\" > '{0}'\nprintf 'catabolic-guardian 2 %s\\n' \"$7\" > /dev/fd/$4\ncat <&$5 >> '{0}'\n",
+                argv.display()
+            )
+        });
+    }
+
+    #[test]
+    fn command_payload_round_trips_and_rejects_truncation() {
+        let argv = ["/bin/sh", "-c", "printf 'a b'", ""];
+        let payload = encode_command(&argv);
+        let decoded = decode_command(&payload).unwrap();
+        assert_eq!(decoded, argv.map(OsString::from).to_vec());
+        for cut in 0..payload.len() {
+            assert!(decode_command(&payload[..cut]).is_none(), "cut {cut}");
+        }
+        assert!(decode_command(b"0\0").is_none());
+        assert!(decode_command(b"1\0\0").is_none());
+        assert!(decode_command(b"x\0a\0").is_none());
+        assert!(decode_command(b"1\0a\0b\0").is_none());
     }
 
     /// A supervisor that was configured and is later removed or replaced makes
@@ -2563,21 +2719,23 @@ mod tests {
             let null = fs::File::open("/dev/null").unwrap();
             let null = null.as_raw_fd();
             let mut command = Command::new(std::env::current_exe().unwrap());
+            let protocol = SUPERVISOR_PROTOCOL.to_string();
             command.args([
                 SUPERVISE_ARGUMENT,
                 "3",
                 "4",
                 "5",
-                "--",
-                "/bin/sh",
-                "-c",
-                &script,
+                "6",
+                &protocol,
+                "0123456789abcdef0123456789abcdef",
             ]);
+            // Even a tool payload on stdin is never read by a refused process.
+            let _ = &script;
             command.stdout(Stdio::null()).stderr(Stdio::null());
             // SAFETY: dup2 and setsid are async-signal-safe.
             unsafe {
                 command.pre_exec(move || {
-                    for fd in [3, 4, 5] {
+                    for fd in [3, 4, 5, 6] {
                         if libc::dup2(null, fd) == -1 {
                             return Err(io::Error::last_os_error());
                         }
