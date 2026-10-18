@@ -240,6 +240,10 @@ class ForwardingSource(unittest.TestCase):
         self.assertFalse((PROJECT / "compatibility").exists())
         self.assertEqual(native["project"]["name"], "catabolic")
         self.assertEqual(native["project"]["version"], "1.0.0")
+        self.assertEqual(native["project"]["license-files"], ["LICENSE"])
+        self.assertEqual(
+            (PROJECT / "LICENSE").read_bytes(), (REFERENCE / "LICENSE").read_bytes()
+        )
         self.assertEqual(native["project"]["requires-python"], ">=3.11")
         self.assertNotIn("dependencies", native["project"])
         self.assertEqual(
