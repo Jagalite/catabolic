@@ -41,6 +41,14 @@
       "sha256": "5430a3d092058aaccf509b95d3737febb8d97d22823ab622de70cce089c96f2c",
       "reviewed_commit": "2784bd4601d6243899c313ff5f58243ccce0ba04",
       "reason": "Compare complete ordinary scan reports against each engine's durable scope/entry payload accounting; reviewed exact-byte and real-timing controls retain freshness and full-report nonparity"
+    },
+    "tests.process_tree": {
+      "path": "tests/process_tree.py",
+      "kind": "fixture-helper",
+      "frozen_sha256": null,
+      "sha256": "69aac3537ac789a89182617e3a745663dd888bea3897887bbec8c1b5e6345ebd",
+      "reviewed_commit": "15c8b640a93d54a4b6a9df08063136868d913c4f",
+      "reason": "Portable ps process-table witnesses for supervision tests on Linux and macOS; include zombies until reaped, and exclude them only when explicitly checking live process-group members"
     }
   }
 }

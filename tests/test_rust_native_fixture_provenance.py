@@ -147,12 +147,13 @@ class NativeFixtureProvenanceTest(unittest.TestCase):
             self.oracle, QUALIFIER.oracle_snapshot(self.reference, self.root)
         )
 
-    def test_checked_in_manifest_has_exact_reviewed_timing_set_and_baselines(self):
+    def test_checked_in_manifest_has_exact_reviewed_fixture_set_and_baselines(self):
         manifest = json.loads(
             (ROOT / "tests/parity/native-fixture-adaptations.json").read_text()
         )
         reviewed = {
             "tests.probe_timing": "340cd70e76ba0e4b4ffbe7b697a9ce4520cd708c",
+            "tests.process_tree": "15c8b640a93d54a4b6a9df08063136868d913c4f",
             "tests.test_component_packages": "340cd70e76ba0e4b4ffbe7b697a9ce4520cd708c",
             "tests.test_component_lifecycle": "340cd70e76ba0e4b4ffbe7b697a9ce4520cd708c",
             "tests.test_fallback_identity": "9924d23e40bffe657932ee344b3302687bc0027f",
@@ -166,6 +167,28 @@ class NativeFixtureProvenanceTest(unittest.TestCase):
             self.assertEqual(entry["reviewed_commit"], reviewed[name])
             self.assertEqual(entry["frozen_sha256"], frozen.get(entry["path"]))
             self.assertEqual(entry["sha256"], digest(ROOT / entry["path"]))
+        # Supervision discovery imports this local helper before execution.
+        # It must be recorded as reviewed fixture code, never frozen bytes.
+        helper = manifest["modules"]["tests.process_tree"]
+        with patch.object(
+            QUALIFIER.sys,
+            "modules",
+            {
+                "tests.process_tree": types.SimpleNamespace(
+                    __file__=str(ROOT / helper["path"])
+                )
+            },
+        ):
+            imports = QUALIFIER.oracle_imports(
+                self.reference,
+                {"resource_sha256": frozen},
+                ROOT,
+                {"files": {helper["path"]: helper["sha256"]}},
+                manifest,
+            )
+        self.assertEqual(
+            imports["tests.process_tree"]["provenance"], "reviewed-fixture-helper"
+        )
 
     def test_unknown_fixture_and_native_prefix_escape_cannot_bypass_admission(self):
         for name, path in (
