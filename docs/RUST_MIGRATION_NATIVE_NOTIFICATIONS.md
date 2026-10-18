@@ -78,7 +78,7 @@ are rejected before any outbound request. SMTP has a stricter explicit key list.
 | Gotify | HTTP/HTTPS, reverse-proxy path, X-Gotify-Key, priority aliases, text and Markdown extras | No additional provider-specific option gaps established for the fixed summaries; see shared restrictions |
 | Discord | Fixed HTTPS webhook endpoint, text/HTML or Markdown embeds, username/botname, avatar, image, footer/logo, href/url, thread, flags, TTS, explicit pings; exact 200/204 success and one 429 retry | No file/remote JSON templates or template-token evaluation. Multiple mention set ordering is deterministic and may differ from Python set ordering |
 | Telegram | Fixed HTTPS Bot API; numeric/named chat targets, per-target/default thread, silent/preview, text/HTML/Markdown versions, multiple targets and bounded optional owner discovery | No `image=yes` bundled-image upload; no file/remote rich-message templates or tokens. Owner detection retains the frozen first-message-sender rule and is not proof of administrative ownership |
-| SMTP | Plain, STARTTLS and implicit TLS; provider SMTP defaults; PLAIN/LOGIN; sender/name/to/cc/bcc/reply; default HTML or text/markdown MIME; local retry/wait/optional behavior | CRAM-MD5-only and permissive exotic mailbox forms (SMTPUTF8 is not offered by the pinned Apprise either: internationalized targets are dropped, never sent with `SMTPUTF8`, and native matches); PGP/WKD/key files; custom headers/templates; explicit timezones/storage; custom/OS TLS roots. Full details and pinned evidence are in [SMTP compatibility](../crates/catabolic-runtime/tests/reference/SMTP_COMPATIBILITY.md) |
+| SMTP | Plain, STARTTLS and implicit TLS; provider SMTP defaults; PLAIN/LOGIN; sender/name/to/cc/bcc/reply; default HTML or text/markdown MIME; Apprise `+Header=value` custom headers (stricter validation, structural names rejected); local retry/wait/optional behavior | CRAM-MD5-only and permissive exotic mailbox forms (SMTPUTF8 is not offered by the pinned Apprise either: internationalized targets are dropped, never sent with `SMTPUTF8`, and native matches); PGP/WKD/key files; templates; explicit timezones/storage; custom/OS TLS roots. Full details and pinned evidence are in [SMTP compatibility](../crates/catabolic-runtime/tests/reference/SMTP_COMPATIBILITY.md) |
 
 Shared HTTP inherited options `retry` (clamped to 10), `wait` (clamped to 20
 seconds, default 0.5), `optional`, `cto` and `rto` are implemented under the
@@ -134,7 +134,7 @@ third party.
   notification-helper registration negative witnesses
 
 The HTTP oracle contains 87 matching captures from 29 URL configurations times
-three severities. The SMTP oracle has 39 parser/MIME cases, including one
+three severities. The SMTP oracle has 70 parser/MIME cases, including one
 explicitly annotated non-parity Reply-To failure. Oracle scripts monkeypatch
 requests/SMTP and reject socket creation before executing the already installed,
 pinned Apprise 1.13.1. They are test-only Python, not runtime helpers; no downloaded

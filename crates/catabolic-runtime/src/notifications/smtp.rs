@@ -23,6 +23,9 @@ const MAX_RECIPIENTS: usize = 100;
 const MAX_REPLY: usize = 65536;
 const MAX_LINE: usize = 4096;
 const MAX_OUTPUT: usize = 262144;
+const MAX_HEADERS: usize = 32;
+const MAX_HEADER_NAME: usize = 64;
+const MAX_HEADER_VALUE: usize = 512;
 static RESOLVERS: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -54,6 +57,8 @@ struct Settings {
     retry: u32,
     wait: Duration,
     optional: bool,
+    // Apprise `+Name=value` headers, in first-seen order (exact-name upsert).
+    headers: Vec<(String, String)>,
 }
 
 type Parsed<T> = Result<T, ()>;
@@ -80,6 +85,60 @@ fn decode(value: &str) -> Parsed<String> {
         return Err(());
     }
     Ok(value)
+}
+
+// Headers whose duplication or override would change addressing, routing,
+// threading or MIME structure. Apprise appends its own copies after custom
+// headers, producing duplicate fields; native rejects them instead. Only the
+// exact name `X-Application` may be replaced, as in the reference.
+fn reserved_header(name: &str) -> bool {
+    let name = name.to_ascii_lowercase();
+    matches!(
+        name.as_str(),
+        "from"
+            | "to"
+            | "cc"
+            | "bcc"
+            | "reply-to"
+            | "subject"
+            | "date"
+            | "message-id"
+            | "mime-version"
+            | "sender"
+            | "return-path"
+            | "received"
+            | "autocrypt"
+            | "x-application"
+    ) || name.starts_with("content-")
+        || name.starts_with("resent-")
+}
+
+// Apprise stores `+Name=value` query keys unmodified apart from `+` -> space
+// in everything after the first character, then percent-decodes names and
+// values a second time. Returns None for ordinary options.
+fn custom_header(raw_name: &str, raw_value: &str) -> Parsed<Option<(String, String)>> {
+    if !(raw_name.starts_with('+') || raw_name.starts_with("%2B") || raw_name.starts_with("%2b")) {
+        return Ok(None);
+    }
+    let first = raw_name.chars().next().ok_or(())?;
+    let key = decode(&format!(
+        "{first}{}",
+        raw_name[first.len_utf8()..].replace('+', " ")
+    ))?;
+    let Some(name) = key.strip_prefix('+') else {
+        return Err(());
+    };
+    let name = decode(name)?;
+    let value = decode(decode(raw_value)?.trim())?;
+    if name.is_empty()
+        || name.len() > MAX_HEADER_NAME
+        || !name.bytes().all(|c| (33..=126).contains(&c) && c != b':')
+        || value.len() > MAX_HEADER_VALUE
+        || (reserved_header(&name) && name != "X-Application")
+    {
+        return Err(());
+    }
+    Ok(Some((name, value)))
 }
 
 fn boolean(value: &str) -> Parsed<bool> {
@@ -368,8 +427,19 @@ impl Settings {
         }
         let (location, query) = rest.split_once('?').unwrap_or((rest, ""));
         let mut options = BTreeMap::new();
+        let mut headers: Vec<(String, String)> = Vec::new();
         for pair in query.split(['&', ';']).filter(|s| !s.is_empty()) {
             let (name, value) = pair.split_once('=').unwrap_or((pair, ""));
+            if let Some((name, value)) = custom_header(name, value)? {
+                match headers.iter_mut().find(|(known, _)| *known == name) {
+                    Some(known) => known.1 = value,
+                    None => headers.push((name, value)),
+                }
+                if headers.len() > MAX_HEADERS {
+                    return Err(());
+                }
+                continue;
+            }
             options.insert(
                 decode(name)?.trim().to_ascii_lowercase(),
                 decode(value)?.trim().to_owned(),
@@ -617,6 +687,7 @@ impl Settings {
                 .map(|s| boolean(s))
                 .transpose()?
                 .unwrap_or(false),
+            headers,
         })
     }
 }
@@ -886,6 +957,29 @@ impl Session {
     }
 }
 
+// RFC 2047 UTF-8 base64 words of at most 45 source bytes, folded by a space.
+fn encoded_words(text: &str) -> String {
+    let mut words = Vec::new();
+    let mut rest = text;
+    while !rest.is_empty() {
+        let mut end = rest.len().min(45);
+        while !rest.is_char_boundary(end) {
+            end -= 1;
+        }
+        words.push(format!("=?utf-8?b?{}?=", STANDARD.encode(&rest[..end])));
+        rest = &rest[end..];
+    }
+    words.join("\r\n ")
+}
+
+fn header_value(value: &str) -> String {
+    if value.is_ascii() {
+        value.to_owned()
+    } else {
+        encoded_words(value)
+    }
+}
+
 fn formatted(mailbox: &Mailbox) -> String {
     if mailbox.name.is_empty() {
         return mailbox.address.clone();
@@ -896,17 +990,7 @@ fn formatted(mailbox: &Mailbox) -> String {
             mailbox.name.replace('\\', "\\\\").replace('"', "\\\"")
         )
     } else {
-        let mut words = Vec::new();
-        let mut rest = mailbox.name.as_str();
-        while !rest.is_empty() {
-            let mut end = rest.len().min(45);
-            while !rest.is_char_boundary(end) {
-                end -= 1;
-            }
-            words.push(format!("=?utf-8?b?{}?=", STANDARD.encode(&rest[..end])));
-            rest = &rest[end..];
-        }
-        words.join("\r\n ")
+        encoded_words(&mailbox.name)
     };
     format!("{name} <{}>", mailbox.address)
 }
@@ -939,14 +1023,30 @@ fn message(settings: &Settings, target: &Mailbox, body: &str) -> (Vec<String>, S
     let recipients = std::iter::once(target.address.clone())
         .chain(cc.iter().chain(bcc.iter()).map(|m| m.address.clone()))
         .collect();
+    let application = settings
+        .headers
+        .iter()
+        .find(|(name, _)| name == "X-Application")
+        .map_or("Apprise", |(_, value)| value.as_str());
     let mut content = format!(
-        "MIME-Version: 1.0\r\nX-Application: Apprise\r\nSubject: Catabolic\r\nFrom: {}\r\nTo: {}\r\nMessage-ID: <{}@{}>\r\nDate: {}\r\n",
+        "MIME-Version: 1.0\r\nX-Application: {}\r\n",
+        header_value(application)
+    );
+    for (name, value) in settings
+        .headers
+        .iter()
+        .filter(|(n, _)| n != "X-Application")
+    {
+        content.push_str(&format!("{name}: {}\r\n", header_value(value)));
+    }
+    content.push_str(&format!(
+        "Subject: Catabolic\r\nFrom: {}\r\nTo: {}\r\nMessage-ID: <{}@{}>\r\nDate: {}\r\n",
         formatted(&settings.from),
         formatted(target),
         uuid::Uuid::new_v4(),
         settings.host,
         chrono::Local::now().format("%a, %d %b %Y %H:%M:%S %z")
-    );
+    ));
     if !cc.is_empty() {
         content.push_str(&format!(
             "Cc: {}\r\n",
@@ -1321,6 +1421,133 @@ mod tests {
         (port, task)
     }
 
+    // Top-level header fields other than those native always generates, with
+    // RFC 2047 UTF-8 base64 words decoded and folding removed.
+    fn custom_headers(content: &str) -> Vec<(String, String)> {
+        let block = content
+            .split_once("\r\n\r\n")
+            .unwrap()
+            .0
+            .replace("\r\n ", " ");
+        block
+            .split("\r\n")
+            .filter_map(|line| {
+                let (name, value) = line.split_once(':').unwrap();
+                if [
+                    "content-type",
+                    "content-transfer-encoding",
+                    "mime-version",
+                    "x-application",
+                    "subject",
+                    "from",
+                    "to",
+                    "cc",
+                    "bcc",
+                    "reply-to",
+                    "message-id",
+                    "date",
+                ]
+                .contains(&name.to_ascii_lowercase().as_str())
+                {
+                    return None;
+                }
+                let value = value.strip_prefix(' ').unwrap_or(value);
+                let value = if value.starts_with("=?utf-8?b?") {
+                    value
+                        .split(' ')
+                        .map(|word| {
+                            let word = word.strip_prefix("=?utf-8?b?").unwrap();
+                            let word = word.strip_suffix("?=").unwrap();
+                            String::from_utf8(STANDARD.decode(word).unwrap()).unwrap()
+                        })
+                        .collect()
+                } else {
+                    value.to_owned()
+                };
+                Some((name.to_owned(), value.trim().to_owned()))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn custom_header_options_follow_pinned_apprise_and_fail_closed() {
+        let base = "mailto://127.0.0.1:1/one@example.net?from=sender@example.com&";
+        let headers = |suffix: &str| Settings::parse(&format!("{base}{suffix}")).map(|s| s.headers);
+        assert_eq!(
+            headers("+X-A=1&+x-a=2&+X-A=3").unwrap(),
+            [
+                ("X-A".to_owned(), "3".to_owned()),
+                ("x-a".to_owned(), "2".to_owned())
+            ]
+        );
+        // Names and values are percent-decoded twice; `+` after the sigil is a space.
+        assert_eq!(
+            headers("%2BX-B=%2541&+X-C=a+b").unwrap(),
+            [
+                ("X-B".to_owned(), "A".to_owned()),
+                ("X-C".to_owned(), "a+b".to_owned())
+            ]
+        );
+        assert!(headers("+X+B=1").is_err());
+        assert!(headers("+X-%2541=1").is_ok());
+        for bad in [
+            "+X-A=a%0Ab",
+            "+X-A=a%250Ab",
+            "+X-A=a%250Db",
+            "+X-A=a%09b",
+            "+X-A%0D%0AB=1",
+            "+%C3%A9=1",
+            "+X-A%3AB=1",
+            "+=1",
+            "+X-A=%",
+            "+Bcc=hidden@example.net",
+            "+BCC=hidden@example.net",
+            "+Content-Disposition=attachment",
+            "+Resent-To=a@example.net",
+            "+x-application=Other",
+            "%20X-A=1",
+        ] {
+            assert!(headers(bad).is_err(), "{bad}");
+        }
+        let long_value = format!("+X-A={}", "a".repeat(MAX_HEADER_VALUE + 1));
+        assert!(headers(&long_value).is_err());
+        let many: Vec<_> = (0..=MAX_HEADERS).map(|i| format!("+X-{i}=v")).collect();
+        assert!(headers(&many.join("&")).is_err());
+        let settings = Settings::parse(&format!("{base}+X-Application=Mine&+X-Café%3D=1")).is_err();
+        assert!(settings);
+        let settings =
+            Settings::parse(&format!("{base}+X-Application=Mine&+X-B=caf%C3%A9")).unwrap();
+        let (_, content) = message(&settings, &settings.to[0], BODY);
+        assert!(content.contains("MIME-Version: 1.0\r\nX-Application: Mine\r\nX-B: =?utf-8?b?Y2Fmw6k=?=\r\nSubject: Catabolic\r\n"));
+        assert!(content.is_ascii());
+    }
+
+    #[test]
+    fn custom_headers_reach_the_wire_once_and_cannot_add_envelope_recipients() {
+        let (port, server) = fixture(Mode::Plain, "", false, 1);
+        let url = format!(
+            "mailto://127.0.0.1:{port}/one@example.net?from=sender@example.com&+X-Trace=abc&+X-Application=Custom"
+        );
+        assert_eq!(
+            deliver(&url, BODY, Instant::now() + Duration::from_secs(3)),
+            Outcome::Complete
+        );
+        let capture = server.join().unwrap();
+        let message = &capture.messages[0];
+        assert!(
+            message.contains("X-Application: Custom\r\nX-Trace: abc\r\nSubject: Catabolic\r\n")
+        );
+        assert_eq!(message.matches("X-Application:").count(), 1);
+        assert_eq!(
+            capture
+                .commands
+                .iter()
+                .filter(|c| c.starts_with("RCPT TO:"))
+                .count(),
+            1
+        );
+    }
+
     #[test]
     fn parses_defaults_overrides_names_and_literal_plus() {
         let gmail = Settings::parse("mailto://name:synthetic@gmail.com/to@example.net").unwrap();
@@ -1384,6 +1611,7 @@ mod tests {
             "store=yes",
             "tz=Europe/Paris",
             "+Bcc=other@example.com",
+            "+Subject=Other",
             "template=/tmp/body",
             "unknown=yes",
             "mode=other",
@@ -1582,6 +1810,17 @@ mod tests {
         for case in oracle["cases"].as_array().unwrap() {
             let url = case["url"].as_str().unwrap();
             assert_eq!(case["added"], true, "synthetic oracle admission: {url}");
+            if case["native_expectation"] == "reject" {
+                // Apprise admits or fails these (duplicate structural headers,
+                // invalid names, CR/LF); native rejects before connecting.
+                assert!(Settings::parse(url).is_err(), "{url}");
+                assert_eq!(
+                    deliver(url, BODY, Instant::now() + Duration::from_millis(100)),
+                    Outcome::InvalidDestination,
+                    "{url}"
+                );
+                continue;
+            }
             if case["native_expectation"] == "no_recipients" {
                 // Apprise 1.13.1 drops internationalized To targets, never
                 // connects and reports failure; it has no SMTPUTF8 path.
@@ -1667,9 +1906,22 @@ mod tests {
                     "synthetic URL {url}"
                 );
                 assert_eq!(expected_message["subject"], "Catabolic");
-                assert_eq!(expected_message["application"], "Apprise");
                 assert!(content.contains("Subject: Catabolic\r\n"));
-                assert!(content.contains("X-Application: Apprise\r\n"));
+                let application = expected_message["application"].as_str().unwrap();
+                assert!(content.contains(&format!("X-Application: {application}\r\n")));
+                assert_eq!(content.matches("X-Application:").count(), 1);
+                let expected_extra: Vec<_> = expected_message["extra_headers"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|pair| {
+                        (
+                            pair[0].as_str().unwrap().to_owned(),
+                            pair[1].as_str().unwrap().trim().to_owned(),
+                        )
+                    })
+                    .collect();
+                assert_eq!(custom_headers(&content), expected_extra, "{url}");
                 let mut parts = Vec::new();
                 for part in content.split("Content-Type: text/").skip(1) {
                     let (kind, rest) = part.split_once(';').unwrap();

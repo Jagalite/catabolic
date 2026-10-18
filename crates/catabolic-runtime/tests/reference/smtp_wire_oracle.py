@@ -66,6 +66,50 @@ CASES = [
     "mailto://user:synthetic@example.com/one@example.net?cc=j%C3%B3se@example.net&reply=r%C3%A9@example.net",
 ]
 
+# Custom `+Name=value` headers. Apprise percent-decodes names and values twice,
+# maps `+` after the first character of a name to a space, keeps the first
+# occurrence position of an exact-name repeat with the last value, and appends
+# its own Subject/From/To/Message-ID/Date after them without replacing any.
+# Native rejects the structural names below (duplicates of fields Apprise
+# itself adds, or Bcc leakage), invalid names, and any control character.
+HEADER_BASE = "mailto://user:synthetic@example.com/one@example.net?"
+HEADER_ACCEPTED = [
+    "+X-Test=abc",
+    "+X-Application=Mine",
+    "+X-One=1&+X-Two=2&+X-One=3",
+    "+X-A=1&+x-a=2",
+    "+X-Test=caf%C3%A9",
+    "+X-Test=%2541",
+    "+X-Test=",
+    "+X-Test",
+    "%2BX-Test=q",
+    "+X-Test=a+b",
+    "+X-Test=%2520x%2520",
+    "+x_test=1&+List-Unsubscribe=%3Cmailto:u@example.net%3E",
+    "+X-Long=" + "%C3%A9" * 25,
+    "format=text&+X-Test=abc",
+]
+HEADER_REJECTED = [
+    "+Subject=Evil",
+    "+From=x@example.net",
+    "+To=x@example.net",
+    "+Date=today",
+    "+Message-ID=m",
+    "+Reply-To=r@example.org",
+    "+Cc=c@example.org",
+    "+Bcc=b@example.org",
+    "+Content-Type=text/x",
+    "+MIME-Version=2.0",
+    "+x-application=lower",
+    "+X%20Test=q",
+    "+X:Test=q",
+    "+=q",
+    "+X-Test=a%0D%0AB:%20c",
+    "+X-Test=a%250D%250AB:%20c",
+    "+X-Test=%0D%0AInjected",
+]
+CASES += [HEADER_BASE + suffix for suffix in HEADER_ACCEPTED + HEADER_REJECTED]
+
 # Apprise 1.13.1 prepare_emails changes reply_to from set to list at line 1269.
 # With two To recipients, the second subtraction at line 1253 raises TypeError.
 # Keep its false result and the first emitted message as frozen evidence.
@@ -74,6 +118,10 @@ KNOWN_REFERENCE_BUGS = {CASES[6]: "reply_to_set_mutation"}
 # Apprise admits these URLs but drops every invalid To target, logs "There are
 # no Email recipients to notify" and returns False without connecting.
 NATIVE_EXPECTATIONS = {CASES[34]: "no_recipients", CASES[35]: "no_recipients"}
+NATIVE_EXPECTATIONS.update({HEADER_BASE + suffix: "reject" for suffix in HEADER_REJECTED})
+
+
+STANDARD_HEADERS = {"content-type", "content-transfer-encoding", "mime-version", "x-application", "subject", "from", "to", "cc", "bcc", "reply-to", "message-id", "date"}
 
 
 def reject(*args, **kwargs):
@@ -108,6 +156,7 @@ for url in CASES:
                             for name in ["From", "To", "Cc", "Reply-To", "Bcc"]},
                 "subject": str(parsed["Subject"]),
                 "application": str(parsed["X-Application"]),
+                "extra_headers": [[name, str(value)] for name, value in parsed.items() if name.lower() not in STANDARD_HEADERS],
                 "parts": [{"type": part.get_content_type(), "body": part.get_payload(decode=True).decode(part.get_content_charset() or "ascii")}
                           for part in parsed.walk() if not part.is_multipart()],
             })
