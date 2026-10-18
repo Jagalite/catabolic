@@ -27,6 +27,8 @@ jobs:
   native:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    env:
+      RUSTUP_TOOLCHAIN: '1.99.0'
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -42,6 +44,13 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
+      - name: Prepare exact Rust in an isolated toolchain home
+        run: |
+          export RUSTUP_HOME="$RUNNER_TEMP/native-qualification-rustup"
+          printf 'RUSTUP_HOME=%s\n' "$RUSTUP_HOME" >> "$GITHUB_ENV"
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
+          rustup show
+          rustc -vV
       - name: Require real disposable media tools and pinned oracle
         run: |
           sudo apt-get update
@@ -50,8 +59,6 @@ jobs:
           python -m pip install --no-deps --no-build-isolation .local-tests/rust-migration/reference
           python -m pip install --only-binary=:all: maturin==1.13.1
           python -m pip check
-          rustup show
-          rustc -vV
           python scripts/migration_fixtures.py --source .local-tests/rust-migration/reference --output .local-tests/rust-migration/m0-completion/legacy-fixtures
       - name: Install and generate both frozen contract clients before test discovery
         run: |
@@ -65,7 +72,8 @@ jobs:
           python scripts/check_failpoints_graph.py
       - name: Required native tests, journal oracles, models and release refusals
         run: |
-          export CATABOLIC_QUALIFICATION_PYTHON="$(command -v python)"
+          CATABOLIC_QUALIFICATION_PYTHON=$(command -v python)
+          export CATABOLIC_QUALIFICATION_PYTHON
           scripts/check-native-mutations.sh
           python scripts/migration_rust_resources.py --source .local-tests/rust-migration/reference --check
       - name: Exercise native HTTP worker and generated client journey

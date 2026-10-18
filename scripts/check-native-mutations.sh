@@ -50,6 +50,14 @@ export CATABOLIC_NATIVE_BINARY="$(pwd)/$evidence/artifacts/qualification-native"
 export CATABOLIC_HTTP_BINARY="$(pwd)/$evidence/artifacts/qualification-http"
 export CATABOLIC_LEGACY_BINARY="$(pwd)/$evidence/artifacts/qualification-legacy"
 export CATABOLIC_NATIVE_PARSER_BINARY="$(pwd)/$evidence/artifacts/qualification-parser"
+# The four newer native oracle suites have assertions for missing
+# prerequisites; they belong here rather than in the Python reference lane.
+export CATABOLIC_NATIVE_CLI="$CATABOLIC_NATIVE_BINARY"
+"$python" -m unittest \
+    tests.test_native_mapping_runtime_v2 \
+    tests.test_native_projection_execute \
+    tests.test_native_publication_mapping_folder \
+    tests.test_native_upgrade_rollback
 cargo test --workspace --locked
 # Cargo accepts an empty test filter. Require the exact ignored fixture to exist
 # once, and require one executed success rather than trusting exit status alone.

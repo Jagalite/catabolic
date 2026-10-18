@@ -20,6 +20,16 @@ except ImportError:
     from run_native_prerequisite_tests import REQUIRED_CASES, REQUIRED_IDS
 
 
+# These native-only modules require the pinned oracle and native CLI
+# prepared by check-native-mutations.sh, just like the test_rust_* suites.
+NATIVE_ORACLE_FILES = (
+    "test_native_mapping_runtime_v2.py",
+    "test_native_projection_execute.py",
+    "test_native_publication_mapping_folder.py",
+    "test_native_upgrade_rollback.py",
+)
+
+
 class ReferenceLoader(unittest.TestLoader):
     def __init__(self):
         super().__init__()
@@ -43,7 +53,10 @@ class ReferenceLoader(unittest.TestLoader):
     def _match_path(self, path, full_path, pattern):
         # This discovery hook is exercised on the supported Python 3.11/3.14
         # lanes. Exclude before import: native-only dependencies are optional.
-        if Path(path).name.startswith("test_rust_"):
+        if (
+            Path(path).name.startswith("test_rust_")
+            or Path(path).name in NATIVE_ORACLE_FILES
+        ):
             self.native_files.append(path)
             return False
         return super()._match_path(path, full_path, pattern)

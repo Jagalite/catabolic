@@ -13,7 +13,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts import run_native_prerequisite_tests as native
-from scripts.run_reference_tests import ReferenceLoader, identifiers
+from scripts.run_reference_tests import (
+    NATIVE_ORACLE_FILES,
+    ReferenceLoader,
+    identifiers,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -58,6 +62,30 @@ class ReferenceRoutingTest(unittest.TestCase):
                     loader._match_path(Path(name).name, str(ROOT / name), "test*.py")
                 )
                 self.assertNotIn(name[:-3].replace("/", "."), deferred_modules)
+
+    def test_new_native_oracle_modules_move_exactly_seventeen_scenarios(self):
+        class PreviousLoader(ReferenceLoader):
+            def _match_path(self, path, full_path, pattern):
+                if Path(path).name.startswith("test_rust_"):
+                    self.native_files.append(path)
+                    return False
+                return unittest.TestLoader._match_path(self, path, full_path, pattern)
+
+        before = PreviousLoader()
+        after = ReferenceLoader()
+        args = {"start_dir": str(ROOT / "tests"), "top_level_dir": str(ROOT)}
+        old_ids = set(identifiers(before.discover(**args)))
+        new_ids = set(identifiers(after.discover(**args)))
+        self.assertEqual(before.errors + after.errors, [])
+        moved = old_ids - new_ids
+        self.assertEqual(len(moved), 17)
+        self.assertEqual(new_ids - old_ids, set())
+        self.assertEqual(
+            {test.split(".")[1] + ".py" for test in moved}, set(NATIVE_ORACLE_FILES)
+        )
+        gate = (ROOT / "scripts/check-native-mutations.sh").read_text()
+        for filename in NATIVE_ORACLE_FILES:
+            self.assertIn("tests." + filename[:-3], gate)
 
     def test_native_prerequisite_discovery_is_exact_and_nonempty(self):
         suite, _ = native.required_suite()
