@@ -614,7 +614,11 @@ class NativeMutationReceiptTest(unittest.TestCase):
             try:
                 run = self.command([*self.explicit(), "--report"])
                 self.assertNotEqual(run.returncode, 0)
-                self.assertIn("IsADirectoryError", run.stderr)
+                # unlink(2) on a directory is EISDIR on Linux but EPERM on macOS.
+                self.assertIn(
+                    "PermissionError" if sys.platform == "darwin" else "IsADirectoryError",
+                    run.stderr,
+                )
                 self.assertEqual((blocked / "keep").read_text(), "not a receipt")
                 for report in self.reports:
                     for target in (report, report.with_suffix(".attempt.json")):
