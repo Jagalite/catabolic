@@ -664,8 +664,8 @@ fn configure_policy(store: &Store, profile: &str, source: &str, args: &Value) ->
 }
 /// Backtracking branches plus saved capture values one filter search may hold.
 const SCAN_REGEX_STORAGE_LIMIT: usize = 1_000_000;
-/// Delegated (regex-automata) automaton size: with the path limit, bounds
-/// the one call a deadline cannot interrupt.
+/// Delegated (regex-automata) automaton size: with the path and expansion
+/// limits, bounds the one call a deadline cannot interrupt.
 const SCAN_REGEX_DELEGATE_LIMIT: usize = 131_072;
 /// The same for patterns with backreferences, whose delegated searches may
 /// also record up to `MAX_REFERENCED_GROUPS` captures.
@@ -2838,6 +2838,43 @@ mod tests {
     use super::*;
 
     #[test]
+    fn scan_regex_refuses_oversized_uninterruptible_delegates() {
+        // The meta engine can exhaust its lazy DFA cache and fall back to a
+        // PikeVM. A single search then cannot observe our 10 ms deadline.
+        // Include the CI failure with and without discarded capture groups,
+        // plus actual backreferences and reverse delegates.
+        let captures = format!(r"(?>({}[ab]*a[ab]{{1000}}))(?!)", "()".repeat(31));
+        for pattern in [
+            captures.as_str(),
+            r"(?>[ab]*a[ab]{1000})(?!)",
+            r"[ab]*a[ab]{1000}",
+            r"(a)\1(?>[ab]*a[ab]{1000})(?!)",
+            r"(?<=[ab]{1000})x",
+            r"(?>[ab]*a(?:[ab]{32}){32})(?!)",
+            r"(?>[ab]*a[ab]{1000,})(?!)",
+            r"(?>[ab]*a[ab]{1,1000})(?!)",
+            r"(?=[ab]{150}|[ab]{150})x",
+        ] {
+            assert_eq!(
+                compile_pattern(pattern).unwrap_err().0,
+                scan_regex::UNQUALIFIED,
+                "{pattern:?}"
+            );
+        }
+        // A smaller repeat remains qualified and preserves its match, even
+        // with Unicode classes whose frozen tables need a larger NFA.
+        for (pattern, path) in [
+            (r"\A(?>[ab]*a[ab]{64})\Z", "a".repeat(65)),
+            (r"\A\d{3}\Z", "١٢٣".to_owned()),
+            (r"\A\w+\.mkv\Z", "映像.mkv".to_owned()),
+        ] {
+            let regex = compile_pattern(pattern).unwrap();
+            assert!(search(&regex, &path, Instant::now() + Duration::from_secs(1)).unwrap());
+        }
+        compile_pattern(r"(?>[ab]*a[ab]{240})(?!)").unwrap();
+    }
+
+    #[test]
     fn scan_regex_search_work_is_bounded_at_run_time() {
         // Sol rounds 9 and 10: searches whose work no admission check bounds.
         // Each is refused, or stops at the deadline or a limit, promptly.
@@ -2860,6 +2897,9 @@ mod tests {
             (r"\A(?>[ab/]*a[ab/]{12000})\Z", ab.as_str()),
             (r"(?<=a{20000})b", lookbehind_path.as_str()),
             (thirty_two.as_str(), near_path_limit.as_str()),
+            // Near the expansion ceiling: still admitted, but its delegated
+            // work must fit the same unchanged run-time guard.
+            (r"(?>[ab]*a[ab]{240})(?!)", near_path_limit.as_str()),
         ] {
             let Ok(regex) = compile_pattern(pattern) else {
                 continue;

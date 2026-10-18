@@ -318,6 +318,12 @@ const MAX_STEPS_PER_CHARACTER: u64 = 1_000;
 const REFERENCE_PATH: u64 = 1_024;
 /// Largest value of any work coefficient; keeps the arithmetic exact.
 const MAX_STEPS: u64 = MAX_STEPS_PER_CHARACTER * REFERENCE_PATH;
+/// Maximum syntax nodes in a consuming expression after repeats expand.
+/// Lookaround bodies are checked separately. NFA byte limits
+/// alone do not bound active PikeVM states tightly enough: Unicode tables
+/// need substantial space, while repeated ASCII classes can keep hundreds of
+/// states active at every byte. Delegated searches cannot check our deadline.
+const MAX_EXPANDED_NODES: u64 = 256;
 
 /// An upper bound on the engine steps of one forward execution of a node:
 /// `per_char * consumed + per_path * path + fixed`, where `consumed` is the
@@ -334,6 +340,7 @@ const MAX_STEPS: u64 = MAX_STEPS_PER_CHARACTER * REFERENCE_PATH;
 /// lookaround is refused inside a repeat, whose iterations could each pay it.
 #[derive(Clone, Copy)]
 struct Work {
+    expanded: u64,
     per_char: u64,
     per_path: u64,
     fixed: u64,
@@ -343,12 +350,14 @@ struct Work {
 
 impl Work {
     const EMPTY: Work = Work {
+        expanded: 0,
         per_char: 0,
         per_path: 0,
         fixed: 0,
         longest: Some(0),
     };
     const CHARACTER: Work = Work {
+        expanded: 1,
         per_char: 1,
         per_path: 0,
         fixed: 0,
@@ -363,16 +372,21 @@ impl Work {
     }
 
     fn checked(
+        expanded: u64,
         per_char: Option<u64>,
         per_path: Option<u64>,
         fixed: Option<u64>,
         longest: Option<u64>,
     ) -> Result<Work> {
+        if expanded > MAX_EXPANDED_NODES {
+            return Err(Error(UNQUALIFIED.into()));
+        }
         let bound = |v: Option<u64>| {
             v.filter(|v| *v <= MAX_STEPS)
                 .ok_or_else(|| Error(UNQUALIFIED.into()))
         };
         Ok(Work {
+            expanded,
             per_char: bound(per_char)?,
             per_path: bound(per_path)?,
             fixed: bound(fixed)?,
@@ -382,6 +396,7 @@ impl Work {
 
     fn then(self, next: Work) -> Result<Work> {
         Work::checked(
+            self.expanded.saturating_add(next.expanded),
             Some(self.per_char.max(next.per_char)),
             self.per_path.checked_add(next.per_path),
             self.fixed.checked_add(next.fixed),
@@ -393,6 +408,7 @@ impl Work {
 
     fn or(self, other: Work) -> Work {
         Work {
+            expanded: self.expanded.saturating_add(other.expanded),
             per_char: self.per_char.max(other.per_char),
             per_path: self.per_path.max(other.per_path),
             fixed: self.fixed.max(other.fixed),
@@ -411,6 +427,9 @@ impl Work {
             None => (self.per_path.checked_add(self.per_char), Some(0)),
         };
         Work::checked(
+            // The body was checked on its own; it cannot be merged into a
+            // delegate with the consuming expression around the assertion.
+            1,
             Some(0),
             per_path,
             fixed
@@ -426,6 +445,10 @@ impl Work {
             return Err(Error(UNQUALIFIED.into()));
         }
         let step = self.fixed + 1;
+        // A bounded repeat copies its body up to `high` times; an unbounded
+        // one copies the required prefix and retains one looping body.
+        let copies = high.unwrap_or_else(|| low.saturating_add(1));
+        let expanded = self.expanded.saturating_mul(copies).saturating_add(1);
         let longest = match high {
             Some(high) => self.longest.and_then(|w| w.checked_mul(high)),
             None => self.longest.filter(|w| *w == 0),
@@ -444,7 +467,9 @@ impl Work {
         }
         options
             .into_iter()
-            .filter_map(|(per_char, fixed)| Work::checked(per_char, Some(0), fixed, longest).ok())
+            .filter_map(|(per_char, fixed)| {
+                Work::checked(expanded, per_char, Some(0), fixed, longest).ok()
+            })
             .min_by_key(|work| work.reference_total())
             .ok_or_else(|| Error(UNQUALIFIED.into()))
     }
@@ -475,7 +500,9 @@ impl Sequence {
 
     fn finish(self) -> Result<Work> {
         let current = self.current()?;
-        Ok(self.alternatives.map_or(current, |a| a.or(current)))
+        self.alternatives
+            .map_or(current, |a| a.or(current))
+            .then(Work::EMPTY)
     }
 }
 
@@ -705,6 +732,7 @@ impl Translator<'_> {
         self.atom_with_work(
             width,
             Work {
+                expanded: 1,
                 per_char: 1,
                 per_path: 0,
                 fixed: 1,
@@ -1146,7 +1174,9 @@ fn translate(pattern: &str, keep: Option<HashSet<usize>>) -> Result<(String, Has
         return Err(refuse());
     }
     let work = translator.works.pop().expect("root sequence").finish()?;
-    if work.per_char + work.per_path > MAX_STEPS_PER_CHARACTER || work.reference_total() > MAX_STEPS
+    if work.expanded > MAX_EXPANDED_NODES
+        || work.per_char + work.per_path > MAX_STEPS_PER_CHARACTER
+        || work.reference_total() > MAX_STEPS
     {
         return Err(refuse());
     }

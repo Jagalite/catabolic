@@ -853,7 +853,8 @@ documented residual, instead of isolating matching in a worker process.
 - **What is bounded.**
   - Search time follows the frozen 10 ms per-search deadline, with at most
     one delegate call of overrun. Each delegate call is bounded by the
-    4,096-byte path limit and the 128/32 KiB automaton limits.
+    4,096-byte path limit, the 128/32 KiB automaton limits and the expansion
+    limit described below.
   - Held backtracking state is limited by entry count.
   - Compiled engines are limited by an estimate: 32 MiB per pattern and
     160 MiB per policy, per searching thread.
@@ -862,3 +863,28 @@ documented residual, instead of isolating matching in a worker process.
   the estimate by a bounded factor.
 - **Who can trigger it.** Only filter patterns configured by the catalog
   operator can do so.
+
+#### Delegated-search CI correction (October 18)
+
+The 128 KiB automaton limit still admitted `[ab]*a[ab]{1000}` inside an
+atomic group. Its search on a near-limit path exceeded the unchanged 500 ms
+regression guard locally and in Linux CI (695 ms). The meta engine can fall
+back to a PikeVM when a lazy DFA cannot complete, and that delegated call
+cannot observe the enclosing 10 ms deadline. NFA memory alone was therefore
+too permissive for large expansions of small ASCII classes.
+
+Admission now also limits consuming expressions to 256 syntax nodes after
+counted-repeat expansion. Concatenation and alternatives add their nodes;
+bounded repeats multiply by their upper bound, and unbounded repeats count
+the required prefix plus one looping body. Nested repeats multiply as well.
+Lookaround bodies are checked separately before becoming one assertion node
+in their enclosing expression. Oversized expressions return the existing
+`native scan regex construct is not qualified` error. This deliberately
+narrows native admission; it does not approximate matching or change Python.
+
+The larger automaton byte limits remain necessary for frozen Unicode tables.
+Regression coverage includes plain, atomic, backreference and reverse forms,
+nested and open repeats, and alternatives, while retaining ordinary counted
+repeats and Unicode digit/word matching. The 10 ms deadline and 500 ms test
+guard remain unchanged. This is still bounded admission, not a hard wall-clock
+deadline for a delegated call.
