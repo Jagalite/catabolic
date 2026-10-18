@@ -12,23 +12,34 @@ standard errors, and supported names are never wrapped or replaced.
 
 import importlib.abc
 import json
+import threading
 from pathlib import Path
 
 DOCUMENT = "docs/PYTHON_API_1_0.md"
 _state = {}
+_lock = threading.Lock()
 
 
 def _disposition():
-    if not _state:
-        data = json.loads(
-            Path(__file__).with_name("_api_disposition.json").read_text("utf-8")
-        )
-        _state["removed_modules"] = frozenset(data["removed_modules"])
-        _state["deprecated"] = {
-            module: frozenset(name.split(".")[0] for name in names)
-            for module, names in data["deprecated"].items()
-        }
-    return _state
+    # Build the whole cache locally and publish it with one assignment, so no
+    # thread ever sees a partial cache.
+    cached = _state.get("cache")
+    if cached is None:
+        with _lock:
+            cached = _state.get("cache")
+            if cached is None:
+                data = json.loads(
+                    Path(__file__).with_name("_api_disposition.json").read_text("utf-8")
+                )
+                cached = {
+                    "removed_modules": frozenset(data["removed_modules"]),
+                    "deprecated": {
+                        module: frozenset(name.split(".")[0] for name in names)
+                        for module, names in data["deprecated"].items()
+                    },
+                }
+                _state["cache"] = cached
+    return cached
 
 
 def getattr_for(module_name):

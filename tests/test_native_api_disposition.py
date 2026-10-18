@@ -11,6 +11,8 @@ import importlib.util
 import json
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -180,6 +182,95 @@ class Explanations(unittest.TestCase):
             self.assertIs(sys.meta_path[-1], finders[0])
             self.assertIsNone(finders[0].find_spec("catabolic.never_existed"))
             self.assertIsNone(finders[0].find_spec("other.rules"))
+
+    def test_concurrent_first_access_only_raises_the_documented_errors(self):
+        deprecated = sorted(DISPOSITION["deprecated"]["catabolic.store"])[0].split(".")[
+            0
+        ]
+        removed = DISPOSITION["removed_modules"][0]
+        for _ in range(20):
+            with COMPAT.isolated_modules(COMPAT.fake_provider()):
+                store = importlib.import_module("catabolic.store")
+                disposition = importlib.import_module("catabolic._disposition")
+                self.assertEqual(disposition._state, {})
+                self.race(store, deprecated, removed)
+
+    def race(self, store, deprecated, removed):
+        threads = 16
+        barrier = threading.Barrier(threads)
+        outcomes = []
+
+        def attribute():
+            barrier.wait()
+            try:
+                getattr(store, deprecated)
+            except AttributeError as error:
+                outcomes.append(("attribute", str(error)))
+            except BaseException as error:
+                outcomes.append(("unexpected", repr(error)))
+
+        def module():
+            barrier.wait()
+            try:
+                importlib.import_module(removed)
+            except ModuleNotFoundError as error:
+                outcomes.append(("module", str(error)))
+            except BaseException as error:
+                outcomes.append(("unexpected", repr(error)))
+
+        workers = [
+            threading.Thread(target=attribute if n % 2 else module)
+            for n in range(threads)
+        ]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join()
+        self.assertEqual(len(outcomes), threads)
+        self.assertEqual({kind for kind, _ in outcomes}, {"attribute", "module"})
+        for _, message in outcomes:
+            self.assertIn(DOCUMENT, message)
+        self.assertFalse(hasattr(store, deprecated))
+
+    def test_a_reader_never_sees_a_partially_built_cache(self):
+        # Hold the first thread inside cache construction while a second reads.
+        started, outcome = threading.Event(), []
+
+        class Slow(dict):
+            def items(self):
+                started.set()
+                time.sleep(0.3)
+                return super().items()
+
+        with COMPAT.isolated_modules(COMPAT.fake_provider()):
+            store = importlib.import_module("catabolic.store")
+            disposition = importlib.import_module("catabolic._disposition")
+            real = json.loads
+
+            def slow_loads(text):
+                data = real(text)
+                data["deprecated"] = Slow(data["deprecated"])
+                return data
+
+            name = sorted(DISPOSITION["deprecated"]["catabolic.store"])[0].split(".")[0]
+
+            def second():
+                started.wait(5)
+                try:
+                    getattr(store, name)
+                except AttributeError as error:
+                    outcome.append(str(error))
+                except BaseException as error:
+                    outcome.append("unexpected " + repr(error))
+
+            with patch.object(disposition.json, "loads", slow_loads):
+                reader = threading.Thread(target=second)
+                reader.start()
+                with self.assertRaises(AttributeError):
+                    getattr(store, name)
+                reader.join()
+        self.assertEqual(len(outcome), 1)
+        self.assertIn(DOCUMENT, outcome[0])
 
     def test_supported_imports_never_read_the_disposition_file(self):
         with COMPAT.isolated_modules(COMPAT.fake_provider()):
