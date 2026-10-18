@@ -507,3 +507,43 @@ times in about 9 seconds each.
   after a partial write, and an already-expired deadline writes nothing.
   `process` and `helper` unit tests: 52 passed.
 
+### Observation: scan regex dialect (track D item 2, October 18)
+
+Frozen scan filters compile `include_regex` and `exclude_regex` with the
+`regex` module's VERSION0. Native code used to pass patterns to fancy-regex
+nearly unchanged. It refused a few markers and mapped `\Z` to `\z`, but other
+syntax was approximated silently. For example, Python's `$` also matches
+before a final newline, `{,n}` means `{0,n}`, and `\p{…}` and POSIX classes
+have different spellings.
+
+Native code now translates an allowlisted subset and refuses everything else
+with `native scan regex construct is not qualified`:
+
+- **Literals and anchors.** Literals, `.` and `^`. `$` becomes a lookahead
+  for end-or-before-a-final-newline. `\A`, and a strict `\Z`.
+- **Classes.** `\d \D \w \W \s \S \b \B` (Unicode). Bracket classes without
+  nested `[`, POSIX classes or set operators.
+- **Escapes.** `\t \n \r \f \v`, `\xHH`, `\uHHHH`, `\UHHHHHHHH`, escaped
+  punctuation, and single-digit backreferences.
+- **Quantifiers.** Greedy and lazy. `{,n}` becomes `{0,n}`; a minimum above
+  the maximum is refused; possessive forms are refused.
+- **Groups.** Capturing, non-capturing, atomic and named groups. Lookahead
+  and lookbehind, including variable-width lookbehind, which the pinned
+  fancy-regex evaluates with a reverse search.
+- **Flags.** The inline flags `i` and `s`, global or scoped.
+
+`tests/parity/scan-regex-dialect-v1.json` is recorded by
+`scripts/generate_scan_regex_dialect.py` with the pinned oracle (Python
+3.14.6, regex 2026.9.10, reference `453fca9`). It holds 102 patterns, each
+with frozen admission and, if admitted, its search result on 17 sample paths
+(case folding, Unicode digits and letters, emoji, tabs and the empty path).
+The unit test requires one of two things for every frozen-admitted pattern:
+an identical match on every path, or an explicit refusal. A frozen-refused
+pattern must stay refused. Named constructs are pinned on each side:
+`\p{L}`, POSIX classes, set operations, `(?x)` and `(?a)` are refused, and
+the anchors, `{,n}`, lookbehind and atomic groups are qualified. Frozen
+admission crashes on `(?V1)` with an uncaught `KeyError`; native code refuses
+it as a structured error. That is a deliberate safety difference.
+
+Results: store unit tests, 521 passed, 6 ignored, including the fixture test
+and the existing strict-anchor and backtracking-budget test.
