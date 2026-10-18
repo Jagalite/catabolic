@@ -54,6 +54,8 @@ PATHS = [
     "Alien.mkv\n",
     "Straße/STRASSE/ẞ",
     "Kelvin/K/k",
+    # Unicode 17 case pair (Sol round 2).
+    "\uA7CF",
 ]
 
 PATTERNS = [
@@ -211,6 +213,11 @@ PATTERNS = [
     r"a(?=b)*",
     r"^*a",
     r"(?<!a)b",
+    # Sol round 2: a Unicode 17 case pair outside Python's case mappings.
+    r"(?i)\uA7CE",
+    r"(?i)[^\uA7CE]",
+    r"(?i)[\uA7CD-\uA7CE]",
+    r"\uA7CE",
 ]
 
 

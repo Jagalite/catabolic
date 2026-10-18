@@ -37,7 +37,8 @@
   "aab",
   "Alien.mkv\n",
   "Straße/STRASSE/ẞ",
-  "Kelvin/K/k"
+  "Kelvin/K/k",
+  "꟏"
  ],
  "cases": [
   {
@@ -74,6 +75,7 @@
     false,
     false,
     true,
+    false,
     false,
     false
    ]
@@ -113,6 +115,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -120,6 +123,7 @@
    "pattern": "\\Aмovies",
    "frozen": "admitted",
    "matches": [
+    false,
     false,
     false,
     false,
@@ -189,6 +193,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -219,6 +224,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false,
@@ -265,6 +271,7 @@
     false,
     true,
     false,
+    false,
     false
    ]
   },
@@ -302,6 +309,7 @@
     false,
     false,
     true,
+    false,
     false,
     false
    ]
@@ -341,6 +349,7 @@
     false,
     true,
     false,
+    false,
     false
    ]
   },
@@ -350,6 +359,7 @@
    "matches": [
     false,
     true,
+    false,
     false,
     false,
     false,
@@ -417,6 +427,7 @@
     false,
     true,
     false,
+    false,
     false
    ]
   },
@@ -455,6 +466,7 @@
     false,
     true,
     false,
+    false,
     false
    ]
   },
@@ -462,6 +474,7 @@
    "pattern": "/$",
    "frozen": "admitted",
    "matches": [
+    false,
     false,
     false,
     false,
@@ -531,6 +544,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -551,6 +565,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false,
@@ -607,6 +622,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -620,6 +636,7 @@
     true,
     true,
     true,
+    false,
     false,
     false,
     false,
@@ -683,7 +700,8 @@
     true,
     false,
     false,
-    false
+    false,
+    true
    ]
   },
   {
@@ -721,6 +739,7 @@
     false,
     true,
     false,
+    false,
     false
    ]
   },
@@ -745,6 +764,7 @@
     true,
     true,
     false,
+    true,
     true,
     true,
     true,
@@ -797,7 +817,8 @@
     false,
     false,
     true,
-    true
+    true,
+    false
    ]
   },
   {
@@ -828,6 +849,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false,
@@ -873,6 +895,7 @@
     false,
     false,
     true,
+    false,
     false
    ]
   },
@@ -901,6 +924,7 @@
     true,
     true,
     false,
+    true,
     true,
     true,
     true,
@@ -949,6 +973,7 @@
     false,
     false,
     true,
+    false,
     false
    ]
   },
@@ -962,6 +987,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false,
@@ -1025,6 +1051,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -1063,7 +1090,8 @@
     false,
     true,
     true,
-    true
+    true,
+    false
    ]
   },
   {
@@ -1101,6 +1129,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -1112,6 +1141,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false,
@@ -1177,6 +1207,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -1188,6 +1219,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false,
@@ -1253,6 +1285,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -1291,6 +1324,7 @@
     false,
     true,
     true,
+    false,
     false
    ]
   },
@@ -1312,6 +1346,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false,
@@ -1367,6 +1402,7 @@
     false,
     true,
     true,
+    false,
     false
    ]
   },
@@ -1374,6 +1410,7 @@
    "pattern": "\\0",
    "frozen": "admitted",
    "matches": [
+    false,
     false,
     false,
     false,
@@ -1443,7 +1480,8 @@
     false,
     false,
     true,
-    true
+    true,
+    false
    ]
   },
   {
@@ -1481,6 +1519,7 @@
     true,
     false,
     true,
+    false,
     false
    ]
   },
@@ -1519,6 +1558,7 @@
     true,
     true,
     true,
+    true,
     true
    ]
   },
@@ -1526,6 +1566,7 @@
    "pattern": "[a-z&&[^c]]",
    "frozen": "admitted",
    "matches": [
+    false,
     false,
     false,
     false,
@@ -1595,6 +1636,7 @@
     false,
     true,
     false,
+    false,
     false
    ]
   },
@@ -1633,6 +1675,7 @@
     false,
     false,
     true,
+    false,
     false
    ]
   },
@@ -1671,6 +1714,7 @@
     false,
     false,
     true,
+    false,
     false
    ]
   },
@@ -1682,6 +1726,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false,
@@ -1747,6 +1792,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -1785,6 +1831,7 @@
     false,
     false,
     true,
+    false,
     false
    ]
   },
@@ -1821,6 +1868,7 @@
     true,
     false,
     true,
+    false,
     false,
     false,
     false
@@ -1861,6 +1909,7 @@
     true,
     false,
     false,
+    false,
     false
    ]
   },
@@ -1899,6 +1948,7 @@
     true,
     false,
     false,
+    false,
     false
    ]
   },
@@ -1906,6 +1956,7 @@
    "pattern": "x{0}",
    "frozen": "admitted",
    "matches": [
+    true,
     true,
     true,
     true,
@@ -1975,6 +2026,7 @@
     true,
     false,
     false,
+    false,
     false
    ]
   },
@@ -2011,6 +2063,7 @@
     true,
     false,
     true,
+    false,
     false,
     false,
     false
@@ -2051,6 +2104,7 @@
     true,
     false,
     false,
+    false,
     false
    ]
   },
@@ -2087,6 +2141,7 @@
     true,
     false,
     true,
+    false,
     false,
     false,
     false
@@ -2127,6 +2182,7 @@
     true,
     false,
     false,
+    false,
     false
    ]
   },
@@ -2163,6 +2219,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false
@@ -2208,6 +2265,7 @@
     true,
     false,
     false,
+    false,
     false
    ]
   },
@@ -2245,6 +2303,7 @@
     false,
     false,
     true,
+    false,
     false,
     false
    ]
@@ -2284,6 +2343,7 @@
     false,
     true,
     false,
+    false,
     false
    ]
   },
@@ -2321,6 +2381,7 @@
     false,
     false,
     true,
+    false,
     false,
     false
    ]
@@ -2360,6 +2421,7 @@
     true,
     false,
     false,
+    false,
     false
    ]
   },
@@ -2367,6 +2429,7 @@
    "pattern": "(?s)Show.S01",
    "frozen": "admitted",
    "matches": [
+    false,
     false,
     false,
     false,
@@ -2436,6 +2499,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -2448,6 +2512,7 @@
     false,
     true,
     true,
+    false,
     false,
     false,
     false,
@@ -2512,6 +2577,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -2550,7 +2616,8 @@
     true,
     true,
     true,
-    true
+    true,
+    false
    ]
   },
   {
@@ -2588,6 +2655,7 @@
     true,
     false,
     true,
+    false,
     false
    ]
   },
@@ -2631,6 +2699,7 @@
     true,
     false,
     true,
+    false,
     false
    ]
   },
@@ -2669,6 +2738,7 @@
     true,
     false,
     true,
+    false,
     false
    ]
   },
@@ -2707,6 +2777,7 @@
     true,
     false,
     true,
+    false,
     false
    ]
   },
@@ -2716,6 +2787,7 @@
    "matches": [
     true,
     true,
+    false,
     false,
     false,
     false,
@@ -2783,6 +2855,7 @@
     false,
     true,
     false,
+    false,
     false
    ]
   },
@@ -2821,6 +2894,7 @@
     false,
     true,
     false,
+    false,
     false
    ]
   },
@@ -2851,6 +2925,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false,
@@ -2897,6 +2972,7 @@
     true,
     false,
     false,
+    false,
     false
    ]
   },
@@ -2935,6 +3011,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -2942,6 +3019,7 @@
    "pattern": "\\K",
    "frozen": "admitted",
    "matches": [
+    true,
     true,
     true,
     true,
@@ -3011,6 +3089,7 @@
     true,
     true,
     true,
+    true,
     true
    ]
   },
@@ -3054,6 +3133,7 @@
     true,
     false,
     false,
+    false,
     false
    ]
   },
@@ -3078,6 +3158,7 @@
     true,
     true,
     false,
+    true,
     true,
     true,
     true,
@@ -3130,6 +3211,7 @@
     true,
     true,
     true,
+    true,
     true
    ]
   },
@@ -3137,6 +3219,7 @@
    "pattern": "\\G",
    "frozen": "admitted",
    "matches": [
+    true,
     true,
     true,
     true,
@@ -3211,6 +3294,7 @@
     true,
     true,
     true,
+    true,
     true
    ]
   },
@@ -3249,6 +3333,7 @@
     true,
     false,
     true,
+    false,
     false
    ]
   },
@@ -3287,6 +3372,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -3308,6 +3394,7 @@
     false,
     true,
     true,
+    false,
     false,
     false,
     false,
@@ -3363,6 +3450,7 @@
     false,
     true,
     false,
+    false,
     false
    ]
   },
@@ -3370,6 +3458,7 @@
    "pattern": "\\z",
    "frozen": "admitted",
    "matches": [
+    true,
     true,
     true,
     true,
@@ -3494,6 +3583,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -3532,7 +3622,8 @@
     false,
     true,
     false,
-    true
+    true,
+    false
    ]
   },
   {
@@ -3570,7 +3661,8 @@
     false,
     true,
     false,
-    true
+    true,
+    false
    ]
   },
   {
@@ -3608,7 +3700,8 @@
     false,
     true,
     false,
-    true
+    true,
+    false
    ]
   },
   {
@@ -3634,6 +3727,7 @@
     false,
     true,
     true,
+    false,
     false,
     false,
     false,
@@ -3684,6 +3778,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -3722,6 +3817,7 @@
     false,
     true,
     false,
+    false,
     false
    ]
   },
@@ -3758,6 +3854,7 @@
     false,
     true,
     false,
+    true,
     true,
     true,
     true
@@ -3798,7 +3895,8 @@
     false,
     true,
     false,
-    true
+    true,
+    false
    ]
   },
   {
@@ -3836,7 +3934,8 @@
     false,
     true,
     false,
-    true
+    true,
+    false
    ]
   },
   {
@@ -3874,6 +3973,7 @@
     false,
     false,
     true,
+    false,
     false
    ]
   },
@@ -3912,6 +4012,7 @@
     false,
     false,
     true,
+    false,
     false
    ]
   },
@@ -3950,6 +4051,7 @@
     false,
     false,
     true,
+    false,
     false
    ]
   },
@@ -3980,6 +4082,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false,
@@ -4026,6 +4129,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -4064,6 +4168,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -4071,6 +4176,7 @@
    "pattern": "(a)\\1\\x32",
    "frozen": "admitted",
    "matches": [
+    false,
     false,
     false,
     false,
@@ -4140,6 +4246,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -4178,7 +4285,8 @@
     true,
     true,
     true,
-    true
+    true,
+    false
    ]
   },
   {
@@ -4221,6 +4329,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -4228,6 +4337,7 @@
    "pattern": "(?<=(a)\\1)b",
    "frozen": "admitted",
    "matches": [
+    false,
     false,
     false,
     false,
@@ -4302,6 +4412,7 @@
     false,
     true,
     false,
+    false,
     false
    ]
   },
@@ -4340,6 +4451,7 @@
     true,
     false,
     true,
+    false,
     false
    ]
   },
@@ -4376,6 +4488,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false
@@ -4416,6 +4529,7 @@
     true,
     true,
     true,
+    false,
     false
    ]
   },
@@ -4446,6 +4560,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false,
@@ -4492,6 +4607,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -4516,6 +4632,7 @@
     true,
     true,
     false,
+    true,
     true,
     true,
     true,
@@ -4568,7 +4685,8 @@
     false,
     true,
     true,
-    true
+    true,
+    false
    ]
   },
   {
@@ -4596,6 +4714,7 @@
     true,
     true,
     false,
+    true,
     true,
     true,
     true,
@@ -4644,7 +4763,8 @@
     true,
     true,
     true,
-    true
+    true,
+    false
    ]
   },
   {
@@ -4682,6 +4802,7 @@
     true,
     true,
     true,
+    true,
     true
    ]
   },
@@ -4689,6 +4810,7 @@
    "pattern": "a{3,}",
    "frozen": "admitted",
    "matches": [
+    false,
     false,
     false,
     false,
@@ -4758,6 +4880,7 @@
     false,
     false,
     false,
+    false,
     false
    ]
   },
@@ -4778,6 +4901,7 @@
     false,
     false,
     true,
+    false,
     false,
     false,
     false,
@@ -4834,7 +4958,8 @@
     false,
     false,
     true,
-    true
+    true,
+    false
    ]
   },
   {
@@ -4872,6 +4997,7 @@
     true,
     false,
     true,
+    false,
     false
    ]
   },
@@ -4910,6 +5036,7 @@
     true,
     false,
     true,
+    false,
     false
    ]
   },
@@ -4942,6 +5069,163 @@
     false,
     false,
     true,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "pattern": "(?i)\\uA7CE",
+   "frozen": "admitted",
+   "matches": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    true
+   ]
+  },
+  {
+   "pattern": "(?i)[^\\uA7CE]",
+   "frozen": "admitted",
+   "matches": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    false,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    false
+   ]
+  },
+  {
+   "pattern": "(?i)[\\uA7CD-\\uA7CE]",
+   "frozen": "admitted",
+   "matches": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    true
+   ]
+  },
+  {
+   "pattern": "\\uA7CE",
+   "frozen": "admitted",
+   "matches": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
     false,
     false,
     false,

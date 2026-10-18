@@ -586,3 +586,13 @@ The fixture now holds 144 patterns over 32 paths, adding Sol's cases and
 paths with `İ`, `ı`, `ſ`, `ẞ`, the Kelvin sign, Unicode 17 digits and
 letters, angle brackets and trailing newlines. The pinned lists name each
 newly qualified and refused construct.
+
+#### Review round 2 correction (October 18)
+
+Python's own case mappings are Unicode 16, but the pinned `regex` engine is
+Unicode 17. The fold table therefore missed 56 code points, for example the
+pair U+A7CE and U+A7CF. The generator now takes its candidates from the
+engine's own case tables (`regex._regex.get_all_cases`) as well as from
+Python's mappings, and the engine still decides every pair. The table now has
+2,996 entries. The fixture (148 patterns, 33 paths) adds this pair as a
+literal, a negated class and a range.

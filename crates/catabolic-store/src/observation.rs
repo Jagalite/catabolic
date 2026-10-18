@@ -2876,6 +2876,10 @@ mod tests {
             r"\w+/\w+",
             r"(?<!a)b",
             r"(?P<n>a)(?P=n)",
+            // Sol round 2: a Unicode 17 case pair from the engine's tables.
+            r"(?i)\uA7CE",
+            r"(?i)[^\uA7CE]",
+            r"(?i)[\uA7CD-\uA7CE]",
         ] {
             if fixture["cases"]
                 .as_array()

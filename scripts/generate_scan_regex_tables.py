@@ -21,6 +21,7 @@ import sys
 from collections import defaultdict
 
 import regex
+import regex._regex as engine
 
 MAX = 0x110000
 
@@ -50,9 +51,15 @@ def classes():
     return tables
 
 
+CASE_FLAGS = regex.IGNORECASE | regex.UNICODE
+
+
 def related(c):
-    """Single code points case-related to c by any Unicode case mapping."""
-    out = {c}
+    """Code points case-related to c, from the pinned engine's own case
+    tables (its Unicode version may be newer than Python's) and from every
+    Python case mapping. The engine still decides each pair below."""
+    out = {chr(cp) for cp in engine.get_all_cases(CASE_FLAGS, ord(c))}
+    out.add(c)
     for mapped in (c.lower(), c.upper(), c.casefold(), c.title()):
         out.add(mapped[0])
         if len(mapped) == 1:
