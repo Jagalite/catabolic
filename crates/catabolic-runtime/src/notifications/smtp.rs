@@ -140,6 +140,7 @@ fn custom_header(raw_name: &str, raw_value: &str) -> Parsed<Option<(String, Stri
         || !name.bytes().all(|c| (33..=126).contains(&c) && c != b':')
         || value.len() > MAX_HEADER_VALUE
         || (reserved_header(&name) && name != "X-Application")
+        || (value.is_ascii() && fold_ascii(&name, &value).is_none())
     {
         return Err(());
     }
@@ -1083,10 +1084,81 @@ fn date_header(zone: Option<chrono_tz::Tz>) -> String {
     }
 }
 
+// True if `text` holds an RFC 2047 token `=?charset?B|Q?text?=` (any case).
+// Deliberately a superset of well-formed words: it only decides when the
+// 76-character line rule must be enforced.
+fn contains_encoded_word(text: &str) -> bool {
+    let mut from = 0;
+    while let Some(found) = text[from..].find("=?") {
+        let start = from + found + 2;
+        let mut parts = text[start..].splitn(4, '?');
+        if let (Some(charset), Some(encoding), Some(body), Some(rest)) =
+            (parts.next(), parts.next(), parts.next(), parts.next())
+            && !charset.is_empty()
+            && matches!(encoding, "b" | "B" | "q" | "Q")
+            && rest.starts_with('=')
+            && ![charset, body].iter().any(|p| p.contains(' '))
+        {
+            return true;
+        }
+        from = start;
+    }
+    false
+}
+
+// Lays out an ASCII value that carries encoded words so that every physical
+// line holding one is at most 76 characters, folding only at existing
+// whitespace (the whitespace run moves to the continuation line, so unfolding
+// reproduces the original bytes exactly). Nothing is re-encoded or split: a
+// token with an encoded word that cannot fit on a continuation line makes the
+// header unrepresentable and the URL is refused.
+fn fold_ascii(name: &str, value: &str) -> Option<String> {
+    let full = format!("{name}: {value}");
+    if !contains_encoded_word(value) {
+        return Some(full);
+    }
+    let mut pairs: Vec<(String, String)> = Vec::new();
+    let mut pending = 0;
+    for (index, piece) in full.split(' ').enumerate() {
+        if index == 0 {
+            pairs.push((String::new(), piece.to_owned()));
+        } else if piece.is_empty() {
+            pending += 1;
+        } else {
+            pairs.push((" ".repeat(pending + 1), piece.to_owned()));
+            pending = 0;
+        }
+    }
+    if let Some(last) = pairs.last_mut() {
+        last.1.push_str(&" ".repeat(pending));
+    }
+    let mut out = String::new();
+    let mut line = 0;
+    for (index, (spaces, token)) in pairs.iter().enumerate() {
+        if index == 0 {
+            out.push_str(token);
+            line = token.len();
+        } else if line + spaces.len() + token.len() <= 76 {
+            out.push_str(spaces);
+            out.push_str(token);
+            line += spaces.len() + token.len();
+        } else if contains_encoded_word(token) && spaces.len() + token.len() > 76 {
+            return None;
+        } else {
+            out.push_str("\r\n");
+            out.push_str(spaces);
+            out.push_str(token);
+            line = spaces.len() + token.len();
+        }
+    }
+    Some(out)
+}
+
 // One complete header field (without the final CRLF).
 fn header_field(name: &str, value: &str) -> String {
     if value.is_ascii() {
-        return format!("{name}: {value}");
+        // Validated when the URL is parsed; the fallback is unreachable.
+        return fold_ascii(name, value).unwrap_or_else(|| format!("{name}: {value}"));
     }
     let words = encoded_words(value, name.len() + 2);
     if words.starts_with("\r\n") {
@@ -1568,11 +1640,26 @@ mod tests {
         (port, task)
     }
 
+    // True if `line` contains `=?charset?B|Q?text?=` in any case. Written
+    // independently of the production detector.
+    fn has_encoded_word(line: &str) -> bool {
+        line.match_indices("=?").any(|(at, _)| {
+            let parts: Vec<_> = line[at + 2..].splitn(4, '?').collect();
+            parts.len() == 4
+                && !parts[0].is_empty()
+                && parts[1].len() == 1
+                && "bBqQ".contains(parts[1])
+                && parts[3].starts_with('=')
+                && !parts[0].contains(' ')
+                && !parts[2].contains(' ')
+        })
+    }
+
     // RFC 5322 line limit, and RFC 2047 section 2's 76 for lines with encoded words.
     fn assert_line_limits(content: &str, context: &str) {
         for line in content.split("\r\n") {
             assert!(line.len() <= 998, "{context}: {line}");
-            if line.contains("=?utf-8?") {
+            if has_encoded_word(line) {
                 assert!(line.len() <= 76, "{context}: {} {line}", line.len());
             }
         }
@@ -2022,6 +2109,95 @@ mod tests {
         let (recipients, content) = message(&settings, &mailbox("", 5, 9), BODY);
         assert_eq!(recipients.len(), 2);
         assert!(!content.contains("Bcc"));
+    }
+
+    #[test]
+    fn ascii_values_with_encoded_words_fold_at_whitespace_or_are_refused() {
+        let base = "mailto://127.0.0.1:1/one@example.net?from=sender@example.com";
+        let encode = |text: &str| -> String {
+            text.bytes()
+                .map(|b| {
+                    if b.is_ascii_alphanumeric() {
+                        (b as char).to_string()
+                    } else {
+                        format!("%{b:02X}")
+                    }
+                })
+                .collect()
+        };
+        let b64 = |n: usize| format!("=?utf-8?b?{}?=", "Y2Fm".repeat(n));
+        let words = [
+            "=?utf-8?b?Y2Fmw6k=?=".to_owned(),
+            "=?UTF-8?Q?caf=C3=A9?=".to_owned(),
+            "=?iso-8859-1?q?caf=E9?=".to_owned(),
+            b64(10),
+            b64(15),
+            b64(16),
+            b64(17),
+            b64(18),
+        ];
+        let mut values: Vec<String> = Vec::new();
+        for word in &words {
+            values.push(word.clone());
+            values.push(format!("plain {word}"));
+            values.push(format!("{word} plain"));
+            values.push(format!("{word} {word}"));
+            values.push(format!("a {word} b {word} c {word}"));
+            values.push(format!("{word}  {word}   tail"));
+            values.push(format!("{} {word}", "p".repeat(70)));
+            values.push(format!("{word} {}", "p".repeat(200)));
+            values.push(format!("lead{word}"));
+            values.push(format!(" {word} "));
+            values.push(format!("{word}   "));
+        }
+        let (mut accepted, mut refused) = (0, 0);
+        for name_len in 1..=64 {
+            let name = format!("X{}", "n".repeat(name_len - 1));
+            for value in &values {
+                // Values are percent-decoded twice (and trimmed once in between).
+                let url = format!("{base}&+{name}={}", encode(&encode(value)));
+                // A token holding an encoded word that cannot fit on a
+                // continuation line (leading whitespace included) is refused.
+                let mut tokens: Vec<(usize, String)> = Vec::new();
+                let mut spaces = 0;
+                for piece in format!("{name}: {value}").split(' ').skip(1) {
+                    if piece.is_empty() {
+                        spaces += 1;
+                    } else {
+                        tokens.push((spaces + 1, piece.to_owned()));
+                        spaces = 0;
+                    }
+                }
+                if let Some(last) = tokens.last_mut() {
+                    // Trailing whitespace cannot start a line; it travels
+                    // with the final token.
+                    last.1.push_str(&" ".repeat(spaces));
+                }
+                let impossible = tokens
+                    .iter()
+                    .any(|(lead, token)| has_encoded_word(token) && lead + token.len() > 76);
+                let parsed = Settings::parse(&url);
+                if impossible {
+                    assert!(parsed.is_err(), "{name_len} {value:?}");
+                    refused += 1;
+                    continue;
+                }
+                let settings = parsed.unwrap_or_else(|_| panic!("{name_len} {value:?}"));
+                let (_, content) = message(&settings, &settings.to[0], BODY);
+                let context = format!("{name_len} {value:?}");
+                assert_line_limits(&content, &context);
+                // Unfolding reproduces the bytes exactly: nothing re-encoded.
+                let block = content.split_once("\r\n\r\n").unwrap().0;
+                let unfolded = block.replace("\r\n ", " ").replace("\r\n", "\n");
+                let field = unfolded
+                    .split('\n')
+                    .find(|line| line.starts_with(&format!("{name}:")))
+                    .unwrap();
+                assert_eq!(field, format!("{name}: {value}"), "{context}");
+                accepted += 1;
+            }
+        }
+        assert!(accepted > 500 && refused > 50, "{accepted} {refused}");
     }
 
     #[test]
