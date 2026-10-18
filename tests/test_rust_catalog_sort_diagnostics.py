@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.qualify_native_mutations import (
     oracle_snapshot,
@@ -75,6 +76,15 @@ print(json.dumps(result,ensure_ascii=False,sort_keys=True,separators=(',',':')))
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def stage_diagnostic_extension(root, sources, artifact, sha256):
+    # The aggregate owns a separate completion package. These diagnostics
+    # deliberately stage and verify their own explicit artifact; do not let
+    # the aggregate's environment masquerade as an ambient input here.
+    with patch.dict(os.environ):
+        os.environ.pop("CATABOLIC_COMPLETION_EXTENSION_ROOT", None)
+        return stage_completion_extension(root, sources, artifact, sha256)
 
 
 class CatalogSortDiagnosticsTest(unittest.TestCase):
@@ -202,7 +212,7 @@ class CatalogSortDiagnosticsTest(unittest.TestCase):
         extension = Path(os.environ["CATABOLIC_NATIVE_EXTENSION"])
         self.assertTrue(extension.is_file())
         extension_before = digest(extension)
-        staged = stage_completion_extension(
+        staged = stage_diagnostic_extension(
             ROOT, source_snapshot(ROOT), extension, extension_before
         )
         oracle_before = oracle_snapshot(fixture.REFERENCE, ROOT)
@@ -349,7 +359,7 @@ class CatalogSortDiagnosticsTest(unittest.TestCase):
     def test_typed_owner_recovery_and_exact_message_spoof_controls(self):
         extension = Path(os.environ["CATABOLIC_NATIVE_EXTENSION"])
         before = digest(extension)
-        staged = stage_completion_extension(
+        staged = stage_diagnostic_extension(
             ROOT, source_snapshot(ROOT), extension, before
         )
         program = r"""
@@ -449,7 +459,7 @@ print(json.dumps(outcomes,sort_keys=True,separators=(',',':')))
     def test_list_owner_recovery_and_exact_message_spoof_controls(self):
         extension = Path(os.environ["CATABOLIC_NATIVE_EXTENSION"])
         before = digest(extension)
-        staged = stage_completion_extension(
+        staged = stage_diagnostic_extension(
             ROOT, source_snapshot(ROOT), extension, before
         )
         program = r"""

@@ -5,6 +5,7 @@
 import ast
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import subprocess
@@ -27,6 +28,31 @@ def digest(path):
 
 
 class NativeFixtureProvenanceTest(unittest.TestCase):
+    def test_failures_errors_and_subtests_print_before_runner_finishes(self):
+        class Broken(unittest.TestCase):
+            def runTest(case):
+                with case.subTest(boundary="assertion"):
+                    case.fail("immediate assertion witness")
+                with case.subTest(boundary="exception"):
+                    raise RuntimeError("immediate subtest error witness")
+                raise RuntimeError("immediate error witness")
+
+        class Failed(unittest.TestCase):
+            def runTest(case):
+                case.fail("immediate failure witness")
+
+        stream = io.StringIO()
+        result = QUALIFIER.Results(unittest.runner._WritelnDecorator(stream), True, 2)
+        Broken().run(result)
+        Failed().run(result)
+        # No TextTestRunner final printErrors call: cancellation must still
+        # leave every already observed traceback in the CI log.
+        for witness in ("assertion", "subtest error", "error", "failure"):
+            self.assertIn("immediate " + witness + " witness", stream.getvalue())
+        self.assertEqual(len(result.failures), 2)
+        self.assertEqual(len(result.errors), 2)
+        self.assertFalse(result.wasSuccessful())
+
     def test_publication_preview_discovery_has_no_imported_testcase_duplicates(self):
         suite = unittest.TestSuite(
             unittest.defaultTestLoader.loadTestsFromName(name)

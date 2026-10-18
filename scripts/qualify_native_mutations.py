@@ -621,10 +621,14 @@ class Results(unittest.TextTestResult):
     def addFailure(self, test, err):
         super().addFailure(test, err)
         self.scenarios.append({"id": test.id(), "outcome": "failed"})
+        self.printErrorList("FAIL (immediate)", self.failures[-1:])
+        self.stream.flush()
 
     def addError(self, test, err):
         super().addError(test, err)
         self.scenarios.append({"id": test.id(), "outcome": "error"})
+        self.printErrorList("ERROR (immediate)", self.errors[-1:])
+        self.stream.flush()
 
     def addSkip(self, test, reason):
         super().addSkip(test, reason)
@@ -634,6 +638,13 @@ class Results(unittest.TextTestResult):
         super().addSubTest(test, subtest, err)
         if err is not None:
             self.scenarios.append({"id": subtest.id(), "outcome": "failed-subtest"})
+            details = (
+                self.failures
+                if issubclass(err[0], test.failureException)
+                else self.errors
+            )
+            self.printErrorList("SUBTEST (immediate)", details[-1:])
+            self.stream.flush()
 
 
 def cases(suite):

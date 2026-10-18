@@ -122,7 +122,7 @@ class InstalledCIContract(unittest.TestCase):
                 ),
                 "duplicate_timeout": workflow.replace(timeout, timeout + timeout),
                 "timeout_in_native_job": workflow.replace(timeout, "").replace(
-                    "    timeout-minutes: 90\n", timeout
+                    "    timeout-minutes: 240\n", timeout
                 ),
                 "timeout_in_step": workflow.replace(timeout, "").replace(
                     "      - name: " + STEP + "\n",
