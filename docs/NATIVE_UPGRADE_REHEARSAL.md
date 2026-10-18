@@ -355,14 +355,18 @@ graph of catabolic-cli, catabolic-python and catabolic-dist offline with
 It fails closed: a cargo error, empty or malformed output, a graph rooted at
 another package, or a missing catabolic-store for catabolic-cli or
 catabolic-python all fail. The feature field is parsed apart from the package
-path, so punctuation in a checkout path cannot hide it. The check is enforced
+path, so punctuation in a checkout path cannot hide it. catabolic-python is
+resolved with the feature options maturin merges in from `[tool.maturin]`
+(`features`, `all-features`, `no-default-features`); maturin settings the
+check cannot reproduce (`cargo-extra-args`, `config`, `unstable-flags`, or a
+`[tool.maturin]` table in the root pyproject) fail. The check is enforced
 where shipped artifacts are made:
 
 - `scripts/build_native_wheel.py` runs it before building, and rejects a
   release `cargo build` artifact of catabolic-store compiled with the feature.
 - `catabolic-dist` rejects the same in its own release build's artifacts.
-- The native qualification workflow runs it and its unit tests
-  (`tests/test_check_failpoints_graph.py`).
+- The native qualification workflow fetches the locked dependencies, then
+  runs it and its unit tests (`tests/test_check_failpoints_graph.py`).
 
 Restore refuses backups with retained worker ownership. Cleanup witnesses for
 completed processing jobs and observation companions name the incarnation

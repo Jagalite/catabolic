@@ -5,6 +5,7 @@
 import contextlib
 import importlib.util
 import io
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -69,6 +70,53 @@ class ParseTest(unittest.TestCase):
             with self.subTest(bad=bad):
                 with self.assertRaisesRegex(CHECK.GraphError, "malformed"):
                     CHECK.parse("catabolic-cli", line("catabolic-cli") + "\n" + bad)
+
+
+class MaturinFeaturesTest(unittest.TestCase):
+    def root(self, maturin, root_tool=""):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        (root / "crates/catabolic-python").mkdir(parents=True)
+        (root / "pyproject.toml").write_text(f"[project]\nname='x'\n{root_tool}")
+        (root / "crates/catabolic-python/pyproject.toml").write_text(
+            "[tool.maturin]\n" + maturin
+        )
+        return root
+
+    def test_features_and_flags_are_reproduced(self):
+        root = self.root(
+            'features = ["pyo3/extension-module", "catabolic-store/failpoints"]\n'
+            "no-default-features = true\n"
+        )
+        self.assertEqual(
+            CHECK.maturin_feature_args(root),
+            [
+                "--no-default-features",
+                "--features",
+                "pyo3/extension-module,catabolic-store/failpoints",
+            ],
+        )
+        self.assertEqual(
+            CHECK.maturin_feature_args(self.root("all-features = true\n")),
+            ["--all-features"],
+        )
+        self.assertEqual(CHECK.maturin_feature_args(self.root("")), [])
+
+    def test_unreproducible_settings_fail(self):
+        for maturin in (
+            'cargo-extra-args = "--features catabolic-store/failpoints"\n',
+            'config = ["x=1"]\n',
+            'features = "catabolic-store/failpoints"\n',
+            'all-features = "yes"\n',
+        ):
+            with self.subTest(maturin=maturin):
+                with self.assertRaises(CHECK.GraphError):
+                    CHECK.maturin_feature_args(self.root(maturin))
+
+    def test_root_maturin_configuration_fails(self):
+        with self.assertRaisesRegex(CHECK.GraphError, "only crates/catabolic-python"):
+            CHECK.maturin_feature_args(self.root("", "[tool.maturin]\nfeatures = []\n"))
 
 
 class CheckTest(unittest.TestCase):

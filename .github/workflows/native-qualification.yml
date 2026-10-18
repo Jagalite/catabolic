@@ -59,6 +59,7 @@ jobs:
           npm --prefix tests/clients run test:1.7
       - name: Shipped crates must not enable test-only failpoints
         run: |
+          cargo fetch --locked
           python -m unittest tests.test_check_failpoints_graph
           python scripts/check_failpoints_graph.py
       - name: Required native tests, journal oracles, models and release refusals

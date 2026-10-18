@@ -11,6 +11,10 @@ build-dependency feature graph offline with ``cargo tree``, which resolves
 metadata without compiling anything, so it does not depend on how a test build
 unifies features.
 
+catabolic-python is resolved with exactly the feature options maturin adds
+from ``[tool.maturin]`` in its pyproject.toml, since maturin merges them into
+the extension's Cargo build. Maturin settings this check cannot reproduce fail.
+
 Fails closed: a cargo error, empty or malformed output, a graph rooted at the
 wrong package, or a missing catabolic-store where one is required all fail.
 The native wheel build and catabolic-dist run this check, and catabolic-dist
@@ -20,6 +24,10 @@ compiled with the feature.
 
 import subprocess
 import sys
+import tomllib
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
 
 # Shipped crate -> whether its normal graph must contain catabolic-store.
 SHIPPED = {"catabolic-cli": True, "catabolic-python": True, "catabolic-dist": False}
@@ -32,6 +40,46 @@ SEPARATOR = "@@"
 
 class GraphError(Exception):
     pass
+
+
+# Maturin settings that change the Cargo feature selection, and those this
+# check cannot reproduce faithfully (so their presence fails).
+MATURIN_FEATURE_KEYS = {"features", "all-features", "no-default-features"}
+MATURIN_UNSUPPORTED_KEYS = {"cargo-extra-args", "config", "unstable-flags"}
+
+
+def maturin_feature_args(root=ROOT):
+    """Cargo arguments matching maturin's effective feature selection."""
+    root_project = tomllib.loads((root / "pyproject.toml").read_text("utf-8"))
+    if "maturin" in root_project.get("tool", {}):
+        raise GraphError(
+            "pyproject.toml has [tool.maturin]; only crates/catabolic-python configures maturin"
+        )
+    project = tomllib.loads(
+        (root / "crates/catabolic-python/pyproject.toml").read_text("utf-8")
+    )
+    settings = project.get("tool", {}).get("maturin", {})
+    unsupported = sorted(MATURIN_UNSUPPORTED_KEYS & set(settings))
+    if unsupported:
+        raise GraphError(
+            "catabolic-python maturin settings not reproducible by this check: "
+            + ", ".join(unsupported)
+        )
+    features = settings.get("features", [])
+    if not isinstance(features, list) or not all(
+        isinstance(feature, str) and feature for feature in features
+    ):
+        raise GraphError("catabolic-python [tool.maturin].features must list names")
+    arguments = []
+    for key in ("all-features", "no-default-features"):
+        value = settings.get(key, False)
+        if not isinstance(value, bool):
+            raise GraphError(f"catabolic-python [tool.maturin].{key} must be a boolean")
+        if value:
+            arguments.append("--" + key)
+    if features:
+        arguments += ["--features", ",".join(features)]
+    return arguments
 
 
 def parse(package, output):
@@ -58,6 +106,7 @@ def parse(package, output):
 
 
 def store_features(package):
+    extra = maturin_feature_args() if package == "catabolic-python" else []
     try:
         result = subprocess.run(
             [
@@ -73,6 +122,7 @@ def store_features(package):
                 "none",
                 "-f",
                 "{f}" + SEPARATOR + "{p}",
+                *extra,
             ],
             capture_output=True,
             text=True,

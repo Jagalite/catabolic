@@ -114,8 +114,9 @@ def main():
         ).hexdigest(),
     }
     # Test-only failpoint hooks must not reach the helpers or the extension.
-    # The graph check covers the maturin build, whose artifacts Cargo does not
-    # report here; the release build's own artifacts are checked below.
+    # The graph check resolves the extension with maturin's own feature
+    # options, since its artifacts are not reported here; the release CLI
+    # build's own artifacts are checked below.
     subprocess.run(
         [sys.executable, str(root / "scripts" / "check_failpoints_graph.py")],
         cwd=root,
