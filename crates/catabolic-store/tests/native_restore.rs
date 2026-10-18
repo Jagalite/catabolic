@@ -1324,6 +1324,38 @@ fn directory_swap_during_record_enumeration_hides_nothing() {
     assert_eq!(items(&path, "after-restore-item"), 1);
 }
 
+/// A new backup directory swapped for a symbolic link to a catalog directory
+/// whose database is named manifest.json cannot redirect the manifest write.
+#[test]
+fn backup_directory_symlink_swap_cannot_reach_a_catalog() {
+    let _serial = serial();
+    let victim_root = tempfile::tempdir().unwrap();
+    let victim = victim_root.path().join("manifest.json");
+    migration::initialize_native(&victim).unwrap();
+    let victim_before = fs::read(&victim).unwrap();
+    let (root, path) = native();
+    let parent = root.path().join("backups");
+    fs::create_dir(&parent).unwrap();
+    let victim_directory = fs::canonicalize(victim_root.path()).unwrap();
+    let error = native_restore::backup_observed(&path, Some(&parent), &|at| {
+        if at == native_restore::BACKUP_SNAPSHOT_SAVED {
+            let directory = fs::read_dir(&parent)
+                .unwrap()
+                .next()
+                .unwrap()
+                .unwrap()
+                .path();
+            fs::rename(&directory, directory.with_extension("moved")).unwrap();
+            std::os::unix::fs::symlink(&victim_directory, &directory).unwrap();
+        }
+        Ok(())
+    })
+    .unwrap_err();
+    assert!(error.0.contains("was replaced"), "{error}");
+    assert_eq!(fs::read(&victim).unwrap(), victim_before);
+    migration::validate(&connect(&victim, false).unwrap(), true).unwrap();
+}
+
 /// Schema objects, migration history and sequences are not covered by table
 /// digests; each is verified under the held lock before the rename.
 #[test]

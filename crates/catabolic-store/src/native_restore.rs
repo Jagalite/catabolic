@@ -8,7 +8,6 @@
 //! path under a fresh incarnation, so sessions, permits and receipts bound to
 //! the previous incarnation are refused or reported as uncertain.
 use crate::{Error, Result, connect, database_path, identity_manifest, migration};
-use catabolic_core::sha256;
 use serde_json::{Value, json};
 use std::{
     fs,
@@ -18,20 +17,34 @@ use uuid::Uuid;
 
 pub const BACKUP_CONTRACT: &str = "catabolic-native-backup-v1";
 
-/// Create a private directory and make its entry durable.
-fn private_directory(path: &Path) -> Result<()> {
-    std::os::unix::fs::DirBuilderExt::mode(&mut fs::DirBuilder::new(), 0o700).create(path)?;
-    migration::fsync(
-        path.parent()
-            .ok_or_else(|| Error("directory has no parent".into()))?,
-    )
-}
+/// Checkpoint in native backup after the snapshot was renamed into place and
+/// before the manifest is written. Only tests use it.
+pub const BACKUP_SNAPSHOT_SAVED: &str = "backup_snapshot_saved";
 
 /// Take a verified backup of a native catalog. The snapshot is copied with
 /// SQLite's backup API inside one read transaction, validated, digested and
 /// fsynced before its manifest is written. `parent` must already exist,
 /// except for the default `<catalog>.backups`, which is created once.
 pub fn backup(path: &Path, parent: Option<&Path>) -> Result<Value> {
+    backup_observed(path, parent, &|_| Ok(()))
+}
+
+/// `backup` with an observer called at `BACKUP_SNAPSHOT_SAVED`.
+///
+/// Like restore, every file operation runs through held directory
+/// descriptors: the parent and the new backup directory are opened with
+/// `O_DIRECTORY|O_NOFOLLOW`, files are created with `openat(O_EXCL)`,
+/// renamed with `renameat` and fsynced through their descriptors, and the
+/// manifest is written through the held backup directory. SQLite, which opens
+/// files by name, only reaches the new snapshot file between checks that the
+/// directory names still resolve to the held descriptors and the snapshot
+/// entry is still the inode created through them. Every fsync failure is an
+/// error.
+pub fn backup_observed(
+    path: &Path,
+    parent: Option<&Path>,
+    observer: &dyn Fn(&str) -> Result<()>,
+) -> Result<Value> {
     let path = database_path(path)?;
     let db = connect(&path, false)?;
     db.execute_batch("BEGIN")?;
@@ -43,7 +56,7 @@ pub fn backup(path: &Path, parent: Option<&Path>) -> Result<Value> {
         )));
     }
     let identity = identity_manifest::manifest(&db)?;
-    let parent = match parent {
+    let holder = match parent {
         Some(parent) => {
             let parent = std::path::absolute(parent)?;
             if !parent.is_dir() {
@@ -52,31 +65,61 @@ pub fn backup(path: &Path, parent: Option<&Path>) -> Result<Value> {
                     parent.display()
                 )));
             }
-            parent.canonicalize()?
+            Dir::open(&parent.canonicalize()?)?
         }
         None => {
-            let parent = PathBuf::from(format!("{}.backups", path.display()));
-            if !parent.exists() {
-                private_directory(&parent)?;
+            let catalog_directory = Dir::open(path.parent().expect("database parent"))?;
+            let name = format!(
+                "{}.backups",
+                path.file_name().expect("database name").to_string_lossy()
+            );
+            match catalog_directory.entry(&name) {
+                Some(entry) if entry.directory => catalog_directory.open_dir_at(&name)?,
+                Some(_) => {
+                    return Err(Error(format!(
+                        "{} is not a directory",
+                        catalog_directory.child(&name).display()
+                    )));
+                }
+                None => catalog_directory.create_dir_at(&name)?,
             }
-            parent.canonicalize()?
         }
     };
-    let directory = parent.join(format!("native-v{schema}-{}", Uuid::new_v4().simple()));
-    if path.starts_with(&directory) {
+    let directory_name = format!("native-v{schema}-{}", Uuid::new_v4().simple());
+    if path.starts_with(holder.child(&directory_name)) {
         return Err(Error(
             "backup directory cannot contain the active database".into(),
         ));
     }
-    private_directory(&directory)?;
-    let partial = directory.join("snapshot.sqlite3.partial");
-    migration::copy(&db, &partial)?;
+    let directory = holder.create_dir_at(&directory_name)?;
+    let partial_name = "snapshot.sqlite3.partial";
+    let partial_path = directory.child(partial_name);
+    let mut partial = directory.create_file_at(partial_name)?;
+    let partial_file = descriptor_identity(&partial)?;
+    // Bracket every SQLite open by name of the new snapshot.
+    let check = |name: &str| -> Result<()> {
+        holder.require_unchanged()?;
+        holder.require_child(&directory_name, &directory)?;
+        directory.require_unchanged()?;
+        match directory.entry(name) {
+            Some(entry) if entry.regular && entry.links == 1 && entry.identity == partial_file => {
+                Ok(())
+            }
+            _ => Err(Error(
+                "backup snapshot was replaced during backup; refusing to continue".into(),
+            )),
+        }
+    };
+    check(partial_name)?;
+    backup_into(&db, &partial_path)?;
+    check(partial_name)?;
     drop(db);
-    let verify = connect(&partial, false)?;
+    let verify = connect(&partial_path, false)?;
     verify.execute_batch("BEGIN")?;
     let copied = migration::validate(&verify, true)?;
     let copied_identity = identity_manifest::manifest(&verify)?;
     drop(verify);
+    check(partial_name)?;
     if copied["database_id"] != info["database_id"]
         || copied_identity["fingerprint"] != identity["fingerprint"]
     {
@@ -84,17 +127,23 @@ pub fn backup(path: &Path, parent: Option<&Path>) -> Result<Value> {
             "native backup differs from the catalog it copied".into(),
         ));
     }
-    migration::fsync(&partial)?;
-    let saved = directory.join("snapshot.sqlite3");
-    fs::rename(&partial, &saved)?;
-    migration::fsync(&directory)?;
+    partial.sync_all()?;
+    let saved_name = "snapshot.sqlite3";
+    holder.require_child(&directory_name, &directory)?;
+    directory.rename_at(partial_name, &directory, saved_name)?;
+    directory.fsync()?;
+    check(saved_name)?;
+    // Hashed through the held descriptor; no SQLite connection holds it now.
+    let digest = hash_descriptor(&mut partial)?;
+    drop(partial);
     let receipt = json!({
         "contract":BACKUP_CONTRACT, "database":path, "database_id":info["database_id"],
         "catalog_id":identity["catalog"]["catalog_id"], "incarnation":identity["catalog"]["incarnation"],
-        "generation":identity["catalog"]["generation"], "schema":schema, "backup":saved,
-        "sha256":sha256(fs::read(&saved)?), "identity_manifest":identity,
+        "generation":identity["catalog"]["generation"], "schema":schema,
+        "backup":directory.child(saved_name), "sha256":digest, "identity_manifest":identity,
     });
-    migration::manifest(&directory, &receipt)?;
+    observer(BACKUP_SNAPSHOT_SAVED)?;
+    write_record(&holder, &directory_name, &directory, &receipt)?;
     Ok(receipt)
 }
 
@@ -405,7 +454,7 @@ impl Dir {
         match self.entry(name) {
             Some(entry) if entry.directory && entry.identity == child.identity => Ok(()),
             _ => Err(Error(format!(
-                "staging directory {} was replaced during restore; refusing to continue",
+                "directory {} was replaced during the operation; refusing to continue",
                 child.path.display()
             ))),
         }

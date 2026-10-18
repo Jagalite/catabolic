@@ -190,7 +190,12 @@ which must exist, or under `<catalog>.backups`. Its `manifest.json`
 (`catabolic-native-backup-v1`) binds the snapshot's SHA-256, database and
 catalog IDs, incarnation, generation, schema and full identity manifest.
 Legacy catalogs are refused; their backups come from `db upgrade` and are
-restored to a new path by hand.
+restored to a new path by hand. Like restore, backup runs every file
+operation through held directory descriptors: `mkdirat`, `openat(O_EXCL)`,
+`renameat` and `fsync`, with the manifest written through the held backup
+directory. SQLite reaches the new snapshot by name only between checks that
+the names still resolve to the held descriptors and to the inode created
+through them. Any fsync failure is an error.
 
 `db native-restore --backup DIR` publishes such a snapshot at the live path.
 It is fail-closed. Before anything in the backup is read, it requires the
@@ -355,7 +360,8 @@ identity and incarnation before use and require a reopen.
 
 `crates/catabolic-store/tests/native_restore.rs` covers:
 
-- the backup, and a restore round trip;
+- the backup, a backup directory swapped for a symbolic link before the
+  manifest is written, and a restore round trip;
 - the stale-incarnation refusals above;
 - refused backups: missing assertions, another catalog's backup, a changed
   snapshot, an edited manifest, a legacy backup, a WAL live catalog, and
