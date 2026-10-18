@@ -226,7 +226,12 @@ pub fn command_output<S: AsRef<OsStr>>(
     let pass_fds = options.pass_fds.to_vec();
     let umask = options.umask;
     let cwd_fd = options.cwd_fd;
-    let supervisor = supervisor();
+    let supervisor = supervisor().map_err(|error| {
+        CommandFailure::new(
+            "failed",
+            format!("parent-death supervisor unavailable: {error}"),
+        )
+    })?;
     // Lifeline: the guardian reads it; the worker keeps the write end open for
     // its own lifetime. Errors: the supervisor reports a failed tool exec.
     let pipes = match supervisor {
@@ -764,8 +769,16 @@ fn lifeline() -> io::Result<(OwnedFd, OwnedFd)> {
 pub const SUPERVISE_ARGUMENT: &str = "__catabolic-supervise";
 
 struct Supervisor {
-    program: std::path::PathBuf,
+    /// Pinned identity: a removed or replaced executable fails closed.
+    helper: crate::helper::Helper,
     prefix: Vec<OsString>,
+}
+impl Supervisor {
+    fn resolve(&self) -> Result<(std::path::PathBuf, Vec<OsString>), String> {
+        crate::helper::verified(&self.helper)
+            .map(|program| (program, self.prefix.clone()))
+            .map_err(|error| error.0)
+    }
 }
 static SUPERVISOR: std::sync::OnceLock<Supervisor> = std::sync::OnceLock::new();
 
@@ -776,37 +789,56 @@ pub fn supervise_or_configure() {
     if args.get(1).is_some_and(|arg| arg == SUPERVISE_ARGUMENT) {
         supervise(&args[2..]);
     }
-    if let Ok(program) = std::env::current_exe() {
+    if let Ok(helper) = std::env::current_exe()
+        .map_err(catabolic_store::Error::from)
+        .and_then(|program| crate::helper::pin(&program))
+    {
         let _ = SUPERVISOR.set(Supervisor {
-            program,
+            helper,
             prefix: Vec::new(),
         });
     }
 }
 
-fn supervisor() -> Option<(std::path::PathBuf, Vec<OsString>)> {
+/// The supervisor to exec, `Ok(None)` for direct execution, or an error that
+/// must fail the spawn closed. Once a supervisor or native helper has been
+/// configured, any later resolution failure (removed or replaced executable)
+/// is an error, never a silent fallback to unsupervised execution. Only a
+/// process that never configured one runs tools directly; on non-Linux that
+/// provides no parent-death protection, and workers that require it refuse
+/// to start (`parent_death_supervised`).
+fn supervisor() -> Result<Option<(std::path::PathBuf, Vec<OsString>)>, String> {
+    #[cfg(test)]
+    if let Some(result) = tests::supervisor_override() {
+        return result;
+    }
     if let Some(supervisor) = SUPERVISOR.get() {
-        return Some((supervisor.program.clone(), supervisor.prefix.clone()));
+        return supervisor.resolve().map(Some);
     }
     #[cfg(test)]
     {
         // Unit tests: this test binary enters supervisor mode from a load-time
         // hook (see `tests::SUPERVISOR_HOOK`) before the test harness starts.
-        Some((std::env::current_exe().ok()?, Vec::new()))
+        std::env::current_exe()
+            .map(|program| Some((program, Vec::new())))
+            .map_err(|error| error.to_string())
     }
     #[cfg(not(test))]
     {
+        if !crate::helper::configured() {
+            return Ok(None);
+        }
         // Embedders: the registered native helper is a Catabolic executable.
         crate::helper::executable()
-            .ok()
-            .map(|program| (program, Vec::new()))
+            .map(|program| Some((program, Vec::new())))
+            .map_err(|error| error.0)
     }
 }
 
 /// Whether tools started by `command_output` are killed, with their whole
 /// group, when this process dies on this platform.
 pub fn parent_death_supervised() -> bool {
-    supervisor().is_some()
+    matches!(supervisor(), Ok(Some(_)))
 }
 
 /// Wait for the supervisor's exec-error pipe to close (the tool was execed) or
@@ -2182,6 +2214,70 @@ mod tests {
         *const *const libc::c_char,
         *const *const libc::c_char,
     ) = supervisor_hook;
+
+    thread_local! {
+        static SUPERVISOR_OVERRIDE: std::cell::RefCell<Option<Supervisor>> =
+            const { std::cell::RefCell::new(None) };
+    }
+    /// Per-thread supervisor substitute for fail-closed tests.
+    pub(super) fn supervisor_override()
+    -> Option<Result<Option<(std::path::PathBuf, Vec<OsString>)>, String>> {
+        SUPERVISOR_OVERRIDE.with(|slot| slot.borrow().as_ref().map(|s| s.resolve().map(Some)))
+    }
+
+    /// A supervisor that was configured and is later removed or replaced makes
+    /// every tool spawn refuse; the tool never runs unsupervised.
+    #[test]
+    fn removed_or_replaced_supervisor_fails_closed() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let copy = dir.path().join("supervisor");
+        fs::copy(std::env::current_exe().unwrap(), &copy).unwrap();
+        let helper = crate::helper::pin(&copy).unwrap();
+        SUPERVISOR_OVERRIDE.with(|slot| {
+            *slot.borrow_mut() = Some(Supervisor {
+                helper,
+                prefix: Vec::new(),
+            })
+        });
+        struct Reset;
+        impl Drop for Reset {
+            fn drop(&mut self) {
+                SUPERVISOR_OVERRIDE.with(|slot| *slot.borrow_mut() = None);
+            }
+        }
+        let _reset = Reset;
+        // Intact: the pinned copy supervises normally.
+        let output =
+            command_output(&["/bin/sh", "-c", "printf ok"], CommandOptions::default()).unwrap();
+        assert_eq!(output.stdout, b"ok");
+        let marker = dir.path().join("ran");
+        let script = format!("touch '{}'", marker.display());
+        // Removed: refuse before any tool runs.
+        fs::remove_file(&copy).unwrap();
+        let failure =
+            command_output(&["/bin/sh", "-c", &script], CommandOptions::default()).unwrap_err();
+        assert_eq!(failure.state, "failed");
+        assert!(
+            failure
+                .message
+                .starts_with("parent-death supervisor unavailable"),
+            "{}",
+            failure.message
+        );
+        // Replaced by a different file at the same path: still refused.
+        fs::write(&copy, b"#!/bin/sh\nexec \"$@\"\n").unwrap();
+        fs::set_permissions(&copy, fs::Permissions::from_mode(0o755)).unwrap();
+        let failure =
+            command_output(&["/bin/sh", "-c", &script], CommandOptions::default()).unwrap_err();
+        assert_eq!(failure.state, "failed");
+        assert!(
+            failure
+                .message
+                .starts_with("parent-death supervisor unavailable")
+        );
+        assert!(!marker.exists(), "a tool ran without a supervisor");
+    }
 
     /// Invoked directly by an ordinary (non-leader) process, or as a leader
     /// with non-pipe descriptors, the supervisor exits non-zero and signals

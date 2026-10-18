@@ -61,6 +61,23 @@ fn install(helper: Helper) -> Result<()> {
         .set(helper)
         .map_err(|_| Error("native helper registration raced".into()))
 }
+/// The pinned executable, if it is still the identical file.
+pub(crate) fn verified(helper: &Helper) -> Result<PathBuf> {
+    if identify(&helper.path)? != helper.identity {
+        return Err(Error(
+            "native helper identity changed; restart with the installed artifact".into(),
+        ));
+    }
+    Ok(helper.path.clone())
+}
+
+/// Whether a native helper was registered or explicitly provided, so that a
+/// later resolution failure must be treated as an error.
+#[cfg_attr(test, allow(dead_code))]
+pub(crate) fn configured() -> bool {
+    HELPER.get().is_some() || std::env::var_os("CATABOLIC_NATIVE_BINARY").is_some()
+}
+
 pub(crate) fn pin(path: &Path) -> Result<Helper> {
     let path = path.canonicalize()?;
     let identity = identify(&path)?;
