@@ -47,7 +47,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg poppler-utils tesseract-ocr
           python -m pip install --cache-dir "$RUNNER_TEMP/native-dependency-cache" --require-hashes --only-binary=:all: -r requirements/build.lock -r requirements/dev.lock -r requirements/notifications.lock -r requirements/http-test.lock
-          python -m pip install --no-deps --no-build-isolation -e .local-tests/rust-migration/reference
+          python -m pip install --no-deps --no-build-isolation .local-tests/rust-migration/reference
           python -m pip install --only-binary=:all: maturin==1.13.1
           python -m pip check
           rustup show
