@@ -355,7 +355,10 @@ graph of catabolic-cli, catabolic-python and catabolic-dist offline with
 It fails closed: a cargo error, empty or malformed output, a graph rooted at
 another package, or a missing catabolic-store for catabolic-cli or
 catabolic-python all fail. The feature field is parsed apart from the package
-path, so punctuation in a checkout path cannot hide it. catabolic-python is
+path, so punctuation in a checkout path cannot hide it. Graphs are resolved
+with `--target all`, so a failpoint feature enabled for only some target
+(another architecture, or one slice of a universal2 build) is still seen.
+catabolic-python is
 resolved with the feature options maturin merges in from `[tool.maturin]`
 (`features`, `all-features`, `no-default-features`); maturin settings the
 check cannot reproduce (`cargo-extra-args`, `config`, `unstable-flags`, or a

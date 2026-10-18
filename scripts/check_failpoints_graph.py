@@ -11,6 +11,10 @@ build-dependency feature graph offline with ``cargo tree``, which resolves
 metadata without compiling anything, so it does not depend on how a test build
 unifies features.
 
+Every graph is resolved with ``--target all``, so a failpoint feature enabled
+only for some target (another architecture, or a universal2 slice) is seen
+whatever target a build selects.
+
 catabolic-python is resolved with exactly the feature options maturin adds
 from ``[tool.maturin]`` in its pyproject.toml, since maturin merges them into
 the extension's Cargo build. Maturin settings this check cannot reproduce fail.
@@ -118,6 +122,8 @@ def store_features(package):
                 "normal,build",
                 "-p",
                 package,
+                "--target",
+                "all",
                 "--prefix",
                 "none",
                 "-f",

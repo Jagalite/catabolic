@@ -119,6 +119,30 @@ class MaturinFeaturesTest(unittest.TestCase):
             CHECK.maturin_feature_args(self.root("", "[tool.maturin]\nfeatures = []\n"))
 
 
+class CommandTest(unittest.TestCase):
+    def test_every_target_is_resolved(self):
+        from unittest import mock
+
+        calls = []
+
+        def run(command, **kwargs):
+            calls.append(command)
+            package = command[command.index("-p") + 1]
+            return mock.Mock(
+                returncode=0,
+                stdout=f"@@{package} v0.2.0 (/w)\n@@catabolic-store v0.2.0 (/w/s)\n",
+                stderr="",
+            )
+
+        with mock.patch.object(CHECK.subprocess, "run", run):
+            for package in CHECK.SHIPPED:
+                CHECK.store_features(package)
+        self.assertEqual(len(calls), len(CHECK.SHIPPED))
+        for command in calls:
+            index = command.index("--target")
+            self.assertEqual(command[index + 1], "all")
+
+
 class CheckTest(unittest.TestCase):
     def run_check(self, graphs):
         def resolve(package):
