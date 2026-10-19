@@ -143,6 +143,29 @@ class DynamicPrerequisiteTest(unittest.TestCase):
             ["tests.test_rust_unrelated.Probe.test_one"], None
         )
 
+    def test_query_ownership_requires_and_stages_the_explicit_extension(self):
+        for method in (
+            "test_first_queries_preserve_temp_storage_and_owner",
+            "test_rolled_back_first_query_setup_is_recreated",
+        ):
+            scenario = (
+                qualifier.QUERY_OWNERSHIP_PREFIX
+                + "NativeQuerySetupOwnershipTest."
+                + method
+            )
+            with self.subTest(scenario=scenario):
+                with self.assertRaisesRegex(ValueError, "--extension-binary"):
+                    qualifier.validate_native_scenarios([scenario], None)
+                qualifier.validate_native_scenarios(
+                    [scenario], None, extension_binary=self.extension
+                )
+                self.assertTrue(qualifier.needs_staged_extension([scenario]))
+        self.assertFalse(
+            qualifier.needs_staged_extension(
+                ["tests.test_rust_unrelated.Probe.test_one"]
+            )
+        )
+
     def test_worker_scope_is_exact_and_does_not_include_path_restoring_fixtures(self):
         for family in ("identify.IdentifyTest", "legacy_refresh.LegacyRefreshTest"):
             self.assertTrue(

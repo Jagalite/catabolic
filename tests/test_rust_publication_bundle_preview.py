@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sqlite3
 import unittest
 from contextlib import closing
@@ -167,6 +168,11 @@ class PublicationBundlePreviewTest(unittest.TestCase):
         self.env.pop("IMMICH_API_KEY", None)
         self.bin = self.root / "bin"
         self.bin.mkdir()
+        # Linux volume identity still needs findmnt when adapter discovery is
+        # restricted. Preserve that prerequisite without exposing real adapters.
+        findmnt = shutil.which("findmnt")
+        if findmnt:
+            (self.bin / "findmnt").symlink_to(findmnt)
         # Discovery only: any execution would be a test failure observable here.
         program = self.bin / "calibredb"
         program.write_text(
