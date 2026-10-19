@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 # SPDX-License-Identifier: MIT
-"""Build the Linux XML oracle from checksum-pinned Python and Expat sources."""
+"""Build the Linux oracle from checksum-pinned Python, Expat and SQLite."""
 
 import argparse
 import hashlib
@@ -11,6 +11,7 @@ import platform
 import shlex
 import subprocess
 import tarfile
+import tomllib
 import urllib.request
 from pathlib import Path
 
@@ -23,7 +24,47 @@ SOURCES = {
         "https://github.com/libexpat/libexpat/releases/download/R_2_8_2/expat-2.8.2.tar.xz",
         "3ad89b8588e6644bd4e49981480d48b21289eebbcd4f0a1a4afb1c29f99b6ab4",
     ),
+    "sqlite-autoconf-3530200.tar.gz": (
+        "https://www.sqlite.org/2026/sqlite-autoconf-3530200.tar.gz",
+        "588ad51949419a56ebe81fe56193d510c559eb94c9a57748387860b5d3069316",
+    ),
 }
+SQLITE_VERSION = "3.53.2"
+SQLITE_CRATE_VERSION = "0.38.2"
+SQLITE_CRATE_CHECKSUM = (
+    "f1d20bef17f513b9b3004532233187769cd072d790971f4e4da0e346eb6401e8"
+)
+# Identical to libsqlite3-sys 0.38.2's bundled sqlite3.c (Cargo.lock).
+SQLITE_SOURCE_SHA256 = (
+    "0a409f1633283fa31a9126b11fbfd64a1991c5d30defad07e5745d4667f5e23d"
+)
+# Match the relevant bundled Rust options, including .cargo/config.toml's
+# math functions and explicit absence of soundex. Never use the host library.
+# Raw Python connections retain their normal foreign_keys=OFF default; Store
+# enables enforcement explicitly. Fixtures intentionally use raw connections
+# to assemble historical states, independently of Store admission.
+SQLITE_DEFINES = (
+    "SQLITE_CORE",
+    "SQLITE_DEFAULT_FOREIGN_KEYS=0",
+    "SQLITE_ENABLE_API_ARMOR",
+    "SQLITE_ENABLE_COLUMN_METADATA",
+    "SQLITE_ENABLE_DBSTAT_VTAB",
+    "SQLITE_ENABLE_FTS3",
+    "SQLITE_ENABLE_FTS3_PARENTHESIS",
+    "SQLITE_ENABLE_FTS5",
+    "SQLITE_ENABLE_JSON1",
+    "SQLITE_ENABLE_LOAD_EXTENSION=1",
+    "SQLITE_ENABLE_MEMORY_MANAGEMENT",
+    "SQLITE_ENABLE_RTREE",
+    "SQLITE_ENABLE_STAT4",
+    "SQLITE_ENABLE_MATH_FUNCTIONS",
+    "SQLITE_THREADSAFE=1",
+    "SQLITE_USE_URI",
+    "HAVE_USLEEP=1",
+    "HAVE_ISNAN",
+    "HAVE_LOCALTIME_R",
+    "_POSIX_THREAD_SAFE_FUNCTIONS",
+)
 
 
 def download(url, expected, destination):
@@ -44,7 +85,10 @@ def runtime_identity(executable, prefix):
             "import json,platform,ssl,sqlite3,sys; from xml.parsers import expat; "
             "print(json.dumps(dict(version=list(sys.version_info[:3]), "
             "expat=expat.EXPAT_VERSION, system=platform.system(), "
-            "prefix=sys.prefix, executable=sys.executable)))",
+            "prefix=sys.prefix, executable=sys.executable, "
+            "sqlite=sqlite3.sqlite_version, "
+            "sqlite_foreign_keys=sqlite3.connect(':memory:').execute('pragma foreign_keys').fetchone()[0], "
+            "sqlite_options=[r[0] for r in sqlite3.connect(':memory:').execute('pragma compile_options')])))",
         ],
         check=True,
         capture_output=True,
@@ -58,6 +102,10 @@ def runtime_identity(executable, prefix):
         or identity["system"] != "Linux"
         or Path(identity["prefix"]) != prefix
         or Path(identity["executable"]) != executable
+        or identity["sqlite"] != SQLITE_VERSION
+        or identity["sqlite_foreign_keys"] != 0
+        or "ENABLE_MATH_FUNCTIONS" not in identity["sqlite_options"]
+        or "SOUNDEX" in identity["sqlite_options"]
     ):
         raise RuntimeError(f"built oracle identity mismatch: {identity}")
     identity["executable_sha256"] = hashlib.sha256(executable.read_bytes()).hexdigest()
@@ -76,7 +124,70 @@ def configured_expat(makefile, archive):
         )
 
 
+def configured_sqlite(makefile, archive):
+    settings = [
+        line.partition("=")[2].strip()
+        for line in makefile.read_text().splitlines()
+        if line.partition("=")[0].strip() == "MODULE__SQLITE3_LDFLAGS"
+    ]
+    if len(settings) != 1 or shlex.split(settings[0]) != [
+        str(archive),
+        "-ldl",
+        "-lm",
+        "-lpthread",
+    ]:
+        raise RuntimeError(
+            f"configure did not select the pinned SQLite archive: {settings}"
+        )
+
+
+def build_sqlite(prefix, source, run):
+    if (
+        hashlib.sha256((source / "sqlite3.c").read_bytes()).hexdigest()
+        != SQLITE_SOURCE_SHA256
+    ):
+        raise RuntimeError(
+            "SQLite source differs from the pinned bundled native source"
+        )
+    (prefix / "lib").mkdir(parents=True, exist_ok=True)
+    (prefix / "include").mkdir(parents=True, exist_ok=True)
+    run(
+        [
+            *shlex.split(os.environ.get("CC", "cc")),
+            "-O2",
+            "-fPIC",
+            *("-D" + value for value in SQLITE_DEFINES),
+            "-USQLITE_SOUNDEX",
+            "-c",
+            source / "sqlite3.c",
+            "-o",
+            source / "sqlite3.o",
+        ]
+    )
+    archive = prefix / "lib/libsqlite3.a"
+    run(["ar", "rcs", archive, source / "sqlite3.o"])
+    for name in ("sqlite3.h", "sqlite3ext.h"):
+        (prefix / "include" / name).write_bytes((source / name).read_bytes())
+    return archive
+
+
+def native_sqlite_dependency(lockfile):
+    packages = [
+        package
+        for package in tomllib.loads(lockfile.read_text())["package"]
+        if package["name"] == "libsqlite3-sys"
+    ]
+    if len(packages) != 1 or (
+        packages[0].get("version"),
+        packages[0].get("checksum"),
+    ) != (SQLITE_CRATE_VERSION, SQLITE_CRATE_CHECKSUM):
+        raise RuntimeError(
+            "native SQLite dependency changed; review the oracle SQLite pin"
+        )
+
+
 def build(prefix, work):
+    native_sqlite_dependency(Path(__file__).resolve().parents[1] / "Cargo.lock")
     # Fresh directories prevent an ambient installation from receiving a receipt.
     prefix.mkdir(parents=True, exist_ok=False)
     work.mkdir(parents=True, exist_ok=False)
@@ -112,6 +223,7 @@ def build(prefix, work):
     )
     run(["cmake", "--build", expat_build, "--parallel", "2"])
     run(["cmake", "--install", expat_build])
+    sqlite_archive = build_sqlite(prefix, work / "sqlite-autoconf-3530200", run)
     python_source = work / "Python-3.14.6"
     env = os.environ.copy()
     for key in ("LD_LIBRARY_PATH", "PYTHONHOME", "PYTHONPATH"):
@@ -119,9 +231,11 @@ def build(prefix, work):
     env.update(
         LIBEXPAT_CFLAGS=f"-I{prefix}/include",
         LIBEXPAT_LDFLAGS=f"{prefix}/lib/libexpat.a -lm",
+        LIBSQLITE3_CFLAGS=f"-I{prefix}/include",
+        LIBSQLITE3_LIBS=f"{sqlite_archive} -ldl -lm -lpthread",
         # setup-python adds its own libpython to LD_LIBRARY_PATH. DT_RPATH
         # keeps the new executable and its child venvs on the library we built.
-        LDFLAGS=f"-Wl,--disable-new-dtags -Wl,-rpath,{prefix}/lib",
+        LDFLAGS=f"-L{prefix}/lib -Wl,--disable-new-dtags -Wl,-rpath,{prefix}/lib",
     )
     run(
         [
@@ -136,6 +250,7 @@ def build(prefix, work):
         env=env,
     )
     configured_expat(python_source / "Makefile", prefix / "lib/libexpat.a")
+    configured_sqlite(python_source / "Makefile", sqlite_archive)
     run(["make", "-j2"], cwd=python_source, env=env)
     run(["make", "install"], cwd=python_source, env=env)
     executable = prefix / "bin/python"

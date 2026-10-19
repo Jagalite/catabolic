@@ -79,7 +79,7 @@ class NativeRuleTest(unittest.TestCase):
         self.worker.stdout.close()
         self.worker.stderr.close()
 
-    def native(self, action, args=None, *, ok=True):
+    def native(self, action, args=None, *, ok=True, timeout=120):
         args = {"id": self.rule["id"], **(args or {})}
         self.worker.stdin.write(
             json.dumps(["--db", str(self.path), "rules", action, json.dumps(args)])
@@ -87,7 +87,8 @@ class NativeRuleTest(unittest.TestCase):
         )
         self.worker.stdin.flush()
         self.assertTrue(
-            select.select([self.worker.stdout], [], [], 120)[0], "native rule timeout"
+            select.select([self.worker.stdout], [], [], timeout)[0],
+            "native rule timeout",
         )
         response = json.loads(self.worker.stdout.readline())
         self.assertEqual(response["status"], 0 if ok else 2, response)
@@ -302,7 +303,13 @@ class NativeRuleTest(unittest.TestCase):
             self.rule = Rules(Application(store)).put(
                 "scale", self.operation["id"], None, selection, required=True
             )
-        result = self.native("apply", {"batch": 1, "limit": 1, "scan_ids": []})
+        # Linux verifies each input's volume using findmnt, including a 10 ms
+        # child-wait quantum. This 10,001-association fixture can exceed the
+        # ordinary 120 s harness wait. Keep selection budgets and all durable
+        # cardinality assertions intact; allow the outer process to finish.
+        result = self.native(
+            "apply", {"batch": 1, "limit": 1, "scan_ids": []}, timeout=360
+        )
         self.assertEqual(result["matched_inputs"], 10001)
         self.assertEqual(result["counts"]["deferred"], 10001)
         self.assertEqual(len(result["matches"]), 1)

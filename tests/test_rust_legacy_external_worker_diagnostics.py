@@ -325,9 +325,13 @@ class ExternalWorkerDiagnosticsTest(fixture.NativeLegacyExternalRuleTest):
         # A wider character fails header encoding before any connection.
         self.env[variable] = "FAKE-\u2603"
         self.failed_without_request(NETWORK)
-        # A long credential is bounded by the exact worker envelope, not by a
-        # separate credential-length refusal.
-        self.env[variable] = "F" * (300 * 1024)
+        # JSON expands these non-NUL control bytes to six-byte escapes. The
+        # worker envelope exceeds 256 KiB while the environment entry stays
+        # below Linux's 128 KiB per-string exec limit. A 300 KiB environment
+        # value instead fails in execve before either worker can be tested.
+        self.env[variable] = "\x01" * (60 * 1024)
+        self.assertLess(len((variable + "=" + self.env[variable]).encode()), 128 * 1024)
+        self.assertGreater(len(json.dumps(self.env[variable]).encode()), 256 * 1024)
         self.failed_without_request("HTTP request exceeds input limit")
 
     def test_resumed_poll_cleanup_neighbor(self):

@@ -90,6 +90,15 @@ COMPLETION_EMBEDDING = (
     COMPLETION_PREFIX + "test_direct_and_persistent_embedding_complete_responses"
 )
 COMPLETION_HTTP = COMPLETION_PREFIX + "test_actual_loopback_http_and_scoped_absence"
+QUERY_OWNERSHIP_PREFIX = "tests.test_rust_query_setup_ownership."
+
+
+def needs_staged_extension(identifiers):
+    return COMPLETION_EMBEDDING in identifiers or any(
+        name.startswith(QUERY_OWNERSHIP_PREFIX) for name in identifiers
+    )
+
+
 SORT_OWNER_SCENARIOS = frozenset(
     "tests.test_rust_catalog_sort_diagnostics.CatalogSortDiagnosticsTest." + name
     for name in (
@@ -733,7 +742,7 @@ def validate_native_scenarios(
             and name.endswith(".test_publication_interrupt_cleanup_cli_and_python")
             for name in identifiers
         )
-        or (not extension_binary and COMPLETION_EMBEDDING in identifiers)
+        or (not extension_binary and needs_staged_extension(identifiers))
         or (not extension_binary and SORT_OWNER_SCENARIOS.intersection(identifiers))
     ):
         raise ValueError(
@@ -850,7 +859,7 @@ def main():
     staged = None
     needs_worker = any(name.startswith(WORKER_PREFIXES) for name in identifiers)
     try:
-        if COMPLETION_EMBEDDING in identifiers:
+        if needs_staged_extension(identifiers):
             staged = stage_completion_extension(
                 root,
                 sources_before,

@@ -7,6 +7,8 @@ existing qualification flow. No legacy engine, build, or fallback is used here.
 This separate unittest module does not change the baseline installed query lane.
 """
 
+import os
+import sys
 import tempfile
 import unittest
 from contextlib import nullcontext
@@ -21,6 +23,21 @@ PROFILE_RESULT = {
 
 class NativeQuerySetupOwnershipTest(unittest.TestCase):
     def setUp(self):
+        root = Path(os.environ["CATABOLIC_COMPLETION_EXTENSION_ROOT"]).resolve()
+        self.assertTrue((root / "catabolic_native/_native.abi3.so").is_file())
+        previous_path = sys.path[:]
+        self.addCleanup(setattr, sys, "path", previous_path)
+        sys.path.insert(0, str(root))
+        import catabolic_native
+        from catabolic_native import _native
+
+        self.assertEqual(
+            Path(catabolic_native.__file__).resolve(),
+            root / "catabolic_native/__init__.py",
+        )
+        self.assertEqual(
+            Path(_native.__file__).resolve(), root / "catabolic_native/_native.abi3.so"
+        )
         from catabolic_native import CatabolicError, Store
         from catabolic_native.graphql_query import execute_graphql
         from catabolic_native.sql_query import execute_sql
