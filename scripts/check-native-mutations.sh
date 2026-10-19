@@ -34,6 +34,11 @@ cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo build --locked -p catabolic-cli -p catabolic-verification -p catabolic-http --bins
 cargo build --locked -p catabolic-cli --example legacy_parse
 cargo build --locked -p catabolic-python
+# Only the disposable qualification CLI admits crash injection. Copies below
+# are checkpoint artifacts, never wheel/release inputs; normal builds retain
+# their failpoint refusal (scripts/check_failpoints_graph.py). Build this
+# explicitly before copying: cargo test enables it only later via dev deps.
+cargo build --locked -p catabolic-cli --bins --features catabolic-store/failpoints
 evidence=.local-tests/rust-migration/m4-plus
 mkdir -p "$evidence/artifacts"
 cp "$target_dir"/debug/catabolic-native "$evidence/artifacts/qualification-native"

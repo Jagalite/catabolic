@@ -532,6 +532,18 @@ class InstalledGateDriverReview(unittest.TestCase):
 
 
 class QualificationShellReview(unittest.TestCase):
+    def test_crash_injection_is_built_before_checkpoint_copy_and_absent_from_release(
+        self,
+    ):
+        checkout, _, _ = self.run_shell("Linux")
+        artifacts = checkout / ".local-tests/rust-migration/m4-plus/artifacts"
+        for name in ("qualification-native", "qualification-legacy"):
+            self.assertIn("# failpoints=True", (artifacts / name).read_text())
+        self.assertIn(
+            "# failpoints=False",
+            (artifacts / "qualification-native-release").read_text(),
+        )
+
     def run_shell(self, platform, failure=None, script_failure=None):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -578,6 +590,12 @@ class QualificationShellReview(unittest.TestCase):
             "if tool=='python' and args and args[0]==os.environ.get('STUB_SCRIPT_FAILURE'):\n"
             " print('generated resource drift',file=sys.stderr);raise SystemExit(1)\n"
             "if tool=='cargo' and args[0]=='metadata':print(json.dumps({'target_directory':os.environ['CARGO_TARGET_DIR']}))\n"
+            "elif tool=='cargo' and args[0]=='build' and 'catabolic-cli' in args:\n"
+            " enabled='catabolic-store/failpoints' in args\n"
+            " directory='release' if '--release' in args else 'debug'\n"
+            " for name in ('catabolic-native','catabolic-legacy-native'):\n"
+            "  path=Path(os.environ['CARGO_TARGET_DIR'])/directory/name\n"
+            "  path.write_text('#!/bin/sh\\n# failpoints='+str(enabled)+'\\nexit 0\\n');path.chmod(0o700)\n"
             "elif tool=='cargo' and '--ignored' in args:\n"
             " name=args[args.index('--')-1];fail=os.environ.get('STUB_FAILURE','')\n"
             " if '--list' in args:\n"
