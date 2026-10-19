@@ -10,12 +10,56 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from scripts import prepare_ci_python_oracle as oracle
 
 
 class CiPythonOracleTest(unittest.TestCase):
+    def test_native_dependency_drift_requires_reviewing_the_oracle_pin(self):
+        oracle.native_sqlite_dependency(
+            Path(__file__).resolve().parents[1] / "Cargo.lock"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            lockfile = Path(directory) / "Cargo.lock"
+            for version, checksum in (
+                ("0.38.3", oracle.SQLITE_CRATE_CHECKSUM),
+                (oracle.SQLITE_CRATE_VERSION, "0" * 64),
+            ):
+                lockfile.write_text(
+                    '[[package]]\nname="libsqlite3-sys"\n'
+                    f'version="{version}"\nchecksum="{checksum}"\n'
+                )
+                with self.assertRaisesRegex(RuntimeError, "dependency changed"):
+                    oracle.native_sqlite_dependency(lockfile)
+
+    def test_configured_linker_refuses_the_system_sqlite_fallback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            makefile = Path(directory) / "Makefile"
+            archive = Path(directory) / "oracle/lib/libsqlite3.a"
+            accepted = f"MODULE__SQLITE3_LDFLAGS={archive} -ldl -lm -lpthread\n"
+            for content in (
+                "MODULE__SQLITE3_LDFLAGS=-lsqlite3\n",
+                f"MODULE__SQLITE3_LDFLAGS={archive} -lsqlite3\n",
+                "MODULE__SQLITE3_STATE=missing\n",
+                accepted * 2,
+            ):
+                with self.subTest(content=content):
+                    makefile.write_text(content)
+                    with self.assertRaisesRegex(RuntimeError, "pinned SQLite archive"):
+                        oracle.configured_sqlite(makefile, archive)
+            makefile.write_text(accepted)
+            oracle.configured_sqlite(makefile, archive)
+
+    def test_sqlite_source_substitution_is_refused_before_compilation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            (source / "sqlite3.c").write_bytes(b"substituted SQLite")
+            run = Mock()
+            with self.assertRaisesRegex(RuntimeError, "pinned bundled native source"):
+                oracle.build_sqlite(source / "prefix", source, run)
+            run.assert_not_called()
+
     def test_configured_linker_refuses_the_system_expat_fallback(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -70,6 +114,8 @@ class CiPythonOracleTest(unittest.TestCase):
                 system="Linux",
                 prefix=str(prefix),
                 executable=str(executable),
+                sqlite=oracle.SQLITE_VERSION,
+                sqlite_options=["ENABLE_MATH_FUNCTIONS"],
             )
             for key, replacement in (
                 ("version", [3, 14, 5]),
@@ -77,6 +123,9 @@ class CiPythonOracleTest(unittest.TestCase):
                 ("system", "Darwin"),
                 ("prefix", "/ambient/python"),
                 ("executable", "/ambient/bin/python"),
+                ("sqlite", "3.45.1"),
+                ("sqlite_options", []),
+                ("sqlite_options", ["ENABLE_MATH_FUNCTIONS", "SOUNDEX"]),
             ):
                 with self.subTest(key=key):
                     result = subprocess.CompletedProcess(
@@ -93,6 +142,7 @@ class CiPythonOracleTest(unittest.TestCase):
                 hashlib.sha256(executable.read_bytes()).hexdigest(),
             )
             self.assertEqual(run.call_args.args[0][1:3], ["-I", "-B"])
+            compile(run.call_args.args[0][-1], "runtime probe", "exec")
 
     def test_existing_prefix_is_never_adopted(self):
         with tempfile.TemporaryDirectory() as directory:
