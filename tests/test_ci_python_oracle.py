@@ -115,6 +115,7 @@ class CiPythonOracleTest(unittest.TestCase):
                 prefix=str(prefix),
                 executable=str(executable),
                 sqlite=oracle.SQLITE_VERSION,
+                sqlite_foreign_keys=0,
                 sqlite_options=["ENABLE_MATH_FUNCTIONS"],
             )
             for key, replacement in (
@@ -124,6 +125,7 @@ class CiPythonOracleTest(unittest.TestCase):
                 ("prefix", "/ambient/python"),
                 ("executable", "/ambient/bin/python"),
                 ("sqlite", "3.45.1"),
+                ("sqlite_foreign_keys", 1),
                 ("sqlite_options", []),
                 ("sqlite_options", ["ENABLE_MATH_FUNCTIONS", "SOUNDEX"]),
             ):

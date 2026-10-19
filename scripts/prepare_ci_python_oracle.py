@@ -40,9 +40,12 @@ SQLITE_SOURCE_SHA256 = (
 )
 # Match the relevant bundled Rust options, including .cargo/config.toml's
 # math functions and explicit absence of soundex. Never use the host library.
+# Raw Python connections retain their normal foreign_keys=OFF default; Store
+# enables enforcement explicitly. Fixtures intentionally use raw connections
+# to assemble historical states, independently of Store admission.
 SQLITE_DEFINES = (
     "SQLITE_CORE",
-    "SQLITE_DEFAULT_FOREIGN_KEYS=1",
+    "SQLITE_DEFAULT_FOREIGN_KEYS=0",
     "SQLITE_ENABLE_API_ARMOR",
     "SQLITE_ENABLE_COLUMN_METADATA",
     "SQLITE_ENABLE_DBSTAT_VTAB",
@@ -84,6 +87,7 @@ def runtime_identity(executable, prefix):
             "expat=expat.EXPAT_VERSION, system=platform.system(), "
             "prefix=sys.prefix, executable=sys.executable, "
             "sqlite=sqlite3.sqlite_version, "
+            "sqlite_foreign_keys=sqlite3.connect(':memory:').execute('pragma foreign_keys').fetchone()[0], "
             "sqlite_options=[r[0] for r in sqlite3.connect(':memory:').execute('pragma compile_options')])))",
         ],
         check=True,
@@ -99,6 +103,7 @@ def runtime_identity(executable, prefix):
         or Path(identity["prefix"]) != prefix
         or Path(identity["executable"]) != executable
         or identity["sqlite"] != SQLITE_VERSION
+        or identity["sqlite_foreign_keys"] != 0
         or "ENABLE_MATH_FUNCTIONS" not in identity["sqlite_options"]
         or "SOUNDEX" in identity["sqlite_options"]
     ):
