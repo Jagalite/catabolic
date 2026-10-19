@@ -1,0 +1,97 @@
+{
+  "format_version": 1,
+  "package": "Public-host-import-composition-and-compatibility-ledger",
+  "recorded_at_utc": "2026-10-14T20:50:56.524434+00:00",
+  "baseline_commit": "94a8171c7554762eb61c7587e351a2748ddb3e65",
+  "source": {
+    "manifest": "tests/parity/native-catalog-composition-source-manifest.json",
+    "files_sha256": "67c3b7fba429aa6858ae483d1e6eb79104a57363c3c097ff963cecdefe1a825c",
+    "file_count": 1482,
+    "unchanged_before_after": true
+  },
+  "runner": "Standard offline locked Cargo1.99.0 and CPython3.14.6, Linux x86_64; separate main target",
+  "passing_rust_tests": 2,
+  "passing_audit_controls": 11,
+  "runs": {
+    "audit-tests": {
+      "log": ".local-tests/catalog-composition-ledger/audit-tests.log",
+      "sha256": "48629810cbba418c07bbf6095f5bd3e1bfc134532782c2f77618be60c8911aea",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0
+    },
+    "composition": {
+      "log": ".local-tests/catalog-composition-ledger/composition.log",
+      "sha256": "755f953888e1cc3f6234db7494ebd9f2e5e1cb234797d18ba0fa2a3dcf9b9028",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 1
+    },
+    "composition-helper": {
+      "log": ".local-tests/catalog-composition-ledger/composition-helper.log",
+      "sha256": "36546216e6ebf98624ae9e3950b43da96ba2c51caa4710b7b013714dc9fb57bd",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0
+    },
+    "clippy": {
+      "log": ".local-tests/catalog-composition-ledger/clippy.log",
+      "sha256": "5b4afb61023f15cb025a18b9f06a86ac889466c0d6ce16a2d58269bf958282f9",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0
+    },
+    "format": {
+      "log": ".local-tests/catalog-composition-ledger/format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0
+    },
+    "ruff": {
+      "log": ".local-tests/catalog-composition-ledger/ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0
+    },
+    "ruff-format": {
+      "log": ".local-tests/catalog-composition-ledger/ruff-format.log",
+      "sha256": "3bc53bf3e981a98a34a852e175bf9b77af841edea74fca595d9aedcbaf9a4938",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0
+    },
+    "source-after": {
+      "log": ".local-tests/catalog-composition-ledger/source-after.log",
+      "sha256": "80171e1392b20017d4de3164c89727f4fafef65e9f367336b071ed4ed49c3c0e",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0
+    }
+  },
+  "helper": {
+    "path": ".local-tests/catalog-r6/catabolic-native-qualified",
+    "sha256": "f362bae8a1c976afa8f8a7b5c9cc676e9f7777ccb1279434b52455a0d63f68ec",
+    "provenance": "Exact artifact from native-catalog-r6-checkpoint.json; every preexisting crate/Cargo/toolchain input is byte/mode-identical, only one integration test is added"
+  },
+  "qualified_contracts": [
+    "One exact public HostSession/PrivateCatalogWriter/Import HostAuthorization gate remains undrained while either actual child or committed writer delivery retains its lease on native35/36",
+    "Actual helper scans finish and gate drains while old terminal observation pointers remain; import refuses RecoveryRequired without imported item or pointer clearing",
+    "Additive24-row compatibility ledger preserves exact frozen753-row history and M0-M11 obligations;11 controls reject fabricated planned passes, default changes or waived review/release gates"
+  ],
+  "remaining": [
+    "Schema37 positive scanned-source activation/shared recovery and full current-source aggregate remain separate",
+    "External Motion deployment/reference audit and both-owner integration remain deferred",
+    "No safety review, production migration, default transition or release gate is closed"
+  ],
+  "M0_M11_gate_closures": []
+}

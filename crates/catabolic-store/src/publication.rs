@@ -9,7 +9,12 @@ use crate::{
 };
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
-fn ready(store: &Store, profile: &str, output: &Value, ancestors: &[String]) -> Result<()> {
+pub(crate) fn ready(
+    store: &Store,
+    profile: &str,
+    output: &Value,
+    ancestors: &[String],
+) -> Result<()> {
     let id = output["id"].as_str().unwrap();
     if ancestors.iter().any(|a| a == id) || ancestors.len() >= 64 {
         return Err(Error("rendition lineage cycle or depth exceeds 64".into()));
@@ -31,7 +36,7 @@ fn ready(store: &Store, profile: &str, output: &Value, ancestors: &[String]) -> 
     }
     let (snapshot, digest) = if let Some(artifact) = output["artifact_id"].as_str() {
         let mut row=rows(&store.db,"SELECT a.*,j.snapshot AS input_snapshot FROM processing_artifacts a JOIN processing_jobs j ON j.id=a.job_id WHERE a.id=? AND j.state='complete' AND a.state='ready'",&[artifact.to_owned().into()])?.into_iter().next().ok_or_else(||Error("artifact is not ready".into()))?;
-        let snapshot: Value = serde_json::from_str(
+        let snapshot: Value = catabolic_core::decode_json(
             row["publication_snapshot"]
                 .as_str()
                 .filter(|v| !v.is_empty())
@@ -122,7 +127,7 @@ pub fn candidates(
     let Some(row) = policy.first() else {
         return Ok((None, json!({"configured":false,"admitted":0,"excluded":[]})));
     };
-    let policy: Value = serde_json::from_str(row["definition"].as_str().unwrap())?;
+    let policy: Value = catabolic_core::decode_json(row["definition"].as_str().unwrap())?;
     if policy["mode"] == "preferred"
         && rows(
             &store.db,
@@ -195,5 +200,140 @@ pub fn candidates(
     Ok((
         Some(admitted),
         json!({"configured":true,"admitted":count,"excluded":excluded,"definition":policy}),
+    ))
+}
+
+/// Bounded recorded lineage evidence for the fallback owner. This function does
+/// not open files or imply an ancestor is live; callers explicitly probe checks.
+pub fn fallback_evidence(
+    store: &Store,
+    profile: &str,
+    output: &Value,
+    mode: &str,
+    ancestors: &[String],
+) -> Result<(Vec<Value>, Value)> {
+    if !["current_source_revision", "accepted_source_revision"].contains(&mode) {
+        return Err(Error("invalid source lineage mode".into()));
+    }
+    let id = output["id"]
+        .as_str()
+        .ok_or_else(|| Error("invalid rendition identity".into()))?;
+    if ancestors.iter().any(|a| a == id) || ancestors.len() >= 64 {
+        return Err(Error("rendition lineage cycle or depth limit".into()));
+    }
+    let (mut accepted, digest, source) = if let Some(artifact) = output["artifact_id"].as_str() {
+        let mut row=rows(&store.db,"SELECT a.publication_snapshot,a.sha256,j.snapshot FROM processing_artifacts a JOIN processing_jobs j ON j.id=a.job_id WHERE a.id=? AND a.state='ready' AND j.state='complete'",&[artifact.to_owned().into()])?.into_iter().next().ok_or_else(||Error("rendition_not_ready".into()))?;
+        if row["publication_snapshot"]
+            .as_str()
+            .is_none_or(str::is_empty)
+        {
+            row["publication_snapshot"] = json!("{}");
+        }
+        decode(&mut row, &["publication_snapshot", "snapshot"])?;
+        (
+            row["publication_snapshot"].clone(),
+            row["sha256"].clone(),
+            row["snapshot"].clone(),
+        )
+    } else {
+        let mut row=rows(&store.db,"SELECT r.snapshot,r.sha256,e.payload FROM receipt_outputs r JOIN external_receipts e ON e.id=r.receipt_id WHERE r.output_id=?",&[id.to_owned().into()])?.into_iter().next().ok_or_else(||Error("missing_output_evidence".into()))?;
+        decode(&mut row, &["snapshot", "payload"])?;
+        let receipt = &row["payload"]["source"];
+        let mut source = occurrence(
+            &store.db,
+            profile,
+            receipt["file_id"]
+                .as_str()
+                .ok_or_else(|| Error("invalid receipt source".into()))?,
+        )?;
+        for (key, value) in receipt["revision"]
+            .as_object()
+            .ok_or_else(|| Error("invalid receipt revision".into()))?
+        {
+            source[key] = value.clone();
+        }
+        let expected = match output["purpose"].as_str() {
+            Some("transcode" | "remux" | "preview" | "thumbnail") => Some("video"),
+            Some("audio") => Some("audio"),
+            Some("subtitle") => Some("subtitle"),
+            _ => None,
+        };
+        let probe = fact(store, profile, output["file_id"].as_str().unwrap(), "probe")?;
+        if let Some(expected) = expected
+            && (probe["current"] != true
+                || !probe["data"]["streams"]
+                    .as_array()
+                    .is_some_and(|streams| streams.iter().any(|s| s["codec_type"] == expected)))
+        {
+            return Err(Error("output_probe_required".into()));
+        }
+        (row["snapshot"].clone(), row["sha256"].clone(), source)
+    };
+    let mut observed = occurrence(&store.db, profile, output["file_id"].as_str().unwrap())?;
+    let keys = [
+        "size",
+        "mtime_ns",
+        "device",
+        "inode",
+        "root",
+        "root_device",
+        "root_inode",
+    ];
+    if accepted.as_object().is_none_or(|o| o.is_empty())
+        || keys.iter().any(|k| observed[*k] != accepted[*k])
+    {
+        let verified = fact(
+            store,
+            profile,
+            output["file_id"].as_str().unwrap(),
+            "verify",
+        )?;
+        if verified["current"] != true || verified["data"]["digest"] != digest {
+            return Err(Error("output_verification_required".into()));
+        }
+        accepted = verified["snapshot"].clone();
+    }
+    if accepted.get("ctime_ns").is_none() {
+        return Err(Error("output_revision_evidence_missing".into()));
+    }
+    observed["ctime_ns"] = accepted["ctime_ns"].clone();
+    let mut checks = vec![observed];
+    let mut current = occurrence(
+        &store.db,
+        profile,
+        output["source_file_id"].as_str().unwrap(),
+    )?;
+    let currentness = if keys.iter().any(|k| current[*k] != source[*k]) {
+        "known_changed"
+    } else {
+        "not_live_checked"
+    };
+    if mode == "current_source_revision" {
+        if currentness == "known_changed" || current["status"] != "present" {
+            return Err(Error("source_currentness_unknown_or_changed".into()));
+        }
+        if let Some(ctime) = source.get("ctime_ns") {
+            current["ctime_ns"] = ctime.clone();
+        }
+        checks.push(current);
+        let mut path = ancestors.to_vec();
+        path.push(id.into());
+        for parent in rows(
+            &store.db,
+            &format!(
+                "SELECT * FROM ({}) WHERE profile=? AND file_id=?",
+                view_sql("catalog_renditions")
+            ),
+            &[
+                profile.to_owned().into(),
+                output["source_file_id"].as_str().unwrap().to_owned().into(),
+            ],
+        )? {
+            checks.extend(fallback_evidence(store, profile, &parent, mode, &path)?.0);
+        }
+    }
+    Ok((
+        checks,
+        json!({"lineage_requirement":mode,"source_currentness":currentness,"accepted_source_revision":source,"output_digest":digest}),
     ))
 }

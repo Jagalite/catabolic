@@ -8,6 +8,7 @@ import subprocess
 import unittest
 
 from catabolic.app import Application
+from catabolic.domain import CatabolicError
 from catabolic.sql_query import VIEWS, execute_sql
 from catabolic.store import Store
 from tests import test_queries as fixtures
@@ -113,21 +114,34 @@ class NativeQueryTest(unittest.TestCase):
                 self.assertIn(
                     "read-only SQL rejected", self.native("query", sql, ok=False)
                 )
-        for table in [
-            "api_tokens",
-            "execution_claims",
-            "watchers",
-            "schema_migrations",
-            "sqlite_schema",
+        for table, column in [
+            ("api_tokens", "api_tokens.id"),
+            ("execution_claims", "execution_claims.job_id"),
+            ("watchers", "watchers.profile"),
+            ("sqlite_schema", "sqlite_master.type"),
         ]:
             with self.subTest(table=table):
-                # schema_migrations is not private in the reference operator SQL surface.
-                if table == "schema_migrations":
-                    continue
-                self.assertIn(
-                    "read-only SQL rejected",
-                    self.native("query", f"SELECT * FROM {table}", "--http", ok=False),
+                sql = f"SELECT * FROM {table}"
+                # Frozen direct HTTP reads return SQLITE_DENY without adding
+                # an operation/function diagnostic. Compare the complete error,
+                # including SQLite's sqlite_schema -> sqlite_master spelling.
+                with self.assertRaises(CatabolicError) as error:
+                    execute_sql(self.path, sql, _http=True)
+                expected = f"SQL query failed: access to {column} is prohibited"
+                self.assertEqual(str(error.exception), expected)
+                self.assertEqual(
+                    self.native("query", sql, "--http", ok=False),
+                    f"catabolic: {expected}",
                 )
+                # The same operator read is permitted; error normalization
+                # must not accidentally change which reads are admitted.
+                self.assertEqual(self.native("query", sql), execute_sql(self.path, sql))
+        # schema_migrations is public in the frozen HTTP SQL surface too.
+        sql = "SELECT * FROM schema_migrations"
+        self.assertEqual(
+            self.native("query", sql, "--http"),
+            execute_sql(self.path, sql, _http=True),
+        )
         self.assertEqual(before, self.path.read_bytes())
         self.assertEqual(
             self.native("query", "SELECT 9223372036854775807", "--http"),
@@ -147,6 +161,46 @@ class NativeQueryTest(unittest.TestCase):
                 ok=False,
             ),
         )
+
+    def test_sql_read_denial_callback_diagnostics_match_reference(self):
+        before = self.path.read_bytes()
+        for table in ("api_tokens", "execution_claims", "watchers", "sqlite_schema"):
+            for sql in (
+                f"SELECT * FROM main.{table} WHERE 0",
+                f"SELECT * FROM (SELECT * FROM {table})",
+                f"SELECT count(*) FROM {table}",
+            ):
+                with self.subTest(sql=sql):
+                    with self.assertRaises(CatabolicError) as error:
+                        execute_sql(self.path, sql, _http=True)
+                    expected = str(error.exception)
+                    if sql.startswith("SELECT count(*)"):
+                        # SQLite omits the database for these column-less
+                        # reads, so the frozen fallback denial records a name.
+                        self.assertEqual(
+                            expected,
+                            "read-only SQL rejected an operation or function: " + table,
+                        )
+                    else:
+                        self.assertTrue(
+                            expected.startswith("SQL query failed: access to ")
+                        )
+                        self.assertTrue(expected.endswith(" is prohibited"))
+                    self.assertEqual(
+                        self.native("query", sql, "--http", ok=False),
+                        f"catabolic: {expected}",
+                    )
+        for sql in (
+            "SELECT 1",
+            "SELECT count(*) FROM items",
+            "SELECT random() IS NOT NULL",
+        ):
+            with self.subTest(allowed=sql):
+                self.assertEqual(
+                    self.native("query", sql, "--http"),
+                    execute_sql(self.path, sql, _http=True),
+                )
+        self.assertEqual(before, self.path.read_bytes())
 
     def test_catalog_filters_and_cross_runtime_cursors(self):
         with Store(self.path) as store:
@@ -198,24 +252,27 @@ class NativeQueryTest(unittest.TestCase):
                             )
 
     def test_sql_error_messages_match_reference(self):
-        from catabolic.domain import CatabolicError
-
         for sql in (
             "SELECT FROM",
             "SELECT 1; SELECT 2",
             "SELECT nonexistent FROM items",
+            "SELECT * FROM nonexistent",
+            "SELECT json_extract('not json', '$.x')",
             "SELECT\x001",
             "-- comment",
             "SELECT :x",
             "SELECT ?",
         ):
-            with self.subTest(sql=sql):
-                with self.assertRaises(CatabolicError) as error:
-                    execute_sql(self.path, sql)
-                actual = self.native("query", sql, ok=False)
-                self.assertEqual(
-                    actual.removeprefix("catabolic: "), str(error.exception)
-                )
+            for http in (False, True):
+                with self.subTest(sql=sql, http=http):
+                    with self.assertRaises(CatabolicError) as error:
+                        execute_sql(self.path, sql, _http=http)
+                    actual = self.native(
+                        "query", sql, *(["--http"] if http else []), ok=False
+                    )
+                    self.assertEqual(actual, f"catabolic: {error.exception}")
+                    self.assertNotIn("read-only SQL rejected", actual)
+                    self.assertNotIn("is prohibited", actual)
 
     def test_item_decoration_crosses_batch_boundaries(self):
         from catabolic.store import encode

@@ -1,0 +1,921 @@
+{
+  "$defs": {
+    "Association": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "description": "A file's active identification and role for one media item.",
+      "properties": {
+        "active": {
+          "description": "Must be true in this active-catalog projection.",
+          "title": "Active",
+          "type": "boolean",
+          "x-since": 1
+        },
+        "file_id": {
+          "description": "Reference to files[].id.",
+          "minLength": 1,
+          "title": "File Id",
+          "type": "string",
+          "x-since": 1
+        },
+        "id": {
+          "description": "Opaque association ID scoped to database_id.",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string",
+          "x-since": 1
+        },
+        "item_id": {
+          "description": "Reference to items[].id.",
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string",
+          "x-since": 1
+        },
+        "metadata": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "description": "Unmodified association metadata, including language or identification evidence.",
+          "title": "Metadata",
+          "type": "object",
+          "x-since": 1
+        },
+        "origin": {
+          "description": "Identification provenance, currently explicit, mapping, or migration.",
+          "minLength": 1,
+          "title": "Origin",
+          "type": "string",
+          "x-since": 1
+        },
+        "part": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional one-based ordered part number.",
+          "title": "Part",
+          "x-since": 1
+        },
+        "role": {
+          "description": "File role such as primary, subtitle, cover, or custom:name.",
+          "minLength": 1,
+          "title": "Role",
+          "type": "string",
+          "x-since": 1
+        }
+      },
+      "required": [
+        "id",
+        "file_id",
+        "item_id",
+        "role",
+        "part",
+        "metadata",
+        "origin",
+        "active"
+      ],
+      "title": "Association",
+      "type": "object"
+    },
+    "Catalog": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "description": "One output projection, not a complete database backup.",
+      "properties": {
+        "id": {
+          "description": "Logical output catalog identifier.",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string",
+          "x-since": 1
+        },
+        "output_root": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Machine-specific output root, or null if unbound.",
+          "title": "Output Root",
+          "x-since": 1
+        }
+      },
+      "required": [
+        "id",
+        "output_root"
+      ],
+      "title": "Catalog",
+      "type": "object"
+    },
+    "Content": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "description": "Checksummed catalog snapshot with profile-scoped observations.",
+      "properties": {
+        "associations": {
+          "description": "Active identifications for mapped item/file pairs.",
+          "items": {
+            "$ref": "#/$defs/Association"
+          },
+          "title": "Associations",
+          "type": "array",
+          "x-since": 1
+        },
+        "catalog": {
+          "$ref": "#/$defs/Catalog",
+          "description": "The exported output projection.",
+          "x-since": 1
+        },
+        "counts": {
+          "$ref": "#/$defs/Counts",
+          "description": "Exact array lengths for the six record collections.",
+          "x-since": 1
+        },
+        "database_id": {
+          "description": "Origin database identity; IDs are scoped by this value.",
+          "minLength": 1,
+          "title": "Database Id",
+          "type": "string",
+          "x-since": 1
+        },
+        "database_schema": {
+          "description": "Producer database schema version, independent of the interchange format version.",
+          "exclusiveMinimum": 0,
+          "title": "Database Schema",
+          "type": "integer",
+          "x-since": 1
+        },
+        "entries": {
+          "description": "Active desired destinations, each referencing included items and files.",
+          "items": {
+            "$ref": "#/$defs/Entry"
+          },
+          "title": "Entries",
+          "type": "array",
+          "x-since": 1
+        },
+        "extra": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "description": "User-provided document metadata; namespaced keys are recommended.",
+          "title": "Extra",
+          "type": "object",
+          "x-since": 1
+        },
+        "files": {
+          "description": "Files referenced by desired entries.",
+          "items": {
+            "$ref": "#/$defs/File"
+          },
+          "title": "Files",
+          "type": "array",
+          "x-since": 1
+        },
+        "filesystem_verified": {
+          "description": "Must be false: exporting does not verify live files or links.",
+          "title": "Filesystem Verified",
+          "type": "boolean",
+          "x-since": 1
+        },
+        "items": {
+          "description": "Mapped items and recursively reachable outgoing related items.",
+          "items": {
+            "$ref": "#/$defs/Item"
+          },
+          "title": "Items",
+          "type": "array",
+          "x-since": 1
+        },
+        "layout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Layout"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Layout/query provenance, or null for an unmanaged catalog.",
+          "x-since": 1
+        },
+        "profile": {
+          "description": "Machine profile used for bindings and observations.",
+          "minLength": 1,
+          "title": "Profile",
+          "type": "string",
+          "x-since": 1
+        },
+        "recorded_links": {
+          "description": "Recorded owned destinations, potentially including stale links.",
+          "items": {
+            "$ref": "#/$defs/RecordedLink"
+          },
+          "title": "Recorded Links",
+          "type": "array",
+          "x-since": 1
+        },
+        "relationships": {
+          "description": "Active outgoing relationship closure for included items.",
+          "items": {
+            "$ref": "#/$defs/Relationship"
+          },
+          "title": "Relationships",
+          "type": "array",
+          "x-since": 1
+        },
+        "state": {
+          "const": "desired_catalog",
+          "description": "This document records desired catalog state.",
+          "title": "State",
+          "type": "string",
+          "x-since": 1
+        }
+      },
+      "required": [
+        "database_id",
+        "database_schema",
+        "profile",
+        "catalog",
+        "state",
+        "filesystem_verified",
+        "layout",
+        "entries",
+        "items",
+        "files",
+        "associations",
+        "relationships",
+        "recorded_links",
+        "extra",
+        "counts"
+      ],
+      "title": "Content",
+      "type": "object"
+    },
+    "Counts": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "description": "Collection sizes; each count must equal its corresponding array length.",
+      "properties": {
+        "associations": {
+          "description": "Number of included active identifications.",
+          "minimum": 0,
+          "title": "Associations",
+          "type": "integer",
+          "x-since": 1
+        },
+        "entries": {
+          "description": "Number of desired mapping entries.",
+          "minimum": 0,
+          "title": "Entries",
+          "type": "integer",
+          "x-since": 1
+        },
+        "files": {
+          "description": "Number of included source files.",
+          "minimum": 0,
+          "title": "Files",
+          "type": "integer",
+          "x-since": 1
+        },
+        "items": {
+          "description": "Number of included media items.",
+          "minimum": 0,
+          "title": "Items",
+          "type": "integer",
+          "x-since": 1
+        },
+        "recorded_links": {
+          "description": "Number of recorded owned links.",
+          "minimum": 0,
+          "title": "Recorded Links",
+          "type": "integer",
+          "x-since": 1
+        },
+        "relationships": {
+          "description": "Number of included active directed relationships.",
+          "minimum": 0,
+          "title": "Relationships",
+          "type": "integer",
+          "x-since": 1
+        }
+      },
+      "required": [
+        "entries",
+        "items",
+        "files",
+        "associations",
+        "relationships",
+        "recorded_links"
+      ],
+      "title": "Counts",
+      "type": "object"
+    },
+    "Entry": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "description": "Desired catalog destination; importing metadata does not authorize symlink writes.",
+      "properties": {
+        "association_ids": {
+          "description": "All exported active identifications for this item/file pair.",
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Association Ids",
+          "type": "array",
+          "x-since": 1
+        },
+        "expected_link_target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Computed relative symlink target, or null if bindings are unavailable.",
+          "title": "Expected Link Target",
+          "x-since": 1
+        },
+        "file_id": {
+          "description": "Reference to files[].id.",
+          "minLength": 1,
+          "title": "File Id",
+          "type": "string",
+          "x-since": 1
+        },
+        "item_id": {
+          "description": "Reference to items[].id.",
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string",
+          "x-since": 1
+        },
+        "managed_by_layout": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Name of the managing layout, or null for an explicit mapping.",
+          "title": "Managed By Layout",
+          "x-since": 1
+        },
+        "mapping_id": {
+          "description": "Opaque mapping ID scoped to database_id.",
+          "minLength": 1,
+          "title": "Mapping Id",
+          "type": "string",
+          "x-since": 1
+        },
+        "output_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Machine-specific absolute output path, or null if unbound.",
+          "title": "Output Path",
+          "x-since": 1
+        },
+        "path": {
+          "description": "Relative POSIX destination in this output catalog.",
+          "minLength": 1,
+          "title": "Path",
+          "type": "string",
+          "x-since": 1
+        },
+        "recorded_link_matches_desired": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Whether the recorded target equals the expected target; null when no expectation is available.",
+          "title": "Recorded Link Matches Desired",
+          "x-since": 1
+        },
+        "recorded_link_target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Last database-owned target; does not prove the link exists now.",
+          "title": "Recorded Link Target",
+          "x-since": 1
+        }
+      },
+      "required": [
+        "mapping_id",
+        "path",
+        "output_path",
+        "item_id",
+        "file_id",
+        "association_ids",
+        "managed_by_layout",
+        "expected_link_target",
+        "recorded_link_target",
+        "recorded_link_matches_desired"
+      ],
+      "title": "Entry",
+      "type": "object"
+    },
+    "File": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "description": "Inventoried file with recorded availability, not a live filesystem check.",
+      "properties": {
+        "id": {
+          "description": "Opaque file ID scoped to database_id.",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string",
+          "x-since": 1
+        },
+        "location": {
+          "description": "Logical source location; not an absolute machine path.",
+          "minLength": 1,
+          "title": "Location",
+          "type": "string",
+          "x-since": 1
+        },
+        "mtime_ns": {
+          "anyOf": [
+            {
+              "pattern": "^-?(0|[1-9][0-9]*)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Recorded modification time in nanoseconds as signed decimal text.",
+          "title": "Mtime Ns",
+          "x-since": 1
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Producer's recorded scan timestamp, or null when unobserved.",
+          "title": "Observed At",
+          "x-since": 1
+        },
+        "path": {
+          "description": "Relative POSIX path within the logical source location.",
+          "minLength": 1,
+          "title": "Path",
+          "type": "string",
+          "x-since": 1
+        },
+        "scan_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Observation scan identifier; scans themselves are outside this projection.",
+          "title": "Scan Id",
+          "x-since": 1
+        },
+        "size": {
+          "anyOf": [
+            {
+              "pattern": "^(0|[1-9][0-9]*)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Recorded byte size as decimal text, preserving integers beyond JavaScript precision.",
+          "title": "Size",
+          "x-since": 1
+        },
+        "source_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Machine-specific absolute source path, or null if unbound.",
+          "title": "Source Path",
+          "x-since": 1
+        },
+        "source_root": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Machine-specific source root, or null if unbound; never instructions to access a path.",
+          "title": "Source Root",
+          "x-since": 1
+        },
+        "status": {
+          "description": "Availability from the selected profile's last observation.",
+          "enum": [
+            "present",
+            "missing",
+            "unknown"
+          ],
+          "title": "Status",
+          "type": "string",
+          "x-since": 1
+        }
+      },
+      "required": [
+        "id",
+        "location",
+        "path",
+        "size",
+        "mtime_ns",
+        "status",
+        "scan_id",
+        "observed_at",
+        "source_root",
+        "source_path"
+      ],
+      "title": "File",
+      "type": "object"
+    },
+    "Generator": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "description": "Producer information, independent of the schema version.",
+      "properties": {
+        "name": {
+          "description": "Producer application name.",
+          "examples": [
+            "catabolic"
+          ],
+          "minLength": 1,
+          "title": "Name",
+          "type": "string",
+          "x-since": 1
+        },
+        "version": {
+          "description": "Producer application version.",
+          "examples": [
+            "0.1.0"
+          ],
+          "minLength": 1,
+          "title": "Version",
+          "type": "string",
+          "x-since": 1
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "Generator",
+      "type": "object"
+    },
+    "Identity": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "description": "Provider identity; the namespace/value pair identifies one item.",
+      "properties": {
+        "namespace": {
+          "description": "Provider namespace, including custom namespaces.",
+          "examples": [
+            "tmdb.movie"
+          ],
+          "minLength": 1,
+          "title": "Namespace",
+          "type": "string",
+          "x-since": 1
+        },
+        "value": {
+          "description": "Opaque provider-specific identifier.",
+          "examples": [
+            "329865"
+          ],
+          "minLength": 1,
+          "title": "Value",
+          "type": "string",
+          "x-since": 1
+        }
+      },
+      "required": [
+        "namespace",
+        "value"
+      ],
+      "title": "Identity",
+      "type": "object"
+    },
+    "Item": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "description": "Media item independent of its files and generated destinations.",
+      "properties": {
+        "id": {
+          "description": "Opaque item ID scoped to database_id; never infer identity from a title.",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string",
+          "x-since": 1
+        },
+        "identities": {
+          "description": "External identities assigned to this item.",
+          "items": {
+            "$ref": "#/$defs/Identity"
+          },
+          "title": "Identities",
+          "type": "array",
+          "x-since": 1
+        },
+        "kind": {
+          "description": "Media vocabulary name; custom:name and future names remain readable.",
+          "examples": [
+            "movie",
+            "custom:research_notes"
+          ],
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string",
+          "x-since": 1
+        },
+        "metadata": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "description": "Unmodified item metadata; unknown keys and nested JSON are retained.",
+          "title": "Metadata",
+          "type": "object",
+          "x-since": 1
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "metadata",
+        "identities"
+      ],
+      "title": "Item",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "Layout": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "description": "Saved naming/query provenance; current and last-applied definitions may differ.",
+      "properties": {
+        "current_definition": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "description": "Opaque versioned layout definition; consumers must not execute embedded queries implicitly.",
+          "title": "Current Definition",
+          "type": "object",
+          "x-since": 1
+        },
+        "current_definition_sha256": {
+          "description": "Checksum of current_definition using the profile's canonical encoding.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Current Definition Sha256",
+          "type": "string",
+          "x-since": 1
+        },
+        "definition_matches_last_apply": {
+          "description": "Whether current and last-applied definition checksums match.",
+          "title": "Definition Matches Last Apply",
+          "type": "boolean",
+          "x-since": 1
+        },
+        "last_applied_definition_sha256": {
+          "description": "Checksum of the definition used at the last apply.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Last Applied Definition Sha256",
+          "type": "string",
+          "x-since": 1
+        },
+        "name": {
+          "description": "Saved layout name.",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string",
+          "x-since": 1
+        }
+      },
+      "required": [
+        "name",
+        "current_definition",
+        "current_definition_sha256",
+        "last_applied_definition_sha256",
+        "definition_matches_last_apply"
+      ],
+      "title": "Layout",
+      "type": "object"
+    },
+    "RecordedLink": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "description": "Database ownership evidence, which may include stale destinations.",
+      "properties": {
+        "path": {
+          "description": "Recorded relative output path.",
+          "minLength": 1,
+          "title": "Path",
+          "type": "string",
+          "x-since": 1
+        },
+        "target": {
+          "description": "Recorded link target, retained verbatim as metadata.",
+          "title": "Target",
+          "type": "string",
+          "x-since": 1
+        }
+      },
+      "required": [
+        "path",
+        "target"
+      ],
+      "title": "RecordedLink",
+      "type": "object"
+    },
+    "Relationship": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "description": "Directed relationship; outgoing closure is included without unrelated siblings.",
+      "properties": {
+        "active": {
+          "description": "Must be true in this active-catalog projection.",
+          "title": "Active",
+          "type": "boolean",
+          "x-since": 1
+        },
+        "id": {
+          "description": "Opaque relationship ID scoped to database_id.",
+          "minLength": 1,
+          "title": "Id",
+          "type": "string",
+          "x-since": 1
+        },
+        "kind": {
+          "description": "Relationship vocabulary name, including custom:name.",
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string",
+          "x-since": 1
+        },
+        "metadata": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "description": "Unmodified relationship metadata and extension fields.",
+          "title": "Metadata",
+          "type": "object",
+          "x-since": 1
+        },
+        "position": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional one-based position, meaningful for ordered relationships.",
+          "title": "Position",
+          "x-since": 1
+        },
+        "source_id": {
+          "description": "Reference to the source items[].id.",
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string",
+          "x-since": 1
+        },
+        "target_id": {
+          "description": "Reference to the target items[].id.",
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string",
+          "x-since": 1
+        }
+      },
+      "required": [
+        "id",
+        "source_id",
+        "target_id",
+        "kind",
+        "position",
+        "metadata",
+        "active"
+      ],
+      "title": "Relationship",
+      "type": "object"
+    }
+  },
+  "$id": "urn:catabolic:open-catalog:manifest:1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": {
+    "$ref": "#/$defs/JsonValue"
+  },
+  "description": "Open Catalog profile preserving the existing Catabolic manifest v1 wire format.",
+  "properties": {
+    "content": {
+      "$ref": "#/$defs/Content",
+      "description": "Complete checksummed projection content.",
+      "x-since": 1
+    },
+    "content_sha256": {
+      "description": "SHA-256 of canonical content JSON; integrity only, not authentication.",
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Sha256",
+      "type": "string",
+      "x-since": 1
+    },
+    "format": {
+      "const": "catabolic.catalog-manifest",
+      "description": "Interchange profile identifier.",
+      "title": "Format",
+      "type": "string",
+      "x-since": 1
+    },
+    "format_version": {
+      "const": 1,
+      "description": "Wire-format version; reject unsupported versions without rewriting.",
+      "title": "Format Version",
+      "type": "integer",
+      "x-since": 1
+    },
+    "generated_at": {
+      "description": "Generation timestamp supplied by the producer, retained verbatim.",
+      "title": "Generated At",
+      "type": "string",
+      "x-since": 1
+    },
+    "generator": {
+      "$ref": "#/$defs/Generator",
+      "description": "Application that produced this snapshot.",
+      "x-since": 1
+    }
+  },
+  "required": [
+    "format",
+    "format_version",
+    "generator",
+    "generated_at",
+    "content_sha256",
+    "content"
+  ],
+  "title": "Document",
+  "type": "object"
+}

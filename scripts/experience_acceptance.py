@@ -275,7 +275,15 @@ class Journey:
         sync = next(stage for stage in result["stages"] if stage["stage"] == "sync")
         if sync["applied_count"] != 0:
             raise AssertionError("unchanged maintenance rewrote outputs")
+        # Maintenance selects originals, but its inventory updates can queue the
+        # independently enabled mobile projection. Compare fully drained states.
+        self.drain_refresh()
         self.checkpoint(name)
+
+    def drain_refresh(self):
+        refresh = self.cli("catalog-refresh", "run", "--force")
+        if not refresh.get("complete") or refresh.get("pending") != 0:
+            raise AssertionError("enabled catalog refresh incomplete")
 
     def exercise(self):
         self.fixtures()
@@ -495,6 +503,7 @@ class Journey:
             detached.rename(self.root / "a")
         self.cli("scan", "a")
         self.cli("sync", "--catalog", "originals")
+        self.drain_refresh()
         self.checkpoints["outage_recovered"] = (
             snapshot(self.root) == self.checkpoints["repeat2"]
         )
@@ -512,7 +521,7 @@ class Journey:
         # Inventory changes conservatively enqueue enabled catalog automation.
         # Drain the independently maintained mobile projection before asserting
         # that the whole fixture has no pending work.
-        self.cli("catalog-refresh", "run", "--force")
+        self.drain_refresh()
         self.checkpoint("late")
         self.maintenance("late_repeat1")
         self.maintenance("late_repeat2")

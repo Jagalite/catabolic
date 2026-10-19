@@ -1,0 +1,188 @@
+{
+  "format": 1,
+  "status": "failed-aggregate-with-passing-native-model-and-composed-view-lanes",
+  "source_commit": "499a4f31864dfabdd29444b07a60d054eede74f0",
+  "aggregate": {
+    "source_commit": "499a4f31864dfabdd29444b07a60d054eede74f0",
+    "source_digest": "5b1030607264ed55032aceb8b7528948d386fa6c9b7b32a7adcaa4745cfd95b1",
+    "source_after_digest": "5b1030607264ed55032aceb8b7528948d386fa6c9b7b32a7adcaa4745cfd95b1",
+    "source_stable": true,
+    "oracle_stable": true,
+    "fixture_stable": true,
+    "client_stable": true,
+    "artifact_stable": true,
+    "oracle_python_stable": true,
+    "command_exit": 1,
+    "seconds": 1403.8913309390045,
+    "passed": false,
+    "scope": "Native Rust crates excluding catabolic-python, exact seven required ignored fixtures, lifecycle/playback models, composed GraphQL CLI behavior, generated reference tables, native loopback HTTP/generated-client journey",
+    "cargo_test_summary_count": 62,
+    "cargo_passing_executions": 587,
+    "summaries": [
+      "test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.93s",
+      "test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 17 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.03s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 124 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 9.65s",
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.12s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.16s",
+      "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 41.61s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.14s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.90s",
+      "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.15s",
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.21s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.50s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.31s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 288.49s",
+      "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.97s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.16s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.40s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 53.89s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.21s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s",
+      "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.63s",
+      "test result: ok. 7 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 3.48s",
+      "test result: ok. 190 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 52.42s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.14s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.91s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.00s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s",
+      "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.19s",
+      "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.66s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.74s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.23s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s",
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.08s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.76s",
+      "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.51s",
+      "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.99s",
+      "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.63s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.69s",
+      "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 87.79s",
+      "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.75s",
+      "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.39s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 2.13s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 125 filtered out; finished in 0.28s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 125 filtered out; finished in 0.24s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 192 filtered out; finished in 1.75s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 192 filtered out; finished in 7.09s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 192 filtered out; finished in 1.93s",
+      "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.30s"
+    ],
+    "artifacts": {
+      "catabolic-dist": {
+        "sha256": "64aaa7d159c2c70d7082f204be25b8290e48c83517422df453affb4310ea429b",
+        "bytes": 2730568
+      },
+      "catabolic-http-experimental": {
+        "sha256": "e04df935c267df6b3c60cb3d09e4539fb8de40b39cb39a125fc47477bc393b28",
+        "bytes": 49393392
+      },
+      "catabolic-legacy-native": {
+        "sha256": "3b935962fdb680debe27287ff8646291ef5a3370385953ffb0077576951129c1",
+        "bytes": 75091352
+      },
+      "catabolic-native": {
+        "sha256": "6b10c3207ccc7c7a31b0121d274f63608a461ef010fe5797225959ec1e05712f",
+        "bytes": 69868608
+      },
+      "catabolic-verification": {
+        "sha256": "adb88d57d8e66e35531149749967b6d4f232d995f85126f8b9c1dedaee86020b",
+        "bytes": 2639136
+      },
+      "legacy_parse": {
+        "sha256": "272e2b01a41dae6fd233a5e28dfc28fb4c2a642e5e4d4306f1c6b5357b5d21af",
+        "bytes": 3838192
+      }
+    },
+    "runner_sha256": "427a23edad1ac543d14dd317043d89ba75893aa2b6ab70e5862c5af5b049fd20",
+    "log_sha256": "288d904df7ab7c60af08411f13b5426219b8c8edfc36a24f9621f14b33c9965f",
+    "limitations": [
+      "Not standalone release-artifact qualification; separate receipt required",
+      "No new wrapper/wheel gate",
+      "No whole-contract/platform/full milestone qualification"
+    ]
+  },
+  "native_results": {
+    "passing_executions": 587,
+    "summary_count": 62,
+    "mandatory_exact_ignored_witnesses": 7,
+    "formatting": "passed",
+    "strict_workspace_clippy": "passed",
+    "standalone_ci_shell_contracts": 29
+  },
+  "python_test_runner": {
+    "methods": 41,
+    "failures": 1,
+    "errors": 1,
+    "seconds": 479.54,
+    "failure": "obsolete conflicting-types expected-native capture; composed response matches frozen reference, separately fixed in later overlap slice",
+    "error": "wrapper embedding method selected without CATABOLIC_COMPLETION_EXTENSION_ROOT; configuration error, no extension execution",
+    "composed_parser_validation_cases": 19,
+    "composed_cases_all_match": true
+  },
+  "not_executed_after_runner_failure": [
+    "generated reference table checks",
+    "bundled-doc check",
+    "native HTTP/generated-client journey"
+  ],
+  "models": {
+    "model-check.json": "graph exhausted: 52 states, 364 transitions, zero skipped checks",
+    "playback-model-check.json": "production playback graph exhausted: 5 states, 1200 transitions, zero skipped checks"
+  },
+  "evidence": {
+    "run.py": {
+      "sha256": "6f53a8709419e3cf61bd72fc611f688c8c8c746d2ef2ef2276606037e9376653",
+      "bytes": 5387
+    },
+    "run-native.sh": {
+      "sha256": "427a23edad1ac543d14dd317043d89ba75893aa2b6ab70e5862c5af5b049fd20",
+      "bytes": 4720
+    },
+    "result.json": {
+      "sha256": "cec311e7ef9a59a1a3ffcc77afad98dca7d79ca2ac154def13d9fb151782159e",
+      "bytes": 8344
+    },
+    "native.log": {
+      "sha256": "288d904df7ab7c60af08411f13b5426219b8c8edfc36a24f9621f14b33c9965f",
+      "bytes": 72656
+    },
+    "composed-graphql.log": {
+      "sha256": "595c84356ec59dd45dc68add40ec487e2a599329ff373f1be6fcc624df7dd8d9",
+      "bytes": 10149
+    },
+    "composed-views.json": {
+      "sha256": "3edd9e101c7716cd8e496eb7985d7c1ab7587ec5918f11d384ae04ef98f3b9d0",
+      "bytes": 56188
+    },
+    "standalone-ci-contracts.log": {
+      "sha256": "7b4fd2befefb10bdd7f4d2ffa83b7cdac372a11fc9148003937cb7fb620de160",
+      "bytes": 1245
+    },
+    "artifacts-before.json": {
+      "sha256": "817598700271c9f84e530b42218d31a1f2835a4409f1ceded9581e89fe952d76",
+      "bytes": 775
+    }
+  },
+  "local_evidence_directory": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave13/.local-tests/wave13/native-checkpoint",
+  "limitations": [
+    "Original source and failed evidence unchanged",
+    "No same-source standalone release artifact for checkpoint13",
+    "No actual GitHub CI/macOS qualification",
+    "No whole-contract or M4-M11 hard-gate completion",
+    "No wrapper gate required for next native checkpoint"
+  ]
+}

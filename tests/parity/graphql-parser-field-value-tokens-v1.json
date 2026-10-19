@@ -1,0 +1,798 @@
+{
+  "contract": "native-graphql-parser-field-value-tokens-v1",
+  "fixture_bindings": [
+    {
+      "case_count": 61,
+      "cases_sha256": "7879baa36b670ab27a6e155e315972bcca880f546e9d660b44c06890cc0cf240",
+      "contract": "native-graphql-parser-boundary-ownership-v1",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "prior_promotion_indices": [
+        19,
+        22,
+        27
+      ],
+      "provenance_sha256": "37c7ba67609b15d843dc1543db32aa267bc40f09345d1ebe4537888dc71e11d5",
+      "sha256": "863a1a22934a34c81c1e154c2362530a4db49e936608fbf9a541b8a0725816de",
+      "stage05_cases_sha256": "f7c3b71f492db5938926c6d24c0ff6b3971321640fb249d7909edd6e47ec97c8",
+      "stage06_cases_sha256": "c73858b6b52eb2b3aa6b53e564d97af23781d598f74f65d855298033cdbfc8c1"
+    },
+    {
+      "case_count": 50,
+      "cases_sha256": "9e3b6c2d42041826ef7a4bd7fc42e0a5843fe512b7d2c6dc38715771d9f22bb3",
+      "contract": "native-graphql-parser-required-value-precedence-v1",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "prior_promotion_indices": [
+        40,
+        43
+      ],
+      "provenance_sha256": "da6f8f0713b182dd4968830f67b52c1faa32da67fcb15b40f023f13a71309105",
+      "sha256": "079ce62e3dbd623e8a1726fbb7ec9f25b9ff678d1baa728da77f0928f73a8c56",
+      "stage05_cases_sha256": "b2aa53dbb6061303a55d01f87fc9fc966a64698f4d818b1189d6405ba643ddd7",
+      "stage06_cases_sha256": "c50c59105f6d58e4cc8b9dbc90d93ba7c79245cebac74c96e44e9d6b58b59818"
+    }
+  ],
+  "provenance": {
+    "assessment_rows_sha256": "ca0c5262daa23f7d8084622830775d3dd8dda6998f59314e04aa2597cd6decce",
+    "assessment_seal_sha256": "122ca8506127ea904d98e2d701b70383766e5362445f2b6937eace426aa31285",
+    "base_seal_sha256": "d5f9d8ce5eac51c353bfca8631cc127f32c1850a29839510cb9de7a4d1cdde95",
+    "base_source_map_sha256": "d73e0e8fa13698000cab48196f2598d01d7750259852a70276c692cf2b816720",
+    "capture_boundary": "Complete historical frozen reference and stage02 native envelopes, copied unchanged from exact fixture preimages; not stage05 or stage06 execution.",
+    "policy_scope": "Field required-value bang at Root/ListElement/ObjectMember in both policies; EOF only at Root/ListElement in ordinary ownership. EOF admission and ObjectMember EOF await exact capture.",
+    "prior_contract": "native-graphql-parser-lexical-ownership-v1",
+    "prior_fixture": "graphql-parser-lexical-ownership-v1.json",
+    "prior_fixture_sha256": "e23562386198aff15ba45cc16a22e4c8281a3f0011815b57f8faadbc6568ffae",
+    "runtime_executed": false
+  },
+  "replacements": [
+    {
+      "before_limit_policy": false,
+      "case_sha256": "95b1172950d1786cd5670103e3cf66673cb89c441446770dfc7abe92f9878197",
+      "companion_sha256": "7520e1abfb28e6e0e0541681f758c960d814a45443ba9c420d89cd750a625c9e",
+      "context": "Argument(Field)",
+      "document_sha256": "446b6ef40b371aa573dca3e82d7f8a23817d6fdf03856db6f16adf1d9ed43fbd",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "historical_active_policy": "ordinary",
+      "legacy_sha256": "b4e19b5dbd0a6d27ff95380ca472d42efd1daff6570db144c939db50b2a94adb",
+      "name": "closer-root-eof",
+      "ordinary_policy": true,
+      "pointer": "/cases/36",
+      "position": "Root",
+      "preimage": {
+        "args": [],
+        "baseline": {
+          "companion": {
+            "code": 0,
+            "stderr": "",
+            "stdout": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 14,
+                      "line": 1
+                    }
+                  ],
+                  "message": " --> 1:14\n  |\n1 | {items(first:\n  |              ^---\n  |\n  = expected value"
+                }
+              ]
+            }
+          },
+          "legacy": {
+            "code": 2,
+            "stderr": "",
+            "stdout": {
+              "command": "graphql",
+              "data": {
+                "data": null,
+                "errors": [
+                  {
+                    "locations": [
+                      {
+                        "column": 14,
+                        "line": 1
+                      }
+                    ],
+                    "message": " --> 1:14\n  |\n1 | {items(first:\n  |              ^---\n  |\n  = expected value"
+                  }
+                ]
+              },
+              "exit_code": 2,
+              "interface_version": 1,
+              "operation": null,
+              "outcome": "error",
+              "profile": "default"
+            }
+          }
+        },
+        "category": "closure-category-boundary",
+        "document": "{items(first:",
+        "document_sha256": "446b6ef40b371aa573dca3e82d7f8a23817d6fdf03856db6f16adf1d9ed43fbd",
+        "evidence": {
+          "capture_name": "closer-root-eof",
+          "source": "assessment-v2"
+        },
+        "expectation": "baseline",
+        "frozen_parse": {
+          "accepted": false,
+          "exception": "graphql.error.syntax_error.GraphQLSyntaxError",
+          "formatted": {
+            "locations": [
+              {
+                "column": 14,
+                "line": 1
+              }
+            ],
+            "message": "Syntax Error: Unexpected <EOF>."
+          },
+          "locations": [
+            {
+              "column": 14,
+              "line": 1
+            }
+          ],
+          "message": "Syntax Error: Unexpected <EOF>.",
+          "positions": [
+            13
+          ]
+        },
+        "name": "closer-root-eof",
+        "preflight": true,
+        "reference": {
+          "code": 2,
+          "stderr": "",
+          "stdout": {
+            "command": "graphql",
+            "data": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 14,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Unexpected <EOF>."
+                }
+              ]
+            },
+            "exit_code": 2,
+            "interface_version": 1,
+            "operation": null,
+            "outcome": "error",
+            "profile": "default"
+          }
+        }
+      },
+      "reference_sha256": "82f7e10a286540faff6f03399fa18a45524fc882e356fadd25b4cfd35000d73d",
+      "token": "Eof"
+    },
+    {
+      "before_limit_policy": false,
+      "case_sha256": "7f28c3a6f647a627c19af3fe72bfd2c3924919409e6afbaff28a275ed64e5331",
+      "companion_sha256": "e1abfe47312af6763f3ed2511ad18f75327b066aca669e93afac77ce80d7890c",
+      "context": "Argument(Field)",
+      "document_sha256": "bd74bdd17dfa80b89903196716761dd8e067909ec702dd149167d6533ad69431",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "historical_active_policy": "ordinary",
+      "legacy_sha256": "f39c6251b98039c44090cafba5e8afe3d17a9c657c55124e76cb6f2a730ea854",
+      "name": "closer-list-eof",
+      "ordinary_policy": true,
+      "pointer": "/cases/37",
+      "position": "ListElement",
+      "preimage": {
+        "args": [],
+        "baseline": {
+          "companion": {
+            "code": 0,
+            "stderr": "",
+            "stdout": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 15,
+                      "line": 1
+                    }
+                  ],
+                  "message": " --> 1:15\n  |\n1 | {items(first:[\n  |               ^---\n  |\n  = expected value"
+                }
+              ]
+            }
+          },
+          "legacy": {
+            "code": 2,
+            "stderr": "",
+            "stdout": {
+              "command": "graphql",
+              "data": {
+                "data": null,
+                "errors": [
+                  {
+                    "locations": [
+                      {
+                        "column": 15,
+                        "line": 1
+                      }
+                    ],
+                    "message": " --> 1:15\n  |\n1 | {items(first:[\n  |               ^---\n  |\n  = expected value"
+                  }
+                ]
+              },
+              "exit_code": 2,
+              "interface_version": 1,
+              "operation": null,
+              "outcome": "error",
+              "profile": "default"
+            }
+          }
+        },
+        "category": "closure-category-boundary",
+        "document": "{items(first:[",
+        "document_sha256": "bd74bdd17dfa80b89903196716761dd8e067909ec702dd149167d6533ad69431",
+        "evidence": {
+          "capture_name": "closer-list-eof",
+          "source": "assessment-v2"
+        },
+        "expectation": "baseline",
+        "frozen_parse": {
+          "accepted": false,
+          "exception": "graphql.error.syntax_error.GraphQLSyntaxError",
+          "formatted": {
+            "locations": [
+              {
+                "column": 15,
+                "line": 1
+              }
+            ],
+            "message": "Syntax Error: Unexpected <EOF>."
+          },
+          "locations": [
+            {
+              "column": 15,
+              "line": 1
+            }
+          ],
+          "message": "Syntax Error: Unexpected <EOF>.",
+          "positions": [
+            14
+          ]
+        },
+        "name": "closer-list-eof",
+        "preflight": true,
+        "reference": {
+          "code": 2,
+          "stderr": "",
+          "stdout": {
+            "command": "graphql",
+            "data": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 15,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Unexpected <EOF>."
+                }
+              ]
+            },
+            "exit_code": 2,
+            "interface_version": 1,
+            "operation": null,
+            "outcome": "error",
+            "profile": "default"
+          }
+        }
+      },
+      "reference_sha256": "d2bdaa1492a199552a9431372541dfcabd990dff48dc08846bd42e53bb7e9b2d",
+      "token": "Eof"
+    },
+    {
+      "before_limit_policy": true,
+      "case_sha256": "c748b5bf664b053d3c3b9c84fd7fb455e70f6fcd6cec8efb8715191f7444137a",
+      "companion_sha256": "1ad9a58ab00623ed97dd4fbb2349291e9f0651e0f9c3da82468e8043febd5058",
+      "context": "Argument(Field)",
+      "document_sha256": "6ed540f0e9563940030ac837d28cd2b2f732120dbdc3f0a60dad767f14a983c4",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "historical_active_policy": "ordinary",
+      "legacy_sha256": "1e2ea80768555dbff3bb4b878b465ef76e5f5d3ceb3116509803e2bc3bf947cb",
+      "name": "closer-root-bang",
+      "ordinary_policy": true,
+      "pointer": "/cases/40",
+      "position": "Root",
+      "preimage": {
+        "args": [],
+        "baseline": {
+          "companion": {
+            "code": 0,
+            "stderr": "",
+            "stdout": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 14,
+                      "line": 1
+                    }
+                  ],
+                  "message": " --> 1:14\n  |\n1 | {items(first:!)}\n  |              ^---\n  |\n  = expected value"
+                }
+              ]
+            }
+          },
+          "legacy": {
+            "code": 2,
+            "stderr": "",
+            "stdout": {
+              "command": "graphql",
+              "data": {
+                "data": null,
+                "errors": [
+                  {
+                    "locations": [
+                      {
+                        "column": 14,
+                        "line": 1
+                      }
+                    ],
+                    "message": " --> 1:14\n  |\n1 | {items(first:!)}\n  |              ^---\n  |\n  = expected value"
+                  }
+                ]
+              },
+              "exit_code": 2,
+              "interface_version": 1,
+              "operation": null,
+              "outcome": "error",
+              "profile": "default"
+            }
+          }
+        },
+        "category": "closure-category-boundary",
+        "document": "{items(first:!)}",
+        "document_sha256": "6ed540f0e9563940030ac837d28cd2b2f732120dbdc3f0a60dad767f14a983c4",
+        "evidence": {
+          "capture_name": "closer-root-bang",
+          "source": "assessment-v2"
+        },
+        "expectation": "baseline",
+        "frozen_parse": {
+          "accepted": false,
+          "exception": "graphql.error.syntax_error.GraphQLSyntaxError",
+          "formatted": {
+            "locations": [
+              {
+                "column": 14,
+                "line": 1
+              }
+            ],
+            "message": "Syntax Error: Unexpected '!'."
+          },
+          "locations": [
+            {
+              "column": 14,
+              "line": 1
+            }
+          ],
+          "message": "Syntax Error: Unexpected '!'.",
+          "positions": [
+            13
+          ]
+        },
+        "name": "closer-root-bang",
+        "preflight": true,
+        "reference": {
+          "code": 2,
+          "stderr": "",
+          "stdout": {
+            "command": "graphql",
+            "data": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 14,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Unexpected '!'."
+                }
+              ]
+            },
+            "exit_code": 2,
+            "interface_version": 1,
+            "operation": null,
+            "outcome": "error",
+            "profile": "default"
+          }
+        }
+      },
+      "reference_sha256": "b94af0e37a2b7eb18f9e56fa28b33c46ab1a8116af35dfd204532898dd7b38ee",
+      "token": "Bang"
+    },
+    {
+      "before_limit_policy": true,
+      "case_sha256": "760dbfde8d4ec19bcb7616c46c7162798f9469511207ced7727099ca95209597",
+      "companion_sha256": "f1eebfc2ae75d5ae0322af4a469a7f8a20301362d3f490bfafcdd88a85eaf674",
+      "context": "Argument(Field)",
+      "document_sha256": "33cea9c6a1501e461a62e75decb7363b438ca1b8c6d080ff76cbd6b3c135f4ca",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "historical_active_policy": "ordinary",
+      "legacy_sha256": "c0ca47cb80338735c8323e00a4a9a388bd8c1078b7ffdf64d1e2f0b087c4b96e",
+      "name": "required-list-bang",
+      "ordinary_policy": true,
+      "pointer": "/cases/56",
+      "position": "ListElement",
+      "preimage": {
+        "args": [],
+        "baseline": {
+          "companion": {
+            "code": 0,
+            "stderr": "",
+            "stdout": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 15,
+                      "line": 1
+                    }
+                  ],
+                  "message": " --> 1:15\n  |\n1 | {items(first:[!])}\n  |               ^---\n  |\n  = expected value"
+                }
+              ]
+            }
+          },
+          "legacy": {
+            "code": 2,
+            "stderr": "",
+            "stdout": {
+              "command": "graphql",
+              "data": {
+                "data": null,
+                "errors": [
+                  {
+                    "locations": [
+                      {
+                        "column": 15,
+                        "line": 1
+                      }
+                    ],
+                    "message": " --> 1:15\n  |\n1 | {items(first:[!])}\n  |               ^---\n  |\n  = expected value"
+                  }
+                ]
+              },
+              "exit_code": 2,
+              "interface_version": 1,
+              "operation": null,
+              "outcome": "error",
+              "profile": "default"
+            }
+          }
+        },
+        "category": "new-context-negative-or-coordinate-control",
+        "document": "{items(first:[!])}",
+        "document_sha256": "33cea9c6a1501e461a62e75decb7363b438ca1b8c6d080ff76cbd6b3c135f4ca",
+        "evidence": {
+          "capture_name": "required-list-bang",
+          "source": "boundary-fixture-supplement"
+        },
+        "expectation": "baseline",
+        "frozen_parse": {
+          "accepted": false,
+          "exception": "graphql.error.syntax_error.GraphQLSyntaxError",
+          "formatted": {
+            "locations": [
+              {
+                "column": 15,
+                "line": 1
+              }
+            ],
+            "message": "Syntax Error: Unexpected '!'."
+          },
+          "locations": [
+            {
+              "column": 15,
+              "line": 1
+            }
+          ],
+          "message": "Syntax Error: Unexpected '!'.",
+          "positions": [
+            14
+          ]
+        },
+        "name": "required-list-bang",
+        "preflight": true,
+        "reference": {
+          "code": 2,
+          "stderr": "",
+          "stdout": {
+            "command": "graphql",
+            "data": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 15,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Unexpected '!'."
+                }
+              ]
+            },
+            "exit_code": 2,
+            "interface_version": 1,
+            "operation": null,
+            "outcome": "error",
+            "profile": "default"
+          }
+        }
+      },
+      "reference_sha256": "2b9d5b6cc4f26e28491d6a41c7c7aad364f82d23c08b28e658827f3aeb05609f",
+      "token": "Bang"
+    },
+    {
+      "before_limit_policy": true,
+      "case_sha256": "edcc9b0357a368bd8fbc730325624c41fa94d217582e426174c7214363b61d86",
+      "companion_sha256": "1b2d4b5f24d1644429d727f91c3fb5185049701312fbdce697bd14d877b625b1",
+      "context": "Argument(Field)",
+      "document_sha256": "d386c5bb214c314a6f016e97fcc2227e2c7b167a7f353bac8faaadd5be99a1d6",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "historical_active_policy": "ordinary",
+      "legacy_sha256": "05eb84bef0372ab4da397a5652304febfa89580708d900e90c63e42141c4212b",
+      "name": "required-object-bang",
+      "ordinary_policy": true,
+      "pointer": "/cases/57",
+      "position": "ObjectMember",
+      "preimage": {
+        "args": [],
+        "baseline": {
+          "companion": {
+            "code": 0,
+            "stderr": "",
+            "stdout": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 27,
+                      "line": 1
+                    }
+                  ],
+                  "message": " --> 1:27\n  |\n1 | {items(hasRendition:{kind:!})}\n  |                           ^---\n  |\n  = expected value"
+                }
+              ]
+            }
+          },
+          "legacy": {
+            "code": 2,
+            "stderr": "",
+            "stdout": {
+              "command": "graphql",
+              "data": {
+                "data": null,
+                "errors": [
+                  {
+                    "locations": [
+                      {
+                        "column": 27,
+                        "line": 1
+                      }
+                    ],
+                    "message": " --> 1:27\n  |\n1 | {items(hasRendition:{kind:!})}\n  |                           ^---\n  |\n  = expected value"
+                  }
+                ]
+              },
+              "exit_code": 2,
+              "interface_version": 1,
+              "operation": null,
+              "outcome": "error",
+              "profile": "default"
+            }
+          }
+        },
+        "category": "new-context-negative-or-coordinate-control",
+        "document": "{items(hasRendition:{kind:!})}",
+        "document_sha256": "d386c5bb214c314a6f016e97fcc2227e2c7b167a7f353bac8faaadd5be99a1d6",
+        "evidence": {
+          "capture_name": "required-object-bang",
+          "source": "boundary-fixture-supplement"
+        },
+        "expectation": "baseline",
+        "frozen_parse": {
+          "accepted": false,
+          "exception": "graphql.error.syntax_error.GraphQLSyntaxError",
+          "formatted": {
+            "locations": [
+              {
+                "column": 27,
+                "line": 1
+              }
+            ],
+            "message": "Syntax Error: Unexpected '!'."
+          },
+          "locations": [
+            {
+              "column": 27,
+              "line": 1
+            }
+          ],
+          "message": "Syntax Error: Unexpected '!'.",
+          "positions": [
+            26
+          ]
+        },
+        "name": "required-object-bang",
+        "preflight": true,
+        "reference": {
+          "code": 2,
+          "stderr": "",
+          "stdout": {
+            "command": "graphql",
+            "data": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 27,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Unexpected '!'."
+                }
+              ]
+            },
+            "exit_code": 2,
+            "interface_version": 1,
+            "operation": null,
+            "outcome": "error",
+            "profile": "default"
+          }
+        }
+      },
+      "reference_sha256": "b27b2f7fbd63bd5e44e23d637c1d865205736e935b538c774745636110d8f6ba",
+      "token": "Bang"
+    },
+    {
+      "before_limit_policy": true,
+      "case_sha256": "05dad0bd12ca34d627c6f829fb469240803e167354394227cf6e8e1e96bc8625",
+      "companion_sha256": "79f808f7d5db8b048dfd40e51efaec50f6728487d667cf9773c228676e6008b7",
+      "context": "Argument(Field)",
+      "document_sha256": "b9970879db0e4ce5df58e853c63934ae77cfba9b2e35d550e1520a3fe98c3b5e",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "fixture_contract": "native-graphql-parser-required-value-precedence-v1",
+      "historical_active_policy": "before_token_limit",
+      "legacy_sha256": "2e28ad572de0f8e80880e3e7896ddb7191393665ad4fd733e6f84d1981c3c55a",
+      "name": "overbudget-closer-root-bang",
+      "ordinary_policy": true,
+      "pointer": "/cases/46",
+      "position": "Root",
+      "preimage": {
+        "args": [],
+        "baseline": {
+          "companion": {
+            "code": 0,
+            "stderr": "",
+            "stdout": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 31954,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Document contains more than 4000 tokens. Parsing aborted."
+                }
+              ]
+            }
+          },
+          "legacy": {
+            "code": 2,
+            "stderr": "",
+            "stdout": {
+              "command": "graphql",
+              "data": {
+                "data": null,
+                "errors": [
+                  {
+                    "locations": [
+                      {
+                        "column": 31954,
+                        "line": 1
+                      }
+                    ],
+                    "message": "Syntax Error: Document contains more than 4000 tokens. Parsing aborted."
+                  }
+                ]
+              },
+              "exit_code": 2,
+              "interface_version": 1,
+              "operation": null,
+              "outcome": "error",
+              "profile": "default"
+            }
+          }
+        },
+        "category": "overbudget-first-unclaimed-or-existing-precedence",
+        "document": "{items(first:!)} profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile profile ",
+        "document_sha256": "b9970879db0e4ce5df58e853c63934ae77cfba9b2e35d550e1520a3fe98c3b5e",
+        "evidence": {
+          "capture_name": "overbudget-closer-root-bang",
+          "source": "boundary-fixture-supplement"
+        },
+        "expectation": "baseline",
+        "frozen_parse": {
+          "accepted": false,
+          "exception": "graphql.error.syntax_error.GraphQLSyntaxError",
+          "formatted": {
+            "locations": [
+              {
+                "column": 14,
+                "line": 1
+              }
+            ],
+            "message": "Syntax Error: Unexpected '!'."
+          },
+          "locations": [
+            {
+              "column": 14,
+              "line": 1
+            }
+          ],
+          "message": "Syntax Error: Unexpected '!'.",
+          "positions": [
+            13
+          ]
+        },
+        "name": "overbudget-closer-root-bang",
+        "preflight": true,
+        "reference": {
+          "code": 2,
+          "stderr": "",
+          "stdout": {
+            "command": "graphql",
+            "data": {
+              "data": null,
+              "errors": [
+                {
+                  "locations": [
+                    {
+                      "column": 14,
+                      "line": 1
+                    }
+                  ],
+                  "message": "Syntax Error: Unexpected '!'."
+                }
+              ]
+            },
+            "exit_code": 2,
+            "interface_version": 1,
+            "operation": null,
+            "outcome": "error",
+            "profile": "default"
+          }
+        }
+      },
+      "reference_sha256": "b94af0e37a2b7eb18f9e56fa28b33c46ab1a8116af35dfd204532898dd7b38ee",
+      "token": "Bang"
+    }
+  ]
+}

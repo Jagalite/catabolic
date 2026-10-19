@@ -1,4 +1,5 @@
 //! Bounded Statelessness adapter around the application-owned production reducer.
+mod playback;
 use catabolic_core::{
     encode,
     lifecycle::{Caller, Effect, Input, State, reduce},
@@ -159,6 +160,18 @@ fn run(args: &[String]) -> Result<u8, Box<dyn Error>> {
         .collect::<Vec<_>>()
         .as_slice()
     {
+        ["check-playback"] => {
+            playback::check()?;
+            Ok(0)
+        }
+        ["find-playback", directory] => {
+            playback::find(directory)?;
+            Ok(0)
+        }
+        ["replay-playback", path] => {
+            playback::replay_trace(path)?;
+            Ok(0)
+        }
         ["check"] => {
             let report = enumerate(&Adapter { fault: false }, SearchConfig::default())?;
             if report.failure.is_some()

@@ -1,6 +1,6 @@
 //! Catalog entities, validated filters and context-bound keyset pagination.
 use crate::{
-    Error, Result, Store,
+    DetailedError, DetailedResult, Error, Result, Store,
     migration::{reference, rows},
     sql::{casefold, install_functions, scalar},
 };
@@ -8,7 +8,6 @@ use base64::{Engine, engine::general_purpose::URL_SAFE};
 use catabolic_core::{encode, sha256};
 use rusqlite::types::Value as SqlValue;
 use serde_json::{Value, json};
-use unicode_normalization::UnicodeNormalization;
 
 fn get(args: &Value, key: &str, default: Value) -> Value {
     args.get(key).cloned().unwrap_or(default)
@@ -27,7 +26,7 @@ fn boolean(args: &Value, key: &str) -> Result<bool> {
 pub fn decode(row: &mut Value, keys: &[&str]) -> Result<()> {
     for key in keys {
         if let Some(raw) = row[*key].as_str() {
-            row[*key] = serde_json::from_str(raw)?;
+            row[*key] = catabolic_core::decode_json(raw)?;
         }
     }
     Ok(())
@@ -75,14 +74,39 @@ impl<'a> CatalogQuery<'a> {
         args: &Value,
         context: Value,
     ) -> Result<Value> {
+        self.page_detailed(
+            key, select, source, conditions, parameters, sorts, args, context,
+        )
+        .map_err(Into::into)
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub fn page_detailed(
+        &self,
+        key: &str,
+        select: &str,
+        source: &str,
+        conditions: &[String],
+        parameters: Vec<SqlValue>,
+        sorts: &[(&str, &str)],
+        args: &Value,
+        context: Value,
+    ) -> DetailedResult<Value> {
         let limit = get(args, "limit", json!(100))
             .as_i64()
             .filter(|n| (1..=1000).contains(n))
             .ok_or_else(|| Error("limit must be between 1 and 1000".into()))?;
-        let sort = text(args, "sort", sorts[0].0)?;
+        let sort = get(args, "sort", json!(sorts[0].0));
+        // Match the frozen owner's unhashable membership failure at its source.
+        // Limit and method-specific validation keep their existing precedence.
+        if sort.is_object() {
+            return Err(DetailedError::unhashable_sort_dictionary());
+        }
+        if sort.is_array() {
+            return Err(DetailedError::unhashable_sort_list());
+        }
         let expression = sorts
             .iter()
-            .find(|(k, _)| *k == sort)
+            .find(|(k, _)| Some(*k) == sort.as_str())
             .ok_or_else(|| {
                 Error(format!(
                     "sort must be one of: {}",
@@ -110,7 +134,7 @@ impl<'a> CatalogQuery<'a> {
                 .filter(|s| s.len() <= 16384)
                 .ok_or_else(invalid)?;
             let token: Value =
-                serde_json::from_slice(&URL_SAFE.decode(cursor).map_err(|_| invalid())?)
+                catabolic_core::decode_json_bytes(&URL_SAFE.decode(cursor).map_err(|_| invalid())?)
                     .map_err(|_| invalid())?;
             if token.as_array().is_none_or(|a| a.len() != 4)
                 || token[0] != 1
@@ -118,7 +142,7 @@ impl<'a> CatalogQuery<'a> {
                 || !(token[2].is_string() || token[2].is_i64())
                 || !token[3].is_string()
             {
-                return Err(invalid());
+                return Err(invalid().into());
             }
             after = format!("WHERE (_sort {comparison} ? OR (_sort = ? AND id {comparison} ?))");
             values.extend([scalar(&token[2])?, scalar(&token[2])?, scalar(&token[3])?]);
@@ -191,7 +215,7 @@ impl<'a> CatalogQuery<'a> {
                     .and_then(|s| s.split_once('='))
                     .filter(|(k, _)| !k.is_empty())
                     .ok_or_else(invalid)?;
-                let expected: Value = serde_json::from_str(raw).map_err(|_| invalid())?;
+                let expected: Value = catabolic_core::decode_json(raw).map_err(|_| invalid())?;
                 clauses.push("metadata_matches(i.metadata,?,?)".into());
                 values.extend([
                     SqlValue::Text(key.into()),
@@ -202,43 +226,10 @@ impl<'a> CatalogQuery<'a> {
         Ok((clauses, values))
     }
     fn tag(&self, value: &Value) -> Result<SqlValue> {
-        let name = value.as_str().ok_or_else(|| {
-            Error("tag name must be text without control characters, at most 255 characters".into())
-        })?;
-        if name.trim().is_empty() || name.chars().count() > 255 || name.chars().any(unicode_other) {
-            return Err(Error(
-                "tag name must be text without control characters, at most 255 characters".into(),
-            ));
-        }
-        let mut normalized = casefold(name.trim()).nfc().collect::<String>();
-        if let Some((namespace, label)) = normalized.split_once(':') {
-            let namespace = namespace.trim();
-            let label = label.trim();
-            if label.is_empty()
-                || namespace.is_empty()
-                || !namespace.chars().enumerate().all(|(i, c)| {
-                    c.is_ascii_lowercase() || c.is_ascii_digit() || i > 0 && "_.-".contains(c)
-                })
-            {
-                return Err(Error("namespaced tags require namespace:value; namespace uses letters, digits, dots, underscores or hyphens".into()));
-            }
-            normalized = format!("{namespace}:{label}");
-        }
-        if normalized.chars().count() > 255 || normalized.chars().any(unicode_other) {
-            return Err(Error(
-                "tag name must be text without control characters, at most 255 characters".into(),
-            ));
-        }
-        let id = self
-            .store
-            .db
-            .query_row(
-                "SELECT tag_id FROM tag_names WHERE name=?",
-                [normalized],
-                |r| r.get::<_, String>(0),
-            )
-            .map_err(|_| Error(format!("unknown tag: {name}; create it with tag put")))?;
-        Ok(SqlValue::Text(id))
+        Ok(SqlValue::Text(crate::tagging::resolve_tag(
+            &self.store.db,
+            value,
+        )?))
     }
     fn tag_filters(
         &self,
@@ -337,8 +328,11 @@ impl<'a> CatalogQuery<'a> {
         Ok(())
     }
     pub fn execute(&self, key: &str, args: &Value) -> Result<Value> {
+        self.execute_detailed(key, args).map_err(Into::into)
+    }
+    pub fn execute_detailed(&self, key: &str, args: &Value) -> DetailedResult<Value> {
         if !args.is_object() {
-            return Err(Error("catalog query options must be an object".into()));
+            return Err(Error("catalog query options must be an object".into()).into());
         }
         match key {
             "status" => {
@@ -370,10 +364,10 @@ impl<'a> CatalogQuery<'a> {
             "tags" => self.tags(args),
             "taggings" => self.taggings(args),
             "item" => self.item(args),
-            _ => Err(Error(format!("unknown catalog query: {key}"))),
+            _ => Err(Error(format!("unknown catalog query: {key}")).into()),
         }
     }
-    fn items(&self, args: &Value) -> Result<Value> {
+    fn items(&self, args: &Value) -> DetailedResult<Value> {
         self.exists("catalogs", &args["catalog"])?;
         let (mut clauses, mut values) = self.item_filters(args, true, true)?;
         if let Some(status) = args.get("curation_status").filter(|v| !v.is_null()) {
@@ -387,7 +381,7 @@ impl<'a> CatalogQuery<'a> {
             ]
             .contains(&status.as_str().unwrap_or(""))
             {
-                return Err(Error("invalid curation status".into()));
+                return Err(Error("invalid curation status".into()).into());
             }
             clauses.push(format!(
                 "i.id IN (SELECT item_id FROM ({}) WHERE profile=? AND status=?)",
@@ -435,7 +429,7 @@ impl<'a> CatalogQuery<'a> {
             get(args, "not_tags", json!([])),
             boolean(args, "descendants")?
         ]);
-        let mut result = self.page(
+        let mut result = self.page_detailed(
             "items",
             "i.*",
             "items i",
@@ -452,7 +446,7 @@ impl<'a> CatalogQuery<'a> {
         self.decorate_items(result["items"].as_array_mut().unwrap())?;
         Ok(result)
     }
-    fn files(&self, args: &Value) -> Result<Value> {
+    fn files(&self, args: &Value) -> DetailedResult<Value> {
         let catalog = get(args, "catalog", json!("global"));
         self.exists("catalogs", &catalog)?;
         self.exists("locations", &args["location"])?;
@@ -470,7 +464,7 @@ impl<'a> CatalogQuery<'a> {
         }
         if !args["status"].is_null() {
             if !["present", "missing", "unknown"].contains(&args["status"].as_str().unwrap_or("")) {
-                return Err(Error("status must be present, missing, or unknown".into()));
+                return Err(Error("status must be present, missing, or unknown".into()).into());
             }
             clauses.push("coalesce(o.status,'unknown')=?".into());
             values.push(scalar(&args["status"])?);
@@ -512,9 +506,9 @@ impl<'a> CatalogQuery<'a> {
             get(args, "not_tags", json!([])),
             boolean(args, "descendants")?
         ]);
-        self.page("files","f.*,o.size,o.mtime_ns,coalesce(o.status,'unknown') AS status,o.scan_id,s.finished_at AS observed_at,coalesce(h.status,'unknown') AS media_header_status,h.reason AS media_header_reason","files f LEFT JOIN observations o ON o.file_id=f.id AND o.profile=? LEFT JOIN scans s ON s.id=o.scan_id LEFT JOIN media_header_checks h ON h.profile=o.profile AND h.file_id=f.id AND h.scan_id=o.scan_id AND o.status='present' AND h.size=o.size AND h.mtime_ns=o.mtime_ns AND h.device=o.device AND h.inode=o.inode",&clauses,values,&[("id","f.id"),("path","f.path"),("size","coalesce(o.size,-1)"),("mtime","coalesce(o.mtime_ns,-1)")],args,context)
+        self.page_detailed("files","f.*,o.size,o.mtime_ns,coalesce(o.status,'unknown') AS status,o.scan_id,s.finished_at AS observed_at,coalesce(h.status,'unknown') AS media_header_status,h.reason AS media_header_reason","files f LEFT JOIN observations o ON o.file_id=f.id AND o.profile=? LEFT JOIN scans s ON s.id=o.scan_id LEFT JOIN media_header_checks h ON h.profile=o.profile AND h.file_id=f.id AND h.scan_id=o.scan_id AND o.status='present' AND h.size=o.size AND h.mtime_ns=o.mtime_ns AND h.device=o.device AND h.inode=o.inode",&clauses,values,&[("id","f.id"),("path","f.path"),("size","coalesce(o.size,-1)"),("mtime","coalesce(o.mtime_ns,-1)")],args,context)
     }
-    fn relations(&self, key: &str, args: &Value) -> Result<Value> {
+    fn relations(&self, key: &str, args: &Value) -> DetailedResult<Value> {
         self.exists("items", &args["item"])?;
         if key != "relationships" {
             self.exists("files", &args["file"])?;
@@ -522,7 +516,7 @@ impl<'a> CatalogQuery<'a> {
         let default_active = if key == "mappings" { "all" } else { "active" };
         let active = text(args, "active", default_active)?;
         if !["all", "active", "disabled"].contains(&active.as_str()) {
-            return Err(Error("active must be all, active, or disabled".into()));
+            return Err(Error("active must be all, active, or disabled".into()).into());
         }
         let mut clauses = vec![];
         let mut values = vec![];
@@ -586,9 +580,7 @@ impl<'a> CatalogQuery<'a> {
         } else {
             let direction = text(args, "direction", "both")?;
             if !["both", "incoming", "outgoing"].contains(&direction.as_str()) {
-                return Err(Error(
-                    "direction must be both, outgoing, or incoming".into(),
-                ));
+                return Err(Error("direction must be both, outgoing, or incoming".into()).into());
             }
             if !args["kind"].is_null() {
                 vocabulary(&args["kind"], "relationship kind")?;
@@ -624,7 +616,7 @@ impl<'a> CatalogQuery<'a> {
             sorts = vec![("position", "coalesce(r.position,0)")];
             context = json!([args["item"], direction, args["kind"], active]);
         }
-        let mut result = self.page(
+        let mut result = self.page_detailed(
             key, select, source, &clauses, values, &sorts, &page_args, context,
         )?;
         if key != "mappings" {
@@ -634,7 +626,7 @@ impl<'a> CatalogQuery<'a> {
         }
         Ok(result)
     }
-    fn tags(&self, args: &Value) -> Result<Value> {
+    fn tags(&self, args: &Value) -> DetailedResult<Value> {
         let mut clauses = vec![];
         let mut values = vec![];
         if !args["search"].is_null() {
@@ -660,7 +652,7 @@ impl<'a> CatalogQuery<'a> {
                 values.push(self.tag(&args[key])?);
             }
         }
-        let mut result = self.page(
+        let mut result = self.page_detailed(
             "tags",
             "t.*",
             "tags t",
@@ -701,15 +693,15 @@ impl<'a> CatalogQuery<'a> {
         }
         Ok(result)
     }
-    fn taggings(&self, args: &Value) -> Result<Value> {
+    fn taggings(&self, args: &Value) -> DetailedResult<Value> {
         if !args["item"].is_null() && !args["file"].is_null() {
-            return Err(Error("choose item or file for an assignment query".into()));
+            return Err(Error("choose item or file for an assignment query".into()).into());
         }
         self.exists("items", &args["item"])?;
         self.exists("files", &args["file"])?;
         let active = text(args, "active", "active")?;
         if !["active", "disabled", "all"].contains(&active.as_str()) {
-            return Err(Error("active must be active, disabled, or all".into()));
+            return Err(Error("active must be active, disabled, or all".into()).into());
         }
         let mut clauses = vec![];
         let mut values = vec![];
@@ -731,15 +723,15 @@ impl<'a> CatalogQuery<'a> {
                 values.extend([SqlValue::Text(subject.into()), scalar(&args[subject])?]);
             }
         }
-        let mut result=self.page("taggings","a.*,t.name AS tag_name","(SELECT id,'item' AS subject_type,item_id AS subject_id,tag_id,source,confidence,note,active,created_at,updated_at FROM item_tags UNION ALL SELECT id,'file',file_id,tag_id,source,confidence,note,active,created_at,updated_at FROM file_tags) a JOIN tags t ON t.id=a.tag_id",&clauses,values,&[("id","a.id")],args,json!([args["tag"],args["item"],args["file"],args["source"],active]))?;
+        let mut result=self.page_detailed("taggings","a.*,t.name AS tag_name","(SELECT id,'item' AS subject_type,item_id AS subject_id,tag_id,source,confidence,note,active,created_at,updated_at FROM item_tags UNION ALL SELECT id,'file',file_id,tag_id,source,confidence,note,active,created_at,updated_at FROM file_tags) a JOIN tags t ON t.id=a.tag_id",&clauses,values,&[("id","a.id")],args,json!([args["tag"],args["item"],args["file"],args["source"],active]))?;
         for row in result["taggings"].as_array_mut().unwrap() {
             row["active"] = json!(row["active"].as_i64() != Some(0));
         }
         Ok(result)
     }
-    fn item(&self, args: &Value) -> Result<Value> {
+    fn item(&self, args: &Value) -> DetailedResult<Value> {
         if args["item_id"].is_null() == args["identity"].is_null() {
-            return Err(Error("supply either an item ID or --identity".into()));
+            return Err(Error("supply either an item ID or --identity".into()).into());
         }
         let id = if !args["identity"].is_null() {
             rows(
@@ -777,7 +769,7 @@ impl<'a> CatalogQuery<'a> {
             clauses.push("m.catalog=?".into());
             values.push(scalar(&args["catalog"])?);
         }
-        let mut result=self.page("occurrences","m.*, f.location, f.path AS source_relative_path, o.size, o.mtime_ns, coalesce(o.status,'unknown') AS status, o.scan_id, s.finished_at AS observed_at, sb.root AS source_root, ob.root AS output_root, ol.target AS recorded_link_target","mappings m JOIN files f ON f.id=m.file_id LEFT JOIN observations o ON o.file_id=f.id AND o.profile=? LEFT JOIN scans s ON s.id=o.scan_id LEFT JOIN bindings sb ON sb.kind='source' AND sb.owner=f.location AND sb.profile=? LEFT JOIN bindings ob ON ob.kind='output' AND ob.owner=m.catalog AND ob.profile=? LEFT JOIN owned_links ol ON ol.catalog=m.catalog AND ol.path=m.path AND ol.profile=?",&clauses,values,&[("id","m.id")],args,json!([id,args["catalog"],include]))?;
+        let mut result=self.page_detailed("occurrences","m.*, f.location, f.path AS source_relative_path, o.size, o.mtime_ns, coalesce(o.status,'unknown') AS status, o.scan_id, s.finished_at AS observed_at, sb.root AS source_root, ob.root AS output_root, ol.target AS recorded_link_target","mappings m JOIN files f ON f.id=m.file_id LEFT JOIN observations o ON o.file_id=f.id AND o.profile=? LEFT JOIN scans s ON s.id=o.scan_id LEFT JOIN bindings sb ON sb.kind='source' AND sb.owner=f.location AND sb.profile=? LEFT JOIN bindings ob ON ob.kind='output' AND ob.owner=m.catalog AND ob.profile=? LEFT JOIN owned_links ol ON ol.catalog=m.catalog AND ol.path=m.path AND ol.profile=?",&clauses,values,&[("id","m.id")],args,json!([id,args["catalog"],include]))?;
         for row in result["occurrences"].as_array_mut().unwrap() {
             for (output, root, path) in [
                 ("source_path", "source_root", "source_relative_path"),
@@ -915,16 +907,4 @@ pub fn name(value: &str) -> Result<()> {
         ));
     }
     Ok(())
-}
-
-fn unicode_other(character: char) -> bool {
-    static RANGES: std::sync::OnceLock<Vec<[u32; 2]>> = std::sync::OnceLock::new();
-    let ranges = RANGES.get_or_init(|| {
-        let value: Value = serde_json::from_str(include_str!("../resources/unicode-other.json"))
-            .expect("frozen Unicode categories");
-        serde_json::from_value(value["ranges"].clone()).expect("ordered Unicode ranges")
-    });
-    let code = u32::from(character);
-    let index = ranges.partition_point(|range| range[1] < code);
-    ranges.get(index).is_some_and(|range| range[0] <= code)
 }

@@ -1,0 +1,165 @@
+{
+  "fixture_version": 1,
+  "scope": "error-only legacy GraphQL variable admission diagnostics; bounded author qualification",
+  "base_commit": "e657c2e66662f91fd905d4b27dc51645e17c2d97",
+  "oracle": {
+    "commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "python": "3.14.6",
+    "inventory_sha256": "81b697a595556ded943bef59c167314a6ffbbfc68706ed134cfea66afe012cc2"
+  },
+  "build": {
+    "rust": "1.99.0",
+    "cargo": "1.99.0",
+    "locked": true,
+    "offline": true,
+    "profile": "debug",
+    "debug_info": 0,
+    "incremental": false,
+    "jobs": 2,
+    "baseline": "fresh git archive and complete before/after source fence",
+    "candidate": "dedicated target and complete before/after source fence; compiled sources rechecked after qualification"
+  },
+  "source_sha256": {
+    "crates/catabolic-cli/src/legacy/failure.rs": "6a3891d9c2f3aba1e91d051ae08d984ff0bdb587a3126ac16c9cc809734f03b8",
+    "crates/catabolic-cli/src/legacy/graphql_cli.rs": "32cc4a6134b750fdb3f91bc00cb39f89bf64355e5f380564345f97600efc5924",
+    "crates/catabolic-cli/src/legacy/presentation.rs": "e713f8598a7fd66bb19e98d7d6bfd87a2f11ea7d073dcd277c94301f4973d126",
+    "crates/catabolic-cli/src/legacy/variable_admission.rs": "2e7a4137e8eed0359d7f099fc7323bebdf4606cbd36f3f5bb53f5bb2fe595f01",
+    "crates/catabolic-cli/src/legacy_main.rs": "3509e1d948ff932b9b6a377702487787278d5a9d27163850084e925e289c6c37"
+  },
+  "qualification_sha256": {
+    "tests/parity/graphql-variable-admission-v1.json": "c0036d2ee4e67aafebb513f07a2229ded0da191da9e41935859442c893f1b618",
+    "tests/test_rust_graphql_variable_admission.py": "6ad74aad6633d28a4c638f5527f523c0cfad3404c09dc88f5d6859172087f096"
+  },
+  "documentation_sha256": {
+    "docs/RUST_MIGRATION_GRAPHQL_VARIABLE_ADMISSION.md": "cb9e9aebe5e803c15f532f7f8b76c2e5c87787be2f53ca86007f2299eda0fb86",
+    "docs/RUST_MIGRATION_GRAPHQL_VARIABLE_ERRORS.md": "0469c3dc8aae3e4cd494e0804abcf28b6aa706f6c026d2e5685096e036547b80"
+  },
+  "artifacts": {
+    "baseline-companion": {
+      "bytes": 74578360,
+      "sha256": "4280752e6bc97de8aa1c8f587816ffda19c0bbb456603c9ff758d0ddb022e837"
+    },
+    "baseline-legacy": {
+      "bytes": 80584072,
+      "sha256": "f994075a4ff5f71f102bf28d216c8c99406d71f296a2db262a2cdea805fad6f1"
+    },
+    "candidate-companion": {
+      "bytes": 74578360,
+      "sha256": "4280752e6bc97de8aa1c8f587816ffda19c0bbb456603c9ff758d0ddb022e837"
+    },
+    "candidate-legacy": {
+      "bytes": 80683968,
+      "sha256": "25b3d5302aaf6b5dd2cb1396becc1f9d965cd91d90847587e4cc530f5558850c"
+    },
+    "candidate-legacy-unit-tests": {
+      "bytes": 79825000,
+      "sha256": "16d42e8f51274ad27dab4bdffea01ccd9bfb39362395078e33e853dc8c008549"
+    }
+  },
+  "historical_checkpoint": {
+    "path": "tests/parity/native-graphql-variable-errors-checkpoint.json",
+    "sha256": "5ae73a03b58f7c9044b251782f7603a15308eec140dc241c173188e4e24e5c6c",
+    "unchanged": true
+  },
+  "results": {
+    "versioned_cases": 76,
+    "full_envelope_pairs": 242,
+    "failed_pairs": 0,
+    "expectation_counts": {
+      "equal": 191,
+      "strict_unchanged": 36,
+      "accepted_unchanged": 3,
+      "unchanged": 12
+    },
+    "historical_residual_variants": 35,
+    "historical_matches": 35,
+    "ordinary_variable_pairs": 153,
+    "file_boundary_pairs": 55,
+    "coercion_pairs": 182,
+    "runtime_input_pairs": 104,
+    "existing_focused_test_methods": 18,
+    "new_test_methods": 1,
+    "legacy_cli_units": 25,
+    "immutable_legacy_harness_units": 25,
+    "core_units": 98,
+    "input_variables_units": 3,
+    "companion_controls": 15,
+    "companion_artifact_byte_identical": true,
+    "strict_all_target_cli_clippy": true,
+    "rustfmt": true,
+    "scoped_python_lint_and_format": true,
+    "bundled_guides_fresh": true
+  },
+  "first_attempt": {
+    "pairs": 242,
+    "failed_pairs": 3,
+    "failure": "Recovered fixture incorrectly expected strict rejection for duplicate-overwritten finite-syntax overflow; baseline and oracle already accept it. Reclassified only this new fixture as accepted_unchanged, requiring baseline/native/oracle equality and exit 0. No implementation change was needed.",
+    "report": "admission-attempt1.json",
+    "inputs": "admission-attempt1-inputs/"
+  },
+  "limits": [
+    "No independent review claimed. Blocked staged-033 and broad definition/filesystem reviews were not retried or replaced.",
+    "No blanket JSON, GraphQL, HTTP, companion, wrapper, installed, or release parity.",
+    "Non-object and duplicate-overwritten invalid-value strict refusals remain unchanged; the already-accepted overwritten 1e400 control remains accepted.",
+    "The fixed 4300 decimal-digit limit models the pinned CPython default only, solely at this legacy CLI boundary.",
+    "Syntax-first precedence and shared depth constraints remain unchanged, including oversized integer conversion followed by malformed syntax.",
+    "No release/default/M4-M11 gates close and unqualified effects remain fail-closed."
+  ],
+  "evidence_root": "/workspace/shared/catalog-graphql-variable-recovery-e657c2e-20261014T2144/evidence",
+  "evidence_sha256": {
+    "admission-attempt1.json": "5e04b264663980ba57e2530dc6ccf128d7bc21a779374228b43a6f00b1cd87f2",
+    "admission-attempt1.log": "68846e7956d09151bc90570b151fb2090c32c5150d9fd77878048fe241c3b071",
+    "admission-attempt1.status": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "admission-final.json": "fb7f15ff971412da84fc8cac00829ae533edf454e85c39577cd33f4e02f52537",
+    "admission-final.log": "6c349038d41c84a731959896fe1178a3a036fef5a0eebd5eaea8abd2e02dfe50",
+    "admission-final.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "admission-pre-lint.json": "a374c3f2a584dabbfade3b6613d270d32b72ab8af7a72a3703e9f86fbdb8271c",
+    "admission-pre-lint.log": "53e8559a98d4ec749ca7f824a206a56c325f8c83a0881a557e2fef25efb0cd8d",
+    "admission-pre-lint.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "baseline-build.jsonl": "d9347799c8531d142a35cb0b8656c851ec7d4d191e63721dd956fa92d2cc1f31",
+    "baseline-build.log": "748a21888a13fb123752788aa5a70c4643cfacc17e8e0b7032b2d3d57c1e1005",
+    "baseline-source-check.log": "a6f2001d2380b7ab4f4457b67a849a328c7d62577e05cd2faa2ca31f6802eba5",
+    "candidate-build.jsonl": "23300724a80d81f50af58ce5469085578606748a31d3deb166a8160865ae2073",
+    "candidate-build.log": "21a2701c53c4a82ddab1fc4c62960eae13ab47e15958d24476c25660b0a603e1",
+    "candidate-source-build-check.log": "41934ad13fdb957cc098e8fc226c0c8d5841deb2ad69158a1eb7eb43aa739f87",
+    "cli-source-final-check.log": "7c8d6a66b0fcfa7f5a977b1579f3b8dfa5235aad0bc14ad8219e9a7db453d51b",
+    "cli-units.log": "2537e36f967f98bdf5147d6a5d63f3db463de111c9a1110c3354c9bd0dbda5e6",
+    "cli-units.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "clippy-attempt1.log": "c4d8616cc55c446cf20995e95f36828c60f39d5e0ec86c8dfb3dbf21529544e8",
+    "clippy-attempt1.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "companion-controls.json": "66d4bca5d308b15e2cb48041c02fb3bbc7091255571810ba9f221251f96b09c8",
+    "companion-controls.log": "8c848afcdac5178e90efcc7625474add992f788d30cfd8b4a255fc0d8b269e05",
+    "companion-controls.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "core-units.log": "4e205c243dc428e4b224595f171e6568f2b093f6a5119ef18488cf8410747a17",
+    "core-units.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "file-boundary.json": "b846a93a2b420fd8a09569fe9c4386f9ac6654c0c73619a24740f2f86f374eba",
+    "finalization-attempt1.txt": "c2162d447b01e8ffbf1ca6aba2eb83111a667b7229df22a6692128dd3ab9187c",
+    "fmt-attempt1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "fmt-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "fmt-final.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "focused-regressions.log": "55e02907a8ce62d7a4c9e871a915eb5a28e24fd250ab46b188fb51c9d6a0295a",
+    "focused-regressions.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "guides-final.log": "cded038284aa703460ea80dc2d293527d607e1745914ee294cd7d52a19442354",
+    "guides.log": "cded038284aa703460ea80dc2d293527d607e1745914ee294cd7d52a19442354",
+    "guides.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "historical-witness-check.json": "1e1ae66e17f4c7e97428d09009b6d71fa36f14f6ba601f20664f9e8641b6dcef",
+    "immutable-cli-units.log": "42ba6d2954543a77015edd22ea431ba15110057668f8ee0fff268f502f062115",
+    "immutable-cli-units.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "input-variable-units.log": "1f3b0363a850b3f56a79dc8a741eee4494ee7d76da8e446754ab44d69cebea49",
+    "input-variable-units.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "lint-attempt1.log": "65abe436363f5be2f73684635d078432e453c25fb18841ec3874756e27a691c7",
+    "lint-attempt1.status": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "lint.log": "ce04ce92b16073000b77c97a42c00b98b96305692d9d5ed4dcfa5a9ca9ea62d6",
+    "lint.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "ordinary-variable-errors.json": "d969486a93d81376eb8d3ffa046dd801f763eb33102ceceb7237a71cfc572e89",
+    "python-format-final.log": "413a709001976657cb743636fd34e48fc41d8d302d665460d3f874b3313da127",
+    "python-format-final2.log": "413a709001976657cb743636fd34e48fc41d8d302d665460d3f874b3313da127",
+    "python-format.log": "413a709001976657cb743636fd34e48fc41d8d302d665460d3f874b3313da127",
+    "python-pip-check.log": "35bb3d1e4d1d0091788acae77c6d707f1dfb81d2384e34fd54a205f9497ce313",
+    "python-pip-check.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "python-tooling.json": "eaeb6508c617019032c12eda87d6cb4b81b1bb47fbb5c20ed6ce792a56c658f2",
+    "recovery-notes.txt": "1b391996d5bd3319d434359a075ac6cb1b45a512b7bb575331197e55c302400e",
+    "runtime-pair-count.txt": "77a60c200656e08ac5403f38b58657ecec155293323bd5313290399b75cf1c3d",
+    "toolchain.txt": "5bd90ac841d697b17027824e99f3bec6cb5a1c5990b5186c4c3cfc0d470107f2"
+  }
+}

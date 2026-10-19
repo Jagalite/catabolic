@@ -1,0 +1,115 @@
+{
+  "format_version": 1,
+  "package": "R6-V2-representations-and-portable-R7-regression-controls",
+  "recorded_at_utc": "2026-10-14T22:24:28.149023+00:00",
+  "baseline_commit": "e3d24354ca8915db13dc3f2b9925fe67dc9ca093",
+  "source": {
+    "manifest": "tests/parity/native-catalog-native37-final-controls-source-manifest.json",
+    "files_sha256": "cf65ca8339cd908d1211be7b51fd7905697986f04469eb855a0b5ddff4f52768",
+    "file_count": 1541,
+    "unchanged_before_after": true
+  },
+  "status": "focused_primary_controls_passed",
+  "runner": "Standard offline locked Rust/Cargo1.99.0 Linux x86_64 debug0 incremental0 jobs2; CPython3.14.6",
+  "passing_rust_executions": 66,
+  "rust_ignored_entries": 4,
+  "ignored_disposition": "Four process-exit helpers execute through passing ordinary wrappers; not four additional independently counted scenarios",
+  "python_control_methods": 17,
+  "python_breakdown": {
+    "portable_fixture_integrity": 6,
+    "contract_ledger_audit": 11
+  },
+  "runs": {
+    "audit": {
+      "log": ".local-tests/catalog-native37-final-controls/audit.log",
+      "sha256": "47f6c48e7831ffe9cead282670b32f19c618f68a700ac469b0605410366daea2",
+      "exit_code": 0
+    },
+    "clippy": {
+      "log": ".local-tests/catalog-native37-final-controls/clippy.log",
+      "sha256": "723afafd20bcc2c6b406201e727ea520f704506f3f1da45e942706eb58394e0f",
+      "exit_code": 0
+    },
+    "controls": {
+      "log": ".local-tests/catalog-native37-final-controls/controls.log",
+      "sha256": "d5fe5fe6af3ea0c052693acced4ee11c53ec3fea30955ab251ddce6b6fb8f828",
+      "exit_code": 0
+    },
+    "format": {
+      "log": ".local-tests/catalog-native37-final-controls/format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exit_code": 0
+    },
+    "guides": {
+      "log": ".local-tests/catalog-native37-final-controls/guides.log",
+      "sha256": "cded038284aa703460ea80dc2d293527d607e1745914ee294cd7d52a19442354",
+      "exit_code": 0
+    },
+    "import-owner": {
+      "log": ".local-tests/catalog-native37-final-controls/import-owner.log",
+      "sha256": "7c09d514a52acf4b9296c04305415a886bcf8a82664374d33738c9e2eb98c71a",
+      "exit_code": 0
+    },
+    "python-format": {
+      "log": ".local-tests/catalog-native37-final-controls/python-format.log",
+      "sha256": "fd2299c9f1c6dc869070883e281051bfe93aacf66c1a3b0069f45b4aa410ca50",
+      "exit_code": 0
+    },
+    "python-lint": {
+      "log": ".local-tests/catalog-native37-final-controls/python-lint.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "exit_code": 0
+    },
+    "schema33": {
+      "log": ".local-tests/catalog-native37-final-controls/schema33.log",
+      "sha256": "5d2bfe1fdbcf01c5bbee0938a01573634a745a3e974b71b0e5865cdbbc079157",
+      "exit_code": 0
+    },
+    "schema37": {
+      "log": ".local-tests/catalog-native37-final-controls/schema37.log",
+      "sha256": "eeb2894a56fc3d69bdb3a594e36a8868e61240b235ad894b1eea3f7fb8125357",
+      "exit_code": 0
+    },
+    "source-after": {
+      "log": ".local-tests/catalog-native37-final-controls/source-after.log",
+      "sha256": "36eb2f0830d9b3e5a2ab230a219f1cb1de98e93ca06c557ae5990928b8756abf",
+      "exit_code": 0
+    }
+  },
+  "patches": [
+    {
+      "path": "/workspace/shared/catalog-r6-import-representations/representations-contributions-addendum.patch",
+      "sha256": "deb6fd1f158d9925cea8d817fcffac6b3550543ac3426c310f7227b37dc01f47"
+    },
+    {
+      "path": "/workspace/shared/catalog-graphql-variable-harness-e657c2e-20261014T2209/payload/incremental.patch",
+      "sha256": "c4c36e6fdfc3c084849aa5b8d989d0d11094b1f0f91e55be5db1898ee6e29ca8"
+    }
+  ],
+  "production_owner_changes": false,
+  "schema_changes": false,
+  "new_import_matrix": {
+    "test_methods": 10,
+    "disposable_catalogs": 88,
+    "schemas": [
+      34,
+      35,
+      36,
+      37
+    ],
+    "scope": "Complete multipart/cut/equivalence maps; local/provider/scan/null/absent/legacy contribution semantics; staging invisibility, replay, grants/stale/invalid input, full digest and atomic late rollback/retry through existing owners"
+  },
+  "portable_harness": "Pinned historical242-response fixture removes unprovisioned historical-executable dependency in standard discovery. Always run current native and live oracle; explicit baseline mode still executes and validates baseline. Six integrity controls passed here. Full7-method recorded/live entrypoint runs have their own exact e657c2e-based receipt, not a new current-source pass. Current full native/Python aggregate remains required.",
+  "separate_preparation_evidence": [
+    "/workspace/shared/catalog-r6-import-representations/verification-summary.json",
+    "tests/parity/native-graphql-variable-admission-harness-v1-checkpoint.json"
+  ],
+  "full_aggregate_passed": false,
+  "remaining": [
+    "Full final current native aggregate and28 mandatory opt-ins/models",
+    "Final standalone, current installed3.11/3.14 matrix, full native/Python and platform qualification",
+    "Blocked independent schema/definition/filesystem reviews remain incomplete, no retry/reassignment",
+    "Actual Motion integration/reference ownership remains deferred; real WAL/restore/destructive publication/interval effects remain unavailable where unqualified"
+  ],
+  "M0_M11_gate_closures": []
+}

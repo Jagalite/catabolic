@@ -1,0 +1,66 @@
+{
+  "format_version": 1,
+  "status": "schema-only-regression-passed-independent-review-incomplete",
+  "recorded_at_utc": "2026-10-14T17:18:02.658427+00:00",
+  "qualification_scope": "Schema-only; not Rust-owner, system SQLite-linkage, external integration, or release qualification",
+  "runner": {
+    "python": "3.12.14",
+    "sqlite": "3.53.1",
+    "platform": "Linux"
+  },
+  "checks": {
+    "deterministic_artifacts": {
+      "command": "python3 scripts/native_catalog_schema.py --check",
+      "status": "passed",
+      "artifact_count": 4,
+      "log": ".local-tests/catalog-r2/schema-generation-check.log",
+      "log_sha256": "5d2bfe1fdbcf01c5bbee0938a01573634a745a3e974b71b0e5865cdbbc079157"
+    },
+    "schema_and_packaging_tests": {
+      "command": "python3 -m unittest tests.test_native_catalog_schema tests.test_native_catalog_schema_generation -v",
+      "status": "passed",
+      "preserved_schema_tests": 37,
+      "packaging_tests": 7,
+      "total_tests": 44,
+      "failed": 0,
+      "skipped": 0,
+      "log": ".local-tests/catalog-r2/schema-package-final.log",
+      "log_sha256": "e3f8106583a9a34690960a574664d42a1aaf7500962032303692c5df43f86f2c"
+    },
+    "preserved_test_bodies": {
+      "status": "passed",
+      "detail": "All 37 test method ASTs match the preparation after normalizing only the integrated signature path"
+    },
+    "ordinary_reference_discovery": {
+      "status": "passed",
+      "test_count": 44,
+      "detail": "Both modules loaded by the existing ReferenceLoader; no frozen ledger change"
+    },
+    "ruff": {
+      "status": "passed",
+      "version": "0.16.6",
+      "source": "https://pypi.org/simple",
+      "command": "ruff check and ruff format --check on native schema generator/tests and catalog audit/tests",
+      "log": ".local-tests/catalog-r2/ruff-final.log",
+      "log_sha256": "cd7f41cf1ad5ba8b6263217889865f18d2b85df5ad631a05d6d321f51fd1b7b2",
+      "initial_findings_log": ".local-tests/catalog-r2/ruff-initial.log",
+      "changes": "Two import-order fixes and formatting; schema artifacts reproduced unchanged"
+    },
+    "post_format_schema_and_contract_tests": {
+      "status": "passed",
+      "command": "python3 -m unittest tests.test_native_catalog_schema tests.test_native_catalog_schema_generation tests.test_catalog_contract_audit -v",
+      "tests": 46,
+      "failed": 0,
+      "log": ".local-tests/catalog-r2/schema-formatted-tests.log",
+      "log_sha256": "6740c15776cccc1b56857f25c96efaa9fd301ad4e2ef56c470bbfa4bea11ee68"
+    }
+  },
+  "independent_review": {
+    "status": "incomplete",
+    "record": "tests/parity/native-catalog-schema/schema-review-blocked.json",
+    "record_sha256": "1db6fd720953993a9100a032137287c3126e744294d3666a4412fffd38ea8ed1",
+    "retry_or_reassignment": false,
+    "clearance_claim": false
+  },
+  "final_integration_source_receipt": "Required separately after all integrated source changes; this package does not regenerate or replace it"
+}

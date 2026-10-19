@@ -1,0 +1,122 @@
+{
+  "status": "focused_local_debug_checkpoint",
+  "scope": "Selected standalone legacy rule --worker, fallback worker and watch TERM presentation after native cleanup; no full-leaf or release qualification",
+  "date_utc": "2026-10-12",
+  "source_base_commit": "b76e60248565b509e9736e397af28b1224302ecb",
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "crate_source_fence": "scripts/build_native_wheel.py:source_digest",
+  "source_sha256_before_final_build": "57a2ea8dccd22a1fe63dc6e10652c0f41615329be570851122684d0a8eab9ef4",
+  "source_sha256_after_checks": "57a2ea8dccd22a1fe63dc6e10652c0f41615329be570851122684d0a8eab9ef4",
+  "artifacts": {
+    ".local-tests/legacy-sigterm/artifacts/legacy-cli-unit": {
+      "sha256": "2ae7ae063dd20c469df5de67ed90a614714411f8b3000a2d70dcc20fa5f30b7d",
+      "bytes": 28354984
+    },
+    ".local-tests/legacy-sigterm/artifacts/catabolic-legacy-native": {
+      "sha256": "bc98a3d6bbfa0938d642656a77702934642fee43059b8911359fcc660641e772",
+      "bytes": 73602408
+    }
+  },
+  "toolchain": {
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1",
+    "oracle_python": "3.14.6",
+    "python311_harness": "3.11.15",
+    "oracle_used_by_both_harnesses": "3.14.6"
+  },
+  "build_environment": {
+    "CARGO_BUILD_JOBS": "1",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "cargo_network": "offline",
+    "cache": "inactive scan-accounting cache moved to this worktree/target after preserving final artifacts"
+  },
+  "selected_case_counts": {
+    "python314_rule_fallback_watch_methods": 49,
+    "python314_maintenance_callable_ledger_methods": 31,
+    "python311_selected_term_methods": 7,
+    "legacy_binary_unit_test_functions": 14,
+    "legacy_binary_unit_fixture_functions_included_above": 1,
+    "independent_distinct_python_methods": 12,
+    "independent_callable_cases_within_one_method": 6,
+    "independent_cleanup_unit": 1,
+    "failures_errors_skips_in_final_runs": 0
+  },
+  "verification_notes": [
+    "Existing explicit scan-report and public M6 refusal witnesses are passing checks of documented differences, not full parity passes",
+    "Python 3.11 is a harness replay; both harnesses launch the pinned 3.14.6 frozen oracle",
+    "Copied artifact hashes and crate-source fence match before/after final checks",
+    "Scoped HTTP-library and CLI/test Clippy with warnings denied, Rust fmt, scoped Ruff format/check, source ledger freshness and patch whitespace pass",
+    "The full 48-method predecessor run also passed before adding the valid late-receipt TERM control; not counted separately"
+  ],
+  "source_files_sha256": {
+    "crates/catabolic-cli/src/legacy/fallback_worker.rs": "0adb9a936fa4e2a741dca2bc055e9ebea2cb92125abc6052d353f934a6cc8e37",
+    "crates/catabolic-cli/src/legacy/signals.rs": "b10ddbaeafafe8a173abdcb3719fae0c6b815ed061419f7a2e9881651d043783",
+    "crates/catabolic-cli/src/legacy/watch.rs": "086ab8386f6b5c7b7bfd00e68ef3d352c694ac23432462cd1fcd73a77c33aad5",
+    "crates/catabolic-cli/src/legacy_main.rs": "839c946f112299e988ed5afc1eded22664d81b3918fc52e2ad766764c999d1db",
+    "crates/catabolic-http/src/lib.rs": "b00ced27f8b1fa6f9dc1f53fd705ec825ef69a51a90f054d34416ef573ed382e",
+    "crates/catabolic-http/src/worker.rs": "46a793106f964e9ca300d498f524f6ab548bcd7ffb92c8c7e18ca42d13d70718",
+    "docs/RUST_MIGRATION_EXTERNAL_RULE.md": "8241cbe667459b61ae174401a50c079b7305fb0f6de98b41b81589c58240eab5",
+    "docs/RUST_MIGRATION_FALLBACK_WORKER.md": "9b2f92e5a28331ce59333055e20f36317fabe58d6aa5df5a32220bf5bb824852",
+    "docs/RUST_MIGRATION_LEGACY_SIGTERM.md": "de0e64763f7f82746da8e1b44cc96bc00d3fa346b53db38f4b8de79c4c2d9956",
+    "docs/RUST_MIGRATION_SCAN_WATCH.md": "1f8e800edddf9645683e17735b82f06de93864cd3f2263a3f54760d67b813e8a",
+    "tests/test_rust_legacy_fallback_worker.py": "ad179e0d6d9b189b72a0c367f813d24d065fe6a75a96df3c6f868f75c43c0401",
+    "tests/test_rust_legacy_sigterm.py": "b1f1597861bc37aa5c931ca1da1891c9a317bbe3811e941253113d5bb2515639",
+    "tests/test_rust_scan_watch_cli.py": "79d4dca41dc6232f898a697a1a1d66091d81bc644783610aa52df8c9c2f44006"
+  },
+  "oracle_files_sha256": {
+    "cli.py": "9802e9a9ae141a901f7445488b8c06f4512f51e45d127d1b0e668776e0f43323",
+    "rule_cli.py": "989cab40f2a069bbb2d90188986cdecda4aa43d9942e795f88d88a4c1bc3f2c2",
+    "fallback_worker.py": "781dfd474d201d9a8b1226b76291174d07402b60fcf171c9626ca16b5f289b1f",
+    "watching.py": "97f56689c139ec088aabb2c7cd6d7107f07dbca7a661a695b8c9f5e0b94f6ef7",
+    "process_runner.py": "cf24614f787fba61dd3fcf46490a404d842f74247c11a349a63ddb11da22c491"
+  },
+  "logs_and_evidence_sha256": {
+    ".local-tests/legacy-sigterm/build-final.log": "0c640d3e6056e973186018eb9b5813373e71f3ed6be436183c1506ae0042300e",
+    ".local-tests/legacy-sigterm/build-initial.log": "0202d5e8ca081a47da836cd263cd938d2b60f116124395b42b0f6ffb39ef3453",
+    ".local-tests/legacy-sigterm/cli-unit-final.log": "d36b45d7f70314669d4e9a3a52fdcb9b3c3b4eaeb277bd5fec3af0da88c12bed",
+    ".local-tests/legacy-sigterm/cli-unit-initial.log": "07b61efed82c9dcbd4f488c56bae7d0f57d267dee494ad63d21484ea07983cc7",
+    ".local-tests/legacy-sigterm/clippy-final.log": "e5c74407b983ffc3e705bc1346c87b536f4e20e2c241e7ee9cec7d571f85a3dd",
+    ".local-tests/legacy-sigterm/clippy-initial.log": "0f9b55644566d06aff710b811aabe0e18f561485a0a03d48d8a5ff8ced800255",
+    ".local-tests/legacy-sigterm/fence-before-final-build.json": "af24635aa0f2e0c4325607ba329326994d9a1da7c41fec0678e34de4c096925b",
+    ".local-tests/legacy-sigterm/independent-review/callable-initial-discovery.log": "8e1d5451a31925dab6d138b0f461c935ec2562deac921f00889251cb4ab11d26",
+    ".local-tests/legacy-sigterm/independent-review/callable-selected-terms.log": "f0df4bdbdbd23595357715fc3343bb2db8f79cddccab52960d0193cafd0846ea",
+    ".local-tests/legacy-sigterm/independent-review/callable-selected-terms.py": "05f9cdbdbe327913f6a419e9979b037f4542f2ed31c5e4a5425860873d2e8e8a",
+    ".local-tests/legacy-sigterm/independent-review/final-rule-term-controls.log": "50a597adcb6051a103f32a36608a6bb86d9f6c3a3089973a8dab9df96fc66760",
+    ".local-tests/legacy-sigterm/independent-review/manifest.json": "c1cba8eca2a0a02be9fde07638391e659b739e5e2f987e307fd00308e55137e3",
+    ".local-tests/legacy-sigterm/independent-review/repeated-cleanup.log": "e54c118f977ccce5e82ab87c6a0d046c3202147860dcc8cef07a486fb08368ea",
+    ".local-tests/legacy-sigterm/independent-review/review.md": "82b4679408cab9ee80cc6d8efda18fed9b1fa1f18c6fc99b2cd7e8ea7fe15b33",
+    ".local-tests/legacy-sigterm/independent-review/selected-term-controls.log": "9daf5d363bfccc949f16ecdc6a438d106f0bc63c565709566122fe93716d6b7a",
+    ".local-tests/legacy-sigterm/independent-review/sigint-regressions.log": "f3fd97e9344512d425b057b8692bb5bd41b240e76aeed9c1d401d3d7ddfc587e",
+    ".local-tests/legacy-sigterm/independent-review/source-artifact-fence.json": "46798e54dd648315eaa234d5c5a2417fde4f3bc507f8f3151d6e161a971d7ad7",
+    ".local-tests/legacy-sigterm/lint-final.log": "cd5f355ad9eebf346aecab8517cb6af80d93c8642a4f45b65672bd7759b23ece",
+    ".local-tests/legacy-sigterm/paired-final-v2.log": "1ed097ec4a3d121c32996c957806dd41d8d0078df0dd75b915aeacb62be4f3e1",
+    ".local-tests/legacy-sigterm/paired-final.log": "87f91cf8f25ae71032c1facec44449c15072432f3f2c9d9e66bb60e77c92b92d",
+    ".local-tests/legacy-sigterm/paired-initial.log": "5401efb0d6d5f911814deb0e0517e97bbe82e07fee4b97aacf49276c04e31c44",
+    ".local-tests/legacy-sigterm/python311-final-v2.log": "bd23e0bdf25d275ff0a074716257eb10b386da4167e4450b45c61913558ae1d6",
+    ".local-tests/legacy-sigterm/python311-final.log": "a1b0d53309f2b21f600eb40d264605c9ef5b42e7079a2f9009110efa078a6240",
+    ".local-tests/legacy-sigterm/regression-final.log": "2bf116b8009ce71c533f7ccb0c4c5a1e1fbc67506115bd11a2c9478fa163c84e",
+    ".local-tests/legacy-sigterm/rule-restart-diagnostic.log": "2728a77232d6add4a59455fc7ed00b2b2a778757eb6970f76e88506c735c976b",
+    ".local-tests/legacy-sigterm/write_receipt.py": "bd5eebfe3bbd6db4c38932a5d2a8f030d4ae69318dca86613111a6cc4dfab724"
+  },
+  "independent_review": {
+    "result": "accepted within selected Linux development scope; no blocking defect",
+    "report": ".local-tests/legacy-sigterm/independent-review/review.md",
+    "manifest_sha256": "c1cba8eca2a0a02be9fde07638391e659b739e5e2f987e307fd00308e55137e3"
+  },
+  "retained_diagnostics": {
+    "paired-initial.log": "Three subtest failures from incorrectly expecting GET after interrupted unaccepted PUT; production correctly retains lease and resends same-generation PUT",
+    "rule-restart-diagnostic.log": "Confirmed original failed restart expectation; final checks compare exact original PUT request",
+    "independent-review/callable-initial-discovery.log": "Reviewer initial script accidentally included imported existing fixture classes; 28 passed; corrected focused discovery supplies independent evidence"
+  },
+  "limitations": [
+    "Only supervisor-selected SIGTERM in the three selected standalone command paths; stronger native cleanup intentionally does not reproduce the historical frozen helper leak",
+    "Other legacy families retain existing behavior; callable and shared API behavior are intentionally unchanged",
+    "Completion-versus-signal schedules, pre-installation/post-dispatch signals, every repeated/mixed ordering, inherited signal policies, panic paths, uninterruptible work, and every receipt timing window remain unqualified",
+    "No non-Linux, installed-wheel, release-profile, full-leaf, or M4-M11 hard-gate qualification",
+    "Publication/recovery/M6/source-authorization and paused broad safety-review scopes are unchanged"
+  ],
+  "python_remains_default": true,
+  "m4_m11_hard_gates_closed": false,
+  "push_merge_release": false
+}

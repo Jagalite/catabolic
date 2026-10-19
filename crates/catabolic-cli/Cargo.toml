@@ -9,10 +9,26 @@ license.workspace = true
 name = "catabolic-native"
 path = "src/main.rs"
 
+[[bin]]
+name = "catabolic-legacy-native"
+path = "src/legacy_main.rs"
+
 [dependencies]
 catabolic-core.workspace = true
 catabolic-store.workspace = true
+catabolic-runtime.workspace = true
+catabolic-http.workspace = true
 serde_json.workspace = true
+libc.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+# Test builds only: enables catabolic-store's `failpoints` feature for the
+# workspace test build, so request-field failpoints are accepted and the
+# failpoint-gated restore/conversion test targets build and run. Release
+# builds (no dev-dependencies) refuse failpoints; the normal dependency above
+# never enables the feature (scripts/check_failpoints_graph.py).
+catabolic-store = { workspace = true, features = ["failpoints"] }
 
 [lints]
 workspace = true

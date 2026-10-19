@@ -1,0 +1,186 @@
+{
+  "format": 1,
+  "source_commit": "7c0cb4fc5a2168930ad0623fdfba38afef7ee186",
+  "date": "2026-10-12",
+  "scope": "Failed source-stable aggregate plus separately passing selected installed Linux checkpoints; not milestone, full parity, or release qualification",
+  "python_remains_default": true,
+  "milestone_gates_closed": [],
+  "aggregate": {
+    "command": "scripts/check-native-mutations.sh",
+    "exit_code": 1,
+    "rust_successes": 397,
+    "native_python_tests_run": 877,
+    "outcomes": {
+      "passed": 872,
+      "error": 2,
+      "failed": 1,
+      "failed-subtest": 4
+    },
+    "failure_entries": [
+      "tests.test_rust_http_component_privacy.NativeHTTPComponentPrivacyTest.test_natural_token_expiry_during_component_probe_reauthenticates",
+      "tests.test_rust_legacy_api_worker.LegacyApiWorker.test_interrupt_exact_output_and_cleanup (prefix=[])",
+      "tests.test_rust_legacy_api_worker.LegacyApiWorker.test_interrupt_exact_output_and_cleanup (prefix=['--json'])",
+      "tests.test_rust_legacy_api_worker.LegacyApiWorker.test_interrupt_exact_output_and_cleanup (prefix=['--machine'])",
+      "tests.test_rust_notifications.NativeNotificationsTest.test_missing_optional_provider_and_bad_urls_require_repair (value='ntfy://localhost/fake-test-token')"
+    ],
+    "error_entries": [
+      "tests.test_rust_component_media.NativeComponentMediaTest.test_selected_streams_packet_evidence_and_reference_publication",
+      "tests.test_rust_legacy_review.NativeLegacyIndependentReview.test_scan_extraction_is_same_body"
+    ],
+    "skips": [],
+    "passed_without_skips": false,
+    "outcome_coverage_complete": false,
+    "source_sha256": "a004fc5416c43185464fd9fd5e17cb93f2dab3676692aaad0ce76f21ec32c943",
+    "source_unchanged": true,
+    "artifacts_unchanged": true,
+    "oracle_and_fixtures_unchanged": true,
+    "artifact_sha256": {
+      "native": "6e318f24ab964e4c3a85d35d3882f5602eb9042aa77003bb5437b5ec7155a7ad",
+      "http": "28b1567948778d71f39506ffaaf23828b91bbeaef86abf3f7d31c82a11227081",
+      "legacy_cli": "44a068d2c9d7d5433d659e259c7cd65f8d26eb801ce92087d43e88556c99905c",
+      "legacy_parser": "d95936d3c6d5508416b27b1edd338fd65a96bd21c2d4b3830baf7537c61e9b2f",
+      "native_extension": "4aa2837466be01c5d8a8a7b78f6a6f0f766c03fd99b2aaf5ac25b0f223b1c4c6"
+    },
+    "result_sha256": "7f1dca347d69601afede26301b8261dae3da01e130601e0878a360bb6d3e7110",
+    "log_sha256": "11b4400d278092ec786ee0bfc76789a04cfdeceb38aecde9a7242c7c87bac463",
+    "after_failed_test_gate_not_run": [
+      "model check",
+      "playback model check",
+      "script release rebuild/refusal replay",
+      "sync_docs --check",
+      "spec check"
+    ]
+  },
+  "reference": {
+    "tests_run": 1130,
+    "passed": false,
+    "failures": [],
+    "errors": [
+      "tests.test_component_lifecycle.LifecycleTest.test_component_fallback_publication_and_noop"
+    ],
+    "skips": [
+      {
+        "id": "tests.test_application.CatalogTest.test_default_output_detects_registered_source_case_alias",
+        "reason": "requires a case-insensitive filesystem"
+      }
+    ],
+    "result_sha256": "1945b1779f4450918e3a86bbbb357c2866559fbdfc762bfe8abdc45aae8d4def",
+    "fence": {
+      "command_exit": 1,
+      "source_before": "a004fc5416c43185464fd9fd5e17cb93f2dab3676692aaad0ce76f21ec32c943",
+      "source_after": "a004fc5416c43185464fd9fd5e17cb93f2dab3676692aaad0ce76f21ec32c943",
+      "source_unchanged": true,
+      "commit": "7c0cb4fc5a2168930ad0623fdfba38afef7ee186",
+      "tests_run": 1130,
+      "result_passed": false,
+      "skips": [
+        {
+          "id": "tests.test_application.CatalogTest.test_default_output_detects_registered_source_case_alias",
+          "reason": "requires a case-insensitive filesystem"
+        }
+      ],
+      "passed": false
+    }
+  },
+  "selected_installed": {
+    "cohort": "resumed-cohort-3",
+    "interpreters": [
+      "3.11.15",
+      "3.14.6"
+    ],
+    "build_manifest": {
+      "format": 1,
+      "profile": "release",
+      "source_sha256": "5ef60906ac2b3c13177861467fa2de66c98017d9717f3be23e09ae0cbffa32b6",
+      "source_sha256_after": "5ef60906ac2b3c13177861467fa2de66c98017d9717f3be23e09ae0cbffa32b6",
+      "wheel": "catabolic_native-0.2.0-cp311-abi3-manylinux_2_39_x86_64.whl",
+      "wheel_sha256": "4e84d8f4abe84a4b49bac76b9876464dfd7cbe93bce60228cd7dcf38cd8342a8",
+      "extension_sha256": "ca3fad8d829791332e0b27d6f8c9e11a8876016c119453b806b0310a6d40a5ab",
+      "native_binary": "catabolic-native",
+      "native_binary_sha256": "1d61d4e947032a3a738ef1f43af999c5ec9c3d2e7de927f4ec8b540f1c1167bd",
+      "legacy_binary": "catabolic-legacy-native",
+      "legacy_binary_sha256": "09cdb90e618670c34ec5b2c2911f6a583c92b95ecfe8433ba23a7ddde9ef3160",
+      "build_script_sha256": "3c7d315de18b2954f2043a62a49c207c369abdf31c8fff062bf1e3a086cb0e33",
+      "build": {
+        "scope": "local-source-content-and-toolchain; not a hermetic-build proof",
+        "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1",
+        "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)",
+        "maturin": "maturin 1.13.1",
+        "python": "Python 3.14.6",
+        "python_executable": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+        "build_environment_sha256": "2922f1ca990e37806d722e47156c79c3154877af338becc379f7f8231571b646"
+      },
+      "publication": "local-only",
+      "scope": "Local source-content/toolchain provenance; not hostile-directory attestation or hermetic reproduction"
+    },
+    "build_manifest_sha256": "e48e84a79d1cf0a3fc8f9402d0e57967ac90503c65bcf6171175747c8fbca84d",
+    "receipt_sha256": {
+      "installed-311/native-prerequisites.json": "a3444e4ec781744c7f2c052c411b3b8d15bf51cf3150b2e049f912bd3bcc29f7",
+      "installed-311/native-wheel-after.json": "a8090734d65d860f9a88add30bfb784e676df0182f65c1fe95d766781b7be6b7",
+      "installed-311/native-wheel-before.json": "a8090734d65d860f9a88add30bfb784e676df0182f65c1fe95d766781b7be6b7",
+      "installed-311/native_catalog_refresh_embedding_tests.attempt.json": "e81f2647c8d05ee9cbb439e38d10acce57d7c592acc4858eb07beb090022446d",
+      "installed-311/native_catalog_refresh_embedding_tests.json": "39c2afae83fe97be95d83b0123cb1d79230c2a84811ee322893253a751128725",
+      "installed-311/native_component_policy_embedding_tests.attempt.json": "a16b5f456ef90a9b7b4316058796014675acbac3d816a22a1626bbb5e747dc8b",
+      "installed-311/native_component_policy_embedding_tests.json": "0eca1fdc2bb001db056ec1b26494294092007b74f876606316983856e31f47cf",
+      "installed-311/native_fallback_embedding_tests.attempt.json": "c7aa4ee3b60bcfdb985ef1e0f33ce230f06f045e65f0fff0cce29f896a22da72",
+      "installed-311/native_fallback_embedding_tests.json": "f3a4e0f1cdbaf8febe96da4b4d37e015d6351afcfbe30d8ae431d0fcb9c92f4c",
+      "installed-311/native_plex_import_embedding_tests.json": "f6415a3a0882e00d6db8251fdf30438bf7fcddf427a1565153d1d5d1d1fb172c",
+      "installed-311/native_plex_matching_embedding_tests.json": "3a01e93a436c81e00dba2ce867bc9ca9a06e1561d1468c7015225dc64d17eeae",
+      "installed-311/native_plex_metadata_embedding_tests.json": "68395b3a312e0d1bfee069fe963e5b6e03724d84f800b3ca918c0e6348dbd1d2",
+      "installed-311/native_plex_metadata_review_tests.json": "fbc0cc70f5fdba843e9b904392bdd3cb97d2aeec97cad4f726bb51c41bbcc3c8",
+      "installed-311/native_plex_xml_embedding_tests.json": "c1bbc1021972ea6f748fd8ad75219c822db983eb732ab600fc8ecd0fdd127505",
+      "installed-311/native_plex_xml_review_tests.json": "cea58b59bf66eddbbbf594c5cfef410259eeb289307a3b20a7d4aed10cc0a8c4",
+      "installed-311/native_processing_embedding_tests.json": "d5d8ead1d096648411478bb82a7efdac260778a13a27c2a4e574bfa7f27e7ad9",
+      "installed-311/native_query_embedding_tests.json": "4e7739a86b2cb28e9b80634c01618f8d17edf3db7efd097e17aa89fb20051cb0",
+      "installed-311/qualify_native_embedding.json": "34a51baa87349a7ef8391a15fdcf9e550c985c82a67fad484995a7847171bd3a",
+      "installed-314/native-prerequisites.json": "9ec8c5a472c00104f9289dd20187cb2a23c3dcaa379785dcac3299791e73f052",
+      "installed-314/native-wheel-after.json": "39e4b13168a519208e141905c84b727a83872423cd1544e7d62630953a0b3714",
+      "installed-314/native-wheel-before.json": "39e4b13168a519208e141905c84b727a83872423cd1544e7d62630953a0b3714",
+      "installed-314/native_catalog_refresh_embedding_tests.attempt.json": "e81f2647c8d05ee9cbb439e38d10acce57d7c592acc4858eb07beb090022446d",
+      "installed-314/native_catalog_refresh_embedding_tests.json": "875134a59947a8e75a764246ef8c0c878405ae46bd32069e6534c797747bff5f",
+      "installed-314/native_component_policy_embedding_tests.attempt.json": "a16b5f456ef90a9b7b4316058796014675acbac3d816a22a1626bbb5e747dc8b",
+      "installed-314/native_component_policy_embedding_tests.json": "0eca1fdc2bb001db056ec1b26494294092007b74f876606316983856e31f47cf",
+      "installed-314/native_fallback_embedding_tests.attempt.json": "c7aa4ee3b60bcfdb985ef1e0f33ce230f06f045e65f0fff0cce29f896a22da72",
+      "installed-314/native_fallback_embedding_tests.json": "f3a4e0f1cdbaf8febe96da4b4d37e015d6351afcfbe30d8ae431d0fcb9c92f4c",
+      "installed-314/native_plex_import_embedding_tests.json": "c760c2108dbfdc3e889653ae37e9cfec361fb6d4ee0b8a0503c4d709ef0ba80e",
+      "installed-314/native_plex_matching_embedding_tests.json": "872a8a4208ef54d59fe871a50a45d3b4217f7cd4a47178e6329945f5405223b7",
+      "installed-314/native_plex_metadata_embedding_tests.json": "32942e6e189044eb11c35f5d607fb81ff79a836d74d4829f544c1b4c89644a9a",
+      "installed-314/native_plex_metadata_review_tests.json": "156b618f691e59dd42e6da188833a026f54d4a68f954bada7708bdda4f36b3a1",
+      "installed-314/native_plex_xml_embedding_tests.json": "61007c17d7cca90d4a8045a18d430f477342c1002bff0fcc3752eaebba53711e",
+      "installed-314/native_plex_xml_review_tests.json": "16ece8675c99400fed880a85f0fbfbe6953c9355e2c729e1babd7632cd7ab009",
+      "installed-314/native_processing_embedding_tests.json": "d5d8ead1d096648411478bb82a7efdac260778a13a27c2a4e574bfa7f27e7ad9",
+      "installed-314/native_query_embedding_tests.json": "4e7739a86b2cb28e9b80634c01618f8d17edf3db7efd097e17aa89fb20051cb0",
+      "installed-314/qualify_native_embedding.json": "25aeac2e704d0202ff5775343c9eb1ea815f4918e10699d6afe9d5eb1fd7ef09"
+    },
+    "progress_logs": {
+      "installed-311-progress.log": "6fd5e0c02243f65b1c931bf3ef3ce3fc02f7b7aea4d9b3b3a2b2db14736cffd9",
+      "installed-314-progress.log": "7198ef4176bb9e6a64e8ec2663f85b4e100260f7c084b45c670672dc1e317315"
+    },
+    "http_journey_commands": 49,
+    "http_report_sha256": "e67f6f97924aa0f39a9d7a8a8cc6db5636bf7e760702d6344a3ce9f4fc7e39ce",
+    "release_refusal_cases": 30,
+    "release_refusal_report_sha256": "1c3a28ae3457400d48e1c079146d7cec528d848f0516ca2a6ed326eefaf18d94",
+    "qualification": "All selected installed gates passed; unsupported families and existing platform/safety/contract gaps remain open"
+  },
+  "retained_evidence_root": ".local-tests/rust-migration (replacement workspace only; this summary does not publish an entire evidence bundle)",
+  "known_failed_fixture_followups": {
+    "api_worker_signal": "Reviewed readiness correction is on isolated integration branch, not this aggregate",
+    "scan_extraction": "Reviewed immutable hash witness removes shallow-history dependency on integration branch",
+    "optional_apprise_absence": "Reviewed isolated interpreter fixture removes ambient package assumption on integration branch",
+    "component_preview_apply": "Timing-sensitive disposable reproduction exists; original aggregate probe trace unavailable, cause unproven",
+    "http_natural_expiry": "Controlled helper was not reached; scheduling diagnosis pending"
+  },
+  "remaining_gates": [
+    "M0-M3 prerequisites",
+    "all M4-M11 hard gates",
+    "blocked broad definitions review",
+    "blocked broad filesystem safety review",
+    "M6 default/release output restrictions",
+    "actual macOS/platform matrix",
+    "real-service integrations",
+    "full public API and HTTP parity",
+    "performance",
+    "operational rollback/handover",
+    "exact final artifact release qualification"
+  ]
+}

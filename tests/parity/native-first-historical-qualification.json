@@ -1,0 +1,98 @@
+{
+  "status": "Historical frozen qualifications retained; not acceptance of later native provider/sidecar/parser changes",
+  "recorded_utc": "2026-10-12T23:17:00Z",
+  "native_343d7e8": {
+    "source_commit": "343d7e83a8c275dc282cda9b1ac0e6b4a320aaa6",
+    "tests_run": 1126,
+    "failures": 3,
+    "errors": 0,
+    "skips": 0,
+    "passed": false,
+    "fence": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-next/.local-tests/cli-next/resumed-validation-9/native-fence.json",
+      "sha256": "3e4928b47693bff32b9a4dc284c284b9105492c4188e5fd68116a11158b14bcf"
+    },
+    "limits": "Three stale source/CI assertions corrected separately. Tail model/release/docs gates did not execute. Original receipt result_passed:null is a wrapper key mismatch, not an unknown command outcome; command exit1 establishes failure."
+  },
+  "reference_cf1126d": {
+    "source_commit": "cf1126dbf638d25601a22eff61c09dca0a71d235",
+    "tests_run": 1275,
+    "failures": 0,
+    "errors": 1,
+    "skips": 1,
+    "passed": false,
+    "fence": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave10/.local-tests/wave10/resumed-validation-10/reference-fence.json",
+      "sha256": "54eded280001b13780b474ba6262e2e69e047ff8dcbd7d30bcac9b83fdf9b0fd"
+    },
+    "unresolved_error": "tests.test_fallback_evidence.FallbackEvidenceTest.test_offline_original_and_container_transition: stale_or_missing_resolution_plan; original cause unknown",
+    "skip": "case-insensitive filesystem required"
+  },
+  "cohort8": {
+    "source_commit": "cf1126dbf638d25601a22eff61c09dca0a71d235",
+    "build_manifest": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave10/.local-tests/wave10/resumed-cohort-8/build-manifest.json",
+      "sha256": "fd0599175a023006ba7435ebeea8d43c1bfe009bb816daa38c710cb1052c26c6"
+    },
+    "python314_selected_sequence": {
+      "passed": true,
+      "seconds": 2619,
+      "progress": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave10/.local-tests/wave10/resumed-cohort-8/installed-isolated-314-progress.log",
+        "sha256": "b555f1828eb1170cdea56878a0901ab653430da2a037e23b56357984291bad74"
+      },
+      "unique_non_attempt_json_receipts": 24,
+      "legacy_gate": {
+        "receipt": {
+          "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave10/.local-tests/wave10/resumed-cohort-8/installed-isolated-314/native_legacy_adapter_tests.json",
+          "sha256": "de799dbcafb37c280a9364a648d69f7780f14fd150905008a9cebafb616b1e22"
+        },
+        "tests_run": 105,
+        "failures": 0,
+        "errors": 0,
+        "skips": 0,
+        "all_declared_identity_fences_held": true,
+        "native_only_witnesses": [
+          "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_publication_version_two_stays_explicitly_unavailable",
+          "tests.test_rust_publication_bundle_preview.PublicationBundlePreviewTest.test_immich_cancellation_stops_read_only_helper"
+        ],
+        "explicit_nonparity_witnesses": [
+          "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_publication_version_two_stays_explicitly_unavailable",
+          "tests.test_rust_publication_bundle_preview.PublicationBundlePreviewTest.test_apply_and_recovery_still_refuse_before_bundle_effects",
+          "tests.test_rust_publication_mapping_preview.PublicationMappingPreviewTest.test_nonfolder_preview_admission_and_apply_recover_no_effects"
+        ]
+      }
+    },
+    "python311_selected_sequence": {
+      "passed": false,
+      "failed_gate": "CatalogRefresh idle SIGINT expected130 observed-2; original engine/cause unknown",
+      "later_gates_not_executed_by_sequence": true
+    },
+    "python311_separate_legacy_gate": {
+      "receipt": {
+        "path": "/workspace/scratch/9c9a5a8c3955/catabolic-cli-wave10/.local-tests/wave10/resumed-cohort-8/installed-isolated-311/native-legacy-adapters-standalone.json",
+        "sha256": "0be979eba90f691a32371c299fd5e78fc29c20e2d02a7fec627de3099f8ede94"
+      },
+      "tests_run": 105,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "all_declared_identity_fences_held": true,
+      "native_only_witnesses": [
+        "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_publication_version_two_stays_explicitly_unavailable",
+        "tests.test_rust_publication_bundle_preview.PublicationBundlePreviewTest.test_immich_cancellation_stops_read_only_helper"
+      ],
+      "explicit_nonparity_witnesses": [
+        "tests.test_rust_legacy_mapping_history.NativeLegacyMappingHistoryTest.test_publication_version_two_stays_explicitly_unavailable",
+        "tests.test_rust_publication_bundle_preview.PublicationBundlePreviewTest.test_apply_and_recovery_still_refuse_before_bundle_effects",
+        "tests.test_rust_publication_mapping_preview.PublicationMappingPreviewTest.test_nonfolder_preview_admission_and_apply_recover_no_effects"
+      ]
+    },
+    "limits": [
+      "Supplemental Python311 gate does not convert original failed sequence to success",
+      "Idle-readiness correction has separate exact-artifact fixture evidence",
+      "Full installed ASGI dependencies remain pending; native-first scope defers wrapper gates",
+      "No platform/full parity/release/milestone completion"
+    ]
+  }
+}

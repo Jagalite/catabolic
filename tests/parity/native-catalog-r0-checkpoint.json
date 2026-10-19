@@ -1,0 +1,136 @@
+{
+  "format_version": 1,
+  "date": "2026-10-14",
+  "package": "R0 native host initial slice",
+  "status": "bounded_linux_qualification_only",
+  "R0_complete": false,
+  "milestones_closed": [],
+  "runner": {
+    "route": "standard Cargo in native cloud workspace",
+    "exception": "User authorized continuing without Kyoto and without a Codex thread on 2026-10-14",
+    "toolchain": "1.99.0",
+    "declared_catabolic_msrv": "1.99",
+    "toolchain_evidence": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1\ncargo 1.99.0 (5f94df478 2026-08-27)\n",
+    "toolchain_evidence_sha256": "91a27f7fa86c27583f5a7c3d1f23dbd9a7e42ed18dc031db7472502cc55c88b9"
+  },
+  "platform": "x86_64-unknown-linux-gnu",
+  "source": {
+    "base_commit": "448cdc5b0958b320d2c7dfebd514624baa7a4fc3",
+    "scope": "All crates/, src/, .cargo/ files plus root Cargo.toml, Cargo.lock and rust-toolchain.toml",
+    "files_verified_before_after": 700,
+    "canonical_manifest_sha256": "9c670fd16d98fa1747dbaa461c54d407faa4747428622d3e039eef2932671f6c",
+    "manifest": "tests/parity/native-catalog-r0-source-manifest.json",
+    "manifest_file_sha256": "fbc11bc3beb30a90b9dc701613fd3c8c083313caf7c2175e3634f8e6ed1953b0",
+    "unchanged": true
+  },
+  "helper": {
+    "artifact": ".local-tests/catalog-r0/catabolic-native-frozen",
+    "sha256": "6830631b4274c9fb651c5c7d52072ac3cbac17e3200e0f8e3504143f36f0a2fa",
+    "build": "cargo build --locked -p catabolic-cli --bin catabolic-native; copy artifact; strip --strip-debug",
+    "release_artifact": false
+  },
+  "runs": {
+    "store_runtime": {
+      "log": ".local-tests/catalog-r0/frozen-store-runtime-tests.log",
+      "log_sha256": "5e0a0d8525decc6646f78959d6eec09e35cff116580aecf261ee689e58624673",
+      "passing_executions": 553,
+      "failed_executions": 0,
+      "ignored_entries": 7,
+      "harness_summaries": 50
+    },
+    "real_helper": {
+      "log": ".local-tests/catalog-r0/frozen-real-helper.log",
+      "log_sha256": "7cb3383815efb7e1eefe068533b9cb5e37d09f79ace2f07d4cb734e25ad23900",
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "focused_host_unit": {
+      "log": ".local-tests/catalog-r0/frozen-host-unit.log",
+      "log_sha256": "d07e3a3fcce916f1b668250ec53cfc952a5e1959cc19ebf143e30446132dc6a7",
+      "passing_executions": 3,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "focused_host_integration": {
+      "log": ".local-tests/catalog-r0/frozen-host-integration.log",
+      "log_sha256": "c5c4139f3b5c6e65812bb79f379097a1c23bf6e0bb134f660cfe1dd4fcc7e585",
+      "passing_executions": 16,
+      "failed_executions": 0,
+      "ignored_entries": 1,
+      "harness_summaries": 2
+    },
+    "focused_store_contracts": {
+      "log": ".local-tests/catalog-r0/frozen-store-contracts.log",
+      "log_sha256": "4418567141cd1383e5a0128c48da39d75611cf0973bda2b9d1754e583d2db729",
+      "passing_executions": 17,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 2
+    },
+    "strict_clippy": {
+      "passed": true,
+      "command": "cargo clippy --locked -p catabolic-store -p catabolic-runtime --all-targets -- -D warnings",
+      "log_sha256": "f4c804c9820df573104deb9743b2b093481b0a0a610387a0aafc4767891ab6d7"
+    },
+    "format": {
+      "passed": true,
+      "command": "cargo fmt --all --check",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "counts_policy": "Focused tests overlap store/runtime regressions; do not add their passing counts. The explicit real-helper run is the one ignored host entry executed separately.",
+  "aggregate_ignored_entries": [
+    "test document::tests::real_pdf_text_and_page_overflow ... ignored, requires the optional local pdftotext executable",
+    "test document::tests::real_single_image_ocr ... ignored, requires local tesseract and its English language data",
+    "test real_native_helper_scan_cancel_drain_and_reopen ... ignored, requires an explicitly built, digest-checked CATABOLIC_HOST_TEST_HELPER",
+    "test entry_budget_exhaustion_cannot_restart_for_later_sources ... ignored, creates 200001 disposable empty entries to exercise setup exhaustion",
+    "test access_admin::tests::frozen_access_owner_differential ... ignored, requires pinned frozen checkout and Python 3.14.6; run with --ignored",
+    "test access_admin::tests::inherited_scalar_cache_confusion_remains_fail_closed_native ... ignored, requires pinned frozen checkout and Python 3.14.6; intentional fail-closed divergence witness",
+    "test artifact_mutation::tests::python_native_publication_intents_recover_in_both_directions ... ignored, requires CATABOLIC_PYTHON_ORACLE and CATABOLIC_PYTHON_REFERENCE"
+  ],
+  "combined_motion_fixture": {
+    "receipt": "tests/native-host/motion-dependency-probe/qualified-receipt.json",
+    "sha256": "2cf59102f0eb00d7d1e31f7f63a11805b1f3ee32674bc2d644ddcfc8cfde5330",
+    "production_motion_modified": false,
+    "production_dependency_adoption": "awaiting decision"
+  },
+  "fixture_setup": {
+    "frozen_oracle_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "inventoried_resource_hashes_verified": 518,
+    "historical_schema_fixtures": 32,
+    "fixture_manifest_sha256": "05683e22014012e5f2776205cafb642f52c90c3da87169e62a3b66642524c4b0",
+    "provenance_sha256": "86976e5179b4e68b193a30ca15765d48fd874d3387208c86e6964cb13260dd4d",
+    "python": "3.12.14",
+    "python_sqlite": "3.53.1",
+    "not_release_python_matrix": true
+  },
+  "preserved_failed_run_log_sha256": {
+    "store-regression-initial.log": "4ba8fe2361ceba9a1ab8ef1e73c8c3937dba0b2ec7b3378fa2ef655d76959b65",
+    "runtime-regression.log": "6c96207bcc999a85138ea47b46fa5097431db80e8add8521cf6c7b3f9815c253",
+    "clippy.log": "6a0478a4b0f80383e7b3efc5f3befc24561e3122c38578093a926db64527b628",
+    "final-clippy.log": "5138559388ef10d14d366130de596cdb124b2b7988badca3e0fd015479df75ef",
+    "host-expanded-tests.log": "ebc8c4f92886e09ad66a43f084c7e2839e8097d8cde3a4f32fbf2e524650e877"
+  },
+  "failed_run_explanations": [
+    "Initial store regression: six tests failed because retained migration fixtures were missing; unchanged frozen generator restored all32 and final tests reran",
+    "Initial runtime regression: four notification-wire tests lacked explicit oracle environment; final run uses verified frozen source/interpreter",
+    "First strict Clippy: two manual-inspect diagnostics; second: unnecessary-unwrap; fixed and requalified",
+    "Initial read-snapshot test used rollback journal and blocked writer; explicit WAL fixture now verifies retained snapshot without changing production journal policy"
+  ],
+  "pre_final_aggregate": {
+    "log_sha256": "e16f76cfefaaf59605b194f6a80f2e60a891fed2dd3333047874e249128b145d",
+    "not_used_for_current_source_qualification": "A host-only lint refinement occurred after build; final frozen pass is recorded separately"
+  },
+  "limits": [
+    "Linux only; no macOS qualification",
+    "No complete workspace/CLI/HTTP/product aggregate or standalone release candidate",
+    "Six existing ignored obligations remain after the separately executed helper case",
+    "No schema/receipt/contribution/scoped authorization/search/import/cutover implementation in this slice",
+    "Production Motion dependency alignment remains an explicit owner decision",
+    "R1-R7 and M0-M11 acceptance obligations remain open; thin Python wrapper remains last",
+    "Blocked broad definition/filesystem reviews and fail-closed destructive paths remain untouched"
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "status": "Shared CatalogQuery controls; non-null non-text inputs retain prior native diagnostics and remain non-parity controls.",
+  "cases": [
+    {
+      "args": {},
+      "expected": {
+        "data": {
+          "items": [],
+          "next_cursor": null
+        }
+      },
+      "native": {
+        "data": {
+          "items": [],
+          "next_cursor": null
+        }
+      }
+    },
+    {
+      "args": {
+        "sort": "id"
+      },
+      "expected": {
+        "data": {
+          "items": [],
+          "next_cursor": null
+        }
+      },
+      "native": {
+        "data": {
+          "items": [],
+          "next_cursor": null
+        }
+      }
+    },
+    {
+      "args": {
+        "sort": "title"
+      },
+      "expected": {
+        "data": {
+          "items": [],
+          "next_cursor": null
+        }
+      },
+      "native": {
+        "data": {
+          "items": [],
+          "next_cursor": null
+        }
+      }
+    },
+    {
+      "args": {
+        "sort": null
+      },
+      "expected": {
+        "error": "sort must be one of: id, title, year",
+        "type": "CatabolicError"
+      },
+      "native": {
+        "error": "sort must be one of: id, title, year"
+      }
+    },
+    {
+      "args": {
+        "sort": 5
+      },
+      "expected": {
+        "error": "sort must be one of: id, title, year",
+        "type": "CatabolicError"
+      },
+      "native": {
+        "error": "sort must be text"
+      }
+    },
+    {
+      "args": {
+        "sort": true
+      },
+      "expected": {
+        "error": "sort must be one of: id, title, year",
+        "type": "CatabolicError"
+      },
+      "native": {
+        "error": "sort must be text"
+      }
+    },
+    {
+      "args": {
+        "sort": {}
+      },
+      "expected": {
+        "error": "cannot use 'dict' as a dict key (unhashable type: 'dict')",
+        "type": "TypeError"
+      },
+      "native": {
+        "error": "sort must be text"
+      }
+    },
+    {
+      "args": {
+        "sort": "bogus"
+      },
+      "expected": {
+        "error": "sort must be one of: id, title, year",
+        "type": "CatabolicError"
+      },
+      "native": {
+        "error": "sort must be one of: id, title, year"
+      }
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "format": 1,
+  "scope": "strict installed legacy adapter wiring controls only",
+  "qualification": "selected-partial-adaptation-gate-wiring; not product parity",
+  "runtime_wiring_commit": "0bd9aa8",
+  "expected_installed_methods": 79,
+  "method_groups": {
+    "destination_mapping": 36,
+    "publication_preview": 25,
+    "external_rule": 18
+  },
+  "independent_review": {
+    "status": "accepted",
+    "remaining_blocking_findings": 0,
+    "runtime_unchanged_after_review": true,
+    "base_interpreter_startup_control": "independently inspected and passed on both Python versions"
+  },
+  "historical_finding": {
+    "severity": "P1",
+    "description": "Frozen -m child could import a cwd shadow package even with pinned PYTHONPATH",
+    "retained_negative_witness": "child-origin-before-witness.py",
+    "retained_negative_result": "child-origin-before.json",
+    "fixed_by": "0bd9aa8",
+    "correction": "Set and validate PYTHONSAFEPATH=1 and PYTHONNOUSERSITE=1 alongside exact PYTHONPATH; record actual child interpreter flags and frozen module origins/hashes before and after"
+  },
+  "user_site_evidence": {
+    "original_venv_control_limitation": "Venv user-site hook is naturally inert; this was not demonstrated unguarded hook execution",
+    "separate_base_control": "Existing base interpreter activates disposable usercustomize hook without flags and suppresses it with shared production environment; no installation or oracle-environment changes"
+  },
+  "controls": {
+    "python314": {
+      "version": "3.14.6",
+      "focused_passed": 17,
+      "related_passed": 97,
+      "related_seconds": 61.172
+    },
+    "python311": {
+      "version": "3.11.15",
+      "focused_passed": 17,
+      "related_passed": 97,
+      "related_seconds": 54.305
+    }
+  },
+  "fixture_import_check": "Outside-checkout -I minimal installed Python3.11 imports all79 fixtures with stdlib only, without executing native fixtures",
+  "installed_product_gate_executed": false,
+  "fresh_release_wheel_built": false,
+  "full_leaf_parity": false,
+  "m9_complete": false,
+  "release_qualified": false,
+  "remaining": [
+    "Fresh integrated release wheel and strict79-method receipts on both installed runtimes",
+    "Measured complete installed CI duration against current20-minute literal budget"
+  ],
+  "wiring_source_sha256": {
+    "scripts/native_legacy_adapter_tests.py": "586ee851c1d4e24f91127258d8ba261ad8993b31085ba22a10eff79aa3a7f115",
+    "scripts/native_legacy_adapter_oracle.py": "f604456868b342244a762ea37efb695b0d927a150971a1958477be0a7bf64270",
+    "scripts/native_legacy_adapter_scenarios.py": "b6efd26a9c4c09e93a8b44172776ce1a56ca16b07d07adb2c86864490eb83caf",
+    "scripts/native_facade_qualification.py": "1f95208893f9af22577647b6d29faf995b2feac37d20a050d9c423d093608b29",
+    "scripts/native_qualification_results.py": "e7b26add38ac95e32557ee88ffff59a2c47be11165009fd553bbac88028acce3",
+    "scripts/native_asgi_installed_tests.py": "91ea08e305ace141593b999de23e98d97ce29b965d4d656b18c2a7096d5c77ed",
+    "scripts/qualify_native_embedding.py": "ac7d6c32f55732beb6e5ea019716b784be2d0ad6ece1d65d65f82283152fa4e3",
+    "scripts/qualify_native_wheel.py": "fdc471ff4a3e3c56351ee4daf7c84c7a901ecd3386787ec7a4ca76d23ff33a4f",
+    "scripts/build_native_wheel.py": "6c6a1df62f52feaac6cfb20aecb177d4834119c9dec48da13797c73268fa9023",
+    "tests/test_native_legacy_adapter_qualification.py": "9b72316922329922731c094cb93e48d3182d34d44082d7c77e3b6755de6ea772",
+    "tests/test_native_ci_contract.py": "585b58222f6085c758c383377b8e35a8d271d1b790bc1a398d68f45feb9892ec",
+    "tests/native_ci_contract.py": "a58c8b8cda959c55dc8b52dbf90a6b536af0025a33f628d392a1b6429a097da8",
+    ".github/workflows/native-qualification.yml": "99b167ea9e615b44aa0a987e957a41f08a69c1bef5f0bf23a7619f66743e32d6"
+  },
+  "local_evidence_root": ".local-tests/legacy-installed-wiring",
+  "local_evidence_sha256": {
+    "child-origin-after-witness.py": "b335b8b396311e3b517c88e96a4042cadc222776ab44dc0d5d63f2e69956fbd7",
+    "child-origin-after.json": "07eebf5782114e92118903dc85fa2e640da1382e4c9366bc495660898cbb7c09",
+    "child-origin-before-witness.py": "20d0f6b874adb334fedb24895a045caff5a82fa82b45d80d1b8d580c5bc2fcfa",
+    "child-origin-before.json": "7f90ef5bf13e9d2e43b84520a2f67d062346a535e8e8d08b499613d37b28d870",
+    "focused-python311.log": "a59854115ec574966d26c41c158147692c86c7c56c5f28ec614ffc83c7542d6c",
+    "focused-python314.log": "0b20d0105caf328de7a2534acc648e23d5d4880605c4cfb4aeddeacfff8ddb86",
+    "independent-controls-python311.log": "6947916e035f4afff7a144b9f71732917ce09023896def91f4e5ec312e9c3e70",
+    "independent-controls-python314.log": "178418842bcb32688c77422bec96129e84eb60a75117fd19069833d5771194aa",
+    "independent-review.md": "1c2cc0d0ffe2ca6bbfea2b8bc457a7836e7ff3b32395734d16ca92c2cd348c89",
+    "independent-source-identity.txt": "1d64f5182b3a14c1e958731356924c0fa827eb3eb360609fe25a3210d35d937a",
+    "related-python311-before-review.log": "3cc6bbfd105decec08008e85afaa6d63af42943aae476f473bf2b7c403522318",
+    "related-python311-final.log": "a0dee802feec9e31eaf182c4315d067f90f1477e27f68371a72d30e2b5db71a6",
+    "related-python314-before-review.log": "b80066e39a92a5ecc988ca45c3aee135683fddb2e598df07afe5d18819bf6915",
+    "related-python314-final.log": "57c2d6f119c9100db910bf30764d3b828a26067d23f42f54038f2cb4bde0b1d2",
+    "related-python314-safe-path.log": "c607166e4d6e49457e52fae72c2c010a3973619dc1564b512b7523b897a16699"
+  }
+}

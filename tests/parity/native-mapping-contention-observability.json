@@ -1,0 +1,233 @@
+{
+  "format": 1,
+  "scope": "Fixture assertion observability only; not product or installed qualification",
+  "base_commit": "1fa5e41efe2a4abe69e672afe8ab04bc8293b59d",
+  "historical": {
+    "source_commit": "343d7e83a8c275dc282cda9b1ac0e6b4a320aaa6",
+    "python": "3.14.6",
+    "tests_run": 79,
+    "passes": 78,
+    "failures": 1,
+    "errors": 0,
+    "skips": 0,
+    "cause": "unknown: the original type-only assertion omitted error code and receiver trace",
+    "failed_scenario": "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_recovery_catalog_writer_contention_preserves_event_and_lock",
+    "failing_engine": "frozen_python",
+    "native_recovery_reached": false,
+    "all_postflight_fences_passed": true,
+    "receipt_remains_failed": true
+  },
+  "original_artifact_identity": {
+    "source_commit": "343d7e83a8c275dc282cda9b1ac0e6b4a320aaa6",
+    "build_source_sha256": "9f812ca7fc957372b7ebbfe2c761e1d3b8dd5c0dc2dc24d09a88fde80e587f19",
+    "gate_source_sha256": "429a843ab3b4f15769b9cba217a213f401913099a81356ed3147a8dee61f920b",
+    "oracle_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "wheel_sha256": "01711411dc3514ee4cd52651b10177da77b33df88f16671b5d436e1bbb6f3a2f",
+    "legacy_binary_sha256": "80a8f4caef439cb38d0c697e1ada0cdb27deddfb11b4839e315b655f33ca6fcc"
+  },
+  "diagnostics": {
+    "baseline": {
+      "scenario_passed": true,
+      "elapsed_seconds": 32.50420209699951,
+      "first_recovery": {
+        "engine": "frozen_python",
+        "returncode": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"projection\", \"operation\": \"mapping-recover\", \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"another Catabolic writer or upgrade is using this database\", \"type\": \"CatalogBusy\"}}}\n",
+        "stderr": "",
+        "elapsed_seconds": 2.7885778519994346,
+        "receiver_calls": [
+          [
+            "GET",
+            "/",
+            {},
+            null
+          ],
+          [
+            "GET",
+            "/library/sections",
+            {},
+            null
+          ],
+          [
+            "GET",
+            "/library/metadata/1",
+            {
+              "includeGuids": "1"
+            },
+            null
+          ]
+        ]
+      },
+      "fences": {
+        "artifact_stable": true,
+        "source_stable": true,
+        "reference_stable": true,
+        "interpreter_stable": true,
+        "reference_child_stable": true,
+        "loaded_selection_stable": true,
+        "inventory_stable": true
+      },
+      "matches_historical_identity": {
+        "source_before": true,
+        "artifact_before": true,
+        "oracle": true,
+        "interpreter": true,
+        "reference_interpreter": true,
+        "reference_child_identity": true,
+        "loaded_selection": true,
+        "inventory_sha256": true
+      }
+    },
+    "response-delay": {
+      "scenario_passed": false,
+      "elapsed_seconds": 41.895190169998386,
+      "first_recovery": {
+        "engine": "frozen_python",
+        "returncode": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"projection\", \"operation\": \"mapping-recover\", \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"consumer temporarily_failed; retry delivery\", \"type\": \"ConsumerError\", \"code\": \"temporarily_failed\", \"safe_to_retry\": true}}}\n",
+        "stderr": "",
+        "elapsed_seconds": 17.168759236999904,
+        "receiver_calls": [
+          [
+            "GET",
+            "/",
+            {},
+            null
+          ]
+        ]
+      },
+      "fences": {
+        "artifact_stable": true,
+        "source_stable": true,
+        "reference_stable": true,
+        "interpreter_stable": true,
+        "reference_child_stable": true,
+        "loaded_selection_stable": true,
+        "inventory_stable": true
+      },
+      "matches_historical_identity": {
+        "source_before": true,
+        "artifact_before": true,
+        "oracle": true,
+        "interpreter": true,
+        "reference_interpreter": true,
+        "reference_child_identity": true,
+        "loaded_selection": true,
+        "inventory_sha256": true
+      },
+      "event_unchanged": true,
+      "publication_lock_released": true
+    },
+    "status-503": {
+      "scenario_passed": false,
+      "elapsed_seconds": 24.872303710999404,
+      "first_recovery": {
+        "engine": "frozen_python",
+        "returncode": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"projection\", \"operation\": \"mapping-recover\", \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"consumer temporarily_failed; retry delivery\", \"type\": \"ConsumerError\", \"code\": \"temporarily_failed\", \"safe_to_retry\": true}}}\n",
+        "stderr": "",
+        "elapsed_seconds": 2.0087680159995216,
+        "receiver_calls": [
+          [
+            "GET",
+            "/",
+            {},
+            null
+          ]
+        ]
+      },
+      "fences": {
+        "artifact_stable": true,
+        "source_stable": true,
+        "reference_stable": true,
+        "interpreter_stable": true,
+        "reference_child_stable": true,
+        "loaded_selection_stable": true,
+        "inventory_stable": true
+      },
+      "matches_historical_identity": {
+        "source_before": true,
+        "artifact_before": true,
+        "oracle": true,
+        "interpreter": true,
+        "reference_interpreter": true,
+        "reference_child_identity": true,
+        "loaded_selection": true,
+        "inventory_sha256": true
+      },
+      "event_unchanged": true,
+      "publication_lock_released": true
+    }
+  },
+  "correction": "Add engine, complete stdout/stderr, and receiver requests to the existing CatalogBusy assertion message only",
+  "unchanged": [
+    "Expected CatalogBusy error type",
+    "Every existing assertion",
+    "All request and subprocess timeouts",
+    "Production source",
+    "Frozen oracle",
+    "Installed gate, import/source/artifact fences, and cache policy",
+    "Fixed 79-method selected installed inventory"
+  ],
+  "negative_control": "For both engines, synthetic ConsumerError/temporarily_failed still raises AssertionError and exposes exact stdout, Unicode/5000-byte stderr, and receiver requests",
+  "positive_control": "Synthetic CatalogBusy still proceeds to not_applied recovery for both engines",
+  "assertion_only_ast_check": {
+    "assertions_timeouts_and_all_other_fixture_code_identical_after_removing_added_message": true,
+    "added_assertion_messages": 1,
+    "base_commit": "1fa5e41efe2a4abe69e672afe8ab04bc8293b59d",
+    "base_fixture_sha256": "4abc7acc53b79b97eb5b018ca2d4e058deabec0d6054dc205b68653c999686e5",
+    "fixture_sha256": "1bff820c1069232517d93e5d36231256fa9510c88ce9efe4c47cd741077010ff"
+  },
+  "validation": {
+    "python314": {
+      "version": "Python 3.14.6",
+      "tests_run": 20,
+      "passes": 20,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "frozen_modules_preloaded": true
+    },
+    "python311": {
+      "version": "Python 3.11.15",
+      "tests_run": 20,
+      "passes": 20,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "frozen_modules_preloaded": true
+    },
+    "ruff_check": true,
+    "ruff_format_check": true,
+    "sync_docs_check": true,
+    "git_diff_check": true
+  },
+  "test_source_sha256": {
+    "tests/test_rust_legacy_destination_mappings.py": "1bff820c1069232517d93e5d36231256fa9510c88ce9efe4c47cd741077010ff",
+    "tests/test_rust_mapping_contention_diagnostics.py": "4830c661d1eca835b0fe0d1ac6d5492d7c5ea7ce2a2f9369e4912b4ff9aa598b"
+  },
+  "local_evidence_root": ".local-tests/contention-observability",
+  "local_evidence_sha256": {
+    "assertion-only-check.json": "bcfbb53ddf536ceade04e29d32f3fe0fc7a4d8462a1e9d0e2c8105492f5dc249",
+    "cohort7-diagnostics/REPORT.md": "035812492571c862326cd1202714cb48de2e393b8b8694883d4560ccde324ab0",
+    "cohort7-diagnostics/baseline.gate-diagnostic.json": "8c26e89014ef54a234533d38217861487c41ac0c24355c1c5b4595f0fbc9e2b7",
+    "cohort7-diagnostics/baseline.log": "8c1a195ef016df80a6172815cfe99e3245922df5e2fe05354c735882c62902cf",
+    "cohort7-diagnostics/diagnose-baseline.py": "6c178b57a2101a2a5ce4e98a6c5fc67cd97aa7b9bb2ac4a215e43c2fa03d4154",
+    "cohort7-diagnostics/diagnose.py": "fa60b53cd02ab793c794ebac48803b63d3c7e1f55668f786476646db89a84ffe",
+    "cohort7-diagnostics/original-installed-314.attempt.json": "e2e3e0d705cb575c4843536f5f650682d6d8aa37145c970d96c4437644c4ee58",
+    "cohort7-diagnostics/original-installed-314.log": "6d101e2e147866f7913d2d07ac2ef6e79bd278b1f5dcc6eb1af681e0b445d70d",
+    "cohort7-diagnostics/response-delay.gate-diagnostic.json": "df7da0e3fd537f47d0f0132fcd49aea922491dbc07a2801e36ea03cf91665b4e",
+    "cohort7-diagnostics/response-delay.log": "3cd455a73e68f0001b53c581c5a72abdda21a65605d60ca305bc22c70a2fdb3d",
+    "cohort7-diagnostics/status-503.gate-diagnostic.json": "03be2a8c9c7f79254b34ce2b7c787732532a1254f66473119d4f88b29e09d2a4",
+    "cohort7-diagnostics/status-503.log": "642869efcab90a5c2b2277ae66aa3f8f914863ed410e4f8f9ca810d0d30c30e7",
+    "cohort7-diagnostics/summary.json": "6f06bd196838357170ee8c0a088dc02e77948cd0cd29a4baac74e74f8c9dfb9c",
+    "controls314.log": "76a92244a8dc57d0f041de0888340c871d2f120f92baaaa332a6d882b0108da2",
+    "related311.log": "fc131e1927450d7f49ad0a194e67dded80153b88d5542e6d3bd434c79648b994",
+    "related314.log": "d2b25afc5f18d400e7fcb6c9c4206d0cf4fdd9ffc1b86f1bc5f1c9015ddf51b5",
+    "static.log": "546f3b2457d2e465873239e2c1801dbc74249fe70858457a1f6c7c26a457900e"
+  },
+  "full_79_method_gate_rerun": false,
+  "new_product_wheel_built": false,
+  "new_source_release_qualified": false,
+  "independent_review": "requested after running wave10 artifact fence completes"
+}

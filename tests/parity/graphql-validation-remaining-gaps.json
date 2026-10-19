@@ -1,0 +1,178 @@
+{
+  "status": "Historical failing witnesses, closed by the bounded native document-validation slice in graphql-document-validation.json. Original documents, variables, expected and observed responses are retained unchanged; this is not a full GraphQL validation claim.",
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "reference_python": "3.14.6",
+  "cases": [
+    {
+      "name": "overlapping-alias-plus-unused-variable",
+      "document": "query($n:Int!){same:profile same:schemaVersion}",
+      "variables": {
+        "n": 2147483648
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Fields 'same' conflict because 'profile' and 'schemaVersion' are different fields. Use different aliases on the fields to fetch both if this was intentional.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 16
+                },
+                {
+                  "line": 1,
+                  "column": 29
+                }
+              ]
+            },
+            {
+              "message": "Variable '$n' is never used.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 7
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Variable '$n' is never used.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 7
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "duplicate-input-object-default",
+      "document": "query($f:RenditionFilter={current:true,current:false}){renditions(matching:$f){nodes}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "There can be only one input field named 'current'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 27
+                },
+                {
+                  "line": 1,
+                  "column": 40
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "renditions": {
+              "nodes": []
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "duplicate-input-object-discards-variable-use",
+      "document": "query($a:Boolean!,$b:Boolean!){renditions(matching:{current:$a,current:$b}){nodes}}",
+      "variables": {
+        "a": true,
+        "b": false
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "There can be only one input field named 'current'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 53
+                },
+                {
+                  "line": 1,
+                  "column": 64
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Variable '$a' is never used.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 7
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

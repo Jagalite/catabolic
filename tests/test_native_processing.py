@@ -231,15 +231,13 @@ class NativeRenderTest(unittest.TestCase):
                 "-i",
                 "testsrc2=size=160x120:rate=10:duration=2",
                 "-c:v",
-                "ffv1",
+                # Encoder VUI preserves the HDR stimulus across FFmpeg versions.
+                # Generic output color flags override these tags on FFmpeg 9.
+                "libx264",
+                "-x264-params",
+                "colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc",
                 "-pix_fmt",
                 "yuv420p10le",
-                "-color_primaries",
-                "bt2020",
-                "-color_trc",
-                "smpte2084",
-                "-colorspace",
-                "bt2020nc",
                 "-color_range",
                 "tv",
                 "-threads",
@@ -249,6 +247,15 @@ class NativeRenderTest(unittest.TestCase):
             check=True,
             capture_output=True,
         )
+        stimulus = json.loads(
+            subprocess.check_output(
+                ["ffprobe", "-v", "error", "-show_streams", "-of", "json", str(hdr)]
+            )
+        )["streams"][0]
+        self.assertEqual(stimulus["color_transfer"], "smpte2084")
+        self.assertEqual(stimulus["color_primaries"], "bt2020")
+        self.assertEqual(stimulus["color_space"], "bt2020nc")
+        self.assertEqual(stimulus["color_range"], "tv")
         self.source_file.write_bytes(hdr.read_bytes())
         self.payload = self.source_file.read_bytes()
         self.app.scan()

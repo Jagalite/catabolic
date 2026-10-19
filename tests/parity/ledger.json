@@ -3240,7 +3240,13 @@
         "tests.test_programmable_catalog"
       ],
       "rust_tests": [],
-      "status": "specified"
+      "status": "specified",
+      "native_external_rule_adapter": {
+        "status": "implemented_partial",
+        "documentation": "docs/RUST_MIGRATION_EXTERNAL_RULE.md",
+        "checkpoint": "native-external-rule-checkpoint.json",
+        "scope": "Existing native immutable external-operation admission and bounded worker/claim/dispatch owners; selected loopback receipts and cancellation evidence. SIGTERM, redirect/oversize/timeout diagnostics and full installed/platform/publication qualification remain open."
+      }
     },
     {
       "contract_reference": "inventory.json#cli:init",
@@ -5706,7 +5712,13 @@
         "tests.test_programmable_catalog"
       ],
       "rust_tests": [],
-      "status": "specified"
+      "status": "specified",
+      "native_external_rule_adapter": {
+        "status": "implemented_partial",
+        "documentation": "docs/RUST_MIGRATION_EXTERNAL_RULE.md",
+        "checkpoint": "native-external-rule-checkpoint.json",
+        "scope": "Existing native immutable external-operation admission and bounded worker/claim/dispatch owners; selected loopback receipts and cancellation evidence. SIGTERM, redirect/oversize/timeout diagnostics and full installed/platform/publication qualification remain open."
+      }
     },
     {
       "contract_reference": "inventory.json#cli:operation show",
@@ -6094,7 +6106,22 @@
         "tests.test_http_query_mappings"
       ],
       "rust_tests": [],
-      "status": "specified"
+      "status": "specified",
+      "native_v2_publication_adapter": {
+        "status": "partial_folder_preview_only",
+        "owner": "catabolic_store::publication_mappings",
+        "evidence": "scripts/qualify_publication_mapping_preview.py",
+        "documentation": "docs/RUST_MIGRATION_PUBLICATION_MAPPING_PREVIEW.md",
+        "scope": "Rollback-only complete folder selection preview and frozen plan identity; v2 export/import preview incomplete; all v2 apply/recovery remain M6-gated. No milestone or release qualification.",
+        "checkpoint": "native-publication-mapping-preview-checkpoint.json"
+      },
+      "native_v1_destination_adapter": {
+        "status": "implemented_partial",
+        "owner": "catabolic_runtime::destination_mappings",
+        "documentation": "docs/RUST_MIGRATION_DESTINATION_MAPPINGS.md",
+        "checkpoint": "docs/RUST_MIGRATION_DESTINATION_MAPPINGS_CHECKPOINT.json",
+        "scope": "Selected isolated Plex/Jellyfin metadata and collection preview/apply, durable readback-only recovery, cancellation and plan fencing. Arbitrary nested output ordering, malformed diagnostics, installed artifacts, live consumers and complete platform parity remain unqualified. No milestone completion."
+      }
     },
     {
       "contract_reference": "inventory.json#cli:projection mapping-apply",
@@ -6128,7 +6155,22 @@
         "tests.test_http_query_mappings"
       ],
       "rust_tests": [],
-      "status": "specified"
+      "status": "specified",
+      "native_v2_publication_adapter": {
+        "status": "explicit_m6_refusal_only",
+        "owner": "catabolic_store::publication_mappings",
+        "evidence": "scripts/qualify_publication_mapping_preview.py",
+        "documentation": "docs/RUST_MIGRATION_PUBLICATION_MAPPING_PREVIEW.md",
+        "scope": "Rollback-only complete folder selection preview and frozen plan identity; v2 export/import preview incomplete; all v2 apply/recovery remain M6-gated. No milestone or release qualification.",
+        "checkpoint": "native-publication-mapping-preview-checkpoint.json"
+      },
+      "native_v1_destination_adapter": {
+        "status": "implemented_partial",
+        "owner": "catabolic_runtime::destination_mappings",
+        "documentation": "docs/RUST_MIGRATION_DESTINATION_MAPPINGS.md",
+        "checkpoint": "docs/RUST_MIGRATION_DESTINATION_MAPPINGS_CHECKPOINT.json",
+        "scope": "Selected isolated Plex/Jellyfin metadata and collection preview/apply, durable readback-only recovery, cancellation and plan fencing. Arbitrary nested output ordering, malformed diagnostics, installed artifacts, live consumers and complete platform parity remain unqualified. No milestone completion."
+      }
     },
     {
       "contract_reference": "inventory.json#cli:projection mapping-recover",
@@ -6162,7 +6204,22 @@
         "tests.test_http_query_mappings"
       ],
       "rust_tests": [],
-      "status": "specified"
+      "status": "specified",
+      "native_v2_publication_adapter": {
+        "status": "explicit_m6_refusal_only",
+        "owner": "catabolic_store::publication_mappings",
+        "evidence": "scripts/qualify_publication_mapping_preview.py",
+        "documentation": "docs/RUST_MIGRATION_PUBLICATION_MAPPING_PREVIEW.md",
+        "scope": "Rollback-only complete folder selection preview and frozen plan identity; v2 export/import preview incomplete; all v2 apply/recovery remain M6-gated. No milestone or release qualification.",
+        "checkpoint": "native-publication-mapping-preview-checkpoint.json"
+      },
+      "native_v1_destination_adapter": {
+        "status": "implemented_partial",
+        "owner": "catabolic_runtime::destination_mappings",
+        "documentation": "docs/RUST_MIGRATION_DESTINATION_MAPPINGS.md",
+        "checkpoint": "docs/RUST_MIGRATION_DESTINATION_MAPPINGS_CHECKPOINT.json",
+        "scope": "Selected isolated Plex/Jellyfin metadata and collection preview/apply, durable readback-only recovery, cancellation and plan fencing. Arbitrary nested output ordering, malformed diagnostics, installed artifacts, live consumers and complete platform parity remain unqualified. No milestone completion."
+      }
     },
     {
       "contract_reference": "inventory.json#cli:projection put",

@@ -1,0 +1,2114 @@
+{
+  "reference": "Catabolic 453fca983222c6665a48775eef67c489c96b527e; Apprise 1.13.1",
+  "cases": [
+    {
+      "url": "ntfy://127.0.0.1:12345/alpha",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png"
+          },
+          "body": {
+            "topic": "alpha",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://127.0.0.1:12345/alpha",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png"
+          },
+          "body": {
+            "topic": "alpha",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://127.0.0.1:12345/alpha",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png"
+          },
+          "body": {
+            "topic": "alpha",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://old:secret@127.0.0.1:12345/topic?user=new%2540realm&pass=p%252Bq",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png",
+            "Authorization": "Basic bmV3QHJlYWxtOnArcQ=="
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://old:secret@127.0.0.1:12345/topic?user=new%2540realm&pass=p%252Bq",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png",
+            "Authorization": "Basic bmV3QHJlYWxtOnArcQ=="
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://old:secret@127.0.0.1:12345/topic?user=new%2540realm&pass=p%252Bq",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png",
+            "Authorization": "Basic bmV3QHJlYWxtOnArcQ=="
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://password%252Bvalue@127.0.0.1:12345/topic?user=basic%2540realm",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png",
+            "Authorization": "Basic YmFzaWNAcmVhbG06cGFzc3dvcmQlMkJ2YWx1ZQ=="
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://password%252Bvalue@127.0.0.1:12345/topic?user=basic%2540realm",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png",
+            "Authorization": "Basic YmFzaWNAcmVhbG06cGFzc3dvcmQlMkJ2YWx1ZQ=="
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://password%252Bvalue@127.0.0.1:12345/topic?user=basic%2540realm",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png",
+            "Authorization": "Basic YmFzaWNAcmVhbG06cGFzc3dvcmQlMkJ2YWx1ZQ=="
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://tk_synthetic%252B@127.0.0.1:12345/topic",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic%2B",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://tk_synthetic%252B@127.0.0.1:12345/topic",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic%2B",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://tk_synthetic%252B@127.0.0.1:12345/topic",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic%2B",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://127.0.0.1:12345/topic?token=tk_synthetic%252B",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic+",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://127.0.0.1:12345/topic?token=tk_synthetic%252B",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic+",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://127.0.0.1:12345/topic?token=tk_synthetic%252B",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic+",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://old:secret@127.0.0.1:12345/topic?auth=token&password=tk_synthetic%252B",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic+",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://old:secret@127.0.0.1:12345/topic?auth=token&password=tk_synthetic%252B",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic+",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://old:secret@127.0.0.1:12345/topic?auth=token&password=tk_synthetic%252B",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic+",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://%74k_synthetic@127.0.0.1:12345/topic",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png",
+            "Authorization": "Basic dGtfc3ludGhldGljOk5vbmU="
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://%74k_synthetic@127.0.0.1:12345/topic",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png",
+            "Authorization": "Basic dGtfc3ludGhldGljOk5vbmU="
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://%74k_synthetic@127.0.0.1:12345/topic",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png",
+            "Authorization": "Basic dGtfc3ludGhldGljOk5vbmU="
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://tk_synthetic:@127.0.0.1:12345/topic",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://tk_synthetic:@127.0.0.1:12345/topic",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://tk_synthetic:@127.0.0.1:12345/topic",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://tk_synthetic:@127.0.0.1:12345/topic?auth=token",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://tk_synthetic:@127.0.0.1:12345/topic?auth=token",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://tk_synthetic:@127.0.0.1:12345/topic?auth=token",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://caf%C3%A9:pa%C3%9F@127.0.0.1:12345/topic",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png",
+            "Authorization": "Basic Y2Fm6TpwYd8="
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://caf%C3%A9:pa%C3%9F@127.0.0.1:12345/topic",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png",
+            "Authorization": "Basic Y2Fm6TpwYd8="
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://caf%C3%A9:pa%C3%9F@127.0.0.1:12345/topic",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png",
+            "Authorization": "Basic Y2Fm6TpwYd8="
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://:synthetic@127.0.0.1:12345/topic",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://:synthetic@127.0.0.1:12345/topic",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://:synthetic@127.0.0.1:12345/topic",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://user:synthetic@127.0.0.1:12345/topic?user=",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://user:synthetic@127.0.0.1:12345/topic?user=",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://user:synthetic@127.0.0.1:12345/topic?user=",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png"
+          },
+          "body": {
+            "topic": "topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://old:secret@127.0.0.1:1/alpha?user=new&password=first&pass=replacement&port=12345",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png",
+            "Authorization": "Basic bmV3OnJlcGxhY2VtZW50"
+          },
+          "body": {
+            "topic": "alpha",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://old:secret@127.0.0.1:1/alpha?user=new&password=first&pass=replacement&port=12345",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png",
+            "Authorization": "Basic bmV3OnJlcGxhY2VtZW50"
+          },
+          "body": {
+            "topic": "alpha",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://old:secret@127.0.0.1:1/alpha?user=new&password=first&pass=replacement&port=12345",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png",
+            "Authorization": "Basic bmV3OnJlcGxhY2VtZW50"
+          },
+          "body": {
+            "topic": "alpha",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://synthetic_password@127.0.0.1/alpha?user=override&port=12345&image=disable",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "Authorization": "Basic b3ZlcnJpZGU6c3ludGhldGljX3Bhc3N3b3Jk"
+          },
+          "body": {
+            "topic": "alpha",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://synthetic_password@127.0.0.1/alpha?user=override&port=12345&image=disable",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "Authorization": "Basic b3ZlcnJpZGU6c3ludGhldGljX3Bhc3N3b3Jk"
+          },
+          "body": {
+            "topic": "alpha",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://synthetic_password@127.0.0.1/alpha?user=override&port=12345&image=disable",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "Authorization": "Basic b3ZlcnJpZGU6c3ludGhldGljX3Bhc3N3b3Jk"
+          },
+          "body": {
+            "topic": "alpha",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "gotify://127.0.0.1:1/base/token?port=12345",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345/base/message",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Gotify-Key": "token"
+          },
+          "body": {
+            "priority": 5,
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "gotify://127.0.0.1:1/base/token?port=12345",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345/base/message",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Gotify-Key": "token"
+          },
+          "body": {
+            "priority": 5,
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "gotify://127.0.0.1:1/base/token?port=12345",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345/base/message",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Gotify-Key": "token"
+          },
+          "body": {
+            "priority": 5,
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "discord://Old@123/synthetic_token?user=New&avatar=n",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://discord.com/api/webhooks/123/synthetic_token",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "body": {
+            "tts": false,
+            "wait": true,
+            "username": "New",
+            "content": "Catabolic\r\nA Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "discord://Old@123/synthetic_token?user=New&avatar=n",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://discord.com/api/webhooks/123/synthetic_token",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "body": {
+            "tts": false,
+            "wait": true,
+            "username": "New",
+            "content": "Catabolic\r\nA Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "discord://Old@123/synthetic_token?user=New&avatar=n",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://discord.com/api/webhooks/123/synthetic_token",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "body": {
+            "tts": false,
+            "wait": true,
+            "username": "New",
+            "content": "Catabolic\r\nA Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://user:secret@127.0.0.1:12345/zeta/alpha?priority=high&image=no&xtags=z,a&click=https%3A%2F%2Fexample.invalid%2Fx&email=box%40example.invalid&delay=30m&actions=view%2C+Open%2C+https%3A%2F%2Fexample.invalid&attach=https%3A%2F%2Fexample.invalid%2Fa&filename=file.txt",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Priority": "high",
+            "X-Delay": "30m",
+            "X-Click": "https://example.invalid/x",
+            "X-Email": "box@example.invalid",
+            "X-Tags": "a,z",
+            "X-Actions": "view,+Open,+https://example.invalid",
+            "Authorization": "Basic dXNlcjpzZWNyZXQ="
+          },
+          "body": {
+            "topic": "zeta",
+            "attach": "https://example.invalid/a",
+            "filename": "file.txt",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        },
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Priority": "high",
+            "X-Delay": "30m",
+            "X-Click": "https://example.invalid/x",
+            "X-Email": "box@example.invalid",
+            "X-Tags": "a,z",
+            "X-Actions": "view,+Open,+https://example.invalid",
+            "Authorization": "Basic dXNlcjpzZWNyZXQ="
+          },
+          "body": {
+            "topic": "alpha",
+            "attach": "https://example.invalid/a",
+            "filename": "file.txt",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://user:secret@127.0.0.1:12345/zeta/alpha?priority=high&image=no&xtags=z,a&click=https%3A%2F%2Fexample.invalid%2Fx&email=box%40example.invalid&delay=30m&actions=view%2C+Open%2C+https%3A%2F%2Fexample.invalid&attach=https%3A%2F%2Fexample.invalid%2Fa&filename=file.txt",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Priority": "high",
+            "X-Delay": "30m",
+            "X-Click": "https://example.invalid/x",
+            "X-Email": "box@example.invalid",
+            "X-Tags": "a,z",
+            "X-Actions": "view,+Open,+https://example.invalid",
+            "Authorization": "Basic dXNlcjpzZWNyZXQ="
+          },
+          "body": {
+            "topic": "zeta",
+            "attach": "https://example.invalid/a",
+            "filename": "file.txt",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        },
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Priority": "high",
+            "X-Delay": "30m",
+            "X-Click": "https://example.invalid/x",
+            "X-Email": "box@example.invalid",
+            "X-Tags": "a,z",
+            "X-Actions": "view,+Open,+https://example.invalid",
+            "Authorization": "Basic dXNlcjpzZWNyZXQ="
+          },
+          "body": {
+            "topic": "alpha",
+            "attach": "https://example.invalid/a",
+            "filename": "file.txt",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://user:secret@127.0.0.1:12345/zeta/alpha?priority=high&image=no&xtags=z,a&click=https%3A%2F%2Fexample.invalid%2Fx&email=box%40example.invalid&delay=30m&actions=view%2C+Open%2C+https%3A%2F%2Fexample.invalid&attach=https%3A%2F%2Fexample.invalid%2Fa&filename=file.txt",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Priority": "high",
+            "X-Delay": "30m",
+            "X-Click": "https://example.invalid/x",
+            "X-Email": "box@example.invalid",
+            "X-Tags": "a,z",
+            "X-Actions": "view,+Open,+https://example.invalid",
+            "Authorization": "Basic dXNlcjpzZWNyZXQ="
+          },
+          "body": {
+            "topic": "zeta",
+            "attach": "https://example.invalid/a",
+            "filename": "file.txt",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        },
+        {
+          "url": "http://127.0.0.1:12345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Priority": "high",
+            "X-Delay": "30m",
+            "X-Click": "https://example.invalid/x",
+            "X-Email": "box@example.invalid",
+            "X-Tags": "a,z",
+            "X-Actions": "view,+Open,+https://example.invalid",
+            "Authorization": "Basic dXNlcjpzZWNyZXQ="
+          },
+          "body": {
+            "topic": "alpha",
+            "attach": "https://example.invalid/a",
+            "filename": "file.txt",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfys://tk_synthetic@ntfy.example.invalid/a?format=markdown&avatar_url=https%3A%2F%2Fexample.invalid%2Ficon.png",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://ntfy.example.invalid",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic",
+            "Content-Type": "application/json",
+            "X-Icon": "https://example.invalid/icon.png",
+            "X-Markdown": "yes"
+          },
+          "body": {
+            "topic": "a",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfys://tk_synthetic@ntfy.example.invalid/a?format=markdown&avatar_url=https%3A%2F%2Fexample.invalid%2Ficon.png",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://ntfy.example.invalid",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic",
+            "Content-Type": "application/json",
+            "X-Icon": "https://example.invalid/icon.png",
+            "X-Markdown": "yes"
+          },
+          "body": {
+            "topic": "a",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfys://tk_synthetic@ntfy.example.invalid/a?format=markdown&avatar_url=https%3A%2F%2Fexample.invalid%2Ficon.png",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://ntfy.example.invalid",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Authorization": "Bearer tk_synthetic",
+            "Content-Type": "application/json",
+            "X-Icon": "https://example.invalid/icon.png",
+            "X-Markdown": "yes"
+          },
+          "body": {
+            "topic": "a",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://synthetic_topic",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://ntfy.sh",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png"
+          },
+          "body": {
+            "topic": "synthetic_topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://synthetic_topic",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://ntfy.sh",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png"
+          },
+          "body": {
+            "topic": "synthetic_topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://synthetic_topic",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://ntfy.sh",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png"
+          },
+          "body": {
+            "topic": "synthetic_topic",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://ntfy.sh/alpha?mode=cloud",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://ntfy.sh",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png"
+          },
+          "body": {
+            "topic": "alpha",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://ntfy.sh/alpha?mode=cloud",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://ntfy.sh",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png"
+          },
+          "body": {
+            "topic": "alpha",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "ntfy://ntfy.sh/alpha?mode=cloud",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://ntfy.sh",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Icon": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png"
+          },
+          "body": {
+            "topic": "alpha",
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "gotify://127.0.0.1:12345/secret",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345/message",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Gotify-Key": "secret"
+          },
+          "body": {
+            "priority": 5,
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "gotify://127.0.0.1:12345/secret",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345/message",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Gotify-Key": "secret"
+          },
+          "body": {
+            "priority": 5,
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "gotify://127.0.0.1:12345/secret",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "http://127.0.0.1:12345/message",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Gotify-Key": "secret"
+          },
+          "body": {
+            "priority": 5,
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "gotifys://gotify.example.invalid/base/secret?priority=high&format=markdown",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://gotify.example.invalid/base/message",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Gotify-Key": "secret"
+          },
+          "body": {
+            "priority": 8,
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed.",
+            "extras": {
+              "client::display": {
+                "contentType": "text/markdown"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "url": "gotifys://gotify.example.invalid/base/secret?priority=high&format=markdown",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://gotify.example.invalid/base/message",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Gotify-Key": "secret"
+          },
+          "body": {
+            "priority": 8,
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed.",
+            "extras": {
+              "client::display": {
+                "contentType": "text/markdown"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "url": "gotifys://gotify.example.invalid/base/secret?priority=high&format=markdown",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://gotify.example.invalid/base/message",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json",
+            "X-Gotify-Key": "secret"
+          },
+          "body": {
+            "priority": 8,
+            "title": "Catabolic",
+            "message": "A Catabolic processing job completed.",
+            "extras": {
+              "client::display": {
+                "contentType": "text/markdown"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "url": "discord://123/synthetic_token",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://discord.com/api/webhooks/123/synthetic_token",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "body": {
+            "tts": false,
+            "wait": true,
+            "avatar_url": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png",
+            "content": "Catabolic\r\nA Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "discord://123/synthetic_token",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://discord.com/api/webhooks/123/synthetic_token",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "body": {
+            "tts": false,
+            "wait": true,
+            "avatar_url": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png",
+            "content": "Catabolic\r\nA Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "discord://123/synthetic_token",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://discord.com/api/webhooks/123/synthetic_token",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "body": {
+            "tts": false,
+            "wait": true,
+            "avatar_url": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png",
+            "content": "Catabolic\r\nA Catabolic processing job completed."
+          }
+        }
+      ]
+    },
+    {
+      "url": "discord://Robot@123/synthetic_token?tts=yes&avatar=no&format=markdown&footer=yes&image=yes&href=https%3A%2F%2Fexample.invalid&thread=345&flags=4",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://discord.com/api/webhooks/123/synthetic_token?thread_id=345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "body": {
+            "tts": true,
+            "wait": false,
+            "flags": 4,
+            "username": "Robot",
+            "embeds": [
+              {
+                "author": {
+                  "name": "Apprise",
+                  "url": "https://github.com/caronc/apprise"
+                },
+                "title": "Catabolic",
+                "description": "A Catabolic processing job completed.",
+                "color": 3843043,
+                "url": "https://example.invalid",
+                "footer": {
+                  "text": "Apprise Notifications",
+                  "icon_url": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-logo.png"
+                },
+                "thumbnail": {
+                  "url": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png",
+                  "height": 256,
+                  "width": 256
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "url": "discord://Robot@123/synthetic_token?tts=yes&avatar=no&format=markdown&footer=yes&image=yes&href=https%3A%2F%2Fexample.invalid&thread=345&flags=4",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://discord.com/api/webhooks/123/synthetic_token?thread_id=345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "body": {
+            "tts": true,
+            "wait": false,
+            "flags": 4,
+            "username": "Robot",
+            "embeds": [
+              {
+                "author": {
+                  "name": "Apprise",
+                  "url": "https://github.com/caronc/apprise"
+                },
+                "title": "Catabolic",
+                "description": "A Catabolic processing job completed.",
+                "color": 13291305,
+                "url": "https://example.invalid",
+                "footer": {
+                  "text": "Apprise Notifications",
+                  "icon_url": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-logo.png"
+                },
+                "thumbnail": {
+                  "url": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png",
+                  "height": 256,
+                  "width": 256
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "url": "discord://Robot@123/synthetic_token?tts=yes&avatar=no&format=markdown&footer=yes&image=yes&href=https%3A%2F%2Fexample.invalid&thread=345&flags=4",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://discord.com/api/webhooks/123/synthetic_token?thread_id=345",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "body": {
+            "tts": true,
+            "wait": false,
+            "flags": 4,
+            "username": "Robot",
+            "embeds": [
+              {
+                "author": {
+                  "name": "Apprise",
+                  "url": "https://github.com/caronc/apprise"
+                },
+                "title": "Catabolic",
+                "description": "A Catabolic processing job completed.",
+                "color": 10690615,
+                "url": "https://example.invalid",
+                "footer": {
+                  "text": "Apprise Notifications",
+                  "icon_url": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-logo.png"
+                },
+                "thumbnail": {
+                  "url": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png",
+                  "height": 256,
+                  "width": 256
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "url": "discord://123/synthetic_token?botname=Box&ping=%3C%40123%3E&format=text",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://discord.com/api/webhooks/123/synthetic_token",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "body": {
+            "tts": false,
+            "wait": true,
+            "avatar_url": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-info-256x256.png",
+            "username": "Box",
+            "allow_mentions": {
+              "parse": [],
+              "users": [
+                "123"
+              ],
+              "roles": []
+            },
+            "content": "Catabolic\r\nA Catabolic processing job completed.\ud83d\udc49 <@123>"
+          }
+        }
+      ]
+    },
+    {
+      "url": "discord://123/synthetic_token?botname=Box&ping=%3C%40123%3E&format=text",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://discord.com/api/webhooks/123/synthetic_token",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "body": {
+            "tts": false,
+            "wait": true,
+            "avatar_url": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-warning-256x256.png",
+            "username": "Box",
+            "allow_mentions": {
+              "parse": [],
+              "users": [
+                "123"
+              ],
+              "roles": []
+            },
+            "content": "Catabolic\r\nA Catabolic processing job completed.\ud83d\udc49 <@123>"
+          }
+        }
+      ]
+    },
+    {
+      "url": "discord://123/synthetic_token?botname=Box&ping=%3C%40123%3E&format=text",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://discord.com/api/webhooks/123/synthetic_token",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json; charset=utf-8"
+          },
+          "body": {
+            "tts": false,
+            "wait": true,
+            "avatar_url": "https://github.com/caronc/apprise/raw/master/apprise/assets/themes/default/apprise-failure-256x256.png",
+            "username": "Box",
+            "allow_mentions": {
+              "parse": [],
+              "users": [
+                "123"
+              ],
+              "roles": []
+            },
+            "content": "Catabolic\r\nA Catabolic processing job completed.\ud83d\udc49 <@123>"
+          }
+        }
+      ]
+    },
+    {
+      "url": "tgram://123:synthetic_token/456",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": false,
+            "disable_web_page_preview": true,
+            "parse_mode": "HTML",
+            "text": "<b>Catabolic</b>\r\nA Catabolic processing job completed.",
+            "chat_id": 456
+          }
+        }
+      ]
+    },
+    {
+      "url": "tgram://123:synthetic_token/456",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": false,
+            "disable_web_page_preview": true,
+            "parse_mode": "HTML",
+            "text": "<b>Catabolic</b>\r\nA Catabolic processing job completed.",
+            "chat_id": 456
+          }
+        }
+      ]
+    },
+    {
+      "url": "tgram://123:synthetic_token/456",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": false,
+            "disable_web_page_preview": true,
+            "parse_mode": "HTML",
+            "text": "<b>Catabolic</b>\r\nA Catabolic processing job completed.",
+            "chat_id": 456
+          }
+        }
+      ]
+    },
+    {
+      "url": "tgram://bot123:synthetic_token/-100:23/@named_chat?silent=yes&preview=yes&format=text",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": true,
+            "disable_web_page_preview": false,
+            "parse_mode": "HTML",
+            "text": "Catabolic\r\nA Catabolic processing job completed.",
+            "chat_id": -100,
+            "message_thread_id": 23
+          }
+        },
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": true,
+            "disable_web_page_preview": false,
+            "parse_mode": "HTML",
+            "text": "Catabolic\r\nA Catabolic processing job completed.",
+            "chat_id": "@named_chat"
+          }
+        }
+      ]
+    },
+    {
+      "url": "tgram://bot123:synthetic_token/-100:23/@named_chat?silent=yes&preview=yes&format=text",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": true,
+            "disable_web_page_preview": false,
+            "parse_mode": "HTML",
+            "text": "Catabolic\r\nA Catabolic processing job completed.",
+            "chat_id": -100,
+            "message_thread_id": 23
+          }
+        },
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": true,
+            "disable_web_page_preview": false,
+            "parse_mode": "HTML",
+            "text": "Catabolic\r\nA Catabolic processing job completed.",
+            "chat_id": "@named_chat"
+          }
+        }
+      ]
+    },
+    {
+      "url": "tgram://bot123:synthetic_token/-100:23/@named_chat?silent=yes&preview=yes&format=text",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": true,
+            "disable_web_page_preview": false,
+            "parse_mode": "HTML",
+            "text": "Catabolic\r\nA Catabolic processing job completed.",
+            "chat_id": -100,
+            "message_thread_id": 23
+          }
+        },
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": true,
+            "disable_web_page_preview": false,
+            "parse_mode": "HTML",
+            "text": "Catabolic\r\nA Catabolic processing job completed.",
+            "chat_id": "@named_chat"
+          }
+        }
+      ]
+    },
+    {
+      "url": "tgram://123%3Asynthetic_token/456?format=markdown&mdv=v2",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": false,
+            "disable_web_page_preview": true,
+            "parse_mode": "MarkdownV2",
+            "text": "Catabolic\r\nA Catabolic processing job completed.",
+            "chat_id": 456
+          }
+        }
+      ]
+    },
+    {
+      "url": "tgram://123%3Asynthetic_token/456?format=markdown&mdv=v2",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": false,
+            "disable_web_page_preview": true,
+            "parse_mode": "MarkdownV2",
+            "text": "Catabolic\r\nA Catabolic processing job completed.",
+            "chat_id": 456
+          }
+        }
+      ]
+    },
+    {
+      "url": "tgram://123%3Asynthetic_token/456?format=markdown&mdv=v2",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": false,
+            "disable_web_page_preview": true,
+            "parse_mode": "MarkdownV2",
+            "text": "Catabolic\r\nA Catabolic processing job completed.",
+            "chat_id": 456
+          }
+        }
+      ]
+    },
+    {
+      "url": "tgram://123:synthetic_token/456?format=markdown",
+      "severity": "info",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": false,
+            "disable_web_page_preview": true,
+            "parse_mode": "MARKDOWN",
+            "text": "Catabolic\r\nA Catabolic processing job completed.",
+            "chat_id": 456
+          }
+        }
+      ]
+    },
+    {
+      "url": "tgram://123:synthetic_token/456?format=markdown",
+      "severity": "warning",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": false,
+            "disable_web_page_preview": true,
+            "parse_mode": "MARKDOWN",
+            "text": "Catabolic\r\nA Catabolic processing job completed.",
+            "chat_id": 456
+          }
+        }
+      ]
+    },
+    {
+      "url": "tgram://123:synthetic_token/456?format=markdown",
+      "severity": "error",
+      "added": true,
+      "complete": true,
+      "requests": [
+        {
+          "url": "https://api.telegram.org/bot123:synthetic_token/sendMessage",
+          "headers": {
+            "User-Agent": "Apprise",
+            "Content-Type": "application/json"
+          },
+          "body": {
+            "disable_notification": false,
+            "disable_web_page_preview": true,
+            "parse_mode": "MARKDOWN",
+            "text": "Catabolic\r\nA Catabolic processing job completed.",
+            "chat_id": 456
+          }
+        }
+      ]
+    }
+  ]
+}

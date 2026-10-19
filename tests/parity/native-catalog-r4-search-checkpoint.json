@@ -1,0 +1,107 @@
+{
+  "format_version": 1,
+  "package": "R4-search-storage-v1",
+  "status": "bounded schema35/search storage; scoped matching and private writer integration incomplete",
+  "recorded_at_utc": "2026-10-14T20:10:29.966945+00:00",
+  "baseline_commit": "91696f0ecb886030f059b43fb40047de73e1bd59",
+  "source": {
+    "manifest": "tests/parity/native-catalog-r4-search-source-manifest.json",
+    "canonical_files_sha256": "73256a85f8e686208776d7bb5100674e79f681042d9aefc68d8fb3f1d26526cc",
+    "file_count": 769,
+    "unchanged_before_after": true,
+    "manifest_scope_limit": "Crate-focused manifest covers files enumerated therein, not all repository build/wrapper scripts or docs; R7 requires separate full-source fence."
+  },
+  "runner": {
+    "kind": "user-authorized standard Cargo, not Kyoto",
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+    "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)",
+    "platform": "Linux x86_64",
+    "python_oracle": "CPython3.14.6 with frozen reference, env.sh recorded separately",
+    "profile": "debug=0;incremental=0"
+  },
+  "runs": {
+    "search35-qualified-store": {
+      "log": ".local-tests/catalog-r4/search35-qualified-store.log",
+      "sha256": "c2710547211c307d6e4a359c12a58cd36b50396c359c0fc7399c3748c7019f6c",
+      "passed": true,
+      "passing_executions": 604,
+      "failed_executions": 0,
+      "ignored_entries": 5,
+      "harness_summaries": 40
+    },
+    "search35-qualified-clippy": {
+      "log": ".local-tests/catalog-r4/search35-qualified-clippy.log",
+      "sha256": "7b2f7e1406aecb203bf8c8cb462cfe86d8e448368266d2c38bebd269f33a0be6",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "search35-qualified-format": {
+      "log": ".local-tests/catalog-r4/search35-qualified-format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "search35-isolated-ruff": {
+      "log": ".local-tests/catalog-r4/search35-isolated-ruff.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    }
+  },
+  "python_schema_and_audit": {
+    "log": ".local-tests/catalog-r4/search35-recovered-python.log",
+    "sha256": "aed07d0371e0b80295031b0bd52bc8d06e3c1e9afff9132ef0022907fd8070a0",
+    "passed": true,
+    "passing_tests": 51,
+    "interpreter": "CPython3.12.14; Rust differential oracle is separately pinned3.14.6"
+  },
+  "artifact_manifest": {
+    "path": ".local-tests/catalog-r4/search35-artifacts.json",
+    "sha256": "5abc589109484b8576446ff743799986dc2514f27840158f0b8864032b735194",
+    "binary_count": 39
+  },
+  "initial_failures": [
+    {
+      "log": ".local-tests/catalog-r4/search35-isolated-aggregate.log",
+      "sha256": "2c336293ace1f03fe7c72d7a1122dd28d1b7571f99bc229f1bf0ed70a9716745",
+      "reason": "Isolated full core/store/runtime run failed3 latest-target34 assumptions in populated33 upgrade/recovery fixtures. Fixed/versioned those runner cases, preserved fixed staged34 probes, and reran complete Store suite; no full current-source aggregate claimed for this checkpoint."
+    },
+    {
+      "log": ".local-tests/catalog-r4/search35-owner-regressions.log",
+      "sha256": "e4ff70151465aee53e1954c178c316dffc7ecc1be8d48a888d05f39373f9dee9",
+      "reason": "Obsolete latest-target assertion expected34; actual35. Corrected only latest expectation; pinned33/34 retained."
+    },
+    {
+      "log": ".local-tests/catalog-r4/search35-recovered-aggregate.log",
+      "sha256": "1a2ceccc589c3dac2f7a8160ff6c0cbeb14d8e514bbfa186b8e2c513ea0a3863",
+      "reason": "Diagnostic only: missing explicit Python oracle for4 fixtures and shared-target artifact cohort mixing; no aggregate acceptance claimed."
+    }
+  ],
+  "isolation_repair": {
+    "note": ".local-tests/catalog-r4/search35-isolation-note.json",
+    "sha256": "d2dbe11d2abf72ab78b9fa60e990c765ac39edd0b65d38e03f445778f1b274fd",
+    "clean_log": ".local-tests/catalog-r4/search35-isolated-clean.log",
+    "sha256_clean_log": "fb81553e1cf3886110bed4314dc2487ab91c41aec5c3c0f16565aa8ea42e829c",
+    "separate_preparation_targets_confirmed": true
+  },
+  "remaining": [
+    "Independent staged-schema review remains blocked, incomplete and neither retried nor reassigned",
+    "Scoped FTS adapter, opaque cursor and private VM writer integration pending",
+    "Full integrated current-source aggregate remains pending; complete Store suite is not full workspace qualification",
+    "Ignored/opt-in fixtures remain separate evidence requirements; aggregate does not close them",
+    "Real WAL/controlled restore/destructive publication/interval effects remain failclosed where unqualified",
+    "Motion source/tests and external composition/cutover remain deferred",
+    "No M0-M11 closure or other-platform qualification"
+  ],
+  "M0_M11_gate_closures": [],
+  "qualification_scope_note": "Complete Store crate suite only; prior full core/store/runtime attempt remains failed. Current-source aggregate is reserved for later integrated checkpoint. Historical focused70-test recovery predates the versioned latest-target fixture correction and is not the source-bound final suite."
+}

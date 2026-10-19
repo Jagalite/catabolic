@@ -1,0 +1,633 @@
+{
+  "status": "Explicit remaining differences; these vectors are not passing GraphQL parity evidence. Runtime-input guards retain the pre-fix strict errors rather than exposing duplicate or introspection execution effects.",
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "reference_python": "3.14.6",
+  "cases": [
+    {
+      "name": "null-enum-resolver",
+      "document": "{items(sort:null){nodes{id}}}",
+      "variables": {},
+      "category": "resolver-error",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "items": null
+          },
+          "errors": [
+            {
+              "message": "sort must be one of: id, title, year",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                }
+              ],
+              "path": [
+                "items"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "items": null
+          },
+          "errors": [
+            {
+              "message": "sort must be text",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                }
+              ],
+              "path": [
+                "items"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "items": null
+          },
+          "errors": [
+            {
+              "message": "sort must be text",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                }
+              ],
+              "path": [
+                "items"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "merged-field-records",
+      "document": "{same:item(id:\"a\"){id} same:item(id:\"a\"){title} after:profile}",
+      "variables": {},
+      "category": "field-merging",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "same": {
+              "id": "a",
+              "title": "a"
+            },
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "after": "default",
+            "same": {
+              "id": "a",
+              "title": "a"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "after": "default",
+            "same": {
+              "id": "a",
+              "title": "a"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      }
+    },
+    {
+      "name": "merged-field-null-argument",
+      "document": "query($n:Int){same:items(first:$n){nodes{id}} same:items(first:$n){pageInfo{hasNextPage}} after:profile}",
+      "variables": {
+        "n": null
+      },
+      "category": "guarded-runtime-input",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "same": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 32
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"first\", expected type \"Int\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 26
+                }
+              ]
+            },
+            {
+              "message": "Invalid value for argument \"first\", expected type \"Int\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 58
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"first\", expected type \"Int\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 26
+                }
+              ]
+            },
+            {
+              "message": "Invalid value for argument \"first\", expected type \"Int\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 58
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "merged-field-null-directive",
+      "document": "query($b:Boolean=false){same:item(id:\"a\"){id} same:item(id:\"a\"){title @skip(if:$b)} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "category": "guarded-runtime-input",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "same": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 80
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"if\", expected type \"Boolean\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 77
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"if\", expected type \"Boolean\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 77
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "introspection-null-argument",
+      "document": "query($v:String=\"Query\"){before:profile bad:__type(name:$v){name} after:schemaVersion}",
+      "variables": {
+        "v": null
+      },
+      "category": "guarded-introspection-input",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "before": "default",
+            "bad": null,
+            "after": 32
+          },
+          "errors": [
+            {
+              "message": "Argument 'name' of non-null type 'String!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 57
+                }
+              ],
+              "path": [
+                "bad"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"name\", expected type \"String\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 52
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"name\", expected type \"String\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 52
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "introspection-null-directive",
+      "document": "query($b:Boolean=false){__type(name:\"Query\"){name @skip(if:$b)} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "category": "guarded-introspection-input",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "__type": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 60
+                }
+              ],
+              "path": [
+                "__type"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"if\", expected type \"Boolean\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 57
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"if\", expected type \"Boolean\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 57
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "introspection-list-null-directive",
+      "document": "query($b:Boolean=false){__schema{types{name @skip(if:$b)}} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "category": "guarded-introspection-input",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 54
+                }
+              ],
+              "path": [
+                "__schema",
+                "types",
+                0
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"if\", expected type \"Boolean\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 51
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"if\", expected type \"Boolean\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 51
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

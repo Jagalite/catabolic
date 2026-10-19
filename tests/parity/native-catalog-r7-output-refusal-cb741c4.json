@@ -1,0 +1,220 @@
+{
+  "format_version": 1,
+  "package": "R7-bounded-standalone-output-refusal-cb741c4-addendum",
+  "recorded_at_utc": "2026-10-14T21:07:50.829086+00:00",
+  "parent_receipt": "tests/parity/native-catalog-r7-standalone-cb741c4.json",
+  "status": "Historical exact-artifact bounded negative witness; not latest-source or release acceptance",
+  "result": {
+    "exit_code": 0,
+    "source_base": "cb741c446fb0696aa21f0dd12507d151c0c9d1ad",
+    "source_unchanged": true,
+    "oracle_unchanged": true,
+    "artifacts_unchanged": true,
+    "artifact_sha256": {
+      "/workspace/shared/catalog-r7-standalone-cb741c4/standalone-attempt03/candidate/bin/catabolic-native": "098373ee3fab7b47745c7c9494f87f837b5dc6cead018c439b2885ce4d946923",
+      "/workspace/shared/catalog-r7-standalone-cb741c4/standalone-attempt03/candidate/bin/catabolic": "b69bb46dc296b7121e957145edfae1745b378420d99220197bc5b9a2eb186fa4",
+      "/workspace/shared/catalog-r7-standalone-cb741c4/standalone-attempt03/candidate/candidate.json": "dfa6f528f0ca22101a72b8a11a9cf61208d1d1547caa40c424430c2472a2475a",
+      "/workspace/shared/catalog-r7-standalone-cb741c4/standalone-attempt03/candidate.tar": "d09ac02cecca91418ac6598aea7ab6452a7b25535f4ff16f33e784bf05a30dcb"
+    },
+    "scope": "Existing bounded release output-refusal witness on disposable fixtures; no filesystem safety review or release acceptance"
+  },
+  "cases": {
+    "binary": "/workspace/shared/catalog-r7-standalone-cb741c4/standalone-attempt03/candidate/bin/catabolic-native",
+    "sha256": "098373ee3fab7b47745c7c9494f87f837b5dc6cead018c439b2885ce4d946923",
+    "checked": [
+      [
+        "symlink",
+        "replace",
+        "preview",
+        false
+      ],
+      [
+        "symlink",
+        "replace",
+        "apply",
+        false
+      ],
+      [
+        "symlink",
+        "replace",
+        "preview",
+        true
+      ],
+      [
+        "symlink",
+        "replace",
+        "apply",
+        true
+      ],
+      [
+        "symlink",
+        "replace",
+        "recover",
+        true
+      ],
+      [
+        "symlink",
+        "remove",
+        "preview",
+        false
+      ],
+      [
+        "symlink",
+        "remove",
+        "apply",
+        false
+      ],
+      [
+        "symlink",
+        "remove",
+        "preview",
+        true
+      ],
+      [
+        "symlink",
+        "remove",
+        "apply",
+        true
+      ],
+      [
+        "symlink",
+        "remove",
+        "recover",
+        true
+      ],
+      [
+        "hardlink",
+        "replace",
+        "preview",
+        false
+      ],
+      [
+        "hardlink",
+        "replace",
+        "apply",
+        false
+      ],
+      [
+        "hardlink",
+        "replace",
+        "preview",
+        true
+      ],
+      [
+        "hardlink",
+        "replace",
+        "apply",
+        true
+      ],
+      [
+        "hardlink",
+        "replace",
+        "recover",
+        true
+      ],
+      [
+        "hardlink",
+        "remove",
+        "preview",
+        false
+      ],
+      [
+        "hardlink",
+        "remove",
+        "apply",
+        false
+      ],
+      [
+        "hardlink",
+        "remove",
+        "preview",
+        true
+      ],
+      [
+        "hardlink",
+        "remove",
+        "apply",
+        true
+      ],
+      [
+        "hardlink",
+        "remove",
+        "recover",
+        true
+      ],
+      [
+        "fallback",
+        "run",
+        "global",
+        false
+      ],
+      [
+        "fallback",
+        "run",
+        "global",
+        true
+      ],
+      [
+        "outputs",
+        "apply",
+        "global",
+        false
+      ],
+      [
+        "outputs",
+        "apply",
+        "global",
+        true
+      ],
+      [
+        "outputs",
+        "recover",
+        "global",
+        false
+      ],
+      [
+        "outputs",
+        "recover",
+        "global",
+        true
+      ],
+      [
+        "outputs",
+        "apply",
+        null,
+        false
+      ],
+      [
+        "outputs",
+        "apply",
+        null,
+        true
+      ],
+      [
+        "outputs",
+        "recover",
+        null,
+        false
+      ],
+      [
+        "outputs",
+        "recover",
+        null,
+        true
+      ]
+    ],
+    "safe_gate": "closed",
+    "cases": 30
+  },
+  "evidence_root": "/workspace/shared/catalog-r7-standalone-cb741c4",
+  "evidence_files_sha256": {
+    "output-gate01/oracle-after.json": "2628b81bddaffe561a64f88a8d009167a22325188c586921a7a36d907569a4e2",
+    "output-gate01/oracle-before.json": "2628b81bddaffe561a64f88a8d009167a22325188c586921a7a36d907569a4e2",
+    "output-gate01/result.json": "853b4595989b6571ae04e0d8d610b95c3eaee2d05acc02e24e86e4234120282e",
+    "output-gate01/source-after.json": "c36e34466555a5edc6469ea3a8c34880df7852da8aa7033ff61cc2a12facc76c",
+    "output-gate01/source-after.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "output-gate01/stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "output-gate01/stdout.json": "2c73062643704893b1034e53703e6c4cc74bb2af10000d42a4e00575ddc17732"
+  },
+  "M0_M11_gate_closures": []
+}

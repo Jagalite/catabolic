@@ -1,0 +1,205 @@
+{
+  "format_version": 1,
+  "package": "R6-persisted-restart-and-R7-GraphQL-followups",
+  "recorded_at_utc": "2026-10-14T22:19:02.470878+00:00",
+  "baseline_commit": "36a280dbb2c9c00fb8ebbb66bf9b0a6383791ea3",
+  "source": {
+    "manifest": "tests/parity/native-catalog-native37-followups-source-manifest.json",
+    "files_sha256": "7609d887f96a22da256e77153504c311c3365e208dddfd040cef41df18525f3d",
+    "file_count": 1531,
+    "unchanged_before_after": true
+  },
+  "runner": "Standard Rust/Cargo1.99.0 offline locked Linux x86_64; debug0 incremental0 jobs2; frozen CPython3.14.6 oracle",
+  "status": "bounded_primary_followup_checks_passed",
+  "passing_rust_executions": 203,
+  "python_methods": 2,
+  "parser_full_envelope_cases": 250,
+  "remaining_historical_parser_mismatch_controls": 0,
+  "variable_full_envelope_comparisons": 242,
+  "variable_baseline_mode": "Every case runs archived immutable e657c2e legacy baseline plus current native and pinned live oracle; optional detailed variable report was not enabled because runner used a different optional environment name. Exact full fixture assertions/counts/log remain available.",
+  "runs": {
+    "audit": {
+      "log": ".local-tests/catalog-native37-followups/audit.log",
+      "sha256": "c236df55ad711b2fd36fd8a952efff95b7cde7a84366cfceebc7d789662277df",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "cli-units": {
+      "log": ".local-tests/catalog-native37-followups/cli-units.log",
+      "sha256": "109eb65b785732232137444be71a43d6a1707f394da9b390562443af18eca52d",
+      "exit_code": 0,
+      "passing_rust_executions": 25,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "clippy": {
+      "log": ".local-tests/catalog-native37-followups/clippy.log",
+      "sha256": "94c4e972332ecd112d5634e30d71bc77a5e5bad57786007a81916b7bcaff897f",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "format": {
+      "log": ".local-tests/catalog-native37-followups/format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "helper-build": {
+      "log": ".local-tests/catalog-native37-followups/helper-build.log",
+      "sha256": "7da74841fbd6b9ab6b5859d4fb1b3ecb856905a8b8acacb51f99b52eb4f876c9",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "helper-fence": {
+      "log": ".local-tests/catalog-native37-followups/helper-fence.log",
+      "sha256": "de7262dd563197c42d32afc9ca318b4e3dfd7adfc309b130207fd301822e5b1e",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "host-owners": {
+      "log": ".local-tests/catalog-native37-followups/host-owners.log",
+      "sha256": "b0db33a307d56affc4c73ebe410e4524b7fc7b2cff0aea484aa80dc7373bb692",
+      "exit_code": 0,
+      "passing_rust_executions": 17,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 6,
+      "rust_harness_summaries": 5
+    },
+    "optin-native37_real_seal_and_persisted_handoff_admit_shared_reader_writer_scanner_only_after_ack": {
+      "log": ".local-tests/catalog-native37-followups/optin-native37_real_seal_and_persisted_handoff_admit_shared_reader_writer_scanner_only_after_ack.log",
+      "sha256": "6fec685ea1e151ea0d179414fa631e9b41b0330965e588595b67a65514b837b8",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "optin-native37_restart_rechecks_each_witness_and_unrelated_owner_without_mutation": {
+      "log": ".local-tests/catalog-native37-followups/optin-native37_restart_rechecks_each_witness_and_unrelated_owner_without_mutation.log",
+      "sha256": "cba5bc2458c42ab2b7b4a76d295b859079cae1456fd28a5bf6d2054229bdef31",
+      "exit_code": 0,
+      "passing_rust_executions": 1,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "parser-and-variable-cli": {
+      "log": ".local-tests/catalog-native37-followups/parser-and-variable-cli.log",
+      "sha256": "5af53f03daf719d6279735a79e4f4416a5f858c59636a38adbc3af6c415a3082",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "parser-units": {
+      "log": ".local-tests/catalog-native37-followups/parser-units.log",
+      "sha256": "e8ba6168b7256915b471877d45a25eeb8aa0187d6265ea9c063a7b2d4dac1848",
+      "exit_code": 0,
+      "passing_rust_executions": 14,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 1
+    },
+    "python-format": {
+      "log": ".local-tests/catalog-native37-followups/python-format.log",
+      "sha256": "3bc53bf3e981a98a34a852e175bf9b77af841edea74fca595d9aedcbaf9a4938",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "python-lint": {
+      "log": ".local-tests/catalog-native37-followups/python-lint.log",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "source-after": {
+      "log": ".local-tests/catalog-native37-followups/source-after.log",
+      "sha256": "584f8e50ab3ab93c736c6f50d5e7eedbfa9821a960149c4d7bd0dcfd8d711504",
+      "exit_code": 0,
+      "passing_rust_executions": 0,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 0,
+      "rust_harness_summaries": 0
+    },
+    "store-owners": {
+      "log": ".local-tests/catalog-native37-followups/store-owners.log",
+      "sha256": "2702f6ef1814ed1fb4ef8e01614f86fe279f6c7a9f3903648f5efa13fe256b5c",
+      "exit_code": 0,
+      "passing_rust_executions": 145,
+      "reported_failed_rust_executions": 0,
+      "ignored_entries": 4,
+      "rust_harness_summaries": 7
+    }
+  },
+  "helpers": {
+    "CATABOLIC_HOST_TEST_HELPER": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/catalog-native37-followups/catabolic-native-qualified",
+      "sha256": "e2635bf64c8681bd6452a94168f6444d3f91d49304fa1611ad045c1319c3cb78"
+    },
+    "CATABOLIC_LEGACY_BINARY": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/catalog-native37-followups/catabolic-legacy-native-qualified",
+      "sha256": "d1439db4f9bacf34d4e7adff7721594d6901d7a7071f9537bfbf717bc448ad04"
+    },
+    "CATABOLIC_VARIABLE_ADMISSION_BASELINE": {
+      "path": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/catalog-native36-build-recovery/catabolic-legacy-native-qualified",
+      "sha256": "f994075a4ff5f71f102bf28d216c8c99406d71f296a2db262a2cdea805fad6f1"
+    }
+  },
+  "adopted_patches": {
+    "recorded_at_utc": "2026-10-14T22:05:56.902953+00:00",
+    "baseline": "36a280dbb2c9c00fb8ebbb66bf9b0a6383791ea3",
+    "patches": [
+      {
+        "path": "/workspace/shared/catalog-r6-restart-recovery/restart-mixed-addendum.patch",
+        "sha256": "5c4fac7733a0005f96c9e02d24da6a515249bcdf9280d1b0e17ead7484015908"
+      },
+      {
+        "path": "/workspace/shared/catalog-r7-product-preparation/graphql-missing-argument-value-recovery01/native-graphql-missing-argument-value.patch",
+        "sha256": "86bc9635e3aae687e2336f82201969d865f7760cbcd558d4dd0ab11778e0e983"
+      },
+      {
+        "path": "/workspace/shared/catalog-graphql-variable-recovery-e657c2e-20261014T2144/payload/incremental.patch",
+        "sha256": "1c90015c86d4dd135de0a0eb6ed4ecfec096bce351fb98b7c412a4226c84b733"
+      }
+    ]
+  },
+  "qualified_boundaries": [
+    "Mixed metadata/pin/identity/binding import rollback,20 Store process-exit boundaries across34\u201337 and exact original command replay",
+    "Explicit persisted restart factory reads durable existing receipt, reconciles trusted original intent/checkpoint, and conjunctively checks inventory/pending/per-job ownership before fresh host gate admission",
+    "Actual37 seal-to-handoff process exits and restarted read/write/scan lifetimes share one exact gate; retained result delivery prevents premature drain",
+    "Original-source parser diagnostic boundary closes the five preserved historical parser controls through additive fixtures; old fixture remains unchanged",
+    "Legacy GraphQL variable adapter preserves typed refusal provenance without passing private diagnostic values to shared decoders or resolvers; current accepted values remain owned by hardened existing decoders"
+  ],
+  "remaining": [
+    "New V2 representation/contribution qualification addendum and portable regression fixture are separate test-only source changes awaiting adoption",
+    "Complete current seven-crate aggregate, required28 named opt-ins, standalone/current installed Python matrix/platforms remain open",
+    "Independent schema/definition/filesystem reviews remain blocked, no retries or reassignment",
+    "Actual Motion integration/reference migration/deployed handoff deferred; native WAL, real restore, destructive publication and interval effects unavailable where unqualified",
+    "No default transition, full release, or M0\u2013M11 gate closure"
+  ],
+  "full_aggregate_passed": false,
+  "M0_M11_gate_closures": []
+}

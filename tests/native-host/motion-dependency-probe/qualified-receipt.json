@@ -1,0 +1,79 @@
+{
+  "all_source_fixture_helper_binary_snapshots_unchanged": true,
+  "artifact_format_amendment": {
+    "change": "One-line SQLite dependency patch rewritten with nonblank context only; no production or Rust/Python fixture code changes",
+    "current_asset_manifest": "current-fixture-asset-manifest.json",
+    "executed_fixture_content_unchanged": true,
+    "fresh_preparation_and_two_helper_enabled_runs_passed": true,
+    "historical_asset_manifest": "historical-fixture-asset-manifest.json",
+    "patch_applied_with_zero_fuzz": true,
+    "previous_asset_manifest_sha256": "f8acfa4f269d39a352ecfbb574dec95a96babfe3e0cbd21dfc581051aa80bff6",
+    "previous_receipt": "qualified-receipt-before-patch-format.json"
+  },
+  "binary_sha256": "e17910dcf13dbb193bdd306e86e50360337de7f8c187d4b8f6ec1b684f5a161b",
+  "boundaries": [
+    "Native host fixture qualification only; no production dependency adoption",
+    "Linux x86_64 only",
+    "Not all host error outcomes, Motion regressions or full product acceptance"
+  ],
+  "build_environment": {
+    "LIBSQLITE3_FLAGS": "-DSQLITE_ENABLE_MATH_FUNCTIONS -USQLITE_SOUNDEX",
+    "helper_enabled": true
+  },
+  "catabolic_base_commit": "448cdc5b0958b320d2c7dfebd514624baa7a4fc3",
+  "catabolic_source_files_verified_before_after": 700,
+  "catabolic_source_manifest_sha256": "9c670fd16d98fa1747dbaa461c54d407faa4747428622d3e039eef2932671f6c",
+  "executed_fixture_files_verified_before_after": 59,
+  "executed_fixture_manifest_sha256": "577cd269ed0889d4d76f8e53b4e45ea3b4af67d80e17bfcec7b17d99a7494514",
+  "fixture_asset_manifest_sha256": "fc595f2879fffce95564287044f952918d2be7eee7ebb53882f5c3b94cd283c0",
+  "fixture_main_sha256": "684c89b9749b73cb5a35347ed4503a784fa7085386549b5bf63e4c26eaf20739",
+  "helper_sha256": "6830631b4274c9fb651c5c7d52072ac3cbac17e3200e0f8e3504143f36f0a2fa",
+  "motion_commit": "1e5a24675b059337b34e98f86b225178798cc080",
+  "motion_current_main_comparison": {
+    "added_lines": 131,
+    "changed_files": [
+      "MOTION_CLI_TUI_SHARED_OPERATIONS_PLAN.md"
+    ],
+    "executed_checkout_is_still_pinned": true,
+    "production_source_manifest_toolchain_lock_changes": false,
+    "revision": "dcabb7bb85284df3cf7694b1328c20b68ced6c49"
+  },
+  "motion_modified": false,
+  "platform": "x86_64-unknown-linux-gnu",
+  "qualification_only": true,
+  "result": "passed",
+  "run_command": "cargo +1.99.0 run --locked --offline --manifest-path /workspace/shared/motion-r0-patch-format-probe/Cargo.toml",
+  "runtime": {
+    "both_databases_reopened": true,
+    "catabolic": {
+      "empty_scan": {
+        "complete": true,
+        "observations": [],
+        "scans": [],
+        "unstarted_sources": []
+      },
+      "helper": {
+        "cancellation_state": "cancelled",
+        "permits_released": 2,
+        "registered_path": "/workspace/scratch/9c9a5a8c3955/catabolic/.local-tests/catalog-r0/catabolic-native-frozen",
+        "registered_sha256": "6830631b4274c9fb651c5c7d52072ac3cbac17e3200e0f8e3504143f36f0a2fa",
+        "reopened_after_drain": true,
+        "status": "passed",
+        "successful_scan_complete": true
+      },
+      "host_bounded_read_mutation_cancel_drain_reopen": "passed",
+      "host_contract_version": 1,
+      "host_reopened_catalog_identity_matches": true,
+      "schema": 32,
+      "sqlite_source_id": "2026-06-03 19:12:13 d6e03d8c777cfa2d35e3b60d8ec3e0187f3e9f99d8e2ee9cac695fd6fcdf1a24",
+      "sqlite_version": "3.53.2"
+    },
+    "common_sqlite_source_id": "2026-06-03 19:12:13 d6e03d8c777cfa2d35e3b60d8ec3e0187f3e9f99d8e2ee9cac695fd6fcdf1a24",
+    "common_sqlite_version": "3.53.2",
+    "math_functions": true,
+    "motion_applied_migrations": 62,
+    "result": "passed",
+    "soundex": false
+  },
+  "rust_toolchain": "1.99.0"
+}

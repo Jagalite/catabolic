@@ -1,15 +1,82 @@
 # Catabolic: Python-to-Rust Migration Plan
 
-**Decision:** Proceed with a staged, compatibility-first rewrite of standalone Catabolic. Use Statelessness to explore, check, and replay Catabolic-owned decision logic. Do not replace Catabolic's persistence, filesystem journal, execution claims, or API contracts with a generic workflow engine.
+**Current direction, 2026-10-13:** Continue on `codex/rust-migration-m4-plus`
+with the [native catalog design and implementation plan](CATABOLIC_NATIVE_CATALOG_DESIGN.md).
+The user approved designing the catalog extensions now and providing an explicit
+schema upgrade. That plan governs the new catalog semantics and sequencing;
+unchanged contracts and all existing safety/release gates below remain required.
+The [stop handoff](RUST_MIGRATION_STOP_2026_10_13.md) is historical, followed by
+the [resumed macOS checkpoint](RUST_MIGRATION_MACOS_RESUMED_2026_10_13.md).
+Design approval does not mean the new contracts are implemented or qualified.
+
+**Decision:** Proceed with a staged native rewrite and explicit catalog evolution.
+Preserve unchanged behavior, version deliberate changes and migrate existing data.
+Use Statelessness to explore, check, and replay Catabolic-owned decision logic. Do
+not replace persistence, filesystem journals or execution claims with a generic
+workflow engine.
+
+**Native-first direction, 2026-10-12:** The user wants all Python implementation
+retired except a thin wrapper, with that wrapper worked on last. The standalone
+Rust engine/CLI must have no Python runtime helper, including the optional
+notification provider path. Follow [the revised native-first critical path and
+remaining-work inventory](RUST_MIGRATION_NATIVE_FIRST.md). Existing wrapper work
+and receipts are preserved, but new wheel/public-Python qualification is deferred
+behind native behavior and safety. Frozen Python remains a temporary comparison
+reference; no unverified default switch or deletion is implied.
+
+The [bounded native checkpoint 11](RUST_MIGRATION_NATIVE_CHECKPOINT_11.md)
+integrates supervised Rust notification providers, Rust-only candidate tooling,
+named GraphQL/wire fixes and narrow sidecar refusal. Its bounded native/library
+and standalone-artifact checks passed on `b11666f`; full runtime, platform,
+release and milestone gates remain open. Older installed results are
+retained separately and are not new wrapper prerequisites.
+
+The [next bounded native checkpoint 12](RUST_MIGRATION_NATIVE_CHECKPOINT_12.md)
+integrates reviewed GraphQL parser/document/completion behavior and exact
+supplemental native dependency notices. Its Rust/model and standalone-artifact lanes passed; the combined CLI aggregate
+retains one obsolete-control assertion failure and the separate HTTP journey
+failed at a busy ticket-issuance response. Full checkpoint acceptance remains
+open. Later parser/CLI/CI work is deliberately tracked separately.
+
+The separately frozen [native checkpoint 13](RUST_MIGRATION_NATIVE_CHECKPOINT_13.md)
+composes the reviewed parser expansion, CLI file-admission correction and
+standalone CI wiring. Its Rust/model lanes and 19 composition cases passed;
+the aggregate retained an obsolete conflict assertion and a wrapper-test
+configuration error. Its original failed evidence remains unchanged. Later
+malformed-variable, overlap-rule and coordinated HTTP-fixture changes are tracked
+in [checkpoint 14](RUST_MIGRATION_NATIVE_CHECKPOINT_14.md).
 
 **Prepared:** October 9, 2026  
 **Catabolic baseline:** `453fca983222c6665a48775eef67c489c96b527e`  
 **Statelessness baseline:** `cb7f256e4d7cf20cfab6018b9bbba391ec2dd9de`  
 **Assessment level:** Repository inventory plus selected implementation, test, contract, packaging, and CI review. This is not an exhaustive code audit or an executed migration. Neither repository's test suite was run for this assessment. A local checkout attempt failed because the container could not resolve its configured network proxy; connected GitHub reads supplied the source evidence.
 
-All new crate names, harness commands, budgets, milestones, and architecture below are proposed. Existing paths are identified separately. A current-source reference identifies observed behavior, not proof that the behavior is correct under every environment.
+The original assessment and historical checkpoint summaries below retain their
+recorded dates and source scope. Many originally proposed crates now exist; the
+linked native catalog plan describes the current baseline and next work. A source
+reference identifies observed behavior, not proof of correctness in every environment.
 
-**Implementation status:** M0 is in progress. See [the reference-freeze work log](RUST_MIGRATION_M0.md) for the reference receipts, reviewed scope ledger, fixture captures, and remaining acceptance gates. M1–M3 implementation is in progress; see [the native implementation checkpoints](RUST_MIGRATION_NATIVE.md). No milestone exit gate is yet declared complete.
+**Implementation status:** M0 remains in progress; see [the reference-freeze work log](RUST_MIGRATION_M0.md). The historical [M1–M3 native receipts](RUST_MIGRATION_NATIVE.md) qualify their recorded source snapshot and platforms, without closing M0 or later gates. M4–M11 work is an opt-in [implementation checkpoint](RUST_MIGRATION_MUTATIONS.md), with remaining ownership, safety, review, platform and release gates explicit. No M4–M11 exit gate is declared complete and Python remains the default.
+
+**Paused implementation checkpoint (2026-10-11):** Work was stopped at the user's
+request and preserved for handoff. See [current completion, validation and WIP
+status](RUST_MIGRATION_PAUSED_HANDOFF.md) before using older receipts. The
+consolidated feature branch is `codex/rust-migration-m4-plus`; later local work
+was integrated from `codex/native-public-workflows` and
+`codex/native-remaining-facades`. This is a work-in-progress checkpoint, not a
+release or a declaration that any M4–M11 hard gate has passed.
+
+**Resumed 2026-10-12:** Implementation resumed from the pushed `6c5e3f5` stop
+checkpoint. The historical handoff and failed aggregate remain valid records of
+that source. See [the resumed work log](RUST_MIGRATION_RESUMED_CHECKPOINT.md) for
+fresh source, tooling, correction and qualification evidence. No prior gate is
+promoted by resuming work. The `721b80f` checkpoint ran 1,191 reference tests with
+no failures/errors and one platform skip. The later `24f5f45` checkpoint passed
+selected installed Linux gates on both Python versions, but its full native
+aggregate failed workspace Clippy before executing tests. See the work log for
+the separate failed and passing receipts and the next correction/replay.
+
+The latest passing [full reference replay](RUST_MIGRATION_RESUMED_CHECKPOINT.md#fresh-reference-replay-after-corrections-2026-10-12-2051-utc) ran 1,255 tests with one filesystem-dependent skip. The subsequent 1,271-test replay failed two source-contract/mock-harness controls plus one related error; reviewed corrections await a fresh full replay. The frozen combined native run completed 1,126 methods with three stale source/CI-contract failures, now separately corrected and reviewed; it is not a passing aggregate. A later full reference run completed 1,275 tests with one unresolved fallback-plan error and one platform skip. Cohort seven passed its selected installed Python 3.11 sequence, but its Python 3.14 M9 gate failed one frozen recovery-contention assertion; its original cause remains unknown. Reviewed source and harness corrections require fresh qualification. The work log preserves every failed and passing checkpoint; none closes a milestone hard gate.
 
 ## 1. Executive decision
 
@@ -17,13 +84,17 @@ A Rust rewrite makes sense as an investment in a reusable native catalog engine,
 
 Catabolic already delegates important work to SQLite and external media tools. Its disk-backed scan staging already bounds memory. Much of the benefit must therefore come from better application structure, lower per-record overhead where profiling demonstrates it, and a reusable Rust library—not assumed improvements to FFmpeg or filesystem latency. [S3, S5, S6]
 
-The recommended end state preserves the standalone product, including Python installation and documented Python access. It adds a native Rust library and executable; it does not turn Catabolic into a Motion-only component. Motion could consume the resulting library later, but that is a separate integration project.
+The end state is a standalone Rust product and Rust library with no Python runtime requirement. Preserve documented Python access through a thin wrapper, completed last, rather than retaining a second Python business implementation. The original Python engine is a frozen migration reference only. This does not turn Catabolic into a Motion-only component; Motion integration remains a separate project.
 
 Three rules govern the migration:
 
 1. **Freeze behavior before replacing implementations.** Create a complete parity ledger and an executable comparison harness against the pinned Python release.
 2. **Migrate complete ownership boundaries.** One implementation owns each mutation and its transaction, journal, claim, and recovery path. Do not divide a live operation across competing Python and Rust stores.
-3. **Separate migration from redesign.** Preserve the current database format, external contracts, output ownership, and security semantics first. Optimize and redesign only after equivalent behavior is demonstrated.
+3. **Version approved redesigns and migrate explicitly.** The native catalog plan
+   supersedes the original requirement to finish parity before redesign. Keep
+   unchanged contracts under differential tests; give intentional changes their
+   own versioned acceptance fixtures and upgrade evidence. Preserve output
+   ownership and security guarantees throughout.
 
 A full native rewrite is approved in principle, but each subsystem receives a go/no-go gate. Missing optional features remain visible blockers to a full-parity claim; they do not disappear because the core scanner has been rewritten.
 
@@ -66,13 +137,25 @@ Do not treat the table as an exhaustive command inventory. The ledger is complet
 
 ### 3.1 Required compatibility
 
-**Data compatibility:** The first compatible Rust release reads and writes schema 32 with the same supported data meanings. Preserve database IDs, item/file IDs, revision identities, canonical hashes, metadata types, migration checksums, journal records, claims, and historical relationships. Keeping a schema number alone is insufficient if values or recovery semantics change.
+**Data compatibility:** Schema 32 remains the legacy comparison and upgrade input
+baseline. The approved catalog redesign may add native schema versions through an
+explicit inspected, rehearsed and validated migration; ordinary open must not
+upgrade silently. Preserve database IDs, item/file IDs, revision identities,
+canonical hashes, migration checksums, journal records, claims and history, with
+explicit mappings where new entities are introduced. Unsupported old engines
+must refuse upgraded catalogs. Keeping a schema number alone is insufficient if
+values or recovery semantics change. See the new plan's upgrade and compatibility
+policy for the native-only recovery boundary after upgrade.
 
 **CLI compatibility:** Existing scripts retain command names, arguments, defaults, environment/configuration discovery, JSON structures, exit statuses, and stdout/stderr separation. Freeze documented text and diagnostics that tests or scripts depend on. Intentional changes require a separately reviewed compatibility decision.
 
 **HTTP compatibility:** Preserve paths, methods, operation IDs, status codes, headers, envelopes, nullability, pagination, principal visibility, idempotency, content delivery, and authorization rules. Continue shipping the frozen historical contract artifacts; do not regenerate old releases using a new framework.
 
-**Filesystem compatibility:** Existing output roots and ownership markers remain valid. Rust must recognize and recover Python-created pending operations, and the rollback qualification must establish which Rust-created states Python can safely recover.
+**Filesystem compatibility:** Existing output roots and ownership markers remain
+valid. Rust must recognize and recover supported Python-created pending operations.
+Within the advertised schema-32 handover window, qualify which Rust-created states
+Python can safely recover. An explicitly upgraded native schema does not imply
+reverse handover to the old Python engine.
 
 **Python compatibility:** Preserve installation, the CLI entry point, and the documented/imported public surface classified in M0. Python tests that access internal SQLite connections do not automatically establish that those internals are public APIs. Existing public access must not be dropped simply because the CLI works.
 
@@ -80,7 +163,13 @@ Do not treat the table as an exhaustive command inventory. The ledger is complet
 
 ### 3.2 Non-goals for the parity release
 
-Do not introduce a new database, an event-sourced replacement schema, a plugin platform, a remote executor, a new HTTP API version, a different media pipeline, new mandatory runtime services, or a merged Motion product. Do not promise Windows support without qualification. Do not replace FFmpeg, Poppler, or Tesseract simply because the coordinator is being rewritten.
+Keep SQLite; do not introduce an event-sourced replacement, plugin platform,
+remote executor, different media pipeline, mandatory runtime service or merged
+Motion product. The catalog design permits versioned schema extensions and native
+operations. Preserve historical HTTP artifacts; a new wire contract requires its
+own explicit version and qualification before exposure. Do not promise Windows
+support without qualification or replace FFmpeg, Poppler or Tesseract merely
+because the coordinator is being rewritten.
 
 A safety defect discovered in the Python oracle is not a behavior to reproduce unquestioningly. Record it as an explicit exception, add a regression, and preferably fix the reference implementation as well. No silent changes under the label of parity.
 
@@ -270,7 +359,12 @@ Keep tool subprocesses as bounded, supervised effects unless a later independent
 
 A Rust wrapper does not sandbox FFmpeg or a malicious media parser. Maintain current restrictions, then separately evaluate stronger platform isolation where appropriate.
 
-Apprise is a particular parity decision. Existing acceptance work tests optional partial delivery. Preserve the existing optional Python adapter during transition if a native replacement is not equivalent; document that dependency honestly. A native core with a Python-only optional adapter is not a fully Python-free feature set. The final native-parity gate must either replace the supported adapter behavior, ship a deliberately supported compatibility helper, or obtain explicit approval for a narrower product. Quietly deleting providers is not parity. [S6]
+Apprise is a particular parity decision. Existing acceptance work tests optional
+partial delivery. The native-first direction supersedes the original option to
+ship a Python provider helper: qualify native replacements for supported behavior
+or obtain an explicit compatibility decision for a narrower supported contract.
+Retain the frozen adapter only as comparison evidence. Quietly deleting providers
+or unsupported options is not parity. [S6]
 
 ## 7. Python and native distribution
 
@@ -303,6 +397,13 @@ Evaluate `abi3` only after proving its API/performance fit. Do not assume ordina
 ## 8. Milestones and acceptance gates
 
 Milestones are dependency-gated, not calendar promises. Re-estimate staffing and elapsed time after M0 counts public operations, tests, platform combinations, integrations, and unresolved semantic gaps. This is a multi-subsystem product migration; counting only scanner modules would materially understate it.
+
+The table retains the original milestone inventory. Its parity comparisons and
+Python↔Rust recovery obligations apply to unchanged contracts and the schema-32
+handover window. Approved catalog changes additionally require the new plan's
+R1–R6 fixtures, explicit upgrades and native forward recovery. An unsupported
+post-upgrade downgrade is not an implied release promise. Wrapper qualification
+remains required for the final Python package, but runs after native completion.
 
 | Milestone | Deliverables | Tests and hard exit gate | Dependencies |
 |---|---|---|---|
@@ -444,11 +545,20 @@ Each candidate release retains: commit/toolchain/dependency identities; checksum
 
 Do not automatically retry a failed Rust mutation using Python. The first attempt might already have changed files or sent an external request.
 
-Before changing engine ownership, stop admission, settle or explicitly recover in-flight work, inspect journals and claims, and apply the tested handover protocol. Schema 32 compatibility is necessary but not sufficient: old Python must understand every state and journal record Rust wrote.
+Before changing engine ownership, stop admission, settle or explicitly recover
+in-flight work, inspect journals and claims, and apply the tested handover protocol.
+For handover back to the old Python engine, schema 32 compatibility is necessary
+but not sufficient: it must understand every state and journal record Rust wrote.
+After an explicit native schema upgrade, use native recovery; a reverse migration
+is unsupported unless separately implemented and qualified.
 
 Restoring a database backup is **not** a general rollback for filesystem or network side effects. A snapshot can lose later metadata, conflict with current outputs, or requeue an external effect. Prefer forward recovery, then a qualified engine handover. When restoration is required, follow a tested incident procedure that reconciles database identity, outputs, claims, and external consequences; never run two catalog copies against the same managed outputs.
 
-Test both directions explicitly: Python-created unfinished operations recovered by Rust, and Rust-created unfinished operations recovered by the pinned Python version within the advertised rollback envelope. Unsupported states require an explicit blocker, not best-effort mutation.
+Test both directions within the advertised schema-32 rollback envelope:
+Python-created unfinished operations recovered by Rust, and Rust-created unfinished
+operations recovered by the pinned Python version. For the upgraded format, test
+pre-cutover recovery and native forward recovery instead of claiming old-engine
+compatibility. Unsupported states require an explicit blocker, not best-effort mutation.
 
 ## 12. Risks and decision checkpoints
 
@@ -477,13 +587,27 @@ Test both directions explicitly: Python-created unfinished operations recovered 
 
 ## 13. Definition of done
 
-The migration is complete when every baseline feature has a qualified owner and executable evidence; schema/history and existing catalogs remain usable; CLI, HTTP and required Python interfaces retain their approved contracts; filesystem safety and source immutability hold under the tested failures; all required external tools/integrations behave equivalently; and the native/Python artifacts work on their promised platforms.
+The migration is complete when every baseline feature has a qualified owner and
+executable evidence, or an explicitly approved versioned replacement with migration
+evidence; existing catalogs remain usable through the supported upgrade; CLI, HTTP
+and required Python interfaces retain their approved contracts; filesystem safety
+and source immutability hold under tested failures; required external tools and
+integrations satisfy their contracts; and artifacts work on promised platforms.
+The catalog plan's R0–R6 adoption gates do not by themselves close this full product gate.
 
 Statelessness adoption is complete when critical production decision functions are exercised through its adapters, independent oracles and injected faults demonstrate meaningful detection, bounded search outcomes are reported honestly, and fresh-process replay reproduces retained regressions. It is not complete merely because the dependency appears in `Cargo.toml`.
 
-Release requires a rehearsed upgrade/recovery/handover procedure, no unresolved safety discrepancy, approved performance results, intact packaged resources, and publication of the exact tested artifacts. The application core should no longer depend on the legacy Python business logic; any intentionally retained optional Python adapter must be named and supported explicitly.
+Release requires a rehearsed upgrade/recovery/handover procedure, no unresolved
+safety discrepancy, approved performance results, intact packaged resources and
+publication of the exact tested artifacts. The core and native runtime must not
+depend on Python business logic or a Python provider helper. The final Python
+package is a thin compatibility wrapper over Rust.
 
-**Recommended first implementation slice:** M0 → M1 → M2, then one end-to-end read-only catalog operation and one shared-request/cancellation decision model. This tests the three largest uncertainties—compatibility, packaging, and verification value—before broad mutation work begins.
+**Next implementation slice:** R0 native hosting and dependency proof, then R1
+identity/component/fallback contract fixtures in the
+[native catalog plan](CATABOLIC_NATIVE_CATALOG_DESIGN.md#implementation-sequence-and-acceptance-gates).
+The original M0–M11 inventory and evidence obligations remain open and feed R7
+product completion; historical receipts are not retroactively broadened.
 
 ## 14. Source register
 

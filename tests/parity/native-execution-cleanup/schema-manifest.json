@@ -1,0 +1,136 @@
+{
+  "schema_version": 36,
+  "prior_schema": 35,
+  "first_native_schema": 33,
+  "legacy_target": 32,
+  "qualification_scope": "schema-only reproduction; not runtime or release qualification",
+  "independent_review": "incomplete; reproduction does not close blocked review",
+  "input_sha256": {
+    "crates/catabolic-store/resources/migrations/001_initial.sql": "8a605a475c2fdb2efb88181bde37b223adf0ee2c42c32d84786c11947c400266",
+    "crates/catabolic-store/resources/migrations/002_migration_history.sql": "ecc77bbbbc6d026494081d6c5785f25164911e31e3905ba4dc88b48f6da91fb7",
+    "crates/catabolic-store/resources/migrations/003_media_model.sql": "9cb642aeb4776389f356a759a51137acc48b0578455fcf889489128162786735",
+    "crates/catabolic-store/resources/migrations/004_tags.sql": "6e7bfee0a6fafebc5740427cbfd35e1c7f71c96924d88bfc45ba15708c7c7052",
+    "crates/catabolic-store/resources/migrations/005_hardlinks.sql": "eb6b6da90504a8538cbc604a350ee25a6b87f96c24fcd25111641c7822a1d92d",
+    "crates/catabolic-store/resources/migrations/006_enrichment.sql": "7f4866d9253e75642ca448bf1a392b526084a41a8d881726ef3369dfddbfe540",
+    "crates/catabolic-store/resources/migrations/007_processing_attempts.sql": "29082e1de240f34728b086ba1788cafe4efc484a257a31bf3502081d3ad37f37",
+    "crates/catabolic-store/resources/migrations/008_processing_artifacts.sql": "5f6d649e2a4c5138c1d7bb734325a776f3812777ab51145f7c6e251f2af96390",
+    "crates/catabolic-store/resources/migrations/009_output_definitions.sql": "6a71ceba276f7637afd1eeb812d72008708b2c44903708ff64389701ec439d41",
+    "crates/catabolic-store/resources/migrations/010_item_workflow.sql": "9740cb5b7bdf8c4c95c1de9443e9dcda3ad2ddc782d6e629b64a1dfb1ee91ce2",
+    "crates/catabolic-store/resources/migrations/011_processing_rules.sql": "c18c2c4c4c0f424668a0aea43d90f7b7ec8d18e536dc85e9e6850acfaa560a1e",
+    "crates/catabolic-store/resources/migrations/012_rendition_publication.sql": "b4b069aec8f106d738a15eab67b38bb903982338ff87a9a3adb0c37d8bcc445d",
+    "crates/catabolic-store/resources/migrations/013_processor_workers.sql": "7c62b7a8a15bf152a1e2445ba82b0423b9d92e2b3ade9848eca8e4088d15afaa",
+    "crates/catabolic-store/resources/migrations/014_catalog_refresh.sql": "09c9c9197612ce488ce22a984e6411c8c6edab5baac1b440959d39f4de7a32a4",
+    "crates/catabolic-store/resources/migrations/015_queries_projections.sql": "584d4c7c366eb5ebde2fbfe6067e736a6e37cea53f61c8166506f5289d80723d",
+    "crates/catabolic-store/resources/migrations/016_operation_rules.sql": "97c379e453b3d4b89b4c86a709e0412ed9a008a473a800f0d9b6e8c8c1b23c65",
+    "crates/catabolic-store/resources/migrations/017_consumers.sql": "a3cefa0211e69fe6dcae16be7177d47f2654a8c0d4479b5c2162d083bdabf2f9",
+    "crates/catabolic-store/resources/migrations/018_volume_identity.sql": "59efe0414084aeda70ca0763b636d7df3d5c0cdd01d2f2379ca2f741caa7ac64",
+    "crates/catabolic-store/resources/migrations/019_source_trust.sql": "2f9a3b5bad08553a21122fe37a7965ba4555f649155f0b435af32155eadf17bd",
+    "crates/catabolic-store/resources/migrations/020_trust_evidence.sql": "077eec82b6a3da507e4f45d9b90ab0eb3500051c0204685f0b2d449065d721f3",
+    "crates/catabolic-store/resources/migrations/021_execution_claims.sql": "a65e9d20c4ab025cedee7a080cbfdefc80eced605baf034937e474e54c841f8f",
+    "crates/catabolic-store/resources/migrations/022_http_access.sql": "235cefec2a5d15c769b53a291fde19e845869a9fccd1f8cc5755dcc99857440e",
+    "crates/catabolic-store/resources/migrations/023_fallback_resolution.sql": "a90d08638fa9e198ac581453dbf85de94bcd14700f71d145c58d57aa357e6ac8",
+    "crates/catabolic-store/resources/migrations/024_watchers.sql": "c49a910be4ad0dd5992505131796bd22ce62f3b3d5282256519f87a0765d42de",
+    "crates/catabolic-store/resources/migrations/025_media_components.sql": "041daced8640ad14cf75d05e606a74288928a71a7630a8c75d6ea2f14ef2b548",
+    "crates/catabolic-store/resources/migrations/026_observation_requests.sql": "695bd4b4fc5cc9272154075c595b82c3b99ccb49a793bde532e29ba695198e7a",
+    "crates/catabolic-store/resources/migrations/027_guarded_observations.sql": "f5c5afad6c33564802f6afaadf34f80fac769b93077963ede138b6a0eafa38ad",
+    "crates/catabolic-store/resources/migrations/028_playback_sessions.sql": "da1f545e74e81cfa350af0a3d9df0d3c8188fd941deea561131bace7c4e166df",
+    "crates/catabolic-store/resources/migrations/029_media_header_checks.sql": "c2fdc38ebf2f93431aa084ded3b575d2593058d4d4970600b56c356c92c3d08b",
+    "crates/catabolic-store/resources/migrations/030_job_notifications.sql": "94aeaaa963cc158f4d5f638ec1158046643ba6b732aaaf03abf58536c5d940d1",
+    "crates/catabolic-store/resources/migrations/031_http_webhooks.sql": "73d66a0d806ed82e72cbea47b402136ff5a1a0c309bd44558e66d726be6406a3",
+    "crates/catabolic-store/resources/migrations/032_http_query_mappings.sql": "aa924880dcb4b3ca49c23b1694bd1400025837a0acdfe87abffbdbc9c7736238",
+    "crates/catabolic-store/resources/migrations/033_native_catalog.sql": "e809421a9cd5b0d561934b0d94e049b3a2d72b3944bd843275193caf6dad931c",
+    "crates/catabolic-store/resources/migrations/034_native_curation.sql": "b1ee139e4844c421c6e4b69f28c8692c1286619edb10d608b60378741a9de299",
+    "crates/catabolic-store/resources/migrations/035_native_search.sql": "b2b68911dc9cdf60b6a318a3671996a6675779004c80102c34ba0d816a13ac56",
+    "crates/catabolic-store/resources/migrations/036_native_execution_cleanup.sql": "f729bf358d866cdb42daeb9cd984127b71ca420af0127e7ff8944234cf99087f",
+    "crates/catabolic-store/resources/native-schema-35.json": "5b9407b72539acba0e077f9feb196cd6a6be3d73b5ce33301f7a9d06e906d555"
+  },
+  "signature_sha256": "5ea11ca925e2c949821a5f1d1d821f9f0a19419273ad0c3a817e53ed60f93cbe",
+  "historical_ddl_preserved": true,
+  "migration_generation_preserved": true,
+  "execution_lifetimes_backfilled": false,
+  "new_tables": {
+    "native_execution_lifetimes": [
+      {
+        "name": "catalog_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "incarnation",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "job_id",
+        "type": "TEXT",
+        "pk": 2
+      },
+      {
+        "name": "generation",
+        "type": "INTEGER",
+        "pk": 3
+      },
+      {
+        "name": "attempt",
+        "type": "INTEGER",
+        "pk": 4
+      },
+      {
+        "name": "claim_token_digest",
+        "type": "TEXT",
+        "pk": 5
+      },
+      {
+        "name": "snapshot_digest",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "options_digest",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "runtime_owner_nonce",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "protocol_version",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "state",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "cleanup_kind",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "child_obligations",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "verified_retirements",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "capacity_released",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "sealed_at",
+        "type": "TEXT",
+        "pk": 0
+      }
+    ]
+  },
+  "new_objects": 6
+}

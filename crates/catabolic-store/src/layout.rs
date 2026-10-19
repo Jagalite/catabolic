@@ -1,6 +1,7 @@
 //! Read-only layout evaluation. This module records no definitions or mappings.
 use crate::{
     Error, Result, Store,
+    destination_mappings::equal as python_equal,
     migration::{reference, rows},
     query::{decode, name},
     selection::Evaluation,
@@ -23,7 +24,7 @@ fn read(store: &Store, key: &str) -> Result<Value> {
     )?;
     records
         .first()
-        .map(|r| serde_json::from_str(r["value"].as_str().unwrap()).map_err(Into::into))
+        .map(|r| catabolic_core::decode_json(r["value"].as_str().unwrap()).map_err(Into::into))
         .unwrap_or(Ok(Value::Null))
 }
 fn array(value: &Value) -> &[Value] {
@@ -153,7 +154,8 @@ pub fn validate(definition: &Value) -> Result<()> {
         return fail("layout requires version: 1 and rules");
     }
     if let Some(profile) = definition.get("profile") {
-        let presets: Value = serde_json::from_str(include_str!("../resources/layouts.json"))?;
+        let presets: Value =
+            catabolic_core::decode_json(include_str!("../resources/layouts.json"))?;
         let matched = presets
             .as_object()
             .unwrap()
@@ -170,10 +172,11 @@ pub fn validate(definition: &Value) -> Result<()> {
             );
         }
     }
-    if !matches!(
-        definition["normalization"].as_str().unwrap_or("portable"),
-        "portable" | "ascii"
-    ) {
+    // Only an absent field defaults; Python rejects a supplied null or non-string.
+    if definition
+        .get("normalization")
+        .is_some_and(|v| !matches!(v.as_str(), Some("portable" | "ascii")))
+    {
         return fail("normalization must be portable or ascii");
     }
     if let Some(selection) = definition.get("selection") {
@@ -254,11 +257,13 @@ pub fn validate(definition: &Value) -> Result<()> {
             {
                 return fail("relation aliases must be unique lowercase names");
             }
-            if !aliases.contains(selector["from"].as_str().unwrap_or("item"))
-                || !matches!(
-                    selector["direction"].as_str().unwrap_or("outgoing"),
-                    "outgoing" | "incoming"
-                )
+            // Absent fields default; supplied null or non-string values are rejected.
+            let from = selector.get("from").map_or(Some("item"), Value::as_str);
+            let direction = selector
+                .get("direction")
+                .map_or(Some("outgoing"), Value::as_str);
+            if !from.is_some_and(|from| aliases.contains(from))
+                || !matches!(direction, Some("outgoing" | "incoming"))
             {
                 return fail(
                     "relation selector needs an earlier source alias and a valid direction",
@@ -269,6 +274,9 @@ pub fn validate(definition: &Value) -> Result<()> {
             }
             vocabulary(&selector["kind"], "relationships", "relationship kind")?;
             if selector.get("target_kind").is_some() {
+                if !selector["target_kind"].is_string() {
+                    return fail("target_kind must be a media kind string");
+                }
                 vocabulary(&selector["target_kind"], "kinds", "media kind")?;
             }
             aliases.insert(alias);
@@ -319,6 +327,30 @@ fn component(value: &str) -> Result<String> {
     }
     Ok(value.into())
 }
+/// Python `format(value, "0Nd" | "Nd")` for an exact JSON integer of any size
+/// (`type(value) is int`: booleans and float spellings are refused).
+fn format_integer(value: &Value, spec: &str) -> Option<String> {
+    let token = value.as_number()?.to_string();
+    let (negative, digits) = match token.strip_prefix('-') {
+        Some(digits) => (true, digits),
+        None => (false, token.as_str()),
+    };
+    if digits.is_empty() || !digits.bytes().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    let digits = digits.trim_start_matches('0');
+    let (sign, digits) = match digits {
+        "" => ("", "0"),
+        digits => (if negative { "-" } else { "" }, digits),
+    };
+    let width = spec.trim_end_matches('d').parse::<usize>().ok()?;
+    let padding = width.saturating_sub(sign.len() + digits.len());
+    Some(if spec.starts_with('0') {
+        format!("{sign}{}{digits}", "0".repeat(padding))
+    } else {
+        format!("{}{sign}{digits}", " ".repeat(padding))
+    })
+}
 pub fn render(template: &str, context: &Value, normalization: &str) -> Result<String> {
     let mut path = String::new();
     for part in parts(template)? {
@@ -337,15 +369,8 @@ pub fn render(template: &str, context: &Value, normalization: &str) -> Result<St
             return Err(Error(format!("template field must be scalar: {field}")));
         }
         let text = if !part.spec.is_empty() {
-            let integer = value
-                .as_i64()
-                .ok_or_else(|| Error(format!("integer required for {field}:{}", part.spec)))?;
-            let width = part.spec.trim_end_matches('d').parse::<usize>().unwrap();
-            if part.spec.starts_with('0') {
-                format!("{integer:0width$}")
-            } else {
-                format!("{integer:width$}")
-            }
+            format_integer(value, &part.spec)
+                .ok_or_else(|| Error(format!("integer required for {field}:{}", part.spec)))?
         } else {
             match value {
                 Value::String(v) => v.clone(),
@@ -571,6 +596,47 @@ pub fn statistics(
         json!({"scope":"selected active associations before copy and rendition filtering","query":report,"items":associations.iter().map(|r|r["item_id"].as_str().unwrap()).collect::<BTreeSet<_>>().len(),"associations":associations.len(),"files":files.len(),"known_referenced_bytes":bytes.to_string(),"unknown_size_files":unknown,"availability":{"present":present,"missing":missing,"unknown":other},"oldest_observation_at":times.first(),"newest_observation_at":times.last(),"unobserved_files":files.len()-times.len(),"byte_scope":"sum once per file ID, including recorded missing files; not unique content, physical allocation or symlink storage"}),
     )
 }
+fn candidate_path(
+    store: &Store,
+    profile: &str,
+    association: &Value,
+    rule: &Value,
+    item: Value,
+    definition: &Value,
+) -> Result<String> {
+    let context = context(store, profile, association, rule, item)?;
+    render(
+        rule["path"].as_str().unwrap(),
+        &context,
+        definition["normalization"].as_str().unwrap_or("portable"),
+    )
+}
+
+/// A fallback owner can reuse layout naming without adopting legacy mapping IDs.
+pub(crate) fn render_association(
+    store: &Store,
+    profile: &str,
+    association: &Value,
+    definition: &Value,
+) -> Result<Option<String>> {
+    validate(definition)?;
+    let item = item_value(store, &association["item_id"])?;
+    let Some(rule) = array(&definition["rules"])
+        .iter()
+        .find(|rule| matching(rule, &item, association))
+    else {
+        return Ok(None);
+    };
+    candidate_path(store, profile, association, rule, item, definition).map(Some)
+}
+
+pub(crate) struct PreparedPlan {
+    pub report: Value,
+    pub desired: Vec<Value>,
+    pub owned: BTreeSet<String>,
+    pub rendition_associations: Vec<Value>,
+}
+
 pub fn plan(
     evaluation: &mut Evaluation,
     id: &str,
@@ -582,16 +648,70 @@ pub fn plan(
     if !(1..=1000).contains(&limit) {
         return fail("limit must be between 1 and 1000");
     }
-    name(id)?;
-    let mut definition = read(evaluation.store(), &format!("layout:{id}"))?;
-    if definition.is_null() {
-        return Err(Error(format!("unknown layout: {id}")));
+    let prepared = prepare(evaluation, id, catalog, replace, allow_empty)?;
+    Ok(bounded_report(&prepared.report, limit, false))
+}
+
+pub(crate) fn bounded_report(report: &Value, limit: usize, applied: bool) -> Value {
+    let mut report = report.clone();
+    let count = array(&report["changes"]).len();
+    let blocked = array(&report["blockers"]).len();
+    report["change_count"] = json!(count);
+    report["blocker_count"] = json!(blocked);
+    report["details_truncated"] = json!(count.max(blocked) > limit);
+    report["changes"] = json!(
+        array(&report["changes"])
+            .iter()
+            .take(limit)
+            .cloned()
+            .collect::<Vec<_>>()
+    );
+    report["blockers"] = json!(
+        array(&report["blockers"])
+            .iter()
+            .take(limit)
+            .cloned()
+            .collect::<Vec<_>>()
+    );
+    report["applied"] = json!(applied);
+    let publication = &mut report["publication"];
+    let excluded = array(&publication["excluded"]).len();
+    publication["excluded_count"] = json!(excluded);
+    publication["details_truncated"] = json!(excluded > limit);
+    publication["excluded"] = json!(
+        array(&publication["excluded"])
+            .iter()
+            .take(limit)
+            .cloned()
+            .collect::<Vec<_>>()
+    );
+    report
+}
+
+pub fn effective_definition(
+    store: &Store,
+    profile: &str,
+    id: &str,
+    catalog: &str,
+) -> Result<Value> {
+    let definition = crate::definitions::layout_get(store, id)?["definition"].clone();
+    if store.schema_version < 15 {
+        return Ok(definition);
     }
-    validate(&definition)?;
+    projection_definition(store, profile, id, catalog, definition)
+}
+
+fn projection_definition(
+    store: &Store,
+    profile: &str,
+    id: &str,
+    catalog: &str,
+    mut definition: Value,
+) -> Result<Value> {
     let bindings = rows(
-        &evaluation.store().db,
+        &store.db,
         "SELECT * FROM projection_bindings WHERE profile=? AND catalog=?",
-        &[evaluation.profile.clone().into(), catalog.to_owned().into()],
+        &[profile.to_owned().into(), catalog.to_owned().into()],
     )?;
     if let Some(binding) = bindings.first() {
         if binding["layout"] != id {
@@ -599,9 +719,55 @@ pub fn plan(
                 "projection is configured with a different layout; execute that projection explicitly",
             );
         }
-        definition["selection"] =
-            json!({"query_id":binding["query_id"],"profile":evaluation.profile});
+        definition["selection"] = json!({"query_id":binding["query_id"],"profile":profile});
     }
+    Ok(definition)
+}
+
+/// Python option objects are evaluated only where the native planner consumes
+/// their truth value. Ordinary Rust callers retain their bool-taking entrypoint.
+#[derive(Clone, Copy)]
+pub enum RunFlag {
+    Apply,
+    ReplaceLayout,
+    AllowEmpty,
+}
+
+pub(crate) fn prepare(
+    evaluation: &mut Evaluation,
+    id: &str,
+    catalog: &str,
+    replace: bool,
+    allow_empty: bool,
+) -> Result<PreparedPlan> {
+    prepare_with_flags(evaluation, id, catalog, &mut |flag| {
+        Ok(match flag {
+            RunFlag::ReplaceLayout => replace,
+            RunFlag::AllowEmpty => allow_empty,
+            RunFlag::Apply => unreachable!("apply belongs to orchestration"),
+        })
+    })
+}
+
+pub(crate) fn prepare_with_flags(
+    evaluation: &mut Evaluation,
+    id: &str,
+    catalog: &str,
+    flag: &mut impl FnMut(RunFlag) -> Result<bool>,
+) -> Result<PreparedPlan> {
+    name(id)?;
+    let definition = read(evaluation.store(), &format!("layout:{id}"))?;
+    if definition.is_null() {
+        return Err(Error(format!("unknown layout: {id}")));
+    }
+    validate(&definition)?;
+    let definition = projection_definition(
+        evaluation.store(),
+        &evaluation.profile,
+        id,
+        catalog,
+        definition,
+    )?;
     if rows(
         &evaluation.store().db,
         "SELECT 1 FROM catalogs WHERE id=?",
@@ -615,7 +781,7 @@ pub fn plan(
         return fail("recover pending operations before changing desired catalog state");
     }
     let owner = read(evaluation.store(), &format!("layout-catalog:{catalog}"))?;
-    if !owner.is_null() && owner["layout"] != id && !replace {
+    if !owner.is_null() && owner["layout"] != id && !flag(RunFlag::ReplaceLayout)? {
         return Err(Error(format!(
             "catalog is managed by layout {}; use --replace-layout explicitly",
             owner["layout"].as_str().unwrap_or("")
@@ -638,7 +804,7 @@ pub fn plan(
             "layout ownership references missing mappings; refusing to discard its history",
         );
     }
-    let (admitted, mut publication) =
+    let (admitted, publication) =
         crate::publication::candidates(evaluation.store(), &evaluation.profile, catalog)?;
     if admitted.is_some()
         && definition.get("selection").is_some()
@@ -725,6 +891,20 @@ pub fn plan(
             encode(&copy_report["blockers"])
         )));
     }
+    let admitted_ids = admitted
+        .as_ref()
+        .map(|records| {
+            records
+                .iter()
+                .filter_map(|r| r["id"].as_str())
+                .collect::<BTreeSet<_>>()
+        })
+        .unwrap_or_default();
+    let rendition_associations = associations
+        .iter()
+        .filter(|r| r["id"].as_str().is_some_and(|id| admitted_ids.contains(id)))
+        .map(|r| r["id"].clone())
+        .collect::<Vec<_>>();
     let mut blockers = vec![];
     let mut desired = vec![];
     let mut skipped = 0;
@@ -738,17 +918,13 @@ pub fn plan(
             continue;
         };
         let candidate = (|| -> Result<Value> {
-            let context = context(
+            let destination = candidate_path(
                 evaluation.store(),
                 &evaluation.profile,
                 &association,
                 rule,
                 item,
-            )?;
-            let destination = render(
-                rule["path"].as_str().unwrap(),
-                &context,
-                definition["normalization"].as_str().unwrap_or("portable"),
+                &definition,
             )?;
             let mapping = Uuid::new_v5(
                 &Uuid::parse_str(&evaluation.store().database_id)
@@ -842,30 +1018,25 @@ pub fn plan(
     if (!selection_report.is_null() || admitted.is_some())
         && desired.is_empty()
         && removals > 0
-        && !allow_empty
+        && !flag(RunFlag::AllowEmpty)?
     {
         blockers.push(json!({"reason":"query layout would clear all generated mappings; inspect the selection and use --allow-empty explicitly"}));
     }
-    let excluded = array(&publication["excluded"]).len();
-    publication["excluded_count"] = json!(excluded);
-    publication["details_truncated"] = json!(excluded > limit);
-    publication["excluded"] = json!(
-        array(&publication["excluded"])
-            .iter()
-            .take(limit)
-            .cloned()
-            .collect::<Vec<_>>()
-    );
     let count = changes.len();
     let blocked = blockers.len();
-    let mut report = json!({"layout":id,"catalog":catalog,"definition_sha256":sha256(encode(&definition).as_bytes()),"safe":blocked==0,"blockers":blockers.into_iter().take(limit).collect::<Vec<_>>(),"changes":changes.into_iter().take(limit).collect::<Vec<_>>(),"desired_count":desired.len(),"unchanged_count":desired.len()-(count-removals),"skipped_associations":skipped,"selection_statistics":stats,"publication":publication,"applied":false,"change_count":count,"blocker_count":blocked,"details_truncated":count.max(blocked)>limit});
+    let mut report = json!({"layout":id,"catalog":catalog,"definition_sha256":sha256(encode(&definition).as_bytes()),"safe":blocked==0,"blockers":blockers,"changes":changes,"desired_count":desired.len(),"unchanged_count":desired.len()-(count-removals),"skipped_associations":skipped,"selection_statistics":stats,"publication":publication});
     if !selection_report.is_null() {
         report["selection"] = selection_report;
     }
-    Ok(report)
+    Ok(PreparedPlan {
+        report,
+        desired,
+        owned,
+        rendition_associations,
+    })
 }
 
-fn score_cmp(a: &[(u8, f64)], b: &[(u8, f64)]) -> std::cmp::Ordering {
+pub(crate) fn score_cmp(a: &[(u8, f64)], b: &[(u8, f64)]) -> std::cmp::Ordering {
     for (a, b) in a.iter().zip(b) {
         let c = a.0.cmp(&b.0).then_with(|| a.1.total_cmp(&b.1));
         if !c.is_eq() {
@@ -874,7 +1045,31 @@ fn score_cmp(a: &[(u8, f64)], b: &[(u8, f64)]) -> std::cmp::Ordering {
     }
     a.len().cmp(&b.len())
 }
-fn rank(
+// Copy policies compare decoded JSON with Python equality (`==`, `in`,
+// `list.index`): True == 1 == 1.0, and integers compare with floats exactly
+// without rounding a large integer through f64. Stored definitions and their
+// canonical digests are unchanged.
+fn requirement_met(value: &Value, wanted: &Value) -> bool {
+    !value.is_null()
+        && if value.is_array() {
+            array(value).iter().any(|v| python_equal(v, wanted))
+        } else {
+            python_equal(value, wanted)
+        }
+}
+fn preference_index(value: &Value, preferred: &[Value]) -> usize {
+    let candidates = if value.is_array() {
+        array(value)
+    } else {
+        std::slice::from_ref(value)
+    };
+    candidates
+        .iter()
+        .filter_map(|v| preferred.iter().position(|r| python_equal(r, v)))
+        .min()
+        .unwrap_or(preferred.len())
+}
+pub(crate) fn rank(
     store: &Store,
     profile: &str,
     file: &str,
@@ -904,14 +1099,7 @@ fn rank(
     let mut failed = vec![];
     if let Some(required) = definition["require"].as_object() {
         for (key, wanted) in required {
-            let value = values.get(key.as_str()).unwrap_or(&Value::Null);
-            if value.is_null()
-                || if value.is_array() {
-                    !array(value).contains(wanted)
-                } else {
-                    value != wanted
-                }
-            {
+            if !requirement_met(values.get(key.as_str()).unwrap_or(&Value::Null), wanted) {
                 failed.push(key.clone());
             }
         }
@@ -925,17 +1113,7 @@ fn rank(
             .get(rule["field"].as_str().unwrap_or(""))
             .unwrap_or(&Value::Null);
         if rule.get("values").is_some() {
-            let candidates = if value.is_array() {
-                array(value).to_vec()
-            } else {
-                vec![value.clone()]
-            };
-            let index = candidates
-                .iter()
-                .filter_map(|v| array(&rule["values"]).iter().position(|r| r == v))
-                .min()
-                .unwrap_or(array(&rule["values"]).len());
-            score.push((0, index as f64));
+            score.push((0, preference_index(value, array(&rule["values"])) as f64));
         } else if value.is_null() {
             score.push((1, 0.0));
         } else {
@@ -975,7 +1153,7 @@ pub fn copy_filter(
     let Some(row) = records.first() else {
         return Ok((associations.to_vec(), json!({"configured":false})));
     };
-    let definition: Value = serde_json::from_str(row["definition"].as_str().unwrap())?;
+    let definition: Value = catabolic_core::decode_json(row["definition"].as_str().unwrap())?;
     let mut retained = vec![];
     let mut groups = vec![];
     let mut grouped: BTreeMap<(String, String), Vec<Value>> = BTreeMap::new();
@@ -1039,7 +1217,7 @@ pub fn copy_filter(
         .collect::<BTreeSet<_>>();
     let mut attached = vec![];
     for row in retained {
-        let metadata: Value = serde_json::from_str(row["metadata"].as_str().unwrap())?;
+        let metadata: Value = catabolic_core::decode_json(row["metadata"].as_str().unwrap())?;
         let related = metadata.get("primary_file_ids");
         if related.is_some_and(|v| {
             !v.is_null() && (!v.is_array() || array(v).iter().any(|v| !v.is_string()))
@@ -1062,4 +1240,320 @@ pub fn copy_filter(
         attached,
         json!({"configured":true,"definition":definition,"decisions":decisions,"safe":blockers.is_empty(),"blockers":blockers}),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use catabolic_core::decode_json;
+
+    fn parsed(raw: &str) -> Value {
+        decode_json(raw).unwrap()
+    }
+
+    #[test]
+    fn copy_policy_comparisons_use_python_equality() {
+        for (value, wanted) in [
+            ("1080", "1080.0"),
+            ("1080.0", "1080"),
+            ("true", "1"),
+            ("1", "true"),
+            ("false", "0"),
+            ("true", "1.0"),
+            ("1e3", "1000"),
+            ("9007199254740992", "9007199254740992.0"),
+            (
+                "123456789012345678901234567890",
+                "123456789012345678901234567890",
+            ),
+            ("[\"eng\", 1]", "true"),
+            ("[2160.0]", "2160"),
+            (r#"{"a":[1]}"#, r#"{"a":[1.0]}"#),
+        ] {
+            assert!(
+                requirement_met(&parsed(value), &parsed(wanted)),
+                "{value} == {wanted}"
+            );
+        }
+        for (value, wanted) in [
+            ("9007199254740993", "9007199254740992.0"),
+            ("\"1\"", "1"),
+            ("null", "null"),
+            ("1.5", "1"),
+            ("[]", "1"),
+        ] {
+            assert!(
+                !requirement_met(&parsed(value), &parsed(wanted)),
+                "{value} != {wanted}"
+            );
+        }
+        let preferred = [parsed("720"), parsed("2160"), parsed("true")];
+        assert_eq!(preference_index(&parsed("2160.0"), &preferred), 1);
+        assert_eq!(preference_index(&parsed("[1, 720.0]"), &preferred), 0);
+        assert_eq!(preference_index(&parsed("1.0"), &preferred), 2);
+        assert_eq!(preference_index(&parsed("\"720\""), &preferred), 3);
+    }
+
+    fn layout(rule: Value) -> Value {
+        let mut rule_value = json!({"name":"r","path":"{item.title}"});
+        rule_value
+            .as_object_mut()
+            .unwrap()
+            .extend(rule.as_object().unwrap().clone());
+        json!({"version":1,"rules":[rule_value]})
+    }
+    fn refusal(definition: &Value) -> String {
+        validate(definition).unwrap_err().0
+    }
+
+    #[test]
+    fn supplied_wrong_types_are_refused_and_only_absent_fields_default() {
+        let mut definition = layout(json!({}));
+        validate(&definition).unwrap();
+        for normalization in [json!(null), json!(1), json!(["ascii"]), json!(false)] {
+            definition["normalization"] = normalization;
+            assert_eq!(
+                refusal(&definition),
+                "normalization must be portable or ascii"
+            );
+        }
+        definition["normalization"] = json!("ascii");
+        validate(&definition).unwrap();
+        let selector = |extra: Value| {
+            let mut selector = json!({"alias":"parent","kind":"part_of"});
+            selector
+                .as_object_mut()
+                .unwrap()
+                .extend(extra.as_object().unwrap().clone());
+            layout(json!({"relations":[selector]}))
+        };
+        validate(&selector(json!({}))).unwrap();
+        validate(&selector(json!({"from":"item","direction":"incoming"}))).unwrap();
+        for extra in [
+            json!({"from":null}),
+            json!({"from":5}),
+            json!({"from":["item"]}),
+            json!({"direction":null}),
+            json!({"direction":1}),
+            json!({"direction":true}),
+        ] {
+            assert_eq!(
+                refusal(&selector(extra.clone())),
+                "relation selector needs an earlier source alias and a valid direction",
+                "{extra}"
+            );
+        }
+        assert_eq!(
+            refusal(&selector(json!({"target_kind":5}))),
+            "target_kind must be a media kind string"
+        );
+    }
+
+    #[test]
+    fn layout_selection_admission_validates_sql_parameter_names() {
+        let params = "--params must be a JSON object with named scalar values; profile is reserved, numbers must be finite and integers fit signed 64 bits";
+        let with = |params: Value| {
+            let mut definition = layout(json!({}));
+            definition["selection"] = json!({"language":"sql","query":"SELECT item_id FROM catalog_items","params":params});
+            definition
+        };
+        validate(&with(json!({"ok_1":1,"_x":"y","n":null,"f":1.5,"b":true}))).unwrap();
+        for value in [
+            json!({"profile":"other"}),
+            json!({"bad-name":1}),
+            json!({"1st":1}),
+            json!({"":1}),
+            json!({"é":1}),
+            json!({"x":[1]}),
+            json!({"x":9223372036854775808u64}),
+            json!(null),
+            json!([]),
+            json!("{}"),
+        ] {
+            assert_eq!(refusal(&with(value.clone())), params, "{value}");
+        }
+    }
+
+    #[test]
+    fn integer_formats_render_arbitrary_precision_integers() {
+        let context = |n: &str| parsed(&format!(r#"{{"item":{{"n":{n}}}}}"#));
+        let render = |template: &str, n: &str| render(template, &context(n), "portable");
+        assert_eq!(
+            render("{item.n:02d}", "9223372036854775808").unwrap(),
+            "9223372036854775808"
+        );
+        assert_eq!(
+            render("{item.n:025d}", "-12345678901234567890").unwrap(),
+            "-000012345678901234567890"
+        );
+        // Space padding is exact, then path components strip it as Python does.
+        assert_eq!(
+            format_integer(&parsed("18446744073709551616"), "22d").unwrap(),
+            "  18446744073709551616"
+        );
+        assert_eq!(
+            format_integer(&parsed("-18446744073709551616"), "23d").unwrap(),
+            "  -18446744073709551616"
+        );
+        assert_eq!(
+            render("{item.n:22d}", "18446744073709551616").unwrap(),
+            "18446744073709551616"
+        );
+        assert_eq!(render("{item.n:03d}", "-5").unwrap(), "-05");
+        assert_eq!(render("{item.n:3d}", "7").unwrap(), "7");
+        assert_eq!(render("{item.n:02d}", "-0").unwrap(), "00");
+        for n in ["true", "5.0", "1e2", "\"5\""] {
+            assert_eq!(
+                render("{item.n:02d}", n).unwrap_err().0,
+                "integer required for item.n:02d",
+                "{n}"
+            );
+        }
+        // Portable length limits still apply to the formatted digits.
+        assert_eq!(
+            render("{item.n:02d}", &"9".repeat(256)).unwrap_err().0,
+            "generated path exceeds portable filesystem length limits"
+        );
+    }
+
+    /// Python is an explicitly selected compatibility oracle, never a runtime fallback.
+    #[test]
+    #[ignore = "requires CATABOLIC_PYTHON_ORACLE and CATABOLIC_PYTHON_REFERENCE"]
+    fn python_layout_admission_rendering_and_copy_equality_match() {
+        let python = std::env::var("CATABOLIC_PYTHON_ORACLE").unwrap();
+        let reference = std::env::var("CATABOLIC_PYTHON_REFERENCE").unwrap();
+        let rule = r#"{"name":"r","path":"{item.title}"}"#;
+        let selection = |params: &str| {
+            format!(
+                r#"{{"version":1,"rules":[{rule}],"selection":{{"language":"sql","query":"SELECT item_id FROM catalog_items","params":{params}}}}}"#
+            )
+        };
+        let relation = |extra: &str| {
+            format!(
+                r#"{{"version":1,"rules":[{{"name":"r","path":"{{item.title}}","relations":[{{"alias":"parent","kind":"part_of"{extra}}}]}}]}}"#
+            )
+        };
+        let mut layouts = vec![format!(r#"{{"version":1,"rules":[{rule}]}}"#)];
+        for normalization in [
+            "null",
+            "1",
+            "[\"ascii\"]",
+            "false",
+            "\"ascii\"",
+            "\"other\"",
+        ] {
+            layouts.push(format!(
+                r#"{{"version":1,"rules":[{rule}],"normalization":{normalization}}}"#
+            ));
+        }
+        for extra in [
+            "",
+            r#","from":null"#,
+            r#","from":5"#,
+            r#","from":"item","direction":"incoming""#,
+            r#","direction":null"#,
+            r#","direction":1"#,
+            r#","target_kind":5"#,
+        ] {
+            layouts.push(relation(extra));
+        }
+        for params in [
+            r#"{"ok_1":1,"f":1.5,"b":true,"n":null}"#,
+            r#"{"profile":"other"}"#,
+            r#"{"bad-name":1}"#,
+            r#"{"1st":1}"#,
+            r#"{"é":1}"#,
+            r#"{"x":[1]}"#,
+            r#"{"x":9223372036854775808}"#,
+            "null",
+            "[]",
+        ] {
+            layouts.push(selection(params));
+        }
+        let renders = [
+            ("{item.n:02d}", "9223372036854775808"),
+            ("{item.n:025d}", "-12345678901234567890"),
+            ("{item.n:22d}", "18446744073709551616"),
+            ("{item.n:03d}", "-5"),
+            ("{item.n:02d}", "-0"),
+            ("{item.n:02d}", "true"),
+            ("{item.n:02d}", "5.0"),
+        ];
+        let pairs = [
+            ("1080", "1080.0"),
+            ("true", "1"),
+            ("false", "0.0"),
+            ("9007199254740993", "9007199254740992.0"),
+            ("9007199254740992", "9007199254740992.0"),
+            ("[1, true]", "[1.0, 1]"),
+            (r#"{"a":1}"#, r#"{"a":true}"#),
+            ("\"1\"", "1"),
+        ];
+        let formats = [
+            ("18446744073709551616", "22d"),
+            ("-18446744073709551616", "23d"),
+            ("-12345678901234567890", "025d"),
+            ("-0", "3d"),
+            ("7", "09d"),
+        ];
+        let input = format!(
+            r#"{{"layouts":[{}],"renders":[{}],"pairs":[{}],"formats":[{}]}}"#,
+            layouts.join(","),
+            renders
+                .iter()
+                .map(|(t, n)| format!(r#"[{},{{"item":{{"n":{n}}}}}]"#, encode(&json!(t))))
+                .collect::<Vec<_>>()
+                .join(","),
+            pairs
+                .iter()
+                .map(|(a, b)| format!("[{a},{b}]"))
+                .collect::<Vec<_>>()
+                .join(","),
+            formats
+                .iter()
+                .map(|(n, spec)| format!(r#"[{n},"{spec}"]"#))
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+        let script = r#"
+import json, sys
+from catabolic.domain import CatabolicError
+from catabolic.layouts import render_path, validate_layout
+cases = json.loads(sys.argv[1])
+def attempt(call):
+    try:
+        return {"ok": call()}
+    except CatabolicError as exc:
+        return {"error": str(exc)}
+print(json.dumps({
+    "layouts": [attempt(lambda d=d: validate_layout(d) and None) for d in cases["layouts"]],
+    "renders": [attempt(lambda t=t, c=c: render_path(t, c)) for t, c in cases["renders"]],
+    "pairs": [a == b for a, b in cases["pairs"]],
+    "formats": [format(n, spec) for n, spec in cases["formats"]],
+}))
+"#;
+        let output = std::process::Command::new(&python)
+            .args(["-c", script, &input])
+            .env("PYTHONPATH", &reference)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let expected = decode_json(std::str::from_utf8(&output.stdout).unwrap()).unwrap();
+        let input = decode_json(&input).unwrap();
+        let attempt = |result: Result<Value>| match result {
+            Ok(value) => json!({"ok":value}),
+            Err(error) => json!({"error":error.0}),
+        };
+        let actual = json!({
+            "layouts": array(&input["layouts"]).iter().map(|d| attempt(validate(d).map(|_| Value::Null))).collect::<Vec<_>>(),
+            "renders": array(&input["renders"]).iter().map(|c| attempt(render(c[0].as_str().unwrap(), &c[1], "portable").map(Value::String))).collect::<Vec<_>>(),
+            "pairs": array(&input["pairs"]).iter().map(|p| python_equal(&p[0], &p[1])).collect::<Vec<_>>(),
+            "formats": array(&input["formats"]).iter().map(|f| format_integer(&f[0], f[1].as_str().unwrap()).unwrap()).collect::<Vec<_>>(),
+        });
+        assert_eq!(actual, expected);
+    }
 }

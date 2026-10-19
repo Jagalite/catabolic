@@ -1,0 +1,3454 @@
+{
+  "contract": "native-graphql-parser-grammar-provenance-v1",
+  "fixture_bindings": [
+    {
+      "case_count": 150,
+      "composed_cases_sha256": "4d0e2e731c4e0556190eacffabcebed96f525f2d9f971a1ad53fdc1d28d8adaf",
+      "contract": "native-graphql-parser-budget-precedence-v2",
+      "fixture": "graphql-parser-budget-precedence-v2.json",
+      "prior_cases_sha256": "33113d3d474e11d2a27808cbb7d9eeab2777a7ff0e2efa7a96d6ee7d69b17489",
+      "prior_promotion_indices": [
+        120,
+        117,
+        118,
+        119
+      ],
+      "promotion_indices": [
+        116,
+        121,
+        122,
+        146,
+        147,
+        148,
+        149
+      ],
+      "raw_cases_sha256": "d4a5859d834279f39bafec73ad510a7e81c85c3e9688c4ef3dc2ee4cfc105675",
+      "sha256": "b9aecbcc83fb5f9dedaa59ec17b0b0b2595d591199d9d47ec3584836b8cc263d"
+    },
+    {
+      "case_count": 38,
+      "composed_cases_sha256": "aae61c7a6487fe104aa08e549d40840480039f711715ed3349a67c8d34c37495",
+      "contract": "native-graphql-parser-diagnostic-ownership-v1",
+      "fixture": "graphql-parser-diagnostic-ownership-v1.json",
+      "prior_cases_sha256": "402a93aff341e7f8031b383e68963d11f8c80973bc533a20c0c8420ab1197076",
+      "prior_promotion_indices": [
+        18,
+        19,
+        20,
+        24,
+        22,
+        23
+      ],
+      "promotion_indices": [
+        34,
+        35
+      ],
+      "raw_cases_sha256": "16c8f63734af3d4e4a20e74e088086a846ce06dd26c24c1ebb4917f9c1d7dc29",
+      "sha256": "11df0b04b32fa187d09c57623bf8ddf45f5ecfc7bee101853197d44810f78444"
+    },
+    {
+      "case_count": 31,
+      "composed_cases_sha256": "f6262630b198c8bfe2bb2824d1c51fbac9fb00f87c761e3257a699a7fb8a7a4e",
+      "contract": "native-graphql-unsupported-scalar-precedence-v1",
+      "fixture": "graphql-unsupported-scalar-precedence-v1.json",
+      "prior_cases_sha256": "a262fc6e98dad17481c3c31cca46b86d33a86bfac1a2b240da9698bdae7a4c2a",
+      "prior_promotion_indices": [
+        22,
+        23,
+        29
+      ],
+      "promotion_indices": [
+        21
+      ],
+      "raw_cases_sha256": "a88a45996fd3eecc4ba7fc7a125d0274b21fe39872a19fc38be0f7d520a62726",
+      "sha256": "fccd5619951d152e3fd8278fe547e2d8e0c727153eb8eec52e14ba75438400ca"
+    },
+    {
+      "case_count": 61,
+      "composed_cases_sha256": "45d45b2c7672911488e1fbf98422f2ee3315c3ce991bee2b70db4120c6257f05",
+      "contract": "native-graphql-parser-boundary-ownership-v1",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "prior_cases_sha256": "74804e14e41674e31a664132795a1cd76e3703b0926ff17c539a67b9b662afbc",
+      "prior_promotion_indices": [
+        19,
+        22,
+        27,
+        36,
+        37,
+        40,
+        56,
+        57,
+        12,
+        13,
+        14,
+        53
+      ],
+      "promotion_indices": [
+        10,
+        11,
+        20,
+        21,
+        38,
+        39,
+        58
+      ],
+      "raw_cases_sha256": "7879baa36b670ab27a6e155e315972bcca880f546e9d660b44c06890cc0cf240",
+      "sha256": "863a1a22934a34c81c1e154c2362530a4db49e936608fbf9a541b8a0725816de"
+    },
+    {
+      "case_count": 50,
+      "composed_cases_sha256": "c13e22b0ec53983a14bb03e8852f486e1fd7ed2b6de8e05f7d913b917b49835f",
+      "contract": "native-graphql-parser-required-value-precedence-v1",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "prior_cases_sha256": "058770bb7f1d8baa782b9cf4a1fc1d242aa95523d605a29bd27b952bc49f74ba",
+      "prior_promotion_indices": [
+        40,
+        43,
+        46,
+        35,
+        36,
+        37
+      ],
+      "promotion_indices": [
+        33,
+        34,
+        38,
+        41,
+        42,
+        44,
+        45
+      ],
+      "raw_cases_sha256": "9e3b6c2d42041826ef7a4bd7fc42e0a5843fe512b7d2c6dc38715771d9f22bb3",
+      "sha256": "079ce62e3dbd623e8a1726fbb7ec9f25b9ff678d1baa728da77f0928f73a8c56"
+    },
+    {
+      "case_count": 197,
+      "composed_cases_sha256": "0ab2132f1998b033e91875dbe04dcfa22315b244aa1ffb90651d3fb800196350",
+      "contract": "native-graphql-parser-lexical-capture-v1",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "prior_cases_sha256": "ec59c44e7a9a35aa862c27eaf523ab1f142d66abe0c48abd715c5de4358040ae",
+      "prior_promotion_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        69,
+        70,
+        71,
+        72,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        136,
+        149,
+        150,
+        151,
+        152,
+        153,
+        154,
+        155,
+        156,
+        157,
+        158,
+        159,
+        160,
+        162,
+        163,
+        164,
+        168,
+        182,
+        183,
+        184,
+        186,
+        187,
+        188,
+        190,
+        191,
+        192
+      ],
+      "promotion_indices": [
+        74,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        106,
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        138,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        170,
+        172,
+        173,
+        174,
+        175,
+        176,
+        177,
+        178,
+        179,
+        180
+      ],
+      "raw_cases_sha256": "cd6cc93f64e62234efbf9ae6fd5877a8794845dd1c395b4ffe3c60a262a80985",
+      "sha256": "7a0c2f8c3da34fe83e15a4aa5cd087e45c4884086e629a8e6329347bc21f46f2"
+    }
+  ],
+  "policy_scope": {
+    "legacy_variable_ownership": "preserved independently",
+    "no_new_ownership": [
+      "Other",
+      "SelectionName Alias",
+      "ArgumentName first=false",
+      "generic Directive",
+      "non-field ObjectMember and VariableReference contexts",
+      "unlisted found tokens"
+    ],
+    "ordinary_only": [
+      "VariableReferenceName Argument(Field) Root Name )"
+    ]
+  },
+  "provenance": {
+    "assessment_rows_sha256": "ca0c5262daa23f7d8084622830775d3dd8dda6998f59314e04aa2597cd6decce",
+    "base_map": "c07dabe4716ba7efe512319d72cbca07a01ac5e11c3d910b2aa79adbb45ef572",
+    "base_seal": "a4fd8d8bbadd03c73f9910cacd43a307d09d15321742c3d79e1f29379c82d0bc",
+    "lexical_capture_seal": {
+      "bytes": 1000531,
+      "path": "/workspace/shared/catalog-parser-lexical-capture-preparation-20261015/capture-seal.json",
+      "sha256": "c2f5193760f889a37bcb2e2e4a52a2c15bc1ca768617dff0a535a8ff8cb08c96"
+    },
+    "raw_receipts_verified": 4974,
+    "status": "source-only expectations; no candidate execution"
+  },
+  "rows": [
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "4510a3cb85e678e5556c903bf0c2943854662b7ab38cbdc4707061d3228e8079",
+      "companion_sha256": "db3ab4abad841ddd26a8cd57e9802576e9d94a50fa8a17cef38c1ae5f40ce74f",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '}'."
+      },
+      "document_bytes": 32026,
+      "document_sha256": "47bcff4f11c4ebbd7906f145082353724295d2d233960e5715571a88937dd484",
+      "fixture": "graphql-parser-budget-precedence-v2.json",
+      "fixture_contract": "native-graphql-parser-budget-precedence-v2",
+      "frozen_parse_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "historical_matching": false,
+      "index": 116,
+      "legacy_sha256": "872a8f67a702eb49a1c07a401b1c3387a6d9235d559ed12b5adcf03a00b7ee4d",
+      "legacy_variable_flag": false,
+      "name": "unsupported-first-empty-selection",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/116",
+      "promotion": true,
+      "reference_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "}",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "69d2507398204737b0d532aef82488f19641e8edfc5a3b1eb98377f854fd3359",
+      "companion_sha256": "b0806b8598192e45ac24d7903b82171f32941406806c19f85fe6c34d1fad7673",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '!'."
+      },
+      "document_bytes": 32027,
+      "document_sha256": "69adfa60dcd091f32f8dbedeb7378fd0c2dcb6ad3fadf47df304c2d5de5d63d0",
+      "fixture": "graphql-parser-budget-precedence-v2.json",
+      "fixture_contract": "native-graphql-parser-budget-precedence-v2",
+      "frozen_parse_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "historical_matching": false,
+      "index": 121,
+      "legacy_sha256": "f76dd4d1215ca85e61ba9fedce4f03e6d6016537d3a94d7d83c1c43aab4f2f07",
+      "legacy_variable_flag": false,
+      "name": "unsupported-first-bang-in-selection",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/121",
+      "promotion": true,
+      "reference_sha256": "78ef35075e9bccbcbe4af590728686a5038b4e04f80e7ca230edac547265de4f",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "!",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "ed0e0f316561cde7af33d3e8407b5d9c4bf1ea6444e14f51105571f0ba1a911c",
+      "companion_sha256": "a7beba75d0e32c9ef4924cc6c750e15f21188688c4907ac1f31d7a77fe933cb4",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 8,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "document_bytes": 32035,
+      "document_sha256": "6c9b224609e32caf1b27b88f8510ec17789d1c77db43ce8840b0f8af279bb90b",
+      "fixture": "graphql-parser-budget-precedence-v2.json",
+      "fixture_contract": "native-graphql-parser-budget-precedence-v2",
+      "frozen_parse_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "historical_matching": false,
+      "index": 122,
+      "legacy_sha256": "d02a29148d7cd31a630dc8c9fbe132686564c07c14d21437462b68534a8fdfd9",
+      "legacy_variable_flag": false,
+      "name": "unsupported-first-wrong-argument-name",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/122",
+      "promotion": true,
+      "reference_sha256": "a46fa14c624b546f3a86adfc39383a4fdcb1e02f77bdf5c33c470d2eee79c245",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": true,
+        "found": ":",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "ba59b5cb608a0d58d6f768af2fcd858a2f12e4ad595e66b9834d9f9ff591d977",
+      "companion_sha256": "12554931758713511766bed12eac79315a5eb184a62a4956dbf1d7d872bd7075",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 16,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 32025,
+      "document_sha256": "14bcd9e956f36fedf3d526ad94bc4aa863b0c0f7b35dcb358b58be36b865b3f1",
+      "fixture": "graphql-parser-budget-precedence-v2.json",
+      "fixture_contract": "native-graphql-parser-budget-precedence-v2",
+      "frozen_parse_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "historical_matching": false,
+      "index": 146,
+      "legacy_sha256": "41ce4e4dcbbd3684439e0e22bb7e8e5dd7fb74734a1f980a3f86a183a1b87893",
+      "legacy_variable_flag": false,
+      "name": "unowned-field-directive-empty",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/146",
+      "promotion": true,
+      "reference_sha256": "5a8b285507bde07c2baa66bf3eb64b98337df6f048623292b23e2aa90935addb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "482c3418bc9c5a80436f14ef748db33a04560d8bcabe93c5940f11f23dbbfdfb",
+      "companion_sha256": "79f808f7d5db8b048dfd40e51efaec50f6728487d667cf9773c228676e6008b7",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 19,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 32032,
+      "document_sha256": "858d5de607cddcb9305f060f58acba69240feab764c61ae7ea5f90bb24c003a5",
+      "fixture": "graphql-parser-budget-precedence-v2.json",
+      "fixture_contract": "native-graphql-parser-budget-precedence-v2",
+      "frozen_parse_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "historical_matching": false,
+      "index": 147,
+      "legacy_sha256": "2e28ad572de0f8e80880e3e7896ddb7191393665ad4fd733e6f84d1981c3c55a",
+      "legacy_variable_flag": false,
+      "name": "unowned-field-directive-colon",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/147",
+      "promotion": true,
+      "reference_sha256": "3c529672cf42e300f551182f0d30c67bac52b580a37ce5ef01be926a3feb26cb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "4b10fac9d4dbb21d46ead3d19517f7ce27f5c6da1ca7e07e2ca8ac717f40b4fc",
+      "companion_sha256": "0c938800e273f36929ea818667fb97b65409e729a09dbdaab625db33914b7aa9",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 22,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 32040,
+      "document_sha256": "63e3839375b7774e6c316c553c6f885e99b2fe10f72659e90fe04475f8d03ccd",
+      "fixture": "graphql-parser-budget-precedence-v2.json",
+      "fixture_contract": "native-graphql-parser-budget-precedence-v2",
+      "frozen_parse_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "historical_matching": false,
+      "index": 148,
+      "legacy_sha256": "d3d639c652dde3d575b18c542eaf0605ba9a5caa976fc2e19f1cc3f330a68bee",
+      "legacy_variable_flag": true,
+      "name": "unowned-variable-directive-empty",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/148",
+      "promotion": true,
+      "reference_sha256": "e4bf1729ec99a2d63e6d8dc4d97f3c41b400a0780625355acb8f3fe0aadbfe67",
+      "tuple": {
+        "context": "VariableDefinitionDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "e963d3878d9997755df749032d74131b18a8aaa92219d9918d659d512018c209",
+      "companion_sha256": "aaf9b8df1ac62ea7f5ca9ac1c323bcb9f073b0480e03583682b0ce72cb581565",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 25,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 32047,
+      "document_sha256": "8e42fe29751541ee2e782b0c75a5032180035a480cbdae8cb67c5f08d59ef7b0",
+      "fixture": "graphql-parser-budget-precedence-v2.json",
+      "fixture_contract": "native-graphql-parser-budget-precedence-v2",
+      "frozen_parse_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "historical_matching": false,
+      "index": 149,
+      "legacy_sha256": "afdf34de5ad0b27e6ac0be1a3809e2c7ed1f5d07c74edbf3c1bbdb7d8d9e8dfe",
+      "legacy_variable_flag": true,
+      "name": "unowned-variable-directive-colon",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/149",
+      "promotion": true,
+      "reference_sha256": "13b34a2aca95bbba7dec57458d8b8d48bb0d01fd18633f1003c21a637bd08845",
+      "tuple": {
+        "context": "VariableDefinitionDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "d8bc52a4ad3da83fb8eaf693358d45278aa94bdc5ccf33773e1ee8873b62bec4",
+      "companion_sha256": "c556fe8f015c53af313e328d22331089de7d470e6b06c9424cc07cd02aaded5b",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 16,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 33,
+      "document_sha256": "b289d4c051d4ea3065b549783afc0316fb9fdcba204ed95db4d0abc879e50929",
+      "fixture": "graphql-parser-diagnostic-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-diagnostic-ownership-v1",
+      "frozen_parse_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "historical_matching": false,
+      "index": 34,
+      "legacy_sha256": "5157ef1cb65bd14bb756410620de5bab111fd274c3667d19ad55569e126df792",
+      "legacy_variable_flag": false,
+      "name": "unowned-field-directive-empty",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/34",
+      "promotion": true,
+      "reference_sha256": "5a8b285507bde07c2baa66bf3eb64b98337df6f048623292b23e2aa90935addb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "e496e363b6267d3328acf3fec25cbe7b4b08494a87b67e8e8161b60b457bea51",
+      "companion_sha256": "0dc2b28628debe171ca472b134949b7568e3246d8fbac084dff482cc7f22b32f",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 19,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 40,
+      "document_sha256": "9c88957f89200465233a65d18db8a982c8b52c0ffb0e673b754612203664d0d9",
+      "fixture": "graphql-parser-diagnostic-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-diagnostic-ownership-v1",
+      "frozen_parse_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "historical_matching": false,
+      "index": 35,
+      "legacy_sha256": "735eac7ee68f2a042abfbbf05005065dd2e8fa6883d8eccdb560f51610e29cd6",
+      "legacy_variable_flag": false,
+      "name": "unowned-field-directive-colon",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/35",
+      "promotion": true,
+      "reference_sha256": "3c529672cf42e300f551182f0d30c67bac52b580a37ce5ef01be926a3feb26cb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "4f05ee885ed66b503354649d6d97066b89080f08ab2ca3d12e35d6979f982920",
+      "companion_sha256": "907d04baaf873fa2119462445a76b736e302fea98d951c9c8f0d91a1eda1d27b",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 22,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 48,
+      "document_sha256": "f749fcba6646b94fb1b14cab39c8dbb43a4e3b3a758db68680882f4ba816bb23",
+      "fixture": "graphql-parser-diagnostic-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-diagnostic-ownership-v1",
+      "frozen_parse_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "historical_matching": true,
+      "index": 36,
+      "legacy_sha256": "e4bf1729ec99a2d63e6d8dc4d97f3c41b400a0780625355acb8f3fe0aadbfe67",
+      "legacy_variable_flag": true,
+      "name": "unowned-variable-directive-empty",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/36",
+      "promotion": false,
+      "reference_sha256": "e4bf1729ec99a2d63e6d8dc4d97f3c41b400a0780625355acb8f3fe0aadbfe67",
+      "tuple": {
+        "context": "VariableDefinitionDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "7fe046d12fd0bdb9d2fe95873d74df4ebc6bebbc6730e1d2bb50b995a02518a6",
+      "companion_sha256": "1433e336483109050b4fa17eb5fd2593acb653d36537dde5f97fa4bb8f211577",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 25,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 55,
+      "document_sha256": "89a084155f5097743bda741c8ff55518a5abe8662aed895dc9bc35f98adfe32e",
+      "fixture": "graphql-parser-diagnostic-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-diagnostic-ownership-v1",
+      "frozen_parse_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "historical_matching": true,
+      "index": 37,
+      "legacy_sha256": "13b34a2aca95bbba7dec57458d8b8d48bb0d01fd18633f1003c21a637bd08845",
+      "legacy_variable_flag": true,
+      "name": "unowned-variable-directive-colon",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/37",
+      "promotion": false,
+      "reference_sha256": "13b34a2aca95bbba7dec57458d8b8d48bb0d01fd18633f1003c21a637bd08845",
+      "tuple": {
+        "context": "VariableDefinitionDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "fbef81762e6a2dd77f3e5babe5577bd2d00979efa12b7f581a17c6ff17803d01",
+      "companion_sha256": "76f7dd68819fb77df218d7ad5a5581e7121a420c8a32c08dba8980ceee9db199",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '}'."
+      },
+      "document_bytes": 32013,
+      "document_sha256": "3fc5c2a03a6233ea561977d7aff2e9a4ffaac7337c6372a565d3122f76ccaa3b",
+      "fixture": "graphql-unsupported-scalar-precedence-v1.json",
+      "fixture_contract": "native-graphql-unsupported-scalar-precedence-v1",
+      "frozen_parse_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "historical_matching": false,
+      "index": 21,
+      "legacy_sha256": "ddbe29d509577b250843b51eaefcdbde26e0e7ed8d37930329cbd2a6dbdbee58",
+      "legacy_variable_flag": false,
+      "name": "earlier-empty-selection-before-scalar",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/21",
+      "promotion": true,
+      "reference_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "}",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "385b1c3848286cca29442b1f5d9bd79cba798bcfbcae96bd14a1985d4cd96e67",
+      "companion_sha256": "45c9ca94468ca298ac48eb283f9aab4b6896e63188dab9ed11d92d670800a323",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 16,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 17,
+      "document_sha256": "8eff4657c713d91efc809c9cd006bd1d6fcd5c597f1b6bed0bb27bfef5c22844",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "frozen_parse_sha256": "ba0b145fcaf7b1f9fc5622d4388d6781874d67e49964c72bdc1c13095d5c392c",
+      "historical_matching": false,
+      "index": 10,
+      "legacy_sha256": "d35b00ccae43fa7ad14820bfb97f83394f4a22802e4aadc6f42973cc69579bde",
+      "legacy_variable_flag": false,
+      "name": "directive-field-empty",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/10",
+      "promotion": true,
+      "reference_sha256": "5a8b285507bde07c2baa66bf3eb64b98337df6f048623292b23e2aa90935addb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "c62c14fd54f5c74f80755fd7998efd71d1b836ad9b5fc999d6256c50502ac0ba",
+      "companion_sha256": "9db93065a0b6b867b341a1742f278b4ff7684a9890c0f7f7bc0e1b761437af55",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 19,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 24,
+      "document_sha256": "29fa9c5f078f011a90b544d9ca847fa6254cfa2b26a2b887c0fa8f353de8d066",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "frozen_parse_sha256": "e9e7e096fa6875844c8375741185be8ac9d5d1c3b8d1b95a2c0a177276e6c313",
+      "historical_matching": false,
+      "index": 11,
+      "legacy_sha256": "67738dc9281fef8d0f618703b156ee3e1a1d3f6b80b7a845b280fb479cdd6989",
+      "legacy_variable_flag": false,
+      "name": "directive-field-colon",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/11",
+      "promotion": true,
+      "reference_sha256": "3c529672cf42e300f551182f0d30c67bac52b580a37ce5ef01be926a3feb26cb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "e16e715837ab83f5832de56d577ab585ebb7c573fdcbe91c8e47c1a4cab0ce39",
+      "companion_sha256": "f8762c9634a0f016ca2760edc3d072e1ec2ab483cf90fb529f72bd8890d0b72b",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '}'."
+      },
+      "document_bytes": 4,
+      "document_sha256": "cd34739f9c0876e86d873e8e52f130d33cedf3ad02e544ee065f9beb8655b0fe",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "frozen_parse_sha256": "fc9f78c16bb673cdf17eb4356ba26c03809f15c71a0ceacda7b8f686467a9169",
+      "historical_matching": true,
+      "index": 17,
+      "legacy_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "legacy_variable_flag": false,
+      "name": "earlier-empty-before-percent",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/17",
+      "promotion": false,
+      "reference_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "}",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "bad8f970228a68d9835293ddc8d7e428473f8f105d18c65bfb84c91ce099201e",
+      "companion_sha256": "18c5e00a8d761096782f8bfd427e02157874156e1b89a174ca874a57aa3c4f5c",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 8,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "document_bytes": 13,
+      "document_sha256": "ac067302ec7a78b4ce11aface0369fdfb7cf066e468724ff24abb5d087974ef4",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "frozen_parse_sha256": "22a00a57f2732d0d7d9dfc1b66d965ac930dd0b04603a4a71b9e318e85a3dd3a",
+      "historical_matching": false,
+      "index": 20,
+      "legacy_sha256": "1de2fe16a8ad4966d135b0e05134c5f30d272a71f853bc402881413f8b356c0f",
+      "legacy_variable_flag": false,
+      "name": "earlier-argument-name-before-percent",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/20",
+      "promotion": true,
+      "reference_sha256": "a46fa14c624b546f3a86adfc39383a4fdcb1e02f77bdf5c33c470d2eee79c245",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": true,
+        "found": ":",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "4b4d74e54f648035716b3a0caecc0e6184053af4ddc36e39f3f504a3adb5cbf4",
+      "companion_sha256": "54e64558fa81be774c09ded2b0588b65bdf820bfc8755a113347c77bfc54d968",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 20,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Int '1'."
+      },
+      "document_bytes": 25,
+      "document_sha256": "88a3688905a724ee31b3fed27962470ac6ffe114cba23c3f34e32ac86e2e8c1c",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "frozen_parse_sha256": "8046f840ac28ac8be45c413042e9f8fed95637e0e47a135374f3d565c7479846",
+      "historical_matching": false,
+      "index": 21,
+      "legacy_sha256": "73b3b1bd785d089bf7c665d97f71393c94d00abf0ab5c579ba272c3e98819bd3",
+      "legacy_variable_flag": false,
+      "name": "earlier-object-colon-before-percent",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/21",
+      "promotion": true,
+      "reference_sha256": "c3a2e716641ad98b1423c0db7069e49f850e1f5c8609dbd90293fdfb693000ae",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Number",
+        "position": null,
+        "site": "ObjectMemberColon"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "44a3dd91c6b2f9054d5def9206246a2425027260030f5a19423f054afc4bedcd",
+      "companion_sha256": "13935dc185207cfb4b9396c132dc9e6c6298bc7920e354d19b2b60d91dbdb218",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 22,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "document_bytes": 26,
+      "document_sha256": "a3ed574c861aaf9267bb87d42a62d13dc05d113c11d0b4250ced69d69fab7281",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "frozen_parse_sha256": "60636af6dddfc01a33a55dce492564950da094ba5aff014d62fd7effd7b966f6",
+      "historical_matching": false,
+      "index": 38,
+      "legacy_sha256": "c506f9acbc6ea7bd435e873a50c135b49d114ef53e9311445a657578dd6765f9",
+      "legacy_variable_flag": false,
+      "name": "closer-object-name",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/38",
+      "promotion": true,
+      "reference_sha256": "f1a4e4b98b8d08c4f57c7ae1a7ba6e17fcf2fec779b99db7cca2bb3657155558",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Name",
+        "first": null,
+        "found": ":",
+        "position": null,
+        "site": "ObjectMemberName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "f98eb729f0428166285955881113d7b0093deb7d67ede263c44a5f54b77809a4",
+      "companion_sha256": "8ae8e0fda3d991177bfc08ea5c2d2d4c97d4e8d0da2af81817baeb8f73d9a97b",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 27,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Int '1'."
+      },
+      "document_bytes": 30,
+      "document_sha256": "a448dd79365d888bd1db2fc379f5a63351709d3fab06fd4c2437fe77e30dd8cc",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "frozen_parse_sha256": "d8c68d369b71d8d2dbd8ee14e1bdbb2d71394953345c8ca97a62be090076fd0e",
+      "historical_matching": false,
+      "index": 39,
+      "legacy_sha256": "4d5d43f8d3a259eac4914fce406a1a814c0847e18c3ed7bb33f28fdf962213ef",
+      "legacy_variable_flag": false,
+      "name": "closer-object-colon",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/39",
+      "promotion": true,
+      "reference_sha256": "4651e51c4fdefb7f5b0c817c68b6ee591301d1c2b8634fce380143ce8c0eabce",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Number",
+        "position": null,
+        "site": "ObjectMemberColon"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": false,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "18edd18b3bbce658675cc70f537aa8aea1d3cec85026960abc11a8a165b96020",
+      "companion_sha256": "15e4f220a2046a5b83ca0e637f9b5a69b513f3a7edba77bcdc6b9261642bea91",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 15,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 16,
+      "document_sha256": "3bcc42aea2f44dadb51d474f7da951e7f3caefa133735582206e9979ee4644a8",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_contract": "native-graphql-parser-boundary-ownership-v1",
+      "frozen_parse_sha256": "5eb4e3031b120627694b262e770e985720d76b9079c6e63c23b97817f31af42e",
+      "historical_matching": false,
+      "index": 58,
+      "legacy_sha256": "18cbaa12202773c39bc563ecbbc53c172c37f6ff143a0205563ce1cc7f0e2baa",
+      "legacy_variable_flag": false,
+      "name": "required-dollar-name",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/58",
+      "promotion": true,
+      "reference_sha256": "be812cd661189bbdf2329ab0d08e0a5ee5a21b78cb46b4f342e870db2de3c5a8",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Name",
+        "first": null,
+        "found": ")",
+        "position": "Root",
+        "site": "VariableReferenceName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "7aa93fc2347fa3f7c23133bb8cd7b7a0d216481b6d154e3ddd3df38aa58e31b0",
+      "companion_sha256": "12554931758713511766bed12eac79315a5eb184a62a4956dbf1d7d872bd7075",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 16,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 32026,
+      "document_sha256": "b035a413d8d092f7602a965c0d33a182d4f8cf8325ddd8b49ace101da8dc270f",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "fixture_contract": "native-graphql-parser-required-value-precedence-v1",
+      "frozen_parse_sha256": "ba0b145fcaf7b1f9fc5622d4388d6781874d67e49964c72bdc1c13095d5c392c",
+      "historical_matching": false,
+      "index": 33,
+      "legacy_sha256": "41ce4e4dcbbd3684439e0e22bb7e8e5dd7fb74734a1f980a3f86a183a1b87893",
+      "legacy_variable_flag": false,
+      "name": "overbudget-directive-field-empty",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/33",
+      "promotion": true,
+      "reference_sha256": "5a8b285507bde07c2baa66bf3eb64b98337df6f048623292b23e2aa90935addb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "93f1704bb7e8b1d90ef85f32d289dd41155cd1cbce70d1975ff009de58fd186a",
+      "companion_sha256": "79f808f7d5db8b048dfd40e51efaec50f6728487d667cf9773c228676e6008b7",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 19,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 32033,
+      "document_sha256": "3f80de9a090c56fdb55eab116166d8c7c59c2069679423eb449ac2c3ae6c64db",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "fixture_contract": "native-graphql-parser-required-value-precedence-v1",
+      "frozen_parse_sha256": "e9e7e096fa6875844c8375741185be8ac9d5d1c3b8d1b95a2c0a177276e6c313",
+      "historical_matching": false,
+      "index": 34,
+      "legacy_sha256": "2e28ad572de0f8e80880e3e7896ddb7191393665ad4fd733e6f84d1981c3c55a",
+      "legacy_variable_flag": false,
+      "name": "overbudget-directive-field-colon",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/34",
+      "promotion": true,
+      "reference_sha256": "3c529672cf42e300f551182f0d30c67bac52b580a37ce5ef01be926a3feb26cb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "ef97f7fc3bd2944d94184be7b2e47cff4f43a5737b5abdbbb1b33977fabb8239",
+      "companion_sha256": "76f7dd68819fb77df218d7ad5a5581e7121a420c8a32c08dba8980ceee9db199",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '}'."
+      },
+      "document_bytes": 32013,
+      "document_sha256": "6a480e7016d925edae50d0c03287f868684b9765e0756434c7d0ec04a2e21db9",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "fixture_contract": "native-graphql-parser-required-value-precedence-v1",
+      "frozen_parse_sha256": "fc9f78c16bb673cdf17eb4356ba26c03809f15c71a0ceacda7b8f686467a9169",
+      "historical_matching": false,
+      "index": 38,
+      "legacy_sha256": "ddbe29d509577b250843b51eaefcdbde26e0e7ed8d37930329cbd2a6dbdbee58",
+      "legacy_variable_flag": false,
+      "name": "overbudget-earlier-empty-before-percent",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/38",
+      "promotion": true,
+      "reference_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "}",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "fc3222bb74acf9e1a0e93dea7f1c9321e89f2c248e0628f36e5106a570038d29",
+      "companion_sha256": "bae0e8a1a5bbec20da859b2a49a3dcf832be5b97ca5bef4b2a2e360be1858ca3",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 8,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "document_bytes": 32022,
+      "document_sha256": "d8f982795435acf3db18bf6861653cb52f9ab09fcd1f436650ac08eb07618fb2",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "fixture_contract": "native-graphql-parser-required-value-precedence-v1",
+      "frozen_parse_sha256": "22a00a57f2732d0d7d9dfc1b66d965ac930dd0b04603a4a71b9e318e85a3dd3a",
+      "historical_matching": false,
+      "index": 41,
+      "legacy_sha256": "46506ed1eeb505091fdc21f64fcbdcb737330d44ac7d0997ac2afc7dea2bdd0b",
+      "legacy_variable_flag": false,
+      "name": "overbudget-earlier-argument-name-before-percent",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/41",
+      "promotion": true,
+      "reference_sha256": "a46fa14c624b546f3a86adfc39383a4fdcb1e02f77bdf5c33c470d2eee79c245",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": true,
+        "found": ":",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "6578bb31ee3fb131671378fe71525159c5bab9c93b68f4d356e9ff344f2ebed3",
+      "companion_sha256": "88899e9703e107b9437d951b8de590335ccbc90354816375e3ece729f6c7aeb0",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 20,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Int '1'."
+      },
+      "document_bytes": 32034,
+      "document_sha256": "ee9621a4a31df9566ddfaa5e359d24bee6fcb24b5c995b7b758d02146d7b57e9",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "fixture_contract": "native-graphql-parser-required-value-precedence-v1",
+      "frozen_parse_sha256": "8046f840ac28ac8be45c413042e9f8fed95637e0e47a135374f3d565c7479846",
+      "historical_matching": false,
+      "index": 42,
+      "legacy_sha256": "e977f37b4352afd6bbe5bb53f823ce4c9107d0544fc40a72f7131bb48496106f",
+      "legacy_variable_flag": false,
+      "name": "overbudget-earlier-object-colon-before-percent",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/42",
+      "promotion": true,
+      "reference_sha256": "c3a2e716641ad98b1423c0db7069e49f850e1f5c8609dbd90293fdfb693000ae",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Number",
+        "position": null,
+        "site": "ObjectMemberColon"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "ae1d8aeae826f59b0b0507c2ef230f2f124f1b87745ee16625f1a4fc6a4ac6ff",
+      "companion_sha256": "d3a08f98a6374fa4aa3ef398e97a6a10fc820630403f43cb0fceaa4b1b7b9f4d",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 22,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "document_bytes": 32035,
+      "document_sha256": "a046318adbb5a3882e2b48a15810f1e1ee7915933be25e9534972a29911179c9",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "fixture_contract": "native-graphql-parser-required-value-precedence-v1",
+      "frozen_parse_sha256": "60636af6dddfc01a33a55dce492564950da094ba5aff014d62fd7effd7b966f6",
+      "historical_matching": false,
+      "index": 44,
+      "legacy_sha256": "43e1991e1b49b0592971dced93c3cc9ec9cf086824a0319e9697901756d998ab",
+      "legacy_variable_flag": false,
+      "name": "overbudget-closer-object-name",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/44",
+      "promotion": true,
+      "reference_sha256": "f1a4e4b98b8d08c4f57c7ae1a7ba6e17fcf2fec779b99db7cca2bb3657155558",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Name",
+        "first": null,
+        "found": ":",
+        "position": null,
+        "site": "ObjectMemberName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "case_sha256": "5ea7a7a296d06cd2fc14b431334ad2a34808a3633d4741984b7ba2ce2e24efd2",
+      "companion_sha256": "29d83bc6a3830125ab62aa7f0f56461c10e83a8d018940d9643bf7348e6b0ae6",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 27,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Int '1'."
+      },
+      "document_bytes": 32039,
+      "document_sha256": "30fbe6fef0459cb9c782862cc236162a1c034db8af3c814e5d1202fcaad8a9eb",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "fixture_contract": "native-graphql-parser-required-value-precedence-v1",
+      "frozen_parse_sha256": "d8c68d369b71d8d2dbd8ee14e1bdbb2d71394953345c8ca97a62be090076fd0e",
+      "historical_matching": false,
+      "index": 45,
+      "legacy_sha256": "8f1215f379b234ffe7ee792cd2883f833e431f0cd643e054852f5f218cf04ce6",
+      "legacy_variable_flag": false,
+      "name": "overbudget-closer-object-colon",
+      "ordinary_policy": true,
+      "origin": "historical",
+      "pointer": "/cases/45",
+      "promotion": true,
+      "reference_sha256": "4651e51c4fdefb7f5b0c817c68b6ee591301d1c2b8634fce380143ce8c0eabce",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Number",
+        "position": null,
+        "site": "ObjectMemberColon"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 73,
+      "case_sha256": "10cc7bf29c7488d685974689045ba81c41c31b668a37c2fd7b80edd468c15ba3",
+      "companion_sha256": "f8762c9634a0f016ca2760edc3d072e1ec2ab483cf90fb529f72bd8890d0b72b",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '}'."
+      },
+      "document_bytes": 21,
+      "document_sha256": "399302d29ee44daef1e829678e39ed46dfbf336fe8308d77a1e9c7baa2246263",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "aa63a3e25f603adc98956630dc84f440229d8957fe89cc7ff55a1cde7f56fdb4",
+      "frozen_receipts_sha256": "22b1e29ec3b5ea0d283a16b83a10a0161848d4dbdd26233f8f63adbaa187e7df",
+      "historical_matching": true,
+      "index": 73,
+      "legacy_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "legacy_variable_flag": false,
+      "name": "missing-digit-earlier-unowned-0",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/73",
+      "promotion": false,
+      "raw_receipts_sha256": "8830bc1c5a764e68cd7c455b7c0e6cf3a41842a2ef757100dd1ceabce84b093e",
+      "reference_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "}",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 74,
+      "case_sha256": "da5b9083cd3125f880626e9505d5a4e80e37b1daff8957ec73a0ec7f62da436e",
+      "companion_sha256": "2917300e0ede7cc3671a354b7294f037a013176fc3e2fd00753f8ad7d952ed91",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '}'."
+      },
+      "document_bytes": 32030,
+      "document_sha256": "e685011e99b9e89ef2d14754235f745c7cdb11ca1522d2b86175c3690323392e",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "aa63a3e25f603adc98956630dc84f440229d8957fe89cc7ff55a1cde7f56fdb4",
+      "frozen_receipts_sha256": "dccdde1234ec92778524dc3419c0fe1019ed75768eb1fd119ab4a40cad79860b",
+      "historical_matching": false,
+      "index": 74,
+      "legacy_sha256": "8f6f42151f924a487aee86da04715dc21879cf2e849f385b02f9e07564cf636f",
+      "legacy_variable_flag": false,
+      "name": "missing-digit-earlier-unowned-0-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/74",
+      "promotion": true,
+      "raw_receipts_sha256": "0963c4a9a54ec917ad4bf27675f5829b67e4d04d3ea02ac27c6f14f4dbae8338",
+      "reference_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "}",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 75,
+      "case_sha256": "ba5376bfcf9547b7e3dd339b1a58609644a05f36c2edbc12f8c12b6b5c255dac",
+      "companion_sha256": "0dfb4fa92e5e72a26e79b1be2201d39e6fd9936b48801d75a9e9ca6074b26a5c",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '!'."
+      },
+      "document_bytes": 22,
+      "document_sha256": "3def077f887a6c985d99fa9d0896180fb8f45148a339aac73def08ed13861e4b",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "a5f34f88365b24e1fa5b19af04aec031c2627013ae8f8b576f922ed67dd065e6",
+      "frozen_receipts_sha256": "425b9f36fd24da4fe7b77c5487505061ff2d28f1cb03f9426c694353627a00d7",
+      "historical_matching": true,
+      "index": 75,
+      "legacy_sha256": "78ef35075e9bccbcbe4af590728686a5038b4e04f80e7ca230edac547265de4f",
+      "legacy_variable_flag": false,
+      "name": "missing-digit-earlier-unowned-1",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/75",
+      "promotion": false,
+      "raw_receipts_sha256": "8fe5995d7591e3ac58a1472a973d2e65be24368a9a3ed0ecbe8b515539367ad3",
+      "reference_sha256": "78ef35075e9bccbcbe4af590728686a5038b4e04f80e7ca230edac547265de4f",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "!",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 76,
+      "case_sha256": "98faa9aabe7eb7ead49bfc02d8a07f7c4f2dcee846398eaef810f8c6bb3ed85f",
+      "companion_sha256": "fc07d46e5cd3092a14faebccf01a75ddb20335d40f9d167c5c65966ffa5066df",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '!'."
+      },
+      "document_bytes": 32031,
+      "document_sha256": "dce05f4284d23ee72afc58e580d6c0c535fdc91056f0af964e008aee462cea9a",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "a5f34f88365b24e1fa5b19af04aec031c2627013ae8f8b576f922ed67dd065e6",
+      "frozen_receipts_sha256": "555de6dd0fb62c5902d57e70ff260755f7cb38f8b889ba0b56b12ca80693d224",
+      "historical_matching": false,
+      "index": 76,
+      "legacy_sha256": "93acbdad9ab2f318d2c016345e0c4b7eb61d7ea36bbde48d6710e819a4447f8b",
+      "legacy_variable_flag": false,
+      "name": "missing-digit-earlier-unowned-1-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/76",
+      "promotion": true,
+      "raw_receipts_sha256": "01942d322d3d7cdf2347115ee3015953ab602ff0ff0c84c8e19975fd090441a1",
+      "reference_sha256": "78ef35075e9bccbcbe4af590728686a5038b4e04f80e7ca230edac547265de4f",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "!",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 77,
+      "case_sha256": "4346381161f5a58973efc507b1b5591ad79435404fa975d5e0027604017f06b4",
+      "companion_sha256": "aab86c042a0f47e95795c1dd1ccd7be780bd508deb3bd42b3bbc618dd988cd9a",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 8,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "document_bytes": 30,
+      "document_sha256": "932b0aa64429ca43d6a2479a206fb12b1812458ba170e5032dff7ab22f2865a5",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "3c86c0dc6d0e05f160fe730ae84ca8219b7e8b807e42abec0b1c8ddb241c3480",
+      "frozen_receipts_sha256": "28040e655cc000c0ad06aded0e5df77c910d3c29925ce7a077db00d99eb63457",
+      "historical_matching": false,
+      "index": 77,
+      "legacy_sha256": "08452fb3bb0bada94292e54ead5aba9d0e80add52d8e8f407c37d2c7ce46c16e",
+      "legacy_variable_flag": false,
+      "name": "missing-digit-earlier-unowned-2",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/77",
+      "promotion": true,
+      "raw_receipts_sha256": "0802a10a7e41a0d605b00de7fc8ffa14c7e0d7ab4cd0d4189ceb46febaf101c6",
+      "reference_sha256": "a46fa14c624b546f3a86adfc39383a4fdcb1e02f77bdf5c33c470d2eee79c245",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": true,
+        "found": ":",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 78,
+      "case_sha256": "5c48ec7e441685be549dd910a277d131d65ab529a60e9e27ffdbe36407e631bd",
+      "companion_sha256": "b884e6f1bac206344b35cc1432d5c357e2bd995e86eb4fac405b150aa3d780e1",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 8,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "document_bytes": 32039,
+      "document_sha256": "c73b3ee84197df718e3d4089f49116a9456a765a767454557670c6a7eace5244",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "3c86c0dc6d0e05f160fe730ae84ca8219b7e8b807e42abec0b1c8ddb241c3480",
+      "frozen_receipts_sha256": "610569d2ce6c283d93deab3003857dc9069f153fc506c72d9dbb0b0d3bebcc96",
+      "historical_matching": false,
+      "index": 78,
+      "legacy_sha256": "b963492b13398a310b4773da6795b1ff8d992702ba252567e6069336fe629a74",
+      "legacy_variable_flag": false,
+      "name": "missing-digit-earlier-unowned-2-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/78",
+      "promotion": true,
+      "raw_receipts_sha256": "495240e4b0f9629867fc0c0b83a715febd4eb3928f0b0b3f7346ab5b0e91159a",
+      "reference_sha256": "a46fa14c624b546f3a86adfc39383a4fdcb1e02f77bdf5c33c470d2eee79c245",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": true,
+        "found": ":",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 79,
+      "case_sha256": "09f98b451a193606423eb85aa8abb524d5cf614ab79b0713e2b631e1b1161c7e",
+      "companion_sha256": "e4f852a4ab33805b319937e46b2a79ffb8c3804fd5619209f0c96354df761cf6",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 20,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Int '1'."
+      },
+      "document_bytes": 42,
+      "document_sha256": "afd5ffcc96f559718b70cdf064f64309b3c2f0041be417b89eb37db575505c66",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1757ab296b1cba24b6a1896c1498d824ae45260f9ba1cff1f106eb7a6788bd86",
+      "frozen_receipts_sha256": "d4c63b9e06114a5e6bb58ae29317a4e16e94a5f9f81067a501f882cc506b7ee0",
+      "historical_matching": false,
+      "index": 79,
+      "legacy_sha256": "35c3cf73d050fb8074a9552eb131f885583d0de43c7294d2a6fe1bbc72fd3ba5",
+      "legacy_variable_flag": false,
+      "name": "missing-digit-earlier-unowned-3",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/79",
+      "promotion": true,
+      "raw_receipts_sha256": "252e04407c505c5be32b592393fbf39861ea972045f7f0df8637155439a5ff9e",
+      "reference_sha256": "c3a2e716641ad98b1423c0db7069e49f850e1f5c8609dbd90293fdfb693000ae",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Number",
+        "position": null,
+        "site": "ObjectMemberColon"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 80,
+      "case_sha256": "f1dc8f50d0d19695873285e2209a642c76c1a42f4d38eee083822cd671c02086",
+      "companion_sha256": "0969cb826e2ee648d7b105a145b1076a30b25edce56c68c59d0602aa536f7082",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 20,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Int '1'."
+      },
+      "document_bytes": 32051,
+      "document_sha256": "7ccf2d367a912abcb506b87709c92e40e056e53124a7b7cfa037a08d4718007b",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1757ab296b1cba24b6a1896c1498d824ae45260f9ba1cff1f106eb7a6788bd86",
+      "frozen_receipts_sha256": "283a67901866b69c17eef1078ebcef269816e66c8de5be6b1c2e77cae55499d0",
+      "historical_matching": false,
+      "index": 80,
+      "legacy_sha256": "373d15b1704e7b6dfe395a14da0b88d618a357e93f01688f4f04fc2e9cde36a1",
+      "legacy_variable_flag": false,
+      "name": "missing-digit-earlier-unowned-3-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/80",
+      "promotion": true,
+      "raw_receipts_sha256": "c561d315155be09d702995cc7cf756c6e399ae9957cd0efa13e709d6801c15aa",
+      "reference_sha256": "c3a2e716641ad98b1423c0db7069e49f850e1f5c8609dbd90293fdfb693000ae",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Number",
+        "position": null,
+        "site": "ObjectMemberColon"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 81,
+      "case_sha256": "c0c72aabd3b65792213708a6a059afa3fa715d0e348108c68c161b236f3e325e",
+      "companion_sha256": "89ed1095279d5fe41d1151deb3ae7638abf57c75ec885cf88f714f299abdf2ab",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 16,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 36,
+      "document_sha256": "2eb1e312fe5f5236639fe0e3625ccc35ec529570b525b0ab6de01939317877f0",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "c1ca669c77698600953f07ffe400f0ad3c176c444641bdd4430bf548d9f8fa90",
+      "frozen_receipts_sha256": "1d2b5555f2c74a6554f99476d228d21377bb82e2803885c9e43c65c9ce50a370",
+      "historical_matching": false,
+      "index": 81,
+      "legacy_sha256": "f14ecc84294f6fed52bbe5b116eedb0314784af280bd8b51122191dd0417e6d4",
+      "legacy_variable_flag": false,
+      "name": "missing-digit-earlier-unowned-4",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/81",
+      "promotion": true,
+      "raw_receipts_sha256": "31665ed7c8029b29baeba363a9a77c86e134befad6374c2b910165ff0a3c626d",
+      "reference_sha256": "5a8b285507bde07c2baa66bf3eb64b98337df6f048623292b23e2aa90935addb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 82,
+      "case_sha256": "d3c1d6d0635e6071bb42864640d8bd769bbab9104b0b7dcbb7fa05055218e1bd",
+      "companion_sha256": "fda86c35e3532ec279a05a024ce8e384e3e0c50eb768d87b24725817e20d6fd1",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 16,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 32045,
+      "document_sha256": "e37f0d55bc15eff55238b6df9a0cd12803b6bb56592cb91bf7e69b7353a65197",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "c1ca669c77698600953f07ffe400f0ad3c176c444641bdd4430bf548d9f8fa90",
+      "frozen_receipts_sha256": "db71896c531aa771bad0e456ff505dbdb5de000653dcf6d2792358fcac2061d3",
+      "historical_matching": false,
+      "index": 82,
+      "legacy_sha256": "271c193c13abd7d0de436c8e236b8e4e4b227c7676922d149ca178c3abf9167d",
+      "legacy_variable_flag": false,
+      "name": "missing-digit-earlier-unowned-4-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/82",
+      "promotion": true,
+      "raw_receipts_sha256": "bd917aa77a7d7be894fc2d94cc4317b803757abff6e3b7b61129c1aac33ca9ab",
+      "reference_sha256": "5a8b285507bde07c2baa66bf3eb64b98337df6f048623292b23e2aa90935addb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 83,
+      "case_sha256": "6f4b7c343a854c5df72b92760d87cc9070a19b07e521ff86ac029cf411dcf7f6",
+      "companion_sha256": "0926a20122e0d6b258a88aca6461bc1005e41ffeadf025faa47373febbfbf360",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 19,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 43,
+      "document_sha256": "467b7264a0a46949355c25d73be8b80ba3ac1896e38cd3deb04699065917b82d",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1e512455fe7dc999cf5a77711122a187cf52491a73dc8522b652acd71f840fb5",
+      "frozen_receipts_sha256": "293f63f0ca6ee1426175489a6a38318c6fb9ac59d1c6a4f93cb11eb043cf96aa",
+      "historical_matching": false,
+      "index": 83,
+      "legacy_sha256": "c13a0e22605327a77123763ac04da01a5c1faf36219c75f38a3a8fbb720c3766",
+      "legacy_variable_flag": false,
+      "name": "missing-digit-earlier-unowned-5",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/83",
+      "promotion": true,
+      "raw_receipts_sha256": "ea934ce1b2679fd23888233cc1157a8d7b123a740b2ddf7747a3ab1ba845267b",
+      "reference_sha256": "3c529672cf42e300f551182f0d30c67bac52b580a37ce5ef01be926a3feb26cb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 84,
+      "case_sha256": "0ddb2363b42928ccde68fb8a8d3aa6610ac20650622bfec2e74449e9928978e7",
+      "companion_sha256": "c199a892e24b05a47c779155a20c50708bb0d229bbed7b12c689b54627627f36",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 19,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 32052,
+      "document_sha256": "7973c12dabc1c698e0899f0397218506cf40c9c0608396e1d9d0a801e3da0436",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1e512455fe7dc999cf5a77711122a187cf52491a73dc8522b652acd71f840fb5",
+      "frozen_receipts_sha256": "7c4c821f199644e4ccfbfa28c5b1ab288a696479655b66fdd332c7aef40c2732",
+      "historical_matching": false,
+      "index": 84,
+      "legacy_sha256": "f36cb21e58834258e145c467c76a6cc4ad126d0eb74b03653958053e54d29dca",
+      "legacy_variable_flag": false,
+      "name": "missing-digit-earlier-unowned-5-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/84",
+      "promotion": true,
+      "raw_receipts_sha256": "2e1e80ee4e2e6b43427f028992510c6bef283d5ed9cbe4d89de79500955694f1",
+      "reference_sha256": "3c529672cf42e300f551182f0d30c67bac52b580a37ce5ef01be926a3feb26cb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 110,
+      "case_sha256": "4b3079b5582444d3e3b82fc0a36014702d0b46850523070505efc2ee88319761",
+      "companion_sha256": "f8762c9634a0f016ca2760edc3d072e1ec2ab483cf90fb529f72bd8890d0b72b",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '}'."
+      },
+      "document_bytes": 20,
+      "document_sha256": "afd7ef2b49a0985be5f0d8de94b5b009759e7927e5d98f2dece909818251c558",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "aa63a3e25f603adc98956630dc84f440229d8957fe89cc7ff55a1cde7f56fdb4",
+      "frozen_receipts_sha256": "a32c42eae182ad58535093f43471280459bbf2647735237c40dcba702186aa7f",
+      "historical_matching": true,
+      "index": 105,
+      "legacy_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "legacy_variable_flag": false,
+      "name": "continuation-earlier-unowned-0",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/105",
+      "promotion": false,
+      "raw_receipts_sha256": "d38c9e205716e597ba644ad671806949727f625327e898dd9b4759270dc2073e",
+      "reference_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "}",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 111,
+      "case_sha256": "7ea895565b9ff4c57a2af530df42aed13434fe79e976b03358ae6a10684eca1a",
+      "companion_sha256": "8330437db7660880651f2be9c0d8d2e838be01c7ebcb82bed42a22c48708227e",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '}'."
+      },
+      "document_bytes": 32029,
+      "document_sha256": "f9257b871f561110e2200a20eb4bf1931ed77d6cd3b973abea9efe918dacd31c",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "aa63a3e25f603adc98956630dc84f440229d8957fe89cc7ff55a1cde7f56fdb4",
+      "frozen_receipts_sha256": "ff4afde9fae69e8958484855ac3cecf42fdd983741dd777b2c22811b2e4f913f",
+      "historical_matching": false,
+      "index": 106,
+      "legacy_sha256": "b139b81cff4e9c49e583a610bac92f37e78cb23acd82aede639b8a957056542e",
+      "legacy_variable_flag": false,
+      "name": "continuation-earlier-unowned-0-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/106",
+      "promotion": true,
+      "raw_receipts_sha256": "dac8149893573f03f509f86d2efecb7fe2a02a7e7ed62cd21e69f32c3674dd69",
+      "reference_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "}",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 112,
+      "case_sha256": "14ef8476f86d2fd1a1e20b5c261e8fae0433111b3f74d2d5aa182e94ebe3fe98",
+      "companion_sha256": "0dfb4fa92e5e72a26e79b1be2201d39e6fd9936b48801d75a9e9ca6074b26a5c",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '!'."
+      },
+      "document_bytes": 21,
+      "document_sha256": "628dc2ebad84fcdd7786f87fed4f2a427bc34f0dc558e1a4319804ed0d8b26d4",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "a5f34f88365b24e1fa5b19af04aec031c2627013ae8f8b576f922ed67dd065e6",
+      "frozen_receipts_sha256": "cd7c94d40172760f8b4802e8858a64d9ade5e3616a9b0eec887e1bfe34c51585",
+      "historical_matching": true,
+      "index": 107,
+      "legacy_sha256": "78ef35075e9bccbcbe4af590728686a5038b4e04f80e7ca230edac547265de4f",
+      "legacy_variable_flag": false,
+      "name": "continuation-earlier-unowned-1",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/107",
+      "promotion": false,
+      "raw_receipts_sha256": "90b0c449e2fc472336e56b38d037f2e774733b56843f01a90bb572e6f664760b",
+      "reference_sha256": "78ef35075e9bccbcbe4af590728686a5038b4e04f80e7ca230edac547265de4f",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "!",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 113,
+      "case_sha256": "19419fef85256904b987d17767bceff645432d42f177bb37ec0ead764d7e8f8c",
+      "companion_sha256": "43658de43863bb8a8d939d83da437342abbb816fbe7c63e9cc661acf42e2b550",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '!'."
+      },
+      "document_bytes": 32030,
+      "document_sha256": "906ce7e55483a7bd9cbb218d32210aea57b109266d133a2e556702a420877288",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "a5f34f88365b24e1fa5b19af04aec031c2627013ae8f8b576f922ed67dd065e6",
+      "frozen_receipts_sha256": "ddd4929947e62788794eccc65bdb60424634d65cefbc9c97d6122f2f085fb6f6",
+      "historical_matching": false,
+      "index": 108,
+      "legacy_sha256": "ee285996d440bdeec0eb873abc7c8c10b261b66974dcf8f992c95ec16e7f1f86",
+      "legacy_variable_flag": false,
+      "name": "continuation-earlier-unowned-1-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/108",
+      "promotion": true,
+      "raw_receipts_sha256": "f9fd6c3b9ab79da8f114b6930b2e8a23d8e70e65e9a7fb3172207e0fdccf508b",
+      "reference_sha256": "78ef35075e9bccbcbe4af590728686a5038b4e04f80e7ca230edac547265de4f",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "!",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 114,
+      "case_sha256": "f8489fb3a2f0b2be314b65897678ebbbc8f98060d66bb81efad418799eacc459",
+      "companion_sha256": "989104b241cd69a12eb65908ee9f70d55eb27c78c8f705be7eeb160e5c7e5773",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 8,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "document_bytes": 29,
+      "document_sha256": "ea24934785178b3ab2577e0411dea57cb96781a7baa586937dea68c5988c22c6",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "3c86c0dc6d0e05f160fe730ae84ca8219b7e8b807e42abec0b1c8ddb241c3480",
+      "frozen_receipts_sha256": "f6d2a07f03ae4c5e156cc5fea186cb6c320d007825e07c5f91affb76c4c94d48",
+      "historical_matching": false,
+      "index": 109,
+      "legacy_sha256": "6c341b6f556b1f9a5751e8e34f62832c314b1138f8202fe8c74382c63874e8e2",
+      "legacy_variable_flag": false,
+      "name": "continuation-earlier-unowned-2",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/109",
+      "promotion": true,
+      "raw_receipts_sha256": "ed9fc3889e4bad71f094e3e4df914a4b5d2948cc38ba746ae7337a1967311461",
+      "reference_sha256": "a46fa14c624b546f3a86adfc39383a4fdcb1e02f77bdf5c33c470d2eee79c245",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": true,
+        "found": ":",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 115,
+      "case_sha256": "40133c241a66ec38ed9113e5217c4df9b5f5c5b0ee97441288df3ce5adda7bdb",
+      "companion_sha256": "3c6caf910db7ffb925da7b5264a459dc97b51376d282d0c3eaca3b38299eba69",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 8,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "document_bytes": 32038,
+      "document_sha256": "e19cd3dd0a220d3d8f15981296254f44560f9ba544bd8944a7ae6a7c1a7f2beb",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "3c86c0dc6d0e05f160fe730ae84ca8219b7e8b807e42abec0b1c8ddb241c3480",
+      "frozen_receipts_sha256": "64f1f5efe9cc555d2bf02999fcbd554fbbb71bd7e02e842b99246390e1594628",
+      "historical_matching": false,
+      "index": 110,
+      "legacy_sha256": "4b0b9aaf204633a9d5fb5999710165df0b21f4c5f693adcc1a5a60af18031e1a",
+      "legacy_variable_flag": false,
+      "name": "continuation-earlier-unowned-2-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/110",
+      "promotion": true,
+      "raw_receipts_sha256": "fb2421a3e6a162829d3aa8e774c724a133f30bff019e455745cb32238cb7e1a3",
+      "reference_sha256": "a46fa14c624b546f3a86adfc39383a4fdcb1e02f77bdf5c33c470d2eee79c245",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": true,
+        "found": ":",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 116,
+      "case_sha256": "267c1a11a82710e3bc8b17ce4135b669c311a17fc7eb00c9cf5e4c849fb16857",
+      "companion_sha256": "b0e927446f35618e89faed04895d50ba2a4b390c33466254c1ad38a36e86b4b8",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 20,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Int '1'."
+      },
+      "document_bytes": 41,
+      "document_sha256": "de09be8fdb54446b6b80dffc4b86b4d5e540ebe52c2913788402fbe4062b39ea",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1757ab296b1cba24b6a1896c1498d824ae45260f9ba1cff1f106eb7a6788bd86",
+      "frozen_receipts_sha256": "71411b40fe154795a5cfe8c1fd07e163e13f3c4dc3f6a1e9de3e99d693ce52ee",
+      "historical_matching": false,
+      "index": 111,
+      "legacy_sha256": "72aaaf471af99c8d30f187fe7024bda5f5d65362149be0fcf8b2c7455a26fcee",
+      "legacy_variable_flag": false,
+      "name": "continuation-earlier-unowned-3",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/111",
+      "promotion": true,
+      "raw_receipts_sha256": "3a1939191555d2f1567b065a83b961a8b6c86315d71b421b0044d513f21fb3e3",
+      "reference_sha256": "c3a2e716641ad98b1423c0db7069e49f850e1f5c8609dbd90293fdfb693000ae",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Number",
+        "position": null,
+        "site": "ObjectMemberColon"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 117,
+      "case_sha256": "b72e4b08cd1c22b521c5a0b77a194570452d0763a5f4b5d50053202076015806",
+      "companion_sha256": "e6eda76ce600859b61839ded01240f075c3a8f0c87a9bf8f81ca2edf79c62b41",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 20,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Int '1'."
+      },
+      "document_bytes": 32050,
+      "document_sha256": "e410ae7032604501902d92a2a633a167feb8dae396861257d2fc26bd94f76305",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1757ab296b1cba24b6a1896c1498d824ae45260f9ba1cff1f106eb7a6788bd86",
+      "frozen_receipts_sha256": "a2dcb548cfb75fb36b15f0dbb9a71e924a874b6c22143af96e4f7daed74f0738",
+      "historical_matching": false,
+      "index": 112,
+      "legacy_sha256": "00794569d31682d82b1be8df2eb00cc34e5352e71176447861ee2f7eb7594c7a",
+      "legacy_variable_flag": false,
+      "name": "continuation-earlier-unowned-3-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/112",
+      "promotion": true,
+      "raw_receipts_sha256": "33469ce375d6d3385bd1d7b9358427066aa45802a6e0925f356b8115820e4e37",
+      "reference_sha256": "c3a2e716641ad98b1423c0db7069e49f850e1f5c8609dbd90293fdfb693000ae",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Number",
+        "position": null,
+        "site": "ObjectMemberColon"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 118,
+      "case_sha256": "4de2fa3dde1a2bf0b5d075a5102db48cfefb7bdb29516d201f824514c8961992",
+      "companion_sha256": "326efc64110bffd24a44457189630d7c9ce6bd715379f03fd9fa868b35a4fb19",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 16,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 35,
+      "document_sha256": "0509e32edf3ca72c9780210b6865b288a8db509e77d11583c9cc3f215fc25d9f",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "c1ca669c77698600953f07ffe400f0ad3c176c444641bdd4430bf548d9f8fa90",
+      "frozen_receipts_sha256": "6b6a0a5d626a348875cbc1d8c40a313841f659a9924e284da7ad0d0ab25e59a4",
+      "historical_matching": false,
+      "index": 113,
+      "legacy_sha256": "380d347120979bb6c6a5c8265cca7afe4068c76f2e19e574e68f6c197be51472",
+      "legacy_variable_flag": false,
+      "name": "continuation-earlier-unowned-4",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/113",
+      "promotion": true,
+      "raw_receipts_sha256": "3f243d889b91373be111a1cf1fde38eddd988c6e3dd1a11618ac6a1943fa4619",
+      "reference_sha256": "5a8b285507bde07c2baa66bf3eb64b98337df6f048623292b23e2aa90935addb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 119,
+      "case_sha256": "31dca5e73ed538b45e3330b851346a881d834993e07094afa96197b27d696cf5",
+      "companion_sha256": "c199a892e24b05a47c779155a20c50708bb0d229bbed7b12c689b54627627f36",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 16,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 32044,
+      "document_sha256": "78205822deefdee9b3d96552e61cddc20ff543e10f96332708801a6b47c86796",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "c1ca669c77698600953f07ffe400f0ad3c176c444641bdd4430bf548d9f8fa90",
+      "frozen_receipts_sha256": "25f9323912a500c7739a41a86d4fa46c2a81064cf43f151abfa001986f0a4d90",
+      "historical_matching": false,
+      "index": 114,
+      "legacy_sha256": "f36cb21e58834258e145c467c76a6cc4ad126d0eb74b03653958053e54d29dca",
+      "legacy_variable_flag": false,
+      "name": "continuation-earlier-unowned-4-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/114",
+      "promotion": true,
+      "raw_receipts_sha256": "7a93ac1997f882fcf6a3b700e874a39abad8b20528bee61ffb109ac14d53bc54",
+      "reference_sha256": "5a8b285507bde07c2baa66bf3eb64b98337df6f048623292b23e2aa90935addb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 120,
+      "case_sha256": "7de36e6e02ec020d6b1eaaf70d7b1a785fb05e461bc6db560a49bf07b78d97c3",
+      "companion_sha256": "290de62b322a90d3e82a38e56fec1df8208bd8f8e98142c69014524c68a36ef8",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 19,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 42,
+      "document_sha256": "d02ddc1e26a0142346d9aaeac3c7bf2d12b5579a03664d5bf84ac4193a0d580c",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1e512455fe7dc999cf5a77711122a187cf52491a73dc8522b652acd71f840fb5",
+      "frozen_receipts_sha256": "b6a51a22ab6f7afbe3e2e649a444428278c8366ba791ee9a1b460e59eceb745b",
+      "historical_matching": false,
+      "index": 115,
+      "legacy_sha256": "f801fc3cf01ffe21a1218c858705cf34a7dfc7fe59ecd6d698a6eae95ae8a5f8",
+      "legacy_variable_flag": false,
+      "name": "continuation-earlier-unowned-5",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/115",
+      "promotion": true,
+      "raw_receipts_sha256": "ec6b1e13d447f709f5bed590a7fa5b183ec9538863521c98bb45e62edacf2ffa",
+      "reference_sha256": "3c529672cf42e300f551182f0d30c67bac52b580a37ce5ef01be926a3feb26cb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 121,
+      "case_sha256": "26a188a1dac0d6f75597b47d1cfa72d27bdf12c94a8132de54876a0e4702065f",
+      "companion_sha256": "39ebd9e661795235e389e0ebc963d0a309c07518baa96cd23d536d68162c659c",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 19,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 32051,
+      "document_sha256": "026957a95f9d71efd9653c4c35437b2c7b6be2811d96d6b7be7eef2a4f0e899f",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1e512455fe7dc999cf5a77711122a187cf52491a73dc8522b652acd71f840fb5",
+      "frozen_receipts_sha256": "c8327879564c7ea89a419ef921bd541f5ffcb37faa29860a6e49f9f1ac45c636",
+      "historical_matching": false,
+      "index": 116,
+      "legacy_sha256": "7c98a35a5a675acc516d2b91ffe77b56599c8022c51b63fc0896b51fa0e26f2a",
+      "legacy_variable_flag": false,
+      "name": "continuation-earlier-unowned-5-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/116",
+      "promotion": true,
+      "raw_receipts_sha256": "ed49fc657a3615402e2318b13efaff4c22d7170e3082955bff35b737d70e34de",
+      "reference_sha256": "3c529672cf42e300f551182f0d30c67bac52b580a37ce5ef01be926a3feb26cb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 147,
+      "case_sha256": "4ce30211aef3037d6d4bb7c3641a80da54e1df74b78d884dfa37db240bc7851b",
+      "companion_sha256": "f8762c9634a0f016ca2760edc3d072e1ec2ab483cf90fb529f72bd8890d0b72b",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '}'."
+      },
+      "document_bytes": 20,
+      "document_sha256": "dfd238cfb06f75f10dcf9bc37415b62bc46814299267a39d2f4e38e9899b4c3e",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "aa63a3e25f603adc98956630dc84f440229d8957fe89cc7ff55a1cde7f56fdb4",
+      "frozen_receipts_sha256": "d9e0fe4b86ccf32c58f32844f0eb68a7ee0fa56a65dfbc90a9da9a3f72477330",
+      "historical_matching": true,
+      "index": 137,
+      "legacy_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "legacy_variable_flag": false,
+      "name": "single-quote-earlier-unowned-0",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/137",
+      "promotion": false,
+      "raw_receipts_sha256": "aacf2730a74ad562273f61e1fded9bfafe3bff2928dc76804d0d64126e47d2c9",
+      "reference_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "}",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 148,
+      "case_sha256": "6ada6390a27aac8e2c37c2928c0f43615c999a9d7ea89b09c65dac8abf9f73a4",
+      "companion_sha256": "ecc71d745f11bdb8ccdffb4948c5345e6b11e1a5e315698aa77028cf7fda5cc6",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '}'."
+      },
+      "document_bytes": 32029,
+      "document_sha256": "877e602d69633769f8e3d2121bf8b8b9086c9cf75ad77369d90257f6b1037887",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "aa63a3e25f603adc98956630dc84f440229d8957fe89cc7ff55a1cde7f56fdb4",
+      "frozen_receipts_sha256": "f5532d92e47c49a8a8cc39f916b8975c7b516a6fae19ad6f088f1e3f138c0c2e",
+      "historical_matching": false,
+      "index": 138,
+      "legacy_sha256": "fb5dd094087b5c5333d5893c34ea35886ae78a40b0ee002df7dc03d2534352da",
+      "legacy_variable_flag": false,
+      "name": "single-quote-earlier-unowned-0-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/138",
+      "promotion": true,
+      "raw_receipts_sha256": "93cc2a95f83a5d95cbc4add2a5577001c126da3d70a565946d5d28322836e0f9",
+      "reference_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "}",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 149,
+      "case_sha256": "e9c57493d2630866a5b5c2928889af4fd544e434b44f5aec10e258fceaaff3c6",
+      "companion_sha256": "0dfb4fa92e5e72a26e79b1be2201d39e6fd9936b48801d75a9e9ca6074b26a5c",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '!'."
+      },
+      "document_bytes": 21,
+      "document_sha256": "bc07bbf48932d096c3cde73fa9530aa267b4c9cd2ca82c0537a16455529335d9",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "a5f34f88365b24e1fa5b19af04aec031c2627013ae8f8b576f922ed67dd065e6",
+      "frozen_receipts_sha256": "7c77d0692c1307dade5edc3b5b0e5e01461c93664d02ce39e2db33e764cb6f57",
+      "historical_matching": true,
+      "index": 139,
+      "legacy_sha256": "78ef35075e9bccbcbe4af590728686a5038b4e04f80e7ca230edac547265de4f",
+      "legacy_variable_flag": false,
+      "name": "single-quote-earlier-unowned-1",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/139",
+      "promotion": false,
+      "raw_receipts_sha256": "87efb61548ed26e8e75ef1e97d35ede63f6a292f6c06e1a409ccffef82a28e3c",
+      "reference_sha256": "78ef35075e9bccbcbe4af590728686a5038b4e04f80e7ca230edac547265de4f",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "!",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 150,
+      "case_sha256": "5903acdd27b76dd9cd3749bccfa3a7f06d7ced19b49708de18ccb9d3bd6a00a9",
+      "companion_sha256": "54f4d40842c03ad6333877b888a659a48d182a2f42451550f507fc78ef3919f1",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '!'."
+      },
+      "document_bytes": 32030,
+      "document_sha256": "eeeebc601f51afa4b99917ef7d23866326c8e4feda0cadd64a03a104d38fb278",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "a5f34f88365b24e1fa5b19af04aec031c2627013ae8f8b576f922ed67dd065e6",
+      "frozen_receipts_sha256": "f62db809a13e5c646cd625ad8f4e8ad405b543a4e3ff17e8b37a72896c764230",
+      "historical_matching": false,
+      "index": 140,
+      "legacy_sha256": "7185400bf0ffb1ffb632d86230f35dc8cb184c70be4c78b12d618ff7aa111e6e",
+      "legacy_variable_flag": false,
+      "name": "single-quote-earlier-unowned-1-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/140",
+      "promotion": true,
+      "raw_receipts_sha256": "6533d1a5869b08416364f0f3f617e1f8f8dd8175d67b140f20b266829ce379d2",
+      "reference_sha256": "78ef35075e9bccbcbe4af590728686a5038b4e04f80e7ca230edac547265de4f",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "!",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 151,
+      "case_sha256": "8dc62b1ddc1348dc709e544a20a4b08b3d592df58a27115d1a480a533f81dc06",
+      "companion_sha256": "710bcbbad4e3f5126c1037ca5e132245fb7ed06610ddd4b6efb35d6eddb9047c",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 8,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "document_bytes": 29,
+      "document_sha256": "e061634d2524c4c0aaf34af90b5368e4a15bcc73ed628459ac66d331ac66b9df",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "3c86c0dc6d0e05f160fe730ae84ca8219b7e8b807e42abec0b1c8ddb241c3480",
+      "frozen_receipts_sha256": "4416bd139172d7a02518f8a4414e2ff90ccf05de757605052acbd2b96083c0b9",
+      "historical_matching": false,
+      "index": 141,
+      "legacy_sha256": "48cd7585e35d6821802f27beb9e9c6332391cabb66dfb86f678fec803eda78bd",
+      "legacy_variable_flag": false,
+      "name": "single-quote-earlier-unowned-2",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/141",
+      "promotion": true,
+      "raw_receipts_sha256": "257cd8a3621180108636ab1802a403b55fb8af6bfa552939fef8d715584fe1dd",
+      "reference_sha256": "a46fa14c624b546f3a86adfc39383a4fdcb1e02f77bdf5c33c470d2eee79c245",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": true,
+        "found": ":",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 152,
+      "case_sha256": "10537bc423608c49ba263b8666460ba2c82575069ce12809c895d886d591931b",
+      "companion_sha256": "248cc9a8ea2ff831ea8d21a2373fa22fd4727a25f3d9422f468cfe456aac432a",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 8,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "document_bytes": 32038,
+      "document_sha256": "9b2558030de08395450b510e82db1ba5bb781cc43d545df73ed5fe57af61af02",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "3c86c0dc6d0e05f160fe730ae84ca8219b7e8b807e42abec0b1c8ddb241c3480",
+      "frozen_receipts_sha256": "a0fa3aa1938672d563cf2142178e97e77a7facce9ef71783e1dd7cec0ac20d3c",
+      "historical_matching": false,
+      "index": 142,
+      "legacy_sha256": "25641b66efe4c012d2b49d2cc36b43a9b082d0b1ba0dde005937682c7288fd85",
+      "legacy_variable_flag": false,
+      "name": "single-quote-earlier-unowned-2-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/142",
+      "promotion": true,
+      "raw_receipts_sha256": "2bf410dd6962fca56ffafddd10dfd7af0f8d2e1713685cc669670042110563f6",
+      "reference_sha256": "a46fa14c624b546f3a86adfc39383a4fdcb1e02f77bdf5c33c470d2eee79c245",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": true,
+        "found": ":",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 153,
+      "case_sha256": "87774d64ede8369384c89fb7ebea5c54a8b644127ea99d5572aea593509d1c97",
+      "companion_sha256": "52c95a156357201ee2e692a1a40a677d038c90bda6bc958fe7459ba38803855e",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 20,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Int '1'."
+      },
+      "document_bytes": 41,
+      "document_sha256": "363483bed1fb499524ba5542f06ef4e0bf79a00781582e887629edf1d9a193be",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1757ab296b1cba24b6a1896c1498d824ae45260f9ba1cff1f106eb7a6788bd86",
+      "frozen_receipts_sha256": "ac1838f4ebe13438ac4ba6a8d399a69058b9c0c6f5a8c8e64472b6e87a64e921",
+      "historical_matching": false,
+      "index": 143,
+      "legacy_sha256": "5e09510bba6252e6c10a9952579099be15e6b0318f9e36cd1441596a4fcd9254",
+      "legacy_variable_flag": false,
+      "name": "single-quote-earlier-unowned-3",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/143",
+      "promotion": true,
+      "raw_receipts_sha256": "12735b14ec5667c36e6437ba5a3061b4d9a1166323b074dd15146f14653d49a3",
+      "reference_sha256": "c3a2e716641ad98b1423c0db7069e49f850e1f5c8609dbd90293fdfb693000ae",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Number",
+        "position": null,
+        "site": "ObjectMemberColon"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 154,
+      "case_sha256": "f195e6d942a303cb0a5af28905337ea6fcfb50e33bb5c1b5891dd6aa18543b53",
+      "companion_sha256": "0a6e665c8548739703e90208330411a54df72b531488e24af2ddab928807b1e7",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 20,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Int '1'."
+      },
+      "document_bytes": 32050,
+      "document_sha256": "2e6e8d145c1df74b731b0bf534501e88a76208794781c3f731d88ba96c9873e3",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1757ab296b1cba24b6a1896c1498d824ae45260f9ba1cff1f106eb7a6788bd86",
+      "frozen_receipts_sha256": "3d71d4013f465f3142b1392b868bea3395b46166198513f2cccb428732ec45d7",
+      "historical_matching": false,
+      "index": 144,
+      "legacy_sha256": "f61cfb5acfc95d6dc9343aea03844e6f9677eaa44808990ca74d08add0d47c2e",
+      "legacy_variable_flag": false,
+      "name": "single-quote-earlier-unowned-3-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/144",
+      "promotion": true,
+      "raw_receipts_sha256": "1ff54fcca45ee215568cbb0ce63372b95aea779ea4a37b522c63f18e1522470c",
+      "reference_sha256": "c3a2e716641ad98b1423c0db7069e49f850e1f5c8609dbd90293fdfb693000ae",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Number",
+        "position": null,
+        "site": "ObjectMemberColon"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 155,
+      "case_sha256": "2ed02880ad11912c209d0d170acb13ffc65351c0e7857d443e492a3b9b4c9bbd",
+      "companion_sha256": "e00d595636816856efa84627c82bf1199526ee3ade76cc62c42717a8e7c4567a",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 16,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 35,
+      "document_sha256": "c16fd715bc0c2e963620fb976c313cfc1891077af12af07c104575f724c8b0de",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "c1ca669c77698600953f07ffe400f0ad3c176c444641bdd4430bf548d9f8fa90",
+      "frozen_receipts_sha256": "3a49068f3a3829f0cdce07b59ad9d6f585d02639a52883786ac94ce596fc681d",
+      "historical_matching": false,
+      "index": 145,
+      "legacy_sha256": "b91e0a883bac9ea468465d5b0a6bd6d819e426207e94ab52079c138603bc9d31",
+      "legacy_variable_flag": false,
+      "name": "single-quote-earlier-unowned-4",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/145",
+      "promotion": true,
+      "raw_receipts_sha256": "e2de125d05c56340fc3404dced79331896ed6922c538ddc9dd9ce0cf7c405471",
+      "reference_sha256": "5a8b285507bde07c2baa66bf3eb64b98337df6f048623292b23e2aa90935addb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 156,
+      "case_sha256": "c19e4098a6a765586afa76de8ed4fe9cf5672508488b2de25b877be79ca327b0",
+      "companion_sha256": "a7beba75d0e32c9ef4924cc6c750e15f21188688c4907ac1f31d7a77fe933cb4",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 16,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 32044,
+      "document_sha256": "bdd38abfe6ab11c786e16e956fd7febb3e35fb034672505f0807108f3f802c93",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "c1ca669c77698600953f07ffe400f0ad3c176c444641bdd4430bf548d9f8fa90",
+      "frozen_receipts_sha256": "f4e35288345d0e341a2e44c3e620e761e1bea5aaf7d1e1975fd4413b9b6611d4",
+      "historical_matching": false,
+      "index": 146,
+      "legacy_sha256": "d02a29148d7cd31a630dc8c9fbe132686564c07c14d21437462b68534a8fdfd9",
+      "legacy_variable_flag": false,
+      "name": "single-quote-earlier-unowned-4-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/146",
+      "promotion": true,
+      "raw_receipts_sha256": "ac6ed8ca8a8a99dfa3790251f0404594553c6bae87bdca5151553e374f41a1e5",
+      "reference_sha256": "5a8b285507bde07c2baa66bf3eb64b98337df6f048623292b23e2aa90935addb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 157,
+      "case_sha256": "9a35008a86d71b3f329e46320db3ae1ad685f98f688e2ff8f0712fbfd08e63a1",
+      "companion_sha256": "f2c4fe61d459e4372830ac64d38e33851cfd54d15bfdc8671b3b5d0ce6b3e636",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 19,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 42,
+      "document_sha256": "345246e33fc53aac03e4c95b0236b9a5ce73ad5e48a944e3c0146f51ba95e9be",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1e512455fe7dc999cf5a77711122a187cf52491a73dc8522b652acd71f840fb5",
+      "frozen_receipts_sha256": "d1ac9e1f3894fd7c521a48290ab0abcae5011cb73fdbd4566f9c01cc9c2333a4",
+      "historical_matching": false,
+      "index": 147,
+      "legacy_sha256": "8a1bc80189a63ff415da717b5cd991ff494a5902fa2acf56f59da3c5b5175b79",
+      "legacy_variable_flag": false,
+      "name": "single-quote-earlier-unowned-5",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/147",
+      "promotion": true,
+      "raw_receipts_sha256": "43344c2cdbf964ba8ddd21ac7a5eefe46c92f03df7577315d5df20e93659bca1",
+      "reference_sha256": "3c529672cf42e300f551182f0d30c67bac52b580a37ce5ef01be926a3feb26cb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 158,
+      "case_sha256": "7c2b0b2ab897b78c3d0ada3b059b06858b59d53b153f874a24bfcd46f4272ee8",
+      "companion_sha256": "e16da76dc0ca5745430b619e31901ab06e08040dfdb3c71eb88f8d3a004e9945",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 19,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 32051,
+      "document_sha256": "85b9e5b6e753f3475647702b00dda16d22c24f4f3ec5b467142a21376791ae42",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1e512455fe7dc999cf5a77711122a187cf52491a73dc8522b652acd71f840fb5",
+      "frozen_receipts_sha256": "38538a419bc074fb1d5a378be3cec7ceb8dcd782d9883d67e52310f25e68a8fe",
+      "historical_matching": false,
+      "index": 148,
+      "legacy_sha256": "a2d6c40f32ae03fb4789a82289b2c861aff11fe5c72c34480df1e88124102453",
+      "legacy_variable_flag": false,
+      "name": "single-quote-earlier-unowned-5-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/148",
+      "promotion": true,
+      "raw_receipts_sha256": "ce3901db0134545df60ab6e61d0376b0020d3a31108def910fece7c434d9a1e8",
+      "reference_sha256": "3c529672cf42e300f551182f0d30c67bac52b580a37ce5ef01be926a3feb26cb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 184,
+      "case_sha256": "e3b6f6c34023302cccf0d230fe6332a1e15ca0d9075912aae59a0a7cb84218f0",
+      "companion_sha256": "f8762c9634a0f016ca2760edc3d072e1ec2ab483cf90fb529f72bd8890d0b72b",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '}'."
+      },
+      "document_bytes": 27,
+      "document_sha256": "1c44609e7fa02aa5ec135636a6ba02263168aaead94641331da10cb783a8456d",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "aa63a3e25f603adc98956630dc84f440229d8957fe89cc7ff55a1cde7f56fdb4",
+      "frozen_receipts_sha256": "18ba7235ab99e5be6594855b636f9fae6fdebd00f67485961528ceceee484c0c",
+      "historical_matching": true,
+      "index": 169,
+      "legacy_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "legacy_variable_flag": false,
+      "name": "unicode-earlier-unowned-0",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/169",
+      "promotion": false,
+      "raw_receipts_sha256": "2eba62f2fa0c84395032950f5d5e2a8a8b232d275fcf531af528f82bda495ec4",
+      "reference_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "}",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 185,
+      "case_sha256": "7b0677e4cd4a4c7a4d19c880151fbae60605ee2f6eeceea6f4694460ad2a136c",
+      "companion_sha256": "94c3d549ad1f4ce09296be93820849aa57edd5e87de1d04b208f201f93228bd0",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '}'."
+      },
+      "document_bytes": 32036,
+      "document_sha256": "d437106856924d0914ef093cc312d44aea7637f142efc2f4fd261c8de47c9af9",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "aa63a3e25f603adc98956630dc84f440229d8957fe89cc7ff55a1cde7f56fdb4",
+      "frozen_receipts_sha256": "bb621833ff75f1761d8ca47fbf60eb0d03d438bbc5ee2b2a60afd5db64bedcf9",
+      "historical_matching": false,
+      "index": 170,
+      "legacy_sha256": "3e6565ef363c04d4473f3fc4c13ff04c2a2a721a09c78f7c43a0e695b379863e",
+      "legacy_variable_flag": false,
+      "name": "unicode-earlier-unowned-0-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/170",
+      "promotion": true,
+      "raw_receipts_sha256": "2998c936ea81979668d80d25eda239c86017e5acc1809170e60f5ce54384f80b",
+      "reference_sha256": "c427208444123aca3ba524e66abe5d313e48ebcc89291f3d4fa905a4255c52d5",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "}",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 186,
+      "case_sha256": "75d465801898eb956668e1b1847af20467d9df7c7f2d0076aed0a93d3cc11814",
+      "companion_sha256": "0dfb4fa92e5e72a26e79b1be2201d39e6fd9936b48801d75a9e9ca6074b26a5c",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '!'."
+      },
+      "document_bytes": 28,
+      "document_sha256": "8b46081ab88817c7fc55be52c60087e52fb3007a862843bddf398c13e2941857",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "a5f34f88365b24e1fa5b19af04aec031c2627013ae8f8b576f922ed67dd065e6",
+      "frozen_receipts_sha256": "c5870ddea25b5208030cb8634660647570b32dfc23bfa713b991f0855f096c6e",
+      "historical_matching": true,
+      "index": 171,
+      "legacy_sha256": "78ef35075e9bccbcbe4af590728686a5038b4e04f80e7ca230edac547265de4f",
+      "legacy_variable_flag": false,
+      "name": "unicode-earlier-unowned-1",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/171",
+      "promotion": false,
+      "raw_receipts_sha256": "eaac5cfc8c6a55394034a853eb7cc9c2556acdad264b3a264219803529c59012",
+      "reference_sha256": "78ef35075e9bccbcbe4af590728686a5038b4e04f80e7ca230edac547265de4f",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "!",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 187,
+      "case_sha256": "23e6fca2fa1fa4c41067f8821fea29e8fe2273dd3b2c0eeb16c746092be49fc5",
+      "companion_sha256": "ecc71d745f11bdb8ccdffb4948c5345e6b11e1a5e315698aa77028cf7fda5cc6",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '!'."
+      },
+      "document_bytes": 32037,
+      "document_sha256": "b833c9f10413fa7ab27a98409f5304f49e283fd7abef067c0a366322314a4ee8",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "a5f34f88365b24e1fa5b19af04aec031c2627013ae8f8b576f922ed67dd065e6",
+      "frozen_receipts_sha256": "fc5a7082541d298ff17548b09c39f9e063edea0ef99e8deced16234dda86b44b",
+      "historical_matching": false,
+      "index": 172,
+      "legacy_sha256": "fb5dd094087b5c5333d5893c34ea35886ae78a40b0ee002df7dc03d2534352da",
+      "legacy_variable_flag": false,
+      "name": "unicode-earlier-unowned-1-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/172",
+      "promotion": true,
+      "raw_receipts_sha256": "d6d0c392a88aa2f05f99c042f935ba544a8b11cb15ca8146ad799c68ea2dae18",
+      "reference_sha256": "78ef35075e9bccbcbe4af590728686a5038b4e04f80e7ca230edac547265de4f",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "!",
+        "position": null,
+        "site": "SelectionName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 188,
+      "case_sha256": "741ed58a6f95a9eee874107c09a7b5ea3f7a366d242f1745789cb3bac754f8e7",
+      "companion_sha256": "39fcfdeeb676216cc8f490f593eb078d139e9bcf8a0b910cd98e8917632366ec",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 8,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "document_bytes": 36,
+      "document_sha256": "b1f281c552ba2dd50471e7d24a8435694c9eabc9a023c5a543f8e4029f722209",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "3c86c0dc6d0e05f160fe730ae84ca8219b7e8b807e42abec0b1c8ddb241c3480",
+      "frozen_receipts_sha256": "0e86b737580d9bf6d61f0f8604110e37513898a88c09adabd1ed5f6b4d0ee26f",
+      "historical_matching": false,
+      "index": 173,
+      "legacy_sha256": "11520b4c81ad9bab52fe5f8e880354a9f4f04799daa38ddaae07d4cc1359646a",
+      "legacy_variable_flag": false,
+      "name": "unicode-earlier-unowned-2",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/173",
+      "promotion": true,
+      "raw_receipts_sha256": "98111d228af9322b5998fc50056796d3980be4761892a082bd44503e659d94d3",
+      "reference_sha256": "a46fa14c624b546f3a86adfc39383a4fdcb1e02f77bdf5c33c470d2eee79c245",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": true,
+        "found": ":",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 189,
+      "case_sha256": "ca4dfb0cf162ecdf2675304d2fffb0a671fe3da827201a39755d12035349b3ac",
+      "companion_sha256": "fda86c35e3532ec279a05a024ce8e384e3e0c50eb768d87b24725817e20d6fd1",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 8,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "document_bytes": 32045,
+      "document_sha256": "923af27d33a7e71f2280e3e03f1c5ed2250a9ad9ff6470a9fea49c1e82a4e75e",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "3c86c0dc6d0e05f160fe730ae84ca8219b7e8b807e42abec0b1c8ddb241c3480",
+      "frozen_receipts_sha256": "667036d8fb8791492e34c8e38fba3c6095b22ba21e54888fc0c7904b0569d668",
+      "historical_matching": false,
+      "index": 174,
+      "legacy_sha256": "271c193c13abd7d0de436c8e236b8e4e4b227c7676922d149ca178c3abf9167d",
+      "legacy_variable_flag": false,
+      "name": "unicode-earlier-unowned-2-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/174",
+      "promotion": true,
+      "raw_receipts_sha256": "7d0bb207a05bfacb9b43cbf77cce184c82a130f3be08104dc7ca50917b1b8ba7",
+      "reference_sha256": "a46fa14c624b546f3a86adfc39383a4fdcb1e02f77bdf5c33c470d2eee79c245",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": true,
+        "found": ":",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 190,
+      "case_sha256": "44df1690854f764e3ab507aacedf33f9a1dcd7039d65fd11a96022b467743a28",
+      "companion_sha256": "6b54f6563f2c3db977c1f025009c07fbcbdf4749709b7611258841b5c471e5fb",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 20,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Int '1'."
+      },
+      "document_bytes": 48,
+      "document_sha256": "1be24e61ea842d1e2a73605ff4aee8cee89404bcbcfdf89f8555eb679f77d24c",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1757ab296b1cba24b6a1896c1498d824ae45260f9ba1cff1f106eb7a6788bd86",
+      "frozen_receipts_sha256": "a52e3cdc4ec6cdab820d4d81111bf392c2cc97515da73df706a2fd1b18869474",
+      "historical_matching": false,
+      "index": 175,
+      "legacy_sha256": "f36f28f0c8327ebc7505a191eec803bede802cadf879e5be3db059ceeb8b9152",
+      "legacy_variable_flag": false,
+      "name": "unicode-earlier-unowned-3",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/175",
+      "promotion": true,
+      "raw_receipts_sha256": "88ca9dda127d0e91639303272082ad036c38d88b6b96356acd25cad7c68dd329",
+      "reference_sha256": "c3a2e716641ad98b1423c0db7069e49f850e1f5c8609dbd90293fdfb693000ae",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Number",
+        "position": null,
+        "site": "ObjectMemberColon"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 191,
+      "case_sha256": "7310fda716af10a43208d984829e9fcb616d68e48853569232f83618944c820a",
+      "companion_sha256": "b74c81da59afd90a3dff4f3fdd8bcdf3dc1d774cab2a568221be809892ce5615",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 20,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Int '1'."
+      },
+      "document_bytes": 32057,
+      "document_sha256": "4ffa9692a6bc4073a1e67dcb4af847df3946b6c0345ad439f1605268f8da2e84",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1757ab296b1cba24b6a1896c1498d824ae45260f9ba1cff1f106eb7a6788bd86",
+      "frozen_receipts_sha256": "0c4d77c2384c8037c2c786e573ec4ae0d395f51c41a283fd5ca649202b684a6d",
+      "historical_matching": false,
+      "index": 176,
+      "legacy_sha256": "bcb7f1caf0da1d9e90c3e8eb4d01ec4945fb44ffd36de9df1f6e0ad64e8b0528",
+      "legacy_variable_flag": false,
+      "name": "unicode-earlier-unowned-3-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/176",
+      "promotion": true,
+      "raw_receipts_sha256": "c5c7551d4b777e0415f6c9622a34edf6bdfb0096afa20772b7ce146da1ad7ef0",
+      "reference_sha256": "c3a2e716641ad98b1423c0db7069e49f850e1f5c8609dbd90293fdfb693000ae",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Number",
+        "position": null,
+        "site": "ObjectMemberColon"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 192,
+      "case_sha256": "a928d4f2ad9a602375f4288215af5e9083a74da2da7f92bf1e29e1c2db22b0c4",
+      "companion_sha256": "f65b6f14f04c2a18eed8c112d9fc58d69d35942106d50902ae5690a049f3df55",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 16,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 42,
+      "document_sha256": "a19880dc65b05053025f8dfb37d0fbd6354686b91f093122931d8c805947d455",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "c1ca669c77698600953f07ffe400f0ad3c176c444641bdd4430bf548d9f8fa90",
+      "frozen_receipts_sha256": "a51854aa677fe2f31c3c23390895524a440787fba7d61b7c603ab973eb3a484d",
+      "historical_matching": false,
+      "index": 177,
+      "legacy_sha256": "925f6562a6e5924090a61d96bcced1ea855f3a38e398c4d06ce9241d8b215ad7",
+      "legacy_variable_flag": false,
+      "name": "unicode-earlier-unowned-4",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/177",
+      "promotion": true,
+      "raw_receipts_sha256": "9da5cc452c8e5050f6264945536d26f58f183f902b16837a49f51d84a1eed584",
+      "reference_sha256": "5a8b285507bde07c2baa66bf3eb64b98337df6f048623292b23e2aa90935addb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 193,
+      "case_sha256": "020e2ad789fb2d4a7c890cd16938e3ef921401b4fa5a4be8627c49d69bd2df38",
+      "companion_sha256": "098c0a2307d900ccab2b097fc2682a7f338cb8154dc8202e11603f0075372216",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 16,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "document_bytes": 32051,
+      "document_sha256": "5caf9f4959da6ab3c97ee2df76fdea8001b1606a07cbe053d7620e48ec73038f",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "c1ca669c77698600953f07ffe400f0ad3c176c444641bdd4430bf548d9f8fa90",
+      "frozen_receipts_sha256": "7cc16e7b2403f1f0bc3c487eb9fae2c363ef203d791b4bfdf102b9dc595a838c",
+      "historical_matching": false,
+      "index": 178,
+      "legacy_sha256": "50962e44d6f13c1175e67aeb58faa0dd8fe270b3e4cb47ba80b53201baa9a942",
+      "legacy_variable_flag": false,
+      "name": "unicode-earlier-unowned-4-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/178",
+      "promotion": true,
+      "raw_receipts_sha256": "c31476b65c738675cea640aa42a6cf49ec4720198b2f99849a0bcfe52439c28c",
+      "reference_sha256": "5a8b285507bde07c2baa66bf3eb64b98337df6f048623292b23e2aa90935addb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      }
+    },
+    {
+      "active_lane": "ordinary",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 194,
+      "case_sha256": "4ef32441dd7f78fe723e07ce862a2a98a72ad43aeda9a301f0ae74c6542be198",
+      "companion_sha256": "e76109568d9ce99dddee086b80924c7679b1f44713c85554b7a0212b6cc42ebf",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 19,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 49,
+      "document_sha256": "aa2a24d52b2eef7a6324f2dea9991ecd75f3d45b1ad5f8082de3c89a52cce73b",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1e512455fe7dc999cf5a77711122a187cf52491a73dc8522b652acd71f840fb5",
+      "frozen_receipts_sha256": "8cfb1a3cad8683cc2bafe404b7096133ee2fa38ac05af59c691f8067a30f5dab",
+      "historical_matching": false,
+      "index": 179,
+      "legacy_sha256": "8f6eb85da993e433bc1cd1ab36f57a986a7274781eca1e9b3eb44f4394d4cf0a",
+      "legacy_variable_flag": false,
+      "name": "unicode-earlier-unowned-5",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/179",
+      "promotion": true,
+      "raw_receipts_sha256": "4431af24d2ca06378794b872e8ae6e181d89c82eabc1db3aac3aea3c39246338",
+      "reference_sha256": "3c529672cf42e300f551182f0d30c67bac52b580a37ce5ef01be926a3feb26cb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    },
+    {
+      "active_lane": "before_token_limit",
+      "args_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "before_limit_policy": true,
+      "candidate_runtime": "unexecuted",
+      "capture_index": 195,
+      "case_sha256": "8d36800c868d96bd265bea23278cf9e5645ea59910afe2a6f15af7d33cc9e14e",
+      "companion_sha256": "a88bec73a3cc0a98eaeba5dbd9432f8271e12480ad580c825616167e340d45a5",
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 19,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "document_bytes": 32058,
+      "document_sha256": "b6dab71b391707fcfc2bd086dd034ef62829d7f359ded2edc4fa5182b3fe3de0",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_contract": "native-graphql-parser-lexical-capture-v1",
+      "frozen_parse_sha256": "1e512455fe7dc999cf5a77711122a187cf52491a73dc8522b652acd71f840fb5",
+      "frozen_receipts_sha256": "ff2c2388ebc90aa4cbe809c316e9fca374c510606e16f3715c6caa7a6ab290cd",
+      "historical_matching": false,
+      "index": 180,
+      "legacy_sha256": "b14d8ffb555b8f91efdf46e4c5bae1837b1e1efe99823cbdecb22c315a86ed13",
+      "legacy_variable_flag": false,
+      "name": "unicode-earlier-unowned-5-overbudget",
+      "ordinary_policy": true,
+      "origin": "lexical-capture",
+      "pointer": "/cases/180",
+      "promotion": true,
+      "raw_receipts_sha256": "e03dd2809c498422c8bc50675b1c145e0fc6fd531b9d886b22f7181168795d4b",
+      "reference_sha256": "3c529672cf42e300f551182f0d30c67bac52b580a37ce5ef01be926a3feb26cb",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      }
+    }
+  ]
+}

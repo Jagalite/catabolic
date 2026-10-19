@@ -1,0 +1,3501 @@
+{
+  "fixture_version": 1,
+  "purpose": "Immutable historical baseline responses, never a claim of current baseline execution",
+  "provenance": {
+    "baseline_commit": "e657c2e66662f91fd905d4b27dc51645e17c2d97",
+    "baseline_artifact": {
+      "sha256": "f994075a4ff5f71f102bf28d216c8c99406d71f296a2db262a2cdea805fad6f1",
+      "bytes": 80584072
+    },
+    "baseline_source_manifest_sha256": "628980785843302c4fc8293821f83f98aad3b17c41d202292d5d99af3e5dd3d4",
+    "qualification_source_sha256": "6ad74aad6633d28a4c638f5527f523c0cfad3404c09dc88f5d6859172087f096",
+    "input_fixture_sha256": "c0036d2ee4e67aafebb513f07a2229ded0da191da9e41935859442c893f1b618",
+    "source_report_sha256": "fb7f15ff971412da84fc8cac00829ae533edf454e85c39577cd33f4e02f52537",
+    "source_report_rows": 242,
+    "source_report_file": "admission-final.json",
+    "historical_checkpoint_sha256": "f0eaf1d982af87def92b6f28c80ebbe806259daf028a20e8998d48b8560c79fc",
+    "oracle_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "oracle_python": "3.14.6",
+    "oracle_inventory_sha256": "81b697a595556ded943bef59c167314a6ffbbfc68706ed134cfea66afe012cc2"
+  },
+  "rows": [
+    {
+      "name": "unused-4301-digit-integer",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5c7c7536e6121d58133e5602347de693ca1c7932980c40e31aab88445269d2e6",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-4301-digit-integer",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5c7c7536e6121d58133e5602347de693ca1c7932980c40e31aab88445269d2e6",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-4301-digit-integer",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5c7c7536e6121d58133e5602347de693ca1c7932980c40e31aab88445269d2e6",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-4301-digit-integer",
+      "mode": [
+        "--machine"
+      ],
+      "source": "file",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5c7c7536e6121d58133e5602347de693ca1c7932980c40e31aab88445269d2e6",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-4301-digit-integer",
+      "mode": [
+        "--machine"
+      ],
+      "source": "stdin",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5c7c7536e6121d58133e5602347de693ca1c7932980c40e31aab88445269d2e6",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-nan",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "c238cb6e9ac5407491b0988102620ab9445290d2ed7713c516a2b28bd2388968",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "unused-nan",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "c238cb6e9ac5407491b0988102620ab9445290d2ed7713c516a2b28bd2388968",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "unused-nan",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "c238cb6e9ac5407491b0988102620ab9445290d2ed7713c516a2b28bd2388968",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-nan",
+      "mode": [
+        "--machine"
+      ],
+      "source": "file",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "c238cb6e9ac5407491b0988102620ab9445290d2ed7713c516a2b28bd2388968",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-nan",
+      "mode": [
+        "--machine"
+      ],
+      "source": "stdin",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "c238cb6e9ac5407491b0988102620ab9445290d2ed7713c516a2b28bd2388968",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-infinity",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "504a7fad8d7687a0ca0c9eace25c99c63e8e3cf1ad8f4945644c781e4605c02d",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: Infinity\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "unused-infinity",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "504a7fad8d7687a0ca0c9eace25c99c63e8e3cf1ad8f4945644c781e4605c02d",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: Infinity\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "unused-infinity",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "504a7fad8d7687a0ca0c9eace25c99c63e8e3cf1ad8f4945644c781e4605c02d",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: Infinity\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-infinity",
+      "mode": [
+        "--machine"
+      ],
+      "source": "file",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "504a7fad8d7687a0ca0c9eace25c99c63e8e3cf1ad8f4945644c781e4605c02d",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: Infinity\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-infinity",
+      "mode": [
+        "--machine"
+      ],
+      "source": "stdin",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "504a7fad8d7687a0ca0c9eace25c99c63e8e3cf1ad8f4945644c781e4605c02d",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: Infinity\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-negative-infinity",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5fa9d0e838cd8f7cee5cd7583892ec63e56d7c29d1af404e3ecfc11f329f3af2",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: -Infinity\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "unused-negative-infinity",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5fa9d0e838cd8f7cee5cd7583892ec63e56d7c29d1af404e3ecfc11f329f3af2",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: -Infinity\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "unused-negative-infinity",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5fa9d0e838cd8f7cee5cd7583892ec63e56d7c29d1af404e3ecfc11f329f3af2",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: -Infinity\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-negative-infinity",
+      "mode": [
+        "--machine"
+      ],
+      "source": "file",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5fa9d0e838cd8f7cee5cd7583892ec63e56d7c29d1af404e3ecfc11f329f3af2",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: -Infinity\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-negative-infinity",
+      "mode": [
+        "--machine"
+      ],
+      "source": "stdin",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5fa9d0e838cd8f7cee5cd7583892ec63e56d7c29d1af404e3ecfc11f329f3af2",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: -Infinity\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-overflow-float",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "3340b7e2f8c6f8c8f84b3ac5eb1506dbc9a515a70a3745d5724874318190596b",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "unused-overflow-float",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "3340b7e2f8c6f8c8f84b3ac5eb1506dbc9a515a70a3745d5724874318190596b",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "unused-overflow-float",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "3340b7e2f8c6f8c8f84b3ac5eb1506dbc9a515a70a3745d5724874318190596b",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-overflow-float",
+      "mode": [
+        "--machine"
+      ],
+      "source": "file",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "3340b7e2f8c6f8c8f84b3ac5eb1506dbc9a515a70a3745d5724874318190596b",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-overflow-float",
+      "mode": [
+        "--machine"
+      ],
+      "source": "stdin",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "3340b7e2f8c6f8c8f84b3ac5eb1506dbc9a515a70a3745d5724874318190596b",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-high-surrogate",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "7f3c6b6b4a88409efe4d2fba1cb3cf2b79b682fe4387678cba2e6b9645b58221",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "unused-high-surrogate",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "7f3c6b6b4a88409efe4d2fba1cb3cf2b79b682fe4387678cba2e6b9645b58221",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "unused-high-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "7f3c6b6b4a88409efe4d2fba1cb3cf2b79b682fe4387678cba2e6b9645b58221",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-high-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "file",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "7f3c6b6b4a88409efe4d2fba1cb3cf2b79b682fe4387678cba2e6b9645b58221",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-high-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "stdin",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "7f3c6b6b4a88409efe4d2fba1cb3cf2b79b682fe4387678cba2e6b9645b58221",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-low-surrogate",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "58ebecf6c752f9698369f101d4daa609ed4fcc7982fb7085e7d65a673072c1f2",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "unused-low-surrogate",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "58ebecf6c752f9698369f101d4daa609ed4fcc7982fb7085e7d65a673072c1f2",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "unused-low-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "58ebecf6c752f9698369f101d4daa609ed4fcc7982fb7085e7d65a673072c1f2",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-low-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "file",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "58ebecf6c752f9698369f101d4daa609ed4fcc7982fb7085e7d65a673072c1f2",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "unused-low-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "stdin",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "58ebecf6c752f9698369f101d4daa609ed4fcc7982fb7085e7d65a673072c1f2",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-4299",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e28d7ea4c9d40d3d04956adc5abdd6f237b19b25806e28b47a5b7c6abc5c6ba3",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-4299",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e28d7ea4c9d40d3d04956adc5abdd6f237b19b25806e28b47a5b7c6abc5c6ba3",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-4299",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e28d7ea4c9d40d3d04956adc5abdd6f237b19b25806e28b47a5b7c6abc5c6ba3",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-4300",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "f648b5905c170c6fec67c1c6d28bb05aa6dd44a836ed8ca15cb4306761718c73",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-4300",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "f648b5905c170c6fec67c1c6d28bb05aa6dd44a836ed8ca15cb4306761718c73",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-4300",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "f648b5905c170c6fec67c1c6d28bb05aa6dd44a836ed8ca15cb4306761718c73",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "negative-integer-4300",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "06fd6d20102de600b5a0e292e59345475308f11856e503678cacb6cba02b0bd9",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "negative-integer-4300",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "06fd6d20102de600b5a0e292e59345475308f11856e503678cacb6cba02b0bd9",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "negative-integer-4300",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "06fd6d20102de600b5a0e292e59345475308f11856e503678cacb6cba02b0bd9",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "negative-integer-4301",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "a066fea02d47c862924e434ff54ef9e7c9d056121b98804e5d2ba8c5d77da443",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "negative-integer-4301",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "a066fea02d47c862924e434ff54ef9e7c9d056121b98804e5d2ba8c5d77da443",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "negative-integer-4301",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "a066fea02d47c862924e434ff54ef9e7c9d056121b98804e5d2ba8c5d77da443",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-4302",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "9ae274d8d0f0be61179f797a56b4289723d9a6e5b0765ff24205a1bc24f54540",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-4302",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "9ae274d8d0f0be61179f797a56b4289723d9a6e5b0765ff24205a1bc24f54540",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-4302",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "9ae274d8d0f0be61179f797a56b4289723d9a6e5b0765ff24205a1bc24f54540",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "huge-float",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "b6546f35cf3b06419c0c57e7b2e0849aa15921cde216587abc2ed3606141c92c",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "huge-float",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "b6546f35cf3b06419c0c57e7b2e0849aa15921cde216587abc2ed3606141c92c",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "huge-float",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "b6546f35cf3b06419c0c57e7b2e0849aa15921cde216587abc2ed3606141c92c",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "negative-overflow",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "7db0ca202ff8b815e485b7e9ded2bca5a2976ff20b3c1701185ee06f6046dba8",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "negative-overflow",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "7db0ca202ff8b815e485b7e9ded2bca5a2976ff20b3c1701185ee06f6046dba8",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "negative-overflow",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "7db0ca202ff8b815e485b7e9ded2bca5a2976ff20b3c1701185ee06f6046dba8",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "finite-extreme",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e8805f75323acad5e984c384a5f1bbff1e0604a703e3adb0084032a84c6f7aea",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "finite-extreme",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e8805f75323acad5e984c384a5f1bbff1e0604a703e3adb0084032a84c6f7aea",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "finite-extreme",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e8805f75323acad5e984c384a5f1bbff1e0604a703e3adb0084032a84c6f7aea",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "small-float",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "b84783c4103b7ffa2567356c19ecae80b2fb4d6796f5eaaa528e412ffa545427",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "small-float",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "b84783c4103b7ffa2567356c19ecae80b2fb4d6796f5eaaa528e412ffa545427",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "small-float",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "b84783c4103b7ffa2567356c19ecae80b2fb4d6796f5eaaa528e412ffa545427",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "underflow",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "9bc33a29f4df351d4518aa82ef02fe5387f97629dc2ca9bbe814fc15ebb61ed5",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "underflow",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "9bc33a29f4df351d4518aa82ef02fe5387f97629dc2ca9bbe814fc15ebb61ed5",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "underflow",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "9bc33a29f4df351d4518aa82ef02fe5387f97629dc2ca9bbe814fc15ebb61ed5",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-signed-zero",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "ea1ee51d0264a2f47ec96a676c4fe606fbb18b1cc55fb8be80a9a568fd8c02c3",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-signed-zero",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "ea1ee51d0264a2f47ec96a676c4fe606fbb18b1cc55fb8be80a9a568fd8c02c3",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-signed-zero",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "ea1ee51d0264a2f47ec96a676c4fe606fbb18b1cc55fb8be80a9a568fd8c02c3",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "scalar-integer-4301",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "8afececf38e8946df9cff0bb388b1f2909aaa9f595a91450a1c0d69407c3ec36",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"variables must be a JSON object\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "scalar-integer-4301",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "8afececf38e8946df9cff0bb388b1f2909aaa9f595a91450a1c0d69407c3ec36",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"variables must be a JSON object\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "scalar-integer-4301",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "8afececf38e8946df9cff0bb388b1f2909aaa9f595a91450a1c0d69407c3ec36",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"variables must be a JSON object\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "nested-integer-4301",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "07e44ca00e9b6671b933f37a60ad3580a789e7b74d45744d4bd467e7014bfe83",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "nested-integer-4301",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "07e44ca00e9b6671b933f37a60ad3580a789e7b74d45744d4bd467e7014bfe83",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "nested-integer-4301",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "07e44ca00e9b6671b933f37a60ad3580a789e7b74d45744d4bd467e7014bfe83",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "overwritten-integer-4301",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "1044793edcee3153e45cde8511e1101b87f6d416292a51fb33dcf844e9aef7ed",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "overwritten-integer-4301",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "1044793edcee3153e45cde8511e1101b87f6d416292a51fb33dcf844e9aef7ed",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "overwritten-integer-4301",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "1044793edcee3153e45cde8511e1101b87f6d416292a51fb33dcf844e9aef7ed",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-string-4301",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d3467ddb673c0003676fb3ad14a0c390e6eb4da6d5e84551e144776086f20d70",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-string-4301",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d3467ddb673c0003676fb3ad14a0c390e6eb4da6d5e84551e144776086f20d70",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-string-4301",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d3467ddb673c0003676fb3ad14a0c390e6eb4da6d5e84551e144776086f20d70",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-key-4301",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "85855b3d7e553c1c839042de43670beed09651a5cb4c2b2ebf9ba39272de27e8",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-key-4301",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "85855b3d7e553c1c839042de43670beed09651a5cb4c2b2ebf9ba39272de27e8",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-key-4301",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "85855b3d7e553c1c839042de43670beed09651a5cb4c2b2ebf9ba39272de27e8",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "nested-nan",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "153def42d971a5ad1cd14877ecc63e8630900010ed87040b4eb8964713fb7996",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "nested-nan",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "153def42d971a5ad1cd14877ecc63e8630900010ed87040b4eb8964713fb7996",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "nested-nan",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "153def42d971a5ad1cd14877ecc63e8630900010ed87040b4eb8964713fb7996",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "sorted-nonfinite",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5241b118950c3fd12aa2a0c0ea435147d08d452a2f3dcf8dc26bf1ba1b50b596",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "sorted-nonfinite",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5241b118950c3fd12aa2a0c0ea435147d08d452a2f3dcf8dc26bf1ba1b50b596",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "sorted-nonfinite",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5241b118950c3fd12aa2a0c0ea435147d08d452a2f3dcf8dc26bf1ba1b50b596",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "escaped-sorted-nonfinite",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "a1b09339bd3166e3a2aa9e0bc7fc5258f14727c0e1ac9b661b5699edad457fdf",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "escaped-sorted-nonfinite",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "a1b09339bd3166e3a2aa9e0bc7fc5258f14727c0e1ac9b661b5699edad457fdf",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "escaped-sorted-nonfinite",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "a1b09339bd3166e3a2aa9e0bc7fc5258f14727c0e1ac9b661b5699edad457fdf",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "duplicate-last-nonfinite",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "8112ac3c8832b3c46f23d9256b0d0268e761c3c05e05c0f97dedba9af28df8cc",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "duplicate-last-nonfinite",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "8112ac3c8832b3c46f23d9256b0d0268e761c3c05e05c0f97dedba9af28df8cc",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "duplicate-last-nonfinite",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "8112ac3c8832b3c46f23d9256b0d0268e761c3c05e05c0f97dedba9af28df8cc",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "surrogate-before-nonfinite",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5e34864f652360a4fb799563fb9fba34d72dbe743ebaffb51580410cf18c6176",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "surrogate-before-nonfinite",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5e34864f652360a4fb799563fb9fba34d72dbe743ebaffb51580410cf18c6176",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "surrogate-before-nonfinite",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5e34864f652360a4fb799563fb9fba34d72dbe743ebaffb51580410cf18c6176",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "nonfinite-before-huge-integer",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d30e3df5a405e69148dcf109775d99f25d7ac8a76bf625b31ee3dfa03ee3b6e4",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "nonfinite-before-huge-integer",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d30e3df5a405e69148dcf109775d99f25d7ac8a76bf625b31ee3dfa03ee3b6e4",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "nonfinite-before-huge-integer",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d30e3df5a405e69148dcf109775d99f25d7ac8a76bf625b31ee3dfa03ee3b6e4",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "private-number-object",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e572fc2114acab0dbee46b552029a6f54a084dca0faead27325d48e4dbe40b98",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "private-number-object",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e572fc2114acab0dbee46b552029a6f54a084dca0faead27325d48e4dbe40b98",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "private-number-object",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e572fc2114acab0dbee46b552029a6f54a084dca0faead27325d48e4dbe40b98",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "special-looking-strings",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "56bf872c7ad049baa56f7c4d564724058d87266ce01807d967f398d36407dfe0",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "special-looking-strings",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "56bf872c7ad049baa56f7c4d564724058d87266ce01807d967f398d36407dfe0",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "special-looking-strings",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "56bf872c7ad049baa56f7c4d564724058d87266ce01807d967f398d36407dfe0",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "high-surrogate-key",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "0162e5140d44f98f429abb99edcf32f3e2f15fa1b7aab47fdeb5ecf975fb7f69",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "high-surrogate-key",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "0162e5140d44f98f429abb99edcf32f3e2f15fa1b7aab47fdeb5ecf975fb7f69",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "high-surrogate-key",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "0162e5140d44f98f429abb99edcf32f3e2f15fa1b7aab47fdeb5ecf975fb7f69",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "low-surrogate-key",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e517199aef349e145e72c45deaf1352c09e96265ce9404d0d8aa804901879f49",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "low-surrogate-key",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e517199aef349e145e72c45deaf1352c09e96265ce9404d0d8aa804901879f49",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "low-surrogate-key",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e517199aef349e145e72c45deaf1352c09e96265ce9404d0d8aa804901879f49",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "two-high-surrogates",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "15315c043682b621916267d8e073d64ae39393537fd328384c81a790bd2751c0",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "two-high-surrogates",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "15315c043682b621916267d8e073d64ae39393537fd328384c81a790bd2751c0",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "two-high-surrogates",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "15315c043682b621916267d8e073d64ae39393537fd328384c81a790bd2751c0",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "reversed-surrogates",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e2427f443f3e4aa70e2a45789ed62f23721e9a20074891652da674e86d0d6c3e",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "reversed-surrogates",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e2427f443f3e4aa70e2a45789ed62f23721e9a20074891652da674e86d0d6c3e",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "reversed-surrogates",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e2427f443f3e4aa70e2a45789ed62f23721e9a20074891652da674e86d0d6c3e",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "valid-surrogate-pair",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d8312273b8190834f9d91fac6c5dac1b5a3dbe562ae09751cd09e5ae8be01841",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "valid-surrogate-pair",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d8312273b8190834f9d91fac6c5dac1b5a3dbe562ae09751cd09e5ae8be01841",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "valid-surrogate-pair",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d8312273b8190834f9d91fac6c5dac1b5a3dbe562ae09751cd09e5ae8be01841",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "high-then-pair",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "41e3d56afb202f9b368eff7473f3a97e8492123357afa46fd3b43e7d00b5829b",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "high-then-pair",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "41e3d56afb202f9b368eff7473f3a97e8492123357afa46fd3b43e7d00b5829b",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "high-then-pair",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "41e3d56afb202f9b368eff7473f3a97e8492123357afa46fd3b43e7d00b5829b",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "pair-then-low",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "258a9e1d275208d87fa6db4818a4610c53d104963873f2123adcd1b0884d0002",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "pair-then-low",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "258a9e1d275208d87fa6db4818a4610c53d104963873f2123adcd1b0884d0002",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "pair-then-low",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "258a9e1d275208d87fa6db4818a4610c53d104963873f2123adcd1b0884d0002",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "nested-surrogate",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "9a38d52b54389506f8ee5f7172f6a680b7954785f33c43555627c871aa7913f5",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "nested-surrogate",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "9a38d52b54389506f8ee5f7172f6a680b7954785f33c43555627c871aa7913f5",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "nested-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "9a38d52b54389506f8ee5f7172f6a680b7954785f33c43555627c871aa7913f5",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "sorted-canonical-position",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "41221c7d4bb8881b2d137ba07983a611a1c2bc54aca8c0f5cd0e83dcfcfebd31",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "sorted-canonical-position",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "41221c7d4bb8881b2d137ba07983a611a1c2bc54aca8c0f5cd0e83dcfcfebd31",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "sorted-canonical-position",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "41221c7d4bb8881b2d137ba07983a611a1c2bc54aca8c0f5cd0e83dcfcfebd31",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "escaped-canonical-position",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "71eeb4baf0a6ce9d1306a5703e1658abae645fd72940def23e445a5c2f717064",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "escaped-canonical-position",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "71eeb4baf0a6ce9d1306a5703e1658abae645fd72940def23e445a5c2f717064",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "escaped-canonical-position",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "71eeb4baf0a6ce9d1306a5703e1658abae645fd72940def23e445a5c2f717064",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "number-canonical-position",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "867b77b398c5459654517d98dd6de7f2bd280f4433c0fca73f813c6567cc092a",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "number-canonical-position",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "867b77b398c5459654517d98dd6de7f2bd280f4433c0fca73f813c6567cc092a",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "number-canonical-position",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "867b77b398c5459654517d98dd6de7f2bd280f4433c0fca73f813c6567cc092a",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "astral-canonical-position",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "74b0f5c7d6546f8877e3410a50df34a6fd01e5ea6347d639ce3f0c3d0a8fc693",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "astral-canonical-position",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "74b0f5c7d6546f8877e3410a50df34a6fd01e5ea6347d639ce3f0c3d0a8fc693",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "astral-canonical-position",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "74b0f5c7d6546f8877e3410a50df34a6fd01e5ea6347d639ce3f0c3d0a8fc693",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "surrogate-sorted-keys",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "a0f5c803232af4fe12d1271c5d402b9f44b3d374f636d367bd29f997d1f5703d",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "surrogate-sorted-keys",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "a0f5c803232af4fe12d1271c5d402b9f44b3d374f636d367bd29f997d1f5703d",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "surrogate-sorted-keys",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "a0f5c803232af4fe12d1271c5d402b9f44b3d374f636d367bd29f997d1f5703d",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "duplicate-surrogate-key",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "4372f637ccb02603fecc09b6abd29af81349ae7640852847b3d2cd788b7b98eb",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "duplicate-surrogate-key",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "4372f637ccb02603fecc09b6abd29af81349ae7640852847b3d2cd788b7b98eb",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "duplicate-surrogate-key",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "4372f637ccb02603fecc09b6abd29af81349ae7640852847b3d2cd788b7b98eb",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "duplicate-last-surrogate",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "6a24fac903f696c492c4493c507abc67517448ea6977ca69dd98dc78b53d5cd6",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "duplicate-last-surrogate",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "6a24fac903f696c492c4493c507abc67517448ea6977ca69dd98dc78b53d5cd6",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "duplicate-last-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "6a24fac903f696c492c4493c507abc67517448ea6977ca69dd98dc78b53d5cd6",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "integer-canonical-position",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "2b5234519ff9f4af869fb4081b894fc463fc7c7ef7d2979d31f8add35afae79d",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "integer-canonical-position",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "2b5234519ff9f4af869fb4081b894fc463fc7c7ef7d2979d31f8add35afae79d",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "integer-canonical-position",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "2b5234519ff9f4af869fb4081b894fc463fc7c7ef7d2979d31f8add35afae79d",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "string-quotes-canonical-position",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "3e01787d6ebf906869708efb77c9e3ef402aac96a934cb4bc6765c85d7126bc5",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "string-quotes-canonical-position",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "3e01787d6ebf906869708efb77c9e3ef402aac96a934cb4bc6765c85d7126bc5",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "string-quotes-canonical-position",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "3e01787d6ebf906869708efb77c9e3ef402aac96a934cb4bc6765c85d7126bc5",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "overwritten-nan",
+      "mode": [],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e086677bcdeee6c367b353f7dff96d5161ba2e437c2df2b7081c233e63dd7f7d",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "overwritten-nan",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e086677bcdeee6c367b353f7dff96d5161ba2e437c2df2b7081c233e63dd7f7d",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "overwritten-nan",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "e086677bcdeee6c367b353f7dff96d5161ba2e437c2df2b7081c233e63dd7f7d",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "overwritten-overflow",
+      "mode": [],
+      "source": "inline",
+      "expectation": "accepted_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "250ffadbe6502e183afbae5a041f765ae6aa7b474c633e0784c89ae843d652f3",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "overwritten-overflow",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "accepted_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "250ffadbe6502e183afbae5a041f765ae6aa7b474c633e0784c89ae843d652f3",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "overwritten-overflow",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "accepted_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "250ffadbe6502e183afbae5a041f765ae6aa7b474c633e0784c89ae843d652f3",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "overwritten-surrogate",
+      "mode": [],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "bd516122451985554b04703d0c86cfb374e7328525d28e0dfe6a1e649aac6cd5",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "overwritten-surrogate",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "bd516122451985554b04703d0c86cfb374e7328525d28e0dfe6a1e649aac6cd5",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "overwritten-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "bd516122451985554b04703d0c86cfb374e7328525d28e0dfe6a1e649aac6cd5",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "scalar-nan",
+      "mode": [],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d5b592c05dc25b5032553f1b27f4139be95e881f73db33b02b05ab20c3f9981e",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "scalar-nan",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d5b592c05dc25b5032553f1b27f4139be95e881f73db33b02b05ab20c3f9981e",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "scalar-nan",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d5b592c05dc25b5032553f1b27f4139be95e881f73db33b02b05ab20c3f9981e",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "scalar-overflow",
+      "mode": [],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "f2bba4568fecd4b9729970732e571ac9373a33fb2d6a960794a41f0f2ecdbc25",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "scalar-overflow",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "f2bba4568fecd4b9729970732e571ac9373a33fb2d6a960794a41f0f2ecdbc25",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "scalar-overflow",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "f2bba4568fecd4b9729970732e571ac9373a33fb2d6a960794a41f0f2ecdbc25",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "scalar-surrogate",
+      "mode": [],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "8c0c59dd0d275aadcd462a5fe12eb352cbdfeaf961eae4f85a4660521df7d2f5",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "scalar-surrogate",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "8c0c59dd0d275aadcd462a5fe12eb352cbdfeaf961eae4f85a4660521df7d2f5",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "scalar-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "8c0c59dd0d275aadcd462a5fe12eb352cbdfeaf961eae4f85a4660521df7d2f5",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "array-nan",
+      "mode": [],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "638577393ecb248f472c18a1a95104181a3188551615d763873393eaf4eff186",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "array-nan",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "638577393ecb248f472c18a1a95104181a3188551615d763873393eaf4eff186",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "array-nan",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "638577393ecb248f472c18a1a95104181a3188551615d763873393eaf4eff186",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "array-surrogate",
+      "mode": [],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "69119aac5ce42bc93c1667db0454297ffaa342c431efa2dfdf48af101c035106",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "array-surrogate",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "69119aac5ce42bc93c1667db0454297ffaa342c431efa2dfdf48af101c035106",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "array-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "69119aac5ce42bc93c1667db0454297ffaa342c431efa2dfdf48af101c035106",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "syntax-after-huge",
+      "mode": [],
+      "source": "inline",
+      "expectation": "unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "c27de99f5bca6d4859336a4db36e684b38c68d28295c0034ba391a459225d9c6",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Illegal trailing comma before end of object: line 1 column 4307 (char 4306)\", \"type\": \"JSONDecodeError\"}}\n"
+      }
+    },
+    {
+      "name": "syntax-after-huge",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "c27de99f5bca6d4859336a4db36e684b38c68d28295c0034ba391a459225d9c6",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Illegal trailing comma before end of object: line 1 column 4307 (char 4306)\", \"type\": \"JSONDecodeError\"}}\n"
+      }
+    },
+    {
+      "name": "syntax-after-huge",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "c27de99f5bca6d4859336a4db36e684b38c68d28295c0034ba391a459225d9c6",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"Illegal trailing comma before end of object: line 1 column 4307 (char 4306)\", \"type\": \"JSONDecodeError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "syntax-after-nonfinite",
+      "mode": [],
+      "source": "inline",
+      "expectation": "unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "ef3e8e178b09a6bcd34d94f07a37f12e6f87a3425c4ddb7372cf6a4fe9b38ee8",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Illegal trailing comma before end of object: line 1 column 9 (char 8)\", \"type\": \"JSONDecodeError\"}}\n"
+      }
+    },
+    {
+      "name": "syntax-after-nonfinite",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "ef3e8e178b09a6bcd34d94f07a37f12e6f87a3425c4ddb7372cf6a4fe9b38ee8",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Illegal trailing comma before end of object: line 1 column 9 (char 8)\", \"type\": \"JSONDecodeError\"}}\n"
+      }
+    },
+    {
+      "name": "syntax-after-nonfinite",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "ef3e8e178b09a6bcd34d94f07a37f12e6f87a3425c4ddb7372cf6a4fe9b38ee8",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"Illegal trailing comma before end of object: line 1 column 9 (char 8)\", \"type\": \"JSONDecodeError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "syntax-after-surrogate",
+      "mode": [],
+      "source": "inline",
+      "expectation": "unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "1403783398af33d7007e2e69ab2344783e8d84661ceb1ccb79755e0f9c905f9a",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Illegal trailing comma before end of object: line 1 column 14 (char 13)\", \"type\": \"JSONDecodeError\"}}\n"
+      }
+    },
+    {
+      "name": "syntax-after-surrogate",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "1403783398af33d7007e2e69ab2344783e8d84661ceb1ccb79755e0f9c905f9a",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Illegal trailing comma before end of object: line 1 column 14 (char 13)\", \"type\": \"JSONDecodeError\"}}\n"
+      }
+    },
+    {
+      "name": "syntax-after-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "1403783398af33d7007e2e69ab2344783e8d84661ceb1ccb79755e0f9c905f9a",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"Illegal trailing comma before end of object: line 1 column 14 (char 13)\", \"type\": \"JSONDecodeError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "literal-sentinel",
+      "mode": [],
+      "source": "inline",
+      "expectation": "unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "2b750ebae3a872bc9f78837ad840996b3a58db6f319f0c9ba03412f0612cbdc3",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "literal-sentinel",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "2b750ebae3a872bc9f78837ad840996b3a58db6f319f0c9ba03412f0612cbdc3",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "literal-sentinel",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "2b750ebae3a872bc9f78837ad840996b3a58db6f319f0c9ba03412f0612cbdc3",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "null-control",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "null-control",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "null-control",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "empty-object-control",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "empty-object-control",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\n  \"data\": {\n    \"profile\": \"default\"\n  },\n  \"extensions\": {\n    \"interfaceVersion\": 1,\n    \"profile\": \"default\",\n    \"records\": 0\n  }\n}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "empty-object-control",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "baseline": {
+        "code": 0,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"success\", \"exit_code\": 0, \"data\": {\"data\": {\"profile\": \"default\"}, \"extensions\": {\"interfaceVersion\": 1, \"profile\": \"default\", \"records\": 0}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "escaped-overwritten-nan",
+      "mode": [],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "28217e0251474073c5d69d54a0cbcd21073f5998524389913225baeca7b422f4",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "escaped-overwritten-nan",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "28217e0251474073c5d69d54a0cbcd21073f5998524389913225baeca7b422f4",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "escaped-overwritten-nan",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "28217e0251474073c5d69d54a0cbcd21073f5998524389913225baeca7b422f4",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "escaped-overwritten-surrogate",
+      "mode": [],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "c8295b914078b7eb62b5bac1f6f811cf6d35365b611375cf03c1da366021e39d",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "escaped-overwritten-surrogate",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "c8295b914078b7eb62b5bac1f6f811cf6d35365b611375cf03c1da366021e39d",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "escaped-overwritten-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "c8295b914078b7eb62b5bac1f6f811cf6d35365b611375cf03c1da366021e39d",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "nested-overwritten-nonfinite",
+      "mode": [],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "bc292095ee0d1557f565da0e39ea2079b2b4ff384d8b2339d0aa11883605d6c5",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: Infinity\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "nested-overwritten-nonfinite",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "bc292095ee0d1557f565da0e39ea2079b2b4ff384d8b2339d0aa11883605d6c5",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: Infinity\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "nested-overwritten-nonfinite",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "bc292095ee0d1557f565da0e39ea2079b2b4ff384d8b2339d0aa11883605d6c5",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: Infinity\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "nested-overwritten-surrogate",
+      "mode": [],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "031b31e3a40efaee4411ace069f41c16247d375fcd20d0b6c0703c13b787e0b4",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "nested-overwritten-surrogate",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "031b31e3a40efaee4411ace069f41c16247d375fcd20d0b6c0703c13b787e0b4",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "nested-overwritten-surrogate",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "031b31e3a40efaee4411ace069f41c16247d375fcd20d0b6c0703c13b787e0b4",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "overwritten-subtree",
+      "mode": [],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "f18a9ec6814ff24bcec02a443bb9b937a04c9fb2b7ab9c7fc98e443c1da0beee",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "overwritten-subtree",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "f18a9ec6814ff24bcec02a443bb9b937a04c9fb2b7ab9c7fc98e443c1da0beee",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "overwritten-subtree",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "strict_unchanged",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "f18a9ec6814ff24bcec02a443bb9b937a04c9fb2b7ab9c7fc98e443c1da0beee",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: NaN\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "negative-zero-canonical-position",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "76ff9945bce4ddf4e66d001cfd31f30ff5b34daccad41f770a7b52cc652d9dd4",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "negative-zero-canonical-position",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "76ff9945bce4ddf4e66d001cfd31f30ff5b34daccad41f770a7b52cc652d9dd4",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "negative-zero-canonical-position",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "76ff9945bce4ddf4e66d001cfd31f30ff5b34daccad41f770a7b52cc652d9dd4",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "float-threshold-canonical-position",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5be4d3e9b628a5d9cf0091524181f2b1c961bb4315dd4985e10f1e96bfd26e27",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "float-threshold-canonical-position",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5be4d3e9b628a5d9cf0091524181f2b1c961bb4315dd4985e10f1e96bfd26e27",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "float-threshold-canonical-position",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "5be4d3e9b628a5d9cf0091524181f2b1c961bb4315dd4985e10f1e96bfd26e27",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "escaped-duplicate-key-canonical-position",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "775d5377b1cd0953843fdfb94a5b175ed729fcbbbe552fd4e87554c56763a07f",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "escaped-duplicate-key-canonical-position",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "775d5377b1cd0953843fdfb94a5b175ed729fcbbbe552fd4e87554c56763a07f",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "escaped-duplicate-key-canonical-position",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "775d5377b1cd0953843fdfb94a5b175ed729fcbbbe552fd4e87554c56763a07f",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "surrogate-control-characters",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "bede6f3607b52d46af8dcb33589622972ddbe8a3ab08065b8206bd855c7f80ff",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "surrogate-control-characters",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "bede6f3607b52d46af8dcb33589622972ddbe8a3ab08065b8206bd855c7f80ff",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "surrogate-control-characters",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "bede6f3607b52d46af8dcb33589622972ddbe8a3ab08065b8206bd855c7f80ff",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "nonconsecutive-surrogates",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "68e0733ce9f0caee22e3b22eb3c1d8056c29e8adaf6d880c093485c85fd0fae3",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "nonconsecutive-surrogates",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "68e0733ce9f0caee22e3b22eb3c1d8056c29e8adaf6d880c093485c85fd0fae3",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "nonconsecutive-surrogates",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "68e0733ce9f0caee22e3b22eb3c1d8056c29e8adaf6d880c093485c85fd0fae3",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "negative-infinity-nested",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d3068fa15865586f54c6836c3445a09d924d5cd6e23e9228cb25bb3c8c233a08",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: -Infinity\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "negative-infinity-nested",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d3068fa15865586f54c6836c3445a09d924d5cd6e23e9228cb25bb3c8c233a08",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"nonfinite JSON number is not permitted: -Infinity\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "negative-infinity-nested",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "d3068fa15865586f54c6836c3445a09d924d5cd6e23e9228cb25bb3c8c233a08",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"nonfinite JSON number is not permitted: -Infinity\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "overflow-exponent",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "98bb6c858e43164e96172622b5ec99071fc7cbab11c27003bb01681b7cc9c81a",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "overflow-exponent",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "98bb6c858e43164e96172622b5ec99071fc7cbab11c27003bb01681b7cc9c81a",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "overflow-exponent",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "98bb6c858e43164e96172622b5ec99071fc7cbab11c27003bb01681b7cc9c81a",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"Out of range float values are not JSON compliant\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "empty-key-canonical-position",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "b4775f4615e192b080fe16561e2c644e9d5834325ae83429f07fe0ba6353f2f8",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "empty-key-canonical-position",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "b4775f4615e192b080fe16561e2c644e9d5834325ae83429f07fe0ba6353f2f8",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "empty-key-canonical-position",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "b4775f4615e192b080fe16561e2c644e9d5834325ae83429f07fe0ba6353f2f8",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"invalid JSON\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    },
+    {
+      "name": "top-level-array-huge-integer",
+      "mode": [],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "6e2eb96ccc7bd6b2857278bc6dce7458be81eda50accd89fb80b3a890f158e6a",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"variables must be a JSON object\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "top-level-array-huge-integer",
+      "mode": [
+        "--json"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "6e2eb96ccc7bd6b2857278bc6dce7458be81eda50accd89fb80b3a890f158e6a",
+      "baseline": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "{\"error\": {\"message\": \"variables must be a JSON object\", \"type\": \"CatabolicError\"}}\n"
+      }
+    },
+    {
+      "name": "top-level-array-huge-integer",
+      "mode": [
+        "--machine"
+      ],
+      "source": "inline",
+      "expectation": "equal",
+      "document_sha256": "17208f937a36da5ccea6c7c072e7bcee3bc6f80d180f113b1aed64a8e7a5a01d",
+      "variables_sha256": "6e2eb96ccc7bd6b2857278bc6dce7458be81eda50accd89fb80b3a890f158e6a",
+      "baseline": {
+        "code": 2,
+        "stdout": "{\"interface_version\": 1, \"command\": \"graphql\", \"operation\": null, \"profile\": \"default\", \"outcome\": \"error\", \"exit_code\": 2, \"data\": {\"error\": {\"message\": \"variables must be a JSON object\", \"type\": \"CatabolicError\"}}}\n",
+        "stderr": ""
+      }
+    }
+  ]
+}

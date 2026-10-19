@@ -1,0 +1,124 @@
+{
+  "format_version": 1,
+  "package": "R4-scoped-read-v1",
+  "status": "bounded item-only scope and shared budget; R4 incomplete",
+  "recorded_at_utc": "2026-10-14T19:27:10.181817+00:00",
+  "baseline_commit": "9ff6e047f23b0bffb4d9a5f91e26f18731a6e5e7",
+  "source": {
+    "manifest": "tests/parity/native-catalog-r4-scope-source-manifest.json",
+    "canonical_files_sha256": "3c25bd15c0f82bb4c74e89328d9c57c4e886058634f055f3f6ad3072f99074de",
+    "file_count": 760,
+    "frozen_focused_before_after_identical": true
+  },
+  "runner": {
+    "rust": "1.99.0",
+    "platform": "Linux x86_64",
+    "kyoto": "user-authorized standard Cargo exception",
+    "profile": "debug=0; incremental=0"
+  },
+  "runs": {
+    "scope-frozen-focused": {
+      "log": ".local-tests/catalog-r4/scope-frozen-focused.log",
+      "sha256": "0191e4051ddf9e0552f0bd7633e10264fa26e0d649b5ffbd74d11cdf137697d8",
+      "passed": true,
+      "passing_executions": 157,
+      "harnesses": 3
+    },
+    "scope-integrated": {
+      "log": ".local-tests/catalog-r4/scope-integrated.log",
+      "sha256": "d3c60d7b46dcf179e079ce0b6bb6f59b7c28c7f8d20bf9ee61f5375034cb64c0",
+      "passed": true,
+      "passing_executions": 26,
+      "harnesses": 1
+    },
+    "lease-integrated": {
+      "log": ".local-tests/catalog-r4/lease-integrated.log",
+      "sha256": "f0252d9330998a4e007c3d3bdcc6bc6009ac349d646ba970d820804def9fcd53",
+      "passed": true,
+      "passing_executions": 7,
+      "harnesses": 1
+    },
+    "budget-integrated": {
+      "log": ".local-tests/catalog-r4/budget-integrated.log",
+      "sha256": "e605df682296aa4f01c0e73727c2ebf5b05cdd8142645021531c6a62e9f4f66f",
+      "passed": true,
+      "passing_executions": 4,
+      "harnesses": 1
+    },
+    "host-integrated": {
+      "log": ".local-tests/catalog-r4/host-integrated.log",
+      "sha256": "ce2497e901bc18c199d621d12663109656b294d2c430bcf22a062b044509a06d",
+      "passed": true,
+      "passing_executions": 2,
+      "harnesses": 1
+    },
+    "graphql-regression": {
+      "log": ".local-tests/catalog-r4/graphql-regression.log",
+      "sha256": "dbf24d4c13afb93639ad0843e716858870922e3fcefafc15d0b27f3b9a574fc3",
+      "passed": true,
+      "passing_executions": 12,
+      "harnesses": 1
+    },
+    "access-regression-correct-target": {
+      "log": ".local-tests/catalog-r4/access-regression-correct-target.log",
+      "sha256": "802b97d9558dc875ff43db74522a9a72ef3fc35f3a7a823649f6a946f0c45cb0",
+      "passed": true,
+      "passing_executions": 6,
+      "harnesses": 1
+    },
+    "owner-regression-correct-target": {
+      "log": ".local-tests/catalog-r4/owner-regression-correct-target.log",
+      "sha256": "393cdca1536f6f7e0812e5dbdd9ea9bfe8807edb15e3fba9cd2d233e9123176a",
+      "passed": true,
+      "passing_executions": 17,
+      "harnesses": 2
+    },
+    "scope-clippy": {
+      "log": ".local-tests/catalog-r4/scope-clippy.log",
+      "sha256": "cb630d37837f13e97a4f2f9dcc14d978e218c798a58a7a251d64be497642b2a3",
+      "passed": true,
+      "passing_executions": 0,
+      "harnesses": 0
+    },
+    "scope-format": {
+      "log": ".local-tests/catalog-r4/scope-format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true,
+      "passing_executions": 0,
+      "harnesses": 0
+    }
+  },
+  "evidence_note": "Focused runs overlap each other and existing R3 fixtures; counts are not additive unique tests. Only scope-frozen-focused has the explicit before/after manifest; other unchanged-source runs precede that freeze. No full aggregate claimed for this increment.",
+  "initial_failures": [
+    {
+      "action": "Patch check",
+      "reason": "core/lib context predates catalog_logical_edit export; all remaining hunks checked and applied, lease module export added manually preserving R3",
+      "log": ".local-tests/catalog-r4/adoption.log",
+      "sha256": "7b2017bd85f1eba2a02ab581446989edc2476958ae8a0eeb9e9a590bfe230c81"
+    },
+    {
+      "action": "Owner regression invocation",
+      "reason": "content_access is a unit module, not an integration target; invocation failed before test execution, rerun under --lib plus valid integration targets",
+      "log": ".local-tests/catalog-r4/owner-regression.log",
+      "sha256": "addb7ad878c47ca7e20b04ab84c9940a36bbb221e871e24e7640143ce60ccd44"
+    }
+  ],
+  "remaining": [
+    "Scope membership fingerprint/cursors and relation adapters pending",
+    "Private writer/maintenance VM ownership pending",
+    "Schema35 derived search and scoped search adapter pending",
+    "No M0\u2013M11 closure; blocked independent schema review remains incomplete",
+    "No external Motion qualification or other-platform qualification"
+  ],
+  "M0_M11_gate_closures": [],
+  "follow_on_generation_check": {
+    "source_note": "After the recorded focused freeze, refreshed only generated owner inventory for newly added scope sources; no Rust or schema SQL/signature changes",
+    "inventory_sha256": "316d217d45eb91ce1cd32872afc0fd155458bcc98777027ef54cc2ebf20731fd",
+    "initial_schema33_check": ".local-tests/catalog-r4/scope-schema33-check.log",
+    "initial_schema34_check": ".local-tests/catalog-r4/scope-schema34-check.log",
+    "corrections": "Inventory regenerated only after comparing all other33 artifacts byte-for-byte; schema34 generator uses its default check mode, not --check",
+    "schema33_log": ".local-tests/catalog-r4/scope-schema33-corrected.log",
+    "schema34_log": ".local-tests/catalog-r4/scope-schema34-corrected.log",
+    "both_passed": true
+  }
+}

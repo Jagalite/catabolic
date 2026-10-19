@@ -1,10 +1,11 @@
 [workspace]
-members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli", "crates/catabolic-python", "crates/catabolic-verification"]
+members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli", "crates/catabolic-python", "crates/catabolic-verification", "crates/catabolic-runtime", "crates/catabolic-http", "crates/catabolic-dist"]
 default-members = ["crates/catabolic-core", "crates/catabolic-store", "crates/catabolic-cli"]
 resolver = "3"
+exclude = ["vendor/fancy-regex"]
 
 [workspace.package]
-version = "0.2.0"
+version = "1.0.0"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT"
@@ -12,8 +13,24 @@ license = "MIT"
 [workspace.dependencies]
 catabolic-core = { path = "crates/catabolic-core" }
 catabolic-store = { path = "crates/catabolic-store" }
+catabolic-runtime = { path = "crates/catabolic-runtime" }
+catabolic-http = { path = "crates/catabolic-http" }
+axum = { version = "=0.8.6", default-features = false, features = ["http1", "tokio"] }
+tokio = { version = "=1.48.0", features = ["rt-multi-thread", "net", "sync", "time", "signal"] }
+http-body-util = "=0.1.3"
+form_urlencoded = "=1.2.2"
+hmac = "=0.12.1"
+md-5 = "=0.10.6"
+fancy-regex = "=0.19.2"
+chrono = "=0.4.42"
+chrono-tz = "=0.10.4"
+jsonschema = { version = "=0.58.6", default-features = false, features = ["arbitrary-precision"] }
+ureq = { version = "=3.3.0", default-features = false, features = ["rustls"] }
+roxmltree = "=0.21.1"
+rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = "=1.0.9"
 serde = { version = "=1.0.229", features = ["derive"] }
-serde_json = { version = "=1.0.151", features = ["float_roundtrip"] }
+serde_json = { version = "=1.0.151", features = ["float_roundtrip", "arbitrary_precision"] }
 rusqlite = { version = "=0.40.2", features = ["bundled", "backup", "functions", "hooks", "limits"] }
 sha2 = "=0.10.9"
 uuid = { version = "=1.27.0", features = ["v4", "v5"] }
@@ -21,6 +38,8 @@ tempfile = "=3.27.0"
 libc = "=0.2.183"
 pyo3 = { version = "=0.29.3", features = ["abi3-py311", "extension-module"] }
 base64 = "=0.22.1"
+getrandom = "=0.4.3"
+num-bigint = "=0.4.8"
 unicode-normalization = "=0.1.25"
 async-graphql = { version = "=7.2.1", default-features = false, features = ["dynamic-schema"] }
 async-graphql-parser = "=7.2.1"
@@ -33,3 +52,7 @@ unsafe_op_in_unsafe_fn = "deny"
 
 [workspace.lints.clippy]
 undocumented_unsafe_blocks = "deny"
+
+# fancy-regex 0.19.2 with search deadline and storage limits (vendor/fancy-regex/CATABOLIC_PATCH.md).
+[patch.crates-io]
+fancy-regex = { path = "vendor/fancy-regex" }

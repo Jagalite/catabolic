@@ -1,0 +1,980 @@
+{
+  "format_version": 2,
+  "design": "docs/CATABOLIC_NATIVE_CATALOG_DESIGN.md",
+  "frozen_ledger": "tests/parity/ledger.json",
+  "baseline_commit": "8afec6ea7bdbd767e36e364480e2e7efcadb47bc",
+  "acceptance_policy": "M0-M11 obligations remain; dispositions classify compatibility, never waive release evidence. Historical receipts qualify only their exact source.",
+  "sequencing_amendment": {
+    "date": "2026-10-14",
+    "external_motion_integration": "deferred_by_user",
+    "catabolic_implementation": "proceed_before_external_integration",
+    "motion_changes_or_tests_authorized": false
+  },
+  "milestone_closures": [],
+  "rows": [
+    {
+      "id": "historical-migrations",
+      "disposition": "preserve",
+      "replacement_contract": "Historical schema1-32 SQL bytes, checksums, identities and history",
+      "migration_rule": "New migrations append; frozen history is never regenerated",
+      "mapped_frozen_rows": [
+        "migration:001_initial",
+        "migration:002_migration_history",
+        "migration:003_media_model",
+        "migration:004_tags",
+        "migration:005_hardlinks",
+        "migration:006_enrichment",
+        "migration:007_processing_attempts",
+        "migration:008_processing_artifacts",
+        "migration:009_output_definitions",
+        "migration:010_item_workflow",
+        "migration:011_processing_rules",
+        "migration:012_rendition_publication",
+        "migration:013_processor_workers",
+        "migration:014_catalog_refresh",
+        "migration:015_queries_projections",
+        "migration:016_operation_rules",
+        "migration:017_consumers",
+        "migration:018_volume_identity",
+        "migration:019_source_trust",
+        "migration:020_trust_evidence",
+        "migration:021_execution_claims",
+        "migration:022_http_access",
+        "migration:023_fallback_resolution",
+        "migration:024_watchers",
+        "migration:025_media_components",
+        "migration:026_observation_requests",
+        "migration:027_guarded_observations",
+        "migration:028_playback_sessions",
+        "migration:029_media_header_checks",
+        "migration:030_job_notifications",
+        "migration:031_http_webhooks",
+        "migration:032_http_query_mappings"
+      ],
+      "fixtures": [
+        "crates/catabolic-store/tests/storage_faults.rs",
+        "crates/catabolic-store/tests/native_migrations.rs",
+        "tests/test_native_catalog_schema.py"
+      ],
+      "evidence_revision": null,
+      "status": "pending",
+      "required_evidence_slots": [
+        "preserved-m0-m11"
+      ]
+    },
+    {
+      "id": "host-envelope-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Native privileged HostSession v1; bounded errors and owned worker lifecycle",
+      "migration_rule": "Additive API; no ordinary open-time upgrade",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-runtime/tests/native_host_contract.rs",
+        "crates/catabolic-runtime/tests/observation_supervision.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r0-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "r5-host-reopen"
+      ],
+      "evidence_scope": "Only the exact source/platform and bounded contracts recorded by this historical receipt; no current-source or release inference."
+    },
+    {
+      "id": "identity-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Typed timeline/version and exact revision interval bindings; whole-version selection",
+      "migration_rule": "Preserve legacy association IDs; ambiguous rows remain unclassified; refuse lossy adapters",
+      "mapped_frozen_rows": [
+        "cli:item put",
+        "http:POST /v1/items/{identifier}/resolve"
+      ],
+      "fixtures": [
+        "crates/catabolic-core/src/catalog_identity.rs",
+        "crates/catabolic-core/tests/catalog_identity_review.rs",
+        "crates/catabolic-store/tests/native_catalog_composition.rs",
+        "crates/catabolic-store/tests/native_identity_review.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r1-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "preserved-m0-m11"
+      ],
+      "evidence_scope": "Only the exact source/platform and bounded contracts recorded by this historical receipt; no current-source or release inference."
+    },
+    {
+      "id": "legacy-item-query-adapters",
+      "disposition": "adapt",
+      "replacement_contract": "Preserve documented shape where lossless; reject ambiguous version/slice operations",
+      "migration_rule": "Route mutations of typed ownership through the native owner; no arbitrary version choice",
+      "mapped_frozen_rows": [
+        "cli:item list",
+        "cli:item show",
+        "graphql:field:Query.items",
+        "graphql:field:Association.item"
+      ],
+      "fixtures": [],
+      "evidence_revision": null,
+      "status": "pending",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "r7-installed-surface"
+      ]
+    },
+    {
+      "id": "contribution-resolution-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Revisioned provenance, local overrides, unresolved conflicts and protected pins",
+      "migration_rule": "Unknown provenance becomes legacy_import evidence, never manual/provider proof",
+      "mapped_frozen_rows": [
+        "cli:item put"
+      ],
+      "fixtures": [],
+      "evidence_revision": null,
+      "status": "pending",
+      "required_evidence_slots": [
+        "preserved-m0-m11"
+      ]
+    },
+    {
+      "id": "tag-suppression-v1",
+      "disposition": "adapt",
+      "replacement_contract": "Canonical local suppression coexists with retained provider assertions",
+      "migration_rule": "Alias/merge reconciliation preserves suppression atomically",
+      "mapped_frozen_rows": [
+        "cli:tag alias",
+        "cli:tag add",
+        "cli:tag remove"
+      ],
+      "fixtures": [],
+      "evidence_revision": null,
+      "status": "pending",
+      "required_evidence_slots": [
+        "preserved-m0-m11"
+      ]
+    },
+    {
+      "id": "durable-command-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Atomic versioned payload/immutable result receipt with permanent no-replay tombstones",
+      "migration_rule": "Prior-incarnation absent receipts return outcome_unknown_after_restore",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-core/src/catalog_command.rs",
+        "crates/catabolic-store/tests/native_catalog_commands.rs"
+      ],
+      "evidence_revision": null,
+      "status": "pending",
+      "required_evidence_slots": [
+        "preserved-m0-m11"
+      ]
+    },
+    {
+      "id": "scoped-search-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Separately granted scoped FTS5 matching; native saved-scope membership, field masks, hidden-item-isolated document-local ranking, opaque authenticated keyset cursor and owned authorization lease through delivery",
+      "migration_rule": "Additive native host API; never redirect public SQL/GraphQL to a privileged Store. Index begins not-ready and trusted maintenance must rebuild before search; stale scope/cursors refuse.",
+      "mapped_frozen_rows": [
+        "http:POST /v1/query/sql",
+        "http:POST /v1/query/graphql"
+      ],
+      "fixtures": [
+        "crates/catabolic-store/src/catalog_scope_search.rs",
+        "crates/catabolic-store/src/catalog_scope_search_tests.rs",
+        "crates/catabolic-store/src/catalog_scope_tests.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r4-boundary-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "r4-current-scoped-reads"
+      ],
+      "evidence_scope": "Recorded R4 boundary01 source only; does not include later relationship02/schema36 or any Python/public HTTP binding."
+    },
+    {
+      "id": "explicit-native-upgrade",
+      "disposition": "versioned_change",
+      "replacement_contract": "Inspect/rehearse/exclusive upgrade; unsupported old engines reject upgraded catalogs",
+      "migration_rule": "Retain identity/history and verified backup; native forward recovery is versioned separately; WAL/controlled restore remain unavailable until separately qualified",
+      "mapped_frozen_rows": [
+        "cli:db upgrade"
+      ],
+      "fixtures": [
+        "crates/catabolic-store/tests/native_migrations.rs",
+        "crates/catabolic-store/tests/native_catalog_lifecycle.rs"
+      ],
+      "evidence_revision": null,
+      "status": "pending",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "latest-native-migration",
+        "unavailable-effects"
+      ]
+    },
+    {
+      "id": "external-motion-composition-cutover",
+      "disposition": "defer",
+      "replacement_contract": "Production dependency composition and actual two-owner reference/activation proof",
+      "migration_rule": "External evidence explicitly deferred; local Catabolic fixtures cannot close it",
+      "mapped_frozen_rows": [],
+      "fixtures": [],
+      "evidence_revision": null,
+      "status": "deferred",
+      "required_evidence_slots": [
+        "external-composition"
+      ]
+    },
+    {
+      "id": "search-storage-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Native schema35 derived FTS5 storage with canonical provenance values, bounded rebuild readiness and transactional source/receipt finalization; scoped matching remains a separate contract",
+      "migration_rule": "Append035 without historical DDL/history changes; new index begins not-ready; latest-target runner fixtures advance explicitly while fixed33/34 behavior remains pinned",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-store/tests/native_search_index.rs",
+        "crates/catabolic-store/tests/native_search_identity_paths.rs",
+        "crates/catabolic-store/tests/native_search_logical_paths.rs",
+        "tests/test_native_catalog_search_schema.py"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r4-search-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "r4-current-scoped-reads",
+        "latest-native-migration"
+      ],
+      "evidence_scope": "Only the exact source/platform and bounded contracts recorded by this historical receipt; no current-source or release inference."
+    },
+    {
+      "id": "scoped-items-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Native session-bound item/saved-report scope with explicit saved-query revision/digest and metadata masks; AuthorizationLease held through final delivery",
+      "migration_rule": "Fresh schema/data-version/catalog/incarnation/generation and complete membership/mask fences; no JSON-created scope or public raw SQL authority",
+      "mapped_frozen_rows": [
+        "cli:item list",
+        "graphql:field:Query.items"
+      ],
+      "fixtures": [
+        "crates/catabolic-store/src/catalog_scope.rs",
+        "crates/catabolic-core/src/catalog_host_lease.rs",
+        "crates/catabolic-runtime/src/scoped_host.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r4-boundary-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "r4-current-scoped-reads"
+      ],
+      "evidence_scope": "Historical boundary01 only; current36 and new graph API require their separate integrated receipt."
+    },
+    {
+      "id": "scoped-relationships-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Per-kind trusted relationship-read grants at both visible endpoints; per-kind intersected edge metadata and endpoint-specific title masks; scoped graph counts and recursive paths only",
+      "migration_rule": "RelationshipPage cursor binds anchor/surface/scope/limit; metadata or search permission never implies graph authority; inactive/hidden edges cannot reappear through joins",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-store/src/catalog_scope_relations.rs",
+        "crates/catabolic-store/src/catalog_scope_relations_tests.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r4-r5-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "r4-current-scoped-reads"
+      ],
+      "evidence_scope": "Recorded primary 787-file source and exact scoped-graph tests only; separate latest-target search fixture uses a second source receipt. No blanket schema36 surface or public wrapper claim."
+    },
+    {
+      "id": "private-local-metadata-writer-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Separate native PrivateCatalogWriter, trusted existing-item local-source/field grants, opaque write handles, bounded atomic patch/index/receipt finalization and leased delivery",
+      "migration_rule": "Read scopes never authorize mutations. This historical receipt admits only schemas34/35; the separate writer36 row records its later qualified expansion. Preserve original operation identity for reconciliation.",
+      "mapped_frozen_rows": [
+        "cli:item put"
+      ],
+      "fixtures": [
+        "crates/catabolic-store/src/catalog_write.rs",
+        "crates/catabolic-store/src/catalog_write_tests.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r4-boundary-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "r4-private-writer36"
+      ],
+      "evidence_scope": "Exact historical schema34/35 writer boundary only; no schema36 admission or broader mutation surface claim.",
+      "admitted_native_schemas": [
+        34,
+        35
+      ]
+    },
+    {
+      "id": "native-worker-helper-protocol-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Explicit native catalog identity/incarnation/schema/device/inode envelopes on helper/observation/watcher/probe routes; owned native resource permit",
+      "migration_rule": "Legacy32 protocol stays preserved; unsupported native/helper pair refuses without implicit legacy fallback or source I/O",
+      "mapped_frozen_rows": [
+        "cli:scan",
+        "cli:watcher run"
+      ],
+      "fixtures": [
+        "crates/catabolic-runtime/src/helper_fence.rs",
+        "crates/catabolic-runtime/tests/observation_native_fence.rs",
+        "crates/catabolic-runtime/tests/native_companion_fences.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r4-r5-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "r5-worker-cleanup36",
+        "r5-host-reopen"
+      ],
+      "evidence_scope": "At this historical checkpoint, only named native34/native36 and preserved legacy32 cases using artifact52aff85101f750a9401c5b787d35f291d92212a6bf09d10e2d0fd54933819a89 were executed. The later shared-gate row records the separately qualified pre-protocol actual-helper refusals."
+    },
+    {
+      "id": "native-execution-cleanup36-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Immutable schema36 exact-claim execution lifetime and builtin_no_child_v1 positive cleanup witness from retained native owner after real completion and capacity release",
+      "migration_rule": "No historical claim backfill; only matching builtin witness can enable recovery. Terminal state/PID/ESRCH/lease expiry are never quiescence; queries cannot mint witnesses.",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-store/resources/migrations/036_native_execution_cleanup.sql",
+        "crates/catabolic-store/tests/native_cleanup_migration.rs",
+        "crates/catabolic-runtime/src/execution_cleanup.rs",
+        "crates/catabolic-runtime/tests/native_execution_cleanup.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r4-r5-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "latest-native-migration",
+        "r5-worker-cleanup36"
+      ],
+      "admitted_native_schemas": [
+        36
+      ],
+      "evidence_scope": "Exact schema36 builtin sniff/hash/verify no-child witness after retained native join/capacity return; UUID-checking source cohorts and observation child/descendant cleanup excluded."
+    },
+    {
+      "id": "observation-reopen-cleanup",
+      "disposition": "defer",
+      "replacement_contract": "General historical/unowned child or descendant retirement remains unavailable; the separate exact closed-companion37 contract does not adopt arbitrary old workers",
+      "migration_rule": "Unproven observations remain refused; do not synthesize cleanup proof from ordinary reopen, stored PID, terminal state or caller JSON",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-store/tests/native_execution_admission.rs",
+        "crates/catabolic-runtime/tests/r5_lifecycle_characterization.rs"
+      ],
+      "evidence_revision": null,
+      "status": "deferred",
+      "required_evidence_slots": [
+        "r5-host-reopen",
+        "r5-companion-cleanup37"
+      ]
+    },
+    {
+      "id": "native-import-v1-v2",
+      "disposition": "versioned_change",
+      "replacement_contract": "Bounded native logical import V1 and typed-owner-adapter import V2 across34/35/36, with atomic activation and retained source provenance",
+      "migration_rule": "No R6 schema migration. Existing owners preserve explicit identity/revision mappings and history. Scanned-source activation still requires exact cleanup proof; imported witness or authority values never mint capability.",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-store/src/catalog_import.rs",
+        "crates/catabolic-store/src/catalog_import_typed.rs",
+        "crates/catabolic-store/tests/native_import_staging.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r6-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "r6-native-import"
+      ],
+      "evidence_scope": "Exact1479-input source with49 import tests within132 Store owner tests. Positive typed physical activation uses explicitly preseeded quiescent occurrences; real observed rename/replacement/duplicate/unavailable cases preserve terminal ownership and do not qualify scanned-source activation or external Motion deployment."
+    },
+    {
+      "id": "legacy-cli-python-default",
+      "disposition": "preserve",
+      "replacement_contract": "Existing catabolic console/default Python package and schema32 ordinary initializer retain their contracts while native package is opt-in",
+      "migration_rule": "No default switch, API removal or second persistence/resolution owner; public/imported surface decisions stay tied to M0 and installed evidence",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "pyproject.toml",
+        "crates/catabolic-python/python/catabolic_native/__init__.py"
+      ],
+      "evidence_revision": null,
+      "status": "pending",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "r7-installed-surface"
+      ]
+    },
+    {
+      "id": "optional-native-admin-wrapper-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Proposed explicit optional inspect_database/plan_upgrade module delegates read-only native owners without any mutation or authorization constructor",
+      "migration_rule": "Wrapper remains staged until adopted and same-source wheel/installed tests pass; no host authority is inferred from privileged NativeStore access",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-store/src/migration.rs"
+      ],
+      "evidence_revision": null,
+      "status": "pending",
+      "required_evidence_slots": [
+        "r7-installed-surface",
+        "unavailable-effects"
+      ]
+    },
+    {
+      "id": "unqualified-native-effects",
+      "disposition": "defer",
+      "replacement_contract": "Unavailable WAL cutover, controlled restore, destructive publication and interval effects retain failclosed boundaries",
+      "migration_rule": "Focused refusal or unrelated successful fixtures do not admit an effect or complete a blocked review",
+      "mapped_frozen_rows": [],
+      "fixtures": [],
+      "evidence_revision": null,
+      "status": "deferred",
+      "required_evidence_slots": [
+        "unavailable-effects"
+      ]
+    },
+    {
+      "id": "native-companion-cleanup37-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "ExactCleanupV2 schema-derived scan admission with trusted closed companion reservation, actual retained Child exit and parent-only exact tuple seal; explicit borrowed-owner shared join",
+      "migration_rule": "Append schema37 without changing historical SQL/signatures or backfilling old workers; retain32–36 RetainedChildV1 separately. Generic/lost/unqualified owners remain refused; current-source qualification is separate from prepared evidence.",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-store/resources/migrations/037_native_observation_companions.sql",
+        "crates/catabolic-store/tests/native_companion_migration.rs",
+        "crates/catabolic-store/tests/native_inventory_budget.rs",
+        "crates/catabolic-runtime/tests/native_companion_cleanup.rs",
+        "crates/catabolic-runtime/tests/native_host_inventory.rs",
+        "crates/catabolic-runtime/tests/native_companion_negative_held.rs",
+        "crates/catabolic-runtime/tests/native_companion_negative_no_spawn.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-native37-focused-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "latest-native-migration",
+        "r5-companion-cleanup37",
+        "r5-host-reopen"
+      ],
+      "intended_native_schema": 37,
+      "evidence_scope": "Exact1517-input integrated focused source:311 Rust executions,100 Python schema/audit controls and16 individually executed helper cases. Original runner environment failure retained; corrected tail separately passed on unchanged source. No full aggregate, review or release gate closure."
+    },
+    {
+      "id": "private-local-metadata-writer36-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Explicit schema36 expansion of the private existing-item local metadata writer with unchanged lease-through-delivery and durable COMMIT outcomes",
+      "migration_rule": "Historical admission is34/35/36 only. Preserve its populated35-to36 receipt; separate writer37 row and explicitly named current36-to37 fixtures govern the later target.",
+      "mapped_frozen_rows": [
+        "cli:item put"
+      ],
+      "fixtures": [
+        "crates/catabolic-store/src/catalog_write.rs",
+        "crates/catabolic-store/src/catalog_write_tests.rs",
+        "tests/parity/native-catalog-r6-source-manifest.json"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r6-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "r4-private-writer36"
+      ],
+      "evidence_scope": "49 writer cases include24 populated35-to36 actual migration/finalizer/VM/busy/receipt/output/COMMIT cases;66 scoped read/search/relationship cases run on the same frozen source. No hard real-time filesystem latency or schema37 claim.",
+      "admitted_native_schemas": [
+        34,
+        35,
+        36
+      ],
+      "historical_fixture_source": {
+        "path": "crates/catabolic-store/src/catalog_schema36_test_support.rs",
+        "source_manifest": "tests/parity/native-catalog-r6-source-manifest.json",
+        "replacement": "Current latest-target helper is catalog_schema37_test_support.rs; it does not relabel the retained35-to36 receipt"
+      }
+    },
+    {
+      "id": "native-host-shared-gate-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Native HostSession open_authorized retains the exact common HostAuthorization through admitted operations and actual scan Child lifetime; equal labels do not grant authority",
+      "migration_rule": "Native ungated open now refuses explicitly; schema32 operator open stays compatible. Existing-worker drain/cancel remains available after revocation. Unknown old supervisors and terminal rows gain no cleanup proof.",
+      "mapped_frozen_rows": [
+        "cli:scan"
+      ],
+      "fixtures": [
+        "crates/catabolic-runtime/src/host.rs",
+        "crates/catabolic-runtime/tests/native_host_lifetimes.rs",
+        "crates/catabolic-runtime/tests/observation_native_fence.rs",
+        "crates/catabolic-runtime/tests/native_companion_fences.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r6-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "r5-host-reopen",
+        "r6-native-import"
+      ],
+      "evidence_scope": "277 focused owner tests plus8 explicit helper cases on one1479-input source. Six cases use current artifactf362bae8a1c976afa8f8a7b5c9cc676e9f7777ccb1279434b52455a0d63f68ec; two refusal cases use exact archived R3 artifactacd2277c28ca8cac0a7ca241cde60d2311b72d6f1cc25f43c6ecdafd8aa08aca. Actual shared scan covers native35/36 cancellation of one of two consumers, not lost-supervisor recovery or cross-owner cutover."
+    },
+    {
+      "id": "private-local-metadata-writer37-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Explicit schema37 private writer expansion through the same leased durable command owner",
+      "migration_rule": "Preserve the earlier34/35 and36 receipts. Actual36-to37 matrices are named separately; no historical fixture is silently relabeled.",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-store/src/catalog_write_tests.rs",
+        "crates/catabolic-store/src/catalog_schema37_test_support.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-native37-focused-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "preserved-m0-m11",
+        "r4-private-writer37",
+        "current-native-aggregate"
+      ],
+      "intended_native_schema": 37,
+      "evidence_scope": "Exact1517-input integrated focused source:311 Rust executions,100 Python schema/audit controls and16 individually executed helper cases. Original runner environment failure retained; corrected tail separately passed on unchanged source. No full aggregate, review or release gate closure."
+    },
+    {
+      "id": "scoped-membership-provenance-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Explicit admitted-selection membership labels and field-scoped current metadata provenance/conflicts",
+      "migration_rule": "Read/search authority never implies these purposes; only matching approved selections and admitted field sources are projected.",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-store/src/catalog_scope_details.rs",
+        "crates/catabolic-store/src/catalog_scope_details_tests.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r4-details-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "r4-current-scoped-reads",
+        "preserved-m0-m11"
+      ],
+      "evidence_scope": "Exact1486-input historical source only;168 Rust executions and80 Python controls, no claim for later37 or components"
+    },
+    {
+      "id": "scoped-stored-file-facts-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Explicit whole-file role/field grants expose bounded recorded scalar facts and optional exact revision identifiers",
+      "migration_rule": "A logical episode slice never implies whole-file measurements, paths, live availability or interval effects; totals count authorized association records.",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-store/src/catalog_scope_physical.rs",
+        "crates/catabolic-store/src/catalog_scope_physical_tests.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-r4-physical-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "r4-current-scoped-reads",
+        "unavailable-effects"
+      ],
+      "evidence_scope": "Exact1491-input historical source only;139 Rust executions, later37 fixtures are a separate cohort"
+    },
+    {
+      "id": "scoped-current-components-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Explicit whole-occurrence component role/kind/field grants with every relevant lineage endpoint admitted before projection and counts",
+      "migration_rule": "Reuse existing component decoding/currentness; intersect endpoint masks. Recorded currentness does not imply availability, conflict-free playability or interval effects.",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-store/src/catalog_scope_components.rs",
+        "crates/catabolic-store/src/catalog_scope_components_tests.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-native37-focused-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "r4-current-scoped-reads",
+        "unavailable-effects",
+        "current-native-aggregate"
+      ],
+      "evidence_scope": "Exact1517-input integrated focused source:311 Rust executions,100 Python schema/audit controls and16 individually executed helper cases. Original runner environment failure retained; corrected tail separately passed on unchanged source. No full aggregate, review or release gate closure."
+    },
+    {
+      "id": "native-import-companion37-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Schema37 scanned-source activation uses retained exact observation cleanup witnesses without erasing worker ownership",
+      "migration_rule": "No R6 migration or PID clearing; require complete bounded inventory, existing pending-work gate and every exact per-job witness. Preserve older34–36 retained-pointer refusals.",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-store/src/catalog_import.rs",
+        "crates/catabolic-runtime/tests/native_import_companion_activation.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-native37-focused-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "r6-native-import",
+        "r5-companion-cleanup37",
+        "current-native-aggregate"
+      ],
+      "evidence_scope": "Exact1517-input integrated focused source:311 Rust executions,100 Python schema/audit controls and16 individually executed helper cases. Original runner environment failure retained; corrected tail separately passed on unchanged source. No full aggregate, review or release gate closure."
+    },
+    {
+      "id": "native-import-persisted-restart-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "Explicit versioned HostSession import-restart factory reconciles trusted persisted original intent/checkpoint and durable existing activated receipt before creating a fresh shared authorization gate",
+      "migration_rule": "Never submit a new activation command to infer an unknown outcome. Only AdmitCatabolicOnly plus all pending-work/inventory/per-job gates admits a host; ordinary open_authorized is unchanged and is not automatic cutover enforcement. Missing, expired, redacted, restore-unknown or disagreeing outcomes stay closed.",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-runtime/src/host.rs",
+        "crates/catabolic-runtime/tests/native_import_restart.rs",
+        "crates/catabolic-store/tests/native_import_staging.rs"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-native37-followups-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "r6-native-import",
+        "r5-host-reopen",
+        "current-native-aggregate"
+      ],
+      "evidence_scope": "Exact1531-input primary source:203 focused Rust executions plus250 parser and242 variable comparisons. Explicit real-helper restart tests passed; complete aggregate and external deployment remain open."
+    },
+    {
+      "id": "native-import-representation-matrix-v2",
+      "disposition": "versioned_change",
+      "replacement_contract": "Existing V2 owner adapters preserve complete multipart/cut/equivalence mappings and current local/provider/scan/null/legacy metadata semantics",
+      "migration_rule": "No new production owner or schema. Exact association maps, complete mapping digest, source-revision mapping, replay and rollback remain conjunctive; unrepresentable history stays unresolved/refused.",
+      "mapped_frozen_rows": [],
+      "fixtures": [
+        "crates/catabolic-store/tests/native_import_support/representations.rs",
+        "crates/catabolic-store/tests/native_import_support/contribution_semantics.rs",
+        "docs/CATABOLIC_NATIVE_IMPORT_REPRESENTATIONS_V2.md"
+      ],
+      "evidence_revision": "tests/parity/native-catalog-native37-final-controls-checkpoint.json",
+      "status": "historical_bounded_evidence",
+      "required_evidence_slots": [
+        "r6-native-import",
+        "current-native-aggregate",
+        "unavailable-effects"
+      ],
+      "evidence_scope": "Exact1541-input primary source:66 import methods including10 new matrix methods/88 disposable catalogs;17 Python controls; strict lint, format, schema checks and unchanged input fence. No full aggregate/release closure."
+    },
+    {
+      "id": "ordinary-profile-admission-v1",
+      "disposition": "versioned_change",
+      "replacement_contract": "User-approved 2026-10-16: ordinary native CatalogQuery reads reject unknown profiles before returning catalog data; no legacy-compatible read entrypoint. Known profiles and scoped host/HTTP admission retain their contracts.",
+      "migration_rule": "No catalog data rewrite; callers must select an existing profile. This is an approved semantic difference, not legacy parity.",
+      "mapped_frozen_rows": [
+        "cli:item list"
+      ],
+      "fixtures": [
+        "docs/NATIVE_RETIREMENT_DECISIONS_2026_10_16.md",
+        "crates/catabolic-store/tests/retirement_contracts.rs"
+      ],
+      "evidence_revision": null,
+      "status": "pending",
+      "required_evidence_slots": [
+        "current-native-aggregate",
+        "r7-installed-surface"
+      ]
+    },
+    {
+      "id": "mapping-runtime-errors-v2",
+      "disposition": "versioned_change",
+      "replacement_contract": "User-approved 2026-10-16: mapping-events nonobject/duplicate-id/missing-summary runtime failures retain frozen exception class, message and exit 1 in the native CLI envelope without a traceback. Decoder errors and successful reads remain unchanged.",
+      "migration_rule": "No catalog data rewrite; legacy Rust Error text is retained through additive source-selected provenance. Historical capture bytes are unchanged.",
+      "mapped_frozen_rows": [
+        "cli:projection mapping-events"
+      ],
+      "fixtures": [
+        "docs/NATIVE_RETIREMENT_DECISIONS_2026_10_16.md",
+        "tests/test_native_mapping_runtime_v2.py",
+        "crates/catabolic-store/tests/retirement_contracts.rs"
+      ],
+      "evidence_revision": null,
+      "status": "pending",
+      "required_evidence_slots": [
+        "current-native-aggregate",
+        "r7-installed-surface"
+      ]
+    }
+  ],
+  "frozen_ledger_sha256": "677b7df3467e6e7d5b340c84620c4713af62b9051b78a57b2e190f12419e4a45",
+  "required_milestones": [
+    "M0",
+    "M1",
+    "M2",
+    "M3",
+    "M4",
+    "M5",
+    "M6",
+    "M7",
+    "M8",
+    "M9",
+    "M10",
+    "M11"
+  ],
+  "milestone_requirements_source": "docs/RUST_MIGRATION_PLAN.md",
+  "obligations_waived": [],
+  "blocked_independent_reviews": [
+    "schema",
+    "broad_definition",
+    "filesystem"
+  ],
+  "review_retry_authorized": false,
+  "default_transition": {
+    "python_default": "preserved",
+    "native_surface": "opt_in",
+    "release_ready": false
+  },
+  "evidence_slots": {
+    "preserved-m0-m11": {
+      "status": "pending",
+      "evidence_revision": null,
+      "scope": "Every historical milestone requirement remains independently required; no narrowed native contract waives an old obligation.",
+      "required_artifacts": [
+        "exact source manifest and unchanged before/after verification",
+        "toolchain/platform identity",
+        "unaltered command logs with failure/skip counts and scenario inventory"
+      ],
+      "required_scenarios": [
+        "All753 frozen rows and supported Python public surface receive approved ownership/compatibility decisions and executable evidence",
+        "Current-source CLI/HTTP/wrapper/platform/tool/integration/resource/crash/recovery/release lanes, with every historical defect and skip retained"
+      ],
+      "planned_commands": [],
+      "commands_are_qualification_results": false
+    },
+    "current-native-aggregate": {
+      "status": "pending",
+      "evidence_revision": null,
+      "scope": "A later complete integrated native cohort, separate from all focused receipts.",
+      "required_artifacts": [
+        "exact source manifest and unchanged before/after verification",
+        "toolchain/platform identity",
+        "unaltered command logs with failure/skip counts and scenario inventory"
+      ],
+      "required_scenarios": [
+        "All seven native/tooling crates run on one frozen source",
+        "Explicit required ignored-artifact cases execute exactly once and preserve failed attempts"
+      ],
+      "planned_commands": [
+        "cargo test --offline --locked --workspace --exclude catabolic-python --no-fail-fast -- --test-threads=1"
+      ],
+      "commands_are_qualification_results": false
+    },
+    "latest-native-migration": {
+      "status": "pending",
+      "evidence_revision": null,
+      "scope": "Latest-target37 fixtures are versioned separately; frozen32–36 resources and exact historical receipts stay pinned",
+      "required_artifacts": [
+        "exact source manifest and unchanged before/after verification",
+        "toolchain/platform identity",
+        "unaltered command logs with failure/skip counts and scenario inventory"
+      ],
+      "required_scenarios": [
+        "Preserve historical35-to36 evidence and qualify actual36-to37 preservation with immutable prior DDL/history and no companion backfill",
+        "Full latest-target migration and search-index fixtures use the adopted target without changing frozen historical expectations",
+        "WAL and controlled restore remain unavailable absent separate qualification"
+      ],
+      "planned_commands": [
+        "cargo test --offline --locked -p catabolic-store --test native_migrations --test native_cleanup_migration --test native_search_index -- --test-threads=1",
+        "python3 -I -B scripts/native_catalog_companion_schema.py --check"
+      ],
+      "commands_are_qualification_results": false
+    },
+    "r4-current-scoped-reads": {
+      "status": "pending",
+      "evidence_revision": null,
+      "scope": "Current-source scoped item/search/relationship reads after36 integration, with per-surface grants and delivery leases.",
+      "required_artifacts": [
+        "exact source manifest and unchanged before/after verification",
+        "toolchain/platform identity",
+        "unaltered command logs with failure/skip counts and scenario inventory"
+      ],
+      "required_scenarios": [
+        "Wrong-session/twin authority and stale source/saved-query/data-version/generation/membership/cursor refusal",
+        "Metadata/search/relationship permissions remain independent; both relationship endpoints and edge fields must be authorized",
+        "Hidden rows/fields/aliases/graph paths cannot change visible counts/ranking; budgets interrupt private materialization",
+        "Revocation retains lease until final delivery, including callback failures"
+      ],
+      "planned_commands": [
+        "cargo test --offline --locked -p catabolic-store --lib catalog_scope::tests:: -- --test-threads=1",
+        "cargo test --offline --locked -p catabolic-runtime --lib scoped_host:: -- --test-threads=1"
+      ],
+      "commands_are_qualification_results": false
+    },
+    "r4-private-writer36": {
+      "status": "pending",
+      "evidence_revision": null,
+      "scope": "The bounded36 writer owner is landed with its separate immutable receipt. Full current-source aggregate, later target expansions and release-relevant timing/platform evidence remain required; planned commands below are not new results.",
+      "required_artifacts": [
+        "exact source manifest and unchanged before/after verification",
+        "toolchain/platform identity",
+        "unaltered command logs with failure/skip counts and scenario inventory"
+      ],
+      "required_scenarios": [
+        "Preserve the historical populated35-to36 receipt and run separately identified fresh34/35/36 controls on later source",
+        "Explicit write authority cannot be inferred from read/search scope; later schema37 admission has a separate versioned matrix and receipt",
+        "Busy/VM/cancel/precommit output failures preserve atomicity; confirmed COMMIT keeps durable success",
+        "Same operation envelope reconciles without replay; current independent receipt visibility controls body disclosure"
+      ],
+      "planned_commands": [
+        "cargo test --offline --locked -p catabolic-store --lib catalog_write::tests:: -- --test-threads=1"
+      ],
+      "commands_are_qualification_results": false
+    },
+    "r5-worker-cleanup36": {
+      "status": "pending",
+      "evidence_revision": null,
+      "scope": "Later complete integrated-source replay of corrected36 builtin cleanup and exact helper protocols; historical bounded R4/R5 receipt remains separately scoped. Do not generalize to observation descendants.",
+      "required_artifacts": [
+        "exact source manifest and unchanged before/after verification",
+        "toolchain/platform identity",
+        "unaltered command logs with failure/skip counts and scenario inventory"
+      ],
+      "required_scenarios": [
+        "Matching immutable catalog/incarnation/job/generation/attempt/token/input/owner witness permits bounded same-owner retry",
+        "Witness cannot be synthesized from terminal state, time, PID absence, reused PID or SQL caller",
+        "Legacy32 routes preserved; schema34/36 versioned helper/companion routes reject missing/mismatched fences without fallback",
+        "Ordinary query surfaces cannot mint cleanup evidence or disclose owner nonces"
+      ],
+      "planned_commands": [
+        "cargo test --offline --locked -p catabolic-store --test native_execution_admission --test native_cleanup_migration -- --test-threads=1",
+        "cargo test --offline --locked -p catabolic-runtime --test native_execution_cleanup --test observation_native_fence --test native_companion_fences -- --test-threads=1"
+      ],
+      "commands_are_qualification_results": false
+    },
+    "r5-host-reopen": {
+      "status": "pending",
+      "evidence_revision": null,
+      "scope": "Current exact closed-companion inventory/shared-demand/reopen fixtures require integrated-source evidence; arbitrary inherited workers and descendants remain unqualified",
+      "required_artifacts": [
+        "exact source manifest and unchanged before/after verification",
+        "toolchain/platform identity",
+        "unaltered command logs with failure/skip counts and scenario inventory"
+      ],
+      "required_scenarios": [
+        "A reopened HostSession never admits conflicting work by reconstructing ownership from PID/terminal rows",
+        "Builtin retained JoinHandle proof is separate from observation child/process-group exit proof",
+        "Cancellation of one demand preserves other demands; capacity remains owned until qualified retirement",
+        "Explicit drain/reopen and hostile shutdown/fault scenarios preserve resource and receipt ownership"
+      ],
+      "planned_commands": [],
+      "commands_are_qualification_results": false
+    },
+    "r7-installed-surface": {
+      "status": "pending",
+      "evidence_revision": null,
+      "scope": "Optional wrappers and standalone distribution qualify exact artifacts on promised platforms; defaults remain unchanged.",
+      "required_artifacts": [
+        "exact source manifest and unchanged before/after verification",
+        "toolchain/platform identity",
+        "unaltered command logs with failure/skip counts and scenario inventory"
+      ],
+      "required_scenarios": [
+        "Same-source native helpers/extension/wheel; all packaging scripts and Python tests included in source fences",
+        "Read-only administration delegates native inspect/plan, preserves default32, and never creates/upgrades/repairs inputs",
+        "Any future scoped/write wrapper uses opaque native handles/authority/delivery lease, never raw Store as restricted authority",
+        "Exact installed import/callable/ASGI/dependency and supported3.11/3.14/Linux/macOS matrix; no skipped scenario counted as pass"
+      ],
+      "planned_commands": [],
+      "commands_are_qualification_results": false
+    },
+    "external-composition": {
+      "status": "pending",
+      "evidence_revision": null,
+      "scope": "Actual external composition remains explicitly deferred; no Motion changes/tests are authorized here.",
+      "required_artifacts": [
+        "exact source manifest and unchanged before/after verification",
+        "toolchain/platform identity",
+        "unaltered command logs with failure/skip counts and scenario inventory"
+      ],
+      "required_scenarios": [
+        "Independent two-owner reference and activation proof when separately authorized; local Catabolic fixtures cannot substitute"
+      ],
+      "planned_commands": [],
+      "commands_are_qualification_results": false
+    },
+    "unavailable-effects": {
+      "status": "pending",
+      "evidence_revision": null,
+      "scope": "Failclosed effects keep their own implementation and safety gates.",
+      "required_artifacts": [
+        "exact source manifest and unchanged before/after verification",
+        "toolchain/platform identity",
+        "unaltered command logs with failure/skip counts and scenario inventory"
+      ],
+      "required_scenarios": [
+        "WAL migration/controlled restore/destructive publication/interval effects remain refused wherever unqualified",
+        "Blocked independent schema, broad-definition and filesystem reviews remain incomplete without retry/reassignment"
+      ],
+      "planned_commands": [],
+      "commands_are_qualification_results": false
+    },
+    "r6-native-import": {
+      "status": "pending",
+      "evidence_revision": null,
+      "scope": "Bounded V1/V2 adapters, common-gate composition, exact37 scanned activation and explicit persisted restart admission are integrated with source-bound focused receipts. Broader representable import-shape qualification and actual external two-owner deployment remain separate obligations.",
+      "required_artifacts": [
+        "exact source manifest and unchanged before/after verification",
+        "toolchain/platform identity",
+        "unaltered command logs with failure/skip counts and scenario inventory"
+      ],
+      "required_scenarios": [
+        "Whole source validation, bounded durable staging and atomic activation without source writes",
+        "Typed local metadata/pin import on34/35/36 and exact multi-episode binding through native owner adapters",
+        "Interruption, injected process exit, rollback and missing/unsupported owner refusal",
+        "No imported operation receipt, authority, execution owner or cleanup witness grants runtime capability",
+        "Exact37 positive scanned activation and persisted restart admission require every exact cleanup witness and complete pending-work/inventory gates; external host reference persistence and deployed two-owner proof remain deferred."
+      ],
+      "planned_commands": [
+        "cargo test --offline --locked -p catabolic-store --test native_import_staging -- --test-threads=1"
+      ],
+      "commands_are_qualification_results": false,
+      "prepared_fixture_paths": [
+        "crates/catabolic-store/tests/native_import_staging.rs"
+      ],
+      "fixture_adoption": "landed"
+    },
+    "r5-companion-cleanup37": {
+      "status": "pending",
+      "evidence_revision": null,
+      "scope": "Closed-companion37 source and versioned writer support are adopted for integrated qualification; exact retained-child and shared-owner proof remain distinct from general historical recovery",
+      "required_artifacts": [
+        "Exact append-only SQL/signature/provenance with unchanged prior36 resources",
+        "Frozen source, matching helper binaries and explicit test logs/counts",
+        "Native retained-child ownership and scoped cleanup-authority review evidence"
+      ],
+      "required_scenarios": [
+        "closed_child_exit_v1 requires trusted exact helper digest/version grant, held catalog/incarnation/args/requester reservation, actual private claim capture, completed ack and exact retained Child wait before parent-only tuple seal",
+        "Generic helpers, lost supervisors, terminal/PID/ESRCH/error-only proof and arbitrary publisher callbacks remain unavailable",
+        "Old native claims are never backfilled; builtin36 evidence stays a separate proof kind",
+        "UUID-checking enrolled source cohorts and continuation/request-id paths remain unqualified until separate exact proof"
+      ],
+      "planned_commands": [
+        "cargo test --offline --locked -p catabolic-store --test native_observation_companion --test native_companion_migration -- --test-threads=1",
+        "cargo test --offline --locked -p catabolic-runtime --test native_companion_cleanup -- --test-threads=1"
+      ],
+      "commands_are_qualification_results": false,
+      "prepared_fixture_paths": [
+        "crates/catabolic-store/resources/migrations/037_native_observation_companions.sql",
+        "crates/catabolic-store/resources/native-schema-37.json",
+        "crates/catabolic-store/tests/native_observation_companion.rs",
+        "crates/catabolic-store/tests/native_companion_migration.rs",
+        "crates/catabolic-runtime/tests/native_companion_cleanup.rs"
+      ],
+      "fixture_adoption": "adopted_source_pending_integrated_qualification"
+    },
+    "r4-private-writer37": {
+      "status": "pending",
+      "evidence_revision": null,
+      "scope": "Separately versioned schema37 writer admission, including actual populated36-to37 upgrade, companion-trigger finalization and explicit fresh34/35/36 controls; not a relabel of historical35-to36 evidence",
+      "required_artifacts": [
+        "exact source manifest and unchanged before/after verification",
+        "toolchain/platform identity",
+        "unaltered command logs with failure/skip counts and scenario inventory"
+      ],
+      "required_scenarios": [
+        "Actual36-to37 full writer matrix preserves original durable COMMIT, lease, busy, VM, cancellation, output, replay and receipt visibility assertions",
+        "Populated companion statement triggers complete before fixed COMMIT admission",
+        "Historical schemas34/35/36 retain explicitly named fresh initialization controls"
+      ],
+      "planned_commands": [
+        "cargo test --offline --locked -p catabolic-store --lib catalog_write::tests:: -- --test-threads=1"
+      ],
+      "commands_are_qualification_results": false
+    }
+  }
+}

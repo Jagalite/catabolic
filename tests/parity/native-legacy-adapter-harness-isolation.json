@@ -1,0 +1,63 @@
+{
+  "format": 1,
+  "scope": "source-control mock harness isolation only; no installed product qualification",
+  "base_commit": "d765177",
+  "aggregate_reported_commit": "343d7e8",
+  "reproduced_failure": {
+    "python": "3.14.6",
+    "actual_frozen_modules_preloaded": 17,
+    "tests_run": 2,
+    "failures": 1,
+    "errors": 1,
+    "cause": "Synthetic installed-gate controls inherited frozen Python modules previously imported by aggregate source tests"
+  },
+  "correction": "Only the mock test harness temporarily removes preexisting catabolic modules inside its existing restoring patch.dict context; actual fixture imports remain visible to the unchanged production fence",
+  "new_controls": [
+    "Exact preloaded module object identities restored on mock success, fixture failure, and forbidden-import rejection",
+    "Physical catabolic.fixture_owner package import inside the fixture is rejected by the unchanged postflight production admission rule"
+  ],
+  "production_gate_changed": false,
+  "production_gate_sha256": "586ee851c1d4e24f91127258d8ba261ad8993b31085ba22a10eff79aa3a7f115",
+  "test_file": "tests/test_native_legacy_adapter_qualification.py",
+  "test_sha256": "de0ff53c9e0a1608a180ef56ae212baa3c1be3d65f0cc5f6e34699dc7caee5e1",
+  "validation": {
+    "python314": {
+      "version": "3.14.6",
+      "focused_preloaded_passed": 19,
+      "related_preloaded_passed": 99,
+      "related_seconds": 59.978,
+      "original_module_identities_restored": 17
+    },
+    "python311": {
+      "version": "3.11.15",
+      "focused_preloaded_passed": 19,
+      "related_preloaded_passed": 99,
+      "related_seconds": 51.292,
+      "original_module_identities_restored": 17
+    }
+  },
+  "independent_review": {
+    "status": "accepted",
+    "remaining_findings": 0,
+    "original_failure_independently_reproduced": true,
+    "focused_preloaded_passed_each_python": 19,
+    "physical_fixture_import_rejection_confirmed": true
+  },
+  "native_product_gate_executed": false,
+  "release_wheel_built": false,
+  "full_aggregate_rerun": false,
+  "local_evidence_root": ".local-tests/legacy-installed-wiring/aggregate-isolation",
+  "local_evidence_sha256": {
+    "independent/preloaded-after311.log": "8bcaae2573bc3f0b3898dcd2f22e9aef28bb796fb138de63e01e293e95ee9483",
+    "independent/preloaded-after314.log": "efa9d9ff2e18eeb870357d543c45d6263aec589437d325cba0a3fec000e99b04",
+    "independent/preloaded-before314.log": "239b8919c80d717fb2767e807328bba7c4ad70e38b2346c1653d9bc810b6e198",
+    "independent/review.md": "78c76b2ce29f69528c780890653dadb52c7ef8f1405d9c9466bb6933cac11df9",
+    "independent/run_controls.py": "8c2f63018a6699b072a3654620a2ac21aea989fc5d68a7500d3b85aeb511bd38",
+    "independent/source-identity.txt": "5cb73eda3e114b46d384411ae683f5f3e58341d56cf591f8fbf9d677f8602d86",
+    "preloaded-after314.log": "783a4e1126cc0c907526f26827091afba837bc9421aac2955af0d169245d4cab",
+    "preloaded-before314.log": "2d1de3b32e1f2a0d1c3469bc95db54a729fdf46821b5fc37d8ed532f82795d90",
+    "related-preloaded311.log": "189cbfa5a419763524a5130966f686a61aac2f000189640df7d00ff99e396b4d",
+    "related-preloaded314.log": "537b12f704594e1eece61cb8e8ccdc1032799bc16c19d7dd5f47a1c48fa63ca6",
+    "run-preloaded-controls.py": "bcf9fda4920a2102345cff4e12f8d18b1c83eb5b65fef11b331856fb7ce10959"
+  }
+}

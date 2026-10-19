@@ -1,0 +1,184 @@
+{
+  "date": "2026-10-12",
+  "base_commit": "0f43609",
+  "scope": "New ordinary native v1 destination metadata/explicit collection owner and preserved CLI. Local debug checkpoint only.",
+  "python_remains_default": true,
+  "m6_gates_unchanged": true,
+  "full_leaf_or_milestone_qualified": false,
+  "binary": {
+    "name": "catabolic-legacy-native",
+    "profile": "debug; debug symbols disabled; incremental disabled; offline jobs=1",
+    "sha256": "bb4a8952322fce97c3992865178a4469d21804b4ed55732c7467de73413f4867"
+  },
+  "source_content_sha256": "713a7bf98e8a14671f5c1c182ee43534dc7718e36e30456c0e9645ca1f86553a",
+  "changed_source_sha256": {
+    "crates/catabolic-cli/src/legacy/dispatch.rs": "38de0b5ca888e60f38584835cddb034af29783fbfde9020a035983e58b629185",
+    "crates/catabolic-cli/src/legacy/presentation.rs": "835c36a571becab638423f312103a5c7ef0e07c0529c4f74a61faa01f88eeead",
+    "crates/catabolic-cli/src/legacy/projection.rs": "52a26563294e197a95c0d79817cf6e890346ddb96d715269d169c122e801b9c0",
+    "crates/catabolic-runtime/src/consumers.rs": "7d2a8268b5aaaf3173f746967c37d51089a7a0d917ba8ce8988c7d2ddef74736",
+    "crates/catabolic-runtime/src/destination_mappings.rs": "e5c79b439994cc116979c6e15386333447dc19b83b73f61fd608e5e79cfe0567",
+    "crates/catabolic-runtime/src/destination_mappings/adapters.rs": "3ca250e80f95dc05f2c115b3b5e05a51b3343171870676d2acff4c307c3cc3c2",
+    "crates/catabolic-runtime/src/lib.rs": "e1c2868b6a211ddc7f70c6955286392044acbb6190f223eb91a7e3aeb81e887c",
+    "crates/catabolic-store/src/destination_mappings.rs": "239b25da2d8437086e111000a273ca33d32df7be709fff4ed9f3976a3828e835",
+    "crates/catabolic-store/src/lib.rs": "6cd6a2dc8c464657ceac8ca90fe27f83ef7f1fbf90419ffc652f760a3793a870",
+    "crates/catabolic-store/src/mapping_history.rs": "5aec989dd8ab8498a55c092c0aaf3e7df30b50f07ce209e715ade0b98c8ad1a3",
+    "scripts/legacy_cli_owners.py": "04fc4d878d90267cc38374cef1f1b0238f79ecc6d3f8cb4cb52411db3c7025cf",
+    "tests/parity/legacy-cli-owners.json": "9a36a7d7f342fd4053f8141b9adbd3b3e9a9cb82a7e6e0cc16632088030f5b4b",
+    "tests/test_native_cli_owner_ledger.py": "80a89eaf071b2900095c4374ee1f7cfc5a393445d8d48088f4c93d4a7d112284",
+    "tests/test_rust_legacy_destination_mappings.py": "4abc7acc53b79b97eb5b018ca2d4e058deabec0d6054dc205b68653c999686e5",
+    "tests/test_rust_legacy_mapping_history.py": "2ab37390dc3782867480b1cb7beabb59dc4af5985bbc166deba9d71456fdd1d9",
+    "tests/test_rust_legacy_projection.py": "b84a7b88f811749153fcabbf3793ee47ec640008f0f9d0868205f88ecdc17325"
+  },
+  "frozen_reference": "453fca983222c6665a48775eef67c489c96b527e",
+  "frozen_inventory_sha256": "81b697a595556ded943bef59c167314a6ffbbfc68706ed134cfea66afe012cc2",
+  "frozen_worker_origin": "Each fixture pins PYTHONPATH to the verified frozen source and checks catabolic.http_worker.__file__ before execution.",
+  "paired_runs": [
+    {
+      "python": "3.14.6 (main, Aug  4 2026, 18:27:20) [Clang 22.1.3 ]",
+      "oracle_version": "Python 3.14.6",
+      "oracle_interpreter_sha256": "2f7fff382c9d335d6d63f134b55cb8ced9d0b2e1d47e6f210ad3f059adfa71c1",
+      "tests": 36,
+      "passed_without_skips": true,
+      "source_unchanged": true,
+      "artifact_unchanged": true,
+      "oracle_unchanged": true,
+      "seconds": 360.3761628150023,
+      "receipt_sha256": "93be49e8b95db543c2508fb18dbfefa8e775bd9225db4ef33af449b89624b9d1"
+    },
+    {
+      "python": "3.11.15 (main, Aug  7 2026, 02:25:55) [Clang 22.1.3 ]",
+      "oracle_version": "Python 3.11.15",
+      "oracle_interpreter_sha256": "0253b01a7f5d96a042a2b9f5e0f5ff5062707a1c75be2b089098e3111cd186d2",
+      "tests": 36,
+      "passed_without_skips": true,
+      "source_unchanged": true,
+      "artifact_unchanged": true,
+      "oracle_unchanged": true,
+      "seconds": 359.3728065769974,
+      "receipt_sha256": "1767566210f809e65e32dc3f8b13af09de4e3605ea1d264ecdaa86274e50e074"
+    }
+  ],
+  "unique_paired_methods": [
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_connection_revision_change_stops_after_durable_first_item",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_explicit_collections_and_missing_rows_retain",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_lost_response_is_not_retried_and_recovery_verifies",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_metadata_lock_contention_precedes_remote_and_releases",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_no_catalog_or_sqlite_lock_during_network",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_other_owner_remote_identity_and_owned_value_loss",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_owned_sets_and_removal_budget",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_query_change_stops_after_durable_first_item",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_query_grouping_expressions_and_complete_empty_results",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_real_interrupt_after_write_keeps_started_recoverable",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_recovery_catalog_writer_contention_preserves_event_and_lock",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_recovery_uncertain_and_unsupported_options",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_scalar_plan_apply_noop_and_ownership",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_stale_plan_validation_and_identity",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_standard_preview_stdout_and_typed_dto_reports",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_truncated_query_and_duplicate_columns_fail_closed",
+    "tests.test_rust_legacy_destination_mappings.NativeDestinationMappingTest.test_uncertain_and_observation_only_recovery",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_connection_revision_change_stops_after_durable_first_item",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_explicit_collections_and_missing_rows_retain",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_lost_response_is_not_retried_and_recovery_verifies",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_metadata_lock_contention_precedes_remote_and_releases",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_no_catalog_or_sqlite_lock_during_network",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_numeric_dto_not_applied_recovery_matches_frozen",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_numeric_dto_prewrite_fence_matches_frozen",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_other_owner_remote_identity_and_owned_value_loss",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_owned_sets_and_removal_budget",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_query_change_stops_after_durable_first_item",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_query_grouping_expressions_and_complete_empty_results",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_real_interrupt_after_write_keeps_started_recoverable",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_recovery_catalog_writer_contention_preserves_event_and_lock",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_recovery_uncertain_and_unsupported_options",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_scalar_plan_apply_noop_and_ownership",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_stale_plan_validation_and_identity",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_standard_preview_stdout_and_typed_dto_reports",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_truncated_query_and_duplicate_columns_fail_closed",
+    "tests.test_rust_legacy_destination_mappings.NativeJellyfinDestinationMappingTest.test_uncertain_and_observation_only_recovery"
+  ],
+  "additional_tests": {
+    "legacy_v3_history_and_ledger": 29,
+    "native_wire_adapters": 11,
+    "native_policy_and_durability": 6,
+    "consumer_transport_controls": 3,
+    "presentation_controls": 6,
+    "stdin_guard": 1
+  },
+  "comparison_scope": {
+    "plans": "Exact complete canonical plan digests",
+    "reports": "Type-strict parsed reports; generated event IDs are normalized only when comparing independent results",
+    "durable_effects": "Independent SQLite event subjects and receiver states; mutation request methods/routes/parsed parameters/bodies compared",
+    "stdout": "Exact standard-order Plex preview text/JSON/machine. Arbitrary nested/Jellyfin DTO ordering not qualified."
+  },
+  "independent_review": {
+    "status": "Accepted after numeric-equality correction and bounded arbitrary-integer budget review",
+    "final_artifact_replays": [
+      "Plex stale-plan/validation including 10**100 budget",
+      "Jellyfin stale-plan/validation including 10**100 budget",
+      "Actual owned Plex genre removal with 10**100 budget",
+      "Dependency-equipped Python 3.11 scalar plan/apply/no-op and worker-origin fixture"
+    ],
+    "prior_findings_fixed": [
+      "Python numeric equality required for DTO pre-write and not-applied recovery"
+    ],
+    "scope": "Only new v1 owner/adapters/CLI; no previously blocked broad review was repeated",
+    "reviewer_task": "__external_review_destination_mapping_owner",
+    "evidence_storage": "Reviewer conversation tool outputs and acceptance report; no separate filesystem review receipt was produced.",
+    "final_artifact_sha256": "bb4a8952322fce97c3992865178a4469d21804b4ed55732c7467de73413f4867",
+    "final_replay_results": [
+      {
+        "scope": "Paired Plex/Jellyfin validation",
+        "passed": 2,
+        "seconds": 23.496
+      },
+      {
+        "scope": "Actual-removal oversized-budget probe",
+        "passed": 1,
+        "seconds": 10.892
+      },
+      {
+        "scope": "Dependency-equipped Python 3.11 scalar replay",
+        "passed": 1,
+        "seconds": 18.597
+      }
+    ],
+    "acceptance_report": "RUST_MIGRATION_DESTINATION_MAPPINGS_REVIEW.md",
+    "results_classification": "Reviewer-reported; no standalone replay logs or review receipt were created.",
+    "acceptance_report_sha256": "0a62449e5352b3f0fc812bc773cd8211812acef48c14b0b63021ddda238daa90"
+  },
+  "explicit_conservative_exceptions": [
+    "Refuse event writes if catalog identity changed",
+    "Refuse verified/uncertain update if durable event disappeared",
+    "Scope-less mixed history fails closed; exact malformed-event exception parity remains open"
+  ],
+  "remaining_gaps": [
+    "v2 filesystem/import/export publication and recovery are separate owners",
+    "Arbitrary nested report/DTO insertion order and some malformed-input diagnostics",
+    "Existing shared consumer transport clean-EOF/reset distinction",
+    "No installed release wheel, live consumer, macOS/platform matrix or full M9 qualification"
+  ],
+  "checks": [
+    "cargo fmt --all -- --check",
+    "cargo clippy --offline -p catabolic-store -p catabolic-runtime --lib -- -D warnings",
+    "cargo clippy --offline -p catabolic-cli --bin catabolic-legacy-native -- -D warnings",
+    "ruff selected changed Python files",
+    "git diff --check"
+  ],
+  "retained_prior_attempts": [
+    "Initial CLI preview missing-default failure corrected",
+    "Independent fixture saved-query UUID mismatch corrected",
+    "Minimal Python 3.11 missing pydantic failed before owner execution",
+    "Dependency-equipped Python 3.11 missing worker PYTHONPATH corrected without install",
+    "Intermediate source-binding runs superseded after final source/harness edits"
+  ],
+  "local_evidence_directory": ".local-tests/destination-mappings",
+  "log_sha256": {
+    "qualified-314.log": "00264fbb9fa59597f0b8996ce7f47e0bb910b69107e4e0677caa4f981977c55c",
+    "qualified-311.log": "65351af10caeb5c4c538244260ec997987ea656e8fc50e16adee086935797623",
+    "legacy-bound.log": "716c9d59b12bf890b3f2a4e48af9fd06161391e28f9e84ecaa272ba679594ccc",
+    "native-qualified.log": "b9d52512f05f0a182d39b60d1f329f2c4f762b1a53f45f66da52561771411c69",
+    "presentation-final.log": "c86174cfbac902d6a9f03c570c9d1f970eeda0cb278929af19ea3defb063d6a4",
+    "clippy-budget.log": "1ddbdeaa80a300409c21b9a429eddd070a9a0c03b936e3deb8476790ac58b81b",
+    "clippy-cli-final.log": "22cbac1f48fbed8915abea52f4e7b6009cdba81fe39ec3c0c91f231ae0b4c3b6"
+  }
+}

@@ -1,0 +1,536 @@
+{
+  "contract": "native-graphql-parser-final-composition-v1",
+  "fixture_bindings": [
+    {
+      "case_count": 150,
+      "contract": "native-graphql-parser-budget-precedence-v2",
+      "executable_cases_sha256": "33113d3d474e11d2a27808cbb7d9eeab2777a7ff0e2efa7a96d6ee7d69b17489",
+      "executable_indices": [],
+      "final_cases_sha256": "4d0e2e731c4e0556190eacffabcebed96f525f2d9f971a1ad53fdc1d28d8adaf",
+      "fixture": "graphql-parser-budget-precedence-v2.json",
+      "fixture_sha256": "b9aecbcc83fb5f9dedaa59ec17b0b0b2595d591199d9d47ec3584836b8cc263d",
+      "grammar_cases_sha256": "4d0e2e731c4e0556190eacffabcebed96f525f2d9f971a1ad53fdc1d28d8adaf",
+      "grammar_indices": [
+        116,
+        121,
+        122,
+        146,
+        147,
+        148,
+        149
+      ],
+      "prior_cases_sha256": "33113d3d474e11d2a27808cbb7d9eeab2777a7ff0e2efa7a96d6ee7d69b17489",
+      "prior_promotion_indices": [
+        120,
+        117,
+        118,
+        119
+      ]
+    },
+    {
+      "case_count": 38,
+      "contract": "native-graphql-parser-diagnostic-ownership-v1",
+      "executable_cases_sha256": "113d42774d7e131525a0ca3454a0bf4c87e857bf6da33597b0d73a8b6223feb7",
+      "executable_indices": [
+        21
+      ],
+      "final_cases_sha256": "0bfc84d825608aa6580b1a85e1b60473f66ac63df7d290fd128439f99a6752e6",
+      "fixture": "graphql-parser-diagnostic-ownership-v1.json",
+      "fixture_sha256": "11df0b04b32fa187d09c57623bf8ddf45f5ecfc7bee101853197d44810f78444",
+      "grammar_cases_sha256": "aae61c7a6487fe104aa08e549d40840480039f711715ed3349a67c8d34c37495",
+      "grammar_indices": [
+        34,
+        35
+      ],
+      "prior_cases_sha256": "402a93aff341e7f8031b383e68963d11f8c80973bc533a20c0c8420ab1197076",
+      "prior_promotion_indices": [
+        18,
+        19,
+        20,
+        24,
+        22,
+        23
+      ]
+    },
+    {
+      "case_count": 31,
+      "contract": "native-graphql-unsupported-scalar-precedence-v1",
+      "executable_cases_sha256": "d4c57270571f2bab751bb239b2d9f7936ad971a5b87362dda99bf6838ace420b",
+      "executable_indices": [
+        25
+      ],
+      "final_cases_sha256": "06209f6a84b556a2bc0979ddd9e9b66f35dd26c6ac7bb32595368f718efe1c27",
+      "fixture": "graphql-unsupported-scalar-precedence-v1.json",
+      "fixture_sha256": "fccd5619951d152e3fd8278fe547e2d8e0c727153eb8eec52e14ba75438400ca",
+      "grammar_cases_sha256": "f6262630b198c8bfe2bb2824d1c51fbac9fb00f87c761e3257a699a7fb8a7a4e",
+      "grammar_indices": [
+        21
+      ],
+      "prior_cases_sha256": "a262fc6e98dad17481c3c31cca46b86d33a86bfac1a2b240da9698bdae7a4c2a",
+      "prior_promotion_indices": [
+        22,
+        23,
+        29
+      ]
+    },
+    {
+      "case_count": 61,
+      "contract": "native-graphql-parser-boundary-ownership-v1",
+      "executable_cases_sha256": "4c410f1be27f99fc5cad35d4e03738376e06ccb5c2b7a363a2b22a1fb0375e3f",
+      "executable_indices": [
+        18
+      ],
+      "final_cases_sha256": "d665bffa7ba8d160c528eb0002851b06fad6de3f25e18979d9506c0df99dc8bf",
+      "fixture": "graphql-parser-boundary-ownership-v1.json",
+      "fixture_sha256": "863a1a22934a34c81c1e154c2362530a4db49e936608fbf9a541b8a0725816de",
+      "grammar_cases_sha256": "45d45b2c7672911488e1fbf98422f2ee3315c3ce991bee2b70db4120c6257f05",
+      "grammar_indices": [
+        10,
+        11,
+        20,
+        21,
+        38,
+        39,
+        58
+      ],
+      "prior_cases_sha256": "74804e14e41674e31a664132795a1cd76e3703b0926ff17c539a67b9b662afbc",
+      "prior_promotion_indices": [
+        19,
+        22,
+        27,
+        36,
+        37,
+        40,
+        56,
+        57,
+        12,
+        13,
+        14,
+        53
+      ]
+    },
+    {
+      "case_count": 50,
+      "contract": "native-graphql-parser-required-value-precedence-v1",
+      "executable_cases_sha256": "058770bb7f1d8baa782b9cf4a1fc1d242aa95523d605a29bd27b952bc49f74ba",
+      "executable_indices": [],
+      "final_cases_sha256": "c13e22b0ec53983a14bb03e8852f486e1fd7ed2b6de8e05f7d913b917b49835f",
+      "fixture": "graphql-parser-required-value-precedence-v1.json",
+      "fixture_sha256": "079ce62e3dbd623e8a1726fbb7ec9f25b9ff678d1baa728da77f0928f73a8c56",
+      "grammar_cases_sha256": "c13e22b0ec53983a14bb03e8852f486e1fd7ed2b6de8e05f7d913b917b49835f",
+      "grammar_indices": [
+        33,
+        34,
+        38,
+        41,
+        42,
+        44,
+        45
+      ],
+      "prior_cases_sha256": "058770bb7f1d8baa782b9cf4a1fc1d242aa95523d605a29bd27b952bc49f74ba",
+      "prior_promotion_indices": [
+        40,
+        43,
+        46,
+        35,
+        36,
+        37
+      ]
+    },
+    {
+      "case_count": 197,
+      "contract": "native-graphql-parser-lexical-capture-v1",
+      "executable_cases_sha256": null,
+      "executable_indices": [],
+      "final_cases_sha256": "0ab2132f1998b033e91875dbe04dcfa22315b244aa1ffb90651d3fb800196350",
+      "fixture": "graphql-parser-lexical-capture-v1.json",
+      "fixture_sha256": "7a0c2f8c3da34fe83e15a4aa5cd087e45c4884086e629a8e6329347bc21f46f2",
+      "grammar_cases_sha256": "0ab2132f1998b033e91875dbe04dcfa22315b244aa1ffb90651d3fb800196350",
+      "grammar_indices": [
+        74,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        106,
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        138,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        170,
+        172,
+        173,
+        174,
+        175,
+        176,
+        177,
+        178,
+        179,
+        180
+      ],
+      "prior_cases_sha256": "ec59c44e7a9a35aa862c27eaf523ab1f142d66abe0c48abd715c5de4358040ae",
+      "prior_promotion_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        69,
+        70,
+        71,
+        72,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        136,
+        149,
+        150,
+        151,
+        152,
+        153,
+        154,
+        155,
+        156,
+        157,
+        158,
+        159,
+        160,
+        162,
+        163,
+        164,
+        168,
+        182,
+        183,
+        184,
+        186,
+        187,
+        188,
+        190,
+        191,
+        192
+      ]
+    }
+  ],
+  "policy_scope": "Disjoint exact sealed stage08 and stage09 promotions from their common stage07 preimage; captured lane independently retains its 104 lexical promotions",
+  "runtime_executed": false,
+  "test_reconciliations": [
+    {
+      "before_limit": true,
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '}'."
+      },
+      "ordinary": true,
+      "prefix": "{}",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "}",
+        "position": null,
+        "site": "SelectionName"
+      },
+      "witnesses": [
+        {
+          "case_sha256": "e16e715837ab83f5832de56d577ab585ebb7c573fdcbe91c8e47c1a4cab0ce39",
+          "fixture": "graphql-parser-boundary-ownership-v1.json",
+          "index": 17,
+          "lane": "ordinary",
+          "row_sha256": "8d88baeea6c586053cd08d2117625c96787cc2417e7e1f8617d35896d7f45a57"
+        },
+        {
+          "case_sha256": "4510a3cb85e678e5556c903bf0c2943854662b7ab38cbdc4707061d3228e8079",
+          "fixture": "graphql-parser-budget-precedence-v2.json",
+          "index": 116,
+          "lane": "before_token_limit",
+          "row_sha256": "961addaf965b1f041faabcaf46938271b8cf55fb25d4ab89fec6d8f12da2bee0"
+        }
+      ]
+    },
+    {
+      "before_limit": true,
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 2,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found '!'."
+      },
+      "ordinary": true,
+      "prefix": "{!}",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": null,
+        "found": "!",
+        "position": null,
+        "site": "SelectionName"
+      },
+      "witnesses": [
+        {
+          "case_sha256": "ba5376bfcf9547b7e3dd339b1a58609644a05f36c2edbc12f8c12b6b5c255dac",
+          "fixture": "graphql-parser-lexical-capture-v1.json",
+          "index": 75,
+          "lane": "ordinary",
+          "row_sha256": "d0cb185aa459dbfdb2fefa77f7fc326ea4ea7757509807b34030bb2772b8987c"
+        },
+        {
+          "case_sha256": "69d2507398204737b0d532aef82488f19641e8edfc5a3b1eb98377f854fd3359",
+          "fixture": "graphql-parser-budget-precedence-v2.json",
+          "index": 121,
+          "lane": "before_token_limit",
+          "row_sha256": "bd8e648ece9dff3ce2c9365a4b83f9274a31af46ee429040bd7a5d1841054f6a"
+        }
+      ]
+    },
+    {
+      "before_limit": true,
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 8,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ':'."
+      },
+      "ordinary": true,
+      "prefix": "{items(:1)}",
+      "tuple": {
+        "context": "Field",
+        "expected": "Name",
+        "first": true,
+        "found": ":",
+        "position": null,
+        "site": "ArgumentName"
+      },
+      "witnesses": [
+        {
+          "case_sha256": "bad8f970228a68d9835293ddc8d7e428473f8f105d18c65bfb84c91ce099201e",
+          "fixture": "graphql-parser-boundary-ownership-v1.json",
+          "index": 20,
+          "lane": "ordinary",
+          "row_sha256": "c9031d00f4077016a1bcd90dbfe19326d3f15e9a65f61eaac1a175d78a68edb6"
+        },
+        {
+          "case_sha256": "ed0e0f316561cde7af33d3e8407b5d9c4bf1ea6444e14f51105571f0ba1a911c",
+          "fixture": "graphql-parser-budget-precedence-v2.json",
+          "index": 122,
+          "lane": "before_token_limit",
+          "row_sha256": "f816e9358fd09f95dd39b7838283c516641e2d263104e7141b0dee163f5d5186"
+        }
+      ]
+    },
+    {
+      "before_limit": true,
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 20,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Int '1'."
+      },
+      "ordinary": true,
+      "prefix": "{items(first:{name 1})}",
+      "tuple": {
+        "context": "Argument(Field)",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Number",
+        "position": null,
+        "site": "ObjectMemberColon"
+      },
+      "witnesses": [
+        {
+          "case_sha256": "4b4d74e54f648035716b3a0caecc0e6184053af4ddc36e39f3f504a3adb5cbf4",
+          "fixture": "graphql-parser-boundary-ownership-v1.json",
+          "index": 21,
+          "lane": "ordinary",
+          "row_sha256": "15791752ee995a6ac94b01daa5030d9a2883c321a4ecd1b6cd25b275546cfc41"
+        },
+        {
+          "case_sha256": "6578bb31ee3fb131671378fe71525159c5bab9c93b68f4d356e9ff344f2ebed3",
+          "fixture": "graphql-parser-required-value-precedence-v1.json",
+          "index": 42,
+          "lane": "before_token_limit",
+          "row_sha256": "b2c6fcab7e52f2a10f3046046b02c26699ba713b7528914946196b7928f84109"
+        }
+      ]
+    },
+    {
+      "before_limit": true,
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 16,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected Name, found ')'."
+      },
+      "ordinary": true,
+      "prefix": "{profile @skip()}",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Name",
+        "first": true,
+        "found": ")",
+        "position": null,
+        "site": "ArgumentName"
+      },
+      "witnesses": [
+        {
+          "case_sha256": "385b1c3848286cca29442b1f5d9bd79cba798bcfbcae96bd14a1985d4cd96e67",
+          "fixture": "graphql-parser-boundary-ownership-v1.json",
+          "index": 10,
+          "lane": "ordinary",
+          "row_sha256": "3ee60cc33ad9fb4183134c1568bafa217065089004330e8a6dcfce7e4343a93b"
+        },
+        {
+          "case_sha256": "ba59b5cb608a0d58d6f768af2fcd858a2f12e4ad595e66b9834d9f9ff591d977",
+          "fixture": "graphql-parser-budget-precedence-v2.json",
+          "index": 146,
+          "lane": "before_token_limit",
+          "row_sha256": "335c8aa47298b77ef85eed7a23c3ebb5df290b2b1373303689b88805c86133d7"
+        }
+      ]
+    },
+    {
+      "before_limit": true,
+      "diagnostic": {
+        "locations": [
+          {
+            "column": 19,
+            "line": 1
+          }
+        ],
+        "message": "Syntax Error: Expected ':', found Name 'true'."
+      },
+      "ordinary": true,
+      "prefix": "{profile @skip(if true)}",
+      "tuple": {
+        "context": "FieldDirective",
+        "expected": "Literal(:)",
+        "first": null,
+        "found": "Name",
+        "position": null,
+        "site": "DirectiveArgumentColon"
+      },
+      "witnesses": [
+        {
+          "case_sha256": "c62c14fd54f5c74f80755fd7998efd71d1b836ad9b5fc999d6256c50502ac0ba",
+          "fixture": "graphql-parser-boundary-ownership-v1.json",
+          "index": 11,
+          "lane": "ordinary",
+          "row_sha256": "b9ba922b28c99dda964782935b4e743f2c7c969cb631143bfe261ec766b6325a"
+        },
+        {
+          "case_sha256": "482c3418bc9c5a80436f14ef748db33a04560d8bcabe93c5940f11f23dbbfdfb",
+          "fixture": "graphql-parser-budget-precedence-v2.json",
+          "index": 147,
+          "lane": "before_token_limit",
+          "row_sha256": "17f438802471be00f621c1c7e0c55c279e404acad8c41de8701a361e75f158d1"
+        }
+      ]
+    }
+  ],
+  "upstream_contracts": {
+    "executable": "4e23178350028f767d3b0e316b77f130a9db2b8d65adb388265c35908448d49d",
+    "grammar": "f26fbefa0af6efbaa6b61cf2db0e0ff1016028ef5961ae48dd0d29392f63f5da"
+  }
+}

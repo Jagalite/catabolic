@@ -3,12 +3,43 @@ requires = ["maturin==1.13.1"]
 build-backend = "maturin"
 
 [project]
-name = "catabolic-native"
-version = "0.2.0"
+name = "catabolic"
+version = "1.0.0"
 requires-python = ">=3.11"
-description = "Opt-in native storage and query engine for Catabolic's Rust migration"
+description = "Programmable media catalog with query-driven rules and safe output projections (native engine)"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Rust",
+]
+
+[project.urls]
+Homepage = "https://github.com/Jagalite/catabolic"
+Documentation = "https://github.com/Jagalite/catabolic/wiki"
+Repository = "https://github.com/Jagalite/catabolic"
+Issues = "https://github.com/Jagalite/catabolic/issues"
+
+[project.scripts]
+catabolic = "catabolic.cli:main"
+catabolic-native = "catabolic_native:main"
 
 [tool.maturin]
 python-source = "python"
 module-name = "catabolic_native._native"
 features = ["pyo3/extension-module"]
+# Source imports must not add interpreter-specific bytecode to release artifacts.
+exclude = ["**/__pycache__/**", "**/*.pyc", "**/*.pyo"]
+include = [
+    # python-source packages other than the module-name package are not
+    # shipped implicitly; the compatibility namespace is part of this wheel.
+    { path = "catabolic/**/*", format = "wheel" },
+    { path = "catabolic_native/bin/catabolic-native", format = "wheel" },
+    { path = "catabolic_native/native-helper.json", format = "wheel" },
+    { path = "catabolic_native/bin/catabolic-legacy-native", format = "wheel" },
+    { path = "catabolic_native/legacy-helper.json", format = "wheel" },
+]

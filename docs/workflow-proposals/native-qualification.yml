@@ -1,0 +1,209 @@
+# SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+# SPDX-License-Identifier: MIT
+
+name: Opt-in native Linux checkpoint
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'crates/**'
+      - 'src/**'
+      - 'requirements/**'
+      - 'pyproject.toml'
+      - 'Cargo.*'
+      - 'rust-toolchain.toml'
+      - '.cargo/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - '.github/workflows/**'
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_PROFILE_DEV_DEBUG: '0'
+  CARGO_PROFILE_TEST_DEBUG: '0'
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: 453fca983222c6665a48775eef67c489c96b527e
+          path: .local-tests/rust-migration/reference
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14.6'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Require real disposable media tools and pinned oracle
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg poppler-utils tesseract-ocr
+          python -m pip install --cache-dir "$RUNNER_TEMP/native-dependency-cache" --require-hashes --only-binary=:all: -r requirements/build.lock -r requirements/dev.lock -r requirements/notifications.lock -r requirements/http-test.lock
+          python -m pip install --no-deps --no-build-isolation .local-tests/rust-migration/reference
+          python -m pip install --only-binary=:all: maturin==1.13.1
+          python -m pip check
+          rustup show
+          rustc -vV
+          python scripts/migration_fixtures.py --source .local-tests/rust-migration/reference --output .local-tests/rust-migration/m0-completion/legacy-fixtures
+      - name: Install and generate both frozen contract clients before test discovery
+        run: |
+          npm --prefix tests/clients ci --ignore-scripts
+          npm --prefix tests/clients test
+          npm --prefix tests/clients run test:1.7
+      - name: Required native tests, journal oracles, models and release refusals
+        run: |
+          export CATABOLIC_QUALIFICATION_PYTHON="$(command -v python)"
+          scripts/check-native-mutations.sh
+          python scripts/migration_rust_resources.py --source .local-tests/rust-migration/reference --check
+      - name: Exercise native HTTP worker and generated client journey
+        run: |
+          python scripts/qualify_native_http.py --native .local-tests/rust-migration/m4-plus/artifacts/qualification-native --python "$(command -v python)" --root "$RUNNER_TEMP/native-http" --generated-client tests/clients/v1_7/build/acceptance.js
+      - name: Test fixed public-facade qualification fences
+        run: python -m unittest tests.test_native_facade_wheel_qualification tests.test_native_qualification_receipts tests.test_native_asgi_discovery tests.test_native_asgi_installed_qualification tests.test_native_legacy_adapter_qualification
+      - name: Build one source-fenced helper, legacy CLI and extension set
+        run: |
+          python scripts/build_native_wheel.py --python "$(command -v python)" --out dist/native
+          python scripts/check_native_output_gate.py dist/native/catabolic-native > dist/native/release-output-gate.json
+          # Offline capture only. Missing cache bytes fail rather than downloading
+          # substitutes or treating ambient installed packages as qualified.
+          python -I scripts/native_asgi_dependencies.py --source-root "$PWD" --cache "$RUNNER_TEMP/native-dependency-cache" --out dist/native/asgi-dependencies > dist/native/asgi-dependencies.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: opt-in-native-candidate
+          path: dist/native/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: opt-in-native-linux-evidence
+          path: |
+            .local-tests/rust-migration/m4-plus/native-results.json
+            .local-tests/rust-migration/m4-plus/release-output-gate.json
+            ${{ runner.temp }}/native-http/report.json
+  installed:
+    needs: native
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.14.6']
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: 453fca983222c6665a48775eef67c489c96b527e
+          path: .local-tests/rust-migration/reference
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        id: oracle-python
+        with:
+          python-version: '3.14.6'
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: opt-in-native-candidate
+          path: dist/native
+      - name: Install exact artifact in an isolated interpreter
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg poppler-utils tesseract-ocr
+          oracle="${{ steps.oracle-python.outputs.python-path }}"
+          "$oracle" -m pip install --require-hashes --only-binary=:all: -r requirements/build.lock -r requirements/runtime.lock
+          "$oracle" -m pip install --no-deps --no-build-isolation -e .local-tests/rust-migration/reference
+          python -m venv "$RUNNER_TEMP/native-installed"
+          "$RUNNER_TEMP/native-installed/bin/python" -m pip --isolated --disable-pip-version-check install --no-index --no-deps dist/native/*.whl
+          if [ "${{ matrix.python }}" = "3.14.6" ]; then
+            "$RUNNER_TEMP/native-installed/bin/python" -m pip --isolated --disable-pip-version-check install --no-index --no-deps dist/native/asgi-dependencies/*.whl
+          fi
+          chmod +x dist/native/catabolic-native dist/native/catabolic-legacy-native
+      - name: Private credential source contracts
+        run: python -m unittest tests.test_native_private_secret_contract
+      - name: Immutable import source contracts
+        run: python -I -B tests/test_native_public_import_contract.py
+      - name: Mandatory installed disposable ASGI fixtures, 21 full or 6 minimal
+        run: |
+          root="$PWD"
+          wheel="$(find "$root/dist/native" -maxdepth 1 -name '*.whl' -print)"
+          cd "$RUNNER_TEMP"
+          if [ "${{ matrix.python }}" = "3.14.6" ]; then
+            set -- --lane full --dependency-wheelhouse "$root/dist/native/asgi-dependencies"
+          else
+            set -- --lane minimal
+          fi
+          "$RUNNER_TEMP/native-installed/bin/python" -I -B "$root/scripts/native_asgi_installed_tests.py" "$@" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --native-binary "$root/dist/native/catabolic-native" --legacy-binary "$root/dist/native/catabolic-legacy-native" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "${{ steps.oracle-python.outputs.python-path }}" --report "$RUNNER_TEMP/native-asgi.json"
+      - name: Outside-checkout installed helper, cancellation and persistent facade
+        run: |
+          root="$PWD"
+          reference_python="${{ steps.oracle-python.outputs.python-path }}"
+          wheel="$(find "$root/dist/native" -maxdepth 1 -name '*.whl' -print)"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/native-installed/bin/python" "$root/scripts/qualify_native_wheel.py" --binary "$root/dist/native/catabolic-native" --wheel "$wheel" --receipt "$RUNNER_TEMP/native-wheel.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/run_native_prerequisite_tests.py" --wheel "$wheel" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-prerequisites.json"
+          "$RUNNER_TEMP/native-installed/bin/python" "$root/scripts/qualify_native_embedding.py" --wheel "$wheel" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-embedding.json"
+          # Four immutable values; exact typed bytes, eight required cases, paired artifacts.
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_public_import_tests.py" --wheel "$wheel" --build-manifest "$root/dist/native/build-manifest.json" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-public-imports.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_query_embedding_tests.py" --wheel "$wheel" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-query-embedding.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_processing_embedding_tests.py" --wheel "$wheel" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-processing-embedding.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_component_policy_embedding_tests.py" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-component-policy-embedding.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_catalog_refresh_embedding_tests.py" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --native-binary "$root/dist/native/catabolic-native" --legacy-binary "$root/dist/native/catabolic-legacy-native" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-catalog-refresh-embedding.json"
+          # The fixed fallback gate requires 24 installed cases and 27 paired groups.
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_fallback_embedding_tests.py" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-fallback-embedding.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_watchers_embedding_tests.py" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-watchers-embedding.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_access_admin_tests.py" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --native-binary "$root/dist/native/catabolic-native" --legacy-binary "$root/dist/native/catabolic-legacy-native" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-access-admin.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_private_secret_gate.py" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --native-binary "$root/dist/native/catabolic-native" --legacy-binary "$root/dist/native/catabolic-legacy-native" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-private-secret.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_cli_callable_tests.py" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-cli-callable.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_layout_embedding_tests.py" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-layout-embedding.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_reconciler_embedding_tests.py" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-reconciler-embedding.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_publisher_embedding_tests.py" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-publisher-embedding.json"
+          # Exact paired partial adapters; negative witnesses never close M9 or release gates.
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_legacy_adapter_tests.py" --wheel "$wheel" --source-root "$root" --build-manifest "$root/dist/native/build-manifest.json" --native-binary "$root/dist/native/catabolic-native" --legacy-binary "$root/dist/native/catabolic-legacy-native" --inventory "$root/tests/parity/python-api.json" --reference-root "$root/.local-tests/rust-migration/reference" --reference-python "$reference_python" --report "$RUNNER_TEMP/native-legacy-adapters.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_query_review_tests.py"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_processing_review_tests.py"
+          for surface in import matching metadata; do
+            "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_plex_${surface}_embedding_tests.py" --wheel "$wheel" --report "$RUNNER_TEMP/native-plex-${surface}.json"
+          done
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_plex_metadata_review_tests.py" --wheel "$wheel" --report "$RUNNER_TEMP/native-plex-metadata-review.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_plex_xml_embedding_tests.py" --wheel "$wheel" --report "$RUNNER_TEMP/native-plex-xml.json"
+          "$RUNNER_TEMP/native-installed/bin/python" -I "$root/scripts/native_plex_xml_review_tests.py" --wheel "$wheel" --report "$RUNNER_TEMP/native-plex-xml-review.json"
+          "$RUNNER_TEMP/native-installed/bin/python" "$root/scripts/qualify_native_wheel.py" --binary "$root/dist/native/catabolic-native" --wheel "$wheel" --receipt "$RUNNER_TEMP/native-wheel-after.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: opt-in-native-installed-${{ matrix.python }}
+          path: |
+            ${{ runner.temp }}/native-asgi*.json
+            ${{ runner.temp }}/native-wheel.json
+            ${{ runner.temp }}/native-wheel-after.json
+            ${{ runner.temp }}/native-prerequisites.json
+            ${{ runner.temp }}/native-embedding.json
+            ${{ runner.temp }}/native-query-embedding.json
+            ${{ runner.temp }}/native-public-imports.json
+            ${{ runner.temp }}/native-processing-embedding.json
+            ${{ runner.temp }}/native-component-policy-embedding*.json
+            ${{ runner.temp }}/native-catalog-refresh-embedding*.json
+            ${{ runner.temp }}/native-fallback-embedding.json
+            ${{ runner.temp }}/native-watchers-embedding*.json
+            ${{ runner.temp }}/native-access-admin*.json
+            ${{ runner.temp }}/native-private-secret*.json
+            ${{ runner.temp }}/native-cli-callable*.json
+            ${{ runner.temp }}/native-layout-embedding*.json
+            ${{ runner.temp }}/native-reconciler-embedding*.json
+            ${{ runner.temp }}/native-publisher-embedding*.json
+            ${{ runner.temp }}/native-legacy-adapters*.json
+            ${{ runner.temp }}/native-plex-*.json
+            ${{ runner.temp }}/native-plex-xml.json
+            ${{ runner.temp }}/native-plex-xml-review.json
+# Passing this Linux fixture lane is not macOS, real-consumer, destructive-output,
+# performance, rollback, or complete M0-M11 acceptance. No release job is invoked.

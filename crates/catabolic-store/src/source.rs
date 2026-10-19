@@ -11,6 +11,44 @@ use std::{
     },
     path::Path,
 };
+// This private scope is part of the closed observation protocol, not a general
+// operating-system spawn interceptor. A blocked attempt poisons the completion
+// acknowledgement even if a higher layer converts validation failure to a result.
+thread_local! {
+    static NO_CHILD: std::cell::Cell<(bool, bool)> = const { std::cell::Cell::new((false, false)) };
+}
+pub(crate) fn children_forbidden() -> bool {
+    NO_CHILD.with(|state| state.get().0)
+}
+pub(crate) fn without_children<T>(operation: impl FnOnce() -> Result<T>) -> Result<T> {
+    struct Restore((bool, bool));
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            NO_CHILD.with(|state| {
+                let attempted = state.get().1;
+                state.set((self.0.0, self.0.1 || (self.0.0 && attempted)));
+            });
+        }
+    }
+    let previous = NO_CHILD.with(|state| state.replace((true, false)));
+    let restore = Restore(previous);
+    let result = operation();
+    let attempted = NO_CHILD.with(|state| state.get().1);
+    drop(restore);
+    if attempted {
+        Err(Error("closed_observation_child_spawn_refused".into()))
+    } else {
+        result
+    }
+}
+#[cfg(target_os = "linux")]
+fn child_spawn_refused() -> bool {
+    NO_CHILD.with(|state| {
+        let (forbidden, attempted) = state.get();
+        state.set((forbidden, attempted || forbidden));
+        forbidden
+    })
+}
 fn open_at(parent: i32, name: &str, directory: bool) -> Result<File> {
     let name = CString::new(name).map_err(|_| Error("invalid source path".into()))?;
     let flags = libc::O_RDONLY
@@ -45,7 +83,7 @@ fn revision(file: &File) -> Result<Value> {
     )
 }
 #[cfg(target_os = "macos")]
-fn volume_uuid(file: &File) -> Option<String> {
+pub(crate) fn volume_uuid(file: &File) -> Option<String> {
     let mut attributes = libc::attrlist {
         bitmapcount: 5,
         reserved: 0,
@@ -73,15 +111,19 @@ fn volume_uuid(file: &File) -> Option<String> {
     (!id.is_nil()).then(|| id.to_string())
 }
 #[cfg(target_os = "linux")]
-fn volume_uuid(file: &File) -> Option<String> {
+pub(crate) fn volume_uuid(file: &File) -> Option<String> {
+    if child_spawn_refused() {
+        return None;
+    }
     let root = std::fs::read_link(format!("/proc/self/fd/{}", file.as_raw_fd())).ok()?;
-    let mut child = std::process::Command::new("findmnt")
-        .args(["--json", "--target"])
-        .arg(root)
-        .args(["--output", "UUID"])
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .ok()?;
+    let mut child = catabolic_core::spawn_guard::spawn(
+        std::process::Command::new("findmnt")
+            .args(["--json", "--target"])
+            .arg(root)
+            .args(["--output", "UUID"])
+            .stdout(std::process::Stdio::piped()),
+    )
+    .ok()?;
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     loop {
         if child.try_wait().ok()?.is_some() {
@@ -98,7 +140,7 @@ fn volume_uuid(file: &File) -> Option<String> {
     if output.stdout.len() > 65536 {
         return None;
     }
-    let value: Value = serde_json::from_slice(&output.stdout).ok()?;
+    let value: Value = catabolic_core::decode_json_bytes(&output.stdout).ok()?;
     let rows = value["filesystems"].as_array()?;
     if rows.len() != 1 {
         return None;
@@ -135,6 +177,12 @@ fn checked_root(snapshot: &Value) -> Result<File> {
     Ok(root)
 }
 pub fn validate(snapshot: &Value) -> Result<Value> {
+    with_validated_source(snapshot, |file| revision(file))
+}
+pub(crate) fn with_validated_source<T>(
+    snapshot: &Value,
+    operation: impl FnOnce(&mut File) -> Result<T>,
+) -> Result<T> {
     if snapshot["status"] != "present" || snapshot["root"].as_str().is_none_or(str::is_empty) {
         return Err(Error(
             "source is not recorded present; scan the mounted source first".into(),
@@ -150,7 +198,7 @@ pub fn validate(snapshot: &Value) -> Result<Value> {
     for part in &parts[..parts.len() - 1] {
         parent = open_at(parent.as_raw_fd(), part, true)?;
     }
-    let file = open_at(parent.as_raw_fd(), parts.last().unwrap(), false)?;
+    let mut file = open_at(parent.as_raw_fd(), parts.last().unwrap(), false)?;
     let before = revision(&file)?;
     if !file.metadata()?.is_file()
         || ["size", "mtime_ns", "device", "inode"]
@@ -166,12 +214,7 @@ pub fn validate(snapshot: &Value) -> Result<Value> {
             "source revision changed; rescan and start a new operation".into(),
         ));
     }
-    let named = open_at(parent.as_raw_fd(), parts.last().unwrap(), false)?;
-    if revision(&file)? != before || revision(&named)? != before {
-        return Err(Error(
-            "source changed while reading; result discarded".into(),
-        ));
-    }
+    let result = operation(&mut file)?;
     let current = checked_root(snapshot)?;
     if root.metadata()?.dev() != current.metadata()?.dev()
         || root.metadata()?.ino() != current.metadata()?.ino()
@@ -180,5 +223,101 @@ pub fn validate(snapshot: &Value) -> Result<Value> {
             "source root changed while reading; result discarded".into(),
         ));
     }
-    Ok(before)
+    // Re-walk the whole chain from the current root: a pinned parent moved
+    // outside the root would still resolve the old leaf by name.
+    let mut walked = current;
+    for part in &parts[..parts.len() - 1] {
+        walked = open_at(walked.as_raw_fd(), part, true)
+            .map_err(|_| Error("source changed while reading; result discarded".into()))?;
+    }
+    let named = open_at(walked.as_raw_fd(), parts.last().unwrap(), false)
+        .map_err(|_| Error("source changed while reading; result discarded".into()))?;
+    if revision(&file)? != before || revision(&named)? != before {
+        return Err(Error(
+            "source changed while reading; result discarded".into(),
+        ));
+    }
+    Ok(result)
+}
+
+#[cfg(test)]
+mod no_child_tests {
+    use super::*;
+    #[test]
+    fn closed_scope_restores_on_error_nested_completion_and_panic() {
+        assert!(!children_forbidden());
+        without_children(|| {
+            assert!(children_forbidden());
+            without_children(|| {
+                assert!(children_forbidden());
+                Ok(())
+            })?;
+            assert!(children_forbidden());
+            Ok(())
+        })
+        .unwrap();
+        assert!(!children_forbidden());
+        let failed: Result<()> = without_children(|| Err(Error("injected".into())));
+        assert!(failed.is_err());
+        assert!(!children_forbidden());
+        let panic = std::panic::catch_unwind(|| without_children::<()>(|| panic!("injected")));
+        assert!(panic.is_err());
+        assert!(!children_forbidden());
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn blocked_uuid_subprocess_poisons_even_a_successful_outer_result() {
+        let root = tempfile::tempdir().unwrap();
+        let file = File::open(root.path()).unwrap();
+        let error = without_children(|| {
+            assert!(volume_uuid(&file).is_none());
+            Ok(())
+        })
+        .unwrap_err();
+        assert_eq!(error.0, "closed_observation_child_spawn_refused");
+        assert!(!children_forbidden());
+        assert!(
+            without_children(|| {
+                let _ = without_children(|| {
+                    assert!(volume_uuid(&file).is_none());
+                    Ok(())
+                });
+                Ok(())
+            })
+            .is_err()
+        );
+    }
+}
+
+#[cfg(test)]
+mod containment_tests {
+    use super::*;
+    #[test]
+    fn a_parent_moved_outside_the_root_discards_the_read() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("root");
+        std::fs::create_dir_all(root.join("sub")).unwrap();
+        std::fs::write(root.join("sub/file.bin"), b"bytes").unwrap();
+        let stat = std::fs::metadata(root.join("sub/file.bin")).unwrap();
+        let root_stat = std::fs::metadata(&root).unwrap();
+        let snapshot = json!({
+            "status": "present",
+            "root": root.to_str().unwrap(),
+            "path": "sub/file.bin",
+            "size": stat.size(),
+            "mtime_ns": i128::from(stat.mtime()) * 1_000_000_000 + i128::from(stat.mtime_nsec()),
+            "device": stat.dev(),
+            "inode": stat.ino(),
+            "root_device": root_stat.dev(),
+            "root_inode": root_stat.ino(),
+            "source_policy": {"settings": {}},
+        });
+        with_validated_source(&snapshot, |_| Ok(())).unwrap();
+        let error = with_validated_source(&snapshot, |_| {
+            std::fs::rename(root.join("sub"), dir.path().join("moved"))?;
+            Ok(())
+        })
+        .unwrap_err();
+        assert_eq!(error.0, "source changed while reading; result discarded");
+    }
 }

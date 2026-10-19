@@ -1,0 +1,36 @@
+{
+  "source_commit": "539c124911687a691f100582e0ca93b8bbe4b398",
+  "source_digest": "febd9e7b58d4440d4089561f8312aff45c2d8ffa3ca173d0e30b807197f6e678",
+  "source_after_digest": "febd9e7b58d4440d4089561f8312aff45c2d8ffa3ca173d0e30b807197f6e678",
+  "source_stable": true,
+  "oracle_stable": true,
+  "fixture_stable": true,
+  "command_exit": 101,
+  "seconds": 17.75766054599808,
+  "passed": false,
+  "scope": "Native Rust crates excluding catabolic-python, exact six required ignored fixtures, lifecycle/playback models, generated reference tables",
+  "cargo_test_summary_count": 0,
+  "cargo_passing_executions": 0,
+  "summaries": [],
+  "artifacts": {},
+  "runner_sha256": "0e3edf4a6a4455a0c9c17c63828b6df3366fef80d4b9420a98b375c9870c0348",
+  "log_sha256": "4821f81c8486d712b1b0af44b51e531fe499b6811adc51ca6fe84a94f90dbf5b",
+  "limitations": [
+    "Not standalone release-artifact qualification; separate receipt required",
+    "No new wrapper/wheel gate",
+    "No whole-contract/platform/full milestone qualification"
+  ],
+  "correction": {
+    "scope": "Seven mechanical provider/SMTP library lint corrections plus one positive-read assertion in an existing disposable responder test",
+    "strict_clippy_command": "cargo clippy --locked --offline --workspace --exclude catabolic-python --all-targets -- -D warnings",
+    "strict_clippy_exit": 0,
+    "strict_clippy_log_sha256": "5416cb3e56cd6223cc014b1d4112ad213911353816feda6b0b7d19165bce0af9",
+    "review": "Independent narrow source review found no findings; exact native test replay remains pending",
+    "new_lint_allowances": false,
+    "native_test_replay": "pending in the next frozen integrated aggregate",
+    "files": {
+      "crates/catabolic-runtime/src/notifications/providers.rs": "72741401aa2e0f19a62d9551d3d826971116949f86a59e3b390c16d84fd7d056",
+      "crates/catabolic-runtime/src/notifications/smtp.rs": "97bf0347f9157623f74f2dafa01eee7f12659e4d61188ac15874e44c16a5271b"
+    }
+  }
+}

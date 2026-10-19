@@ -1,0 +1,266 @@
+{
+  "status": "Explicit arbitrary-recorded-state Int output differences; these are not passing parity evidence or demonstrated ordinary public-mutation inputs. Baseline returned strings; current native rejects them; frozen Python serializes integers.",
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "python": "3.14.6",
+  "baseline_source": "b11666f5259fb414cacf6653b81f74129e30bfcd",
+  "baseline_sha256": "bf017730fdd08ac5cc8f905ca26acb78d9f91c279017ad35b11885dd261aa8e5",
+  "setup": "Use the populated runtime fixture, then insert relationship r from a to b, kind related, with the case's raw text position_value.",
+  "cases": [
+    {
+      "name": "position-'1_000'",
+      "document": "{relationships{nodes{id position source{id}}} after:item(id:\"b\"){id}}",
+      "variables": {},
+      "reference": {
+        "code": 0,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "success",
+          "exit_code": 0,
+          "data": {
+            "data": {
+              "relationships": {
+                "nodes": [
+                  {
+                    "id": "r",
+                    "position": 1000,
+                    "source": {
+                      "id": "a"
+                    }
+                  }
+                ]
+              },
+              "after": {
+                "id": "b"
+              }
+            },
+            "extensions": {
+              "interfaceVersion": 1,
+              "profile": "default",
+              "records": 3
+            }
+          }
+        }
+      },
+      "native": {
+        "code": 2,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "error",
+          "exit_code": 2,
+          "data": {
+            "data": {
+              "after": {
+                "id": "b"
+              },
+              "relationships": {
+                "nodes": [
+                  {
+                    "id": "r",
+                    "position": null,
+                    "source": {
+                      "id": "a"
+                    }
+                  }
+                ]
+              }
+            },
+            "errors": [
+              {
+                "message": "Int cannot represent non-integer value: '1_000'",
+                "locations": [
+                  {
+                    "line": 1,
+                    "column": 25
+                  }
+                ],
+                "path": [
+                  "relationships",
+                  "nodes",
+                  0,
+                  "position"
+                ]
+              }
+            ],
+            "extensions": {
+              "interfaceVersion": 1,
+              "profile": "default",
+              "records": 3
+            }
+          }
+        }
+      },
+      "baseline": {
+        "code": 0,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "success",
+          "exit_code": 0,
+          "data": {
+            "data": {
+              "after": {
+                "id": "b"
+              },
+              "relationships": {
+                "nodes": [
+                  {
+                    "id": "r",
+                    "position": "1_000",
+                    "source": {
+                      "id": "a"
+                    }
+                  }
+                ]
+              }
+            },
+            "extensions": {
+              "interfaceVersion": 1,
+              "profile": "default",
+              "records": 3
+            }
+          }
+        }
+      },
+      "position_value": "1_000"
+    },
+    {
+      "name": "position-'١٢٣'",
+      "document": "{relationships{nodes{id position source{id}}} after:item(id:\"b\"){id}}",
+      "variables": {},
+      "reference": {
+        "code": 0,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "success",
+          "exit_code": 0,
+          "data": {
+            "data": {
+              "relationships": {
+                "nodes": [
+                  {
+                    "id": "r",
+                    "position": 123,
+                    "source": {
+                      "id": "a"
+                    }
+                  }
+                ]
+              },
+              "after": {
+                "id": "b"
+              }
+            },
+            "extensions": {
+              "interfaceVersion": 1,
+              "profile": "default",
+              "records": 3
+            }
+          }
+        }
+      },
+      "native": {
+        "code": 2,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "error",
+          "exit_code": 2,
+          "data": {
+            "data": {
+              "after": {
+                "id": "b"
+              },
+              "relationships": {
+                "nodes": [
+                  {
+                    "id": "r",
+                    "position": null,
+                    "source": {
+                      "id": "a"
+                    }
+                  }
+                ]
+              }
+            },
+            "errors": [
+              {
+                "message": "Int cannot represent non-integer value: '١٢٣'",
+                "locations": [
+                  {
+                    "line": 1,
+                    "column": 25
+                  }
+                ],
+                "path": [
+                  "relationships",
+                  "nodes",
+                  0,
+                  "position"
+                ]
+              }
+            ],
+            "extensions": {
+              "interfaceVersion": 1,
+              "profile": "default",
+              "records": 3
+            }
+          }
+        }
+      },
+      "baseline": {
+        "code": 0,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "success",
+          "exit_code": 0,
+          "data": {
+            "data": {
+              "after": {
+                "id": "b"
+              },
+              "relationships": {
+                "nodes": [
+                  {
+                    "id": "r",
+                    "position": "١٢٣",
+                    "source": {
+                      "id": "a"
+                    }
+                  }
+                ]
+              }
+            },
+            "extensions": {
+              "interfaceVersion": 1,
+              "profile": "default",
+              "records": 3
+            }
+          }
+        }
+      },
+      "position_value": "١٢٣"
+    }
+  ]
+}

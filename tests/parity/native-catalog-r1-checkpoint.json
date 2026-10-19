@@ -1,0 +1,115 @@
+{
+  "format_version": 1,
+  "package": "R1",
+  "status": "locally_qualified_privileged_pre_schema_contract",
+  "recorded_at_utc": "2026-10-14T16:26:30Z",
+  "baseline_commit": "8afec6ea7bdbd767e36e364480e2e7efcadb47bc",
+  "source": {
+    "manifest": "tests/parity/native-catalog-r1-source-manifest.json",
+    "file_sha256": "a8a53d22947ef62a39e0d46de79ef262de28bd5af02331902dfa5ccbceeb5c8d",
+    "canonical_files_sha256": "c3de8ac8f635321af262527c6d64f0219d0cc1f42e1bbf654d4d008fa150b392",
+    "file_count": 705,
+    "unchanged_before_after": true
+  },
+  "runner": {
+    "kind": "standard Cargo; user-authorized exception from Kyoto",
+    "rustc": "1.99.0 (b940084d7 2026-09-28)",
+    "cargo": "1.99.0 (5f94df478 2026-08-27)",
+    "target": "x86_64-unknown-linux-gnu",
+    "qualification_scope": "Linux only; project declared minimum1.99, no new MSRV claim for other projects"
+  },
+  "runs": {
+    "core_store_runtime": {
+      "command": "cargo test --locked -p catabolic-core -p catabolic-store -p catabolic-runtime --no-fail-fast -- --test-threads=1",
+      "log": ".local-tests/catalog-r1/frozen-integrated-tests.log",
+      "sha256": "7df68b2b16cecf87d7144b721d8dc6776310baf1c33edba2c934ef866cf77762",
+      "passing_executions": 623,
+      "failed_executions": 0,
+      "ignored_entries": 7,
+      "harness_summaries": 55
+    },
+    "real_helper": {
+      "command": "CATABOLIC_HOST_TEST_HELPER=<recorded helper> cargo test --locked -p catabolic-runtime --test native_host_contract -- --ignored --test-threads=1",
+      "log": ".local-tests/catalog-r1/real-helper.log",
+      "sha256": "948d74d30b53e25305c264982159d1af948fc7c14c611e63ee82058819395b78",
+      "passing_executions": 1,
+      "failed_executions": 0
+    },
+    "strict_clippy": {
+      "command": "cargo clippy --locked -p catabolic-core -p catabolic-store -p catabolic-runtime --all-targets -- -D warnings",
+      "passed": true,
+      "sha256": "a5d281956496dc37c91f9b8d0c0dc2a89b2d5e3f7b5bb785b22997c76013e6e5"
+    },
+    "format": {
+      "command": "cargo fmt --all --check",
+      "passed": true
+    },
+    "contract_audit": {
+      "command": "python3 scripts/catalog_contract_audit.py; python3 -m unittest tests.test_catalog_contract_audit",
+      "planning_audit_only": true,
+      "passing_tests": 2,
+      "log_sha256": "b0efba1f37a079d5e5943aa8ae5e5d29bd83526fefeacd379e84a0f79c8cbce5"
+    }
+  },
+  "focused_cases": {
+    "identity_unit_tests": 19,
+    "component_binding_unit_tests": 3,
+    "independent_core_tests": 5,
+    "real_store_composition_tests": 15,
+    "independent_store_tests": 3,
+    "overlap_aggregate": true,
+    "bounded_models": {
+      "whole_version_availability_combinations": 16,
+      "normalization_small_rational_cases": 2100,
+      "independent_normalization_boundary_cases": 120
+    }
+  },
+  "helper": {
+    "path": ".local-tests/catalog-r1/catabolic-native",
+    "sha256": "f0247dc443d8399775aa39985eb1b6c959d4973acae53ee70f682af2fec271c1",
+    "build": "cargo build --locked -p catabolic-cli --bin catabolic-native; copy; strip --strip-debug",
+    "distribution_candidate": false
+  },
+  "independent_review": {
+    "scope": "R1 core and privileged store bridge; fixed regression cases rerun",
+    "outcome": "no remaining blocker within bounded reviewed scope",
+    "fixed_findings": [
+      "split same-revision segmentation sets",
+      "legacy processing revalidation of native interval packages",
+      "aggregate segmentation entry budget",
+      "single resolver invocation for aggregate budgets"
+    ]
+  },
+  "ignored_entries": [
+    "test document::tests::real_pdf_text_and_page_overflow ... ignored, requires the optional local pdftotext executable",
+    "test document::tests::real_single_image_ocr ... ignored, requires local tesseract and its English language data",
+    "test real_native_helper_scan_cancel_drain_and_reopen ... ignored, requires an explicitly built, digest-checked CATABOLIC_HOST_TEST_HELPER",
+    "test entry_budget_exhaustion_cannot_restart_for_later_sources ... ignored, creates 200001 disposable empty entries to exercise setup exhaustion",
+    "test access_admin::tests::frozen_access_owner_differential ... ignored, requires pinned frozen checkout and Python 3.14.6; run with --ignored",
+    "test access_admin::tests::inherited_scalar_cache_confusion_remains_fail_closed_native ... ignored, requires pinned frozen checkout and Python 3.14.6; intentional fail-closed divergence witness",
+    "test artifact_mutation::tests::python_native_publication_intents_recover_in_both_directions ... ignored, requires CATABOLIC_PYTHON_ORACLE and CATABOLIC_PYTHON_REFERENCE"
+  ],
+  "remaining_ignored_obligations": 6,
+  "retained_development_evidence": {
+    "prior_fixture_run_notes": ".local-tests/catalog-r1/composition-prior-runs.txt",
+    "prior_fixture_run_notes_sha256": "748f189b947a892409f54b19f29d09fb716196f11784ed29c7dbbdfcf1cbeafb",
+    "pre_final_aggregate": ".local-tests/catalog-r1/integrated-tests.log",
+    "pre_final_aggregate_sha256": "22eb3d37c7217f99230e4971291da7558738855250e0ceae8705c300d86f9b66",
+    "pre_final_aggregate_disposition": "passed but not the frozen qualification run; final admission-budget fix landed while it was active"
+  },
+  "limits": [
+    "No schema33 adoption or persistent timeline/binding owner in this checkpoint",
+    "Positive native external coordinate mapping is pure-core evidence only; legacy persistence still refuses it",
+    "Native interval media effects explicitly unsupported; no publication/mux permission",
+    "Privileged manifest is not untrusted authorization or durable context ownership",
+    "External Motion composition and cutover intentionally deferred; no new Motion edits/tests",
+    "No M0-M11 gate closure or full-workspace/platform/release qualification"
+  ],
+  "oracle": {
+    "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "python": "3.12.14",
+    "sqlite": "3.53.1",
+    "historical_fixture_count": 32,
+    "prior_setup_receipt": "tests/parity/native-catalog-r0-checkpoint.json"
+  }
+}

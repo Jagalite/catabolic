@@ -1,20 +1,74 @@
-use pyo3::exceptions::PyRuntimeError;
+mod artifacts_processing;
+mod catalog_inspection;
+mod catalog_refresh;
+mod embedding;
+mod public_access;
+mod public_fallback;
+mod public_http;
+mod public_import_values;
+mod public_imports;
+mod public_layouts;
+mod public_publisher;
+mod public_secret;
+mod public_watchers;
+use pyo3::exceptions::{PyRuntimeError, PyTypeError};
 use pyo3::prelude::*;
 use std::path::Path;
 
 fn result(value: catabolic_store::Result<serde_json::Value>) -> PyResult<String> {
     value
         .map(|v| v.to_string())
-        .map_err(|e| PyRuntimeError::new_err(e.to_string()))
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))
+}
+fn detailed_result(value: catabolic_store::DetailedResult<serde_json::Value>) -> PyResult<String> {
+    value
+        .map(|v| v.to_string())
+        .map_err(|error| match error.class() {
+            catabolic_store::ErrorClass::CatabolicError => {
+                PyRuntimeError::new_err(error.to_string())
+            }
+            catabolic_store::ErrorClass::TypeError => PyTypeError::new_err(error.to_string()),
+        })
 }
 #[pyfunction]
 fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 #[pyfunction]
+fn register_native_helper(py: Python<'_>, path: &str, sha256: &str) -> PyResult<()> {
+    py.detach(|| catabolic_runtime::helper::register(Path::new(path), Some(sha256)))
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))
+}
+#[pyfunction]
+fn native_helper(py: Python<'_>) -> PyResult<String> {
+    py.detach(catabolic_runtime::helper::executable)
+        .map(|path| path.to_string_lossy().into_owned())
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))
+}
+/// Decode a request from Python. A build without the `failpoints` feature
+/// refuses the test-only `failpoint`/`crash` fields here, before dispatch, so
+/// no facade can act on such a request first.
+pub(crate) fn admitted_json(raw: &str) -> std::result::Result<serde_json::Value, String> {
+    let value = catabolic_core::decode_json(raw).map_err(|e| e.to_string())?;
+    catabolic_store::filesystem_mutation::admit_failpoints(&value).map_err(|e| e.to_string())?;
+    Ok(value)
+}
+#[pyfunction]
 fn encode_json(raw: &str) -> PyResult<String> {
-    let value = serde_json::from_str(raw).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    let value =
+        catabolic_core::decode_json(raw).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     Ok(catabolic_core::encode(&value))
+}
+#[pyfunction]
+fn layout_presets() -> &'static str {
+    include_str!("../../catabolic-store/resources/layouts.json")
+}
+#[pyfunction]
+fn component_revision(raw: &str) -> PyResult<String> {
+    let value = catabolic_core::decode_json(raw)
+        .map_err(|error| embedding::CatabolicError::new_err(error.to_string()))?;
+    catabolic_store::public_components::revision(&value)
+        .map_err(|error| embedding::CatabolicError::new_err(error.to_string()))
 }
 #[pyfunction]
 fn initialize_database(py: Python<'_>, path: &str) -> PyResult<String> {
@@ -75,8 +129,17 @@ fn execute_sql(
 }
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    embedding::register(m)?;
+    catalog_inspection::register(m)?;
+    public_fallback::register(m)?;
+    public_imports::register(m)?;
+    public_http::register(m)?;
     m.add_function(wrap_pyfunction!(version, m)?)?;
+    m.add_function(wrap_pyfunction!(register_native_helper, m)?)?;
+    m.add_function(wrap_pyfunction!(native_helper, m)?)?;
     m.add_function(wrap_pyfunction!(encode_json, m)?)?;
+    m.add_function(wrap_pyfunction!(component_revision, m)?)?;
+    m.add_function(wrap_pyfunction!(layout_presets, m)?)?;
     m.add_function(wrap_pyfunction!(initialize_database, m)?)?;
     m.add_function(wrap_pyfunction!(inspect_database, m)?)?;
     m.add_function(wrap_pyfunction!(upgrade_database, m)?)?;
@@ -84,6 +147,9 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(catalog_query, m)?)?;
     m.add_function(wrap_pyfunction!(execute_graphql, m)?)?;
     m.add_function(wrap_pyfunction!(evaluate_read, m)?)?;
+    m.add_function(wrap_pyfunction!(tag_mutation, m)?)?;
+    m.add_function(wrap_pyfunction!(execute_operation, m)?)?;
+    m.add_function(wrap_pyfunction!(interchange, m)?)?;
     Ok(())
 }
 #[pyfunction]
@@ -96,10 +162,11 @@ fn catalog_query(
     profile: &str,
 ) -> PyResult<String> {
     let request =
-        serde_json::from_str(options).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-    result(py.detach(|| {
+        crate::admitted_json(options).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    detailed_result(py.detach(|| {
         let store = catabolic_store::Store::open(Path::new(path), false, false)?;
-        catabolic_store::query::CatalogQuery::new(&store, profile)?.execute(entity, &request)
+        catabolic_store::query::CatalogQuery::new(&store, profile)?
+            .execute_detailed(entity, &request)
     }))
 }
 #[pyfunction]
@@ -113,8 +180,8 @@ fn execute_graphql(
     operation_name: Option<&str>,
     timeout_ms: u64,
 ) -> PyResult<String> {
-    let variables =
-        serde_json::from_str(variables).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    let variables = catabolic_store::graphql::InputVariables::from_json(variables)
+        .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     result(py.detach(|| {
         catabolic_store::graphql::execute(
             Path::new(path),
@@ -137,15 +204,134 @@ fn evaluate_read(
     profile: &str,
 ) -> PyResult<String> {
     let request: serde_json::Value =
-        serde_json::from_str(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        crate::admitted_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     result(py.detach(|| {
         let store = catabolic_store::Store::open(Path::new(path), false, false)?;
         let mut evaluation=catabolic_store::selection::Evaluation::new(store,profile,60000,100000,false)?;
         match operation {
+            "manifest"=>catabolic_store::manifest::build(&mut evaluation,request["catalog"].as_str().unwrap_or("global"),request.get("extra"),request.get("selection")),
             "select"=>{let selected=evaluation.select(&request)?;Ok(serde_json::json!({"entity":selected.entity,"ids":selected.ids,"report":selected.report}))},
             "query"=>evaluation.run(request["id"].as_str().ok_or_else(||catabolic_store::Error("query requires id".into()))?,request["limit"].as_u64().unwrap_or(1000) as usize),
             "layout"=>catabolic_store::layout::plan(&mut evaluation,request["id"].as_str().ok_or_else(||catabolic_store::Error("layout requires id".into()))?,request["catalog"].as_str().unwrap_or("global"),request["replace_layout"]==true,request["allow_empty"]==true,request["limit"].as_u64().unwrap_or(100) as usize),
             _=>Err(catabolic_store::Error("unknown read operation".into())),
         }
     }))
+}
+
+#[pyfunction]
+#[pyo3(signature=(path, operation, request="{}", profile="default"))]
+fn tag_mutation(
+    py: Python<'_>,
+    path: &str,
+    operation: &str,
+    request: &str,
+    profile: &str,
+) -> PyResult<String> {
+    let request: serde_json::Value =
+        crate::admitted_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    result(py.detach(|| {
+        let store = catabolic_store::Store::open(Path::new(path), true, false)?;
+        catabolic_store::tagging::dispatch(&store, profile, operation, &request)
+    }))
+}
+
+#[pyfunction]
+#[pyo3(signature=(path, surface, operation, request="{}", profile="default"))]
+fn execute_operation(
+    py: Python<'_>,
+    path: &str,
+    surface: &str,
+    operation: &str,
+    request: &str,
+    profile: &str,
+) -> PyResult<String> {
+    let source = request;
+    let request: serde_json::Value =
+        crate::admitted_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    if (matches!(surface, "plex-import" | "plex-match" | "plex-metadata") && operation == "run")
+        || surface == "plex-login"
+    {
+        py.check_signals()?;
+        let cancelled = std::sync::atomic::AtomicBool::new(false);
+        let interrupted = std::sync::Mutex::new(None);
+        let outcome = py.detach(|| {
+            let mut poll = || {
+                if let Err(error) = Python::attach(|py| py.check_signals()) {
+                    let mut first = interrupted.lock().unwrap();
+                    if first.is_none() {
+                        *first = Some(error);
+                    }
+                    cancelled.store(true, std::sync::atomic::Ordering::Release);
+                }
+            };
+            if surface == "plex-login" {
+                catabolic_runtime::api::execute_plex_login_with_poll(
+                    operation, &request, &cancelled, &mut poll,
+                )
+            } else if surface == "plex-metadata" {
+                catabolic_runtime::api::execute_plex_metadata_with_poll(
+                    Path::new(path),
+                    profile,
+                    &request,
+                    &cancelled,
+                    &mut poll,
+                )
+            } else if surface == "plex-match" {
+                catabolic_runtime::api::execute_plex_match_with_poll(
+                    Path::new(path),
+                    profile,
+                    &request,
+                    &cancelled,
+                    &mut poll,
+                )
+            } else {
+                catabolic_runtime::api::execute_plex_import_with_poll(
+                    Path::new(path),
+                    profile,
+                    &request,
+                    &cancelled,
+                    &mut poll,
+                )
+            }
+        });
+        // The runtime has joined owned work and completed cancellation cleanup
+        // before the original Python signal exception is propagated.
+        if let Some(error) = interrupted.into_inner().unwrap() {
+            return Err(error);
+        }
+        return result(outcome);
+    }
+    result(py.detach(|| {
+        if surface == "import" && operation == "catalog" {
+            let cancelled = std::sync::atomic::AtomicBool::new(false);
+            let mut poll = || {
+                if Python::attach(|py| py.check_signals()).is_err() {
+                    cancelled.store(true, std::sync::atomic::Ordering::Release);
+                }
+            };
+            return catabolic_runtime::api::execute_import_with_poll(
+                Path::new(path),
+                profile,
+                &request,
+                &cancelled,
+                &mut poll,
+            );
+        }
+        catabolic_runtime::api::execute_with_source(
+            Path::new(path),
+            profile,
+            surface,
+            operation,
+            &request,
+            source,
+        )
+    }))
+}
+
+#[pyfunction]
+#[pyo3(signature=(operation, request="{}"))]
+fn interchange(py: Python<'_>, operation: &str, request: &str) -> PyResult<String> {
+    let request: serde_json::Value =
+        crate::admitted_json(request).map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+    result(py.detach(|| catabolic_store::interchange::dispatch(operation, &request)))
 }

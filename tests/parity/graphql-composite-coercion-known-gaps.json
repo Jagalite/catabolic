@@ -1,0 +1,153 @@
+{
+  "status": "Known parity gaps outside the inbox scalar-only operation; not counted as passed.",
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "reference_python": "3.14.6",
+  "cases": [
+    {
+      "name": "list-plus-invalid",
+      "document": "query($n:Int!,$tags:[String!]){items(first:$n,tags:$tags){nodes{id}}}",
+      "variables": {
+        "n": 2147483648,
+        "tags": [
+          1,
+          null
+        ]
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Variable '$n' got invalid value 2147483648; Int cannot represent non 32-bit signed integer value: 2147483648",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 7
+                }
+              ]
+            },
+            {
+              "message": "Variable '$tags' got invalid value 1 at 'tags[0]'; String cannot represent a non string value: 1",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 15
+                }
+              ]
+            },
+            {
+              "message": "Variable '$tags' got invalid value None at 'tags[1]'; Expected non-nullable type 'String!' not to be None.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 15
+                }
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "enum-plus-invalid",
+      "document": "query($n:Int!,$sort:ItemSort){items(first:$n,sort:$sort){nodes{id}}}",
+      "variables": {
+        "n": 2147483648,
+        "sort": "bogus"
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Variable '$n' got invalid value 2147483648; Int cannot represent non 32-bit signed integer value: 2147483648",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 7
+                }
+              ]
+            },
+            {
+              "message": "Variable '$sort' got invalid value 'bogus'; Value 'bogus' does not exist in 'ItemSort' enum.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 15
+                }
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "input-plus-invalid",
+      "document": "query($n:Int!,$filter:RenditionFilter){items(first:$n,hasRendition:$filter){nodes{id}}}",
+      "variables": {
+        "n": 2147483648,
+        "filter": {
+          "current": "yes"
+        }
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Variable '$n' got invalid value 2147483648; Int cannot represent non 32-bit signed integer value: 2147483648",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 7
+                }
+              ]
+            },
+            {
+              "message": "Variable '$filter' got invalid value 'yes' at 'filter.current'; Boolean cannot represent a non boolean value: 'yes'",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 15
+                }
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      }
+    }
+  ]
+}

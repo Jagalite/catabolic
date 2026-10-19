@@ -1,0 +1,280 @@
+{
+  "format_version": 1,
+  "package": "R4-writer36-R5-common-gate-R6-import-v2",
+  "status": "Focused integrated Catabolic-only contract; full R4-R7 and release incomplete",
+  "recorded_at_utc": "2026-10-14T20:47:19.688172+00:00",
+  "baseline_commit": "15d36c5c708b1730dc5c6a4925bd60d1b847e6bf",
+  "source": {
+    "manifest": "tests/parity/native-catalog-r6-source-manifest.json",
+    "files_sha256": "2d4d6a70267e56f5d09d97cddde26a7ea8a7f46443c5c165da6d500235f7bf31",
+    "file_count": 1479,
+    "unchanged_before_after": true,
+    "scope": "all Git-tracked and nonignored untracked regular source files",
+    "note": "All source and documentation was frozen during the runs; generated receipts and subsequent implementation narrative are outside that tested manifest"
+  },
+  "runner": {
+    "rust": "1.99.0",
+    "python": "3.14.6",
+    "platform": "Linux x86_64",
+    "kind": "Standard Cargo authorized exception; not Kyoto",
+    "profile": "debug0 incremental0",
+    "target": "Main-only central target; all preparation copies use distinct targets"
+  },
+  "artifacts": {
+    "current": {
+      "path": ".local-tests/catalog-r6/catabolic-native-qualified",
+      "sha256": "f362bae8a1c976afa8f8a7b5c9cc676e9f7777ccb1279434b52455a0d63f68ec"
+    },
+    "pre_protocol": {
+      "path": ".local-tests/catalog-r3/catabolic-native",
+      "sha256": "acd2277c28ca8cac0a7ca241cde60d2311b72d6f1cc25f43c6ecdafd8aa08aca"
+    }
+  },
+  "runs": {
+    "import-owners": {
+      "log": ".local-tests/catalog-r6/import-owners.log",
+      "sha256": "b5021f2bf0c312c62fdfe4e731d9587701cf322ccaf249797bff9bb0ed4e0c41",
+      "passed": true,
+      "passing_executions": 132,
+      "failed_executions": 0,
+      "ignored_entries": 3,
+      "harness_summaries": 6
+    },
+    "host-leases": {
+      "log": ".local-tests/catalog-r6/host-leases.log",
+      "sha256": "a9f2402d8acf97e7a95df88deab8bfc771a2587b6cc7055f6c2a6bed07411a7b",
+      "passed": true,
+      "passing_executions": 7,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "scope36": {
+      "log": ".local-tests/catalog-r6/scope36.log",
+      "sha256": "e062693bf854c93b706a265e78babcf056e7faac27d7dd27983ec948e1b535b0",
+      "passed": true,
+      "passing_executions": 66,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "writer36": {
+      "log": ".local-tests/catalog-r6/writer36.log",
+      "sha256": "4cdd6a24640f4575627d540b11fe1a40eeb0611a912c5440ed28069551a3cef2",
+      "passed": true,
+      "passing_executions": 49,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "host-unit": {
+      "log": ".local-tests/catalog-r6/host-unit.log",
+      "sha256": "e49210e9aae827519c7f36f8b0fea6e35bb234a2d291b07b14bce8d1386e3dad",
+      "passed": true,
+      "passing_executions": 6,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "host-integration": {
+      "log": ".local-tests/catalog-r6/host-integration.log",
+      "sha256": "4264074bb8bb7846212a1224997cd222dc890879649afec041d1f39d09a3a64d",
+      "passed": true,
+      "passing_executions": 17,
+      "failed_executions": 0,
+      "ignored_entries": 5,
+      "harness_summaries": 3
+    },
+    "clippy": {
+      "log": ".local-tests/catalog-r6/clippy.log",
+      "sha256": "d9435be6fedf9d39519da9693f61ac3c4410ab8bb277b112c9cd5ddb46aab460",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "format": {
+      "log": ".local-tests/catalog-r6/format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "python-schema": {
+      "log": ".local-tests/catalog-r6/python-schema.log",
+      "sha256": "cffcc1493d94699288232eb849d7379713bf867bd38058c431b907170388dd7b",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0,
+      "passing_tests": 71,
+      "note": "Retained caller-owned fixture ResourceWarnings remain; no warning-free claim."
+    },
+    "helper-build": {
+      "log": ".local-tests/catalog-r6/helper-build.log",
+      "sha256": "22e8cf1730184516b982b886a4eb0d1ce985914d13f21cb8b44891a35578902a",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "helper-native34": {
+      "log": ".local-tests/catalog-r6/helper-native34.log",
+      "sha256": "9c21bcb45793e229a1935c135917a4a82941deaf62aca70ee77811c41dfe8017",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "helper-native36": {
+      "log": ".local-tests/catalog-r6/helper-native36.log",
+      "sha256": "9c8da24e04c0032e84ea9ff03e28fed9e5352cc44ec8f77ec26c7176e9710139",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "helper-companion34": {
+      "log": ".local-tests/catalog-r6/helper-companion34.log",
+      "sha256": "8eed9d0b55982b0bd690c2f722d34d268fc9b2c2bfbbe31a103c529ad6c731b5",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "helper-companion36": {
+      "log": ".local-tests/catalog-r6/helper-companion36.log",
+      "sha256": "6df91dea22d0034cd4009164877d008d8fe66014f051356d5b6223f66f301ff4",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "helper-legacy32": {
+      "log": ".local-tests/catalog-r6/helper-legacy32.log",
+      "sha256": "ea8b0795c289f4be436040254a9be3623c05d40f4827f1c6e41382bbf7b21a40",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "helper-shared": {
+      "log": ".local-tests/catalog-r6/helper-shared.log",
+      "sha256": "38a47bf4a8ead0776d8750577a8d43eeaf18ef5c1143ec90c28045ec7cb37944",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "helper-old-observation": {
+      "log": ".local-tests/catalog-r6/helper-old-observation.log",
+      "sha256": "d2ccd7961c41f7015a2bdbcc41b7189b3afe9b443658507d27949aa4e68d2d8c",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "helper-old-companions": {
+      "log": ".local-tests/catalog-r6/helper-old-companions.log",
+      "sha256": "5316a7e93aa50c71e1b7dacd21826ec5d0cd8590d20a246def8ebdaf6697ff3c",
+      "passed": true,
+      "passing_executions": 1,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 1
+    },
+    "source-after": {
+      "log": ".local-tests/catalog-r6/source-after.log",
+      "sha256": "cb7aac8bdc587e589607fd92c5383d87564d8a2c4f29a7a453ddbac8dd1f902e",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "source-after-helper": {
+      "log": ".local-tests/catalog-r6/source-after-helper.log",
+      "sha256": "cb7aac8bdc587e589607fd92c5383d87564d8a2c4f29a7a453ddbac8dd1f902e",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    },
+    "source-after-old-helper": {
+      "log": ".local-tests/catalog-r6/source-after-old-helper.log",
+      "sha256": "cb7aac8bdc587e589607fd92c5383d87564d8a2c4f29a7a453ddbac8dd1f902e",
+      "passed": true,
+      "passing_executions": 0,
+      "failed_executions": 0,
+      "ignored_entries": 0,
+      "harness_summaries": 0
+    }
+  },
+  "commands": {
+    "environment": {
+      "CARGO_HOME": "/workspace/shared/rust/cargo",
+      "RUSTUP_HOME": "/workspace/shared/rust/rustup",
+      "CARGO_TARGET_DIR": "/workspace/shared/catabolic-target",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_BUILD_JOBS": "2",
+      "oracle_env": "/workspace/shared/catalog-python-qualification/env.sh"
+    },
+    "commands": {
+      "import-owners": "cargo test --offline --locked -p catabolic-store --test native_import_staging --test native_catalog_commands --test native_catalog_identity --test native_metadata_commands --test native_pin_commands --test native_search_index -- --test-threads=1",
+      "host-leases": "cargo test --offline --locked -p catabolic-core --lib catalog_host_lease:: -- --test-threads=1",
+      "scope36": "cargo test --offline --locked -p catabolic-store --lib catalog_scope:: -- --test-threads=1",
+      "writer36": "cargo test --offline --locked -p catabolic-store --lib catalog_write::tests -- --test-threads=1",
+      "host-unit": "cargo test --offline --locked -p catabolic-runtime --lib host::tests -- --test-threads=1",
+      "host-integration": "cargo test --offline --locked -p catabolic-runtime --test native_host_contract --test native_host_lifetimes --test observation_native_fence -- --test-threads=1",
+      "clippy": "cargo clippy --offline --locked -p catabolic-core -p catabolic-store -p catabolic-runtime -p catabolic-cli --all-targets -- -D warnings",
+      "format": "cargo fmt --all -- --check",
+      "python-schema": "python -m unittest tests.test_native_catalog_schema tests.test_native_catalog_schema_generation tests.test_native_catalog_curation_schema tests.test_native_catalog_search_schema tests.test_catalog_contract_audit tests.test_native_catalog_schema_connections tests.test_native_catalog_cleanup_schema"
+    },
+    "initial_selector_failure": "import-owners-initial-selector-error: nonexistent native_catalog_metadata/native_catalog_pins target names; no tests executed; corrected to native_metadata_commands/native_pin_commands and restarted complete command"
+  },
+  "qualified_contracts": [
+    "Schema36 private writer expansion through24 real populated upgrade cases, explicit VM/busy/receipt budgets, lease-through-delivery and durable COMMIT outcome; schema37 remains refused",
+    "Schema36 scope/search/relationship preservation and hidden-item/path isolation through actual upgrade",
+    "Native HostSession requires the exact shared HostAuthorization; admitted workers retain its lease with their actual Child and caller permit",
+    "Actual two-consumer native35/36 shared scan preserves the second demand and all180 observations after first cancellation; each permit remains owned until exact child exit",
+    "Bounded V1/V2 import manifest/staging/rehearsal/activation and immutable receipt holds through existing command/curation/metadata/pin/identity/search owners",
+    "Typed exact-revision episode bindings, explicit revision mappings and retained decision history, rollback/replay/collision/authority/refusal cases on native34/35/36",
+    "Three ignored import exit helpers execute ten real process-exit boundaries through passing wrapper tests",
+    "Six exact current-helper cases and two exact archived pre-protocol refusal cases executed separately, one passing test each"
+  ],
+  "initial_failures": [
+    {
+      "log": ".local-tests/catalog-r6/import-owners-initial-selector-error.log",
+      "exit_code": 101,
+      "tests_executed": 0,
+      "reason": "Two requested Cargo target names did not exist; corrected selectors and reran the entire owner command. No failed run relabeled."
+    }
+  ],
+  "remaining": [
+    "Full current-source workspace aggregate and final artifact/wrapper/platform gates remain open",
+    "Required membership/provenance/component/file read adapters are separate in-progress R4 work",
+    "Public HostSession/private-writer/import cross-owner composition addendum is prepared separately, not included in this checkpoint",
+    "Real scanned-source activation remains RecoveryRequired for native34\u201336 terminal observation pointers; exact schema37 cleanup and supported shared join are separate in-progress R5/R6 work",
+    "No generic orphan/descendant recovery or bounded Drop guarantee; old native histories never gain cleanup proof from migration/PID/expiry",
+    "Actual Motion dependency/reference/two-owner deployment tests remain deferred by explicit instruction",
+    "Independent schema/definition/filesystem safety reviews remain incomplete and have not been retried or reassigned",
+    "WAL cutover, controlled restore, destructive publication and interval effects remain fail-closed where unqualified",
+    "Python defaults remain unchanged; no release/default transition or production catalog migration"
+  ],
+  "M0_M11_gate_closures": []
+}

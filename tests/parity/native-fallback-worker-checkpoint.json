@@ -1,0 +1,82 @@
+{
+  "status": "focused_local_debug_checkpoint",
+  "scope": "Preserved fallback-worker lifecycle transport; no full parity or release qualification",
+  "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "source_base_commit": "e6ae2421185144131bd9f4347aad3ceef9ca8134",
+  "source_sha256_before_build": "889d398cddfc7d9239f4ae62ff49445075826f33d1eb6f0ce2f250cc2e7c90ce",
+  "source_sha256_after_checks": "889d398cddfc7d9239f4ae62ff49445075826f33d1eb6f0ce2f250cc2e7c90ce",
+  "source_fence": "scripts/build_native_wheel.py:source_digest",
+  "artifact": {
+    "kind": "debug opt-in legacy CLI",
+    "path": ".local-tests/fallback-worker/catabolic-legacy-native",
+    "sha256": "4f451d35e12a8d42606090b7cc440daed636d64574912896dee028ba879bc14e",
+    "bytes": 71094128
+  },
+  "toolchain": {
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1",
+    "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)",
+    "oracle_python": "Python 3.14.6"
+  },
+  "build_environment": {
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_BUILD_JOBS": "2"
+  },
+  "selected_case_counts": {
+    "python_fallback_worker_methods": 10,
+    "source_ledger_methods": 5,
+    "existing_cli_regression_methods": 2,
+    "rust_lifecycle_tests": 3,
+    "existing_rust_fallback_tests": 14,
+    "legacy_binary_unit_tests": 9
+  },
+  "source_files_sha256": {
+    "crates/catabolic-cli/src/legacy/fallback_worker.rs": "4292e382055fc6a7f2e1e1f22e052433f96d5ec15428bb2bd2fd254c06f7d69f",
+    "crates/catabolic-cli/src/legacy/dispatch.rs": "91fc4af8e01449681beaa962513882a7ca60ccd0a80462b4893e139cbc458243",
+    "crates/catabolic-cli/src/legacy/presentation.rs": "fb561bb81f23b54231760e13f17dcfe6eb42ea2836e17b1d80f71328da90ed48",
+    "crates/catabolic-runtime/src/public_fallback.rs": "2292416a57fb089f4946230cd851d7a377cd186bc7902ffb9201cdb9fbe3c43c",
+    "crates/catabolic-runtime/tests/fallback_worker_lifecycle.rs": "b4a4d0f0f56d170686f66d840551aafe4b9b8318e9afdeb71ef60644378493eb",
+    "tests/frozen_fallback_worker_signal_fixture.py": "5503d9397883cb1e2c22927515d58d21d042d93971f9ad8eda106bc496000b25",
+    "tests/test_rust_legacy_fallback_worker.py": "bc1993ec5f4491c3e29ded4c5e89c18972a0da22054b2668c35c5546f3a3cadb",
+    "tests/test_native_cli_owner_ledger.py": "9168b9f35d2e42a89e345db65d4cf2790f832ed653d26b8b07d3c23364b1a001",
+    "scripts/legacy_cli_owners.py": "7037b973fbbb066dc2f4d338a81b11a2cb4fa599e432a477c65a244702644c03",
+    "tests/parity/legacy-cli-owners.json": "1802dd77a4e644efda86fe6c6b66d9a36aad76f5fc933e9eca9937e32c059efe"
+  },
+  "oracle_files_sha256": {
+    "fallback_cli.py": "296345bbfe670f725e0af0d67348201a2dae494ae862ad606336b6fca381efcd",
+    "fallback_worker.py": "781dfd474d201d9a8b1226b76291174d07402b60fcf171c9626ca16b5f289b1f",
+    "database_io.py": "b2383da2d86e75a831e0ec7020cd2f7fd8c7cdd4cf5f6b11def2a1a7f58708fb",
+    "cli.py": "9802e9a9ae141a901f7445488b8c06f4512f51e45d127d1b0e668776e0f43323",
+    "fallback_projection.py": "4b9f4755db054d228a517cfdbc2bdeb2414433d619f4afb04f795d35f2184b49",
+    "store.py": "bdda51dc1bb74a56932f09ee0a8516105b1dbf64c000151a20132bfe9c7b67ee"
+  },
+  "logs_sha256": {
+    ".local-tests/fallback-worker/fenced-build.log": "4ddc61e93a34a57902a8c3ead110e79bdd49d19cf5cc71ac1dae39b8398ef7b7",
+    ".local-tests/fallback-worker/python-artifact-bound.log": "cc30a33955494c37dc3263d76b086a2632428dac8afbbf0efbdd91df18aebe23",
+    ".local-tests/fallback-worker/rust-tests.log": "9430791527ec4bbbaaebd816caf8d0a07410f758eac2d5b93ec9a0f4f41df37b",
+    ".local-tests/fallback-worker/presentation-tests.log": "2baa4d4bbbef4b6359f740cbd7e7f4f3163d3ddf2c276928dc1406e3bcb4d6b0",
+    ".local-tests/fallback-worker/clippy.log": "2c9b15794d248844f2e5113731ce7849533c5623b67b04a61211b30e48c2c833",
+    ".local-tests/fallback-worker/ruff.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    ".local-tests/fallback-worker/format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    ".local-tests/fallback-worker/ledger.log": "559c5bb26fc46b6b16f14054b96f69948341a591d74d558ffff300d9699c55dd"
+  },
+  "retained_diagnostics": {
+    "python-initial.log": "First diagnostic test assumption failed; real frozen states/generation recorded then corrected",
+    "due-output-diagnostic.log": "Actual frozen incomplete states/generation and native fail-closed error"
+  },
+  "non_parity_evidence": [
+    "Due frozen empty projection increments generation and returns complete=false,states=[]; native preserves generation and returns the existing M6 publication error; both schedule retry and exit 3",
+    "Native SIGTERM returns interrupt exit 130; frozen SIGTERM terminates (-15) without output",
+    "Native recovery refusal preserves the pending journal; no public fixture override is accepted"
+  ],
+  "limitations": [
+    "Publication/recovery remains gated at M6",
+    "SQLite extended error-code/exception-class parity is incomplete",
+    "Cancellation evidence covers selected schedules",
+    "No installed-wheel, release-profile, macOS, full-leaf, or broad safety-review qualification"
+  ],
+  "python_remains_default": true,
+  "m4_m11_hard_gates_closed": false,
+  "push_merge_release": false
+}

@@ -1,0 +1,1380 @@
+{
+  "oracle_commit": "453fca983222c6665a48775eef67c489c96b527e",
+  "oracle_python": "3.14.6",
+  "cases": [
+    {
+      "name": "nested-empty-object-completion",
+      "document": "{item(id:\"a\"){id @skip(if:true)}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {}
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": null
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "nested-empty-list-completion",
+      "document": "{items(first:2){nodes{id @skip(if:true)}}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "nodes": [
+                {},
+                {}
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "nodes": [
+                null,
+                null
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      }
+    },
+    {
+      "name": "object-include",
+      "document": "{alias:item(id:\"a\"){id @include(if:false)}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "alias": {}
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "list-include",
+      "document": "{items(first:2){entries:nodes{id @include(if:false)}}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "entries": [
+                {},
+                {}
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "object-skip-variable",
+      "document": "query($b:Boolean=false){alias:item(id:\"a\"){id @skip(if:$b)}}",
+      "variables": {
+        "b": true
+      },
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "alias": {}
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "list-skip-variable",
+      "document": "query($b:Boolean=false){items(first:2){entries:nodes{id @skip(if:$b)}}}",
+      "variables": {
+        "b": true
+      },
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "entries": [
+                {},
+                {}
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "object-include-variable",
+      "document": "query($b:Boolean=false){alias:item(id:\"a\"){id @include(if:$b)}}",
+      "variables": {
+        "b": false
+      },
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "alias": {}
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "list-include-variable",
+      "document": "query($b:Boolean=false){items(first:2){entries:nodes{id @include(if:$b)}}}",
+      "variables": {
+        "b": false
+      },
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "entries": [
+                {},
+                {}
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "object-inline",
+      "document": "{alias:item(id:\"a\"){... on Item @skip(if:true){id}}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "alias": {}
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "list-inline",
+      "document": "{items(first:2){entries:nodes{... on Item @skip(if:true){id}}}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "entries": [
+                {},
+                {}
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "object-spread",
+      "document": "{alias:item(id:\"a\"){...Core @include(if:false)}}fragment Core on Item{id}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "alias": {}
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "list-spread",
+      "document": "{items(first:2){entries:nodes{...Core @include(if:false)}}}fragment Core on Item{id}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "entries": [
+                {},
+                {}
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "object-fragment-child",
+      "document": "{alias:item(id:\"a\"){...Core}}fragment Core on Item{id @skip(if:true)}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "alias": {}
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "list-fragment-child",
+      "document": "{items(first:2){entries:nodes{...Core}}}fragment Core on Item{id @skip(if:true)}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "entries": [
+                {},
+                {}
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "object-nested-fragment",
+      "document": "{alias:item(id:\"a\"){...Core}}fragment Core on Item{... on Item{...Leaf}} fragment Leaf on Item{id @include(if:false)}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "alias": {}
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "list-nested-fragment",
+      "document": "{items(first:2){entries:nodes{...Core}}}fragment Core on Item{... on Item{...Leaf}} fragment Leaf on Item{id @include(if:false)}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "entries": [
+                {},
+                {}
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "object-skip-before-null-include",
+      "document": "query($b:Boolean=false){alias:item(id:\"a\"){id @include(if:$b) @skip(if:true)}}",
+      "variables": {
+        "b": null
+      },
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "alias": {}
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "list-skip-before-null-include",
+      "document": "query($b:Boolean=false){items(first:2){entries:nodes{id @include(if:$b) @skip(if:true)}}}",
+      "variables": {
+        "b": null
+      },
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "entries": [
+                {},
+                {}
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "absent-object",
+      "document": "{missing:item(id:\"absent\"){id @skip(if:true)}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "missing": null
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "empty-list",
+      "document": "{items(search:\"no-matching-title\"){nodes{id @skip(if:true)}}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "nodes": []
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "skipped-parent",
+      "document": "{item(id:\"a\") @skip(if:true){id @skip(if:true)}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {},
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "siblings",
+      "document": "{left:item(id:\"a\"){id @skip(if:true)} absent:item(id:\"absent\"){id @skip(if:true)} right:item(id:\"b\"){id title}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "left": {},
+            "absent": null,
+            "right": {
+              "id": "b",
+              "title": "b"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 3
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "nullable-scalars",
+      "document": "{item(id:\"a\"){year id @skip(if:true)}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "year": null
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "typename",
+      "document": "{item(id:\"a\"){__typename id @skip(if:true)}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "__typename": "Item"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "page-object",
+      "document": "{items(first:2){nodes @skip(if:true){id} pageInfo @include(if:false){endCursor}}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {}
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "page-info",
+      "document": "{items(first:2){pageInfo{hasNextPage @skip(if:true)}}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "pageInfo": {}
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "non-null-object",
+      "document": "{item(id:\"a\"){workflow{status @skip(if:true)}}}",
+      "variables": {},
+      "http": false,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "workflow": {}
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "nested-list-object",
+      "document": "{items(first:2){nodes{workflow{status @skip(if:true)}}}}",
+      "variables": {},
+      "http": false,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "nodes": [
+                {
+                  "workflow": {}
+                },
+                {
+                  "workflow": {}
+                }
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "empty-nested-list",
+      "document": "{item(id:\"a\"){identities{namespace @skip(if:true)}}}",
+      "variables": {},
+      "http": false,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "identities": []
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "json-scalar",
+      "document": "{item(id:\"a\"){metadata id @skip(if:true)}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "metadata": {
+                "title": "a",
+                "opaque": 2305843009213693953
+              }
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "absent-json-scalar",
+      "document": "{savedQuery(id:\"missing\") item(id:\"a\"){id @skip(if:true)}}",
+      "variables": {},
+      "http": false,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "savedQuery": null,
+            "item": {}
+          },
+          "errors": [
+            {
+              "message": "unknown query revision in this profile",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                }
+              ],
+              "path": [
+                "savedQuery"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "nullable-error-sibling",
+      "document": "{bad:items(first:0){nodes{id @skip(if:true)}} good:item(id:\"a\"){id @skip(if:true)}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "bad": null,
+            "good": {}
+          },
+          "errors": [
+            {
+              "message": "first must be between 1 and 1000",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                }
+              ],
+              "path": [
+                "bad"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "null-argument-sibling",
+      "document": "query($n:Int){bad:items(first:$n){nodes{id @skip(if:true)}} good:item(id:\"a\"){id @skip(if:true)}}",
+      "variables": {
+        "n": null
+      },
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "bad": null,
+            "good": {}
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 31
+                }
+              ],
+              "path": [
+                "bad"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "directive-error",
+      "document": "query($b:Boolean=false){item(id:\"a\"){id @skip(if:$b)}}",
+      "variables": {
+        "b": null
+      },
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "item": null
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 50
+                }
+              ],
+              "path": [
+                "item"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "list-directive-error",
+      "document": "query($b:Boolean=false){items(first:2){nodes{id @skip(if:$b)}}}",
+      "variables": {
+        "b": null
+      },
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "items": null
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 58
+                }
+              ],
+              "path": [
+                "items",
+                "nodes",
+                0
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "absent-directive-error",
+      "document": "query($b:Boolean=false){item(id:\"absent\"){id @skip(if:$b)}}",
+      "variables": {
+        "b": null
+      },
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": null
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "empty-list-directive-error",
+      "document": "query($b:Boolean=false){items(search:\"no-matching-title\"){nodes{id @skip(if:$b)}}}",
+      "variables": {
+        "b": null
+      },
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "items": {
+              "nodes": []
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "non-null-error-root",
+      "document": "query($v:String=\"\"){contentSearch(text:$v) item(id:\"a\"){id @skip(if:true)}}",
+      "variables": {
+        "v": null
+      },
+      "http": false,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Argument 'text' of non-null type 'String!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 40
+                }
+              ],
+              "path": [
+                "contentSearch"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "static-validation",
+      "document": "{item(id:\"a\"){unknown @skip(if:true)}}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Cannot query field 'unknown' on type 'Item'.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 15
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "root-empty",
+      "document": "{profile @skip(if:true)}",
+      "variables": {},
+      "http": true,
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {},
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "named-operation",
+      "document": "query Keep{item(id:\"a\"){id @skip(if:true)}} query Ignore{item(id:\"b\"){id}}",
+      "variables": {},
+      "http": true,
+      "operation_name": "Keep",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {}
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    }
+  ],
+  "http_scoped_cases": [
+    {
+      "name": "scoped-hidden-object",
+      "document": "{allowed:item(id:\"a\"){id @skip(if:true)} hidden:item(id:\"c\"){id @skip(if:true)}}",
+      "status": 200,
+      "expected": {
+        "data": {
+          "allowed": {},
+          "hidden": null
+        },
+        "extensions": {
+          "interfaceVersion": 1,
+          "profile": "default",
+          "records": 2
+        }
+      }
+    },
+    {
+      "name": "scoped-list",
+      "document": "{items(first:100){nodes{id @skip(if:true)}}}",
+      "status": 200,
+      "expected": {
+        "data": {
+          "items": {
+            "nodes": [
+              {},
+              {}
+            ]
+          }
+        },
+        "extensions": {
+          "interfaceVersion": 1,
+          "profile": "default",
+          "records": 2
+        }
+      }
+    },
+    {
+      "name": "forbidden-parent",
+      "document": "{item(id:\"a\"){workflow{status @skip(if:true)}}}",
+      "status": 200,
+      "expected": {
+        "data": {
+          "item": null
+        },
+        "errors": [
+          {
+            "message": "field is not authorized",
+            "locations": [
+              {
+                "line": 1,
+                "column": 15
+              }
+            ],
+            "path": [
+              "item",
+              "workflow"
+            ],
+            "extensions": {
+              "code": "FORBIDDEN"
+            }
+          }
+        ],
+        "extensions": {
+          "interfaceVersion": 1,
+          "profile": "default",
+          "records": 1
+        }
+      }
+    }
+  ]
+}

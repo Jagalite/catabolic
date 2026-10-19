@@ -1,10 +1,77 @@
 """Opt-in native engine. No catalog is opened or migrated on import."""
 
 import json
+import os
+import sys
+from pathlib import Path
 
 from . import _native
+from . import scan_execution as scan_execution
+from . import watchers as watchers
+from . import source_events as source_events
+from .watchers import Watchers as Watchers
+from . import access as access
+from . import content_access as content_access
+from . import fallback_projection as fallback_projection
+from . import fallback_resolution as fallback_resolution
+from . import fallback_worker as fallback_worker
+from .app import Application as Application
+from .artifacts import Artifacts as Artifacts
+from .catalog_refresh import CatalogRefresh as CatalogRefresh
+from .curation import Curation as Curation
+from .item_workflow import ItemWorkflow as ItemWorkflow
+from .media_catalog import MediaCatalog as MediaCatalog
+from .processing import Processing as Processing
+from .query import CatalogQuery as CatalogQuery
+from .reconcile import Reconciler as Reconciler
+from .saved_queries import Queries as Queries
+from .store import CatabolicError as CatabolicError
+from .store import NativeCommandHandle as NativeCommandHandle
+from .store import NativeResult as NativeResult
+from .store import NativeRow as NativeRow
+from .store import Store as Store
+from .tagging import Tagging as Tagging
 
 __version__ = _native.version()
+
+
+def _register_packaged_helper():
+    root = Path(__file__).resolve().parent
+    manifest = root / "native-helper.json"
+    executable = root / "bin" / "catabolic-native"
+    if not manifest.exists() and not executable.exists():
+        # Development extension builds still support in-process operations.
+        # Subprocess operations explicitly refuse unless an embedding supplied
+        # CATABOLIC_NATIVE_BINARY; they never invoke the Python interpreter.
+        return
+    if not manifest.is_file() or not executable.is_file():
+        raise RuntimeError("incomplete installed Catabolic native helper")
+    if manifest.stat().st_size > 4096:
+        raise RuntimeError("invalid installed Catabolic native helper manifest")
+    metadata = json.loads(manifest.read_text(encoding="utf-8"))
+    if (
+        metadata.get("format") != 1
+        or metadata.get("version") != __version__
+        or metadata.get("path") != "bin/catabolic-native"
+        or not isinstance(metadata.get("sha256"), str)
+        or len(metadata["sha256"]) != 64
+    ):
+        raise RuntimeError("invalid installed Catabolic native helper manifest")
+    _native.register_native_helper(str(executable), metadata["sha256"])
+
+
+_register_packaged_helper()
+
+
+def native_binary():
+    """Return the explicitly registered helper after rechecking its identity."""
+    return Path(_native.native_helper())
+
+
+def main():
+    """Launch the opt-in packaged native CLI, never the Python application."""
+    executable = str(native_binary())
+    os.execv(executable, [executable, *sys.argv[1:]])
 
 
 def encode(value):
@@ -76,7 +143,7 @@ def execute_graphql(
             str(path),
             document,
             profile,
-            json.dumps(variables or {}, allow_nan=False),
+            json.dumps({} if variables is None else variables, allow_nan=False),
             operation_name,
             timeout_ms,
         )
@@ -121,6 +188,47 @@ def plan_layout(
                     "allow_empty": allow_empty,
                     "limit": limit,
                 }
+            ),
+            profile,
+        )
+    )
+
+
+def execute_operation(path, surface, operation, *, profile="default", **request):
+    """Run one opt-in native operation, with native ownership through completion.
+
+    These companion operations do not replace the complete Catabolic public
+    Python API. Unsupported operations fail without retrying under Python.
+    """
+    return json.loads(
+        _native.execute_operation(
+            str(path),
+            surface,
+            operation,
+            json.dumps(request, allow_nan=False),
+            profile,
+        )
+    )
+
+
+def interchange(operation, **request):
+    """Validate, decode, encode, or inspect frozen interchange documents."""
+    return json.loads(
+        _native.interchange(operation, json.dumps(request, allow_nan=False))
+    )
+
+
+def build_manifest(
+    path, catalog="global", *, profile="default", extra=None, selection=None
+):
+    """Build a read-only interchange manifest without publishing filesystem bytes."""
+    return json.loads(
+        _native.evaluate_read(
+            str(path),
+            "manifest",
+            json.dumps(
+                {"catalog": catalog, "extra": extra, "selection": selection},
+                allow_nan=False,
             ),
             profile,
         )

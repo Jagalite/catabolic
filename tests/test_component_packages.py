@@ -45,6 +45,10 @@ class PackageTest(unittest.TestCase):
             {
                 "fallbacks": tiers,
                 "failback": {"mode": "immediate"},
+                # These healthy-path fixtures exercise selection/publication,
+                # not the production default's one-second startup deadline.
+                # Keep real probes and exact preview/apply plan admission.
+                "budgets": {"probe_timeout_ms": 10000},
                 "package": {
                     "publication": publication,
                     "operation_id": operation,

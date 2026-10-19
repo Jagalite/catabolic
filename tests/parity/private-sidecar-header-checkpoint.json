@@ -1,0 +1,66 @@
+{
+  "checkpoint": "recognizable-private-sidecar-header-refusal",
+  "date_utc": "2026-10-12",
+  "base_commit": "229fc79",
+  "source_sha256": {
+    "crates/catabolic-store/src/content_access.rs": "cedc6dc4154c14c25b2e290400dd4096170456c9f9b76b9b3962b9044dc92557"
+  },
+  "scope": "Known SQLite database/WAL/SHM signatures before descriptor callbacks only",
+  "rust_command": "cargo test --locked --offline -p catabolic-store --lib content_access::tests -- --nocapture",
+  "tests": {
+    "passed": 6,
+    "failed": 0,
+    "ignored": 0,
+    "independent_rerun_passed": 6
+  },
+  "checks": [
+    "cargo fmt --all -- --check",
+    "cargo clippy --locked --offline -p catabolic-store --lib --tests -- -D warnings",
+    "python scripts/sync_docs.py --check",
+    "git diff --check"
+  ],
+  "historical_attempts": {
+    "before.log": "invalid added schema table refused by existing schema guard; not product reproduction",
+    "before-valid-fixture.log": "unchanged owner admitted actual orphaned WAL alias; stopped before SHM assertion",
+    "after.log": "test-only u64/usize compile mismatch; corrected before passing run"
+  },
+  "evidence": {
+    "before.log": {
+      "path": ".local-tests/private-sidecar/before.log",
+      "sha256": "6e4982ffacd92e08dd491d1903344f1079d2ddaf317bbc71019b272db557e5eb"
+    },
+    "before-valid-fixture.log": {
+      "path": ".local-tests/private-sidecar/before-valid-fixture.log",
+      "sha256": "c1892e20a18a08b3999fe0fbecc233438b5fcb3c1c0f5ee6cc7bbcb1fa6d1a21"
+    },
+    "after.log": {
+      "path": ".local-tests/private-sidecar/after.log",
+      "sha256": "a5215d28dff2b60b06201745543e0a28ea02786403f80ee31602142317cb0262"
+    },
+    "after-valid-fixture.log": {
+      "path": ".local-tests/private-sidecar/after-valid-fixture.log",
+      "sha256": "bdbd04db225a819b22629860cdab6067c11d227d72aa45e348a3959efd3a0b68"
+    },
+    "checks.log": {
+      "path": ".local-tests/private-sidecar/checks.log",
+      "sha256": "cdb858a93453a79b80bb0a959b97e4d1f965e01a74c07c00fa63f57d5e0e8fc2"
+    },
+    "independent-review.log": {
+      "path": ".local-tests/private-sidecar/independent-review.log",
+      "sha256": "3b19f900d3d02cd7ad3c8a2781843e7f63acad0975afc7d195f286bf742c2c46"
+    }
+  },
+  "qualification": {
+    "full_suite": false,
+    "actual_http": false,
+    "macos": false,
+    "broad_source_filesystem_review": false,
+    "content_release_gate_closed": false
+  },
+  "limits": [
+    "Conservative signature collisions refuse otherwise ordinary files",
+    "Unrecognized, damaged, zeroed or future sidecar signatures remain unresolved",
+    "No private-inode lifecycle, schema, source descriptor or filesystem mutation changes",
+    "Explicit native refusal improvement, not frozen Python parity"
+  ]
+}

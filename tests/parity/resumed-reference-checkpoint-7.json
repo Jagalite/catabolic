@@ -1,0 +1,24 @@
+{
+  "command_exit": 0,
+  "source_before": "426a5d763da8352dfb635eb38709c3ccb19d3d64640c7dc8ca1eae4fa1b3f98c",
+  "source_after": "426a5d763da8352dfb635eb38709c3ccb19d3d64640c7dc8ca1eae4fa1b3f98c",
+  "source_unchanged": true,
+  "commit": "ccf130ee4fcb63cc601ccb537c1a144c2bd98229",
+  "seconds": 1096.366855621338,
+  "tests_run": 1255,
+  "result_passed": true,
+  "skips": [
+    {
+      "id": "tests.test_application.CatalogTest.test_default_output_detects_registered_source_case_alias",
+      "reason": "requires a case-insensitive filesystem"
+    }
+  ],
+  "passed": true,
+  "scope": "Complete frozen-Python application/reference discovery for the recorded source; opt-in native scenarios are a separate required lane.",
+  "report_sha256": "f56eef754a873fbe387648d9a5f5aa6b230e496c5dcf970ec3594bf765c06fcb",
+  "log_sha256": "6380188eea6a6128b54b5f7e7d68275ea4bcef364469fd6debe2f654522281d3",
+  "python": "3.14.6",
+  "failures": 0,
+  "errors": 0,
+  "milestone_gates_complete": false
+}

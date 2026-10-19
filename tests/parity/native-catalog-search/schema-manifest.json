@@ -1,0 +1,227 @@
+{
+  "schema_version": 35,
+  "first_native_schema": 33,
+  "legacy_target": 32,
+  "independent_review": "incomplete; generation is not review clearance",
+  "new_tables": {
+    "catalog_search_dirty": [
+      {
+        "name": "item_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "barrier_id",
+        "type": "INTEGER",
+        "pk": 0
+      }
+    ],
+    "catalog_search_documents": [
+      {
+        "name": "rowid",
+        "type": "INTEGER",
+        "pk": 1
+      },
+      {
+        "name": "item_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "title",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "aliases",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "accepted_identities",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "effective_tags",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "description",
+        "type": "TEXT",
+        "pk": 0
+      }
+    ],
+    "catalog_search_fts": [
+      {
+        "name": "title",
+        "type": "",
+        "pk": 0
+      },
+      {
+        "name": "aliases",
+        "type": "",
+        "pk": 0
+      },
+      {
+        "name": "accepted_identities",
+        "type": "",
+        "pk": 0
+      },
+      {
+        "name": "effective_tags",
+        "type": "",
+        "pk": 0
+      },
+      {
+        "name": "description",
+        "type": "",
+        "pk": 0
+      }
+    ],
+    "catalog_search_fts_config": [
+      {
+        "name": "k",
+        "type": "",
+        "pk": 1
+      },
+      {
+        "name": "v",
+        "type": "",
+        "pk": 0
+      }
+    ],
+    "catalog_search_fts_data": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "pk": 1
+      },
+      {
+        "name": "block",
+        "type": "BLOB",
+        "pk": 0
+      }
+    ],
+    "catalog_search_fts_docsize": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "pk": 1
+      },
+      {
+        "name": "sz",
+        "type": "BLOB",
+        "pk": 0
+      }
+    ],
+    "catalog_search_fts_idx": [
+      {
+        "name": "segid",
+        "type": "",
+        "pk": 1
+      },
+      {
+        "name": "term",
+        "type": "",
+        "pk": 2
+      },
+      {
+        "name": "pgno",
+        "type": "",
+        "pk": 0
+      }
+    ],
+    "catalog_search_state": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "pk": 1
+      },
+      {
+        "name": "contract_version",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "tokenizer",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "extractor",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "ready",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "input_revision",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "indexed_revision",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "catalog_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "incarnation",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "rebuilt_generation",
+        "type": "INTEGER",
+        "pk": 0
+      }
+    ],
+    "catalog_search_values": [
+      {
+        "name": "item_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "field_key",
+        "type": "TEXT",
+        "pk": 2
+      },
+      {
+        "name": "origin_key",
+        "type": "TEXT",
+        "pk": 3
+      },
+      {
+        "name": "rank_class",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "value_text",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "provenance_json",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "required_subjects_json",
+        "type": "TEXT",
+        "pk": 0
+      }
+    ]
+  },
+  "new_objects": 49
+}

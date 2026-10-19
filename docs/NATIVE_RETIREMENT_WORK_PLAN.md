@@ -1,0 +1,890 @@
+# Native retirement work plan
+
+On October 16, 2026 the user asked for all remaining coding work toward
+retiring the Python engine. That includes the metadata integrity gap,
+production behavior gaps, upgrade and rollback rehearsal, packaging and
+distribution, and the remaining reviews. This plan lists that work in order.
+It does not record evidence: each item records its evidence in its own
+receipt, and the [decision record](NATIVE_RETIREMENT_DECISIONS_2026_10_16.md)
+gates still apply.
+
+## User decisions, October 16
+
+- **System tools:** do not install them. FFmpeg `libwebp`, Tesseract and the
+  pinned diagnostics interpreter stay recorded as missing prerequisites.
+- **Platforms:** macOS arm64 only for now. Linux comes later.
+- **Distribution:** the native engine becomes the `catabolic` distribution
+  itself, built with maturin with the thin compatibility layer. The version
+  becomes 1.0.0.
+- **Python API:** support the CLI and the 159 forwarded names. Deprecate the
+  remaining public names, with a documented list.
+
+## Working rules
+
+- Kyoto compiles every Rust target. Tests run separately, with the pinned
+  oracle variables and a physical `TMPDIR`.
+- Every change is reviewed independently by GPT-6.1-Sol. Findings are fixed
+  and re-reviewed before the change is committed.
+- Each item lands as its own commit on `codex/rust-migration-m4-plus`.
+  Nothing is pushed or published, and the default is not switched, without an
+  explicit instruction.
+- A new native safety behavior that goes beyond Python parity is documented
+  as a versioned change. A ledger row is closed only with evidence tied to an
+  exact commit.
+
+## Reviews
+
+The `schema`, `broad_definition` and `filesystem` lanes previously stopped
+because the reviewer tool returned an automated platform error. Nobody
+declined them. The user's October 16 instruction authorizes running them.
+Their findings feed the tracks below.
+
+## Tracks
+
+### A. Integrity and content protection
+
+1. Record each filesystem's type and timestamp granularity alongside the
+   existing volume identity, using `fstatfs`.
+2. Refuse source and artifact revisions recorded within one timestamp tick of
+   their mtime (a racy-revision rule). Callers must rescan, or verify the
+   full hash.
+3. On coarse or unknown filesystems, require the full hash before reusing an
+   artifact or serving it for the first time. Cache the verified revision.
+4. Hash full GET responses while streaming them, as a final check. HEAD and
+   Range requests stay cheap.
+5. Add `ctime_ns` to source revisions. This is a schema step and goes through
+   the schema review.
+6. Close unrecognizable orphaned WAL/SHM sidecars, once the filesystem review
+   has settled the design.
+
+### B. Upgrade, restore and rollback
+
+1. Add operator commands for native inspect, plan and upgrade, taking a plan
+   file, quiescence assertions and failpoints.
+2. Add an identity-preservation checker.
+3. Build a rehearsal harness that runs on legacy and scale fixtures. It
+   interrupts the upgrade at every durable boundary, resumes, verifies
+   identities, restores to a new path, and reopens the restored copy with
+   frozen Python.
+4. Add an offline WAL-to-rollback-journal conversion procedure.
+5. Record the post-upgrade write limitations as asserted refusals.
+6. Design and implement controlled restore with incarnation rotation.
+
+### C. Production safety and recovery (M6/M8)
+
+1. Build a durable-boundary failpoint matrix and a crash harness.
+2. Design and implement a safe symlink and hardlink replace/remove protocol,
+   using the filesystem review's findings.
+3. Implement reconciler apply and recover.
+4. Implement publication-mapping v2 apply and recover.
+5. Enable the dependent publication paths: projection execute, maintenance
+   rules and sync, and refresh from watch.
+6. Enable fallback publication.
+7. Qualify handover in both directions: Python journal to Rust recovery, and
+   Rust journal to Python recovery.
+
+### D. Named behavior gaps
+
+- GraphQL: parser residuals, field-conflict and merged-field nulls, recorded
+  Int output, and variable-JSON precedence.
+- CLI: `api token` `~user` expansion and the HOME-unset fallback, program
+  import kinds, plan evaluation, SIGTERM alignment, and external rule
+  transport.
+- Status of the first two bullets after the October 16 track D pass (see
+  [track D status](#track-d-status-october-16) below).
+- Notifications: the unsupported option matrix, implemented provider by
+  provider.
+- Observation: regex dialect constructs, scan and maintenance report fields,
+  and scan continuation.
+- Ledger rows: legacy item query adapters, contribution resolution, tag
+  suppression, and durable command evidence.
+- Supervision: macOS parent-death and grandchild handling.
+
+### E. Packaging and distribution
+
+1. Move build-time assets (the OpenAPI release data, migrations, interchange
+   files and guides) out of `src/catabolic`.
+2. Run the macOS arm64 standalone lane, the wheel lane and the compatibility
+   lane locally, recording receipts.
+3. Disposition the public API, set the distribution identity and entrypoints,
+   update the release pipeline, and build the artifact matrix. These need the
+   user's packaging decisions.
+4. Rewrite installed acceptance against the native artifacts.
+5. Flip the ledger and docs, then remove the shipped Python engine. The frozen
+   reference and rollback artifacts are kept separately.
+
+### F. Qualification
+
+- Rerun the full aggregate on each committed checkpoint.
+- Run the storage, Jellyfin and experience acceptance lanes where they are
+  available locally.
+- Record a performance baseline and its deltas.
+
+## Needs outside resources or user decisions
+
+- System tools: FFmpeg with `libwebp`, Tesseract, and the pinned diagnostics
+  oracle interpreter, which is Linux-only.
+- The supported platform list and Python versions, Linux CI hosts, and PyPI
+  publication.
+- Real-service acceptance against Plex, Jellyfin and notification services.
+- Motion integration, which the user deferred on 2026-10-14.
+- The final default switch and removal of the shipped Python engine.
+
+## Track D status, October 16
+
+Status of the first two track D bullets. Results come from a Kyoto build of the
+workspace on macOS arm64, with test executables and Python suites then run one
+at a time against the frozen oracle (Python 3.14.6, reference `453fca9`).
+
+| Item | Status | Commit | Evidence |
+|---|---|---|---|
+| `api token` `~user` and HOME-unset | Closed; the not-found `RuntimeError` presentation is a structured error, **pending user confirmation** | `ecce11d` | private-secret 6/6, access-admin 6/6, store unit 17 |
+| GraphQL variable-JSON precedence | Closed | `065d6f2` | precedence 1 method (45 envelopes), admission 8 (242 comparisons), variable-errors and file-boundary 2 (153 + 55 pairs) |
+| Program import kinds | Closed (external processors) | `267a621` | `test_rust_programs` 8, `test_program_bundle` 9 |
+| SIGTERM alignment | Closed for all standalone legacy families; Linux lane still needed for three harnesses | `69f6e0b` | legacy unit 34, fallback-worker 10, consumer-watch idle TERM paired with the oracle |
+| External rule transport | Closed for the listed cases; Latin-1 credential bytes and a few parser edges remain recorded differences | `6295930` | runtime unit 12, worker diagnostics 12 (one Linux-only skip), external rule 18 (one Linux-only skip) |
+| GraphQL field-conflict | Closed (suite passes) | earlier checkpoints | overlap 77, document validation 55, coercion 182 pairs, including the former known-gap vectors |
+| GraphQL merged-field nulls | Closed (suite passes) | earlier checkpoints | runtime completion 59 pairs plus runtime inputs |
+| GraphQL recorded Int output | Closed (suite passes) | earlier checkpoints | 42 recorded-Int CLI triples |
+| GraphQL parser residuals | **Not closed** | none | see below |
+| Plan evaluation | **Deferred to track E** | none | see below |
+
+**Parser residuals.** Every live native/oracle parser comparison passed: 250
+parser pairs, the 156 captured residuals, budget precedence v2 (150) and v1
+(68), diagnostic ownership (38), boundary ownership (61), required-value
+precedence (50), lexical capture (197), token-budget locations (144), source
+locations (58), literal diagnostics (158), string diagnostics (56) and
+unsupported-scalar precedence (31 controls). The suites still do not pass
+locally, for these reasons:
+
+- Retained `baseline` controls where frozen Python itself crashes (for
+  example `dangling-backslash-residual`, which hits a frozen `IndexError`)
+  embed the capture host's traceback paths, so `test_rust_graphql_parser_budget_precedence`
+  and `test_rust_graphql_string_diagnostics` each fail one subcase on path text
+  alone.
+- Three evidence-archive checks need `/workspace/shared` capture seals that
+  are not present here.
+
+Those crash controls are intentional non-parity: native returns a controlled
+syntax error. Separately, `test_rust_graphql_empty_completion` was not
+runnable here: it needs a provisioned extension root and the
+`catabolic-http-experimental` binary.
+
+**Plan evaluation.** Watcher runs on the CLI already evaluate query,
+fallback and projection plans natively and are compared with frozen Python in
+`test_rust_watcher_projection.py`. What remains is the companion and Python
+facade `plans evaluate` entry point, which refuses fallback and projection
+plans. Frozen `Resolver.resolve` needs a writable session and probes, so this
+moves to track E with the thin-wrapper boundary.
+
+**Not runnable on macOS (Linux lane needed):** `test_rust_legacy_api_worker`
+(native refuses API-worker parent-death supervision on this platform),
+in-flight consumer-watch TERM (Linux `ps --ppid`) and `test_rust_legacy_sigterm`
+(it observes helpers through `/proc`). Logs are under
+`/Volumes/seed1/Projects/catabolic-builds/evidence/track-d/logs/`.
+
+### Supervision: macOS parent-death and grandchildren (track D, October 17)
+
+**Closed.** Each tool started by `catabolic_runtime::process::command_output`
+gets a guardian process in its private process group. The guardian is forked
+after `setsid` and detached from the tool by a double fork. It keeps only the
+read end of a close-on-exec lifeline pipe; the spawning worker owns the write
+end. When the worker exits for any reason, including SIGKILL, the guardian
+reads EOF and SIGKILLs the whole group, so the direct tool and its
+grandchildren die on macOS as well as Linux. Normal retirement still kills the
+group, guardian included. Linux keeps `PR_SET_PDEATHSIG` as an extra guarantee.
+The API worker and playback worker `run`/`tick` no longer refuse on macOS.
+
+Test harnesses are portable: `tests/process_tree.py` reads the kernel process
+table through `ps -A` (procps and BSD ps), replacing `/proc` scans and
+`ps --ppid`. `test_rust_playback` now also runs on macOS when FFmpeg is present.
+
+Results on macOS arm64:
+
+- Runtime unit tests: 149 passed, 2 ignored, including the new portable test
+  that SIGKILLs a worker and checks that its tool and a grandchild die, and a
+  test that no guardian outlives normal or failed commands. One fixture hit a
+  shared-budget timeout under load and passed when rerun.
+- Python suites:
+  - `test_rust_legacy_api_worker`: 5
+  - `test_rust_legacy_consumer_watch`: 12
+  - `test_rust_legacy_sigterm`: 4
+  - `test_rust_legacy_external_rule`: 18, no skips
+  - `test_rust_legacy_external_worker_diagnostics`: 12, no skips
+  - `test_rust_playback`: 19, on the second full run. The first full run, under
+    heavy host load from another lane, had six 30-second CLI timeouts; that log
+    is retained.
+
+Limits: a descendant that deliberately leaves the session (its own `setsid`)
+escapes, as before. The lifeline pipe is created and then marked close-on-exec
+in two steps, because macOS has no `pipe2`. A fork by an unrelated spawner
+between those steps could inherit the write end; spawns through this module
+mark every descriptor close-on-exec. The fallback probe helper keeps its
+existing stdin-EOF handoff and was not changed.
+
+#### Review round 1 corrections (October 17)
+
+Sol's round-1 review of `2038382` found three defects, now corrected:
+
+1. **No fork inside `pre_exec`.** The guardian was forked twice inside the
+   tool's post-fork callback. That runs `pthread_atfork` handlers in a forked
+   child, where a host handler can deadlock. The guardian is now an exec'd
+   `/bin/sh` (builtins `read` and `kill` only, empty environment), spawned by
+   the worker as the leader of a new process group. On macOS it is spawned with
+   `posix_spawn` (`POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_CLOEXEC_DEFAULT`), which
+   runs no fork handlers and keeps only its lifeline stdin and `/dev/null`
+   output. Elsewhere it is an ordinary spawn whose callback only calls
+   `setpgid` and marks descriptors close-on-exec. The tool then joins that
+   group with `setpgid` in its `pre_exec`. Both callbacks now contain only
+   async-signal-safe calls (`setpgid`, `fcntl`, `fchdir`, `umask`, and the
+   existing Linux `prctl`/`getppid`).
+   - Tools no longer get their own session. They are in a background process
+     group of the worker's session, so a terminal's job-control signals still
+     go only to the foreground group.
+   - The guardian is reaped after the tool, so the group ID stays reserved
+     throughout retirement.
+   - If the tool fails to spawn, the guardian is killed and reaped.
+2. **Close-on-exec race.** Linux now creates the lifeline with
+   `pipe2(O_CLOEXEC)`. On macOS it is created under the exclusive side of
+   `catabolic_core::spawn_guard`. Every in-workspace production spawn site now
+   forks through `spawn_guard::spawn`, which holds the shared side:
+   - `runtime::process` (tool and guardian)
+   - `runtime::watchers` (supervisor tick child)
+   - `runtime::observation` (isolated worker and supervised helper)
+   - `runtime::fallback` (probe helper)
+   - `store::source` (`findmnt`, Linux)
+
+   Not coordinated: test-only spawns, the separate `catabolic-dist` build tool,
+   and an embedding host's own subprocesses.
+3. **Lifeline on a standard descriptor.** Both lifeline ends are relocated to
+   descriptors 3 or above with `F_DUPFD_CLOEXEC`.
+
+New tests:
+
+- A fixture registers a `pthread_atfork` child handler and requires exactly
+  two forks per command (guardian and tool), with none inside a forked child.
+- A stress fixture spawns 150 long-lived children from another thread while the
+  tool starts. The tool group must still die after the worker is SIGKILLed.
+- A fixture closes descriptors 0, 1 and 2 before running a one-second tool,
+  which must succeed.
+- The group-membership tests now expect the guardian-led group.
+- The consumer-watch in-flight TERM test now requires exactly two children
+  (the tick and its guardian), both gone and reaped at CLI return.
+
+Results on macOS arm64 with the corrected build:
+
+- Runtime unit tests: 155 passed, 2 ignored. The 37 `process` tests passed
+  three consecutive times. Core unit tests: 101 passed.
+- Python suites:
+  - `test_rust_legacy_consumer_watch`: 12
+  - `test_rust_legacy_sigterm`: 4
+  - `test_rust_legacy_external_rule`: 18
+  - `test_rust_legacy_external_worker_diagnostics`: 12
+  - `test_rust_playback`: 19
+  - `test_rust_legacy_api_worker`: passed 5 of 7 full runs (5 methods each).
+    The two failing runs coincided with host load averages of 9 to 12. One had
+    a 30-second CLI timeout in the busy case; the other had a 15-second
+    heartbeat wait and a `database is locked` setup error. Both logs are
+    retained, and the busy method passed when rerun alone.
+
+#### Review round 2 corrections (October 17)
+
+Sol's round-2 review found two defects in the round-1 design, both reproduced
+on macOS:
+
+- **P1:** the shell guardian died from the SIGHUP that XNU sends to an orphaned
+  stopped group, so a stopped, HUP-ignoring tool survived the worker's death.
+- **P2:** without `setsid`, a tool kept the worker's controlling terminal, and
+  opening `/dev/tty` stopped it on SIGTTIN.
+
+The design is replaced as follows. It supersedes the round-1 guardian and the
+tool's `setpgid`.
+
+- **Supervisor.** The worker execs a supervisor (the hidden
+  `__catabolic-supervise` mode of the Catabolic executable) in place of the
+  tool. Every Catabolic binary registers itself first thing in `main`, and
+  embedders use the registered native helper. The post-fork callback calls only
+  `fchdir`, `setsid`, `umask`, `fcntl`, and the Linux `prctl`/`getppid`.
+- **New session.** The tool is therefore a session leader with no controlling
+  terminal, as with frozen Python's `start_new_session=True`.
+- **Guardian.** In that fresh image the supervisor:
+  1. enumerates its open descriptors;
+  2. double-forks a guardian into the same session and group;
+  3. waits for the guardian's readiness byte.
+
+  Before signalling readiness, the guardian ignores SIGHUP, SIGINT, SIGQUIT,
+  SIGTERM, SIGTSTP, SIGTTIN, SIGTTOU, SIGPIPE, SIGUSR1 and SIGUSR2, and closes
+  everything but the lifeline. Only then does the supervisor exec the tool,
+  keeping the same PID. The worker therefore observes the tool's exact exit
+  status (including death by signal) and output directly; nothing is relayed.
+  A failed tool exec is reported back as an errno over a close-on-exec pipe,
+  so a missing tool is still `unavailable`.
+- **Parent death.** On lifeline EOF the guardian SIGKILLs the group.
+  `parent_death_supervised()` reports whether a supervisor is available.
+  Without one, the API and playback workers keep refusing on non-Linux
+  platforms.
+- **Descriptor marking.** In the child, macOS now marks exactly the open
+  descriptors, read with `proc_pidinfo(PROC_PIDLISTFDS)` into a buffer
+  allocated before fork, instead of looping to a soft limit of up to 1M. If
+  the buffer may be truncated, it falls back to the full loop. This removes
+  the main cost of each tool start.
+
+New regressions:
+
+- A stopped, HUP-ignoring tool and its grandchild die after a worker SIGKILL.
+- From a process with a controlling pseudo-terminal, the fixture itself can
+  open `/dev/tty`, but the tool's open fails immediately.
+- Tools keep exact output bytes, exit code 7, death by SIGTERM (`-15`), and
+  session and group leadership; a missing tool is `unavailable`.
+- A non-close-on-exec descriptor numbered 9000 or above is not inherited.
+- The atfork fixture requires exactly one fork in the worker per command.
+- The consumer-watch in-flight TERM test requires exactly one child (the
+  tick), whose group has at least two members (the tick and the guardian),
+  and requires every member to be gone at CLI return.
+
+Round-2 results on macOS arm64:
+
+- Runtime unit tests: 161 passed, 2 ignored. The 43 `process` tests passed
+  three consecutive times, in about 5.4 s each.
+- Python suites:
+  - `test_rust_legacy_sigterm`: 4
+  - `test_rust_legacy_external_rule`: 18
+  - `test_rust_legacy_fallback_worker`: 10
+  - `test_rust_legacy_consumer_watch`: 12, on the second run (the first, under
+    load, missed watch lines four times)
+  - `test_rust_playback`: interleaved A/B passed 2 of 2 on the new build and
+    1 of 2 on `ee101fe` (that failing run had host load above 7)
+
+Interleaved `test_rust_legacy_api_worker` A/B runs (5 methods each):
+
+| Session | Build | Passed | Failing runs |
+|---|---|---|---|
+| 1, load 3–5 | `2038382` | 3/3 | none |
+| 1, load 3–5 | `ee101fe` | 3/3 | none |
+| 2, load 4–6 | `2038382` | 3/4 | 15 s "worker heartbeat not observed" |
+| 2, load 4–6 | new build | 3/4 | `database is locked` |
+
+The api-worker stalls therefore track host load and are not caused by these
+changes.
+
+**Open: `test_rust_legacy_external_worker_diagnostics` is timing-sensitive.**
+Its full-table comparison includes `fallback_epoch.generation`, which change
+triggers bump only when a column value really changes. The same-worker GET
+poll renews `processor_jobs.lease_until` in whole seconds (both engines use
+integer seconds), so whether that renewal changes anything depends on whether
+it lands in a new second. The frozen side alone produced 46, 47 and 48 for
+identical subcases across runs, and across 22 mismatched subcases native was
+higher 8 times and lower 14 times. Pass rates:
+
+- `ee101fe`: 4 of 4 full runs passed.
+- New build: 2 of 5 full runs passed, mostly failing GET subcases with
+  off-by-one epochs. Its extra exec makes native runs longer, which changes
+  how often the two engines' renewals fall in matching seconds.
+
+The assertion is unchanged. Stabilizing it needs a decision: compare the epoch
+modulo no-op renewals, or schedule renewals deterministically in the fixture.
+
+#### Review round 3 corrections (October 17)
+
+- **Supervisor admission** (`245c261`). Supervisor mode runs only if the
+  process leads its own session and process group and every protocol
+  descriptor is an open pipe/FIFO. Otherwise it exits 127 and signals nothing.
+- **Fail closed** (`3c38ef0`). The supervisor executable is pinned by identity.
+  Once a supervisor or native helper is configured, a removed or replaced
+  executable makes every tool spawn fail with `parent-death supervisor
+  unavailable`; there is no fallback to direct execution.
+- **Guardian liveness.** The guardian holds the only write end of a liveness
+  pipe that the worker polls throughout the command. Any event on it means the
+  guardian died: the command fails with `parent-death guardian exited
+  unexpectedly`, and the group is retired by the tool's PGID. That PGID cannot
+  have been reused, because the tool is the worker's unreaped child.
+- **The worker-diagnostics fixtures** (`92bb986`) now start each resumed poll
+  in a later wall-clock second than the claim, so both engines' whole-second
+  lease renewals deterministically change the row. 5 of 5 full runs passed at
+  load 2.4–5.6.
+
+Results with all three corrections on macOS arm64:
+
+- Runtime unit tests: 164 passed, 2 ignored. The 46 `process` tests passed
+  three consecutive times.
+- One full run each of:
+  - `test_rust_legacy_sigterm`: 4
+  - `test_rust_legacy_external_rule`: 18
+  - `test_rust_legacy_fallback_worker`: 10
+  - `test_rust_legacy_consumer_watch`: 12
+  - `test_rust_playback`: 19
+  - `test_rust_legacy_external_worker_diagnostics`: 12
+  - `test_rust_legacy_api_worker`: 5
+
+  All passed at load 2.4–3.6.
+
+#### Review round 4 corrections (October 18)
+
+- **Protocol handshake.** The supervisor executable could be replaced between
+  its identity check and the exec, for example by an upgrade, another
+  version, or a wrapper that execs the tool directly, and the tool would then
+  run unguarded. The worker now passes the protocol version
+  (`SUPERVISOR_PROTOCOL`, 2) and a random 128-bit nonce for each spawn. The
+  guardian writes `catabolic-guardian <version> <nonce>` on the liveness pipe,
+  whose only writer it is, before releasing the supervisor to exec the tool.
+  The worker accepts the tool only after reading exactly those bytes. Wrong
+  bytes, an exec or exec error first, or no handshake within 30 seconds fail
+  the spawn with `parent-death supervisor protocol mismatch`, and the tool's
+  group is retired. A supervisor given another protocol version refuses with
+  exit 127. A deliberately malicious same-user replacement that fakes the
+  handshake is out of scope: the same user can already kill or trace the
+  guardian.
+- **`CATABOLIC_NATIVE_BINARY` pinning.** The override's identity is pinned at
+  first use. A changed value, or a replaced file at the same value, then
+  fails every spawn instead of running the new file.
+- **Tests.** A wrapper that execs the tool directly, and an old-protocol
+  supervisor that echoes the nonce with version 1, are both swapped in
+  between verification and exec. Both are refused, and no tool survives. The
+  override is replaced between commands, and a different value is used after
+  first use; both are refused.
+- **Fixture timing.** `test_invalid_state_and_receipt_refuse_before_any_publication`
+  reuses the job leased by the previous subcase, so it had the same
+  whole-second lease renewal drift as the diagnostics fixtures. It failed
+  deterministically on this host with both the round 3 and round 4 binaries.
+  Each subcase now starts in a later wall-clock second (`after_lease_second`).
+  No comparison is loosened.
+
+Results on macOS arm64:
+
+- `process` and `helper` unit tests: 50 passed.
+- One full run each of:
+  - `test_rust_legacy_sigterm`: 4
+  - `test_rust_legacy_fallback_worker`: 10
+  - `test_rust_legacy_consumer_watch`: 12
+  - `test_rust_playback`: 19
+  - `test_rust_legacy_api_worker`: 5
+  - `test_rust_observation_filesystem`: 36
+- `test_rust_legacy_external_rule` (18) passed three times after the fixture
+  change.
+- `test_rust_legacy_external_worker_diagnostics` (12) timed out once in one
+  subcase, during a 248-second run that overlapped another track's
+  450-second store suite. It then passed twice, in 123 and 137 seconds.
+
+#### Review round 5 corrections (October 18)
+
+- **The tool never reaches an unverified supervisor.** A replaced image used
+  to receive the tool's argv on its command line. It could exec the tool at
+  once, and if the worker was SIGKILLed while waiting for the missing
+  handshake, nothing would kill that tool. In protocol 3 the supervisor
+  command line holds only the four descriptors (lifeline, exec error,
+  liveness, command), the version and the nonce. The worker writes the
+  tool's argv to the command pipe only after the guardian's handshake has
+  been read and verified. The argv is a count followed by NUL-terminated
+  arguments, at most 4 MiB, written non-blocking against the command
+  deadline. The supervisor reads it to EOF, rejects a truncated or malformed
+  payload with `EINVAL`, and execs. An upgrade, another version or a wrapper
+  swapped in between verification and exec never learns the tool, so no
+  unguarded tool can outlive the worker.
+- **A removed override fails closed.** After `CATABOLIC_NATIVE_BINARY` has
+  been used once, the process stays configured. Unsetting the variable now
+  fails every spawn instead of falling back to direct execution.
+- **Tests.** A replacement that records its argv and exits, and an
+  old-protocol replacement that echoes version 2 and then reads the command
+  pipe, are both refused. The tool never starts, and neither replacement sees
+  the tool's argv. A payload test covers round trips and every truncation.
+  The override test covers removal after first use.
+
+Results: `process` and `helper` unit tests, 51 passed in 5 seconds (the
+replacement tests no longer wait for the 30-second handshake limit).
+`external_rule` 18, `fallback_worker` 10, `consumer_watch` 12, `playback` 19,
+diagnostics 12 and `api_worker` 5 passed. `sigterm` (4) failed once during a
+56-second run that overlapped another track's suites, then passed three
+times in about 9 seconds each.
+
+#### Review round 6 corrections (October 18)
+
+- **Command delivery stops at the deadline.** `send_command` checks the
+  deadline before every write, including after partial writes and `EINTR`
+  retries. A poll timeout or poll error ends the send. The command then fails
+  through the usual retirement path, and nothing more is delivered after
+  expiry.
+- **Test.** A 1 MiB argv sent to a pipe nobody reads stops with `timeout`
+  after a partial write, and an already-expired deadline writes nothing.
+  `process` and `helper` unit tests: 52 passed.
+
+### Observation: scan regex dialect (track D item 2, October 18)
+
+Frozen scan filters compile `include_regex` and `exclude_regex` with the
+`regex` module's VERSION0. Native code used to pass patterns to fancy-regex
+nearly unchanged. It refused a few markers and mapped `\Z` to `\z`, but other
+syntax was approximated silently. For example, Python's `$` also matches
+before a final newline, `{,n}` means `{0,n}`, and `\p{…}` and POSIX classes
+have different spellings.
+
+Native code now translates an allowlisted subset and refuses everything else
+with `native scan regex construct is not qualified`:
+
+- **Literals and anchors.** Literals, `.` and `^`. `$` becomes a lookahead
+  for end-or-before-a-final-newline. `\A`, and a strict `\Z`.
+- **Classes.** `\d \D \w \W \s \S \b \B` (Unicode). Bracket classes without
+  nested `[`, POSIX classes or set operators.
+- **Escapes.** `\t \n \r \f \v`, `\xHH`, `\uHHHH`, `\UHHHHHHHH`, escaped
+  punctuation, and single-digit backreferences.
+- **Quantifiers.** Greedy and lazy. `{,n}` becomes `{0,n}`; a minimum above
+  the maximum is refused; possessive forms are refused.
+- **Groups.** Capturing, non-capturing, atomic and named groups. Lookahead
+  and lookbehind, including variable-width lookbehind, which the pinned
+  fancy-regex evaluates with a reverse search.
+- **Flags.** The inline flags `i` and `s`, global or scoped.
+
+`tests/parity/scan-regex-dialect-v1.json` is recorded by
+`scripts/generate_scan_regex_dialect.py` with the pinned oracle (Python
+3.14.6, regex 2026.9.10, reference `453fca9`). It holds 102 patterns, each
+with frozen admission and, if admitted, its search result on 17 sample paths
+(case folding, Unicode digits and letters, emoji, tabs and the empty path).
+The unit test requires one of two things for every frozen-admitted pattern:
+an identical match on every path, or an explicit refusal. A frozen-refused
+pattern must stay refused. Named constructs are pinned on each side:
+`\p{L}`, POSIX classes, set operations, `(?x)` and `(?a)` are refused, and
+the anchors, `{,n}`, lookbehind and atomic groups are qualified. Frozen
+admission crashes on `(?V1)` with an uncaught `KeyError`; native code refuses
+it as a structured error. That is a deliberate safety difference.
+
+Results: store unit tests, 521 passed, 6 ignored, including the fixture test
+and the existing strict-anchor and backtracking-budget test.
+
+
+#### Review round 1 corrections (October 18)
+
+Sol found eleven ways the first translator still differed from frozen
+matching. The translator was rewritten as `observation/scan_regex.rs` so
+that it no longer depends on fancy-regex's Unicode data or case folding.
+
+- **Frozen tables.** `scripts/generate_scan_regex_tables.py` records, from
+  the pinned oracle, the `\w`, `\d` and `\s` membership of every code
+  point. For every code point whose case-insensitive literal matches more
+  than itself, it records the exact set it matches; frozen folding is
+  asymmetric, for example `(?i)i` matches `İ` but `(?i)İ` does not match
+  `I`. The tables are in `resources/scan-regex-tables-v1.json`.
+- **Expansion.** `\d \D \w \W \s \S` become explicit code point classes.
+  `\b` and `\B` become lookarounds over the word class. Under
+  case-insensitive matching every literal and class is expanded through the
+  fold table (a class matches `x` when one of its members matches `x`;
+  negation applies after expansion), and the `i` flag is never passed to
+  fancy-regex. This fixes Turkish and long-s folding and Unicode 17 class
+  members.
+- **Literals.** Every literal other than an ASCII letter is emitted as a
+  hexadecimal escape. `\<` and `\>` stay literal angle brackets, and a
+  decoded digit can no longer extend a backreference, which is itself
+  wrapped as `(?:\N)`.
+- **Flags.** Inline flags are accepted only at the very start (global) or
+  scoped as `(?flags:…)`. A bare flag group later in the pattern, a flag
+  both set and cleared, or any flag other than `i` and `s` is refused.
+- **Refused constructs.** `(*VERB)`, duplicate group names, capturing groups
+  or backreferences inside lookbehind, backreferences to groups that are not
+  yet closed or under case-insensitive matching, multi-digit backreferences,
+  and quantifiers after an assertion or another quantifier.
+- **Named backreferences.** `(?P=name)` is accepted under the same rules as
+  numbered ones; `tests/test_rust_observation_scheduler.py` already pairs it.
+
+The fixture now holds 144 patterns over 32 paths, adding Sol's cases and
+paths with `İ`, `ı`, `ſ`, `ẞ`, the Kelvin sign, Unicode 17 digits and
+letters, angle brackets and trailing newlines. The pinned lists name each
+newly qualified and refused construct.
+
+#### Review round 2 correction (October 18)
+
+Python's own case mappings are Unicode 16, but the pinned `regex` engine is
+Unicode 17. The fold table therefore missed 56 code points, for example the
+pair U+A7CE and U+A7CF. The generator now takes its candidates from the
+engine's own case tables (`regex._regex.get_all_cases`) as well as from
+Python's mappings, and the engine still decides every pair. The table now has
+2,996 entries. The fixture (148 patterns, 33 paths) adds this pair as a
+literal, a negated class and a range.
+
+#### Review round 3 correction (October 18)
+
+Frozen VERSION0 commits a capture made inside a lookahead, while fancy-regex
+can backtrack into it. For example, `(?=(a|ab).)\1c` does not match `abc` in
+frozen Python but does natively. Capturing groups (named or not) are now
+refused inside any lookaround; they were already refused in lookbehind.
+Captures outside lookarounds are unchanged. The fixture (151 patterns) adds
+this counterexample and two more.
+
+#### Review round 4 correction (October 18)
+
+- **Repeated captures.** fancy-regex simplifies nested repetition such as
+  `(a+)+`, so `^(a+)+\1$` failed `aaa` natively while frozen matched it.
+  Two things are now refused: a backreference to any capture inside a
+  repeated group, and a backreference inside a repeated group.
+- **Assertions in lookbehind.** fancy-regex's reverse search cannot backtrack
+  into a variable-width lookbehind body the way the frozen engine does, so
+  `(?<=(?<=a)a+)b` failed `aab` natively. Every assertion inside a
+  lookbehind is now refused: a nested lookaround, `\b`, `\B`, `\A`, `\Z`,
+  `^` and `$`.
+- **Fixture.** Now 157 patterns, adding both counterexamples and four
+  neighbours.
+
+#### Review round 5 correction (October 18)
+
+Composed repeats could overflow fancy-regex's minimum-width arithmetic and
+panic at compile time, for example ten chained `(\N{100})` groups. The
+translator now tracks a conservative minimum match width with checked
+arithmetic: per sequence, per alternative, for each capture, and through
+backreferences and repeats. A pattern whose minimum width exceeds 2^20
+characters, which no scan path can reach, is refused. The fixture (159
+patterns) adds the chained case. A triple-nested `a{1000}` repeat, which the
+frozen engine runs out of memory compiling, is pinned as refused in the unit
+test instead.
+
+#### Review round 6 correction (October 18)
+
+A zero-width body has no width to bound, so `(?>){1000000000}` ran a billion
+engine iterations. The frozen engine returns at once. The translator now
+also composes explicit repeat counts through nesting, taking the upper bound,
+and counting an unbounded repeat as one repetition of its body. It refuses a
+pattern whose composed count exceeds 100,000. The fixture (162 patterns) adds
+this case, a nested `{100}` cube (refused) and its accepted square.
+
+#### Review round 7 correction (October 18)
+
+Counting an unbounded repeat as one repetition missed costly zero-width work
+inside it. With `\A(?:(?>){100000}.)*\Z`, the engine ran hundreds of
+millions of empty iterations on a long path. The bound now models cost per
+consumed character:
+
+- **Consuming repeats.** A repeat of a body that always consumes input is
+  bounded by the path length at any nesting depth, so it adds no factor.
+  `(\w+/)*\w+\.mkv` stays qualified.
+- **Empty-matchable repeats.** A repeat of a body that can match empty
+  multiplies by its explicit count. An unbounded one counts once, since it
+  stops at an empty iteration.
+- **Limits.** The composed factor is limited to 1,000 iterations per
+  character, and the minimum-width bound is now 65,536.
+
+The fixture is now 165 patterns.
+
+#### Review round 8 correction (October 18)
+
+Two patterns still escaped the per-character factor. `\A(?>){1000000000,}`
+runs its billion mandatory empty iterations before the engine's empty-loop
+check applies. In a nest of `(?=…{100}).){100}` lookaheads, each lookahead
+restores the position, so enclosing repeats re-run its consuming work.
+
+The translator now bounds the forward work of every node as
+`per_char × consumed + per_path × path + fixed`:
+
+- **Consuming repeats.** A repeat of a body that always consumes runs at most
+  `consumed / shortest` iterations.
+- **Empty-matchable repeats.** An unbounded one runs at most
+  `low + consumed + 1` iterations, and a bounded one at most `high`.
+- **Lookarounds.** Their body's work is charged as fixed work when its width
+  is bounded, and per path character otherwise.
+- **Unbounded-width lookarounds** are refused inside a repeat.
+- **Limit.** A pattern qualifies when it needs at most 1,000 steps per path
+  character, and at most 1,024,000 steps for a 1,024-character path.
+
+Failed branches are backtracks, which the engine's limit of 100,000 counts.
+Common forms stay qualified, such as `(?:(?!sample).)*\.mkv$` and
+`^(?!.*sample).*\.mkv$`. The nested-lookahead pattern also exhausts the
+frozen engine's memory. Like the `a{1000}` cube, it is asserted refused
+natively rather than recorded in the fixture, which is now 170 patterns.
+
+#### Review round 9 correction (October 18)
+
+Round 9 showed three ways a search could still run away. No admission check
+of the pattern alone can bound fancy-regex here:
+
+- a delegated sub-search inspects more input than it consumes
+  (`\A(?:(?>.*b|).)*\Z`);
+- the backtrack limit multiplies whatever forward work each attempt does
+  (`\A(?:a|aa)*(?>){200000}b\Z`);
+- capture undo records grow without bound (`\A(?:()…()(?>.))*\Z`).
+
+The workspace therefore vendors fancy-regex 0.19.2 under `vendor/fancy-regex`
+with one documented patch (`CATABOLIC_PATCH.md`): a per-search step limit.
+
+- **Cost.** Each VM instruction costs one step. An instruction that inspects
+  the haystack costs one step plus the haystack length: delegated searches,
+  literals and backreferences.
+- **Memory.** The search also fails when held backtracking branches plus saved
+  capture values exceed the limit.
+- **Limit.** Native filters use 1,000,000 steps. Exceeding it is a
+  `regex_filter_timeout`, the outcome of the frozen engine's 10 ms per-search
+  timeout.
+- **Admission screen.** The per-node work bound stays, refusing patterns that
+  could never run within reasonable work. The guarantee comes from the
+  run-time limit.
+
+The vendored tree is part of every source fingerprint: the distribution
+preparation inventory, the wheel builder's source digest and the mutation
+qualification snapshot. Packaging records it as a third-party MIT crate with
+its own notices. A test checks that Sol's three inputs stop at the limit
+within seconds, and that ordinary lookaround filters still match on long
+paths.
+
+#### Review round 10 correction (October 18)
+
+Estimating work in steps was both incomplete and too strict:
+
+- **Uncounted work.** Backward walks in lookbehinds and quadratic capture
+  bookkeeping went uncounted.
+- **Uninterruptible delegates.** Delegated searches with hundreds of captures
+  could build large tables in one call that nothing interrupted.
+- **Too strict.** Charging the whole path for every short lookahead timed out
+  `\A(?:(?![sS]ample).)*\.mkv\Z` on an ordinary 1,059-byte path.
+
+The patch now follows the frozen engine's own rule, a deadline.
+
+- **Deadline.** `fancy_regex::with_deadline` sets a per-thread deadline that
+  the VM checks every 64 instructions. `search` gives each path the frozen
+  10 ms. A storage limit of 1,000,000 held entries remains, checked before
+  every instruction.
+- **Uninterruptible delegate calls.** A single regex-automata call is
+  bounded ahead of time instead:
+  - delegate automata are limited to 128 KiB;
+  - patterns may have at most 32 capture groups;
+  - filters are not evaluated on paths longer than 4,096 bytes, which is a
+    `regex_filter_timeout`.
+- **CI.** Both native workflows now trigger on `vendor/**`, and the standalone
+  workflow's pinned hash is updated.
+
+A test runs every round 9 and 10 input. Each must be refused, or finish or
+time out within 500 ms. Ordinary lookaround and nested-repeat filters must
+match a 1,059-byte path.
+
+#### Review round 11 correction (October 18)
+
+Two gaps remained:
+
+- **Repeated delegated calls.** Several expensive delegated calls could run
+  back to back before the next 64-instruction deadline check. In the example,
+  each call recorded 32 capture groups.
+- **Shared deadline.** One 10 ms deadline covered every pattern of a path,
+  where the frozen engine times each search separately.
+
+The fix:
+
+- **Deadline checks.** The VM now checks the deadline before every delegated
+  search. Each pattern's search gets its own 10 ms.
+- **Captures.** A filter only decides whether a path matches, so a group
+  captures only when a backreference refers to it. The translator runs twice:
+  the second pass emits every other group non-capturing and renumbers the
+  references.
+- **Limits.**
+  - At most 9 groups may be referenced, which bounds capture state and
+    delegated capture tables.
+  - Patterns with backreferences get 32 KiB delegate automata.
+  - Backreference parity, including the `^(a+)\1+$` timeout case, is
+    unchanged.
+
+#### Review round 12 correction (October 18)
+
+Upstream builds reverse lookbehind delegates without any size limit, so
+`(?<=a{0,4294967295})b` could exhaust memory at compile time. The patch now
+gives them the same NFA size limit and DFA cache capacity as forward
+delegates, and a test checks that huge lookbehinds are refused within
+seconds. The VM's delegate check is feature-gated, so the vendored crate
+builds with and without `variable-lookbehinds`. Both configurations were
+checked through Kyoto. No renumbering defect was found.
+
+#### Review round 13 correction (October 18)
+
+Class expansion bypassed the automaton limits. A word boundary expands to
+about 50 KB of explicit classes, so 500 of them made a 26 MB pattern, and
+32 such patterns about 2 GB of compiled matchers. Translation is now
+limited to 512 KiB per pattern, checked while it is emitted, and to 4 MiB
+per include or exclude list. The 1 MiB delegate DFA limit now also caps
+the lazy DFA cache of forward delegates and wrapped regexes, which
+regex-automata otherwise sets to 2 MiB.
+
+#### Review round 14 correction (October 18)
+
+Translation budgets did not bound the compiled automata. Ninety distinct
+lookaheads per pattern, each under the delegate limit, could retain about
+1 GiB across a policy. Each pattern was also compiled twice.
+
+- **Compile budget.** The patch adds `with_compile_budget`. Every
+  regex-automata engine built for a pattern is charged its retained memory
+  plus its lazy DFA caches at full capacity, as soon as it is built.
+- **Limits.** Native allows 16 MiB per pattern and 64 MiB across both lists
+  of a policy, and each pattern compiles only once.
+- **Cache capacity.** Lazy DFA caches drop to 256 KiB. An engine that needs
+  more runs without a lazy DFA.
+- **Tests.** The round 14 policy is refused. Thirty-two ordinary lookahead
+  filters fit within the budget.
+
+#### Review round 15 correction (October 18)
+
+The cache charge was neither an upper bound nor tight:
+
+- **Clones.** A memoized delegate reused at another site is a clone with its
+  own cache pool, but it was charged once.
+- **Fallback scratch.** Fallback engines allocate scratch beyond the lazy
+  DFA caches.
+- **Over-charging.** A flat reservation could refuse a policy of 32 + 32
+  ordinary filters.
+
+The fix:
+
+- **Per-copy charge.** Each copy is charged its own scratch: twice its
+  measured PikeVM and one-pass caches, plus three lazy DFA caches at
+  capacity. A memoized clone is charged again.
+- **No backtracker.** The bounded backtracker, whose scratch is sized apart
+  from these limits, is disabled.
+- **Smaller caches, larger budget.** Lazy DFA caches drop to 128 KiB, and
+  the policy budget is now 160 MiB. Every limit is per concurrent searching
+  thread, since each thread draws its own cache from a pool.
+
+#### Review round 16 and accepted residual (October 18)
+
+Round 16 found that the compile-memory accounting is an estimate, not a
+strict heap bound:
+
+- **PikeVM scratch.** It is allocated on first use, so the measured initial
+  cache misses it.
+- **VM storage.** The fancy VM's pooled scratch and program are capped by
+  entry count (1,000,000 held entries), not charged in bytes.
+- **Lazy DFA caches.** regex-automata reports their lengths and approximates
+  map overhead, not allocation capacity.
+- **Clones.** A cloned scan filter clones each wrapped regex's cache pool.
+
+Round 16 also showed a realistic 45-clause blacklist filter exceeding the
+per-pattern budget. That budget is now 32 MiB, with a test.
+
+On October 18 the user accepted the remaining memory accounting as a
+documented residual, instead of isolating matching in a worker process.
+
+- **What is bounded.**
+  - Search time follows the frozen 10 ms per-search deadline, with at most
+    one delegate call of overrun. Each delegate call is bounded by the
+    4,096-byte path limit, the 128/32 KiB automaton limits and the expansion
+    limit described below.
+  - Held backtracking state is limited by entry count.
+  - Compiled engines are limited by an estimate: 32 MiB per pattern and
+    160 MiB per policy, per searching thread.
+- **What is not exact.** Lazily allocated engine scratch, vector capacity
+  slack, VM buffer bytes and duplicated pools of cloned filters can exceed
+  the estimate by a bounded factor.
+- **Who can trigger it.** Only filter patterns configured by the catalog
+  operator can do so.
+
+#### Delegated-search CI correction (October 18)
+
+The 128 KiB automaton limit still admitted `[ab]*a[ab]{1000}` inside an
+atomic group. Its search on a near-limit path exceeded the unchanged 500 ms
+regression guard locally and in Linux CI (695 ms). The meta engine can fall
+back to a PikeVM when a lazy DFA cannot complete, and that delegated call
+cannot observe the enclosing 10 ms deadline. NFA memory alone was therefore
+too permissive for large expansions of small ASCII classes.
+
+Admission now also limits consuming expressions to 256 syntax nodes after
+counted-repeat expansion. Concatenation and alternatives add their nodes;
+bounded repeats multiply by their upper bound, and unbounded repeats count
+the required prefix plus one looping body. Nested repeats multiply as well.
+Lookaround bodies are checked separately before becoming one assertion node
+in their enclosing expression. Oversized expressions return the existing
+`native scan regex construct is not qualified` error. This deliberately
+narrows native admission; it does not approximate matching or change Python.
+
+The larger automaton byte limits remain necessary for frozen Unicode tables.
+Regression coverage includes plain, atomic, backreference and reverse forms,
+nested and open repeats, and alternatives, while retaining ordinary counted
+repeats and Unicode digit/word matching. The 10 ms deadline and 500 ms test
+guard remain unchanged. This is still bounded admission, not a hard wall-clock
+deadline for a delegated call.

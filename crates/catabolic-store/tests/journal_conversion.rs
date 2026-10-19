@@ -1,0 +1,362 @@
+// SPDX-FileCopyrightText: 2026 The Catabolic Contributors
+// SPDX-License-Identifier: MIT
+//! Offline WAL to rollback-journal conversion. Other connections are real
+//! child processes, because POSIX record locks do not conflict within one.
+use catabolic_store::{Store, connect, journal_conversion, migration};
+use migration::{NATIVE_SCHEMA_VERSION, NativeUpgradeQuiescence};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::{Child, Command},
+    time::{Duration, Instant},
+};
+
+const REFUSED: i32 = 3;
+
+fn catalog() -> (tempfile::TempDir, PathBuf) {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("catalog.sqlite3");
+    migration::initialize(&path).unwrap();
+    (root, path)
+}
+fn quiescent() -> NativeUpgradeQuiescence {
+    NativeUpgradeQuiescence {
+        admission_stopped: true,
+        readers_and_workers_stopped: true,
+        exclusive_operational_ownership: true,
+    }
+}
+fn wait_for(path: &Path, child: &mut Child) {
+    let deadline = Instant::now() + Duration::from_secs(60);
+    while !path.exists() {
+        assert!(Instant::now() < deadline, "worker did not signal readiness");
+        assert!(child.try_wait().unwrap().is_none(), "worker exited early");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+fn sidecar(path: &Path, suffix: &str) -> PathBuf {
+    PathBuf::from(format!("{}{suffix}", path.display()))
+}
+fn enable_wal(path: &Path) {
+    let db = connect(path, true).unwrap();
+    assert_eq!(
+        db.query_row("PRAGMA journal_mode=WAL", [], |row| row.get::<_, String>(0))
+            .unwrap(),
+        "wal"
+    );
+}
+fn count(path: &Path, id: &str) -> i64 {
+    connect(path, false)
+        .unwrap()
+        .query_row("SELECT count(*) FROM catalogs WHERE id=?", [id], |row| {
+            row.get(0)
+        })
+        .unwrap()
+}
+
+/// Child process: `commit` leaves committed WAL frames by exiting without
+/// closing its connection; `hold` keeps an idle connection open until killed;
+/// `enter` tries to open and write, exiting with `REFUSED` if SQLite refuses;
+/// `idle` opens a connection without using it, then writes once told to go.
+#[test]
+fn journal_holder_worker() {
+    let Ok(path) = std::env::var("CATABOLIC_TEST_JOURNAL_DATABASE") else {
+        return;
+    };
+    let path = Path::new(&path);
+    if std::env::var("CATABOLIC_TEST_JOURNAL_MODE").unwrap() == "enter" {
+        let entered = connect(path, true).and_then(|db| {
+            db.execute(
+                "INSERT INTO catalogs VALUES('entered-during-conversion')",
+                [],
+            )?;
+            Ok(())
+        });
+        match entered {
+            Err(error) if error.0.contains("database is locked") => std::process::exit(REFUSED),
+            Err(error) => panic!("unexpected failure entering the catalog: {error}"),
+            Ok(()) => std::process::exit(0),
+        }
+    }
+    if std::env::var("CATABOLIC_TEST_JOURNAL_MODE").unwrap() == "idle" {
+        // Opening issues no statement, so this process holds no SQLite lock.
+        let db = rusqlite::Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )
+        .unwrap();
+        fs::write(
+            std::env::var("CATABOLIC_TEST_JOURNAL_READY").unwrap(),
+            b"ready",
+        )
+        .unwrap();
+        let go = PathBuf::from(std::env::var("CATABOLIC_TEST_JOURNAL_GO").unwrap());
+        let deadline = Instant::now() + Duration::from_secs(120);
+        while !go.exists() {
+            assert!(Instant::now() < deadline, "idle worker was not released");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let mode: String = db
+            .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+            .unwrap();
+        db.execute("INSERT INTO catalogs VALUES('idle-after-conversion')", [])
+            .unwrap();
+        std::process::exit(if mode == "delete" { 0 } else { 4 });
+    }
+    let db = connect(path, true).unwrap();
+    match std::env::var("CATABOLIC_TEST_JOURNAL_MODE")
+        .unwrap()
+        .as_str()
+    {
+        "commit" => {
+            db.query_row("PRAGMA journal_mode=WAL", [], |row| row.get::<_, String>(0))
+                .unwrap();
+            db.execute("INSERT INTO catalogs VALUES('committed-in-wal')", [])
+                .unwrap();
+            std::process::exit(0);
+        }
+        "hold" => {
+            db.query_row("SELECT count(*) FROM catalogs", [], |row| {
+                row.get::<_, i64>(0)
+            })
+            .unwrap();
+            fs::write(
+                std::env::var("CATABOLIC_TEST_JOURNAL_READY").unwrap(),
+                b"ready",
+            )
+            .unwrap();
+            std::thread::sleep(Duration::from_secs(300));
+            panic!("journal holder was not stopped");
+        }
+        other => panic!("unknown holder mode {other}"),
+    }
+}
+fn worker(path: &Path, mode: &str, ready: Option<&Path>) -> Child {
+    idle_worker(path, mode, ready, None)
+}
+fn idle_worker(path: &Path, mode: &str, ready: Option<&Path>, go: Option<&Path>) -> Child {
+    let mut command = Command::new(std::env::current_exe().unwrap());
+    command
+        .args(["--exact", "journal_holder_worker", "--nocapture"])
+        .env("CATABOLIC_TEST_JOURNAL_DATABASE", path)
+        .env("CATABOLIC_TEST_JOURNAL_MODE", mode);
+    if let Some(ready) = ready {
+        command.env("CATABOLIC_TEST_JOURNAL_READY", ready);
+    }
+    if let Some(go) = go {
+        command.env("CATABOLIC_TEST_JOURNAL_GO", go);
+    }
+    command.spawn().unwrap()
+}
+
+/// A process that arrives after the lock probe must not be able to change the
+/// catalog between the first snapshot and verification. Entering is attempted
+/// deterministically at both observer stages, while exclusion is held.
+#[test]
+fn a_process_entering_after_the_probe_is_refused_until_verification_ends() {
+    let (_root, path) = catalog();
+    assert!(worker(&path, "commit", None).wait().unwrap().success());
+    let stages = std::cell::RefCell::new(Vec::new());
+    let report = journal_conversion::convert_observed(&path, "delete", quiescent(), &|stage| {
+        let status = worker(&path, "enter", None).wait().unwrap();
+        assert_eq!(status.code(), Some(REFUSED), "{stage}");
+        stages.borrow_mut().push(stage.to_owned());
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(*stages.borrow(), ["locked", "converted"]);
+    assert_eq!(report["converted"], true);
+    assert_eq!(count(&path, "committed-in-wal"), 1);
+    assert_eq!(count(&path, "entered-during-conversion"), 0);
+    // Once the converter has closed, the same entry succeeds normally.
+    assert_eq!(worker(&path, "enter", None).wait().unwrap().code(), Some(0));
+    assert_eq!(count(&path, "entered-during-conversion"), 1);
+}
+
+/// Conversion requires the operator's quiescence assertions before it takes a
+/// lock or opens SQLite, exactly as native upgrade does.
+#[test]
+fn conversion_requires_explicit_quiescence_assertions() {
+    let (_root, path) = catalog();
+    enable_wal(&path);
+    let before = fs::read(&path).unwrap();
+    for quiescence in [
+        NativeUpgradeQuiescence::default(),
+        NativeUpgradeQuiescence {
+            exclusive_operational_ownership: false,
+            ..quiescent()
+        },
+    ] {
+        let error = journal_conversion::convert(&path, "delete", quiescence).unwrap_err();
+        assert!(
+            error.0.contains("explicit operator confirmation"),
+            "{error}"
+        );
+    }
+    assert!(!sidecar(&path, ".native-admission.lock").exists());
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert_eq!(
+        migration::inspect_native(&path, false).unwrap()["journal_mode"],
+        "wal"
+    );
+}
+
+/// A process that has opened SQLite but not read holds no lock, so neither the
+/// probe nor SQLite can see it; this is why the operator assertions are
+/// required. Recorded behavior: conversion proceeds, and that connection's
+/// first later use reads the converted header and works in DELETE mode.
+#[test]
+fn an_idle_unused_connection_is_not_detected_and_later_uses_delete_mode() {
+    let (root, path) = catalog();
+    enable_wal(&path);
+    let ready = root.path().join("ready");
+    let go = root.path().join("go");
+    let mut idle = idle_worker(&path, "idle", Some(&ready), Some(&go));
+    wait_for(&ready, &mut idle);
+    let report = journal_conversion::convert(&path, "delete", quiescent()).unwrap();
+    assert_eq!(report["converted"], true);
+    assert_eq!(report["from_journal_mode"], "wal");
+    fs::write(&go, b"go").unwrap();
+    assert_eq!(idle.wait().unwrap().code(), Some(0));
+    assert_eq!(count(&path, "idle-after-conversion"), 1);
+    assert!(!sidecar(&path, "-wal").exists());
+    let info = migration::inspect_native(&path, true).unwrap();
+    assert_eq!(info["journal_mode"], "delete");
+    assert_eq!(info["schema"], 32);
+}
+
+#[test]
+fn unsupported_targets_are_refused_before_any_lock() {
+    let (_root, path) = catalog();
+    let before = fs::read(&path).unwrap();
+    for target in ["wal", "truncate", "persist", "memory", "off", ""] {
+        let error = journal_conversion::convert(&path, target, quiescent()).unwrap_err();
+        assert!(
+            error.0.contains("unsupported journal conversion target"),
+            "{target}: {error}"
+        );
+    }
+    assert!(!sidecar(&path, ".native-admission.lock").exists());
+    assert_eq!(fs::read(&path).unwrap(), before);
+}
+
+#[test]
+fn rollback_journal_catalog_is_reported_unchanged() {
+    let (_root, path) = catalog();
+    let before = fs::read(&path).unwrap();
+    let report = journal_conversion::convert(&path, "delete", quiescent()).unwrap();
+    assert_eq!(report["converted"], false);
+    assert_eq!(report["from_journal_mode"], "delete");
+    assert_eq!(report["journal_mode"], "delete");
+    assert_eq!(report["schema"], 32);
+    assert_eq!(fs::read(&path).unwrap(), before);
+}
+
+#[test]
+fn committed_wal_frames_survive_conversion_and_unblock_native_upgrade() {
+    let (_root, path) = catalog();
+    assert!(worker(&path, "commit", None).wait().unwrap().success());
+    assert!(fs::metadata(sidecar(&path, "-wal")).unwrap().len() > 0);
+    let plan = migration::plan_native(&path).unwrap();
+    let quiescence = NativeUpgradeQuiescence {
+        admission_stopped: true,
+        readers_and_workers_stopped: true,
+        exclusive_operational_ownership: true,
+    };
+    assert!(
+        migration::upgrade_native(&path, &plan, quiescence, None, &|_, _, _| Ok(()))
+            .unwrap_err()
+            .0
+            .contains("found wal")
+    );
+    let report = journal_conversion::convert(&path, "delete", quiescent()).unwrap();
+    assert_eq!(report["converted"], true);
+    assert_eq!(report["from_journal_mode"], "wal");
+    assert_eq!(report["journal_mode"], "delete");
+    assert!(!sidecar(&path, "-wal").exists());
+    assert_eq!(count(&path, "committed-in-wal"), 1);
+    assert_eq!(
+        migration::inspect_native(&path, true).unwrap()["journal_mode"],
+        "delete"
+    );
+    // The earlier plan recorded WAL and is stale; a fresh plan is required.
+    assert!(
+        migration::upgrade_native(&path, &plan, quiescence, None, &|_, _, _| Ok(()))
+            .unwrap_err()
+            .0
+            .contains("plan or inputs changed")
+    );
+    let report = migration::upgrade_native(
+        &path,
+        &migration::plan_native(&path).unwrap(),
+        quiescence,
+        None,
+        &|_, _, _| Ok(()),
+    )
+    .unwrap();
+    assert_eq!(report["schema"], NATIVE_SCHEMA_VERSION);
+    assert_eq!(count(&path, "committed-in-wal"), 1);
+}
+
+#[test]
+fn an_open_connection_in_another_process_refuses_conversion() {
+    let (root, path) = catalog();
+    enable_wal(&path);
+    let ready = root.path().join("ready");
+    let mut holder = worker(&path, "hold", Some(&ready));
+    let deadline = Instant::now() + Duration::from_secs(60);
+    while !ready.exists() {
+        assert!(Instant::now() < deadline, "holder did not open the catalog");
+        assert!(holder.try_wait().unwrap().is_none(), "holder exited early");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let error = journal_conversion::convert(&path, "delete", quiescent()).unwrap_err();
+    assert!(
+        error
+            .0
+            .contains("another connection has this database open"),
+        "{error}"
+    );
+    assert_eq!(
+        migration::inspect_native(&path, false).unwrap()["journal_mode"],
+        "wal"
+    );
+    holder.kill().unwrap();
+    holder.wait().unwrap();
+    let report = journal_conversion::convert(&path, "delete", quiescent()).unwrap();
+    assert_eq!(report["converted"], true);
+    assert_eq!(migration::inspect(&path, true).unwrap()["schema"], 32);
+}
+
+#[test]
+fn catabolic_writers_and_native_sessions_refuse_conversion() {
+    let (_root, path) = catalog();
+    enable_wal(&path);
+    let writer = Store::open(&path, true, false).unwrap();
+    let error = journal_conversion::convert(&path, "delete", quiescent()).unwrap_err();
+    assert!(
+        error
+            .0
+            .contains("another Catabolic writer or upgrade is using this database"),
+        "{error}"
+    );
+    drop(writer);
+
+    let root = tempfile::tempdir().unwrap();
+    let native = root.path().join("native.sqlite3");
+    migration::initialize_native(&native).unwrap();
+    enable_wal(&native);
+    let session = Store::open(&native, false, false).unwrap();
+    let error = journal_conversion::convert(&native, "delete", quiescent()).unwrap_err();
+    assert!(
+        error
+            .0
+            .contains("native catalog sessions or exclusive lifecycle operation are active"),
+        "{error}"
+    );
+    drop(session);
+    let report = journal_conversion::convert(&native, "delete", quiescent()).unwrap();
+    assert_eq!(report["converted"], true);
+    assert_eq!(report["schema"], NATIVE_SCHEMA_VERSION);
+    migration::validate(&connect(&native, false).unwrap(), true).unwrap();
+}

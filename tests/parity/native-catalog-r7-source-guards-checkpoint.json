@@ -1,0 +1,37 @@
+{
+  "format_version": 1,
+  "package": "R7-source-artifact-guards",
+  "recorded_at_utc": "2026-10-14T20:12:56.962373+00:00",
+  "baseline_commit": "95adeb7f3e81910b1cf8849f6c8a103e7e2e019c",
+  "scope": "Wheel console launcher validation and full Git-visible source snapshot helper only; no artifact build or default transition",
+  "source": {
+    "manifest": "/workspace/shared/catalog-r7-source-guard-evidence/source-before.json",
+    "sha256": "9ab69726409ab6913aa9fb5b3be8919e76a22072562b810a6915a051c916410f",
+    "files_sha256": "1e2f22832edcff5a90155c9b09f0443f05d1328685fd5e3242a23081ad890472",
+    "file_count": 1440,
+    "verified_unchanged_before_after": true
+  },
+  "tests": {
+    "log": ".local-tests/catalog-r7/source-guard-frozen-tests.log",
+    "sha256": "b56c328ceed09a1f4d5853303a1852de4b2b68a6c1c436ea84677e0e0c0a1212",
+    "passing": 84,
+    "failed": 0,
+    "skipped": 0,
+    "python": "CPython3.14.6"
+  },
+  "ruff": {
+    "log": ".local-tests/catalog-r7/source-guard-ruff.log",
+    "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "passed": true
+  },
+  "initial_failure": {
+    "log": ".local-tests/catalog-r7/source-guard-tests-wrong-module.log",
+    "reason": "Requested nonexistent module native_artifact_provenance; corrected to actual test_rust_artifact_build and reran all84 controls"
+  },
+  "M0_M11_gate_closures": [],
+  "remaining": [
+    "Final integrated native/standalone/wrapper artifact lanes",
+    "New native catalog Python facade coverage",
+    "Unavailable/deferred platform and blocked independent review gates"
+  ]
+}

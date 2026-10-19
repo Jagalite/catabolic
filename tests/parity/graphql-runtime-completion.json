@@ -1,0 +1,4627 @@
+{
+  "status": "Frozen-reference completion contracts; native evidence recorded separately. Original seven failure observations are retained unchanged in graphql-review-remaining-gaps.json.",
+  "provenance": {
+    "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "python": "3.14.6",
+    "graphql_core": "3.2.12"
+  },
+  "cases": [
+    {
+      "name": "null-enum-resolver",
+      "document": "{items(sort:null){nodes{id}}}",
+      "variables": {},
+      "category": "resolver-error",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "items": null
+          },
+          "errors": [
+            {
+              "message": "sort must be one of: id, title, year",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                }
+              ],
+              "path": [
+                "items"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "items": null
+          },
+          "errors": [
+            {
+              "message": "sort must be text",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                }
+              ],
+              "path": [
+                "items"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "merged-field-records",
+      "document": "{same:item(id:\"a\"){id} same:item(id:\"a\"){title} after:profile}",
+      "variables": {},
+      "category": "field-merging",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "same": {
+              "id": "a",
+              "title": "a"
+            },
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "after": "default",
+            "same": {
+              "id": "a",
+              "title": "a"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "merged-field-null-argument",
+      "document": "query($n:Int){same:items(first:$n){nodes{id}} same:items(first:$n){pageInfo{hasNextPage}} after:profile}",
+      "variables": {
+        "n": null
+      },
+      "category": "guarded-runtime-input",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "same": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 32
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"first\", expected type \"Int\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 26
+                }
+              ]
+            },
+            {
+              "message": "Invalid value for argument \"first\", expected type \"Int\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 58
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "merged-field-null-directive",
+      "document": "query($b:Boolean=false){same:item(id:\"a\"){id} same:item(id:\"a\"){title @skip(if:$b)} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "category": "guarded-runtime-input",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "same": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 80
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"if\", expected type \"Boolean\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 77
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-null-argument",
+      "document": "query($v:String=\"Query\"){before:profile bad:__type(name:$v){name} after:schemaVersion}",
+      "variables": {
+        "v": null
+      },
+      "category": "guarded-introspection-input",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "before": "default",
+            "bad": null,
+            "after": 32
+          },
+          "errors": [
+            {
+              "message": "Argument 'name' of non-null type 'String!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 57
+                }
+              ],
+              "path": [
+                "bad"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"name\", expected type \"String\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 52
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-null-directive",
+      "document": "query($b:Boolean=false){__type(name:\"Query\"){name @skip(if:$b)} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "category": "guarded-introspection-input",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "__type": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 60
+                }
+              ],
+              "path": [
+                "__type"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"if\", expected type \"Boolean\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 57
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-list-null-directive",
+      "document": "query($b:Boolean=false){__schema{types{name @skip(if:$b)}} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "category": "guarded-introspection-input",
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 54
+                }
+              ],
+              "path": [
+                "__schema",
+                "types",
+                0
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Invalid value for argument \"if\", expected type \"Boolean\"",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 51
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "merged-named-and-inline-fragments",
+      "document": "{same:item(id:\"a\"){id} ...F ... on Query{same:item(id:\"a\"){kind}} after:profile} fragment F on Query{same:item(id:\"a\"){title}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "same": {
+              "id": "a",
+              "title": "a",
+              "kind": "movie"
+            },
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "distinct-aliases-resolve-twice",
+      "document": "{one:item(id:\"a\"){id} two:item(id:\"a\"){title}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "one": {
+              "id": "a"
+            },
+            "two": {
+              "title": "a"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "merged-pages-and-nested-fields",
+      "document": "{same:items(first:2){nodes{id} pageInfo{hasNextPage}} same:items(first:2){nodes{title} pageInfo{hasNextPage}}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "same": {
+              "nodes": [
+                {
+                  "id": "a",
+                  "title": "a"
+                },
+                {
+                  "id": "b",
+                  "title": "b"
+                }
+              ],
+              "pageInfo": {
+                "hasNextPage": true
+              }
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "merged-root-skip-first",
+      "document": "{same:item(id:\"a\") @skip(if:true){id} same:item(id:\"a\"){title} after:profile}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "same": {
+              "title": "a"
+            },
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "merged-root-skip-second",
+      "document": "query($b:Boolean=false){same:item(id:\"a\"){id} same:item(id:\"a\") @include(if:false){title @skip(if:$b)} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "same": {
+              "id": "a"
+            },
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "merged-null-schema-argument-order",
+      "document": "query($n:Int,$b:Boolean){same:items(first:$n,descending:$b){nodes{id}} same:items(first:$n,descending:$b){pageInfo{hasNextPage}} after:profile}",
+      "variables": {
+        "n": null,
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "same": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'descending' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 57
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "merged-omitted-default",
+      "document": "query($n:Int){same:items(first:$n){nodes{id}} same:items(first:$n){pageInfo{hasNextPage}} after:profile}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "same": {
+              "nodes": [
+                {
+                  "id": "a"
+                },
+                {
+                  "id": "b"
+                },
+                {
+                  "id": "c"
+                },
+                {
+                  "id": "雪"
+                }
+              ],
+              "pageInfo": {
+                "hasNextPage": false
+              }
+            },
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 4
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "merged-null-list-argument",
+      "document": "query($t:String=\"\"){same:items(tags:[$t]){nodes{id}} same:items(tags:[$t]){pageInfo{hasNextPage}} after:profile}",
+      "variables": {
+        "t": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "same": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'tags' has invalid value [$t].",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 37
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "merged-child-null-argument",
+      "document": "query($n:Int){same:item(id:\"a\"){worklog(first:$n){nodes}} same:item(id:\"a\"){worklog(first:$n){pageInfo{hasNextPage}} title} after:profile}",
+      "variables": {
+        "n": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "same": {
+              "worklog": null,
+              "title": "a"
+            },
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 47
+                }
+              ],
+              "path": [
+                "same",
+                "worklog"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "merged-errors-include-all-field-locations",
+      "document": "{same:item{id} same:item{title} after:profile}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "same": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "supply exactly one item id or identity",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                },
+                {
+                  "line": 1,
+                  "column": 16
+                }
+              ],
+              "path": [
+                "same"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "merged-resolver-errors-preserve-root-order",
+      "document": "{before:item{title} same:items(first:0){nodes{id}} same:items(first:0){pageInfo{hasNextPage}} after:profile}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "before": null,
+            "same": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "supply exactly one item id or identity",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                }
+              ],
+              "path": [
+                "before"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            },
+            {
+              "message": "first must be between 1 and 1000",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 21
+                },
+                {
+                  "line": 1,
+                  "column": 52
+                }
+              ],
+              "path": [
+                "same"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "merged-missing-object-is-lazy",
+      "document": "query($b:Boolean=false){same:item(id:\"absent\"){id} same:item(id:\"absent\"){title @skip(if:$b)} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "same": null,
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "merged-list-children-null-directive",
+      "document": "query($b:Boolean=false){items(first:2){nodes{id} nodes{title @skip(if:$b)}} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "items": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 71
+                }
+              ],
+              "path": [
+                "items",
+                "nodes",
+                0
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "merged-child-empty-objects",
+      "document": "{same:items(first:2){nodes{id @skip(if:true)}} same:items(first:2){nodes{title @include(if:false)}}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "same": {
+              "nodes": [
+                {},
+                {}
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "repeat-fragment-skips-visited-directive",
+      "document": "query($b:Boolean=false){...F ...F @skip(if:$b) after:profile} fragment F on Query{item(id:\"a\"){id}}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "item": {
+              "id": "a"
+            },
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "fragment-directive-first-before-visited",
+      "document": "query($b:Boolean=false){...F @skip(if:$b) ...F after:profile} fragment F on Query{item(id:\"a\"){id}}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 39
+                }
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "fragment-repeat-within-merged-children",
+      "document": "query($b:Boolean=false){same:item(id:\"a\"){...F} same:item(id:\"a\"){...F @skip(if:$b)} after:profile} fragment F on Item{id}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "same": {
+              "id": "a"
+            },
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "fragment-skipped-first-not-visited",
+      "document": "query($b:Boolean=false){...F @skip(if:true) ...F @skip(if:$b) after:profile} fragment F on Query{profile}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 59
+                }
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "nested-object-directive-aborts-before-siblings",
+      "document": "query($b:Boolean=false){item(id:\"a\"){worklog{nodes} title @skip(if:$b)} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "item": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 68
+                }
+              ],
+              "path": [
+                "item"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "null-sort-files",
+      "document": "{files(sort:null){nodes{id}} after:profile}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "files": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "sort must be one of: id, path, size, mtime",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                }
+              ],
+              "path": [
+                "files"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "null-sort-mappings",
+      "document": "{mappings(sort:null){nodes{id}} after:profile}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "mappings": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "sort must be one of: id, path, catalog",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                }
+              ],
+              "path": [
+                "mappings"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-merged-type",
+      "document": "{same:__type(name:\"Query\"){name} same:__type(name:\"Query\"){kind} after:profile}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "same": {
+              "name": "Query",
+              "kind": "OBJECT"
+            },
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-missing-type-is-lazy",
+      "document": "query($b:Boolean=false){bad:__type(name:\"absent\"){name @skip(if:$b)} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "bad": null,
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-skipped-parent-is-lazy",
+      "document": "query($b:Boolean=false){__type(name:\"Query\") @skip(if:true){name @skip(if:$b)} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-nullable-list-bubble",
+      "document": "query($b:Boolean=false){__type(name:\"Query\"){name fields{name @skip(if:$b)} kind} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "__type": {
+              "name": "Query",
+              "fields": null,
+              "kind": "OBJECT"
+            },
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 72
+                }
+              ],
+              "path": [
+                "__type",
+                "fields",
+                0
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 39
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-absent-list-is-lazy",
+      "document": "query($b:Boolean=false){__type(name:\"String\"){name fields{name @skip(if:$b)} kind} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "__type": {
+              "name": "String",
+              "fields": null,
+              "kind": "SCALAR"
+            },
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-empty-list-is-lazy",
+      "document": "query($b:Boolean=false){__type(name:\"Query\"){interfaces{name @skip(if:$b)}} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "__type": {
+              "interfaces": []
+            },
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-nonnull-root-stops-records",
+      "document": "query($b:Boolean=false){before:item(id:\"a\"){id} __schema{types{name @skip(if:$b)}} after:item(id:\"b\"){id}}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 78
+                }
+              ],
+              "path": [
+                "__schema",
+                "types",
+                0
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-nullable-root-continues-records",
+      "document": "query($b:Boolean=false){before:item(id:\"a\"){id} __type(name:\"Query\"){name @skip(if:$b)} after:item(id:\"b\"){id}}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "before": {
+              "id": "a"
+            },
+            "__type": null,
+            "after": {
+              "id": "b"
+            }
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 84
+                }
+              ],
+              "path": [
+                "__type"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 2
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-directive-before-null-type-argument",
+      "document": "query($b:Boolean=false,$s:String=\"Query\"){__type(name:$s) @skip(if:$b){name} after:profile}",
+      "variables": {
+        "b": null,
+        "s": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 68
+                }
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-type-argument-null",
+      "document": "query($s:String=\"Query\"){__type(name:$s){name} after:profile}",
+      "variables": {
+        "s": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "__type": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'name' of non-null type 'String!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 38
+                }
+              ],
+              "path": [
+                "__type"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-type-argument-null-skipped",
+      "document": "query($s:String=\"Query\"){__type(name:$s) @skip(if:true){name} after:profile}",
+      "variables": {
+        "s": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-repeated-null-argument",
+      "document": "query($s:String=\"Query\"){same:__type(name:$s){name} same:__type(name:$s){kind} after:profile}",
+      "variables": {
+        "s": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "same": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'name' of non-null type 'String!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 43
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-merged-child-null-directive",
+      "document": "query($b:Boolean=false){same:__type(name:\"Query\"){name} same:__type(name:\"Query\"){kind @skip(if:$b)} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "same": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 97
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-merged-schema-null-directive",
+      "document": "query($b:Boolean=false){__schema{queryType{name}} __schema{types{name @skip(if:$b)}} after:item(id:\"b\"){id}}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 80
+                }
+              ],
+              "path": [
+                "__schema",
+                "types",
+                0
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-nested-fragment-null-directive",
+      "document": "query($b:Boolean=false){__type(name:\"Query\"){...F} after:profile} fragment F on __Type{name @skip(if:$b)}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "__type": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 102
+                }
+              ],
+              "path": [
+                "__type"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-nullable-mutation-is-lazy",
+      "document": "query($b:Boolean=false){__schema{mutationType{name @skip(if:$b)} queryType{name}} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "__schema": {
+              "mutationType": null,
+              "queryType": {
+                "name": "Query"
+              }
+            },
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-directive-short-circuit",
+      "document": "query($b:Boolean=false){__type(name:\"Query\"){name @include(if:$b) @skip(if:true) kind} after:profile}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "__type": {
+              "kind": "OBJECT"
+            },
+            "after": "default"
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-dict-view-records",
+      "document": "{__type(name:\"ItemSort\"){enumValues(includeDeprecated:true){name}} __schema{queryType{name}}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "__type": {
+              "enumValues": [
+                {
+                  "name": "ID"
+                },
+                {
+                  "name": "TITLE"
+                },
+                {
+                  "name": "YEAR"
+                }
+              ]
+            },
+            "__schema": {
+              "queryType": {
+                "name": "Query"
+              }
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-nested-typenames",
+      "document": "{__schema{__typename queryType{__typename fields{__typename type{__typename name}}}}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "__schema": {
+              "__typename": "__Schema",
+              "queryType": {
+                "__typename": "__Type",
+                "fields": [
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "FallbackPolicy"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "FallbackResolutionPage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "JSON"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "EvidencePage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "JSON"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "EvidencePage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "JSON"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "EvidencePage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "JSON"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "JSON"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "EvidencePage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "EvidencePage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "JSON"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "JSON"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "EvidencePage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "EvidencePage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "JSON"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "JSON"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "EvidencePage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "EvidencePage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": null
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "ComponentPage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "ComponentOccurrencePage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": null
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": null
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": null
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "TagPage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "TaggingPage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "EvidencePage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "EvidencePage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "ItemPage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "Item"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "FilePage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "File"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "AssociationPage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "RelationshipPage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "MappingPage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "CatalogPage"
+                    }
+                  },
+                  {
+                    "__typename": "__Field",
+                    "type": {
+                      "__typename": "__Type",
+                      "name": "EvidencePage"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 39
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-typename-merged",
+      "document": "{t:__typename t:__typename item(id:\"a\"){__typename __typename}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "t": "Query",
+            "item": {
+              "__typename": "Item"
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "name": "introspection-directive-args-are-lists",
+      "document": "{__schema{directives{args(includeDeprecated:true){name}}}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "__schema": {
+              "directives": [
+                {
+                  "args": [
+                    {
+                      "name": "if"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "if"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "reason"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "url"
+                    }
+                  ]
+                },
+                {
+                  "args": []
+                }
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 9
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "__schema": {
+              "directives": [
+                {
+                  "args": [
+                    {
+                      "name": "if"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "if"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "reason"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "url"
+                    }
+                  ]
+                },
+                {
+                  "args": []
+                }
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 5
+          }
+        }
+      }
+    },
+    {
+      "name": "introspection-field-args-are-dict-views",
+      "document": "{__type(name:\"Query\"){fields(includeDeprecated:true){args(includeDeprecated:true){name}}}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "__type": {
+              "fields": [
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "catalog"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "catalog"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "state"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "matching"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "state"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "state"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "text"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "kind"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "component"
+                    },
+                    {
+                      "name": "kind"
+                    },
+                    {
+                      "name": "language"
+                    },
+                    {
+                      "name": "forced"
+                    },
+                    {
+                      "name": "commentary"
+                    },
+                    {
+                      "name": "current"
+                    },
+                    {
+                      "name": "technicallyVerified"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": []
+                },
+                {
+                  "args": []
+                },
+                {
+                  "args": []
+                },
+                {
+                  "args": [
+                    {
+                      "name": "search"
+                    },
+                    {
+                      "name": "namespace"
+                    },
+                    {
+                      "name": "parent"
+                    },
+                    {
+                      "name": "child"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "tag"
+                    },
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "source"
+                    },
+                    {
+                      "name": "active"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "hasRendition"
+                    },
+                    {
+                      "name": "missingRendition"
+                    },
+                    {
+                      "name": "search"
+                    },
+                    {
+                      "name": "kind"
+                    },
+                    {
+                      "name": "year"
+                    },
+                    {
+                      "name": "identity"
+                    },
+                    {
+                      "name": "metadata"
+                    },
+                    {
+                      "name": "catalog"
+                    },
+                    {
+                      "name": "curationStatus"
+                    },
+                    {
+                      "name": "tags"
+                    },
+                    {
+                      "name": "anyTags"
+                    },
+                    {
+                      "name": "notTags"
+                    },
+                    {
+                      "name": "descendants"
+                    },
+                    {
+                      "name": "sort"
+                    },
+                    {
+                      "name": "descending"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    },
+                    {
+                      "name": "identity"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "search"
+                    },
+                    {
+                      "name": "location"
+                    },
+                    {
+                      "name": "status"
+                    },
+                    {
+                      "name": "unidentified"
+                    },
+                    {
+                      "name": "unmapped"
+                    },
+                    {
+                      "name": "catalog"
+                    },
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "kind"
+                    },
+                    {
+                      "name": "year"
+                    },
+                    {
+                      "name": "identity"
+                    },
+                    {
+                      "name": "tags"
+                    },
+                    {
+                      "name": "anyTags"
+                    },
+                    {
+                      "name": "notTags"
+                    },
+                    {
+                      "name": "descendants"
+                    },
+                    {
+                      "name": "sort"
+                    },
+                    {
+                      "name": "descending"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "role"
+                    },
+                    {
+                      "name": "active"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "direction"
+                    },
+                    {
+                      "name": "kind"
+                    },
+                    {
+                      "name": "active"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "catalog"
+                    },
+                    {
+                      "name": "allCatalogs"
+                    },
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "active"
+                    },
+                    {
+                      "name": "search"
+                    },
+                    {
+                      "name": "sort"
+                    },
+                    {
+                      "name": "descending"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    },
+                    {
+                      "name": "includeInactive"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 39
+          }
+        }
+      },
+      "exit_code": 0,
+      "stderr": "",
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "success",
+        "exit_code": 0,
+        "data": {
+          "data": {
+            "__type": {
+              "fields": [
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "catalog"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "catalog"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "state"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "matching"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "state"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "state"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "text"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "kind"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "component"
+                    },
+                    {
+                      "name": "kind"
+                    },
+                    {
+                      "name": "language"
+                    },
+                    {
+                      "name": "forced"
+                    },
+                    {
+                      "name": "commentary"
+                    },
+                    {
+                      "name": "current"
+                    },
+                    {
+                      "name": "technicallyVerified"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": []
+                },
+                {
+                  "args": []
+                },
+                {
+                  "args": []
+                },
+                {
+                  "args": [
+                    {
+                      "name": "search"
+                    },
+                    {
+                      "name": "namespace"
+                    },
+                    {
+                      "name": "parent"
+                    },
+                    {
+                      "name": "child"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "tag"
+                    },
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "source"
+                    },
+                    {
+                      "name": "active"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "hasRendition"
+                    },
+                    {
+                      "name": "missingRendition"
+                    },
+                    {
+                      "name": "search"
+                    },
+                    {
+                      "name": "kind"
+                    },
+                    {
+                      "name": "year"
+                    },
+                    {
+                      "name": "identity"
+                    },
+                    {
+                      "name": "metadata"
+                    },
+                    {
+                      "name": "catalog"
+                    },
+                    {
+                      "name": "curationStatus"
+                    },
+                    {
+                      "name": "tags"
+                    },
+                    {
+                      "name": "anyTags"
+                    },
+                    {
+                      "name": "notTags"
+                    },
+                    {
+                      "name": "descendants"
+                    },
+                    {
+                      "name": "sort"
+                    },
+                    {
+                      "name": "descending"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    },
+                    {
+                      "name": "identity"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "search"
+                    },
+                    {
+                      "name": "location"
+                    },
+                    {
+                      "name": "status"
+                    },
+                    {
+                      "name": "unidentified"
+                    },
+                    {
+                      "name": "unmapped"
+                    },
+                    {
+                      "name": "catalog"
+                    },
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "kind"
+                    },
+                    {
+                      "name": "year"
+                    },
+                    {
+                      "name": "identity"
+                    },
+                    {
+                      "name": "tags"
+                    },
+                    {
+                      "name": "anyTags"
+                    },
+                    {
+                      "name": "notTags"
+                    },
+                    {
+                      "name": "descendants"
+                    },
+                    {
+                      "name": "sort"
+                    },
+                    {
+                      "name": "descending"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "id"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "role"
+                    },
+                    {
+                      "name": "active"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "direction"
+                    },
+                    {
+                      "name": "kind"
+                    },
+                    {
+                      "name": "active"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "catalog"
+                    },
+                    {
+                      "name": "allCatalogs"
+                    },
+                    {
+                      "name": "item"
+                    },
+                    {
+                      "name": "file"
+                    },
+                    {
+                      "name": "active"
+                    },
+                    {
+                      "name": "search"
+                    },
+                    {
+                      "name": "sort"
+                    },
+                    {
+                      "name": "descending"
+                    },
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    }
+                  ]
+                },
+                {
+                  "args": [
+                    {
+                      "name": "first"
+                    },
+                    {
+                      "name": "after"
+                    },
+                    {
+                      "name": "includeInactive"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 39
+          }
+        }
+      }
+    },
+    {
+      "name": "runtime-physical-newlines-1",
+      "document": "query($n:Int){\nsame:items(first:$n){nodes{id}}\nsame:items(first:$n){pageInfo{hasNextPage}}\nafter:profile}",
+      "variables": {
+        "n": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "same": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 18
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "after": "default",
+            "same": null
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 18
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "runtime-physical-newlines-2",
+      "document": "query($n:Int){\nbad:items(first:$n){nodes{id}}\nokx:items(first:1){nodes{id}}\nafter:profile}",
+      "variables": {
+        "n": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "bad": null,
+            "okx": {
+              "nodes": [
+                {
+                  "id": "a"
+                }
+              ]
+            },
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 17
+                }
+              ],
+              "path": [
+                "bad"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "after": "default",
+            "bad": null,
+            "okx": {
+              "nodes": [
+                {
+                  "id": "a"
+                }
+              ]
+            }
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 17
+                }
+              ],
+              "path": [
+                "bad"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "runtime-physical-newlines-3",
+      "document": "query($b:Boolean=false){\nitem(id:\"a\"){\nid\ntitle @skip(if:$b)}}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "item": null
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 4,
+                  "column": 16
+                }
+              ],
+              "path": [
+                "item"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "item": null
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 4,
+                  "column": 16
+                }
+              ],
+              "path": [
+                "item"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "runtime-physical-newlines-4",
+      "document": "query($n:Int){\rsame:items(first:$n){nodes{id}}\rsame:items(first:$n){pageInfo{hasNextPage}}\rafter:profile}",
+      "variables": {
+        "n": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "same": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 18
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "after": "default",
+            "same": null
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 18
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "runtime-physical-newlines-5",
+      "document": "query($n:Int){\rbad:items(first:$n){nodes{id}}\rokx:items(first:1){nodes{id}}\rafter:profile}",
+      "variables": {
+        "n": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "bad": null,
+            "okx": {
+              "nodes": [
+                {
+                  "id": "a"
+                }
+              ]
+            },
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 17
+                }
+              ],
+              "path": [
+                "bad"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "after": "default",
+            "bad": null,
+            "okx": {
+              "nodes": [
+                {
+                  "id": "a"
+                }
+              ]
+            }
+          },
+          "errors": [
+            {
+              "message": "first must be between 1 and 1000",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 1
+                }
+              ],
+              "path": [
+                "bad"
+              ],
+              "extensions": {
+                "code": "QUERY_ERROR"
+              }
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "runtime-physical-newlines-6",
+      "document": "query($b:Boolean=false){\ritem(id:\"a\"){\rid\rtitle @skip(if:$b)}}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "item": null
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 4,
+                  "column": 16
+                }
+              ],
+              "path": [
+                "item"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "item": null
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 16
+                }
+              ],
+              "path": [
+                "item"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "runtime-physical-newlines-7",
+      "document": "query($n:Int){\r\nsame:items(first:$n){nodes{id}}\r\nsame:items(first:$n){pageInfo{hasNextPage}}\r\nafter:profile}",
+      "variables": {
+        "n": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "same": null,
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 18
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "after": "default",
+            "same": null
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 18
+                }
+              ],
+              "path": [
+                "same"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "runtime-physical-newlines-8",
+      "document": "query($n:Int){\r\nbad:items(first:$n){nodes{id}}\r\nokx:items(first:1){nodes{id}}\r\nafter:profile}",
+      "variables": {
+        "n": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "bad": null,
+            "okx": {
+              "nodes": [
+                {
+                  "id": "a"
+                }
+              ]
+            },
+            "after": "default"
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 17
+                }
+              ],
+              "path": [
+                "bad"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "after": "default",
+            "bad": null,
+            "okx": {
+              "nodes": [
+                {
+                  "id": "a"
+                }
+              ]
+            }
+          },
+          "errors": [
+            {
+              "message": "Argument 'first' of non-null type 'Int!' must not be null.",
+              "locations": [
+                {
+                  "line": 2,
+                  "column": 17
+                }
+              ],
+              "path": [
+                "bad"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "runtime-physical-newlines-9",
+      "document": "query($b:Boolean=false){\r\nitem(id:\"a\"){\r\nid\r\ntitle @skip(if:$b)}}",
+      "variables": {
+        "b": null
+      },
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "item": null
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 4,
+                  "column": 16
+                }
+              ],
+              "path": [
+                "item"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "pre_fix_observed": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": {
+            "item": null
+          },
+          "errors": [
+            {
+              "message": "Argument 'if' of non-null type 'Boolean!' must not be null.",
+              "locations": [
+                {
+                  "line": 4,
+                  "column": 16
+                }
+              ],
+              "path": [
+                "item"
+              ]
+            }
+          ],
+          "extensions": {
+            "interfaceVersion": 1,
+            "profile": "default",
+            "records": 1
+          }
+        }
+      }
+    }
+  ],
+  "validation_controls": [
+    {
+      "name": "conflicting-arguments",
+      "document": "{same:item(id:\"a\"){id} same:item(id:\"b\"){title}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Fields 'same' conflict because they have differing arguments. Use different aliases on the fields to fetch both if this was intentional.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                },
+                {
+                  "line": 1,
+                  "column": 24
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "native": {
+        "code": 2,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "error",
+          "exit_code": 2,
+          "data": {
+            "data": null,
+            "errors": [
+              {
+                "message": "Fields 'same' conflict within merged selections. Use different aliases on the fields to fetch both if this was intentional.",
+                "locations": [
+                  {
+                    "line": 1,
+                    "column": 2
+                  },
+                  {
+                    "line": 1,
+                    "column": 24
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "status": "Conservative compatibility guard; complete overlap-rule diagnostics remain unqualified"
+    },
+    {
+      "name": "conflicting-fragment-names",
+      "document": "{...A ...B} fragment A on Query{same:profile} fragment B on Query{same:schemaVersion}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Fields 'same' conflict because 'profile' and 'schemaVersion' are different fields. Use different aliases on the fields to fetch both if this was intentional.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 33
+                },
+                {
+                  "line": 1,
+                  "column": 67
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "native": {
+        "code": 2,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "error",
+          "exit_code": 2,
+          "data": {
+            "data": null,
+            "errors": [
+              {
+                "message": "Fields 'same' conflict within merged selections. Use different aliases on the fields to fetch both if this was intentional.",
+                "locations": [
+                  {
+                    "line": 1,
+                    "column": 33
+                  },
+                  {
+                    "line": 1,
+                    "column": 67
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "status": "Conservative compatibility guard; complete overlap-rule diagnostics remain unqualified"
+    },
+    {
+      "name": "conflicting-nested-fields",
+      "document": "{item(id:\"a\"){same:id} item(id:\"a\"){same:title}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Fields 'item' conflict because subfields 'same' conflict because 'id' and 'title' are different fields. Use different aliases on the fields to fetch both if this was intentional.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                },
+                {
+                  "line": 1,
+                  "column": 15
+                },
+                {
+                  "line": 1,
+                  "column": 24
+                },
+                {
+                  "line": 1,
+                  "column": 37
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "native": {
+        "code": 2,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "error",
+          "exit_code": 2,
+          "data": {
+            "data": null,
+            "errors": [
+              {
+                "message": "Fields 'same' conflict within merged selections. Use different aliases on the fields to fetch both if this was intentional.",
+                "locations": [
+                  {
+                    "line": 1,
+                    "column": 15
+                  },
+                  {
+                    "line": 1,
+                    "column": 37
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "status": "Conservative compatibility guard; complete overlap-rule diagnostics remain unqualified"
+    },
+    {
+      "name": "conflicting-fragment-arguments",
+      "document": "{same:item(id:\"a\"){id} ...F} fragment F on Query{same:item(id:\"b\"){id}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Fields 'same' conflict because they have differing arguments. Use different aliases on the fields to fetch both if this was intentional.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                },
+                {
+                  "line": 1,
+                  "column": 50
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "native": {
+        "code": 2,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "error",
+          "exit_code": 2,
+          "data": {
+            "data": null,
+            "errors": [
+              {
+                "message": "Fields 'same' conflict within merged selections. Use different aliases on the fields to fetch both if this was intentional.",
+                "locations": [
+                  {
+                    "line": 1,
+                    "column": 2
+                  },
+                  {
+                    "line": 1,
+                    "column": 50
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "status": "Conservative compatibility guard; complete overlap-rule diagnostics remain unqualified"
+    },
+    {
+      "name": "conflicting-types",
+      "document": "{same:profile same:__schema{queryType{name}}}",
+      "variables": {},
+      "expected": {
+        "interface_version": 1,
+        "command": "graphql",
+        "operation": null,
+        "profile": "default",
+        "outcome": "error",
+        "exit_code": 2,
+        "data": {
+          "data": null,
+          "errors": [
+            {
+              "message": "Fields 'same' conflict because 'profile' and '__schema' are different fields. Use different aliases on the fields to fetch both if this was intentional.",
+              "locations": [
+                {
+                  "line": 1,
+                  "column": 2
+                },
+                {
+                  "line": 1,
+                  "column": 15
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "exit_code": 2,
+      "stderr": "",
+      "native": {
+        "code": 2,
+        "stderr": "",
+        "stdout": {
+          "interface_version": 1,
+          "command": "graphql",
+          "operation": null,
+          "profile": "default",
+          "outcome": "error",
+          "exit_code": 2,
+          "data": {
+            "data": null,
+            "errors": [
+              {
+                "message": "Fields 'same' conflict within merged selections. Use different aliases on the fields to fetch both if this was intentional.",
+                "locations": [
+                  {
+                    "line": 1,
+                    "column": 2
+                  },
+                  {
+                    "line": 1,
+                    "column": 15
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "status": "Conservative compatibility guard; complete overlap-rule diagnostics remain unqualified"
+    }
+  ]
+}

@@ -1,0 +1,390 @@
+{
+  "schema": 1,
+  "status": "Replacement CatalogQuery scalar-sort contract; dictionary TypeError remains explicit non-parity. Historical fixture and helper outcomes are retained unchanged.",
+  "provenance": {
+    "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "python": "3.14.6",
+    "baseline_native_commit": "00950e792669fd401fbb59a3a0956b40a8668cc1",
+    "baseline_native_sha256": "e2635bf64c8681bd6452a94168f6444d3f91d49304fa1611ad045c1319c3cb78",
+    "historical_fixture": "tests/parity/graphql-runtime-sort-controls.json",
+    "historical_fixture_sha256": "dc645e7358c8d01cc943530e9d3105f7277f65526aca9238cac9102c299a9041",
+    "oracle_protocol": "Direct frozen CatalogQuery.items; capture data or exact error message plus Python exception class as canonical JSON, exit 0, empty stderr. expected_companion uses the existing native success/operational-error transport; exception classes are not present on that surface. Dictionary TypeError is not remapped or claimed as parity."
+  },
+  "cases": [
+    {
+      "name": "omitted",
+      "args": {},
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 0,
+        "stderr": "",
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "id",
+      "args": {
+        "sort": "id"
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 0,
+        "stderr": "",
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "title",
+      "args": {
+        "sort": "title"
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 0,
+        "stderr": "",
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "null",
+      "args": {
+        "sort": null
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "integer",
+      "args": {
+        "sort": 5
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "true",
+      "args": {
+        "sort": true
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "dictionary_residual",
+      "args": {
+        "sort": {}
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"cannot use 'dict' as a dict key (unhashable type: 'dict')\",\"type\":\"TypeError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "diagnostic_parity": false
+    },
+    {
+      "name": "unknown_text",
+      "args": {
+        "sort": "bogus"
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "year",
+      "args": {
+        "sort": "year"
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"data\":{\"items\":[],\"next_cursor\":null}}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 0,
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n",
+        "stderr": ""
+      },
+      "expected_companion": {
+        "code": 0,
+        "stderr": "",
+        "stdout": "{\"items\":[],\"next_cursor\":null}\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "false",
+      "args": {
+        "sort": false
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "zero",
+      "args": {
+        "sort": 0
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "negative",
+      "args": {
+        "sort": -7
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "fraction",
+      "args": {
+        "sort": 1.5
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "wide_integer",
+      "args": {
+        "sort": 1267650600228229401496703205376
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"sort must be one of: id, title, year\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be text\n"
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: sort must be one of: id, title, year\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "numeric_limit_precedence",
+      "args": {
+        "sort": 5,
+        "limit": 0
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "boolean_limit_precedence",
+      "args": {
+        "sort": true,
+        "limit": 0
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    },
+    {
+      "name": "dictionary_limit_precedence",
+      "args": {
+        "sort": {},
+        "limit": 0
+      },
+      "oracle_owner": {
+        "code": 0,
+        "stdout": "{\"error\":\"limit must be between 1 and 1000\",\"type\":\"CatabolicError\"}\n",
+        "stderr": ""
+      },
+      "baseline_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "expected_companion": {
+        "code": 2,
+        "stdout": "",
+        "stderr": "catabolic: limit must be between 1 and 1000\n"
+      },
+      "diagnostic_parity": true
+    }
+  ]
+}

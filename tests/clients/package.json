@@ -5,9 +5,14 @@
   "scripts": {
     "generate": "openapi-typescript ../../src/catabolic/http/releases/1.2.0/openapi.json --default-non-nullable false -o generated/rest.d.ts && graphql-codegen --config codegen.json",
     "build": "tsc",
-    "test": "npm run generate && npm run build"
+    "test": "npm run generate && npm run build",
+    "generate:1.7": "cd v1_7 && openapi-typescript ../../../src/catabolic/http/releases/1.7.0/openapi.json --default-non-nullable false -o generated/rest.d.ts && graphql-codegen --config codegen.json",
+    "build:1.7": "tsc -p v1_7/tsconfig.json",
+    "test:1.7": "npm run generate:1.7 && npm run build:1.7"
   },
-  "dependencies": {"openapi-fetch": "0.17.0"},
+  "dependencies": {
+    "openapi-fetch": "0.17.0"
+  },
   "devDependencies": {
     "openapi-typescript": "7.13.0",
     "typescript": "5.9.3",

@@ -1,0 +1,456 @@
+{
+  "format": 1,
+  "source_commit": "721b80ff64719d2440cd678fbcd39fb4ddd0b0cf",
+  "date": "2026-10-12",
+  "scope": "Passing reference replay with one platform skip and selected installed Linux suites; native aggregate failed preflight before Python scenarios. No complete parity, milestone, or release qualification.",
+  "python_remains_default": true,
+  "milestone_gates_closed": [],
+  "reference": {
+    "command": "python scripts/run_reference_tests.py --report PATH (source-fenced wrapper)",
+    "tests_run": 1191,
+    "passed": true,
+    "failures": [],
+    "errors": [],
+    "skips": [
+      {
+        "id": "tests.test_application.CatalogTest.test_default_output_detects_registered_source_case_alias",
+        "reason": "requires a case-insensitive filesystem"
+      }
+    ],
+    "fence": {
+      "command_exit": 0,
+      "source_before": "02ddc9b96b707297bd481db7d7978a0eec019ce03675621ffabe2963c8545740",
+      "source_after": "02ddc9b96b707297bd481db7d7978a0eec019ce03675621ffabe2963c8545740",
+      "source_unchanged": true,
+      "commit": "721b80ff64719d2440cd678fbcd39fb4ddd0b0cf",
+      "seconds": 1279.7646129131317,
+      "tests_run": 1191,
+      "result_passed": true,
+      "skips": [
+        {
+          "id": "tests.test_application.CatalogTest.test_default_output_detects_registered_source_case_alias",
+          "reason": "requires a case-insensitive filesystem"
+        }
+      ],
+      "passed": true
+    },
+    "result_sha256": "499af49661cd930906696312dda182902ae36cea56c167ca4faedbfb25c15c84",
+    "log_sha256": "075c60dd1d88546c398a3809d02e5d682ef52a003d93cb16192b3abc42d8ef2c"
+  },
+  "aggregate": {
+    "command": "scripts/check-native-mutations.sh",
+    "exit_code": 1,
+    "rust_prefix": "Workspace format/Clippy/build/tests and six mandatory exact ignored tests passed; not the complete script",
+    "native_python_tests_run": 0,
+    "qualification_status": "started",
+    "passed_without_skips": false,
+    "preflight_error": "ValueError: oracle import does not match frozen bytes: tests.probe_timing",
+    "log_sha256": "002c93568ea2f809730db66ed9a6cf42239271c7588cb57564fefa8871bd9dbc",
+    "started_marker_sha256": "f5558dfe2518d7bf0a31ec8256e7bc15dc10e2e65075dbf48369777b8aeeada3",
+    "after_failed_preflight_not_run": [
+      "native Python scenarios",
+      "model check",
+      "playback model check",
+      "script release rebuild/refusal replay",
+      "sync_docs --check",
+      "spec check"
+    ],
+    "historical_7c0cb4f_artifacts_preserved": true,
+    "preservation_manifest_sha256": "4b0a7274770260785ae43b38242f5983977cb672b08c7c731dabd437b1974b01"
+  },
+  "selected_installed": {
+    "cohort": "resumed-cohort-4",
+    "interpreters": [
+      "3.11.15",
+      "3.14.6"
+    ],
+    "passed": true,
+    "build_manifest": {
+      "format": 1,
+      "profile": "release",
+      "source_sha256": "eed842d8c08badc1b6e8318ed526ff3d786dbb9e902ed05625f9bc439f8d1794",
+      "source_sha256_after": "eed842d8c08badc1b6e8318ed526ff3d786dbb9e902ed05625f9bc439f8d1794",
+      "wheel": "catabolic_native-0.2.0-cp311-abi3-manylinux_2_39_x86_64.whl",
+      "wheel_sha256": "7dcafdd6e753918507c65174e2e1faeaa7bd5793aae572fcfa0bf2dd582d9119",
+      "extension_sha256": "384187d7163391d9b6b59f8f56a484cd9c36a9b4f9fff28f6e44d79a742dee58",
+      "native_binary": "catabolic-native",
+      "native_binary_sha256": "7cd5c2c3e9c68cf11f74f855980ef15545712716c245f44ba2437e34ea397eb8",
+      "legacy_binary": "catabolic-legacy-native",
+      "legacy_binary_sha256": "1a0c02b6764a250c7c2d902a7ac4ca43fa41be50bf5aeb734ccc090b85a29ec5",
+      "build_script_sha256": "3c7d315de18b2954f2043a62a49c207c369abdf31c8fff062bf1e3a086cb0e33",
+      "build": {
+        "scope": "local-source-content-and-toolchain; not a hermetic-build proof",
+        "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: x86_64-unknown-linux-gnu\nrelease: 1.99.0\nLLVM version: 23.1.1",
+        "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)",
+        "maturin": "maturin 1.13.1",
+        "python": "Python 3.14.6",
+        "python_executable": "/workspace/scratch/9c9a5a8c3955/catabolic/.venv/bin/python",
+        "build_environment_sha256": "2922f1ca990e37806d722e47156c79c3154877af338becc379f7f8231571b646"
+      },
+      "publication": "local-only",
+      "scope": "Local source-content/toolchain provenance; not hostile-directory attestation or hermetic reproduction"
+    },
+    "build_manifest_sha256": "22477bbf96d74b52e0f5e87783880cd277c538169fcece46c134d598f83df630",
+    "receipts": {
+      "311": [
+        {
+          "name": "native-prerequisites.json",
+          "sha256": "c58f0e89b5d8ecab6659259cd64922005e69ef6baaffecef2e8a5b7b16902529",
+          "tests": 4,
+          "paired_groups": null,
+          "passed": true,
+          "rows": null
+        },
+        {
+          "name": "native-wheel-after.json",
+          "sha256": "1322f99d2c406068db99a1b6b986f77bed251495066615eb8b293c6ddb6e778e",
+          "tests": null,
+          "paired_groups": null,
+          "passed": true,
+          "rows": null
+        },
+        {
+          "name": "native-wheel-before.json",
+          "sha256": "1322f99d2c406068db99a1b6b986f77bed251495066615eb8b293c6ddb6e778e",
+          "tests": null,
+          "paired_groups": null,
+          "passed": true,
+          "rows": null
+        },
+        {
+          "name": "native_access_admin_tests.json",
+          "sha256": "ca0fcfe55a5508e017b08e045f37a25dd9e4a54093512a1b2aa5d447bb37d738",
+          "tests": 9,
+          "paired_groups": 30,
+          "passed": true,
+          "rows": 3
+        },
+        {
+          "name": "native_catalog_refresh_embedding_tests.json",
+          "sha256": "dc46b82df907ab004f261a2565105855975ca80f5341eeefa59d0d193795b019",
+          "tests": 16,
+          "paired_groups": 43,
+          "passed": true,
+          "rows": 8
+        },
+        {
+          "name": "native_component_policy_embedding_tests.json",
+          "sha256": "f8740908654922ce3e3a77a1fd6a218bac457e45bb965a6f1e086d5386b06d78",
+          "tests": 13,
+          "paired_groups": 37,
+          "passed": true,
+          "rows": 10
+        },
+        {
+          "name": "native_fallback_embedding_tests.json",
+          "sha256": "a799ea7fbd3623ba2f9a94508f031d5be83be379714acaa36544f7ecb9c0c498",
+          "tests": 24,
+          "paired_groups": 27,
+          "passed": true,
+          "rows": 15
+        },
+        {
+          "name": "native_layout_embedding_tests.json",
+          "sha256": "4994f80c3469f191397e4340639f8d1003ebb62b31d9024bcf4604f34de2f82c",
+          "tests": 13,
+          "paired_groups": 27,
+          "passed": true,
+          "rows": 9
+        },
+        {
+          "name": "native_plex_import_embedding_tests.json",
+          "sha256": "60f054a0839a5f22ffd4f0a58b76640e59ef3be1bf1015a5b363c9d79c21d42f",
+          "tests": 2,
+          "paired_groups": null,
+          "passed": null,
+          "rows": null
+        },
+        {
+          "name": "native_plex_matching_embedding_tests.json",
+          "sha256": "2d79ebbf5940dbb695b57a009147c6ea563c9d688c981db0927749bec60b6522",
+          "tests": 2,
+          "paired_groups": null,
+          "passed": null,
+          "rows": null
+        },
+        {
+          "name": "native_plex_metadata_embedding_tests.json",
+          "sha256": "70cbb94febde8506c5dc1194bcbd259d0548f9452031fbd8bb4138f828a5c9c6",
+          "tests": 4,
+          "paired_groups": null,
+          "passed": null,
+          "rows": null
+        },
+        {
+          "name": "native_plex_metadata_review_tests.json",
+          "sha256": "2159df07058218b4c5a8dea6b35a7361b911bc45eb798ccaffa6b060e18cf620",
+          "tests": 2,
+          "paired_groups": null,
+          "passed": true,
+          "rows": null
+        },
+        {
+          "name": "native_plex_xml_embedding_tests.json",
+          "sha256": "a1d64f137e3e8030e4d26ab08ae081c1ad7d902c5c476ac85d1eba03346f033a",
+          "tests": 2,
+          "paired_groups": null,
+          "passed": true,
+          "rows": null
+        },
+        {
+          "name": "native_plex_xml_review_tests.json",
+          "sha256": "d234c155992fac693c9853e3dfa3632045cffaeabc6732336aac598a5e97c78c",
+          "tests": 2,
+          "paired_groups": null,
+          "passed": true,
+          "rows": null
+        },
+        {
+          "name": "native_processing_embedding_tests.json",
+          "sha256": "58492e09ad5343b96b28cae60654505c4a46de213174fcd92cde67d1bf025a3d",
+          "tests": 10,
+          "paired_groups": 74,
+          "passed": null,
+          "rows": 24
+        },
+        {
+          "name": "native_public_import_tests.json",
+          "sha256": "f883d37d042de94ae991597c1bc29d91d731f88ae6ff18378d6967d863cfa99f",
+          "tests": 8,
+          "paired_groups": 4,
+          "passed": null,
+          "rows": 4
+        },
+        {
+          "name": "native_query_embedding_tests.json",
+          "sha256": "e406a1858e529b3efd6de2f4a096704c699c2314263adc5cb8436584142dbaf3",
+          "tests": 10,
+          "paired_groups": 77,
+          "passed": null,
+          "rows": 10
+        },
+        {
+          "name": "native_reconciler_embedding_tests.json",
+          "sha256": "12c3d3f5ebbb56640a90ad24da65357b7016e88f7188c80a49e474b575aea27f",
+          "tests": 6,
+          "paired_groups": 25,
+          "passed": true,
+          "rows": 8
+        },
+        {
+          "name": "native_watchers_embedding_tests.json",
+          "sha256": "605609db04baa63a944462e3bcfe48d44e779f236d61ffa52030d1cf131c1021",
+          "tests": 18,
+          "paired_groups": 32,
+          "passed": true,
+          "rows": 11
+        },
+        {
+          "name": "qualify_native_embedding.json",
+          "sha256": "88c3136b16072a579026e9f29ed430f67c35b850c58a4c694bef3dcea00cadab",
+          "tests": 19,
+          "paired_groups": null,
+          "passed": null,
+          "rows": 69
+        }
+      ],
+      "314": [
+        {
+          "name": "native-prerequisites.json",
+          "sha256": "42c9f155f544eb0d118ab00af97764f8bd8c172a7a50d1e2551a029bba014da3",
+          "tests": 4,
+          "paired_groups": null,
+          "passed": true,
+          "rows": null
+        },
+        {
+          "name": "native-wheel-after.json",
+          "sha256": "0a2d7e36d6e412decad3b52109de694d8ff8c18c3d7082ef3114691d33311209",
+          "tests": null,
+          "paired_groups": null,
+          "passed": true,
+          "rows": null
+        },
+        {
+          "name": "native-wheel-before.json",
+          "sha256": "0a2d7e36d6e412decad3b52109de694d8ff8c18c3d7082ef3114691d33311209",
+          "tests": null,
+          "paired_groups": null,
+          "passed": true,
+          "rows": null
+        },
+        {
+          "name": "native_access_admin_tests.json",
+          "sha256": "23fa7e8b2703f8e9e84f30d6d251a51f41154535b4c8bbec7d186bc4dd7c753c",
+          "tests": 9,
+          "paired_groups": 30,
+          "passed": true,
+          "rows": 3
+        },
+        {
+          "name": "native_catalog_refresh_embedding_tests.json",
+          "sha256": "584e166cfe3712240106c9696583e007f143a60b462f01b53b5b4d8d4c6bf5e9",
+          "tests": 16,
+          "paired_groups": 43,
+          "passed": true,
+          "rows": 8
+        },
+        {
+          "name": "native_component_policy_embedding_tests.json",
+          "sha256": "f8740908654922ce3e3a77a1fd6a218bac457e45bb965a6f1e086d5386b06d78",
+          "tests": 13,
+          "paired_groups": 37,
+          "passed": true,
+          "rows": 10
+        },
+        {
+          "name": "native_fallback_embedding_tests.json",
+          "sha256": "a799ea7fbd3623ba2f9a94508f031d5be83be379714acaa36544f7ecb9c0c498",
+          "tests": 24,
+          "paired_groups": 27,
+          "passed": true,
+          "rows": 15
+        },
+        {
+          "name": "native_layout_embedding_tests.json",
+          "sha256": "4994f80c3469f191397e4340639f8d1003ebb62b31d9024bcf4604f34de2f82c",
+          "tests": 13,
+          "paired_groups": 27,
+          "passed": true,
+          "rows": 9
+        },
+        {
+          "name": "native_plex_import_embedding_tests.json",
+          "sha256": "9f751b3f1dca7788b8b54d2ac882e7f214d51514ae4922c7e65411b38d981202",
+          "tests": 2,
+          "paired_groups": null,
+          "passed": null,
+          "rows": null
+        },
+        {
+          "name": "native_plex_matching_embedding_tests.json",
+          "sha256": "f3e3538c51947d5a1d7b5a1663bb391f030878af403c4ee671dc9dd691c65972",
+          "tests": 2,
+          "paired_groups": null,
+          "passed": null,
+          "rows": null
+        },
+        {
+          "name": "native_plex_metadata_embedding_tests.json",
+          "sha256": "1c559f39c6052ed975afed4d0072d5ab8c9ad53179c9fb2525b6b080cec51d44",
+          "tests": 4,
+          "paired_groups": null,
+          "passed": null,
+          "rows": null
+        },
+        {
+          "name": "native_plex_metadata_review_tests.json",
+          "sha256": "132f2251fd230b642d746dd574cbbea895a089d7b571a4f681d92333827097b6",
+          "tests": 2,
+          "paired_groups": null,
+          "passed": true,
+          "rows": null
+        },
+        {
+          "name": "native_plex_xml_embedding_tests.json",
+          "sha256": "cd67ad89461e1036eb8cef86e50b523de34a97221e381c2267826d2af59a6e9c",
+          "tests": 2,
+          "paired_groups": null,
+          "passed": true,
+          "rows": null
+        },
+        {
+          "name": "native_plex_xml_review_tests.json",
+          "sha256": "bb787ffc2e0faeff680fc54b0371c575dad77c6e6d5d831e56fe7ba44ff8ce9c",
+          "tests": 2,
+          "paired_groups": null,
+          "passed": true,
+          "rows": null
+        },
+        {
+          "name": "native_processing_embedding_tests.json",
+          "sha256": "58492e09ad5343b96b28cae60654505c4a46de213174fcd92cde67d1bf025a3d",
+          "tests": 10,
+          "paired_groups": 74,
+          "passed": null,
+          "rows": 24
+        },
+        {
+          "name": "native_public_import_tests.json",
+          "sha256": "1487aaa353808d7a3735c39c7d01383c283b54dedbd56c14959174080511eef5",
+          "tests": 8,
+          "paired_groups": 4,
+          "passed": null,
+          "rows": 4
+        },
+        {
+          "name": "native_query_embedding_tests.json",
+          "sha256": "e406a1858e529b3efd6de2f4a096704c699c2314263adc5cb8436584142dbaf3",
+          "tests": 10,
+          "paired_groups": 77,
+          "passed": null,
+          "rows": 10
+        },
+        {
+          "name": "native_reconciler_embedding_tests.json",
+          "sha256": "12c3d3f5ebbb56640a90ad24da65357b7016e88f7188c80a49e474b575aea27f",
+          "tests": 6,
+          "paired_groups": 25,
+          "passed": true,
+          "rows": 8
+        },
+        {
+          "name": "native_watchers_embedding_tests.json",
+          "sha256": "605609db04baa63a944462e3bcfe48d44e779f236d61ffa52030d1cf131c1021",
+          "tests": 18,
+          "paired_groups": 32,
+          "passed": true,
+          "rows": 11
+        },
+        {
+          "name": "qualify_native_embedding.json",
+          "sha256": "8049e94ccdb7e2e44302b4d823c022adafab06946b9cd32238eade0a9f90a640",
+          "tests": 19,
+          "paired_groups": null,
+          "passed": null,
+          "rows": 69
+        }
+      ]
+    },
+    "runtime_isolation": "Pinned existing runtimes copied byte-for-byte outside checkout; -I fresh local-wheel installations; no weakened source-path gate",
+    "runtime_copy_receipt_sha256": "a7680e8887fa3cbe4bd4eafaed8e7b3d264819a0822fa8e382573433715c76a3",
+    "initial_attempt": "Failed immutable-import preflight because stdlib was beneath checkout; prior successful selected gates do not override that failed attempt",
+    "initial_attempt_receipt_sha256": "b4372d27ef5f8d3a701e60914d8a7faff0746512859109b51734931efed43fc2",
+    "scope": "Selected public facade/import/owner cases, not exhaustive contracts. Reconciler apply/recover refusal-only."
+  },
+  "release_output_refusal": {
+    "cases": 30,
+    "safe_gate": "closed",
+    "helper_sha256": "7cd5c2c3e9c68cf11f74f855980ef15545712716c245f44ba2437e34ea397eb8",
+    "report_sha256": "fde59e541c6fcb4650a3c36c6980582f3eed81745506b4e04cf90398c76d25f9"
+  },
+  "http_fixture_journey": {
+    "complete": true,
+    "commands": 41,
+    "catalog_busy_retries": 0,
+    "artifacts_unchanged": true,
+    "checks": [
+      "authenticated_graphql",
+      "saved_selection",
+      "durable_rendition",
+      "server_worker_restart",
+      "opaque_ticket",
+      "exact_range",
+      "original_denied",
+      "event_replay"
+    ],
+    "release_qualified": false,
+    "release_blockers": [
+      "private_unregistered_orphaned_database_sidecar_aliases",
+      "remaining_platform_and_full_contract_gates"
+    ],
+    "report_sha256": "5cd57a15a1635b5220d5ca780b679812ea1e007614ea9bac5c2770fdfa68a4b4"
+  },
+  "review": "Narrow shared receipt-bootstrap and strict installed-CI wiring corrections independently reviewed. Previously blocked broad definition/filesystem safety lanes remain blocked.",
+  "publication": "Local checkpoint only; remote feature remains historical 6c5e3f5 at last verification."
+}

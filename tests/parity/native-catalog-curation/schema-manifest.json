@@ -1,0 +1,540 @@
+{
+  "schema_version": 34,
+  "first_native_schema": 33,
+  "legacy_target": 32,
+  "independent_review": "incomplete; generation does not close blocked review",
+  "inputs": {
+    "crates/catabolic-store/resources/native-catalog/034_metadata.sql": "c14c3d4cd782425ffa671c0770cc1a23a856432bc6033886f9ed3fcaa79fb9e9",
+    "crates/catabolic-store/resources/native-catalog/034_tags.sql": "df8a8802fb2fe7dce89fe4eb81fe78cfce8ec64198e5d1054120e77dd87a9c3b",
+    "crates/catabolic-store/resources/native-catalog/034_pins.sql": "9efa92b196c4d81f801d0e4aaa48222c6079f6d6223b0a0df11dfd043ce7426a",
+    "crates/catabolic-store/resources/native-catalog/034_logical.sql": "c979370048a0f78e33039d1dfdfb9989663ddd487b3f299eedc1cc9b739ff573",
+    "crates/catabolic-store/resources/migrations/033_native_catalog.sql": "e809421a9cd5b0d561934b0d94e049b3a2d72b3944bd843275193caf6dad931c",
+    "crates/catabolic-store/resources/native-schema-33.json": "bf82c9c96ba35d920f96fbd179acc059eb2e4711f07277e4d251fcc6f1575e3a"
+  },
+  "new_tables": {
+    "catalog_file_tag_suppressions": [
+      {
+        "name": "subject_type",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "file_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "tag_id",
+        "type": "TEXT",
+        "pk": 2
+      },
+      {
+        "name": "revision",
+        "type": "INTEGER",
+        "pk": 0
+      }
+    ],
+    "catalog_identity_pin_revisions": [
+      {
+        "name": "item_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "namespace",
+        "type": "TEXT",
+        "pk": 2
+      },
+      {
+        "name": "revision",
+        "type": "INTEGER",
+        "pk": 3
+      },
+      {
+        "name": "value",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "recorded_at_us",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "command_catalog_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_host_namespace",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_operation_id",
+        "type": "TEXT",
+        "pk": 0
+      }
+    ],
+    "catalog_identity_pins": [
+      {
+        "name": "item_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "namespace",
+        "type": "TEXT",
+        "pk": 2
+      },
+      {
+        "name": "current_revision",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "value",
+        "type": "TEXT",
+        "pk": 0
+      }
+    ],
+    "catalog_item_tag_suppressions": [
+      {
+        "name": "subject_type",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "item_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "tag_id",
+        "type": "TEXT",
+        "pk": 2
+      },
+      {
+        "name": "revision",
+        "type": "INTEGER",
+        "pk": 0
+      }
+    ],
+    "catalog_legacy_identity_evidence": [
+      {
+        "name": "namespace",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "value",
+        "type": "TEXT",
+        "pk": 2
+      },
+      {
+        "name": "item_id",
+        "type": "TEXT",
+        "pk": 3
+      },
+      {
+        "name": "provenance",
+        "type": "TEXT",
+        "pk": 0
+      }
+    ],
+    "catalog_logical_edit_permits": [
+      {
+        "name": "operation_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "incarnation",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "barrier_id",
+        "type": "INTEGER",
+        "pk": 0
+      }
+    ],
+    "catalog_logical_retirements": [
+      {
+        "name": "item_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "kind",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "survivor_item_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "children_json",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "reference_map_json",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_catalog_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_host_namespace",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_operation_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "recorded_at_us",
+        "type": "INTEGER",
+        "pk": 0
+      }
+    ],
+    "catalog_metadata_history": [
+      {
+        "name": "item_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "namespace",
+        "type": "TEXT",
+        "pk": 2
+      },
+      {
+        "name": "record_id",
+        "type": "TEXT",
+        "pk": 3
+      },
+      {
+        "name": "revision",
+        "type": "INTEGER",
+        "pk": 4
+      },
+      {
+        "name": "source_kind",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "schema_fingerprint",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "fields_json",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "evidence_json",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "raw_mutation_json",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_catalog_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_host_namespace",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_operation_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "admitted_at_us",
+        "type": "INTEGER",
+        "pk": 0
+      }
+    ],
+    "catalog_metadata_permits": [
+      {
+        "name": "item_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "incarnation",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "barrier_id",
+        "type": "INTEGER",
+        "pk": 0
+      }
+    ],
+    "catalog_metadata_projection": [
+      {
+        "name": "item_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "schema_fingerprint",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "resolution_json",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "effective_json",
+        "type": "TEXT",
+        "pk": 0
+      }
+    ],
+    "catalog_metadata_sources": [
+      {
+        "name": "item_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "namespace",
+        "type": "TEXT",
+        "pk": 2
+      },
+      {
+        "name": "record_id",
+        "type": "TEXT",
+        "pk": 3
+      },
+      {
+        "name": "source_kind",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "revision",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "schema_fingerprint",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "fields_json",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "evidence_json",
+        "type": "TEXT",
+        "pk": 0
+      }
+    ],
+    "catalog_metadata_subjects": [
+      {
+        "name": "item_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "contract_version",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "schema_fingerprint",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "policies_json",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "legacy_raw_json",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_catalog_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_host_namespace",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_operation_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "admitted_at_us",
+        "type": "INTEGER",
+        "pk": 0
+      }
+    ],
+    "catalog_tag_merges": [
+      {
+        "name": "source_tag_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "original_target_tag_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "snapshot_json",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "recorded_at_us",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "command_catalog_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_host_namespace",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_operation_id",
+        "type": "TEXT",
+        "pk": 0
+      }
+    ],
+    "catalog_tag_redirects": [
+      {
+        "name": "source_tag_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "target_tag_id",
+        "type": "TEXT",
+        "pk": 0
+      }
+    ],
+    "catalog_tag_suppression_revisions": [
+      {
+        "name": "subject_type",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "subject_id",
+        "type": "TEXT",
+        "pk": 2
+      },
+      {
+        "name": "tag_id",
+        "type": "TEXT",
+        "pk": 3
+      },
+      {
+        "name": "revision",
+        "type": "INTEGER",
+        "pk": 4
+      },
+      {
+        "name": "suppressed",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "reason",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "recorded_at_us",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "command_catalog_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_host_namespace",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_operation_id",
+        "type": "TEXT",
+        "pk": 0
+      }
+    ],
+    "catalog_version_retirements": [
+      {
+        "name": "version_id",
+        "type": "TEXT",
+        "pk": 1
+      },
+      {
+        "name": "version_revision",
+        "type": "INTEGER",
+        "pk": 0
+      },
+      {
+        "name": "command_catalog_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_host_namespace",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "command_operation_id",
+        "type": "TEXT",
+        "pk": 0
+      },
+      {
+        "name": "recorded_at_us",
+        "type": "INTEGER",
+        "pk": 0
+      }
+    ]
+  },
+  "new_objects": 117,
+  "sql_sha256": "b1ee139e4844c421c6e4b69f28c8692c1286619edb10d608b60378741a9de299"
+}

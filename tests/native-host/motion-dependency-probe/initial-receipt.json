@@ -1,0 +1,29 @@
+{
+  "both_databases_reopened": true,
+  "catabolic_empty_scan": {
+    "complete": true,
+    "observations": [],
+    "scans": [],
+    "unstarted_sources": []
+  },
+  "catabolic_schema": 32,
+  "common_sqlite_source_id": "2026-06-03 19:12:13 d6e03d8c777cfa2d35e3b60d8ec3e0187f3e9f99d8e2ee9cac695fd6fcdf1a24",
+  "common_sqlite_version": "3.53.2",
+  "math_functions": true,
+  "motion_applied_migrations": 62,
+  "result": "passed",
+  "soundex": false,
+  "validated_platform": "x86_64-unknown-linux-gnu",
+  "rust_toolchain": "1.99.0",
+  "motion_commit": "1e5a24675b059337b34e98f86b225178798cc080",
+  "catabolic_base_commit": "448cdc5b0958b320d2c7dfebd514624baa7a4fc3",
+  "catabolic_source_status": "In-progress R0 host files from parent were present during linked build",
+  "sqlx_sqlite_version": "0.8.6",
+  "rusqlite_version": "0.40.2",
+  "libsqlite3_sys_version": "0.38.2",
+  "verified_vendor_files": 56,
+  "changed_vendor_files": [
+    "sqlx-sqlite-0.8.6/Cargo.toml"
+  ],
+  "full_R0_lifecycle_gate": "Not claimed by this dependency smoke"
+}

@@ -1,0 +1,2865 @@
+{
+  "provenance": {
+    "reference_commit": "453fca983222c6665a48775eef67c489c96b527e",
+    "python": "3.14.6",
+    "graphql_core": "3.2.12",
+    "schema_sha256": "327de5b35a6aaa087f1956ba4a8fe5eb5f03d0f0797b143c85a0e9cc04b8df89",
+    "source": "graphql.validate(build_schema(LOCAL_SDL), parse(document), max_errors=20)",
+    "scope": "Accepted literal diagnostic rendering only; parser and multiline first-column location differences are not qualified."
+  },
+  "cases": [
+    {
+      "name": "numeric-0-list",
+      "document": "{items(tags:-0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: -0",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-0-enum",
+      "document": "{items(sort:-0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: -0.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-0-input",
+      "document": "{items(hasRendition:-0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found -0.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-1-list",
+      "document": "{items(tags:-0.0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: -0.0",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-1-enum",
+      "document": "{items(sort:-0.0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: -0.0.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-1-input",
+      "document": "{items(hasRendition:-0.0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found -0.0.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-2-list",
+      "document": "{items(tags:0e0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: 0e0",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-2-enum",
+      "document": "{items(sort:0e0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: 0e0.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-2-input",
+      "document": "{items(hasRendition:0e0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found 0e0.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-3-list",
+      "document": "{items(tags:1e0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: 1e0",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-3-enum",
+      "document": "{items(sort:1e0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: 1e0.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-3-input",
+      "document": "{items(hasRendition:1e0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found 1e0.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-4-list",
+      "document": "{items(tags:1E+0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: 1E+0",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-4-enum",
+      "document": "{items(sort:1E+0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: 1E+0.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-4-input",
+      "document": "{items(hasRendition:1E+0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found 1E+0.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-5-list",
+      "document": "{items(tags:1E-0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: 1E-0",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-5-enum",
+      "document": "{items(sort:1E-0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: 1E-0.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-5-input",
+      "document": "{items(hasRendition:1E-0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found 1E-0.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-6-list",
+      "document": "{items(tags:1e000){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: 1e000",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-6-enum",
+      "document": "{items(sort:1e000){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: 1e000.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-6-input",
+      "document": "{items(hasRendition:1e000){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found 1e000.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-7-list",
+      "document": "{items(tags:1e+009){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: 1e+009",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-7-enum",
+      "document": "{items(sort:1e+009){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: 1e+009.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-7-input",
+      "document": "{items(hasRendition:1e+009){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found 1e+009.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-8-list",
+      "document": "{items(tags:-2.300E+05){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: -2.300E+05",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-8-enum",
+      "document": "{items(sort:-2.300E+05){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: -2.300E+05.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-8-input",
+      "document": "{items(hasRendition:-2.300E+05){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found -2.300E+05.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-9-list",
+      "document": "{items(tags:1e309){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: 1e309",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-9-enum",
+      "document": "{items(sort:1e309){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: 1e309.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-9-input",
+      "document": "{items(hasRendition:1e309){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found 1e309.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-10-list",
+      "document": "{items(tags:1e-999){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: 1e-999",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-10-enum",
+      "document": "{items(sort:1e-999){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: 1e-999.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-10-input",
+      "document": "{items(hasRendition:1e-999){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found 1e-999.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-11-list",
+      "document": "{items(tags:2147483648){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: 2147483648",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-11-enum",
+      "document": "{items(sort:2147483648){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: 2147483648.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-11-input",
+      "document": "{items(hasRendition:2147483648){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found 2147483648.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-12-list",
+      "document": "{items(tags:9223372036854775808){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: 9223372036854775808",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-12-enum",
+      "document": "{items(sort:9223372036854775808){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: 9223372036854775808.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-12-input",
+      "document": "{items(hasRendition:9223372036854775808){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found 9223372036854775808.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-13-list",
+      "document": "{items(tags:9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-13-enum",
+      "document": "{items(sort:9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "numeric-13-input",
+      "document": "{items(hasRendition:9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Expected value of type 'RenditionFilter', found 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999.",
+            "locations": [
+              {
+                "line": 1,
+                "column": 21
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0000",
+      "document": "{items(first:\"\\u0000\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0000\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0001",
+      "document": "{items(first:\"\\u0001\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0001\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0002",
+      "document": "{items(first:\"\\u0002\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0002\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0003",
+      "document": "{items(first:\"\\u0003\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0003\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0004",
+      "document": "{items(first:\"\\u0004\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0004\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0005",
+      "document": "{items(first:\"\\u0005\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0005\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0006",
+      "document": "{items(first:\"\\u0006\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0006\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0007",
+      "document": "{items(first:\"\\u0007\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0007\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0008",
+      "document": "{items(first:\"\\u0008\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\b\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0009",
+      "document": "{items(first:\"\\u0009\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\t\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U000A",
+      "document": "{items(first:\"\\u000a\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\n\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U000B",
+      "document": "{items(first:\"\\u000b\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u000B\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U000C",
+      "document": "{items(first:\"\\u000c\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\f\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U000D",
+      "document": "{items(first:\"\\u000d\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\r\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U000E",
+      "document": "{items(first:\"\\u000e\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u000E\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U000F",
+      "document": "{items(first:\"\\u000f\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u000F\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0010",
+      "document": "{items(first:\"\\u0010\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0010\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0011",
+      "document": "{items(first:\"\\u0011\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0011\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0012",
+      "document": "{items(first:\"\\u0012\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0012\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0013",
+      "document": "{items(first:\"\\u0013\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0013\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0014",
+      "document": "{items(first:\"\\u0014\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0014\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0015",
+      "document": "{items(first:\"\\u0015\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0015\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0016",
+      "document": "{items(first:\"\\u0016\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0016\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0017",
+      "document": "{items(first:\"\\u0017\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0017\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0018",
+      "document": "{items(first:\"\\u0018\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0018\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0019",
+      "document": "{items(first:\"\\u0019\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0019\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U001A",
+      "document": "{items(first:\"\\u001a\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u001A\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U001B",
+      "document": "{items(first:\"\\u001b\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u001B\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U001C",
+      "document": "{items(first:\"\\u001c\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u001C\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U001D",
+      "document": "{items(first:\"\\u001d\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u001D\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U001E",
+      "document": "{items(first:\"\\u001e\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u001E\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U001F",
+      "document": "{items(first:\"\\u001f\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u001F\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U007F",
+      "document": "{items(first:\"\\u007f\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u007F\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0080",
+      "document": "{items(first:\"\\u0080\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0080\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0081",
+      "document": "{items(first:\"\\u0081\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0081\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0082",
+      "document": "{items(first:\"\\u0082\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0082\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0083",
+      "document": "{items(first:\"\\u0083\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0083\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0084",
+      "document": "{items(first:\"\\u0084\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0084\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0085",
+      "document": "{items(first:\"\\u0085\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0085\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0086",
+      "document": "{items(first:\"\\u0086\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0086\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0087",
+      "document": "{items(first:\"\\u0087\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0087\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0088",
+      "document": "{items(first:\"\\u0088\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0088\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0089",
+      "document": "{items(first:\"\\u0089\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0089\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U008A",
+      "document": "{items(first:\"\\u008a\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u008A\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U008B",
+      "document": "{items(first:\"\\u008b\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u008B\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U008C",
+      "document": "{items(first:\"\\u008c\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u008C\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U008D",
+      "document": "{items(first:\"\\u008d\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u008D\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U008E",
+      "document": "{items(first:\"\\u008e\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u008E\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U008F",
+      "document": "{items(first:\"\\u008f\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u008F\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0090",
+      "document": "{items(first:\"\\u0090\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0090\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0091",
+      "document": "{items(first:\"\\u0091\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0091\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0092",
+      "document": "{items(first:\"\\u0092\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0092\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0093",
+      "document": "{items(first:\"\\u0093\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0093\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0094",
+      "document": "{items(first:\"\\u0094\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0094\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0095",
+      "document": "{items(first:\"\\u0095\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0095\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0096",
+      "document": "{items(first:\"\\u0096\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0096\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0097",
+      "document": "{items(first:\"\\u0097\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0097\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0098",
+      "document": "{items(first:\"\\u0098\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0098\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U0099",
+      "document": "{items(first:\"\\u0099\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u0099\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U009A",
+      "document": "{items(first:\"\\u009a\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u009A\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U009B",
+      "document": "{items(first:\"\\u009b\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u009B\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U009C",
+      "document": "{items(first:\"\\u009c\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u009C\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U009D",
+      "document": "{items(first:\"\\u009d\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u009D\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U009E",
+      "document": "{items(first:\"\\u009e\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u009E\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "control-U009F",
+      "document": "{items(first:\"\\u009f\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\u009F\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "short-escapes",
+      "document": "{items(first:\"\\b\\f\\n\\r\\t\\\\\\\"\\/\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\\b\\f\\n\\r\\t\\\\\\\"/\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "unicode",
+      "document": "{items(first:\"雪😀é\\u2028\\u2029\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"雪😀é  \"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "nested-list",
+      "document": "{items(first:[ -0, 1e0, 1E+0, \"\\b\\f\\u000b\\u008a\" ]){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: [-0, 1e0, 1E+0, \"\\b\\f\\u000B\\u008A\"]",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "nested-object",
+      "document": "{items(first:{zz: -0, aa: [1e0, {x: \"\\u001f\", y: 1E+0}]}){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: {zz: -0, aa: [1e0, {x: \"\\u001F\", y: 1E+0}]}",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "with-comments",
+      "document": "{items(first:[ # fake 1E+0 [ { \\n\n -0, # nested ]\n {xx:1E+0 yy:\"\\b\"}]){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: [-0, {xx: 1E+0, yy: \"\\b\"}]",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-empty",
+      "document": "{items(first:\"\"\"\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-blank",
+      "document": "{items(first:\"\"\" \t\n \n\t\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-short",
+      "document": "{items(first:\"\"\"hello\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"hello\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-nested-short",
+      "document": "{items(first:[{zzz:\"\"\"hello\"\"\",aaa:1E+0},-0]){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: [{zzz: \"\"\"hello\"\"\", aaa: 1E+0}, -0]",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-enum-short",
+      "document": "{items(sort:\"\"\"hello\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: \"\"\"hello\"\"\".",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-default-short",
+      "document": "query($n:Int=\"\"\"hello\"\"\"){items(first:$n){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"hello\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-leading-space",
+      "document": "{items(first:\"\"\" hello\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\" hello\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-leading-tab",
+      "document": "{items(first:\"\"\"\thello\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\thello\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-trailing-space",
+      "document": "{items(first:\"\"\"hello \"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"hello \"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-length-70",
+      "document": "{items(first:\"\"\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-length-71",
+      "document": "{items(first:\"\"\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-nested-length-71",
+      "document": "{items(first:[{zzz:\"\"\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\"\",aaa:1E+0},-0]){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: [{zzz: \"\"\"\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\"\"\", aaa: 1E+0}, -0]",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-enum-length-71",
+      "document": "{items(sort:\"\"\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: \"\"\"\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\"\"\".",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-default-length-71",
+      "document": "query($n:Int=\"\"\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\"\"){items(first:$n){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-unicode-length-70",
+      "document": "{items(first:\"\"\"雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-unicode-length-71",
+      "document": "{items(first:\"\"\"雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\n雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪雪\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-leading-space-long",
+      "document": "{items(first:\"\"\" xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\" xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-multiline",
+      "document": "{items(first:\"\"\" first\n    second\n      third \"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\n first\nsecond\n  third \n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-nested-multiline",
+      "document": "{items(first:[{zzz:\"\"\" first\n    second\n      third \"\"\",aaa:1E+0},-0]){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: [{zzz: \"\"\"\n first\nsecond\n  third \n\"\"\", aaa: 1E+0}, -0]",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-enum-multiline",
+      "document": "{items(sort:\"\"\" first\n    second\n      third \"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: \"\"\"\n first\nsecond\n  third \n\"\"\".",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-default-multiline",
+      "document": "query($n:Int=\"\"\" first\n    second\n      third \"\"\"){items(first:$n){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\n first\nsecond\n  third \n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-blank-lines",
+      "document": "{items(first:\"\"\"\n\n    first\n\n      second\n\n\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\nfirst\n\n  second\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-line-endings",
+      "document": "{items(first:\"\"\"first\rsecond\r\nthird\nfourth\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\nfirst\nsecond\nthird\nfourth\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-trailing-quote",
+      "document": "{items(first:\"\"\"end\"\n\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\nend\"\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-trailing-two-quotes",
+      "document": "{items(first:\"\"\"end\"\"\n\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\nend\"\"\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-trailing-slash",
+      "document": "{items(first:\"\"\"end\\\n\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\nend\\\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-triple-quote",
+      "document": "{items(first:\"\"\"a\\\"\"\"b\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"a\\\"\"\"b\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-nested-triple-quote",
+      "document": "{items(first:[{zzz:\"\"\"a\\\"\"\"b\"\"\",aaa:1E+0},-0]){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: [{zzz: \"\"\"a\\\"\"\"b\"\"\", aaa: 1E+0}, -0]",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-enum-triple-quote",
+      "document": "{items(sort:\"\"\"a\\\"\"\"b\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: \"\"\"a\\\"\"\"b\"\"\".",
+            "locations": [
+              {
+                "line": 1,
+                "column": 13
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-default-triple-quote",
+      "document": "query($n:Int=\"\"\"a\\\"\"\"b\"\"\"){items(first:$n){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"a\\\"\"\"b\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-trailing-triple-quote",
+      "document": "{items(first:\"\"\"end\\\"\"\"\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\nend\\\"\"\"\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-slash-before-triple-quote",
+      "document": "{items(first:\"\"\"a\\\\\"\"\"b\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"a\\\\\"\"\"b\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-line-separator",
+      "document": "{items(first:\"\"\"first second\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\nfirst second\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-paragraph-separator",
+      "document": "{items(first:\"\"\"first second\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\nfirst second\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-c1-separator",
+      "document": "{items(first:\"\"\"firstsecond\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\nfirstsecond\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-separators-indented",
+      "document": "{items(first:\"\"\"first   second  third\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"\nfirst   second  third\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-trailing-separator",
+      "document": "{items(first:\"\"\"first\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"first\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "block-symbols",
+      "document": "{items(first:\"\"\"雪😀 # [] {} $x \\n\"\"\"){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: \"\"\"雪😀 # [] {} $x \\n\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "default-numeric",
+      "document": "query($v:String=-0){items(search:$v){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "String cannot represent a non string value: -0",
+            "locations": [
+              {
+                "line": 1,
+                "column": 17
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "default-exponent",
+      "document": "query($v:Int=1E+0){items(first:$v){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: 1E+0",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "default-nested",
+      "document": "query($v:Int=[{z: -0, a: [1e0,\"\\b\"]}]){items(first:$v){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: [{z: -0, a: [1e0, \"\\b\"]}]",
+            "locations": [
+              {
+                "line": 1,
+                "column": 14
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "default-input",
+      "document": "query($v:RenditionFilter={current:\"\\f\\u000e\\u009f\", recipe:1e0}){items(hasRendition:$v){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Boolean cannot represent a non boolean value: \"\\f\\u000E\\u009F\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 35
+              }
+            ]
+          },
+          {
+            "message": "ID cannot represent a non-string and non-integer value: 1e0",
+            "locations": [
+              {
+                "line": 1,
+                "column": 60
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "default-enum",
+      "document": "query($v:ItemSort=\"\\b\"){items(sort:$v){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Enum 'ItemSort' cannot represent non-enum value: \"\\b\".",
+            "locations": [
+              {
+                "line": 1,
+                "column": 19
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "fragment-numeric",
+      "document": "{...A} fragment A on Query{items(first:1E+0){nodes{id}}}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Int cannot represent non-integer value: 1E+0",
+            "locations": [
+              {
+                "line": 1,
+                "column": 40
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "directive-block",
+      "document": "{profile @skip(if:\"\"\"hello\"\"\")}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Boolean cannot represent a non boolean value: \"\"\"hello\"\"\"",
+            "locations": [
+              {
+                "line": 1,
+                "column": 19
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "directive-nested",
+      "document": "{profile @include(if:[{zzz: -0, aaa: \"\\b\"}])}",
+      "expected": {
+        "data": null,
+        "errors": [
+          {
+            "message": "Boolean cannot represent a non boolean value: [{zzz: -0, aaa: \"\\b\"}]",
+            "locations": [
+              {
+                "line": 1,
+                "column": 22
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

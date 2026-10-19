@@ -29,7 +29,7 @@ pub(crate) fn language(value: &Value) -> Value {
     })
 }
 fn parse(raw: Option<String>, fallback: &str) -> rusqlite::Result<Value> {
-    serde_json::from_str(raw.as_deref().filter(|s| !s.is_empty()).unwrap_or(fallback))
+    catabolic_core::decode_json(raw.as_deref().filter(|s| !s.is_empty()).unwrap_or(fallback))
         .map_err(|e| rusqlite::Error::UserFunctionError(Box::new(e)))
 }
 fn normalize(
@@ -193,7 +193,7 @@ pub fn install(db: &Connection) -> Result<()> {
     )?;
     Ok(())
 }
-fn revision(value: &Value) -> String {
+pub(crate) fn revision(value: &Value) -> String {
     let mut value = value.clone();
     if let Some(o) = value.as_object_mut() {
         o.remove("ctime_ns");
@@ -224,7 +224,7 @@ pub(crate) fn occurrence(db: &Connection, profile: &str, file: &str) -> Result<V
     if let Some(raw) = row
         .and_then(|r| r["settings"].as_str())
         .filter(|s| !s.is_empty())
-        && let Some(o) = serde_json::from_str::<Value>(raw)?.as_object()
+        && let Some(o) = catabolic_core::decode_json(raw)?.as_object()
     {
         for (k, v) in o {
             settings[k] = v.clone();
@@ -258,6 +258,7 @@ fn insert(
     job: Option<&str>,
     key: Option<usize>,
     stream: Option<&Value>,
+    probe_path: &str,
 ) -> Result<()> {
     let rev = revision(snapshot);
     let id = Uuid::new_v5(
@@ -291,7 +292,7 @@ fn insert(
         "INSERT OR IGNORE INTO media_components VALUES (?,?)",
         params![logical, kind],
     )?;
-    db.execute("INSERT INTO component_occurrences(id,component_id,profile,file_id,association_id,item_id,revision,snapshot,association_evidence,item_evidence,storage,locator,probe_job_id,stream_key,probe_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING", params![id,logical,profile,association["file_id"].as_str(),association["id"].as_str(),association["item_id"].as_str(),rev,encode(snapshot),encode(association),item,if association["role"]=="primary" {"embedded"} else {"external"},encode(&locator),job,key.map(|k| k as i64),""])?;
+    db.execute("INSERT INTO component_occurrences(id,component_id,profile,file_id,association_id,item_id,revision,snapshot,association_evidence,item_evidence,storage,locator,probe_job_id,stream_key,probe_path) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING", params![id,logical,profile,association["file_id"].as_str(),association["id"].as_str(),association["item_id"].as_str(),rev,encode(snapshot),encode(association),item,if association["role"]=="primary" {"embedded"} else {"external"},encode(&locator),job,key.map(|k| k as i64),probe_path])?;
     Ok(())
 }
 pub fn backfill(db: &Connection) -> Result<()> {
@@ -299,12 +300,12 @@ pub fn backfill(db: &Connection) -> Result<()> {
     let Some(id) = identity.first() else {
         return Ok(());
     };
-    let namespace = Uuid::parse_str(
+    Uuid::parse_str(
         id["value"]
             .as_str()
             .ok_or_else(|| Error("invalid database identity".into()))?,
     )
-    .map_err(|e| Error(e.to_string()))?;
+    .map_err(|error| Error(error.to_string()))?;
     let generation: i64 = db.query_row(
         "SELECT generation FROM fallback_epoch WHERE id=1",
         [],
@@ -317,110 +318,154 @@ pub fn backfill(db: &Connection) -> Result<()> {
     )? {
         let profile = row["profile"].as_str().unwrap();
         let file = row["file_id"].as_str().unwrap();
-        let associations = rows(
-            db,
-            "SELECT * FROM item_files WHERE file_id=? AND (active=1 OR EXISTS (SELECT 1 FROM media_outputs mo WHERE mo.file_id=item_files.file_id AND mo.item_id=item_files.item_id)) ORDER BY id",
-            &[SqlValue::Text(file.into())],
-        )?;
-        if associations.is_empty() {
-            continue;
-        }
-        let now = occurrence(db, profile, file)?;
-        let args = [SqlValue::Text(profile.into()), SqlValue::Text(file.into())];
-        let mut jobs = rows(
-            db,
-            "SELECT * FROM processing_jobs WHERE profile=? AND file_id=? AND operation='probe' AND state='complete' ORDER BY created_at,id",
-            &args,
-        )?;
-        jobs.extend(rows(db,"SELECT j.*,f.snapshot AS evidence_snapshot,f.data AS evidence_data FROM file_facts f JOIN processing_jobs j ON j.id=f.job_id WHERE f.profile=? AND f.file_id=? AND f.operation='probe' AND f.status='complete' AND j.state='complete'",&args)?);
-        for association in associations {
-            let item: String = db.query_row(
-                "SELECT metadata FROM items WHERE id=?",
-                [association["item_id"].as_str().unwrap()],
-                |r| r.get(0),
-            )?;
-            let metadata: Value = serde_json::from_str(association["metadata"].as_str().unwrap())?;
-            let role = association["role"].as_str().unwrap();
-            let role_kind = match role {
-                "subtitle" => Some("subtitle"),
-                "custom:audio" => Some("audio"),
-                "custom:video" => Some("video"),
-                _ => None,
-            };
-            let mut indexed = false;
-            for job in &jobs {
-                let data: Value = serde_json::from_str(
-                    job.get("evidence_data")
-                        .unwrap_or(&job["result"])
-                        .as_str()
-                        .filter(|s| !s.is_empty())
-                        .unwrap_or("{}"),
-                )?;
-                let snapshot: Value = serde_json::from_str(
-                    job.get("evidence_snapshot")
-                        .unwrap_or(&job["snapshot"])
-                        .as_str()
-                        .unwrap(),
-                )?;
-                if let Some(streams) = data["streams"].as_array() {
-                    for (key, stream) in streams.iter().enumerate() {
-                        let Some(kind) = stream["codec_type"]
-                            .as_str()
-                            .filter(|k| ["video", "audio", "subtitle", "attachment"].contains(k))
-                        else {
-                            continue;
-                        };
-                        if !stream["index"].is_i64() {
-                            continue;
-                        }
-                        if role != "primary"
-                            && (role_kind != Some(kind)
-                                || metadata
-                                    .get("stream_index")
-                                    .is_some_and(|v| !v.is_null() && *v != stream["index"]))
-                        {
-                            continue;
-                        }
-                        insert(
-                            db,
-                            &namespace,
-                            profile,
-                            &association,
-                            &item,
-                            &snapshot,
-                            kind,
-                            json!({"convention":"ffprobe_absolute_stream_index","index":stream["index"]}),
-                            job["id"].as_str(),
-                            Some(key),
-                            Some(stream),
-                        )?;
-                        indexed |= revision(&snapshot) == revision(&now);
-                    }
-                }
-            }
-            if !indexed
-                && now["status"] == "present"
-                && let Some(kind) = role_kind
-            {
-                insert(
-                    db,
-                    &namespace,
-                    profile,
-                    &association,
-                    &item,
-                    &now,
-                    kind,
-                    json!({"convention":"whole_file"}),
-                    None,
-                    None,
-                    None,
-                )?;
-            }
-        }
+        index_file(db, profile, file, true)?;
     }
     db.execute(
         "UPDATE fallback_epoch SET generation=? WHERE id=1",
         [generation],
     )?;
+    Ok(())
+}
+
+/// Maintain revision-pinned current inventory, or adopt retained history during migration.
+pub(crate) fn index_file(
+    db: &Connection,
+    profile: &str,
+    file: &str,
+    historical: bool,
+) -> Result<()> {
+    let identity = rows(db, "SELECT value FROM meta WHERE key='database_id'", &[])?;
+    let id = identity
+        .first()
+        .ok_or_else(|| Error("missing database identity".into()))?;
+    let namespace = Uuid::parse_str(
+        id["value"]
+            .as_str()
+            .ok_or_else(|| Error("invalid database identity".into()))?,
+    )
+    .map_err(|e| Error(e.to_string()))?;
+    let associations = rows(
+        db,
+        "SELECT * FROM item_files WHERE file_id=? AND (active=1 OR EXISTS (SELECT 1 FROM media_outputs mo WHERE mo.file_id=item_files.file_id AND mo.item_id=item_files.item_id)) ORDER BY id",
+        &[SqlValue::Text(file.into())],
+    )?;
+    if associations.is_empty() {
+        return Ok(());
+    }
+    let now = occurrence(db, profile, file)?;
+    let args = [SqlValue::Text(profile.into()), SqlValue::Text(file.into())];
+    let mut jobs = if historical {
+        rows(
+            db,
+            "SELECT * FROM processing_jobs WHERE profile=? AND file_id=? AND operation='probe' AND state='complete' ORDER BY created_at,id",
+            &args,
+        )?
+    } else {
+        vec![]
+    };
+    jobs.extend(rows(db,"SELECT j.*,f.snapshot AS evidence_snapshot,f.data AS evidence_data FROM file_facts f JOIN processing_jobs j ON j.id=f.job_id WHERE f.profile=? AND f.file_id=? AND f.operation='probe' AND f.status='complete' AND j.state='complete'",&args)?);
+    if !historical {
+        jobs.retain(|job| {
+            catabolic_core::decode_json(
+                job.get("evidence_snapshot")
+                    .unwrap_or(&job["snapshot"])
+                    .as_str()
+                    .unwrap_or("{}"),
+            )
+            .is_ok_and(|snapshot| revision(&snapshot) == revision(&now))
+        });
+    }
+    for association in associations {
+        let item: String = db.query_row(
+            "SELECT metadata FROM items WHERE id=?",
+            [association["item_id"].as_str().unwrap()],
+            |r| r.get(0),
+        )?;
+        let metadata: Value =
+            catabolic_core::decode_json(association["metadata"].as_str().unwrap())?;
+        let role = association["role"].as_str().unwrap();
+        let role_kind = match role {
+            "subtitle" => Some("subtitle"),
+            "custom:audio" => Some("audio"),
+            "custom:video" => Some("video"),
+            _ => None,
+        };
+        let mut indexed = false;
+        for job in &jobs {
+            let data: Value = catabolic_core::decode_json(
+                job.get("evidence_data")
+                    .unwrap_or(&job["result"])
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or("{}"),
+            )?;
+            let snapshot: Value = catabolic_core::decode_json(
+                job.get("evidence_snapshot")
+                    .unwrap_or(&job["snapshot"])
+                    .as_str()
+                    .unwrap(),
+            )?;
+            if let Some(streams) = data["streams"].as_array() {
+                for (key, stream) in streams.iter().enumerate() {
+                    let Some(kind) = stream["codec_type"]
+                        .as_str()
+                        .filter(|k| ["video", "audio", "subtitle", "attachment"].contains(k))
+                    else {
+                        continue;
+                    };
+                    if !stream["index"].is_i64() {
+                        continue;
+                    }
+                    if role != "primary"
+                        && (role_kind != Some(kind)
+                            || metadata
+                                .get("stream_index")
+                                .is_some_and(|v| !v.is_null() && *v != stream["index"]))
+                    {
+                        continue;
+                    }
+                    insert(
+                        db,
+                        &namespace,
+                        profile,
+                        &association,
+                        &item,
+                        &snapshot,
+                        kind,
+                        json!({"convention":"ffprobe_absolute_stream_index","index":stream["index"]}),
+                        job["id"].as_str(),
+                        Some(key),
+                        Some(stream),
+                        if job["operation"] == "render" {
+                            "validation.output"
+                        } else {
+                            ""
+                        },
+                    )?;
+                    indexed |= revision(&snapshot) == revision(&now);
+                }
+            }
+        }
+        if !indexed
+            && now["status"] == "present"
+            && let Some(kind) = role_kind
+        {
+            insert(
+                db,
+                &namespace,
+                profile,
+                &association,
+                &item,
+                &now,
+                kind,
+                json!({"convention":"whole_file"}),
+                None,
+                None,
+                None,
+                "",
+            )?;
+        }
+    }
+
     Ok(())
 }

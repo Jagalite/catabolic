@@ -1,0 +1,5800 @@
+{
+  "reference": "Apprise 1.13.1; frozen Catabolic notification_worker title/body",
+  "cases": [
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user@example.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": null,
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "user@example.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "user@example.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@example.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://localhost",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "localhost",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": null,
+        "password": null,
+        "from_addr": [
+          false,
+          "root@localhost"
+        ],
+        "targets": [
+          [
+            false,
+            "root@localhost"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "root@localhost",
+          "recipients": [
+            "root@localhost"
+          ],
+          "headers": {
+            "from": [
+              [
+                "",
+                "root@localhost"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "root@localhost"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailtos://user:synthetic@example.com/one@example.net?mode=ssl",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 465,
+        "secure_mode": "ssl",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailtos://user:synthetic@example.com/one@example.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 587,
+        "secure_mode": "starttls",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://127.0.0.1:12345/one@example.net?from=sender@example.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "127.0.0.1",
+        "port": 12345,
+        "secure_mode": "insecure",
+        "user": null,
+        "password": null,
+        "from_addr": [
+          false,
+          "sender@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "sender@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "",
+                "sender@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/One:one@example.net/Two:two@example.net?cc=one@example.net,copy@example.net,hidden@example.net&bcc=hidden@example.net&reply=help@example.net&name=Service",
+      "added": true,
+      "complete": false,
+      "known_reference_bug": "reply_to_set_mutation",
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Service",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            "One",
+            "one@example.net"
+          ],
+          [
+            "Two",
+            "two@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "copy@example.net",
+            "hidden@example.net",
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Service",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "One",
+                "one@example.net"
+              ]
+            ],
+            "cc": [
+              [
+                "",
+                "copy@example.net"
+              ]
+            ],
+            "reply-to": [
+              [
+                "",
+                "help@example.net"
+              ]
+            ],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?to=two@example.net&format=text",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ],
+          [
+            false,
+            "two@example.net"
+          ]
+        ],
+        "notify_format": "text",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        },
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "two@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "two@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?format=markdown",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "markdown",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?from=%C3%89lodie%20%3Csender@example.com%3E",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "\u00c9lodie",
+          "sender@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "sender@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "\u00c9lodie",
+                "sender@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/Person%20Name:one@example.net?cc=Copy:copy@example.net&reply=Help:help@example.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            "Person Name",
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "copy@example.net",
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "Person Name",
+                "one@example.net"
+              ]
+            ],
+            "cc": [
+              [
+                "Copy",
+                "copy@example.net"
+              ]
+            ],
+            "reply-to": [
+              [
+                "Help",
+                "help@example.net"
+              ]
+            ],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/Person%20Name%20one@example.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            "Person Name",
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "Person Name",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/%27Person%20Name%27%3Aone@example.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            "Person Name",
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "Person Name",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net%20two@example.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ],
+          [
+            false,
+            "two@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        },
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "two@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "two@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://old@example.com?user=new%40origin.net&pass=p+q%252B",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "new@origin.net",
+        "password": "p+q+",
+        "from_addr": [
+          "Apprise",
+          "new@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "new@example.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "new@example.com",
+          "recipients": [
+            "new@example.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "new@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "new@example.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://synthetic@example.com?user=person",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "person",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "person@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "person@example.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "person@example.com",
+          "recipients": [
+            "person@example.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "person@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "person@example.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user%40origin.net:synthetic@example.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user@origin.net",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "user@example.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "user@example.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@example.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@gmail.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "smtp.gmail.com",
+        "port": 587,
+        "secure_mode": "starttls",
+        "user": "user@gmail.com",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@gmail.com"
+        ],
+        "targets": [
+          [
+            false,
+            "user@gmail.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@gmail.com",
+          "recipients": [
+            "user@gmail.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@gmail.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@gmail.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@gmail.com?mode=insecure&smtp=127.0.0.1&port=12345",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "127.0.0.1",
+        "port": 12345,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@gmail.com"
+        ],
+        "targets": [
+          [
+            false,
+            "user@gmail.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@gmail.com",
+          "recipients": [
+            "user@gmail.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@gmail.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@gmail.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@yahoo.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "smtp.mail.yahoo.com",
+        "port": 465,
+        "secure_mode": "ssl",
+        "user": "user@yahoo.com",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@yahoo.com"
+        ],
+        "targets": [
+          [
+            false,
+            "user@yahoo.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@yahoo.com",
+          "recipients": [
+            "user@yahoo.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@yahoo.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@yahoo.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@yandex.ru",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "smtp.yandex.ru",
+        "port": 465,
+        "secure_mode": "ssl",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@yandex.ru"
+        ],
+        "targets": [
+          [
+            false,
+            "user@yandex.ru"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@yandex.ru",
+          "recipients": [
+            "user@yandex.ru"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@yandex.ru"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@yandex.ru"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@hotmail.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "smtp-mail.outlook.com",
+        "port": 587,
+        "secure_mode": "starttls",
+        "user": "user@hotmail.com",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@hotmail.com"
+        ],
+        "targets": [
+          [
+            false,
+            "user@hotmail.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@hotmail.com",
+          "recipients": [
+            "user@hotmail.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@hotmail.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@hotmail.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@outlook.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "smtp.outlook.com",
+        "port": 587,
+        "secure_mode": "starttls",
+        "user": "user@outlook.com",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@outlook.com"
+        ],
+        "targets": [
+          [
+            false,
+            "user@outlook.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@outlook.com",
+          "recipients": [
+            "user@outlook.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@outlook.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@outlook.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@office365.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "smtp.office365.com",
+        "port": 587,
+        "secure_mode": "starttls",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@office365.com"
+        ],
+        "targets": [
+          [
+            false,
+            "user@office365.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@office365.com",
+          "recipients": [
+            "user@office365.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@office365.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@office365.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@gmx.de",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "mail.gmx.com",
+        "port": 587,
+        "secure_mode": "starttls",
+        "user": "user@gmx.de",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@gmx.de"
+        ],
+        "targets": [
+          [
+            false,
+            "user@gmx.de"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@gmx.de",
+          "recipients": [
+            "user@gmx.de"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@gmx.de"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@gmx.de"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@fastmail.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "smtp.fastmail.com",
+        "port": 465,
+        "secure_mode": "ssl",
+        "user": "user@fastmail.com",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@fastmail.com"
+        ],
+        "targets": [
+          [
+            false,
+            "user@fastmail.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@fastmail.com",
+          "recipients": [
+            "user@fastmail.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@fastmail.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@fastmail.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@mm.st",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "smtp.fastmail.com",
+        "port": 465,
+        "secure_mode": "ssl",
+        "user": "user@mm.st",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@mm.st"
+        ],
+        "targets": [
+          [
+            false,
+            "user@mm.st"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@mm.st",
+          "recipients": [
+            "user@mm.st"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@mm.st"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@mm.st"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@zoho.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "smtp.zoho.com",
+        "port": 587,
+        "secure_mode": "starttls",
+        "user": "user@zoho.com",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@zoho.com"
+        ],
+        "targets": [
+          [
+            false,
+            "user@zoho.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@zoho.com",
+          "recipients": [
+            "user@zoho.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@zoho.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@zoho.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@sendgrid.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "smtp.sendgrid.net",
+        "port": 465,
+        "secure_mode": "ssl",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@sendgrid.net"
+        ],
+        "targets": [
+          [
+            false,
+            "user@sendgrid.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@sendgrid.net",
+          "recipients": [
+            "user@sendgrid.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@sendgrid.net"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@sendgrid.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@163.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "smtp.163.com",
+        "port": 465,
+        "secure_mode": "ssl",
+        "user": "user@163.com",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@163.com"
+        ],
+        "targets": [
+          [
+            false,
+            "user@163.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@163.com",
+          "recipients": [
+            "user@163.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@163.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@163.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@qq.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "smtp.qq.com",
+        "port": 587,
+        "secure_mode": "starttls",
+        "user": "user@qq.com",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@qq.com"
+        ],
+        "targets": [
+          [
+            false,
+            "user@qq.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@qq.com",
+          "recipients": [
+            "user@qq.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@qq.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@qq.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@comcast.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "smtp.comcast.net",
+        "port": 465,
+        "secure_mode": "ssl",
+        "user": "user@comcast.net",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@comcast.net"
+        ],
+        "targets": [
+          [
+            false,
+            "user@comcast.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@comcast.net",
+          "recipients": [
+            "user@comcast.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@comcast.net"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@comcast.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com?retry=1&wait=0&optional=yes&cto=1&rto=2",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "user@example.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 1,
+        "wait": 0.0,
+        "optional": true
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "user@example.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "user@example.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://old:@example.com?user=new",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "new",
+        "password": "",
+        "from_addr": [
+          "Apprise",
+          "new@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "new@example.com"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "new@example.com",
+          "recipients": [
+            "new@example.com"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "new@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "new@example.com"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/j%C3%B3se@example.net",
+      "added": true,
+      "complete": false,
+      "known_reference_bug": null,
+      "native_expectation": "no_recipients",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": []
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@ex%C3%A4mple.net",
+      "added": true,
+      "complete": false,
+      "known_reference_bug": null,
+      "native_expectation": "no_recipients",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": []
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net/j%C3%B3se@example.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?from=s%C3%A9@example.com",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "s\u00e9@example.com",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "s\u00e9@example.com",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?cc=j%C3%B3se@example.net&reply=r%C3%A9@example.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-Test=abc",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "X-Test",
+              "abc"
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-Application=Mine",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Mine",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-One=1&+X-Two=2&+X-One=3",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "X-One",
+              "3"
+            ],
+            [
+              "X-Two",
+              "2"
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-A=1&+x-a=2",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "X-A",
+              "1"
+            ],
+            [
+              "x-a",
+              "2"
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-Test=caf%C3%A9",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "X-Test",
+              "caf\u00e9"
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-Test=%2541",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "X-Test",
+              "A"
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-Test=",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "X-Test",
+              ""
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-Test",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "X-Test",
+              ""
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?%2BX-Test=q",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "X-Test",
+              "q"
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-Test=a+b",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "X-Test",
+              "a+b"
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-Test=%2520x%2520",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "X-Test",
+              "x "
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+x_test=1&+List-Unsubscribe=%3Cmailto:u@example.net%3E",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "x_test",
+              "1"
+            ],
+            [
+              "List-Unsubscribe",
+              "<mailto:u@example.net>"
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-Long=%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "X-Long",
+              "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?format=text&+X-Test=abc",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "text",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "X-Test",
+              "abc"
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+Subject=Evil",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Evil",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+From=x@example.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "",
+                "x@example.net"
+              ],
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+To=x@example.net",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "x@example.net"
+              ],
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+Date=today",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+Message-ID=m",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+Reply-To=r@example.org",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [
+              [
+                "",
+                "r@example.org"
+              ]
+            ],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+Cc=c@example.org",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [
+              [
+                "",
+                "c@example.org"
+              ]
+            ],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+Bcc=b@example.org",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": [
+              [
+                "",
+                "b@example.org"
+              ]
+            ]
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+Content-Type=text/x",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+MIME-Version=2.0",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+x-application=lower",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X%20Test=q",
+      "added": true,
+      "complete": false,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": []
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X:Test=q",
+      "added": true,
+      "complete": false,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": []
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+=q",
+      "added": true,
+      "complete": false,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": []
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-Test=a%0D%0AB:%20c",
+      "added": true,
+      "complete": false,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": []
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-Test=a%250D%250AB:%20c",
+      "added": true,
+      "complete": false,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": []
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?+X-Test=%0D%0AInjected",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [
+            [
+              "X-Test",
+              "Injected"
+            ]
+          ],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=UTC",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "UTC"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": "+0000",
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=utc",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "UTC"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": "+0000",
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=Z",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "UTC"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": "+0000",
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=Etc/GMT",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "UTC"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": "+0000",
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=GMT",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "UTC"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": "+0000",
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=Asia/Tokyo",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "Asia/Tokyo"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": "+0900",
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=asia/tokyo",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "asia/tokyo"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": "+0900",
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=Tokyo",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "Asia/Tokyo"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": "+0900",
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=Kolkata",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "Asia/Kolkata"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": "+0530",
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=%20Asia/Tokyo%20",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "Asia/Tokyo"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": "+0900",
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=Europe/Paris",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "Europe/Paris"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=US/Pacific",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "US/Pacific"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=America/Argentina/Buenos_Aires",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "America/Argentina/Buenos_Aires"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=Buenos_Aires",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "America/Buenos_Aires"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=Indianapolis",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "America/Indianapolis"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=EST5EDT",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "EST5EDT"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=Asia/Tokyo&tz=UTC",
+      "added": true,
+      "complete": true,
+      "known_reference_bug": null,
+      "native_expectation": null,
+      "settings": {
+        "smtp_host": "example.com",
+        "port": 25,
+        "secure_mode": "insecure",
+        "user": "user",
+        "password": "synthetic",
+        "from_addr": [
+          "Apprise",
+          "user@example.com"
+        ],
+        "targets": [
+          [
+            false,
+            "one@example.net"
+          ]
+        ],
+        "notify_format": "html",
+        "retry": 0,
+        "wait": 0.5,
+        "optional": false,
+        "tz_key": "UTC"
+      },
+      "messages": [
+        {
+          "sender": "user@example.com",
+          "recipients": [
+            "one@example.net"
+          ],
+          "headers": {
+            "from": [
+              [
+                "Apprise",
+                "user@example.com"
+              ]
+            ],
+            "to": [
+              [
+                "",
+                "one@example.net"
+              ]
+            ],
+            "cc": [],
+            "reply-to": [],
+            "bcc": []
+          },
+          "subject": "Catabolic",
+          "date_offset": null,
+          "application": "Apprise",
+          "extra_headers": [],
+          "parts": [
+            {
+              "type": "text/plain",
+              "body": "A Catabolic processing job completed."
+            },
+            {
+              "type": "text/html",
+              "body": "A Catabolic processing job completed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=Nope/Zone",
+      "added": false,
+      "complete": false,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": null,
+      "messages": []
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=",
+      "added": false,
+      "complete": false,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": null,
+      "messages": []
+    },
+    {
+      "url": "mailto://user:synthetic@example.com/one@example.net?tz=%20",
+      "added": false,
+      "complete": false,
+      "known_reference_bug": null,
+      "native_expectation": "reject",
+      "settings": null,
+      "messages": []
+    }
+  ]
+}
