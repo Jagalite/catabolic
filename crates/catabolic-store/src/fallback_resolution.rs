@@ -537,7 +537,7 @@ impl<'a, 'b> Resolver<'a, 'b> {
             &self.store().db,
             &format!(
                 "SELECT * FROM ({}) WHERE profile=? AND file_id=?",
-                crate::query::view_sql("catalog_renditions")
+                crate::query::view_sql_for(self.store(), "catalog_renditions")
             ),
             &[self.profile().to_owned().into(), file.to_owned().into()],
         )?;
@@ -752,7 +752,7 @@ impl<'a, 'b> Resolver<'a, 'b> {
                     let components = self.rows(
                         &format!(
                             "SELECT occurrence_id,association_id FROM ({}) WHERE profile=? AND kind='video' AND current=1 AND {entity} IN (SELECT value FROM json_each(?)) LIMIT ?",
-                            crate::query::view_sql("catalog_component_occurrences")
+                            crate::query::view_sql_for(self.store(), "catalog_component_occurrences")
                         ),
                         &[
                             self.profile().to_owned().into(),
@@ -939,7 +939,7 @@ impl<'a, 'b> Resolver<'a, 'b> {
                         let old_file = package["video"].get("file_id").unwrap_or(&prior["file_id"]);
                         let old_video = &package["video"]["occurrence_id"];
                         if matches!(selected.entity.as_str(), "component_id" | "occurrence_id") {
-                            let matches=self.rows(&format!("SELECT association_id FROM ({}) WHERE profile=? AND occurrence_id=? AND {} IN (SELECT value FROM json_each(?)) AND current=1",crate::query::view_sql("catalog_component_occurrences"),selected.entity),&[self.profile().to_owned().into(),crate::sql::scalar(old_video)?,encode(&json!(selected.ids)).into()])?;
+                            let matches=self.rows(&format!("SELECT association_id FROM ({}) WHERE profile=? AND occurrence_id=? AND {} IN (SELECT value FROM json_each(?)) AND current=1",crate::query::view_sql_for(self.store(), "catalog_component_occurrences"),selected.entity),&[self.profile().to_owned().into(),crate::sql::scalar(old_video)?,encode(&json!(selected.ids)).into()])?;
                             selected.entity = "association_id".into();
                             selected.ids = matches
                                 .iter()

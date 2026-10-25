@@ -766,6 +766,15 @@ fn apply_merge(
     let affected = &preview.body.affected;
     let src_assertions = &affected.source_assertions;
     let dst_assertions = &affected.target_assertions;
+    if db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))? == 41
+        && src_assertions.iter().any(|row| row.source == "motion.nfo")
+    {
+        return fail(
+            TagErrorCode::AuthorityDenied,
+            "NFO assertion merge requires accounted source lineage",
+        );
+    }
+
     let src_suppressions = &affected.source_suppressions;
     let dst_suppressions = &affected.target_suppressions;
     let mut choices = BTreeSet::new();
@@ -1207,6 +1216,11 @@ fn merge_mappings(affected: &TagMergeAffected) -> Result<TagMergeMappings> {
     })
 }
 fn canonical_preview_digest(body: &TagMergePreviewBody) -> Result<String> {
+    canonical_preview_value_digest(&serde_json::to_value(body)?)
+}
+/// The same descriptive digest over already bounded retained preview data.
+/// This does not validate authority, admit a caller preview, or perform a merge.
+pub(crate) fn canonical_preview_value_digest(body: &Value) -> Result<String> {
     // Canonicalization v1: compact JSON, recursively lexicographic object keys,
     // array order preserved, serde_json numeric/string encoding; domain-separated
     // SHA-256. Independent of serde_json preserve_order feature unification.
@@ -1240,7 +1254,7 @@ fn canonical_preview_digest(body: &TagMergePreviewBody) -> Result<String> {
         Ok(())
     }
     let mut bytes = Vec::new();
-    encode(&serde_json::to_value(body)?, &mut bytes)?;
+    encode(body, &mut bytes)?;
     if bytes.len() > MAX_PREVIEW_BYTES {
         return fail(
             TagErrorCode::LimitExceeded,

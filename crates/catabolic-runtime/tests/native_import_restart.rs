@@ -1058,3 +1058,244 @@ fn restart_version_and_profile_are_checked_before_opening_a_catalog() {
     assert_eq!(invalid.code, ErrorCode::InvalidInput);
     assert!(!missing.exists());
 }
+
+#[test]
+fn partition_restart_reconciles_every_durable_receipt_before_one_gate() {
+    use catabolic_runtime::host::{PARTITIONED_IMPORT_RESTART_CONTRACT_VERSION, RecordedImportSet};
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("partitioned.db");
+    migration::initialize_native_at(&path, 39).unwrap();
+    let store = Store::open(&path, true, false).unwrap();
+    let mut records = Vec::new();
+    for id in ["partition-a", "partition-b"] {
+        let grant = ImportAuthority {
+            host_namespace: HOST.into(),
+            import_id: id.into(),
+            source_namespace: "partitioned-fixture".into(),
+        };
+        let manifest = SnapshotManifest {
+            contract_version: import::EMPTY_IMPORT_CONTRACT_VERSION,
+            import_id: id.into(),
+            source_namespace: grant.source_namespace.clone(),
+            source_snapshot_id: "complete-frozen-source".into(),
+            batches: vec![],
+        };
+        let digest = import::manifest_digest(&manifest).unwrap();
+        let execute = |step, mutation: ImportMutation| {
+            let intent = command(
+                &store,
+                &import::operation_id(id, step).unwrap(),
+                json!({"operation":"import","mutation":mutation}),
+            );
+            value(
+                commands::execute_with_authority(
+                    &store,
+                    &intent,
+                    CatalogAuthority::new(base()).with_imports(&grant),
+                    policy(),
+                )
+                .unwrap(),
+            )
+        };
+        execute(
+            ImportStep::Prepare,
+            ImportMutation::Prepare {
+                manifest,
+                input_digest: digest.clone(),
+            },
+        );
+        let validated = execute(
+            ImportStep::Validate,
+            ImportMutation::Validate {
+                import_id: id.into(),
+                input_digest: digest.clone(),
+            },
+        );
+        let map = validated["mapping_digest"].as_str().unwrap().to_owned();
+        let binding = ActivationBinding {
+            catalog_id: store.database_id.clone(),
+            incarnation: store.catalog_incarnation.clone().unwrap(),
+            import_id: id.into(),
+            input_digest: digest.clone(),
+            source_snapshot_id: "complete-frozen-source".into(),
+            validation_generation: generation(&store),
+            reference_ack_id: "aggregate-audit".into(),
+            mapping_digest: map.clone(),
+        };
+        let gate = HostAuthorization::new(HOST.into(), format!("freeze-{id}")).unwrap();
+        let active = TrustedImportActivation::after_drain(
+            &gate,
+            gate.begin_revocation().unwrap(),
+            binding.clone(),
+        )
+        .unwrap();
+        let intent = command(
+            &store,
+            &import::operation_id(id, ImportStep::Activate).unwrap(),
+            json!({"operation":"import","mutation":ImportMutation::Activate{import_id:id.into(),input_digest:digest.clone(),reference_ack_id:binding.reference_ack_id.clone(),mapping_digest:map.clone()}}),
+        );
+        commands::execute_with_authority(
+            &store,
+            &intent,
+            CatalogAuthority::new(base())
+                .with_imports(&grant)
+                .with_import_activation(&active),
+            policy(),
+        )
+        .unwrap();
+        records.push(RecordedImportHandshake {
+            activation_intent: intent,
+            checkpoint: HostCutoverCheckpoint {
+                catalog_id: binding.catalog_id,
+                incarnation: binding.incarnation,
+                phase: HostCutoverPhase::Activated,
+                import_id: id.into(),
+                input_digest: digest,
+                reference_ack_id: binding.reference_ack_id,
+                mapping_digest: map,
+            },
+        });
+    }
+    drop(store);
+    let ids = ["partition-a".into(), "partition-b".into()].into();
+    let digest = catabolic_core::sha256(b"trusted complete two-partition manifest");
+    assert!(
+        RecordedImportSet::from_durable_manifest(digest.clone(), &ids, vec![records[0].clone()])
+            .is_err()
+    );
+    assert!(
+        RecordedImportSet::from_durable_manifest(
+            digest.clone(),
+            &ids,
+            vec![records[0].clone(), records[0].clone()]
+        )
+        .is_err()
+    );
+    let complete =
+        RecordedImportSet::from_durable_manifest(digest.clone(), &ids, records.clone()).unwrap();
+    assert_eq!(complete.partition_count(), 2);
+    let mut mixed = records.clone();
+    mixed[1].checkpoint.incarnation = "different-incarnation".into();
+    assert!(RecordedImportSet::from_durable_manifest(digest.clone(), &ids, mixed).is_err());
+    let unexpected = ["partition-a".into(), "unexpected".into()].into();
+    assert!(
+        RecordedImportSet::from_durable_manifest(digest.clone(), &unexpected, records.clone())
+            .is_err()
+    );
+    assert!(
+        HostSession::open_after_import_cutovers(
+            &path,
+            "default",
+            PARTITIONED_IMPORT_RESTART_CONTRACT_VERSION,
+            &complete,
+            &"0".repeat(64),
+            base(),
+            "wrong-manifest".into(),
+            policy(),
+        )
+        .is_err()
+    );
+    let mut admission = HostSession::open_after_import_cutovers(
+        &path,
+        "default",
+        PARTITIONED_IMPORT_RESTART_CONTRACT_VERSION,
+        &complete,
+        &digest,
+        base(),
+        "complete-gate".into(),
+        policy(),
+    )
+    .unwrap();
+    assert_eq!(admission.decision(), Reconciliation::AdmitCatabolicOnly);
+    admission.admitted_host().unwrap().close().unwrap();
+    drop(admission);
+    records[1].checkpoint.phase = HostCutoverPhase::Validated;
+    let incomplete =
+        RecordedImportSet::from_durable_manifest(digest.clone(), &ids, records).unwrap();
+    let mut admission = HostSession::open_after_import_cutovers(
+        &path,
+        "default",
+        PARTITIONED_IMPORT_RESTART_CONTRACT_VERSION,
+        &incomplete,
+        &digest,
+        base(),
+        "closed-gate".into(),
+        policy(),
+    )
+    .unwrap();
+    assert_eq!(admission.decision(), Reconciliation::FinishHostActivation);
+    assert!(admission.admitted_host().is_err());
+}
+
+#[test]
+#[ignore = "real native helper qualification: restart retains terminal deferred scan history"]
+fn native39_restart_allows_only_witnessed_terminal_deferred_history() {
+    let f = setup(39);
+    let record = crash(&f, "after-host-checkpoint", true);
+    let store = Store::open(&f.path, true, false).unwrap();
+    let job: String = store
+        .db
+        .query_row("SELECT id FROM observation_jobs LIMIT 1", [], |r| r.get(0))
+        .unwrap();
+    assert!(companion::has_cleanup_witness(&store, &job).unwrap());
+    // Simulate retained incomplete coverage after a real, independently reaped
+    // helper. This does not manufacture or modify its actual cleanup witness.
+    store.transaction(|db|{db.execute("INSERT INTO observation_scopes(job_id,path,state,detail,updated_at) VALUES(?,'historical-deferred','deferred','{}',1)",[&job])?; Ok(())}).unwrap();
+    drop(store);
+    let before = snapshot(&f.path);
+    let mut reopened = reopen(&f, &record, base()).unwrap();
+    assert_eq!(reopened.decision(), Reconciliation::AdmitCatabolicOnly);
+    assert!(reopened.admitted_host().is_ok());
+    drop(reopened);
+    assert_eq!(snapshot(&f.path), before);
+    let store = Store::open(&f.path, true, false).unwrap();
+    assert_eq!(store.db.query_row("SELECT state FROM observation_scopes WHERE job_id=? AND path='historical-deferred'",[&job],|r|r.get::<_,String>(0)).unwrap(),"deferred");
+    store
+        .transaction(|db| {
+            db.execute(
+                "UPDATE observation_jobs SET claim_token='different-owner' WHERE id=?",
+                [&job],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+    drop(store);
+    assert_closed(reopen(&f, &record, base()), None);
+}
+
+#[test]
+fn native40_restart_requires_actual_activation_and_host_acknowledgment() {
+    for mode in [
+        "before-activation",
+        "after-activation",
+        "after-host-checkpoint",
+    ] {
+        let f = setup(40);
+        let record = crash(&f, mode, false);
+        let before = snapshot(&f.path);
+        let outcome = reopen(&f, &record, base());
+        if mode == "after-host-checkpoint" {
+            let mut admission = outcome.unwrap();
+            assert_eq!(admission.decision(), Reconciliation::AdmitCatabolicOnly);
+            assert_eq!(
+                admission.admitted_host().unwrap().identity().unwrap()["schema_version"],
+                40
+            );
+            admission.admitted_host().unwrap().close().unwrap();
+        } else {
+            assert_closed(
+                outcome,
+                if mode == "after-activation" {
+                    Some(Reconciliation::FinishHostActivation)
+                } else {
+                    None
+                },
+            );
+        }
+        assert_eq!(
+            snapshot(&f.path),
+            before,
+            "restart never dispatches an absent activation"
+        );
+    }
+}

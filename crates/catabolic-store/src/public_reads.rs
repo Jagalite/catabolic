@@ -24,6 +24,7 @@ fn raw_size(row: &rusqlite::Row<'_>, columns: usize) -> rusqlite::Result<usize> 
 /// result instead of silently returning a complete-looking prefix. Inspect raw
 /// SQLite text/blob lengths before copying or decoding a large record.
 pub(crate) fn bounded_rows(store: &Store, sql: &str, arguments: &[SqlValue]) -> Result<Vec<Value>> {
+    let _source_read = crate::catalog_source_succession::current::enter_read(store)?;
     let mut statement = store.db.prepare(sql)?;
     let names = statement
         .column_names()
@@ -175,7 +176,7 @@ pub fn output(store: &Store, profile: &str, definitions: bool, args: &Value) -> 
             store,
             &format!(
                 "SELECT * FROM ({}) WHERE profile=? AND id>? AND (? IS NULL OR source_file_id=?) ORDER BY id LIMIT ?",
-                query::view_sql("catalog_renditions")
+                query::view_sql_for(store, "catalog_renditions")
             ),
             &[
                 profile.to_owned().into(),
@@ -337,7 +338,10 @@ pub(crate) fn fact(
 ) -> Result<Option<Value>> {
     let mut rows = bounded_rows(
         store,
-        "SELECT * FROM file_facts WHERE profile=? AND file_id=? AND operation=?",
+        &crate::catalog_source_succession::current::view(
+            store.schema_version,
+            "SELECT * FROM file_facts WHERE profile=? AND file_id=? AND operation=?",
+        ),
         &[
             profile.to_owned().into(),
             file.to_owned().into(),

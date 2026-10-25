@@ -51,9 +51,15 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
+        Self::new_at(34)
+    }
+    fn new_at(schema: u32) -> Self {
+        Self::with_motion_kinds(schema, false)
+    }
+    fn with_motion_kinds(schema: u32, motion: bool) -> Self {
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("logical.db");
-        migration::initialize_native_at(&path, 34).unwrap();
+        migration::initialize_native_at(&path, schema).unwrap();
         let store = Store::open(&path, true, false).unwrap();
         let source = root.path().join("media");
         fs::create_dir(&source).unwrap();
@@ -90,11 +96,11 @@ impl Fixture {
         ] {
             curation::item_put(
                 &store,
-                &json!({"id":id,"kind":"movie","metadata":{"title":id}}),
+                &json!({"id":id,"kind":if motion { if id.ends_with("owner") {"custom:motion_version"} else {"custom:motion_edition"} } else {"movie"},"metadata":{"title":id}}),
             )
             .unwrap();
         }
-        curation::item_put(&store,&json!({"id":"edition","kind":"movie","metadata":{"title":"Source title","provider_fact":"must remain"},"identities":{"imdb":"old-provider-id"}})).unwrap();
+        curation::item_put(&store,&json!({"id":"edition","kind":if motion {"custom:motion_edition"} else {"movie"},"metadata":{"title":"Source title","provider_fact":"must remain"},"identities":{"imdb":"old-provider-id"}})).unwrap();
         for id in ["old-owner", "unchanged-owner"] {
             curation::dispatch(&store,"default","associate",&json!({"file_id":"file","item_id":id,"role":"primary","part":1,"metadata":{"evidence":"original association"}})).unwrap();
         }
@@ -906,4 +912,141 @@ fn survivor_versions_in_another_context_are_visible_and_require_exact_scope() {
     result(f.run(&f.command("merge-survivor", false)).unwrap());
     assert_eq!(f.count("catalog_live_versions"), 3);
     assert_eq!(f.store.db.query_row("SELECT current_revision FROM catalog_segmentation_contexts WHERE id='survivor-context'",[],|r|r.get::<_,i64>(0)).unwrap(),1);
+}
+
+#[test]
+fn named_retired_version_history_is_nonplayable_and_exact_owner_fenced() {
+    use catabolic_store::{
+        catalog_generated_output::historical_version,
+        catalog_projection::TrustedProjectionAuthority,
+    };
+    let f = Fixture::new_at(39);
+    f.seed();
+    let authority = TrustedProjectionAuthority {
+        catalog_id: f.store.database_id.clone(),
+        incarnation: f.store.catalog_incarnation.clone().unwrap(),
+        expected_generation: f.generation(),
+    };
+    let live = historical_version(
+        &f.store,
+        &authority,
+        "default",
+        "v-old-owner",
+        "old-owner",
+        1,
+    )
+    .unwrap();
+    assert_eq!(live["retired"], false);
+    assert_eq!(live["playable"], false);
+    let command = f.command("history-retire", false);
+    result(f.run(&command).unwrap());
+    assert!(
+        historical_version(
+            &f.store,
+            &authority,
+            "default",
+            "v-old-owner",
+            "old-owner",
+            1
+        )
+        .is_err()
+    );
+    let current = TrustedProjectionAuthority {
+        expected_generation: f.generation(),
+        ..authority
+    };
+    let history =
+        historical_version(&f.store, &current, "default", "v-old-owner", "old-owner", 1).unwrap();
+    assert_eq!(history["retired"], true);
+    assert_eq!(history["playable"], false);
+    assert_eq!(history["descriptive_only"], true);
+    assert_eq!(history["version_snapshot"], live["version_snapshot"]);
+    assert_eq!(history["timeline_snapshot"], live["timeline_snapshot"]);
+    assert_eq!(history["bindings"], live["bindings"]);
+    assert_eq!(history["retirement"]["version_revision"], 1);
+    assert_eq!(
+        history["retirement"]["command_operation_id"],
+        "history-retire"
+    );
+    assert_eq!(
+        history["retirement"]["command_catalog_id"],
+        current.catalog_id
+    );
+    assert!(
+        !history["logical_retirements"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        catalog_identity_mutation::load_manifest(&f.store, "default", &["v-old-owner".into()])
+            .is_err()
+    );
+    for (version, owner, revision, profile) in [
+        ("missing", "old-owner", 1, "default"),
+        ("v-old-owner", "survivor", 1, "default"),
+        ("v-old-owner", "old-owner", 99, "default"),
+        ("v-old-owner", "old-owner", 1, "other"),
+    ] {
+        assert!(historical_version(&f.store, &current, profile, version, owner, revision).is_err());
+    }
+    for field in ["catalog", "incarnation", "generation"] {
+        let mut wrong = current.clone();
+        match field {
+            "catalog" => wrong.catalog_id.push('x'),
+            "incarnation" => wrong.incarnation.push('x'),
+            _ => wrong.expected_generation += 1,
+        }
+        assert!(
+            historical_version(&f.store, &wrong, "default", "v-old-owner", "old-owner", 1).is_err()
+        );
+    }
+}
+
+#[test]
+fn named_lineage_reports_actual_logical_owner_and_typed_version_retirement() {
+    let f = Fixture::with_motion_kinds(40, true);
+    curation::item_put(
+        &f.store,
+        &json!({"id":"work","kind":"video","metadata":{"title":"Work"}}),
+    )
+    .unwrap();
+    f.seed();
+    let request = catabolic_store::catalog_projection::VersionLineageRequest {
+        work_item_id: "work".into(),
+        edition_item_id: "edition".into(),
+        version_item_id: "old-owner".into(),
+        version_id: "v-old-owner".into(),
+    };
+    // The fixture has no Motion structural edges. A real logical edit nevertheless
+    // provides positive typed and logical retirement evidence, not missing rows.
+    let command = f.command("lineage-real-retirement", false);
+    assert_eq!(f.run(&command).unwrap().code(), "committed");
+    let value = catabolic_store::catalog_projection::version_lineage(
+        &f.store,
+        &catabolic_store::catalog_projection::TrustedProjectionAuthority {
+            catalog_id: f.store.database_id.clone(),
+            incarnation: f.store.catalog_incarnation.clone().unwrap(),
+            expected_generation: f.generation(),
+        },
+        &[request.clone()],
+    )
+    .unwrap();
+    assert_eq!(value["rows"][0]["status"], "retired");
+    assert_eq!(value["rows"][0]["typed_version"]["retired"], 1);
+    assert_eq!(value["playable"], false);
+    assert!(
+        catabolic_store::catalog_projection::selected_current_versions(
+            &f.store,
+            &catabolic_store::catalog_projection::TrustedProjectionAuthority {
+                catalog_id: f.store.database_id.clone(),
+                incarnation: f.store.catalog_incarnation.clone().unwrap(),
+                expected_generation: f.generation()
+            },
+            "default",
+            &[request]
+        )
+        .is_err(),
+        "retired named version cannot become selected current output"
+    );
 }

@@ -1457,3 +1457,83 @@ mod physical_tests;
 
 #[path = "catalog_scope_components_tests.rs"]
 mod component_tests;
+
+#[test]
+fn expected_identity_is_checked_on_the_scoped_session_owner() {
+    let f = Fixture::new();
+    let catalog = f.writer.database_id.clone();
+    let incarnation = f.writer.catalog_incarnation.clone().unwrap();
+    assert!(ScopedReadSession::open_expected(&f.path, &catalog, &incarnation).is_ok());
+    assert_eq!(
+        code(ScopedReadSession::open_expected(
+            &f.path,
+            "other-catalog",
+            &incarnation
+        )),
+        ScopeErrorCode::WrongAuthority
+    );
+    assert_eq!(
+        code(ScopedReadSession::open_expected(
+            &f.path,
+            &catalog,
+            "other-incarnation"
+        )),
+        ScopeErrorCode::WrongAuthority
+    );
+    assert_eq!(
+        code(ScopedReadSession::open_expected(&f.path, "", &incarnation)),
+        ScopeErrorCode::InvalidGrant
+    );
+    let replacement = Fixture::new();
+    assert_eq!(
+        code(ScopedReadSession::open_expected(
+            &replacement.path,
+            &catalog,
+            &incarnation
+        )),
+        ScopeErrorCode::WrongAuthority
+    );
+}
+
+#[test]
+fn retained_selection_reference_checks_exact_profile_revision_and_digest() {
+    let f = Fixture::new();
+    let saved = f.selection();
+    validate_selection_reference(&f.writer, "default", &saved).unwrap();
+    assert_eq!(
+        code(validate_selection_reference(
+            &f.writer,
+            "other-profile",
+            &saved
+        )),
+        ScopeErrorCode::SelectionChanged
+    );
+    let wrong_revision =
+        SavedQueryRef::new(saved.id.clone(), saved.revision + 1, saved.digest.clone()).unwrap();
+    assert_eq!(
+        code(validate_selection_reference(
+            &f.writer,
+            "default",
+            &wrong_revision
+        )),
+        ScopeErrorCode::SelectionChanged
+    );
+    let wrong_digest =
+        SavedQueryRef::new(saved.id.clone(), saved.revision, "0".repeat(64)).unwrap();
+    assert_eq!(
+        code(validate_selection_reference(
+            &f.writer,
+            "default",
+            &wrong_digest
+        )),
+        ScopeErrorCode::SelectionChanged
+    );
+    // Validation is a read-only freshness check, not execution or authority.
+    assert_eq!(
+        f.writer
+            .db
+            .query_row("SELECT count(*) FROM items", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        3
+    );
+}

@@ -1,6 +1,15 @@
 //! Descriptor-only validation for read-only rendition planning. No source bytes
 //! are changed or hashed; root and file identities are fenced before and after.
 use crate::{Error, Result};
+pub(crate) mod relocation_uuid;
+#[derive(Clone, Copy)]
+enum RootProbe<'a> {
+    Legacy,
+    Relocation(
+        &'a crate::operation_budget::OperationBudget,
+        &'a std::sync::atomic::AtomicBool,
+    ),
+}
 use serde_json::{Value, json};
 use std::{
     ffi::CString,
@@ -64,7 +73,7 @@ fn open_at(parent: i32, name: &str, directory: bool) -> Result<File> {
     // SAFETY: successful openat transfers a fresh descriptor to this File.
     Ok(unsafe { File::from_raw_fd(fd) })
 }
-fn open_root(root: &str) -> Result<File> {
+pub(crate) fn open_root(root: &str) -> Result<File> {
     if !Path::new(root).is_absolute() || root.split('/').any(|p| p == "..") {
         return Err(Error(
             "root must be absolute and contain no parent traversal".into(),
@@ -150,7 +159,7 @@ pub(crate) fn volume_uuid(file: &File) -> Option<String> {
         .filter(|s| !s.is_empty())
         .map(str::to_lowercase)
 }
-fn checked_root(snapshot: &Value) -> Result<File> {
+fn checked_root(snapshot: &Value, probe: RootProbe<'_>) -> Result<File> {
     let path = snapshot["root"].as_str().ok_or_else(|| {
         Error("source is not recorded present; scan the mounted source first".into())
     })?;
@@ -168,11 +177,30 @@ fn checked_root(snapshot: &Value) -> Result<File> {
             )));
         }
     }
-    if settings["uuid"] != "skip"
-        && !snapshot["volume_uuid"].is_null()
-        && volume_uuid(&root).as_deref() != snapshot["volume_uuid"].as_str()
-    {
-        return Err(Error("bound volume identity changed or unavailable".into()));
+    if settings["uuid"] != "skip" && !snapshot["volume_uuid"].is_null() {
+        match probe {
+            RootProbe::Legacy => {
+                if volume_uuid(&root).as_deref() != snapshot["volume_uuid"].as_str() {
+                    return Err(Error("bound volume identity changed or unavailable".into()));
+                }
+            }
+            RootProbe::Relocation(budget, cancel) => {
+                budget
+                    .charge(crate::operation_budget::BudgetCharge {
+                        work: 1,
+                        values: 1,
+                        bytes: 36,
+                        ..Default::default()
+                    })
+                    .map_err(|e| Error(format!("relocation UUID parsing budget: {e:?}")))?;
+                let expected = relocation_uuid::canonical_enrollment(
+                    snapshot["volume_uuid"]
+                        .as_str()
+                        .ok_or_else(|| Error("malformed source UUID enrollment".into()))?,
+                )?;
+                relocation_uuid::validate(&root, expected, budget, cancel)?;
+            }
+        }
     }
     Ok(root)
 }
@@ -183,18 +211,72 @@ pub(crate) fn with_validated_source<T>(
     snapshot: &Value,
     operation: impl FnOnce(&mut File) -> Result<T>,
 ) -> Result<T> {
+    with_validated_source_ctime(snapshot, None, operation)
+}
+
+/// Validate the same occurrence with an independently retained expected ctime,
+/// without cloning its JSON or allocating a fourth, returned revision object.
+/// The override REPLACES any snapshot ctime, exactly like assigning ctime_ns on
+/// a cloned snapshot before validate(). It is descriptive, never source authority.
+///
+/// Callers must precharge the fields actually inspected: status, root, path,
+/// size, mtime_ns, device, inode, root_device, root_inode, volume_uuid and
+/// source_policy.settings.{device,inode,uuid}, plus expected_ctime. Unused
+/// occurrence fields are neither visited nor cloned here.
+///
+/// For R nonempty root components and P relative path components, the successful
+/// non-UUID path allocates three five-number revision JSON objects, one Vec of
+/// P borrowed component references and at most 2*(R+P) temporary CStrings. It
+/// performs at most 2*(R+1)+2*P opens, one descriptor duplication and ten metadata
+/// reads. checked_root runs twice; an enabled volume UUID check retains the
+/// existing platform-specific probe and its existing bounds (including Linux
+/// closed-observation child refusal). Errors retain the same cleanup behavior.
+pub(crate) fn validate_expected_ctime(snapshot: &Value, expected_ctime: i64) -> Result<()> {
+    with_validated_source_ctime(snapshot, Some(expected_ctime), |_| Ok(()))
+}
+
+fn with_validated_source_ctime<T>(
+    snapshot: &Value,
+    expected_ctime: Option<i64>,
+    operation: impl FnOnce(&mut File) -> Result<T>,
+) -> Result<T> {
+    with_validated_source_mode(snapshot, expected_ctime, RootProbe::Legacy, operation)
+}
+
+/// Fixed relocation caller retains the blocking task and descriptors until all
+/// checks settle. Ordinary consumers never select this no-child probe mode.
+pub(crate) fn with_validated_source_relocation<T>(
+    snapshot: &Value,
+    budget: &crate::operation_budget::OperationBudget,
+    cancel: &std::sync::atomic::AtomicBool,
+    operation: impl FnOnce(&mut File) -> Result<T>,
+) -> Result<T> {
+    with_validated_source_mode(
+        snapshot,
+        None,
+        RootProbe::Relocation(budget, cancel),
+        operation,
+    )
+}
+fn with_validated_source_mode<T>(
+    snapshot: &Value,
+    expected_ctime: Option<i64>,
+    probe: RootProbe<'_>,
+    operation: impl FnOnce(&mut File) -> Result<T>,
+) -> Result<T> {
     if snapshot["status"] != "present" || snapshot["root"].as_str().is_none_or(str::is_empty) {
         return Err(Error(
             "source is not recorded present; scan the mounted source first".into(),
         ));
     }
-    let root = checked_root(snapshot)?;
+    let root = checked_root(snapshot, probe)?;
     let path = snapshot["path"]
         .as_str()
         .ok_or_else(|| Error("invalid source path".into()))?;
     crate::layout::relative_path(path)?;
     let mut parent = root.try_clone()?;
-    let parts = path.split('/').collect::<Vec<_>>();
+    let mut parts = Vec::with_capacity(path.split('/').count());
+    parts.extend(path.split('/'));
     for part in &parts[..parts.len() - 1] {
         parent = open_at(parent.as_raw_fd(), part, true)?;
     }
@@ -209,13 +291,17 @@ pub(crate) fn with_validated_source<T>(
             "source changed since scan; rescan before reading".into(),
         ));
     }
-    if snapshot.get("ctime_ns").is_some() && before["ctime_ns"] != snapshot["ctime_ns"] {
+    let ctime_changed = match expected_ctime {
+        Some(expected) => before["ctime_ns"].as_i64() != Some(expected),
+        None => snapshot.get("ctime_ns").is_some() && before["ctime_ns"] != snapshot["ctime_ns"],
+    };
+    if ctime_changed {
         return Err(Error(
             "source revision changed; rescan and start a new operation".into(),
         ));
     }
     let result = operation(&mut file)?;
-    let current = checked_root(snapshot)?;
+    let current = checked_root(snapshot, probe)?;
     if root.metadata()?.dev() != current.metadata()?.dev()
         || root.metadata()?.ino() != current.metadata()?.ino()
     {
@@ -321,3 +407,6 @@ mod containment_tests {
         assert_eq!(error.0, "source changed while reading; result discarded");
     }
 }
+
+#[cfg(test)]
+mod expected_ctime_tests;

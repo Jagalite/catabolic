@@ -367,6 +367,22 @@ fn repair_with(
         ));
     }
     let verification=store.transaction(|db|{
+        // A remount is not an authenticated successor of a relocation effect.
+        // Refuse the affected cohort before even the temporary guard is written.
+        if store.schema_version == 41 {
+            for file in observed.keys() {
+                if db.prepare("SELECT 1 FROM observations WHERE profile=? AND file_id=? AND observation_origin='succession'")?.exists(params![profile,file])? {
+                    return Err(Error("remount of renewed observations requires source succession owner".into()));
+                }
+            }
+            for change in &changes {
+                let old = &change["before"];
+                if old["kind"] == "source" && old != &change["after"]
+                    && db.prepare("SELECT 1 FROM observations o JOIN files f ON f.id=o.file_id WHERE o.profile=? AND f.location=? AND o.observation_origin='succession'")?.exists(params![profile,old["owner"].as_str()])? {
+                    return Err(Error("remount of renewed source binding requires source succession owner".into()));
+                }
+            }
+        }
         db.execute("INSERT INTO remount_guard VALUES(?)",[profile])?;
         for change in &changes {
             let old=&change["before"];let new=&change["after"];let kind=old["kind"].as_str().unwrap();let name=old["owner"].as_str().unwrap();

@@ -1,9 +1,11 @@
 //! Values and deterministic codecs shared by every Catabolic interface.
+pub mod artwork;
 pub mod catalog_command;
 pub mod catalog_host_lease;
 pub mod catalog_identity;
 pub mod catalog_logical_edit;
 pub mod catalog_metadata;
+pub mod catalog_relationship;
 pub mod component;
 pub mod coordination;
 pub mod execution;

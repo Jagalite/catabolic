@@ -709,33 +709,23 @@ pub fn command(store: &Store, sql: &str, args: &Value) -> Result<Value> {
     store.transaction_available()?;
     // Session contexts own transaction state. SQL must not escape their scopes.
     use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
-    store
-        .db
-        .authorizer(Some(|context: AuthContext<'_>| match context.action {
-            AuthAction::Transaction { .. }
-            | AuthAction::Savepoint { .. }
-            | AuthAction::Attach { .. }
-            | AuthAction::Detach { .. } => Authorization::Deny,
-            AuthAction::Pragma {
-                pragma_name,
-                pragma_value: Some(_),
-            } if ["writable_schema", "query_only"]
-                .iter()
-                .any(|v| pragma_name.eq_ignore_ascii_case(v)) =>
-            {
-                Authorization::Deny
-            }
-            _ => Authorization::Allow,
-        }))?;
-    struct Reset<'a>(&'a rusqlite::Connection);
-    impl Drop for Reset<'_> {
-        fn drop(&mut self) {
-            let _ = self
-                .0
-                .authorizer(None::<fn(AuthContext<'_>) -> Authorization>);
+    let reset = crate::catalog_source_succession::authorizer::Guard::for_store(store)?;
+    reset.replace(|context: AuthContext<'_>| match context.action {
+        AuthAction::Transaction { .. }
+        | AuthAction::Savepoint { .. }
+        | AuthAction::Attach { .. }
+        | AuthAction::Detach { .. } => Authorization::Deny,
+        AuthAction::Pragma {
+            pragma_name,
+            pragma_value: Some(_),
+        } if ["writable_schema", "query_only"]
+            .iter()
+            .any(|v| pragma_name.eq_ignore_ascii_case(v)) =>
+        {
+            Authorization::Deny
         }
-    }
-    let _reset = Reset(&store.db);
+        _ => Authorization::Allow,
+    })?;
     let mut statement = store.db.prepare(sql)?;
     if let Some(values) = args.as_array() {
         let values = values.iter().map(wire_value).collect::<Result<Vec<_>>>()?;
@@ -779,9 +769,10 @@ pub fn command(store: &Store, sql: &str, args: &Value) -> Result<Value> {
             );
         }
     }
-    Ok(
-        json!({"columns":columns,"rows":result,"rowcount":if readonly {-1_i64}else{store.db.changes() as i64},"lastrowid":store.db.last_insert_rowid()}),
-    )
+    let output = json!({"columns":columns,"rows":result,"rowcount":if readonly {-1_i64}else{store.db.changes() as i64},"lastrowid":store.db.last_insert_rowid()});
+    drop(statement);
+    reset.restore()?;
+    Ok(output)
 }
 fn text<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
     value[key]

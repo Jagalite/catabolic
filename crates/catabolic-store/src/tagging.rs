@@ -1,6 +1,10 @@
 // SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 // SPDX-License-Identifier: MIT
 //! Catalog-wide tag vocabulary and independently attributed tag assertions.
+mod source_replace;
+pub(crate) use source_replace::plan as source_assertion_plan;
+pub(crate) use source_replace::{replace_source, replace_source_authorized};
+
 use crate::{Error, Result, Store, mutation};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
@@ -133,6 +137,9 @@ pub fn rename(store: &Store, name: &Value, new_name: &Value) -> Result<Value> {
     store.transaction(|db| {
         mutation::require_recovered(db)?;
         let identifier = resolve_tag(db, name)?;
+        if store.schema_version==41 && new_name.len()>100 && db.query_row("SELECT EXISTS(SELECT 1 FROM item_tags WHERE tag_id=?1 AND source='motion.nfo') OR EXISTS(SELECT 1 FROM file_tags WHERE tag_id=?1 AND source='motion.nfo')",[&identifier],|r|r.get::<_,bool>(0))? {
+            return Err(Error("NFO vocabulary presentation exceeds public byte bound".into()));
+        }
         collision(db, &new_name, &identifier)?;
         reserve_name(db, &new_name, &identifier)?;
         db.execute(
@@ -218,6 +225,11 @@ pub fn assign(store: &Store, request: Assignment<'_>) -> Result<Value> {
         ));
     }
     let source = text_value(source, "source", 200, false)?;
+    if store.schema_version == 41 && source == "motion.nfo" {
+        return Err(Error(
+            "NFO assertions require the attributed source owner".into(),
+        ));
+    }
     let note = text_value(note, "note", 4000, true)?;
     let confidence = if confidence.is_null() {
         None
@@ -304,4 +316,190 @@ pub fn dispatch(store: &Store, profile: &str, operation: &str, request: &Value) 
         ),
         _ => Err(Error("unknown tag operation".into())),
     }
+}
+
+/// Import only through the enclosing command writer. Deterministic IDs ensure
+/// rehearsal and activation produce the same mapping, while ordinary interactive
+/// tag creation keeps its existing identity policy. No imported caller gets SQL
+/// or suppression authority from this function's input records.
+pub(crate) fn import_tag_set(
+    store: &Store,
+    outer: &catabolic_core::catalog_command::CommandEnvelope,
+    imported: &crate::catalog_import_typed::ImportedTagSet,
+    grant: &crate::catalog_import_typed::TagImportAuthority,
+    time: i64,
+) -> crate::catalog_import::Result<Vec<Value>> {
+    import_tag_set_authorized(store, outer, imported, grant, time, None)
+}
+pub(crate) fn import_tag_set_authorized(
+    store: &Store,
+    outer: &catabolic_core::catalog_command::CommandEnvelope,
+    imported: &crate::catalog_import_typed::ImportedTagSet,
+    grant: &crate::catalog_import_typed::TagImportAuthority,
+    time: i64,
+    permit: Option<&crate::catalog_nfo_attribution::source_effect::ImportedSourceEffect<'_>>,
+) -> crate::catalog_import::Result<Vec<Value>> {
+    if store.schema_version == 41 && imported.namespace == "motion.nfo" {
+        permit
+            .ok_or_else(|| crate::catalog_import::ImportError {
+                code: crate::catalog_import::ImportErrorCode::AuthorityDenied,
+                error: Error("validated NFO import tag capability required".into()),
+            })?
+            .authorize_tags_in(store, outer, imported)?;
+    }
+    use crate::catalog_import::{ImportError, ImportErrorCode};
+    use crate::catalog_tag_mutation::{
+        self as tags, SuppressionChange, TagAuthority, TagMutation, TagSubject,
+    };
+    let fail = |code, detail: &str| ImportError {
+        code,
+        error: Error(detail.into()),
+    };
+    if store.db.is_autocommit() {
+        return Err(fail(
+            ImportErrorCode::StoreFailure,
+            "tag import requires writer transaction",
+        ));
+    }
+    if grant.host_namespace != outer.key().host_namespace()
+        || grant.namespace != imported.namespace
+        || !grant.item_ids.contains(&imported.item_id)
+        || (!imported.excluded_tags.is_empty() && !grant.allow_suppressions)
+    {
+        return Err(fail(
+            ImportErrorCode::AuthorityDenied,
+            "tag import authority mismatch",
+        ));
+    }
+    if store.db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM catalog_logical_retirements WHERE item_id=?)",
+        [&imported.item_id],
+        |r| r.get::<_, bool>(0),
+    )? {
+        return Err(fail(
+            ImportErrorCode::SnapshotConflict,
+            "retired tag subject",
+        ));
+    }
+    let namespace = uuid::Uuid::parse_str(&store.database_id)
+        .map_err(|_| fail(ImportErrorCode::StoreFailure, "invalid catalog UUID"))?;
+    let stable = |value: Value| {
+        uuid::Uuid::new_v5(
+            &namespace,
+            catabolic_core::encode_with(&value, false, true).as_bytes(),
+        )
+        .to_string()
+    };
+    let mut mapped = std::collections::BTreeMap::new();
+    for name in imported.tags.iter().chain(&imported.excluded_tags) {
+        let canonical = tag_name(&json!(name))?;
+        if mapped.contains_key(&canonical) {
+            continue;
+        }
+        let existing: Option<String> = store
+            .db
+            .query_row(
+                "SELECT tag_id FROM tag_names WHERE name=?",
+                [&canonical],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let tag_id = match existing {
+            Some(id) => id,
+            None => {
+                let id = stable(json!(["import-tag", canonical]));
+                store.db.execute(
+                    "INSERT INTO tags(id,name,description) VALUES (?,?,?)",
+                    params![id, canonical, ""],
+                )?;
+                store.db.execute(
+                    "INSERT INTO tag_names(name,tag_id) VALUES (?,?)",
+                    params![canonical, id],
+                )?;
+                id
+            }
+        };
+        if store.db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM catalog_tag_redirects WHERE source_tag_id=?)",
+            [&tag_id],
+            |r| r.get::<_, bool>(0),
+        )? {
+            return Err(fail(
+                ImportErrorCode::SnapshotConflict,
+                "imported tag resolves to retired vocabulary",
+            ));
+        }
+        mapped.insert(canonical, tag_id);
+    }
+    let timestamp = chrono::DateTime::from_timestamp_micros(time)
+        .ok_or_else(|| fail(ImportErrorCode::InvalidInput, "invalid tag import time"))?
+        .to_rfc3339();
+    let note = json!({"import_operation_id":outer.key().operation_id(),"source_revision":imported.source_revision}).to_string();
+    let mut results = Vec::new();
+    for name in &imported.tags {
+        let canonical = tag_name(&json!(name))?;
+        let tag_id = &mapped[&canonical];
+        let assertion_id = stable(json!([
+            "import-tag-assertion",
+            imported.item_id,
+            tag_id,
+            imported.namespace
+        ]));
+        store.db.execute("INSERT INTO item_tags(id,item_id,tag_id,source,confidence,note,active,created_at,updated_at) VALUES (?,?,?,?,NULL,?,1,?,?)",
+            params![assertion_id,imported.item_id,tag_id,imported.namespace,note,timestamp,timestamp])?;
+        results.push(json!({"owner":"tags","item_id":imported.item_id,"namespace":imported.namespace,"source_revision":imported.source_revision,"tag":canonical,"tag_id":tag_id,"assertion_id":assertion_id}));
+    }
+    if !imported.excluded_tags.is_empty() {
+        let subject = TagSubject::Item(imported.item_id.clone());
+        let changes = imported
+            .excluded_tags
+            .iter()
+            .map(|name| {
+                let canonical = tag_name(&json!(name))?;
+                Ok(SuppressionChange {
+                    subject: subject.clone(),
+                    canonical_tag_id: mapped[&canonical].clone(),
+                    expected_revision: None,
+                    suppressed: true,
+                    reason: note.clone(),
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let generation =
+            store
+                .db
+                .query_row("SELECT generation FROM catalog_state WHERE id=1", [], |r| {
+                    r.get(0)
+                })?;
+        let context = tags::TagCommandContext {
+            catalog_id: outer.key().catalog_id(),
+            host_namespace: outer.key().host_namespace(),
+            operation_id: outer.key().operation_id(),
+            expected_generation: generation,
+            expected_incarnation: outer.admission_incarnation(),
+            recorded_at_us: time,
+        };
+        let authority = TagAuthority {
+            host_namespace: grant.host_namespace.clone(),
+            allowed_subjects: BTreeSet::from([subject]),
+            allow_global_merge: false,
+        };
+        let result = tags::apply(
+            &store.db,
+            &context,
+            &authority,
+            &TagMutation::SetSuppression {
+                contract_version: 1,
+                changes,
+            },
+        )
+        .map_err(|e| fail(ImportErrorCode::SnapshotConflict, &e.to_string()))?;
+        results.push(json!({"owner":"tag_suppressions","item_id":imported.item_id,"namespace":imported.namespace,"source_revision":imported.source_revision,"result":result}));
+    }
+    results.push(
+        json!({"owner":"tag_source_snapshot","item_id":imported.item_id,
+        "namespace":imported.namespace,"source_revision":imported.source_revision,
+        "assertion_count":imported.tags.len(),"suppression_count":imported.excluded_tags.len()}),
+    );
+    Ok(results)
 }

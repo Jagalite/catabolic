@@ -1044,3 +1044,124 @@ fn retained_receipt_from_obsolete_metadata_payload_replays_without_current_parse
         CommandStoreErrorCode::InvalidOperation
     );
 }
+
+#[test]
+fn atomic_first_patch_retains_legacy_and_requires_both_grants() {
+    let f = Fixture::at_version(39);
+    catabolic_store::curation::item_put(
+        &f.store,
+        &json!({"id":ITEM,"kind":"video","metadata":{"title":"original","year":2020}}),
+    )
+    .unwrap();
+    let initial = metadata::read_source_head(
+        &f.store,
+        &read_authority(&f.store),
+        "motion.local",
+        "record",
+    )
+    .unwrap();
+    assert!(initial.schema_fingerprint.is_none());
+    assert_eq!(initial.source_revision, 0);
+    let payload = json!({"operation":"metadata_initialize_and_patch","subject":ITEM,"policies":policies(),
+        "namespace":"motion.local","record_id":"record","edits_json":r#"{"title":{"op":"set","value":"Changed"}}"#,"evidence_json":"{}"});
+    let command = envelope(&f.store, "first-edit", payload);
+    let init_grant = grant(MetadataAccess::Initialize);
+    let source_grant = local("motion.local");
+    assert!(
+        commands::execute_with_authority(
+            &f.store,
+            &command,
+            CatalogAuthority::new(base()).with_metadata(&source_grant),
+            policy()
+        )
+        .is_err()
+    );
+    assert!(
+        metadata::read_source_head(
+            &f.store,
+            &read_authority(&f.store),
+            "motion.local",
+            "record"
+        )
+        .unwrap()
+        .schema_fingerprint
+        .is_none()
+    );
+    let authorities = CatalogAuthority::new(base())
+        .with_metadata(&source_grant)
+        .with_metadata_initialization(&init_grant);
+    let committed =
+        commands::execute_with_authority(&f.store, &command, authorities, policy()).unwrap();
+    assert_eq!(
+        body(&committed)["operation"],
+        "metadata_initialize_and_patch"
+    );
+    assert_eq!(
+        serde_json::from_str::<Value>(&raw_metadata(&f.store)).unwrap(),
+        json!({"title":"changed","year":2020})
+    );
+    let head = metadata::read_source_head(
+        &f.store,
+        &read_authority(&f.store),
+        "motion.local",
+        "record",
+    )
+    .unwrap();
+    assert!(head.schema_fingerprint.is_some());
+    assert_eq!(head.source_revision, 1);
+    assert!(matches!(
+        commands::execute_with_authority(
+            &f.store,
+            &command,
+            CatalogAuthority::new(base()),
+            policy()
+        )
+        .unwrap(),
+        CommandOutcome::Replay { .. }
+    ));
+    let stale = MetadataReadAuthority {
+        expected_generation: head.generation - 1,
+        ..read_authority(&f.store)
+    };
+    assert!(metadata::read_source_head(&f.store, &stale, "motion.local", "record").is_err());
+}
+
+#[test]
+fn failed_atomic_first_patch_rolls_back_initialization() {
+    let f = Fixture::at_version(39);
+    let before = generation(&f.store);
+    let command = envelope(
+        &f.store,
+        "bad-first-edit",
+        json!({"operation":"metadata_initialize_and_patch","subject":ITEM,"policies":policies(),
+        "namespace":"motion.local","record_id":"record","edits_json":r#"{"year":{"op":"set","value":"invalid"}}"#,"evidence_json":"{}"}),
+    );
+    let init_grant = grant(MetadataAccess::Initialize);
+    let source_grant = local("motion.local");
+    assert!(
+        commands::execute_with_authority(
+            &f.store,
+            &command,
+            CatalogAuthority::new(base())
+                .with_metadata(&source_grant)
+                .with_metadata_initialization(&init_grant),
+            policy()
+        )
+        .is_err()
+    );
+    assert_eq!(generation(&f.store), before);
+    assert!(
+        metadata::read_source_head(
+            &f.store,
+            &read_authority(&f.store),
+            "motion.local",
+            "record"
+        )
+        .unwrap()
+        .schema_fingerprint
+        .is_none()
+    );
+}
+
+#[path = "native_metadata_support/v2.rs"]
+mod v2;

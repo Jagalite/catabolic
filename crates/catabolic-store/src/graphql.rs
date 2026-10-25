@@ -6,7 +6,7 @@ use crate::{
     Error, Result, Store,
     api_catalog::Authority,
     migration::{SCHEMA_VERSION, reference, rows},
-    query::{CatalogQuery, decode, rendition_conditions, view_sql},
+    query::{CatalogQuery, decode, rendition_conditions, view_sql_for},
     sql::scalar,
 };
 use async_graphql::{ErrorExtensions, Request, Variables, dynamic::*};
@@ -354,7 +354,10 @@ impl Context {
     fn fact(&self, file: &Value, operation: &str) -> Result<Value> {
         let records = rows(
             &self.store.db,
-            "SELECT * FROM file_facts WHERE profile=? AND file_id=? AND operation=?",
+            &crate::catalog_source_succession::current::view(
+                self.store.schema_version,
+                "SELECT * FROM file_facts WHERE profile=? AND file_id=? AND operation=?",
+            ),
             &[
                 SqlValue::Text(self.profile.clone()),
                 scalar(file)?,
@@ -672,7 +675,10 @@ impl Context {
                 }
                 "workflowChecks" => {
                     query.exists("items", &args["item"])?;
-                    table = format!("({}) a", view_sql("catalog_workflow_checks"));
+                    table = format!(
+                        "({}) a",
+                        view_sql_for(&self.store, "catalog_workflow_checks")
+                    );
                     columns = "a.*,a.check_id AS id,coalesce(a.satisfied,0) AS passed".into();
                     id = "a.check_id".into();
                     clauses.extend(["a.item_id=?".into(), "a.profile=?".into()]);
@@ -713,7 +719,10 @@ impl Context {
                             }
                         }
                     } else if field == "renditions" {
-                        table = format!("({}) a", view_sql("catalog_rendition_state"));
+                        table = format!(
+                            "({}) a",
+                            view_sql_for(&self.store, "catalog_rendition_state")
+                        );
                         clauses.push("a.profile=?".into());
                         values.push(SqlValue::Text(self.profile.clone()));
                         if !args["file"].is_null() {
@@ -753,7 +762,7 @@ impl Context {
                     table = if self.authority.is_some() {
                         format!("{view} a")
                     } else {
-                        format!("({}) a", view_sql(view))
+                        format!("({}) a", view_sql_for(&self.store, view))
                     };
                     clauses.push("a.profile=?".into());
                     values.push(SqlValue::Text(self.profile.clone()));
@@ -787,7 +796,7 @@ impl Context {
                     context = json!([filtered]);
                 }
                 "workInbox" => {
-                    table = format!("({}) a", view_sql("catalog_work_inbox"));
+                    table = format!("({}) a", view_sql_for(&self.store, "catalog_work_inbox"));
                     columns = "a.work_key AS id,a.*".into();
                     id = "a.work_key".into();
                     clauses.push("a.profile=?".into());
@@ -968,7 +977,7 @@ impl Context {
                         ),
                     };
                     let table = if field == "rendition" {
-                        format!("({})", view_sql("catalog_renditions"))
+                        format!("({})", view_sql_for(&self.store, "catalog_renditions"))
                     } else {
                         table.to_string()
                     };

@@ -5,7 +5,7 @@
 use crate::{
     Error, Result, Store, definitions,
     migration::rows,
-    query::{decode, view_sql},
+    query::{decode, view_sql_for},
     sql::scalar,
 };
 use catabolic_core::encode;
@@ -59,7 +59,7 @@ pub fn get(store: &Store, profile: &str, id: &str) -> Result<Value> {
         &store.db,
         &format!(
             "SELECT * FROM ({}) WHERE item_id=? AND profile=?",
-            view_sql("catalog_item_workflow")
+            view_sql_for(store, "catalog_item_workflow")
         ),
         &[id.to_owned().into(), profile.to_owned().into()],
     )?
@@ -130,7 +130,7 @@ fn page(store: &Store, profile: &str, action: &str, args: &Value, id: &str) -> R
         (
             format!(
                 "SELECT *,coalesce(satisfied,0) AS passed FROM ({}) WHERE item_id=? AND profile=? AND check_id>? ORDER BY check_id LIMIT ?",
-                view_sql("catalog_workflow_checks")
+                view_sql_for(store, "catalog_workflow_checks")
             ),
             vec![
                 id.to_owned().into(),
@@ -249,7 +249,7 @@ pub fn dispatch(store: &Store, profile: &str, action: &str, args: &Value) -> Res
             let mut result = store.transaction(|db| {
                 let (before,revision)=revision(store,db,id,expected)?;
                 if status == "complete" {
-                    let blockers=rows(db,&format!("SELECT check_id,label,state FROM ({}) WHERE item_id=? AND profile=? AND coalesce(satisfied,0)=0 ORDER BY check_id LIMIT 11",view_sql("catalog_workflow_checks")),&[id.to_owned().into(),profile.to_owned().into()])?;
+                    let blockers=rows(db,&format!("SELECT check_id,label,state FROM ({}) WHERE item_id=? AND profile=? AND coalesce(satisfied,0)=0 ORDER BY check_id LIMIT 11",view_sql_for(store, "catalog_workflow_checks")),&[id.to_owned().into(),profile.to_owned().into()])?;
                     if !blockers.is_empty() { return Err(Error(format!("cannot mark entry complete: {}{}",blockers.iter().take(10).map(|r|format!("{} ({}; missing or stale evidence)",r["label"].as_str().unwrap_or(""),r["state"].as_str().unwrap_or(""))).collect::<Vec<_>>().join("; "),if blockers.len()>10 {"; more blockers exist"} else {""}))); }
                 }
                 append(db,profile,id,"status",&note,&actor,&json!({"before":before,"after":status}),status,revision)

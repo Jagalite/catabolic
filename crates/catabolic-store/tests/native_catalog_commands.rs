@@ -907,3 +907,98 @@ fn compaction_reclaims_result_bytes_but_retains_key_and_hold_record_budgets() {
         1
     );
 }
+
+#[test]
+fn create_only_batch_replays_but_never_upserts_or_partially_creates() {
+    let f = Fixture::new();
+    let first = f.command(
+        "create-first",
+        json!({"operation":"item_create_batch","items":[item("existing")]}),
+    );
+    assert!(matches!(
+        commands::execute(&f.store, &first, authority(), policy()).unwrap(),
+        CommandOutcome::Committed { .. }
+    ));
+    assert!(matches!(
+        commands::execute(&f.store, &first, authority(), policy()).unwrap(),
+        CommandOutcome::Replay { .. }
+    ));
+    let before = generation(&f.store);
+    let collision=f.command("create-collision",json!({"operation":"item_create_batch","items":[item("new"),{"id":"existing","kind":"video","metadata":{"overwritten":true}}]}));
+    assert_eq!(
+        commands::execute(&f.store, &collision, authority(), policy())
+            .unwrap_err()
+            .code,
+        CommandStoreErrorCode::OperationConflict
+    );
+    assert_eq!(generation(&f.store), before);
+    assert_eq!(count(&f.store, "items"), 1);
+    assert_eq!(count(&f.store, "catalog_command_receipts"), 1);
+    for (key, items) in [
+        ("missing-id", json!([{"kind":"video","metadata":{}}])),
+        ("duplicate-id", json!([item("x"), item("x")])),
+    ] {
+        let intent = f.command(key, json!({"operation":"item_create_batch","items":items}));
+        assert_eq!(
+            commands::execute(&f.store, &intent, authority(), policy())
+                .unwrap_err()
+                .code,
+            CommandStoreErrorCode::InvalidOperation
+        );
+    }
+    assert_eq!(count(&f.store, "items"), 1);
+}
+
+#[test]
+fn receipt_only_reconciliation_never_dispatches_absent_intent() {
+    let f = Fixture::new();
+    let pending = f.command(
+        "pending-read-only",
+        json!({"operation":"item_create_batch","items":[item("pending")]}),
+    );
+    let mut read = authority();
+    read.allow_new_commands = false;
+    let before = generation(&f.store);
+    assert!(
+        commands::reconcile_receipt(&f.store, &pending, read)
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(generation(&f.store), before);
+    assert_eq!(count(&f.store, "items"), 0);
+    let committed = f.command(
+        "committed-read-only",
+        json!({"operation":"item_create_batch","items":[item("created")]}),
+    );
+    commands::execute(&f.store, &committed, authority(), policy()).unwrap();
+    assert!(matches!(
+        commands::reconcile_receipt(&f.store, &committed, read).unwrap(),
+        Some(CommandOutcome::Replay { .. })
+    ));
+    assert!(
+        commands::reconcile_receipt(&f.store, &pending, read)
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(count(&f.store, "items"), 1);
+    assert_eq!(count(&f.store, "catalog_command_receipts"), 1);
+    assert!(commands::reconcile_receipt(&f.store, &pending, authority()).is_err());
+    let mut redacted = read;
+    redacted.receipt_visibility = ReceiptVisibility::CommittedStatusOnly;
+    assert!(matches!(
+        commands::reconcile_receipt(&f.store, &committed, redacted).unwrap(),
+        Some(CommandOutcome::CommittedRedacted)
+    ));
+    let changed = CommandEnvelope::new(
+        1,
+        committed.key().clone(),
+        committed.admission_incarnation(),
+        committed.expected_generation(),
+        &json!({"operation":"item_create_batch","items":[item("changed")]}).to_string(),
+    )
+    .unwrap();
+    assert!(matches!(
+        commands::reconcile_receipt(&f.store, &changed, read).unwrap(),
+        Some(CommandOutcome::Conflict)
+    ));
+}

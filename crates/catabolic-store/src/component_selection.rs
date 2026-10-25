@@ -26,7 +26,7 @@ fn get_occurrence(
         .rows(
             &format!(
                 "SELECT * FROM ({}) WHERE profile=? AND occurrence_id=?",
-                query::view_sql("catalog_component_occurrences")
+                query::view_sql_for(resolver.store(), "catalog_component_occurrences")
             ),
             &[resolver.profile().to_owned().into(), id.to_owned().into()],
         )?
@@ -96,7 +96,7 @@ pub fn capture(
     let mut videos = resolver.rows(
         &format!(
             "SELECT occurrence_id FROM ({}) WHERE profile=? AND association_id=? AND kind='video' AND current=1 ORDER BY occurrence_id LIMIT 257",
-            query::view_sql("catalog_component_occurrences")
+            query::view_sql_for(resolver.store(), "catalog_component_occurrences")
         ),
         &[
             resolver.profile().to_owned().into(),
@@ -156,7 +156,7 @@ pub fn capture(
             let candidates = resolver.rows(
                 &format!(
                     "SELECT occurrence_id FROM ({}) WHERE profile=? AND item_id=? AND {} IN (SELECT value FROM json_each(?)) AND current=1 ORDER BY occurrence_id LIMIT ?",
-                    query::view_sql("catalog_component_occurrences"),
+                    query::view_sql_for(resolver.store(), "catalog_component_occurrences"),
                     selection.entity
                 ),
                 &[

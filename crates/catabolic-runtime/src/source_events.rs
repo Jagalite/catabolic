@@ -13,8 +13,10 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
     time::{Duration, Instant},
 };
+mod borrowed;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod platform;
+pub use borrowed::{PersistedSourceEvents, SourceEventBatch, SourceEventMonitor, SourceEventScope};
 
 /// Bounded full-source coalescing. A stale acknowledgement cannot clear a hint
 /// received after that batch. Counter exhaustion rejects instead of wrapping.
@@ -182,6 +184,68 @@ impl MonitorSession {
         }
         Ok(())
     }
+    /// Filesystem-only collection shared by standalone and retained-host adapters.
+    /// Never opens the catalog or acknowledges a pending event sequence.
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    fn collect_pending(
+        &mut self,
+        wait: Duration,
+        cancel: &AtomicBool,
+        poll: &mut dyn FnMut(),
+    ) -> Result<bool> {
+        if (self.rebuild || !self.degraded.is_empty()) && Instant::now() >= self.retry_at {
+            self.reconnect()?;
+        }
+        let deadline = Instant::now() + wait.min(Duration::from_secs(30));
+        let mut lost = false;
+        loop {
+            cancelled(cancel, poll)?;
+            let duration = deadline
+                .saturating_duration_since(Instant::now())
+                .min(Duration::from_millis(50));
+            let outcome = self
+                .backend
+                .as_mut()
+                .ok_or_else(|| Error("native event monitor disconnected".into()))?
+                .wait(duration);
+            match outcome {
+                Ok(batch) => {
+                    let any = !batch.sources.is_empty();
+                    for index in batch.sources {
+                        self.dirty.mark(&self.snapshot.sources[index].name)?;
+                    }
+                    let newly_rebuilding = !self.rebuild && batch.rebuild;
+                    self.rebuild |= batch.rebuild;
+                    lost |= batch.lost;
+                    if newly_rebuilding {
+                        self.retry_at = Instant::now()
+                            + if batch.lost {
+                                Duration::from_secs(1)
+                            } else {
+                                Duration::ZERO
+                            };
+                    }
+                    if any || Instant::now() >= deadline {
+                        break;
+                    }
+                }
+                Err(error) => {
+                    self.last_error = Some(error.0);
+                    self.rebuild = true;
+                    lost = true;
+                    self.retry_at = Instant::now() + Duration::from_secs(1);
+                    for source in &self.snapshot.sources {
+                        self.dirty.mark(&source.name)?;
+                    }
+                    break;
+                }
+            }
+        }
+        // Root disconnections found by this wait are coverage transitions.
+        self.sync_coverage(Instant::now())?;
+        cancelled(cancel, poll)?;
+        Ok(lost)
+    }
     /// Drain kernel events, refresh changed bindings/policies, and atomically
     /// invalidate current sources. Busy catalogs retain this bounded batch.
     pub fn poll(
@@ -217,57 +281,7 @@ impl MonitorSession {
                 self.rebuild = true;
                 self.retry_at = Instant::now();
             }
-            if (self.rebuild || !self.degraded.is_empty()) && Instant::now() >= self.retry_at {
-                self.reconnect()?;
-            }
-            let deadline = Instant::now() + wait.min(Duration::from_secs(30));
-            let mut lost = false;
-            loop {
-                cancelled(cancel, poll)?;
-                let duration = deadline
-                    .saturating_duration_since(Instant::now())
-                    .min(Duration::from_millis(50));
-                let outcome = self
-                    .backend
-                    .as_mut()
-                    .ok_or_else(|| Error("native event monitor disconnected".into()))?
-                    .wait(duration);
-                match outcome {
-                    Ok(batch) => {
-                        let any = !batch.sources.is_empty();
-                        for index in batch.sources {
-                            self.dirty.mark(&self.snapshot.sources[index].name)?;
-                        }
-                        let newly_rebuilding = !self.rebuild && batch.rebuild;
-                        self.rebuild |= batch.rebuild;
-                        lost |= batch.lost;
-                        if newly_rebuilding {
-                            self.retry_at = Instant::now()
-                                + if batch.lost {
-                                    Duration::from_secs(1)
-                                } else {
-                                    Duration::ZERO
-                                };
-                        }
-                        if any || Instant::now() >= deadline {
-                            break;
-                        }
-                    }
-                    Err(error) => {
-                        self.last_error = Some(error.0);
-                        self.rebuild = true;
-                        lost = true;
-                        self.retry_at = Instant::now() + Duration::from_secs(1);
-                        for source in &self.snapshot.sources {
-                            self.dirty.mark(&source.name)?;
-                        }
-                        break;
-                    }
-                }
-            }
-            // Root disconnections found by this wait are coverage transitions.
-            self.sync_coverage(Instant::now())?;
-            cancelled(cancel, poll)?;
+            let lost = self.collect_pending(wait, cancel, poll)?;
             let batch = self.dirty.pending.clone();
             let names = batch.keys().cloned().collect::<Vec<_>>();
             let now = Instant::now();

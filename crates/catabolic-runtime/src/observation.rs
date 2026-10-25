@@ -342,19 +342,28 @@ pub fn start_supervised<P>(
 ) -> Result<SupervisedStart<P>> {
     start_supervised_inner(store, profile, request, permit, None)
 }
-/// The actual original supervisor is borrowed through the join admission. No
-/// reconstructed PID/JSON or expired durable row can call this ownership path.
-pub(crate) fn start_shared_supervised<P, Q>(
+/// Prepare under the current writer, without creating a child. The host must
+/// detach its session before consuming this private, nonserializable token.
+pub(crate) fn prepare_supervised<P>(
+    store: &mut Store,
+    profile: &str,
+    request: &Value,
+    permit: P,
+) -> Result<PreparedObservation<P>> {
+    prepare_supervised_inner(store, profile, request, permit, None)
+}
+/// Borrow the actual original supervisor while preparing the exact shared claim.
+pub(crate) fn prepare_shared_supervised<P, Q>(
     store: &mut Store,
     profile: &str,
     owner: &SupervisedWorker<Q>,
     permit: P,
-) -> Result<SupervisedStart<P>> {
+) -> Result<PreparedObservation<P>> {
     if profile != owner.profile {
         return Err(Error("shared join profile mismatch".into()));
     }
     let shared = owner.shared_claim(store)?;
-    start_supervised_inner(
+    prepare_supervised_inner(
         store,
         profile,
         &json!({"source":owner.source,"isolate":true}),
@@ -362,6 +371,10 @@ pub(crate) fn start_shared_supervised<P, Q>(
         Some(shared),
     )
 }
+
+// The standalone API deliberately retains its documented reconnect contract.
+// HostSession uses prepare -> session detach -> spawn instead, so it never
+// competes with its own child during parent catalog validation.
 fn start_supervised_inner<P>(
     store: &mut Store,
     profile: &str,
@@ -369,6 +382,94 @@ fn start_supervised_inner<P>(
     permit: P,
     shared: Option<companion::SharedClaim>,
 ) -> Result<SupervisedStart<P>> {
+    let prepared = prepare_supervised_inner(store, profile, request, permit, shared)?;
+    let mut worker = None;
+    let reconnect = store.detached(|| {
+        worker = Some(prepared.spawn()?);
+        Ok(())
+    });
+    match worker {
+        Some(worker) => Ok(SupervisedStart {
+            worker,
+            reconnect_error: reconnect.err(),
+        }),
+        None => Err(reconnect
+            .err()
+            .unwrap_or_else(|| Error("observation helper did not start".into()))),
+    }
+}
+
+#[must_use]
+pub(crate) struct PreparedObservation<P> {
+    binary: PathBuf,
+    command: &'static str,
+    encoded_request: String,
+    output: File,
+    stdout: File,
+    reader: File,
+    permit: P,
+    path: PathBuf,
+    database_id: String,
+    native_fence: Option<NativeFence>,
+    profile: String,
+    source: String,
+    requester: String,
+    resumed_request: Option<String>,
+    companion: Option<companion::Reservation>,
+    shared: Option<companion::SharedClaim>,
+}
+impl<P> PreparedObservation<P> {
+    #[cfg(test)]
+    pub(crate) fn with_missing_executable_for_test(mut self, missing: PathBuf) -> Self {
+        assert!(!missing.exists(), "fault path must be absent");
+        self.binary = missing;
+        self
+    }
+    // No fallible work follows successful spawn before the Child is owned by
+    // SupervisedWorker. Dropping an unconsumed token proves no child was spawned,
+    // but never fabricates a durable companion cleanup witness.
+    pub(crate) fn spawn(self) -> Result<SupervisedWorker<P>> {
+        let child = catabolic_core::spawn_guard::spawn(
+            Command::new(self.binary)
+                .arg("--db")
+                .arg(&self.path)
+                .args([
+                    "--profile",
+                    &self.profile,
+                    self.command,
+                    &self.encoded_request,
+                ])
+                .stdin(Stdio::null())
+                .stdout(Stdio::from(self.stdout))
+                .stderr(Stdio::from(self.output)),
+        )?;
+        let pid = child.id();
+        Ok(SupervisedWorker {
+            child: Some(child),
+            output: self.reader,
+            permit: Some(self.permit),
+            pid,
+            path: self.path,
+            database_id: self.database_id,
+            native_fence: self.native_fence,
+            profile: self.profile,
+            source: self.source,
+            requester: self.requester,
+            resumed_request: self.resumed_request,
+            completed: None,
+            companion: self.companion,
+            shared: self.shared,
+            exited_companion: None,
+        })
+    }
+}
+fn prepare_supervised_inner<P>(
+    store: &mut Store,
+    profile: &str,
+    request: &Value,
+    permit: P,
+    shared: Option<companion::SharedClaim>,
+) -> Result<PreparedObservation<P>> {
     if !request.is_object() {
         return Err(Error("observation request must be an object".into()));
     }
@@ -434,6 +535,10 @@ fn start_supervised_inner<P>(
             .unwrap_or("media")
             .to_owned()
     };
+    // Allocate all fallible output descriptors before durable reservation.
+    let output = tempfile::tempfile()?;
+    let reader = output.try_clone()?;
+    let stdout = output.try_clone()?;
     let companion = if let Some(digest) = closed_digest {
         let reservation =
             companion::reserve(store, profile, &source, &requester, &digest, &child_request)?;
@@ -442,57 +547,24 @@ fn start_supervised_inner<P>(
     } else {
         None
     };
-    let path = store.path.clone();
-    let database_id = store.database_id.clone();
-    let output = tempfile::tempfile()?;
-    let reader = output.try_clone()?;
-    // Store::detached can discard its closure result if reconnect fails. Keep
-    // ownership outside that result so this live child is always returned.
-    let mut worker = None;
-    let reconnect = store.detached(|| {
-        let child = catabolic_core::spawn_guard::spawn(
-            Command::new(binary)
-                .arg("--db")
-                .arg(&path)
-                .args([
-                    "--profile",
-                    profile,
-                    command,
-                    &catabolic_core::encode(&child_request),
-                ])
-                .stdin(Stdio::null())
-                .stdout(Stdio::from(output.try_clone()?))
-                .stderr(Stdio::from(output)),
-        )?;
-        let pid = child.id();
-        worker = Some(SupervisedWorker {
-            child: Some(child),
-            output: reader,
-            permit: Some(permit),
-            pid,
-            path,
-            database_id,
-            native_fence,
-            profile: profile.to_owned(),
-            source,
-            requester,
-            resumed_request,
-            completed: None,
-            companion,
-            shared,
-            exited_companion: None,
-        });
-        Ok(())
-    });
-    match worker {
-        Some(worker) => Ok(SupervisedStart {
-            worker,
-            reconnect_error: reconnect.err(),
-        }),
-        None => Err(reconnect
-            .err()
-            .unwrap_or_else(|| Error("observation helper did not start".into()))),
-    }
+    Ok(PreparedObservation {
+        binary,
+        command,
+        encoded_request: catabolic_core::encode(&child_request),
+        output,
+        stdout,
+        reader,
+        permit,
+        path: store.path.clone(),
+        database_id: store.database_id.clone(),
+        native_fence,
+        profile: profile.to_owned(),
+        source,
+        requester,
+        resumed_request,
+        companion,
+        shared,
+    })
 }
 
 /// Closed schema37 entrypoint: only the built-in store operation is reachable.

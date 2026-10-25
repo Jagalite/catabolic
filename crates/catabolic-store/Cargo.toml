@@ -28,6 +28,10 @@ async-graphql-value.workspace = true
 futures.workspace = true
 async-trait.workspace = true
 
+[dev-dependencies]
+# Actual retained-child lifecycle for private provenance unit fixtures.
+catabolic-runtime.workspace = true
+
 [features]
 # Test-only: request-field crash injection, and the observation hooks in
 # native restore, native backup and journal conversion. Off by default; never

@@ -88,11 +88,14 @@ pub fn setup(db: &Connection) -> Result<()> {
     install_functions(db)?;
     // The connection's initial TEMP storage is chosen before it is exposed.
     // Keep any caller-selected storage and existing TEMP objects intact here.
+    let schema: u32 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
     for view in reference()["views"].as_array().unwrap() {
+        let definition =
+            crate::catalog_source_succession::current::view(schema, view["sql"].as_str().unwrap());
         db.execute_batch(&format!(
             "CREATE TEMP VIEW IF NOT EXISTS {} AS {}",
             view["name"].as_str().unwrap(),
-            view["sql"].as_str().unwrap()
+            definition
         ))?;
     }
     db.pragma_update(None, "query_only", true)?;
@@ -306,6 +309,35 @@ fn execute_store_inner(
     failure: &Arc<Mutex<Option<ExecutionFailure>>>,
     materialized_scope: bool,
 ) -> Result<Value> {
+    let bound = validate_request(sql, options)?;
+    // Candidate evidence UDFs borrow this actual SQL owner. An existing writer
+    // or thread-affine operation is never replaced with a fresh allowance.
+    // Historical40 SQL behavior and its existing VM owner remain unchanged.
+    let _query_budget = if store.schema_version == 41 && OperationBudget::current().is_none() {
+        let budget =
+            if store.db.transaction_state(Some("main"))? == rusqlite::TransactionState::Write {
+                store.catalog_operation_budget()?
+            } else {
+                let limits = crate::catalog_search_index::SearchIndexLimits::default();
+                OperationBudget::new(
+                    Duration::from_millis(options.timeout_ms),
+                    crate::operation_budget::BudgetLimits {
+                        items: limits.max_items,
+                        values: limits.max_values,
+                        bytes: limits.max_text_bytes,
+                        work: limits.max_steps,
+                    },
+                )
+                .map_err(|cause| Error(format!("SQL operation budget: {cause:?}")))?
+            };
+        Some(budget.enter().map_err(|cause| {
+            *failure.lock().expect("SQL failure lock") = Some(from_operation(cause));
+            Error(format!("SQL operation budget: {cause:?}"))
+        })?)
+    } else {
+        None
+    };
+    let _source_read = crate::catalog_source_succession::current::enter_read(store)?;
     let operation = OperationBudget::current();
     if let Some(budget) = &operation {
         budget.check().map_err(|cause| {
@@ -313,7 +345,6 @@ fn execute_store_inner(
             Error("operation budget exhausted".into())
         })?;
     }
-    let bound = validate_request(sql, options)?;
     let db = &store.db;
     if !db
         .prepare("SELECT 1 FROM profiles WHERE id=?")?
@@ -329,6 +360,7 @@ fn execute_store_inner(
     let deadline = operation
         .as_ref()
         .map_or(deadline, |budget| deadline.min(budget.deadline()));
+    let authorizer = crate::catalog_source_succession::authorizer::Guard::for_store(store)?;
     let result = (|| {
         if !materialized_scope {
             setup(db)?;
@@ -407,7 +439,8 @@ fn execute_store_inner(
         let captured = denied.clone();
         let stable = options.stable;
         let http = options.http;
-        db.authorizer(Some(move |context: AuthContext<'_>| {
+        let schema = store.schema_version;
+        authorizer.replace(move |context: AuthContext<'_>| {
             let (allow, name) = match context.action {
                 AuthAction::Select | AuthAction::Recursive => (true, None),
                 AuthAction::Read {
@@ -442,6 +475,9 @@ fn execute_store_inner(
                                 .unwrap()
                                 .iter()
                                 .any(|v| v["name"] == table_name)
+                                || crate::catalog_source_succession::current::synthetic_read_view(
+                                    schema, table_name,
+                                )
                                 || http && http_tables.contains(table_name) && safe);
                     // Frozen HTTP table denials return directly from the read
                     // branch; preserve SQLite's access error rather than the
@@ -458,7 +494,10 @@ fn execute_store_inner(
                     let allowed = reference()["functions"]
                         .as_array()
                         .unwrap()
-                        .contains(&json!(name));
+                        .contains(&json!(name))
+                        || crate::catalog_source_succession::current::refusal_function(
+                            schema, &name,
+                        );
                     let nondeterministic = [
                         "random",
                         "randomblob",
@@ -496,7 +535,7 @@ fn execute_store_inner(
                 }
                 Authorization::Deny
             }
-        }))?;
+        })?;
         let interrupted = Arc::clone(failure);
         let vm_budget = operation.clone();
         db.progress_handler(
@@ -639,12 +678,25 @@ fn execute_store_inner(
         )
     })();
     db.progress_handler(0, None::<fn() -> bool>)?;
-    db.authorizer(None::<fn(AuthContext<'_>) -> Authorization>)?;
+    authorizer.restore()?;
     for (limit, old) in old_limits {
         db.set_limit(limit, old)?;
     }
     db.pragma_update(None, "query_only", query_only)?;
     db.pragma_update(None, "busy_timeout", busy)?;
+    // Capture sticky UDF/VM refusal before the standalone scope is dropped.
+    record_operation(failure);
+    #[cfg(test)]
+    if result.is_err() {
+        eprintln!(
+            "SQL owner failure: classified={:?}; operation_failure={:?}; usage={:?}; timeout_ms={}; deadline_elapsed={}",
+            *failure.lock().expect("SQL failure lock"),
+            operation.as_ref().and_then(OperationBudget::failure),
+            operation.as_ref().map(OperationBudget::usage),
+            options.timeout_ms,
+            Instant::now() >= deadline
+        );
+    }
     result.map_err(|error| {
         if let Some(name) = denied.lock().expect("denial lock").as_ref() {
             Error(format!(

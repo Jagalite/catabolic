@@ -160,3 +160,23 @@ was not edited. At this historical checkpoint R0 remained open pending supported
 dependency adoption and broader qualification. The subsequent sequencing amendment
 permits Catabolic work to continue with external integration explicitly deferred.
 No M0–M11 gate closure is implied by these results.
+
+### Private NFO provenance fixture prerequisite
+
+The three non-ignored `catalog_nfo_attribution::physical_provenance` import fixtures
+require `CATABOLIC_HOST_TEST_HELPER` to name the official `catabolic-cli` binary
+`catabolic-native` built from the same source checkpoint, not a Rust test harness.
+Build it with `cargo build --locked -p catabolic-cli --bin catabolic-native` and
+use `scripts/verify_native_test_helper.py` to verify executable identity, SHA-256,
+and the existing128 MiB artifact bound before running the store tests. A build
+with debug info disabled may be necessary to meet that unchanged bound.
+The fixture registers the explicit NoChildWithExactJoinV2 packaging grant and
+requires actual helper completion, retained-child cleanup, authorization drain,
+and a settled native inventory before import activation. Missing helper setup
+fails clearly; these tests are not silently skipped or replaced by fake witnesses.
+
+Both `scripts/check-native-mutations.sh` and `scripts/check-native-migration.sh`
+wire their freshly built official artifact into this environment and run the
+ordinary Rust tests serially. Direct `cargo test` callers must provide the same
+prerequisite. This is disposable fixture qualification only, not live catalog
+migration permission.

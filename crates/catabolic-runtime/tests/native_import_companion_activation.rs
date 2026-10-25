@@ -107,6 +107,9 @@ struct Scanned {
     file: String,
 }
 fn scanned() -> Scanned {
+    scanned_at(37)
+}
+fn scanned_at(schema: u32) -> Scanned {
     let binary = PathBuf::from(
         std::env::var_os("CATABOLIC_HOST_TEST_HELPER").expect("exact rebuilt37 helper required"),
     );
@@ -120,7 +123,7 @@ fn scanned() -> Scanned {
     .unwrap();
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("catalog");
-    migration::initialize_native_at(&path, 37).unwrap();
+    migration::initialize_native_at(&path, schema).unwrap();
     let source = root.path().join("source");
     fs::create_dir(&source).unwrap();
     fs::write(source.join("one.txt"), "same exact content\n").unwrap();
@@ -204,6 +207,12 @@ fn scanned() -> Scanned {
 }
 fn stage(store: &Store, file: &str) -> (ActivationBinding, TypedAuthority) {
     let grants = TypedAuthority {
+        existing_items: Default::default(),
+        existing_contexts: Default::default(),
+        existing_timelines: Default::default(),
+        logical_aliases: None,
+        relationships: None,
+        tag_sources: Vec::new(),
         physical_files: [("default".into(), [file.into()].into())].into(),
         identity: Some(IdentityAuthority {
             authority_namespace: HOST.into(),
@@ -296,8 +305,16 @@ fn activation(binding: &ActivationBinding) -> ImportMutation {
 #[test]
 #[ignore = "requires exact rebuilt37 CATABOLIC_HOST_TEST_HELPER; run explicitly"]
 fn native37_actual_scanned_occurrence_activates_draft_identity_without_clearing_owner() {
+    actual_scanned_occurrence_activates_at(37);
+}
+#[test]
+#[ignore = "requires exact rebuilt current CATABOLIC_HOST_TEST_HELPER; run explicitly"]
+fn native39_actual_scanned_occurrence_activates_without_clearing_owner() {
+    actual_scanned_occurrence_activates_at(39);
+}
+fn actual_scanned_occurrence_activates_at(schema: u32) {
     let _serial = RUN.lock().unwrap();
-    let f = scanned();
+    let f = scanned_at(schema);
     let store = Store::open(&f.path, true, false).unwrap();
     let (binding, grants) = stage(&store, &f.file);
     let active = TrustedImportActivation::after_drain(

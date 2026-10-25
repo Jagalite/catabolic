@@ -63,7 +63,7 @@ fn processing_fact(
     file: &str,
     operation: &str,
 ) -> Result<Option<Value>> {
-    let bytes:Option<i64>=store.db.query_row("SELECT length(CAST(snapshot AS BLOB))+length(CAST(data AS BLOB))+length(CAST(job_id AS BLOB))+length(CAST(status AS BLOB))+length(CAST(operation AS BLOB)) FROM main.file_facts WHERE profile=? AND file_id=? AND operation=?",params![profile,file,operation],|r|r.get(0)).optional()?;
+    let bytes:Option<i64>=store.db.query_row(&crate::catalog_source_succession::current::view(store.schema_version, "SELECT length(CAST(snapshot AS BLOB))+length(CAST(data AS BLOB))+length(CAST(job_id AS BLOB))+length(CAST(status AS BLOB))+length(CAST(operation AS BLOB)) FROM main.file_facts WHERE profile=? AND file_id=? AND operation=?"),params![profile,file,operation],|r|r.get(0)).optional()?;
     let Some(bytes) = bytes else { return Ok(None) };
     charge_raw(bytes)?;
     let current = recorded_revision(store, profile, file)?;

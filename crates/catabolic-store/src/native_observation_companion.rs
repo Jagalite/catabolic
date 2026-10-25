@@ -166,7 +166,10 @@ pub fn read(store: &Store, nonce: &str) -> Result<Option<Record>> {
     if store.schema_version < SCHEMA_VERSION {
         return Ok(None);
     }
-    Ok(store.db.query_row("SELECT reservation_nonce,catalog_id,incarnation,protocol_kind,protocol_version,helper_digest,profile,source,requester,args_digest,state,child_pid,request_id,demand_job_id,owned_job_id,owned_generation,owned_claim_token_digest,cleanup_kind,sealed_at FROM native_observation_companions WHERE reservation_nonce=?", [nonce], |r| {
+    read_in(&store.db, nonce)
+}
+fn read_in(db: &rusqlite::Connection, nonce: &str) -> Result<Option<Record>> {
+    Ok(db.query_row("SELECT reservation_nonce,catalog_id,incarnation,protocol_kind,protocol_version,helper_digest,profile,source,requester,args_digest,state,child_pid,request_id,demand_job_id,owned_job_id,owned_generation,owned_claim_token_digest,cleanup_kind,sealed_at FROM native_observation_companions WHERE reservation_nonce=?", [nonce], |r| {
         let job_id: Option<String> = r.get(14)?;
         Ok(Record {
             reservation: Reservation { reservation_nonce:r.get(0)?,catalog_id:r.get(1)?,incarnation:r.get(2)?,protocol_kind:r.get(3)?,protocol_version:r.get(4)?,helper_digest:r.get(5)?,profile:r.get(6)?,source:r.get(7)?,requester:r.get(8)?,args_digest:r.get(9)? },
@@ -185,7 +188,10 @@ struct CurrentClaim {
 }
 type ClaimRow = (String, String, SqlValue, SqlValue, SqlValue);
 fn current_claim(store: &Store, job: &str) -> Result<Option<CurrentClaim>> {
-    let row: Option<ClaimRow> = store.db.query_row("SELECT profile,source,generation,worker_pid,claim_token FROM observation_jobs WHERE id=?", [job], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).optional()?;
+    current_claim_in(&store.db, job)
+}
+fn current_claim_in(db: &rusqlite::Connection, job: &str) -> Result<Option<CurrentClaim>> {
+    let row: Option<ClaimRow> = db.query_row("SELECT profile,source,generation,worker_pid,claim_token FROM observation_jobs WHERE id=?", [job], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).optional()?;
     let Some((
         profile,
         source,
@@ -235,9 +241,22 @@ pub(crate) fn capture_claim(
 /// necessary but never sufficient: runtime must also own the actual Child proof.
 pub fn completion_matches(store: &Store, record: &Record) -> Result<bool> {
     store.validate_native_identity()?;
+    completion_matches_in(
+        &store.db,
+        &store.database_id,
+        store.catalog_incarnation.as_deref(),
+        record,
+    )
+}
+fn completion_matches_in(
+    db: &rusqlite::Connection,
+    catalog: &str,
+    incarnation: Option<&str>,
+    record: &Record,
+) -> Result<bool> {
     let r = &record.reservation;
-    if r.catalog_id != store.database_id
-        || Some(&r.incarnation) != store.catalog_incarnation.as_ref()
+    if r.catalog_id != catalog
+        || Some(r.incarnation.as_str()) != incarnation
         || r.protocol_kind != PROTOCOL_KIND
         || r.protocol_version != PROTOCOL_VERSION
         || !matches!(record.state.as_str(), "completed" | "quiescent")
@@ -251,9 +270,9 @@ pub fn completion_matches(store: &Store, record: &Record) -> Result<bool> {
     ) else {
         return Ok(false);
     };
-    if !store.db.prepare("SELECT 1 FROM observation_requests r JOIN observation_jobs j ON j.id=r.job_id WHERE r.id=? AND r.job_id=? AND r.profile=? AND r.source=? AND r.requester=? AND j.profile=r.profile AND j.source=r.source")?.exists([request,demand,&r.profile,&r.source,&r.requester])? { return Ok(false); }
+    if !db.prepare("SELECT 1 FROM observation_requests r JOIN observation_jobs j ON j.id=r.job_id WHERE r.id=? AND r.job_id=? AND r.profile=? AND r.source=? AND r.requester=? AND j.profile=r.profile AND j.source=r.source")?.exists([request,demand,&r.profile,&r.source,&r.requester])? { return Ok(false); }
     if let Some(owned) = &record.owned {
-        let Some(current) = current_claim(store, &owned.job_id)? else {
+        let Some(current) = current_claim_in(db, &owned.job_id)? else {
             return Ok(false);
         };
         if owned.job_id != demand
@@ -459,13 +478,28 @@ pub fn has_cleanup_witness(store: &Store, job: &str) -> Result<bool> {
     if store.schema_version < SCHEMA_VERSION {
         return Ok(false);
     }
-    let Some(current) = current_claim(store, job)? else {
+    has_cleanup_witness_in(
+        &store.db,
+        &store.database_id,
+        store.catalog_incarnation.as_deref(),
+        job,
+    )
+}
+/// Internal read-only witness check on the caller's already validated, held connection.
+/// It cannot create a witness, claim, or cleanup seal.
+pub(crate) fn has_cleanup_witness_in(
+    db: &rusqlite::Connection,
+    catalog: &str,
+    incarnation: Option<&str>,
+    job: &str,
+) -> Result<bool> {
+    let Some(current) = current_claim_in(db, job)? else {
         return Ok(false);
     };
-    let nonces = store.db.prepare("SELECT reservation_nonce FROM native_observation_companions WHERE catalog_id=? AND incarnation=? AND owned_job_id=? AND owned_generation=? AND owned_claim_token_digest=? AND child_pid=? AND profile=? AND source=? AND state='quiescent' AND protocol_kind=? AND protocol_version=? AND cleanup_kind=? AND sealed_at IS NOT NULL LIMIT 2")?.query_map(params![store.database_id,store.catalog_incarnation,job,current.owned.generation,current.owned.claim_token_digest,current.pid,current.profile,current.source,PROTOCOL_KIND,PROTOCOL_VERSION,CLEANUP_KIND], |r| r.get::<_,String>(0))?.collect::<std::result::Result<Vec<_>,_>>()?;
+    let nonces = db.prepare("SELECT reservation_nonce FROM native_observation_companions WHERE catalog_id=? AND incarnation=? AND owned_job_id=? AND owned_generation=? AND owned_claim_token_digest=? AND child_pid=? AND profile=? AND source=? AND state='quiescent' AND protocol_kind=? AND protocol_version=? AND cleanup_kind=? AND sealed_at IS NOT NULL LIMIT 2")?.query_map(params![catalog,incarnation,job,current.owned.generation,current.owned.claim_token_digest,current.pid,current.profile,current.source,PROTOCOL_KIND,PROTOCOL_VERSION,CLEANUP_KIND], |r| r.get::<_,String>(0))?.collect::<std::result::Result<Vec<_>,_>>()?;
     for nonce in nonces {
-        if let Some(record) = read(store, &nonce)?
-            && completion_matches(store, &record)?
+        if let Some(record) = read_in(db, &nonce)?
+            && completion_matches_in(db, catalog, incarnation, &record)?
         {
             return Ok(true);
         }

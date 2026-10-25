@@ -214,7 +214,7 @@ fn component_evidence(
     ids: &BTreeSet<String>,
 ) -> Result<Value> {
     let records = {
-        let mut statement=evaluation.store().db.prepare(&format!("SELECT * FROM ({}) WHERE profile=? AND {entity} IN (SELECT value FROM json_each(?)) ORDER BY occurrence_id LIMIT 100001",crate::query::view_sql("catalog_component_occurrences")))?;
+        let mut statement=evaluation.store().db.prepare(&format!("SELECT * FROM ({}) WHERE profile=? AND {entity} IN (SELECT value FROM json_each(?)) ORDER BY occurrence_id LIMIT 100001",crate::query::view_sql_for(evaluation.store(), "catalog_component_occurrences")))?;
         let names = statement
             .column_names()
             .iter()

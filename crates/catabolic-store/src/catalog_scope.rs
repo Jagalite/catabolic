@@ -309,6 +309,20 @@ fn operation(budget: ReadBudget) -> Result<OperationBudget> {
     )
     .map_err(|cause| fail(evaluation_code(Some(cause))))
 }
+/// Validate an existing trusted selection reference without disclosing records
+/// or executing its selection. A valid reference is not an application grant.
+pub fn validate_selection_reference(
+    store: &Store,
+    profile: &str,
+    reference: &SavedQueryRef,
+) -> Result<()> {
+    let definition = query(store, profile, reference)?;
+    if definition["mode"] != "selection" {
+        return Err(fail(ScopeErrorCode::InvalidGrant));
+    }
+    Ok(())
+}
+
 fn query(store: &Store, profile: &str, reference: &SavedQueryRef) -> Result<Value> {
     let length:Option<i64>=store.db.query_row("SELECT length(CAST(definition AS BLOB)) FROM main.saved_queries WHERE id=? AND profile=?",params![reference.id,profile],|r|r.get(0)).optional()?;
     if let Some(length) = length {
@@ -504,6 +518,23 @@ impl ScopedReadSession {
             poisoned: false,
         })
     }
+    /// Open the scoped read owner only for the exact catalog incarnation the
+    /// embedding host already admitted. Checking another connection or merely
+    /// checking the pathname first leaves a replacement race.
+    pub fn open_expected(path: &Path, catalog_id: &str, incarnation: &str) -> Result<Self> {
+        if catalog_id.is_empty() || incarnation.is_empty() {
+            return Err(fail(ScopeErrorCode::InvalidGrant));
+        }
+        let mut session = Self::open(path)?;
+        session.fresh(|_, current| {
+            if current.catalog != catalog_id || current.incarnation != incarnation {
+                return Err(fail(ScopeErrorCode::WrongAuthority));
+            }
+            Ok(())
+        })?;
+        Ok(session)
+    }
+
     pub(crate) fn open_private_writer(path: &Path) -> Result<Self> {
         let store = Store::open(path, true, false)?;
         if store.schema_version < 34 {
@@ -1395,3 +1426,6 @@ pub use physical::{FileFactField, TrustedFileFactsRead};
 #[path = "catalog_scope_components.rs"]
 mod component_reads;
 pub use component_reads::{ComponentField, ComponentKind, TrustedComponentsRead};
+
+mod library_selection;
+pub(crate) use library_selection::{equal_saved_library_reference, validate_library_selection_in};

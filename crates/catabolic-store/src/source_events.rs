@@ -178,3 +178,38 @@ fn reconciliation_due(db: &rusqlite::Connection, profile: &str, source: &str) ->
         |row| row.get(0),
     )?)
 }
+
+/// Descriptive native owner facts only. A claimed generation is not completed
+/// coverage. Actual scan admission/completion remains the observation owner.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GenerationFact {
+    pub source: String,
+    pub dirty_generation: Option<i64>,
+    pub claimed_generation: Option<i64>,
+    pub live_claim: bool,
+}
+pub fn generation_facts(
+    store: &Store,
+    expected: &Snapshot,
+    names: &[String],
+) -> Result<Vec<GenerationFact>> {
+    use rusqlite::OptionalExtension;
+    if names.len() > MAX_SOURCES || snapshot(store, &expected.profile)? != *expected {
+        return Err(Error("stale_native_event_snapshot".into()));
+    }
+    let unique: BTreeSet<&str> = names.iter().map(String::as_str).collect();
+    if unique.len() != names.len()
+        || unique
+            .iter()
+            .any(|name| !expected.sources.iter().any(|s| s.name == *name))
+    {
+        return Err(Error("unknown_native_event_source".into()));
+    }
+    let now = crate::filesystem_mutation::now();
+    names.iter().map(|source| {
+        let dirty_generation = store.db.query_row("SELECT dirty_generation FROM observation_sources WHERE profile=? AND source=?",rusqlite::params![expected.profile,source],|r|r.get(0)).optional()?;
+        let claimed_generation = store.db.query_row("SELECT max(dirty_generation) FROM observation_jobs WHERE profile=? AND source=? AND state<>'queued'",rusqlite::params![expected.profile,source],|r|r.get(0))?;
+        let live_claim = store.db.query_row("SELECT EXISTS(SELECT 1 FROM observation_jobs j WHERE j.profile=?1 AND j.source=?2 AND ((j.state='running' AND j.lease_until>?3) OR (j.state='queued' AND EXISTS(SELECT 1 FROM observation_requests r WHERE r.job_id=j.id AND r.profile=j.profile AND r.state='active'))))",rusqlite::params![expected.profile,source,now],|r|r.get(0))?;
+        Ok(GenerationFact { source:source.clone(),dirty_generation,claimed_generation,live_claim })
+    }).collect()
+}

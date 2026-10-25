@@ -664,7 +664,7 @@ fn contract_and_resource_bounds_refuse_unsupported_or_empty_input() {
         ImportErrorCode::InvalidInput
     );
     let (mut manifest, _) = snapshot(&[batch("a")]);
-    manifest.contract_version = 3;
+    manifest.contract_version = 4;
     assert_eq!(
         import::manifest_digest(&manifest).unwrap_err().code,
         ImportErrorCode::UnsupportedContract
@@ -1200,6 +1200,32 @@ fn import_activation_exit_helper() {
 }
 
 #[test]
+fn native39_retained_observation_without_exact_witness_blocks_activation() {
+    let f = Fixture::at(39);
+    f.store.db.execute_batch("INSERT INTO observation_jobs(id,profile,source,compatibility,exclusions,dirty_generation,generation,state,requested_at,lease_until,worker_pid) VALUES('retained','default','source','{}','[]',0,1,'complete',0,0,99999)").unwrap();
+    let (digest, map) = fully_staged(&f, &[batch("a")]);
+    let command = f.envelope(&activate(&digest, &map));
+    assert_eq!(
+        run_activation(&f.store, &command, &digest, &map)
+            .unwrap_err()
+            .code,
+        CommandStoreErrorCode::Import(ImportErrorCode::RecoveryRequired)
+    );
+    assert_eq!(count(&f.store, "items"), 0);
+    assert_eq!(
+        f.store
+            .db
+            .query_row(
+                "SELECT worker_pid FROM observation_jobs WHERE id='retained'",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+        99999
+    );
+}
+
+#[test]
 fn pending_work_retained_workers_and_wal_activation_stay_fail_closed() {
     for setup in [
         "INSERT INTO fallback_probe_slots(id,owner,pid) VALUES(987,'retained-owner',99999)",
@@ -1272,8 +1298,13 @@ fn typed_metadata_pin_batch() -> ImportBatch {
     let mut b = batch("a");
     b.items[0].legacy_metadata = json!({});
     b.typed = Some(TypedBatch {
+        relationships: Vec::new(),
+        logical_aliases: Vec::new(),
+        tags: Vec::new(),
         native: None,
         metadata: vec![ImportedMetadata {
+            contract_version: 1,
+            system_fields: vec![],
             item_id: "a".into(),
             policies: json!([{"field":"title","value_type":"string","nullable":true,"normalization":"exact"}]),
             contributions: vec![
@@ -1320,6 +1351,12 @@ fn typed_grants() -> catabolic_store::catalog_import_typed::TypedAuthority {
         catalog_pins::PinAuthority,
     };
     catabolic_store::catalog_import_typed::TypedAuthority {
+        existing_items: Default::default(),
+        existing_contexts: Default::default(),
+        existing_timelines: Default::default(),
+        logical_aliases: None,
+        relationships: None,
+        tag_sources: Vec::new(),
         physical_files: Default::default(),
         identity: None,
         metadata: vec![
@@ -1568,6 +1605,12 @@ fn native_typed_fixture(
     use catabolic_store::catalog_identity_mutation::IdentityAuthority;
     use catabolic_store::catalog_import_typed::*;
     let grants = TypedAuthority {
+        existing_items: Default::default(),
+        existing_contexts: Default::default(),
+        existing_timelines: Default::default(),
+        logical_aliases: None,
+        relationships: None,
+        tag_sources: Vec::new(),
         physical_files: [(
             "default".into(),
             ["physical".into(), "duplicate".into()].into(),
@@ -1590,6 +1633,9 @@ fn native_typed_fixture(
     let versions:Vec<Value>=[("one",0), ("two",if overlap{5_000_000}else{10_000_000})].into_iter().map(|(n,start)|json!({"expected_revision":null,"expected_timeline_revision":1,"version":{"contract_version":1,"version_id":format!("version-{n}"),"association_item_id":format!("episode-{n}"),"edition_item_id":"edition","timeline_id":format!("timeline-{n}"),"state":"ready","declared_coverage":{"start_us":0,"end_us":10_000_000},"bindings":[{"binding_id":format!("binding-{n}"),"association_id":format!("source-association-{n}"),"file":physical.exact,"part":1,"source":{"kind":"slice","interval":{"start_us":start,"end_us":start+10_000_000}},"timeline_interval":{"start_us":0,"end_us":10_000_000}}]},"equivalence":null,"expected_binding_revisions":{format!("binding-{n}"):null}})).collect();
     let mutation = json!({"contract_version":1,"profile":"default","context":{"id":"context-import","authority_namespace":"import-host","context_key":"editorial-import","expected_revision":null},"timelines":timelines,"versions":versions,"evidence":[]});
     b.typed = Some(TypedBatch {
+        relationships: Vec::new(),
+        logical_aliases: Vec::new(),
+        tags: Vec::new(),
         native: Some(NativeIdentityBatch {
             occurrences: vec![physical],
             associations: ["one", "two"]
@@ -1720,6 +1766,9 @@ fn typed_exact_occurrence_maps_keep_duplicates_distinct_and_unavailable_unknown(
         .unwrap();
     let mut b = batch("a");
     b.typed = Some(TypedBatch {
+        relationships: Vec::new(),
+        logical_aliases: Vec::new(),
+        tags: Vec::new(),
         native: Some(NativeIdentityBatch {
             occurrences: vec![
                 capture_existing_occurrence(&f.store, "original", "default", "physical", &grants)
@@ -1785,6 +1834,12 @@ fn typed_real_observation_owner_preserves_rename_replacement_duplicates_and_unav
     let copy = id_at("copy.txt");
     assert_ne!(original, copy);
     let mut grants = TypedAuthority {
+        existing_items: Default::default(),
+        existing_contexts: Default::default(),
+        existing_timelines: Default::default(),
+        logical_aliases: None,
+        relationships: None,
+        tag_sources: Vec::new(),
         physical_files: [("default".into(), [original.clone(), copy.clone()].into())].into(),
         ..Default::default()
     };
@@ -1819,6 +1874,9 @@ fn typed_real_observation_owner_preserves_rename_replacement_duplicates_and_unav
     assert_ne!(renamed_after.exact.revision, renamed_before.exact.revision);
     let mut stale = batch("a");
     stale.typed = Some(TypedBatch {
+        relationships: Vec::new(),
+        logical_aliases: Vec::new(),
+        tags: Vec::new(),
         native: Some(NativeIdentityBatch {
             occurrences: vec![renamed_before],
             ..Default::default()
@@ -2142,6 +2200,9 @@ fn mixed_batches(f: &Fixture, split: bool) -> Vec<ImportBatch> {
     } else {
         let identities = native.typed.take().unwrap().native;
         native.typed = Some(TypedBatch {
+            relationships: Vec::new(),
+            logical_aliases: Vec::new(),
+            tags: Vec::new(),
             native: identities,
             ..metadata
         });
@@ -2362,3 +2423,822 @@ fn mixed_native_exit_helper() {
 mod contribution_semantics;
 #[path = "native_import_support/representations.rs"]
 mod representations;
+
+#[test]
+fn version_three_empty_snapshot_requires_real_activation_and_replays_without_items() {
+    let f = Fixture::at(39);
+    let manifest = SnapshotManifest {
+        contract_version: import::EMPTY_IMPORT_CONTRACT_VERSION,
+        import_id: "import-1".into(),
+        source_namespace: "fixture-source".into(),
+        source_snapshot_id: "frozen-export-1".into(),
+        batches: vec![],
+    };
+    for legacy in [1, 2] {
+        let mut unsupported = manifest.clone();
+        unsupported.contract_version = legacy;
+        assert_eq!(
+            import::manifest_digest(&unsupported).unwrap_err().code,
+            ImportErrorCode::InvalidInput
+        );
+    }
+    let digest = import::manifest_digest(&manifest).unwrap();
+    f.run(&ImportMutation::Prepare {
+        manifest,
+        input_digest: digest.clone(),
+    });
+    assert_eq!(
+        error(&f, &stage(&digest, 0, batch("unexpected"))),
+        ImportErrorCode::InvalidInput
+    );
+    let validated = f.run(&validate(&digest));
+    assert_eq!(result(&validated)["activation_supported"], true);
+    assert_eq!(result(&validated)["proposed_mappings"], json!([]));
+    let map = result(&validated)["mapping_digest"].as_str().unwrap();
+    let command = f.envelope(&activate(&digest, map));
+    assert_eq!(
+        run(&f.store, &command, policy()).unwrap_err().code,
+        CommandStoreErrorCode::Import(ImportErrorCode::ActivationUnqualified)
+    );
+    let committed = run_activation(&f.store, &command, &digest, map).unwrap();
+    assert_eq!(
+        result(&committed)["contract_version"],
+        import::EMPTY_IMPORT_CONTRACT_VERSION
+    );
+    assert_eq!(result(&committed)["mappings"], json!([]));
+    assert_eq!(count(&f.store, "items"), 0);
+    let checkpoint = import::HostCutoverCheckpoint {
+        catalog_id: f.store.database_id.clone(),
+        incarnation: f.store.catalog_incarnation.clone().unwrap(),
+        phase: import::HostCutoverPhase::Activated,
+        import_id: "import-1".into(),
+        input_digest: digest,
+        reference_ack_id: "audit-1".into(),
+        mapping_digest: map.into(),
+    };
+    assert_eq!(
+        import::reconcile_persisted_activation(
+            &f.store,
+            &command,
+            &checkpoint,
+            TrustedCommandAuthority {
+                allow_new_commands: false,
+                ..base()
+            },
+            policy()
+        )
+        .unwrap(),
+        import::Reconciliation::AdmitCatabolicOnly
+    );
+    assert_eq!(count(&f.store, "items"), 0);
+}
+
+#[test]
+fn imported_tag_sources_and_local_suppression_rehearse_then_activate() {
+    use catabolic_store::catalog_import_typed::{
+        ImportedTagSet, TagImportAuthority, TypedAuthority, TypedBatch,
+    };
+    let f = Fixture::at(39);
+    let mut b = batch("a");
+    b.typed = Some(TypedBatch {
+        relationships: Vec::new(),
+        logical_aliases: Vec::new(),
+        tags: vec![
+            ImportedTagSet {
+                item_id: "a".into(),
+                namespace: "provider-a".into(),
+                source_revision: 7,
+                tags: vec!["Genre:Drama".into()],
+                excluded_tags: vec![],
+            },
+            ImportedTagSet {
+                item_id: "a".into(),
+                namespace: "local".into(),
+                source_revision: 12,
+                tags: vec!["Favorite".into()],
+                excluded_tags: vec!["genre:drama".into()],
+            },
+        ],
+        ..Default::default()
+    });
+    let grants = TypedAuthority {
+        existing_items: Default::default(),
+        existing_contexts: Default::default(),
+        existing_timelines: Default::default(),
+        logical_aliases: None,
+        relationships: None,
+        tag_sources: vec![
+            TagImportAuthority {
+                host_namespace: "import-host".into(),
+                namespace: "provider-a".into(),
+                item_ids: ["a".into()].into(),
+                allow_suppressions: false,
+            },
+            TagImportAuthority {
+                host_namespace: "import-host".into(),
+                namespace: "local".into(),
+                item_ids: ["a".into()].into(),
+                allow_suppressions: true,
+            },
+        ],
+        ..Default::default()
+    };
+    let digest = stage_typed(&f, &b);
+    let before = generation(&f.store);
+    let validated = run_typed(&f, &validate(&digest), &grants, None).unwrap();
+    assert_eq!(generation(&f.store), before);
+    assert_eq!(
+        f.store
+            .db
+            .query_row("SELECT count(*) FROM tags", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    let map = result(&validated)["mapping_digest"].as_str().unwrap();
+    let active = activation_grant(&f.store, &digest, map);
+    let committed = run_typed(&f, &activate(&digest, map), &grants, Some(&active)).unwrap();
+    assert_eq!(
+        result(&committed)["typed_results"],
+        result(&validated)["proposed_typed_mappings"]
+    );
+    assert_eq!(
+        f.store
+            .db
+            .query_row(
+                "SELECT count(*) FROM item_tags WHERE item_id='a' AND active=1",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+        2
+    );
+    assert_eq!(
+        f.store
+            .db
+            .query_row(
+                "SELECT count(*) FROM catalog_item_tag_suppressions WHERE item_id='a'",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+        1
+    );
+    let note: String = f
+        .store
+        .db
+        .query_row(
+            "SELECT note FROM item_tags WHERE source='provider-a'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&note).unwrap()["source_revision"],
+        7
+    );
+}
+
+#[test]
+fn imported_tag_suppression_needs_independent_local_permission() {
+    use catabolic_store::catalog_import_typed::{
+        ImportedTagSet, TagImportAuthority, TypedAuthority, TypedBatch,
+    };
+    let f = Fixture::at(39);
+    let mut b = batch("a");
+    b.typed = Some(TypedBatch {
+        relationships: Vec::new(),
+        logical_aliases: Vec::new(),
+        tags: vec![ImportedTagSet {
+            item_id: "a".into(),
+            namespace: "local".into(),
+            source_revision: 1,
+            tags: vec![],
+            excluded_tags: vec!["hidden".into()],
+        }],
+        ..Default::default()
+    });
+    let grants = TypedAuthority {
+        existing_items: Default::default(),
+        existing_contexts: Default::default(),
+        existing_timelines: Default::default(),
+        logical_aliases: None,
+        relationships: None,
+        tag_sources: vec![TagImportAuthority {
+            host_namespace: "import-host".into(),
+            namespace: "local".into(),
+            item_ids: ["a".into()].into(),
+            allow_suppressions: false,
+        }],
+        ..Default::default()
+    };
+    let digest = stage_typed(&f, &b);
+    let error = run_typed(&f, &validate(&digest), &grants, None).unwrap_err();
+    assert_eq!(
+        error.code,
+        CommandStoreErrorCode::Import(ImportErrorCode::AuthorityDenied)
+    );
+    assert_eq!(count(&f.store, "items"), 0);
+    assert_eq!(
+        f.store
+            .db
+            .query_row("SELECT count(*) FROM tags", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
+fn imported_relationship_reuses_owner_and_exact_existing_partition_scope() {
+    use catabolic_store::catalog_import_typed::{
+        ImportedRelationship, RelationshipImportAuthority, TypedAuthority, TypedBatch,
+        capture_existing_item,
+    };
+    let f = Fixture::at(39);
+    f.store
+        .transaction(|_| {
+            catabolic_store::curation::item_put(
+                &f.store,
+                &json!({"id":"earlier","kind":"video","metadata":{}}),
+            )?;
+            Ok(())
+        })
+        .unwrap();
+    let existing = capture_existing_item(
+        &f.store,
+        "import-host",
+        "earlier",
+        &["earlier".into()].into(),
+    )
+    .unwrap();
+    let mut b = batch("a");
+    b.typed = Some(TypedBatch {
+        relationships: vec![ImportedRelationship {
+            source_relationship_id: "old-edge".into(),
+            source_revision: 9,
+            source_item_id: "earlier".into(),
+            target_item_id: "a".into(),
+            kind: "custom:motion_edition".into(),
+            position: None,
+            metadata: json!({"source_position":0}),
+        }],
+        ..Default::default()
+    });
+    let grants = TypedAuthority {
+        existing_items: [("earlier".into(), existing)].into(),
+        relationships: Some(RelationshipImportAuthority {
+            host_namespace: "import-host".into(),
+            edges: [("earlier".into(), "a".into(), "custom:motion_edition".into())].into(),
+        }),
+        ..Default::default()
+    };
+    let digest = stage_typed(&f, &b);
+    let validated = run_typed(&f, &validate(&digest), &grants, None).unwrap();
+    assert_eq!(
+        f.store
+            .db
+            .query_row("SELECT count(*) FROM item_relationships", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    let map = result(&validated)["mapping_digest"].as_str().unwrap();
+    let active = activation_grant(&f.store, &digest, map);
+    let committed = run_typed(&f, &activate(&digest, map), &grants, Some(&active)).unwrap();
+    assert_eq!(
+        result(&committed)["typed_results"],
+        result(&validated)["proposed_typed_mappings"]
+    );
+    assert_eq!(f.store.db.query_row("SELECT count(*) FROM item_relationships WHERE source_id='earlier' AND target_id='a' AND kind='custom:motion_edition'",[],|r|r.get::<_,i64>(0)).unwrap(),1);
+}
+
+#[test]
+fn imported_alias_uses_real_logical_retirement_and_retains_source_receipt() {
+    use catabolic_store::catalog_import_typed::{
+        ImportedLogicalAlias, LogicalAliasImportAuthority, TypedAuthority, TypedBatch,
+    };
+    let f = Fixture::at(39);
+    let mut b = batch("a");
+    b.items.extend(batch("b").items);
+    let receipt = "{ \"retired\": [\"a\"], \"target\": \"b\" }";
+    b.typed = Some(TypedBatch {
+        logical_aliases: vec![ImportedLogicalAlias {
+            alias_item_id: "a".into(),
+            survivor_item_id: "b".into(),
+            source_receipt_id: "motion-merge-1".into(),
+            source_receipt_json: receipt.into(),
+        }],
+        ..Default::default()
+    });
+    let grants = TypedAuthority {
+        logical_aliases: Some(LogicalAliasImportAuthority {
+            host_namespace: "import-host".into(),
+            aliases: [("a".into(), "b".into())].into(),
+            item_ids: ["a".into(), "b".into()].into(),
+        }),
+        ..Default::default()
+    };
+    let digest = stage_typed(&f, &b);
+    let validated = run_typed(&f, &validate(&digest), &grants, None).unwrap();
+    assert_eq!(count(&f.store, "items"), 0);
+    assert_eq!(
+        f.store
+            .db
+            .query_row(
+                "SELECT count(*) FROM catalog_logical_retirements",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+        0
+    );
+    let map = result(&validated)["mapping_digest"].as_str().unwrap();
+    let active = activation_grant(&f.store, &digest, map);
+    let committed = run_typed(&f, &activate(&digest, map), &grants, Some(&active)).unwrap();
+    assert_eq!(
+        result(&committed)["typed_results"],
+        result(&validated)["proposed_typed_mappings"]
+    );
+    assert_eq!(
+        result(&committed)["typed_results"][0]["source_receipt_json"],
+        receipt
+    );
+    assert_eq!(count(&f.store, "items"), 2);
+    assert_eq!(
+        f.store
+            .db
+            .query_row(
+                "SELECT survivor_item_id FROM catalog_logical_retirements WHERE item_id='a'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+        "b"
+    );
+}
+
+#[test]
+fn imported_existing_endpoint_rejects_changed_revision_before_rehearsal() {
+    use catabolic_store::catalog_import_typed::{
+        ImportedRelationship, RelationshipImportAuthority, TypedAuthority, TypedBatch,
+        capture_existing_item,
+    };
+    let f = Fixture::at(39);
+    catabolic_store::curation::item_put(
+        &f.store,
+        &json!({"id":"earlier","kind":"video","metadata":{}}),
+    )
+    .unwrap();
+    let exact = capture_existing_item(
+        &f.store,
+        "import-host",
+        "earlier",
+        &["earlier".into()].into(),
+    )
+    .unwrap();
+    catabolic_store::curation::item_put(
+        &f.store,
+        &json!({"id":"earlier","kind":"video","metadata":{"changed":true}}),
+    )
+    .unwrap();
+    let mut b = batch("a");
+    b.typed = Some(TypedBatch {
+        relationships: vec![ImportedRelationship {
+            source_relationship_id: "link".into(),
+            source_revision: 1,
+            source_item_id: "earlier".into(),
+            target_item_id: "a".into(),
+            kind: "custom:motion_edition".into(),
+            position: None,
+            metadata: json!({}),
+        }],
+        ..Default::default()
+    });
+    let grants = TypedAuthority {
+        existing_items: [("earlier".into(), exact)].into(),
+        relationships: Some(RelationshipImportAuthority {
+            host_namespace: "import-host".into(),
+            edges: [("earlier".into(), "a".into(), "custom:motion_edition".into())].into(),
+        }),
+        ..Default::default()
+    };
+    let digest = stage_typed(&f, &b);
+    assert!(run_typed(&f, &validate(&digest), &grants, None).is_err());
+    assert_eq!(count(&f.store, "items"), 1);
+}
+
+#[test]
+fn imported_alias_refuses_active_edges_instead_of_dropping_graph() {
+    use catabolic_store::catalog_import_typed::{
+        ImportedLogicalAlias, ImportedRelationship, LogicalAliasImportAuthority,
+        RelationshipImportAuthority, TypedAuthority, TypedBatch,
+    };
+    let f = Fixture::at(39);
+    let mut b = batch("a");
+    b.items.extend(batch("b").items);
+    b.typed = Some(TypedBatch {
+        relationships: vec![ImportedRelationship {
+            source_relationship_id: "edge".into(),
+            source_revision: 1,
+            source_item_id: "a".into(),
+            target_item_id: "b".into(),
+            kind: "custom:motion_edition".into(),
+            position: None,
+            metadata: json!({}),
+        }],
+        logical_aliases: vec![ImportedLogicalAlias {
+            alias_item_id: "a".into(),
+            survivor_item_id: "b".into(),
+            source_receipt_id: "merge".into(),
+            source_receipt_json: "{}".into(),
+        }],
+        ..Default::default()
+    });
+    let grants = TypedAuthority {
+        relationships: Some(RelationshipImportAuthority {
+            host_namespace: "import-host".into(),
+            edges: [("a".into(), "b".into(), "custom:motion_edition".into())].into(),
+        }),
+        logical_aliases: Some(LogicalAliasImportAuthority {
+            host_namespace: "import-host".into(),
+            aliases: [("a".into(), "b".into())].into(),
+            item_ids: ["a".into(), "b".into()].into(),
+        }),
+        ..Default::default()
+    };
+    let digest = stage_typed(&f, &b);
+    assert!(run_typed(&f, &validate(&digest), &grants, None).is_err());
+    assert_eq!(count(&f.store, "items"), 0);
+    assert_eq!(
+        f.store
+            .db
+            .query_row("SELECT count(*) FROM item_relationships", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        f.store
+            .db
+            .query_row(
+                "SELECT count(*) FROM catalog_logical_retirements",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
+fn context_continuation_appends_new_version_with_exact_prior_receipt_scope() {
+    use catabolic_core::catalog_host_lease::HostAuthorization;
+    use catabolic_store::catalog_import_typed::*;
+    let f = Fixture::at(39);
+    seed_physical_snapshot(&f);
+    let (first, mut grants) = native_typed_fixture(&f, false);
+    let first_digest = stage_typed(&f, &first);
+    let first_validated = run_typed(&f, &validate(&first_digest), &grants, None).unwrap();
+    let first_map = result(&first_validated)["mapping_digest"].as_str().unwrap();
+    let active = activation_grant(&f.store, &first_digest, first_map);
+    let first_receipt = run_typed(
+        &f,
+        &activate(&first_digest, first_map),
+        &grants,
+        Some(&active),
+    )
+    .unwrap();
+    assert!(
+        result(&first_receipt)["typed_results"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["owner"] == "identity" && v["result"]["context_id"] == "context-import")
+    );
+    // These independently allowed IDs are checked against the actual previous
+    // committed fixture receipt above, not accepted from the second snapshot.
+    grants.existing_contexts.insert(
+        "context-import".into(),
+        capture_existing_context(
+            &f.store,
+            "import-host",
+            "context-import",
+            &["context-import".into()].into(),
+        )
+        .unwrap(),
+    );
+    grants.existing_items.insert(
+        "edition".into(),
+        capture_existing_item(
+            &f.store,
+            "import-host",
+            "edition",
+            &["edition".into()].into(),
+        )
+        .unwrap(),
+    );
+    let physical =
+        capture_existing_occurrence(&f.store, "source-third", "default", "duplicate", &grants)
+            .unwrap();
+    let mut second = batch("episode-three");
+    second.typed = Some(TypedBatch {
+        native: Some(NativeIdentityBatch {
+            occurrences: vec![physical.clone()],
+            associations: vec![ImportedAssociation {
+                source_association_id: "association-three".into(),
+                source_occurrence_id: "source-third".into(),
+                item_id: "episode-three".into(),
+                part: 1,
+            }],
+            mutations: vec![
+                json!({"contract_version":1,"profile":"default","context":{"id":"context-import","authority_namespace":"import-host","context_key":"editorial-import","expected_revision":1},"timelines":[{"timeline_id":"timeline-three","edition_item_id":"edition","expected_revision":null,"identity_state":"provisional","coverage":null}],"versions":[{"expected_revision":null,"expected_timeline_revision":1,"version":{"contract_version":1,"version_id":"version-three","association_item_id":"episode-three","edition_item_id":"edition","timeline_id":"timeline-three","state":"draft","declared_coverage":null,"bindings":[{"binding_id":"binding-three","association_id":"association-three","file":physical.exact,"part":1,"source":{"kind":"whole_file","duration_us":null},"timeline_interval":null}]},"equivalence":null,"expected_binding_revisions":{"binding-three":null}}],"evidence":[]}),
+            ],
+        }),
+        ..Default::default()
+    });
+    let grant2 = ImportAuthority {
+        host_namespace: "import-host".into(),
+        import_id: "import-2".into(),
+        source_namespace: "fixture-source".into(),
+    };
+    let manifest = SnapshotManifest {
+        contract_version: 2,
+        import_id: "import-2".into(),
+        source_namespace: "fixture-source".into(),
+        source_snapshot_id: "frozen-export-2".into(),
+        batches: vec![import::describe_batch(&second).unwrap()],
+    };
+    let digest = import::manifest_digest(&manifest).unwrap();
+    let run2 = |mutation: &ImportMutation,
+                typed: &TypedAuthority,
+                active: Option<&import::TrustedImportActivation>| {
+        let mut authority = CatalogAuthority::new(base())
+            .with_imports(&grant2)
+            .with_import_typed(typed);
+        if let Some(active) = active {
+            authority = authority.with_import_activation(active);
+        }
+        commands::execute_with_authority(
+            &f.store,
+            &envelope(&f.store, mutation),
+            authority,
+            policy(),
+        )
+    };
+    run2(
+        &ImportMutation::Prepare {
+            manifest,
+            input_digest: digest.clone(),
+        },
+        &grants,
+        None,
+    )
+    .unwrap();
+    run2(
+        &ImportMutation::Stage {
+            import_id: "import-2".into(),
+            input_digest: digest.clone(),
+            batch_index: 0,
+            batch: second,
+        },
+        &grants,
+        None,
+    )
+    .unwrap();
+    let validation = ImportMutation::Validate {
+        import_id: "import-2".into(),
+        input_digest: digest.clone(),
+    };
+    let mut denied = grants.clone();
+    denied.existing_contexts.clear();
+    assert!(run2(&validation, &denied, None).is_err());
+    let validated = run2(&validation, &grants, None).unwrap();
+    assert_eq!(f.store.db.query_row("SELECT current_revision FROM catalog_segmentation_contexts WHERE id='context-import'",[],|r|r.get::<_,i64>(0)).unwrap(),1);
+    let map = result(&validated)["mapping_digest"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let binding = import::ActivationBinding {
+        catalog_id: f.store.database_id.clone(),
+        incarnation: f.store.catalog_incarnation.clone().unwrap(),
+        import_id: "import-2".into(),
+        input_digest: digest.clone(),
+        source_snapshot_id: "frozen-export-2".into(),
+        validation_generation: generation(&f.store),
+        reference_ack_id: "continuation-audit".into(),
+        mapping_digest: map.clone(),
+    };
+    let gate = HostAuthorization::new("import-host".into(), "continuation-gate".into()).unwrap();
+    let active = import::TrustedImportActivation::after_drain(
+        &gate,
+        gate.begin_revocation().unwrap(),
+        binding,
+    )
+    .unwrap();
+    let committed = run2(
+        &ImportMutation::Activate {
+            import_id: "import-2".into(),
+            input_digest: digest,
+            reference_ack_id: "continuation-audit".into(),
+            mapping_digest: map,
+        },
+        &grants,
+        Some(&active),
+    )
+    .unwrap();
+    assert_eq!(
+        result(&committed)["typed_results"],
+        result(&validated)["proposed_typed_mappings"]
+    );
+    assert_eq!(f.store.db.query_row("SELECT current_revision FROM catalog_segmentation_contexts WHERE id='context-import'",[],|r|r.get::<_,i64>(0)).unwrap(),2);
+    assert_eq!(
+        f.store
+            .db
+            .query_row("SELECT count(*) FROM catalog_versions", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        3
+    );
+}
+
+#[test]
+fn fresh_discovery_uses_real_owners_and_receipt_without_import_cutover() {
+    use catabolic_store::{
+        catalog_discovery::FreshMediaDiscoveryAuthority, catalog_import_typed::*,
+    };
+    for measured in [false, true] {
+        let f = Fixture::at(39);
+        seed_physical_snapshot(&f);
+        use std::os::unix::fs::MetadataExt;
+        let stat = std::fs::metadata(f._root.path().join("source/media.mkv")).unwrap();
+        let ctime = stat.ctime() * 1_000_000_000 + stat.ctime_nsec();
+        f.store.transaction(|db| { db.execute("INSERT INTO native_source_ctimes(profile,file_id,size,mtime_ns,device,inode,ctime_ns) SELECT profile,file_id,size,mtime_ns,device,inode,? FROM observations WHERE profile='default' AND file_id='physical'",[ctime])?; Ok(()) }).unwrap();
+        let typed = TypedAuthority {
+            physical_files: [("default".into(), ["physical".into()].into())].into(),
+            ..Default::default()
+        };
+        let physical =
+            capture_existing_occurrence(&f.store, "observed-file", "default", "physical", &typed)
+                .unwrap();
+        let native = NativeIdentityBatch {
+            occurrences: vec![physical.clone()],
+            associations: vec![ImportedAssociation {
+                source_association_id: "source-association".into(),
+                source_occurrence_id: "observed-file".into(),
+                item_id: "version-item".into(),
+                part: 1,
+            }],
+            mutations: vec![
+                json!({"contract_version":1,"profile":"default","context":{"id":"discovery-context","authority_namespace":"import-host","context_key":"discovery-work","expected_revision":null},"timelines":[{"timeline_id":"timeline","edition_item_id":"edition","expected_revision":null,"identity_state":"provisional","coverage":null}],"versions":[{"expected_revision":null,"expected_timeline_revision":1,"version":{"contract_version":1,"version_id":"version","association_item_id":"version-item","edition_item_id":"edition","timeline_id":"timeline","state":"draft","declared_coverage":null,"bindings":[{"binding_id":"binding","association_id":"source-association","file":physical.exact,"part":1,"source":{"kind":"whole_file","duration_us":null},"timeline_interval":null}]},"equivalence":null,"expected_binding_revisions":{"binding":null}}],"evidence":[]}),
+            ],
+        };
+        let relationships = vec![ImportedRelationship {
+            source_relationship_id: "work-edition".into(),
+            source_revision: 1,
+            source_item_id: "work".into(),
+            target_item_id: "edition".into(),
+            kind: "custom:motion_edition".into(),
+            position: None,
+            metadata: json!({}),
+        }];
+        let mut payload = json!({"operation":"fresh_media_discovery","items":[{"id":"work","kind":"video","metadata":{"title":"Observed","motion_catalog":{"item_id":"work","catalog_revision":1}}},{"id":"edition","kind":"video","metadata":{}},{"id":"version-item","kind":"video","metadata":{}}],"native":native,"relationships":relationships});
+        if measured {
+            let interval = json!({"start_us":0,"end_us":1_000_000});
+            let m = &mut payload["native"]["mutations"][0];
+            m["timelines"][0]["coverage"] = interval.clone();
+            m["versions"][0]["version"]["state"] = json!("ready");
+            m["versions"][0]["version"]["declared_coverage"] = interval.clone();
+            m["versions"][0]["version"]["bindings"][0]["source"]["duration_us"] = json!(1_000_000);
+            m["versions"][0]["version"]["bindings"][0]["timeline_interval"] = interval;
+        }
+        let command = CommandEnvelope::new(
+            1,
+            CommandKey::new(&f.store.database_id, "import-host", "fresh-discovery").unwrap(),
+            f.store.catalog_incarnation.as_deref().unwrap(),
+            generation(&f.store),
+            &payload.to_string(),
+        )
+        .unwrap();
+        let authority = FreshMediaDiscoveryAuthority {
+            measured_originals: if measured {
+                [(
+                    "version".into(),
+                    catabolic_store::catalog_discovery::MeasuredOriginalGrant {
+                        file: physical.exact.clone(),
+                        duration_us: 1_000_000,
+                        observed_ctime_ns: ctime,
+                    },
+                )]
+                .into()
+            } else {
+                Default::default()
+            },
+            host_namespace: "import-host".into(),
+            new_item_ids: ["work".into(), "edition".into(), "version-item".into()].into(),
+            physical_files: typed.physical_files,
+            identity: catabolic_store::catalog_identity_mutation::IdentityAuthority {
+                authority_namespace: "import-host".into(),
+                context_keys: ["discovery-work".into()].into(),
+                allow_declared_evidence: false,
+                allow_verified_evidence: false,
+            },
+            relationship_edges: [(
+                "work".into(),
+                "edition".into(),
+                "custom:motion_edition".into(),
+            )]
+            .into(),
+        };
+        assert!(
+            commands::execute_with_authority(
+                &f.store,
+                &command,
+                CatalogAuthority::new(base()),
+                policy()
+            )
+            .is_err()
+        );
+        assert_eq!(count(&f.store, "items"), 0);
+        if measured {
+            let mut wrong = authority.clone();
+            wrong
+                .measured_originals
+                .get_mut("version")
+                .unwrap()
+                .file
+                .revision = "wrong".into();
+            assert!(
+                commands::execute_with_authority(
+                    &f.store,
+                    &command,
+                    CatalogAuthority::new(base()).with_discovery(&wrong),
+                    policy()
+                )
+                .is_err()
+            );
+            assert_eq!(count(&f.store, "items"), 0);
+            let mut wrong_ctime = authority.clone();
+            wrong_ctime
+                .measured_originals
+                .get_mut("version")
+                .unwrap()
+                .observed_ctime_ns = ctime.saturating_add(1);
+            assert!(
+                commands::execute_with_authority(
+                    &f.store,
+                    &command,
+                    CatalogAuthority::new(base()).with_discovery(&wrong_ctime),
+                    policy(),
+                )
+                .is_err()
+            );
+            assert_eq!(count(&f.store, "items"), 0);
+        }
+        let committed = commands::execute_with_authority(
+            &f.store,
+            &command,
+            CatalogAuthority::new(base()).with_discovery(&authority),
+            policy(),
+        )
+        .unwrap();
+        assert_eq!(result(&committed)["operation"], "fresh_media_discovery");
+        assert_eq!(
+            result(&committed)["item_revision_baselines"]
+                .as_object()
+                .unwrap()
+                .len(),
+            3
+        );
+        for id in ["work", "edition", "version-item"] {
+            let revision: i64 = f.store.db.query_row("SELECT revision FROM catalog_entity_revisions WHERE entity_kind='items' AND entity_key=json_array(?) AND deleted=0", [id], |r| r.get(0)).unwrap();
+            assert_eq!(result(&committed)["item_revision_baselines"][id], revision);
+        }
+        assert_eq!(count(&f.store, "items"), 3);
+        assert_eq!(
+            f.store
+                .db
+                .query_row("SELECT origin FROM item_files", [], |r| r
+                    .get::<_, String>(0))
+                .unwrap(),
+            "explicit"
+        );
+        assert!(matches!(
+            commands::execute_with_authority(
+                &f.store,
+                &command,
+                CatalogAuthority::new(base()),
+                policy()
+            )
+            .unwrap(),
+            CommandOutcome::Replay { .. }
+        ));
+        assert_eq!(count(&f.store, "catalog_receipt_holds"), 0);
+        assert_eq!(
+            f.store
+                .db
+                .query_row("SELECT count(*) FROM catalog_versions", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+    }
+}

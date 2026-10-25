@@ -110,7 +110,7 @@ pub fn statistics(store: &Store, profile: &str, catalogs: &Value) -> Result<Valu
         &store.db,
         &format!(
             "SELECT status,count(*) AS n FROM ({}) WHERE profile=? GROUP BY status",
-            crate::query::view_sql("catalog_item_workflow")
+            crate::query::view_sql_for(store, "catalog_item_workflow")
         ),
         &[profile.to_owned().into()],
     )? {

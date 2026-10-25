@@ -27,6 +27,7 @@ pub(crate) struct BudgetLimits {
 struct State {
     used: BudgetCharge,
     failure: Option<EvaluationFailure>,
+    allocation: Option<crate::migration::OfflineAllocationSink>,
 }
 struct Inner {
     deadline: Instant,
@@ -48,6 +49,27 @@ impl Drop for OperationBudgetGuard {
         ACTIVE.with(|slot| *slot.borrow_mut() = self.previous.take());
     }
 }
+/// Fixed private offline attachment; no public callback or budget replacement.
+pub(crate) struct AllocationAttachment {
+    budget: OperationBudget,
+    installed: crate::migration::OfflineAllocationSink,
+    previous: Option<crate::migration::OfflineAllocationSink>,
+}
+impl Drop for AllocationAttachment {
+    fn drop(&mut self) {
+        if let Ok(mut state) = self.budget.0.state.lock() {
+            if state
+                .allocation
+                .as_ref()
+                .is_some_and(|sink| sink.same(&self.installed))
+            {
+                state.allocation = self.previous.take();
+            } else {
+                state.failure.get_or_insert(EvaluationFailure::WorkBudget);
+            }
+        }
+    }
+}
 impl OperationBudget {
     pub(crate) fn new(timeout: Duration, limits: BudgetLimits) -> Result<Self, EvaluationFailure> {
         if timeout.is_zero() || timeout > Duration::from_secs(60) {
@@ -62,12 +84,48 @@ impl OperationBudget {
             state: Mutex::new(State {
                 used: BudgetCharge::default(),
                 failure: None,
+                allocation: None,
             }),
         })))
     }
     #[cfg(test)]
     pub(crate) fn usage(&self) -> BudgetCharge {
         self.0.state.lock().expect("test budget lock").used
+    }
+    pub(crate) fn allocation_identity(&self) -> usize {
+        Arc::as_ptr(&self.0) as usize
+    }
+    pub(crate) fn attach_offline_allocation(
+        &self,
+        sink: crate::migration::OfflineAllocationSink,
+    ) -> crate::Result<AllocationAttachment> {
+        let mut state = self
+            .0
+            .state
+            .lock()
+            .map_err(|_| crate::Error("allocation attachment poisoned".into()))?;
+        if state
+            .allocation
+            .as_ref()
+            .is_some_and(|old| !old.same(&sink))
+        {
+            return Err(crate::Error(
+                "offline allocation attachment changed owner".into(),
+            ));
+        }
+        if let Err(error) = sink.admit(state.used) {
+            state.failure.get_or_insert(EvaluationFailure::ByteBudget);
+            return Err(error);
+        }
+        let previous = state.allocation.replace(sink.clone());
+        Ok(AllocationAttachment {
+            budget: self.clone(),
+            installed: sink,
+            previous,
+        })
+    }
+    pub(crate) fn same_owner(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
     }
     pub(crate) fn current() -> Option<Self> {
         ACTIVE.with(|slot| slot.borrow().clone())
@@ -179,6 +237,12 @@ impl OperationBudget {
         if let Some(failure) = failure {
             state.failure = Some(failure);
             return Err(failure);
+        }
+        if let Some(sink) = &state.allocation {
+            if sink.admit(next).is_err() {
+                state.failure = Some(EvaluationFailure::ByteBudget);
+                return Err(EvaluationFailure::ByteBudget);
+            }
         }
         state.used = next;
         Ok(())
@@ -320,6 +384,7 @@ mod tests {
             state: Mutex::new(State {
                 used: BudgetCharge::default(),
                 failure: None,
+                allocation: None,
             }),
         }));
         assert_eq!(b.remaining_ms(), Err(EvaluationFailure::Timeout));

@@ -18,6 +18,7 @@ use crate::{
     catalog_logical_edits::{self, LogicalEditAuthority, ReviewedLogicalEdit},
     catalog_metadata_store::{self, MetadataAuthority, MetadataMutation},
     catalog_pins::{self, PinAuthority, PinMutation},
+    catalog_relationships::{self, RelationshipAuthority, RelationshipMutation},
     catalog_tag_mutation::{self, TagAuthority, TagMutation},
     curation,
     migration::is_supported_native_schema,
@@ -61,25 +62,75 @@ pub struct TrustedCommandAuthority<'a> {
 pub struct CatalogAuthority<'a> {
     base: TrustedCommandAuthority<'a>,
     metadata: Option<&'a MetadataAuthority>,
+    metadata_initialization: Option<&'a MetadataAuthority>,
+    metadata_schema: Option<&'a MetadataAuthority>,
+    metadata_origin: Option<&'a catalog_metadata_store::VerifiedCreatedOrigin>,
+    artwork_attach: Option<&'a catalog_metadata_store::ArtworkAttachAuthority>,
     tags: Option<&'a TagAuthority>,
     pins: Option<&'a PinAuthority>,
     logical_edits: Option<&'a LogicalEditAuthority>,
     imports: Option<&'a ImportAuthority>,
     import_activation: Option<&'a TrustedImportActivation>,
     import_typed: Option<&'a crate::catalog_import_typed::TypedAuthority>,
+    discovery: Option<&'a crate::catalog_discovery::FreshMediaDiscoveryAuthority>,
+    processing: Option<&'a crate::catalog_processing::ProcessingEnqueueAuthority>,
+    relationships: Option<&'a RelationshipAuthority>,
+    empty_edition: Option<&'a crate::catalog_edition_creation::EmptyEditionAuthority>,
+    generated_output: Option<&'a crate::catalog_generated_output::GeneratedOutputAuthority>,
 }
 impl<'a> CatalogAuthority<'a> {
     pub fn new(base: TrustedCommandAuthority<'a>) -> Self {
         Self {
             base,
             metadata: None,
+            metadata_initialization: None,
+            metadata_schema: None,
+            metadata_origin: None,
+            artwork_attach: None,
             tags: None,
             pins: None,
             logical_edits: None,
             imports: None,
             import_activation: None,
             import_typed: None,
+            discovery: None,
+            processing: None,
+            relationships: None,
+            empty_edition: None,
+            generated_output: None,
         }
+    }
+    pub fn with_empty_edition(
+        mut self,
+        grant: &'a crate::catalog_edition_creation::EmptyEditionAuthority,
+    ) -> Self {
+        self.empty_edition = Some(grant);
+        self
+    }
+    pub fn with_relationships(mut self, grant: &'a RelationshipAuthority) -> Self {
+        self.relationships = Some(grant);
+        self
+    }
+    pub fn with_generated_output(
+        mut self,
+        grant: &'a crate::catalog_generated_output::GeneratedOutputAuthority,
+    ) -> Self {
+        self.generated_output = Some(grant);
+        self
+    }
+    pub fn with_processing(
+        mut self,
+        grant: &'a crate::catalog_processing::ProcessingEnqueueAuthority,
+    ) -> Self {
+        self.processing = Some(grant);
+        self
+    }
+    pub fn with_discovery(
+        mut self,
+        grant: &'a crate::catalog_discovery::FreshMediaDiscoveryAuthority,
+    ) -> Self {
+        self.discovery = Some(grant);
+        self
     }
     pub fn with_import_typed(
         mut self,
@@ -98,6 +149,30 @@ impl<'a> CatalogAuthority<'a> {
     }
     pub fn with_metadata(mut self, grant: &'a MetadataAuthority) -> Self {
         self.metadata = Some(grant);
+        self
+    }
+    /// Separate initialization authority is required in addition to the source
+    /// grant for atomic first-edit composition. Neither is inferred from payload.
+    pub fn with_metadata_initialization(mut self, grant: &'a MetadataAuthority) -> Self {
+        self.metadata_initialization = Some(grant);
+        self
+    }
+    pub fn with_metadata_origin(
+        mut self,
+        grant: &'a catalog_metadata_store::VerifiedCreatedOrigin,
+    ) -> Self {
+        self.metadata_origin = Some(grant);
+        self
+    }
+    pub fn with_metadata_schema(mut self, grant: &'a MetadataAuthority) -> Self {
+        self.metadata_schema = Some(grant);
+        self
+    }
+    pub fn with_artwork_attach(
+        mut self,
+        grant: &'a catalog_metadata_store::ArtworkAttachAuthority,
+    ) -> Self {
+        self.artwork_attach = Some(grant);
         self
     }
     pub fn with_tags(mut self, grant: &'a TagAuthority) -> Self {
@@ -292,14 +367,70 @@ impl CommandOutcome {
 #[derive(Deserialize)]
 #[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
 enum Operation {
-    ItemPut { item: Value },
-    ItemPutBatch { items: Vec<Value> },
-    Identity { mutation: IdentityMutation },
-    Metadata { mutation: MetadataMutation },
-    Tags { mutation: TagMutation },
-    Pins { mutation: PinMutation },
-    LogicalEdit { reviewed: ReviewedLogicalEdit },
-    Import { mutation: ImportMutation },
+    EmptyEditionCreate {
+        request: crate::catalog_edition_creation::EmptyEditionRequest,
+    },
+    ItemPut {
+        item: Value,
+    },
+    ItemPutBatch {
+        items: Vec<Value>,
+    },
+    ItemCreateBatch {
+        items: Vec<Value>,
+    },
+    ProcessingEnqueue {
+        request: crate::catalog_processing::EnqueueRequest,
+    },
+    GeneratedOutputAdmit {
+        request: crate::catalog_generated_output::GeneratedOutputRequest,
+    },
+    Relationships {
+        mutation: RelationshipMutation,
+    },
+    FreshMediaDiscovery {
+        items: Vec<Value>,
+        native: crate::catalog_import_typed::NativeIdentityBatch,
+        relationships: Vec<crate::catalog_import_typed::ImportedRelationship>,
+    },
+    Identity {
+        mutation: IdentityMutation,
+    },
+    Metadata {
+        mutation: MetadataMutation,
+    },
+    MetadataInitializeV2 {
+        request: catalog_metadata_store::MetadataInitializeV2,
+    },
+    MetadataSystemReplace {
+        request: catalog_metadata_store::MetadataSystemReplace,
+    },
+    MetadataArtworkAttach {
+        request: catalog_metadata_store::MetadataArtworkAttach,
+    },
+    MetadataContributionReplace {
+        request: catalog_metadata_store::ContributionReplace,
+    },
+    MetadataInitializeAndPatch {
+        subject: String,
+        policies: Vec<catalog_metadata_store::PolicyField>,
+        namespace: String,
+        record_id: String,
+        edits_json: String,
+        evidence_json: String,
+    },
+    Tags {
+        mutation: TagMutation,
+    },
+    Pins {
+        mutation: PinMutation,
+    },
+    LogicalEdit {
+        reviewed: ReviewedLogicalEdit,
+    },
+    Import {
+        mutation: ImportMutation,
+    },
 }
 impl Operation {
     fn parse(payload: &Value) -> Result<Self> {
@@ -309,25 +440,50 @@ impl Operation {
                 error: Error(error.to_string()),
             })?;
         let items = match &operation {
-            Self::Import { .. }
+            Self::EmptyEditionCreate { .. }
+            | Self::ProcessingEnqueue { .. }
+            | Self::GeneratedOutputAdmit { .. }
+            | Self::Relationships { .. }
+            | Self::FreshMediaDiscovery { .. }
+            | Self::Import { .. }
             | Self::Identity { .. }
             | Self::Metadata { .. }
+            | Self::MetadataInitializeAndPatch { .. }
+            | Self::MetadataInitializeV2 { .. }
+            | Self::MetadataSystemReplace { .. }
+            | Self::MetadataArtworkAttach { .. }
+            | Self::MetadataContributionReplace { .. }
             | Self::Tags { .. }
             | Self::Pins { .. }
             | Self::LogicalEdit { .. } => return Ok(operation),
             Self::ItemPut { item } => std::slice::from_ref(item),
-            Self::ItemPutBatch { items }
+            Self::ItemPutBatch { items } | Self::ItemCreateBatch { items }
                 if !items.is_empty() && items.len() <= MAX_ITEM_PUT_BATCH =>
             {
                 items
             }
-            Self::ItemPutBatch { .. } => {
+            Self::ItemPutBatch { .. } | Self::ItemCreateBatch { .. } => {
                 return fail(
                     CommandStoreErrorCode::InvalidOperation,
                     "item-put batch must contain 1..=128 items",
                 );
             }
         };
+        if matches!(&operation, Self::ItemCreateBatch { .. }) {
+            let mut ids = std::collections::BTreeSet::new();
+            for item in items {
+                if item
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .is_none_or(|id| !valid_identifier(id) || !ids.insert(id))
+                {
+                    return fail(
+                        CommandStoreErrorCode::InvalidOperation,
+                        "create batch requires explicit unique item IDs",
+                    );
+                }
+            }
+        }
         for item in items {
             let Some(object) = item.as_object() else {
                 return fail(
@@ -372,6 +528,76 @@ impl Operation {
             })
         };
         match self {
+            Self::EmptyEditionCreate { request } => crate::catalog_edition_creation::create(
+                store,
+                command,
+                &request,
+                required_grant(authority.empty_edition)?,
+                admitted_at_us,
+            ),
+            Self::Relationships { mutation } => catalog_relationships::apply(
+                store,
+                command,
+                &mutation,
+                required_grant(authority.relationships)?,
+            ),
+            Self::GeneratedOutputAdmit { request } => crate::catalog_generated_output::admit(
+                store,
+                command,
+                &request,
+                required_grant(authority.generated_output)?,
+                admitted_at_us,
+            )
+            .map_err(Into::into),
+            Self::ProcessingEnqueue { request } => crate::catalog_processing::enqueue(
+                store,
+                command,
+                &request,
+                required_grant(authority.processing)?,
+            )
+            .map_err(Into::into),
+            Self::FreshMediaDiscovery {
+                items,
+                native,
+                relationships,
+            } => {
+                let discovery = required_grant(authority.discovery)?;
+                let typed = crate::catalog_discovery::validate(
+                    store,
+                    command,
+                    &items,
+                    &native,
+                    &relationships,
+                    discovery,
+                )?;
+                let create = Self::parse(&json!({"operation":"item_create_batch","items":items}))?;
+                let created = create.apply(store, command, authority, admitted_at_us)?;
+                let mappings = crate::catalog_discovery::apply(
+                    store,
+                    command,
+                    native,
+                    relationships,
+                    discovery,
+                    &typed,
+                    admitted_at_us,
+                )?;
+                // Baselines are captured after all typed effects, inside the
+                // same durable command transaction, never reconstructed later.
+                let mut item_revision_baselines = std::collections::BTreeMap::new();
+                for id in &discovery.new_item_ids {
+                    let revision: i64 = store.db.query_row(
+                        "SELECT revision FROM catalog_entity_revisions WHERE entity_kind='items' AND entity_key=json_array(?1) AND deleted=0",
+                        [id], |r| r.get(0),
+                    )?;
+                    item_revision_baselines.insert(id.clone(), revision);
+                }
+                let measured_originals: Vec<Value> = discovery.measured_originals.iter().map(|(version,proof)|json!({
+                    "version_id":version,"file":proof.file,"observed_ctime_ns":proof.observed_ctime_ns,"duration_us":proof.duration_us,
+                })).collect();
+                Ok(
+                    json!({"operation":"fresh_media_discovery","items":created["items"],"typed_results":mappings,"measured_originals":measured_originals,"item_revision_baselines":item_revision_baselines}),
+                )
+            }
             Self::Import { mutation } => catalog_import::apply(
                 store,
                 command,
@@ -427,6 +653,174 @@ impl Operation {
                     },
                     error: error.error,
                 })
+            }
+            Self::MetadataInitializeV2 { request } => catalog_metadata_store::initialize_v2(
+                store,
+                &request,
+                command,
+                required_grant(authority.metadata_initialization)?,
+                admitted_at_us,
+            )
+            .map_err(|error| CommandStoreError {
+                code: if error.code
+                    == catalog_metadata_store::MetadataStoreErrorCode::AuthorityDenied
+                {
+                    CommandStoreErrorCode::AuthorityDenied
+                } else {
+                    CommandStoreErrorCode::OperationConflict
+                },
+                error: error.error,
+            }),
+            Self::MetadataArtworkAttach { request } => catalog_metadata_store::attach_artwork(
+                store,
+                &request,
+                command,
+                required_grant(authority.artwork_attach)?,
+                required_grant(authority.metadata)?,
+                required_grant(authority.metadata_initialization)?,
+                required_grant(authority.metadata_schema)?,
+                authority.metadata_origin,
+                admitted_at_us,
+            )
+            .map_err(|error| {
+                use catalog_metadata_store::MetadataStoreErrorCode as C;
+                CommandStoreError {
+                    code: match error.code {
+                        C::AuthorityDenied => CommandStoreErrorCode::AuthorityDenied,
+                        C::InvalidInput | C::UnsupportedContract => {
+                            CommandStoreErrorCode::InvalidOperation
+                        }
+                        C::StoreFailure
+                        | C::CorruptState
+                        | C::AmbientReadTransaction
+                        | C::TransactionRequired => CommandStoreErrorCode::StoreFailure,
+                        _ => CommandStoreErrorCode::OperationConflict,
+                    },
+                    error: error.error,
+                }
+            }),
+            Self::MetadataSystemReplace { request } => catalog_metadata_store::replace_system(
+                store,
+                &request,
+                command,
+                required_grant(authority.metadata)?,
+                required_grant(authority.metadata_initialization)?,
+                required_grant(authority.metadata_schema)?,
+                authority.metadata_origin,
+                admitted_at_us,
+            )
+            .map_err(|error| CommandStoreError {
+                code: if error.code
+                    == catalog_metadata_store::MetadataStoreErrorCode::AuthorityDenied
+                {
+                    CommandStoreErrorCode::AuthorityDenied
+                } else {
+                    CommandStoreErrorCode::OperationConflict
+                },
+                error: error.error,
+            }),
+            Self::MetadataContributionReplace { request } => {
+                catalog_metadata_store::replace_contribution(
+                    store,
+                    &request,
+                    command,
+                    required_grant(authority.metadata)?,
+                    required_grant(authority.metadata_initialization)?,
+                    required_grant(authority.metadata_schema)?,
+                    required_grant(authority.tags)?,
+                    authority.metadata_origin,
+                    admitted_at_us,
+                )
+                .map_err(|error| {
+                    use catalog_metadata_store::MetadataStoreErrorCode as C;
+                    CommandStoreError {
+                        code: match error.code {
+                            C::AuthorityDenied => CommandStoreErrorCode::AuthorityDenied,
+                            C::InvalidInput | C::UnsupportedContract => {
+                                CommandStoreErrorCode::InvalidOperation
+                            }
+                            C::StoreFailure
+                            | C::CorruptState
+                            | C::AmbientReadTransaction
+                            | C::TransactionRequired => CommandStoreErrorCode::StoreFailure,
+                            _ => CommandStoreErrorCode::OperationConflict,
+                        },
+                        error: error.error,
+                    }
+                })
+            }
+            Self::MetadataInitializeAndPatch {
+                subject,
+                policies,
+                namespace,
+                record_id,
+                edits_json,
+                evidence_json,
+            } => {
+                let initialization_grant = required_grant(authority.metadata_initialization)?;
+                let source_grant = required_grant(authority.metadata)?;
+                // Execute existing owners under ONE outer receipt and transaction.
+                let initialization = MetadataMutation {
+                    contract_version: 1,
+                    change: catalog_metadata_store::MetadataChange::Initialize {
+                        subject: subject.clone(),
+                        policies,
+                    },
+                };
+                let initialization_command = CommandEnvelope::new(
+                    command.contract_version(),
+                    command.key().clone(),
+                    command.admission_incarnation(),
+                    command.expected_generation(),
+                    &json!({"operation":"metadata","mutation":initialization}).to_string(),
+                )?;
+                let initialized = Self::Metadata {
+                    mutation: initialization,
+                }
+                .apply(
+                    store,
+                    &initialization_command,
+                    authority.with_metadata(initialization_grant),
+                    admitted_at_us,
+                )?;
+                let fingerprint: String = store.db.query_row(
+                    "SELECT schema_fingerprint FROM catalog_metadata_subjects WHERE item_id=?",
+                    [&subject],
+                    |r| r.get(0),
+                )?;
+                let mutation = MetadataMutation {
+                    contract_version: 1,
+                    change: catalog_metadata_store::MetadataChange::Patch {
+                        subject,
+                        namespace,
+                        record_id,
+                        schema_fingerprint: fingerprint,
+                        expected_revision: 0,
+                        edits_json,
+                        evidence_json,
+                    },
+                };
+                let generation: i64 = store.db.query_row(
+                    "SELECT generation FROM catalog_state WHERE id=1",
+                    [],
+                    |r| r.get(0),
+                )?;
+                let inner = CommandEnvelope::new(
+                    command.contract_version(),
+                    command.key().clone(),
+                    command.admission_incarnation(),
+                    generation,
+                    &json!({"operation":"metadata","mutation":mutation}).to_string(),
+                )?;
+                let patched = Self::Metadata { mutation }.apply(
+                    store,
+                    &inner,
+                    authority.with_metadata(source_grant),
+                    admitted_at_us,
+                )?;
+                Ok(
+                    json!({"operation":"metadata_initialize_and_patch","initialization":initialized,"patch":patched}),
+                )
             }
             Self::Metadata { mutation } => catalog_metadata_store::apply_metadata(
                 &store.db,
@@ -547,6 +941,23 @@ impl Operation {
                 }
             }),
             Self::ItemPut { item } => Ok(json!({"operation":"item_put", "item": put(&item)?})),
+            Self::ItemCreateBatch { items } => {
+                for item in &items {
+                    let id = item["id"].as_str().expect("validated explicit create ID");
+                    if store
+                        .db
+                        .prepare("SELECT 1 FROM items WHERE id=?")?
+                        .exists([id])?
+                    {
+                        return fail(
+                            CommandStoreErrorCode::OperationConflict,
+                            "create-only item ID already exists",
+                        );
+                    }
+                }
+                let results: Result<Vec<_>> = items.iter().map(put).collect();
+                Ok(json!({"operation":"item_create_batch", "items":results?}))
+            }
             Self::ItemPutBatch { items } => {
                 let results: Result<Vec<_>> = items.iter().map(put).collect();
                 Ok(json!({"operation":"item_put_batch", "items": results?}))
@@ -747,6 +1158,92 @@ fn receipt_bytes(command: &CommandEnvelope, result_bytes: usize) -> u64 {
 /// No `Committed` outcome escapes before COMMIT succeeds. If actual result
 /// storage exceeds the remaining byte budget, the whole mutation rolls back.
 /// Retrying that same envelope is safe, including after an unobserved reply.
+/// Read an exact durable receipt without ever admitting a new command.
+/// Absence is not proof of failure; callers must retain the original intent.
+pub fn reconcile_receipt(
+    store: &Store,
+    command: &CommandEnvelope,
+    authority: TrustedCommandAuthority<'_>,
+) -> Result<Option<CommandOutcome>> {
+    admit(store)?;
+    reconcile_receipt_in(store, command, authority)
+}
+
+/// Receipt-only reconciliation for the privately retained offline bootstrap owner.
+/// This path never asks the owner to reconstruct historical source evidence.
+pub(crate) fn reconcile_offline_bootstrap_receipt(
+    store: &Store,
+    command: &CommandEnvelope,
+    execution: &crate::migration::OfflineBootstrapExecution<'_, '_>,
+) -> Result<Option<CommandOutcome>> {
+    execution.check(store, command)?;
+    let authority = TrustedCommandAuthority {
+        allow_new_commands: false,
+        ..execution.authority()
+    };
+    reconcile_receipt_in_with_control_workspace(store, command, authority, execution.control_workspace())
+}
+
+fn reconcile_receipt_in(
+    store: &Store,
+    command: &CommandEnvelope,
+    authority: TrustedCommandAuthority<'_>,
+) -> Result<Option<CommandOutcome>> {
+    reconcile_receipt_in_with_control_workspace(store, command, authority, None)
+}
+fn reconcile_receipt_in_with_control_workspace(
+    store: &Store, command: &CommandEnvelope, authority: TrustedCommandAuthority<'_>,
+    control: Option<&crate::migration::BootstrapWorkspace<'_>>,
+) -> Result<Option<CommandOutcome>> {
+    check_scope(store, command.key(), authority.host_namespace)?;
+    if authority.allow_new_commands {
+        return fail(
+            CommandStoreErrorCode::AuthorityDenied,
+            "receipt-only authority required",
+        );
+    }
+    store.transaction_detailed_with_control_workspace::<_, CommandStoreError>(|db| {
+        let (incarnation, generation): (String, i64) = db.query_row(
+            "SELECT incarnation,generation FROM catalog_state WHERE id=1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        let receipt = read_receipt(db, command.key())?;
+        let decision = decide_command(
+            command,
+            CommandSnapshot {
+                catalog_id: &store.database_id,
+                host_namespace: authority.host_namespace,
+                incarnation: &incarnation,
+                generation,
+                receipt_storage: ReceiptStorage::Available,
+            },
+            receipt.as_ref().map(|r| &r.stored),
+            authority.receipt_visibility,
+        )?;
+        Ok(match decision {
+            CommandDecision::Replay { result } => {
+                let receipt = receipt.as_ref().expect("replay requires receipt");
+                Some(CommandOutcome::Replay {
+                    result: result.clone(),
+                    committed_generation: receipt.committed_generation,
+                    retain_until_us: receipt.retain_until_us,
+                })
+            }
+            CommandDecision::CommittedRedacted => Some(CommandOutcome::CommittedRedacted),
+            CommandDecision::ReceiptExpired => Some(CommandOutcome::ReceiptExpired),
+            CommandDecision::Conflict => Some(CommandOutcome::Conflict),
+            CommandDecision::OutcomeUnknownAfterRestore => {
+                Some(CommandOutcome::OutcomeUnknownAfterRestore)
+            }
+            CommandDecision::Execute | CommandDecision::StaleGeneration => None,
+            CommandDecision::ReceiptStorageExhausted => {
+                Some(CommandOutcome::ReceiptStorageExhausted)
+            }
+        })
+    }, control)
+}
+
 pub fn execute(
     store: &Store,
     command: &CommandEnvelope,
@@ -764,7 +1261,20 @@ pub fn execute_with_authority(
     grants: CatalogAuthority<'_>,
     policy: ReceiptPolicy,
 ) -> Result<CommandOutcome> {
-    execute_with_authority_inner(store, command, grants, policy, None, None)
+    execute_with_authority_inner(
+        store,
+        command,
+        grants,
+        policy,
+        None,
+        None,
+        None,
+        None,
+        #[cfg(test)]
+        None,
+        #[cfg(test)]
+        false,
+    )
 }
 
 pub(crate) fn execute_scoped_metadata(
@@ -782,6 +1292,12 @@ pub(crate) fn execute_scoped_metadata(
         policy,
         Some(admission),
         Some(&mut delivery),
+        None,
+        None,
+        #[cfg(test)]
+        None,
+        #[cfg(test)]
+        false,
     )?;
     delivery.ok_or_else(|| Error("private command delivery was not prepared".into()).into())
 }
@@ -800,22 +1316,183 @@ pub(crate) fn reconcile_private_receipt(
         policy,
         None,
         Some(&mut delivery),
+        None,
+        None,
+        #[cfg(test)]
+        None,
+        #[cfg(test)]
+        false,
     )?;
     delivery.ok_or_else(|| Error("private receipt delivery was not prepared".into()).into())
 }
 
-fn execute_with_authority_inner(
+/// Fixed bootstrap execution under a nonconstructible retained offline owner.
+/// Replay and expiry remain receipt-first and never invoke evidence reconstruction.
+pub(crate) fn execute_offline_bootstrap(
+    store: &Store,
+    command: &CommandEnvelope,
+    execution: &crate::migration::OfflineBootstrapExecution<'_, '_>,
+    policy: ReceiptPolicy,
+) -> Result<CommandOutcome> {
+    execute_with_authority_inner(
+        store,
+        command,
+        CatalogAuthority::new(execution.authority()),
+        policy,
+        None,
+        None,
+        Some(execution),
+        None,
+        #[cfg(test)]
+        None,
+        #[cfg(test)]
+        false,
+    )
+}
+
+/// Fixed source operation under genuine completed offline custody. This is
+/// not normal41 dispatch and accepts no caller-provided mutation closure.
+pub(crate) fn execute_completed_source(
+    store: &Store,
+    command: &CommandEnvelope,
+    authority: TrustedCommandAuthority<'_>,
+    policy: ReceiptPolicy,
+    source: &mut crate::catalog_source_succession::SourceRenewalExecution<'_, '_>,
+) -> Result<CommandOutcome> {
+    execute_with_authority_inner(
+        store,
+        command,
+        CatalogAuthority::new(authority),
+        policy,
+        None,
+        None,
+        None,
+        Some(source),
+        #[cfg(test)]
+        None,
+        #[cfg(test)]
+        false,
+    )
+}
+
+/// Test-only corridor for the independently admitted draft41 owner fixtures.
+/// Production admission and operation dispatch remain closed. Replay, storage,
+/// final permit checks, receipt insertion and COMMIT use the normal engine.
+#[cfg(test)]
+pub(crate) fn execute_candidate_for_test<F>(
+    store: &Store,
+    command: &CommandEnvelope,
+    authority: TrustedCommandAuthority<'_>,
+    policy: ReceiptPolicy,
+    apply: F,
+) -> Result<CommandOutcome>
+where
+    F: FnOnce(&Store, &CommandEnvelope, i64) -> crate::Result<Value>,
+{
+    let mut once = Some(apply);
+    let mut callback = |store: &Store, command: &CommandEnvelope, time: i64| {
+        let apply = once
+            .take()
+            .ok_or_else(|| Error("candidate owner invoked more than once".into()))?;
+        apply(store, command, time)
+    };
+    execute_with_authority_inner(
+        store,
+        command,
+        CatalogAuthority::new(authority),
+        policy,
+        None,
+        None,
+        None,
+        None,
+        Some(&mut callback),
+        false,
+    )
+}
+
+/// Exact candidate admission with the ordinary operation dispatcher, including
+/// reserved import keys, validation/activation grants and actual receipt holds.
+/// Unlike the callback hook this cannot substitute an arbitrary import effect.
+#[cfg(test)]
+pub(crate) fn execute_candidate_dispatch_for_test(
+    store: &Store,
+    command: &CommandEnvelope,
+    grants: CatalogAuthority<'_>,
+    policy: ReceiptPolicy,
+) -> Result<CommandOutcome> {
+    execute_with_authority_inner(
+        store, command, grants, policy, None, None, None, None, None, true,
+    )
+}
+
+fn execute_with_authority_inner<'workspace>(
     store: &Store,
     command: &CommandEnvelope,
     grants: CatalogAuthority<'_>,
     policy: ReceiptPolicy,
     admission: Option<&crate::catalog_write::ScopedMetadataAdmission<'_>>,
     mut delivery: Option<&mut Option<Value>>,
+    offline: Option<&crate::migration::OfflineBootstrapExecution<'_, 'workspace>>,
+    mut source: Option<&mut crate::catalog_source_succession::SourceRenewalExecution<'_, 'workspace>>,
+    #[cfg(test)] mut candidate_apply: Option<
+        &mut dyn FnMut(&Store, &CommandEnvelope, i64) -> crate::Result<Value>,
+    >,
+    #[cfg(test)] candidate_dispatch: bool,
 ) -> Result<CommandOutcome> {
+    let control = offline.and_then(|execution| execution.control_workspace())
+        .or_else(|| source.as_deref().and_then(|execution| execution.control_workspace()));
     let authority = grants.base;
-    admit(store)?;
+    #[cfg(test)]
+    let candidate = candidate_apply.is_some() || candidate_dispatch;
+    #[cfg(not(test))]
+    let candidate = false;
+    if let Some(execution) = source.as_deref_mut() {
+        if candidate || offline.is_some() || admission.is_some() || delivery.is_some() {
+            return fail(
+                CommandStoreErrorCode::AuthorityDenied,
+                "source succession cannot combine admission corridors",
+            );
+        }
+        execution.check(store, command)?;
+    } else if let Some(execution) = offline {
+        if candidate || admission.is_some() || delivery.is_some() {
+            return fail(
+                CommandStoreErrorCode::AuthorityDenied,
+                "offline bootstrap cannot combine admission corridors",
+            );
+        }
+        execution.check(store, command)?;
+    } else if candidate {
+        #[cfg(test)]
+        {
+            if !store.db.is_autocommit() || store.schema_version != 41 {
+                return fail(
+                    CommandStoreErrorCode::UnsupportedSchema,
+                    "candidate41 requires top-level exact test admission",
+                );
+            }
+            store.validate_candidate41_for_test()?;
+            store.transaction_available()?;
+            if candidate_apply.is_some()
+                && command
+                    .key()
+                    .operation_id()
+                    .starts_with(catalog_import::OPERATION_PREFIX)
+            {
+                return fail(
+                    CommandStoreErrorCode::InvalidOperation,
+                    "candidate owner cannot mint reserved import receipts",
+                );
+            }
+        }
+    } else {
+        admit(store)?;
+    }
     check_scope(store, command.key(), authority.host_namespace)?;
-    let outcome = store.transaction_detailed::<_, ExecutionError>(|db| {
+    let outcome = store.transaction_detailed_with_control_workspace::<_, ExecutionError>(|db| {
+        if let Some(execution) = source.as_deref_mut() {
+            execution.check_in(store, command)?;
+        }
         let receipt = read_receipt(db,command.key())?;
         let (incarnation,generation): (String,i64) = db.query_row(
             "SELECT incarnation,generation FROM catalog_state WHERE id=1", [], |row| Ok((row.get(0)?,row.get(1)?)),
@@ -853,6 +1530,19 @@ fn execute_with_authority_inner(
                 if let Some(admission) = admission {
                     admission.check(store)?;
                 }
+                #[cfg(test)]
+                let candidate_effect = if let Some(apply) = candidate_apply.as_deref_mut() {
+                    Some(apply(store, command, now_us()?)?)
+                } else { None };
+                #[cfg(not(test))]
+                let candidate_effect: Option<Value> = None;
+                let (applied, import_hold) = if let Some(execution) = source.as_deref_mut() {
+                    (execution.apply_in(store, command, now_us()?)?, None)
+                } else if let Some(execution) = offline {
+                    (execution.apply_in(store, command)?, None)
+                } else if let Some(applied) = candidate_effect {
+                    (applied, None)
+                } else {
                 let operation = Operation::parse(command.payload())?;
                 // Reserve import IDs for the single bounded import owner. Do not
                 // allow another operation to mint a misleading import checkpoint.
@@ -863,10 +1553,12 @@ fn execute_with_authority_inner(
                     Operation::Import { mutation } => Some(mutation.hold_id()),
                     _ => None,
                 };
-                if store.schema_version < 34 && matches!(&operation, Operation::Metadata { .. } | Operation::Tags { .. } | Operation::Pins { .. } | Operation::LogicalEdit { .. }) {
+                if store.schema_version < 34 && matches!(&operation, Operation::Relationships { .. } | Operation::GeneratedOutputAdmit { .. } | Operation::FreshMediaDiscovery { .. } | Operation::Metadata { .. } | Operation::MetadataInitializeAndPatch { .. } | Operation::MetadataInitializeV2 { .. } | Operation::MetadataContributionReplace { .. } | Operation::MetadataSystemReplace { .. } | Operation::MetadataArtworkAttach { .. } | Operation::Tags { .. } | Operation::Pins { .. } | Operation::LogicalEdit { .. }) {
                     return fail(CommandStoreErrorCode::UnsupportedSchema, "typed curation requires native schema34").map_err(Into::into);
                 }
                 let applied = operation.apply(store,command,grants,now_us()?)?;
+                (applied, import_hold)
+                };
                 let encoded = budgeted_json(&applied)?;
                 // CommandResult retains decoded and canonical forms. Reserve
                 // both before the bounded parser/canonicalizer allocates them.
@@ -879,7 +1571,7 @@ fn execute_with_authority_inner(
                     // Returning Ok here would commit the unreceipted mutation.
                     return Err(ExecutionError::StorageExhausted);
                 }
-                store.validate_native_identity()?;
+                store.validate_native_identity_with_control_workspace(control)?;
                 if db.query_row("SELECT EXISTS(SELECT 1 FROM catalog_mutation_permits)",[],|row| row.get::<_,bool>(0))? {
                     return fail(CommandStoreErrorCode::StoreFailure,"mutation permits remain before receipt commit").map_err(Into::into);
                 }
@@ -909,6 +1601,9 @@ fn execute_with_authority_inner(
                         return Err(ExecutionError::StorageExhausted);
                     }
                 }
+                if let Some(execution) = source.as_deref_mut() {
+                    execution.terminal_in(store, command)?;
+                }
                 if authority.receipt_visibility == ReceiptVisibility::CommittedStatusOnly { CommandOutcome::CommittedRedacted } else { CommandOutcome::Committed { result: result.value().clone(),committed_generation,retain_until_us } }
             }
         };
@@ -916,7 +1611,7 @@ fn execute_with_authority_inner(
             *slot = Some(prepare_delivery(&outcome)?);
         }
         Ok(outcome)
-    });
+    }, control);
     match outcome {
         Ok(outcome) => Ok(outcome),
         Err(ExecutionError::StorageExhausted) => {
@@ -1022,6 +1717,85 @@ pub fn compact_receipts(
     limit: usize,
 ) -> Result<usize> {
     admit(store)?;
+    compact_receipts_admitted(store, authority, limit)
+}
+
+#[cfg(test)]
+pub(crate) fn compact_candidate_receipts_for_test(
+    store: &Store,
+    authority: TrustedReceiptMaintenance<'_>,
+    limit: usize,
+) -> Result<usize> {
+    if !store.db.is_autocommit() {
+        return fail(
+            CommandStoreErrorCode::AmbientTransaction,
+            "candidate maintenance requires a top-level transaction",
+        );
+    }
+    store.validate_candidate41_for_test()?;
+    store.transaction_available()?;
+    compact_receipts_admitted(store, authority, limit)
+}
+
+/// Test-only expiry qualification under the exact retained offline owner.
+/// Uses the ordinary clock, due/hold checks and tombstone mutation unchanged.
+#[cfg(test)]
+pub(crate) fn compact_offline_bootstrap_receipt_for_test(
+    store: &Store,
+    command: &CommandEnvelope,
+    execution: &crate::migration::OfflineBootstrapExecution<'_, '_>,
+) -> Result<usize> {
+    execution.check(store, command)?;
+    compact_receipts_admitted(
+        store,
+        TrustedReceiptMaintenance {
+            host_namespace: execution.authority().host_namespace,
+            holder_namespace: "offline-bootstrap-expiry-test",
+        },
+        1,
+    )
+}
+
+#[cfg(test)]
+pub(crate) fn compact_completed_source_receipt_for_test(
+    store: &Store,
+    command: &CommandEnvelope,
+    admission: &crate::migration::CompletedSourceAdmission<'_, '_>,
+) -> Result<usize> {
+    admission.check(store, command)?;
+    if !store.db.is_autocommit() {
+        return fail(
+            CommandStoreErrorCode::AmbientTransaction,
+            "completed maintenance requires top-level owner",
+        );
+    }
+    compact_receipts_admitted_source(
+        store,
+        TrustedReceiptMaintenance {
+            host_namespace: command.key().host_namespace(),
+            holder_namespace: "completed-source-expiry-test",
+        },
+        1,
+        Some((admission, command)),
+    )
+}
+
+fn compact_receipts_admitted(
+    store: &Store,
+    authority: TrustedReceiptMaintenance<'_>,
+    limit: usize,
+) -> Result<usize> {
+    compact_receipts_admitted_source(store, authority, limit, None)
+}
+fn compact_receipts_admitted_source(
+    store: &Store,
+    authority: TrustedReceiptMaintenance<'_>,
+    limit: usize,
+    source: Option<(
+        &crate::migration::CompletedSourceAdmission<'_, '_>,
+        &CommandEnvelope,
+    )>,
+) -> Result<usize> {
     if !valid_identifier(authority.host_namespace) || !valid_identifier(authority.holder_namespace)
     {
         return fail(
@@ -1036,6 +1810,9 @@ pub fn compact_receipts(
         );
     }
     store.transaction_detailed(|db| {
+        if let Some((admission, command)) = source {
+            admission.check(store, command)?;
+        }
         let now = now_us()?;
         Ok(db.execute("UPDATE catalog_command_receipts SET result_state='expired',result_json=NULL,expired_at_us=?1 WHERE rowid IN (SELECT r.rowid FROM catalog_command_receipts r WHERE r.catalog_id=?2 AND r.host_namespace=?3 AND r.result_state='full' AND r.retain_until_us<=?1 AND NOT EXISTS (SELECT 1 FROM catalog_receipt_holds h WHERE h.catalog_id=r.catalog_id AND h.host_namespace=r.host_namespace AND h.operation_id=r.operation_id AND h.released_at_us IS NULL) ORDER BY r.retain_until_us,r.operation_id LIMIT ?4)",params![now,store.database_id,authority.host_namespace,limit as i64])?)
     })

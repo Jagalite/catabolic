@@ -77,7 +77,7 @@ pub(crate) fn get_evaluated(
             &store.db,
             &format!(
                 "SELECT * FROM ({}) WHERE profile=? AND occurrence_id=? LIMIT 1",
-                crate::query::view_sql("catalog_component_occurrences")
+                crate::query::view_sql_for(store, "catalog_component_occurrences")
             ),
             &[profile.to_owned().into(), identifier.to_owned().into()],
         )

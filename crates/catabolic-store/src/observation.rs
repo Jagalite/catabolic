@@ -623,6 +623,58 @@ fn effective_policy(store: &Store, profile: &str, source: &str) -> Result<Value>
         json!({"revision":row.map(|r|r["revision"].clone()).unwrap_or(json!(0)),"exclusions":raw.get("exclusions").cloned().unwrap_or(json!([])),"extensions":normalize_extensions(raw.get("extensions").unwrap_or(&default_extensions()))?,"include_regex":raw.get("include_regex").cloned().unwrap_or(json!([])),"exclude_regex":raw.get("exclude_regex").cloned().unwrap_or(json!([])),"budgets":budgets(raw.get("budgets"))?}),
     )
 }
+// Shared by the producer and descriptive historical snapshot validation.
+// Both callers supply the complete five-field policy, not a partial update.
+fn normalize_policy_fields(new: &mut Value) -> Result<()> {
+    new["exclusions"] = json!(paths(&new["exclusions"], false)?);
+    new["extensions"] = normalize_extensions(&new["extensions"])?;
+    new["budgets"] = budgets(Some(&new["budgets"]))?;
+    // Both lists of a policy share one compiled-memory budget.
+    let mut memory = SCAN_REGEX_POLICY_MEMORY;
+    for key in ["include_regex", "exclude_regex"] {
+        let compiled = compile_list(&new[key], &mut memory)?;
+        new[key] = json!(compiled.into_keys().collect::<Vec<_>>());
+    }
+    Ok(())
+}
+
+/// Validate exact canonical producer output without a Store, source binding,
+/// revision increment or effects. This is descriptive validation, not source
+/// admission, catalog authority or permission to apply the saved policy.
+/// Existing regex limits bound regex work, not aggregate process allocations.
+pub fn validate_policy_snapshot(snapshot: &Value) -> Result<()> {
+    let object = snapshot
+        .as_object()
+        .ok_or_else(|| Error("invalid policy snapshot".into()))?;
+    if object.len() != 6
+        || ![
+            "revision",
+            "exclusions",
+            "extensions",
+            "include_regex",
+            "exclude_regex",
+            "budgets",
+        ]
+        .iter()
+        .all(|key| object.contains_key(*key))
+        || !snapshot["revision"]
+            .as_i64()
+            .is_some_and(|revision| revision >= 0)
+    {
+        return Err(Error("invalid policy snapshot envelope".into()));
+    }
+    let mut original = snapshot.clone();
+    original.as_object_mut().unwrap().remove("revision");
+    let mut normalized = original.clone();
+    normalize_policy_fields(&mut normalized)?;
+    if normalized != original {
+        return Err(Error(
+            "policy snapshot is not canonical producer output".into(),
+        ));
+    }
+    Ok(())
+}
+
 fn configure_policy(store: &Store, profile: &str, source: &str, args: &Value) -> Result<Value> {
     binding(store, profile, "source", source)?;
     let old = effective_policy(store, profile, source)?;
@@ -645,15 +697,7 @@ fn configure_policy(store: &Store, profile: &str, source: &str, args: &Value) ->
     for (k, v) in object {
         new[k] = v.clone();
     }
-    new["exclusions"] = json!(paths(&new["exclusions"], false)?);
-    new["extensions"] = normalize_extensions(&new["extensions"])?;
-    new["budgets"] = budgets(Some(&new["budgets"]))?;
-    // Both lists of a policy share one compiled-memory budget.
-    let mut memory = SCAN_REGEX_POLICY_MEMORY;
-    for key in ["include_regex", "exclude_regex"] {
-        let compiled = compile_list(&new[key], &mut memory)?;
-        new[key] = json!(compiled.into_keys().collect::<Vec<_>>());
-    }
+    normalize_policy_fields(&mut new)?;
     let changed = new.as_object().unwrap().iter().any(|(k, v)| old[k] != *v);
     let revision = old["revision"].as_i64().unwrap() + i64::from(changed);
     let apply = args["apply"].as_bool().unwrap_or(false);
@@ -1748,7 +1792,7 @@ impl Publication {
                 let status=entry["status"].as_str().unwrap_or("present");
                 changed|=old.first().is_none_or(|old|old["status"]!=status||["size","mtime_ns","device","inode"].iter().any(|k|old[k]!=entry[k]));
                 db.execute("INSERT INTO files VALUES(?,?,?) ON CONFLICT(location,path) DO NOTHING",params![identifier,source,entry["path"].as_str()])?;
-                db.execute("INSERT INTO observations VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(profile,file_id) DO UPDATE SET size=excluded.size,mtime_ns=excluded.mtime_ns,device=excluded.device,inode=excluded.inode,status=excluded.status,scan_id=excluded.scan_id",params![profile,identifier,entry["size"].as_i64(),entry["mtime_ns"].as_i64(),entry["device"].as_i64(),entry["inode"].as_i64(),status,self.scan])?;
+                db.execute(&crate::catalog_source_succession::current::scan_observation_sql(store.schema_version, "INSERT INTO observations VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(profile,file_id) DO UPDATE SET size=excluded.size,mtime_ns=excluded.mtime_ns,device=excluded.device,inode=excluded.inode,status=excluded.status,scan_id=excluded.scan_id"),params![profile,identifier,entry["size"].as_i64(),entry["mtime_ns"].as_i64(),entry["device"].as_i64(),entry["inode"].as_i64(),status,self.scan])?;
                 if status=="missing" {
                     continue;
                 }
@@ -1765,7 +1809,7 @@ impl Publication {
                 db.execute("INSERT INTO observation_scopes VALUES(?,?,?,?,?) ON CONFLICT(job_id,path) DO UPDATE SET state=excluded.state,detail=excluded.detail,updated_at=excluded.updated_at",params![self.job,path,state,encode(detail),now()])?;
                 if state=="complete" {
                     let prefix=if path.is_empty(){String::new()}else{format!("{path}/")};
-                    let count=db.execute("INSERT INTO observations(profile,file_id,size,mtime_ns,device,inode,status,scan_id) SELECT ?,f.id,0,0,0,0,'missing',? FROM files f WHERE scan_file_in_scope(f.path) AND f.location=? AND f.path>=? AND f.path<? AND (instr(substr(f.path,?),'/')=0 OR NOT EXISTS(SELECT 1 FROM observation_scopes child WHERE child.job_id=? AND child.path=substr(f.path,1,?+instr(substr(f.path,?),'/')-1))) AND NOT EXISTS(SELECT 1 FROM observation_seen s WHERE s.job_id=? AND s.file_id=f.id) ON CONFLICT(profile,file_id) DO UPDATE SET status='missing',scan_id=excluded.scan_id WHERE observations.status!='missing'",params![profile,self.scan,source,prefix,format!("{prefix}\u{10ffff}"),prefix.chars().count() as i64+1,self.job,prefix.chars().count() as i64,prefix.chars().count() as i64+1,self.job])?;changed|=count>0;
+                    let count=db.execute(&crate::catalog_source_succession::current::scan_observation_sql(store.schema_version, "INSERT INTO observations(profile,file_id,size,mtime_ns,device,inode,status,scan_id) SELECT ?,f.id,0,0,0,0,'missing',? FROM files f WHERE scan_file_in_scope(f.path) AND f.location=? AND f.path>=? AND f.path<? AND (instr(substr(f.path,?),'/')=0 OR NOT EXISTS(SELECT 1 FROM observation_scopes child WHERE child.job_id=? AND child.path=substr(f.path,1,?+instr(substr(f.path,?),'/')-1))) AND NOT EXISTS(SELECT 1 FROM observation_seen s WHERE s.job_id=? AND s.file_id=f.id) ON CONFLICT(profile,file_id) DO UPDATE SET status='missing',scan_id=excluded.scan_id WHERE observations.status!='missing'"),params![profile,self.scan,source,prefix,format!("{prefix}\u{10ffff}"),prefix.chars().count() as i64+1,self.job,prefix.chars().count() as i64,prefix.chars().count() as i64+1,self.job])?;changed|=count>0;
                 }
             }
             db.execute("INSERT INTO observation_batches VALUES(?,?,?,?,?)",params![self.job,sequence,self.entries.len() as i64,self.bytes as i64,now()])?;
@@ -3228,6 +3272,65 @@ mod tests {
         assert_eq!(available_bytes(u32::MAX, 4096u32), 17_592_186_040_320);
         assert_eq!(available_bytes(u64::MAX, 4096u64), u64::MAX);
         assert_eq!(available_bytes(0u32, u64::MAX), 0);
+    }
+
+    #[test]
+    fn policy_snapshot_accepts_actual_output_without_store_or_revision_increment() {
+        let (_root, store, _source) = catalog();
+        let mut snapshot =
+            execute(&store, "default", "scan_policy", &json!({"source":"media"})).unwrap();
+        drop(store);
+        validate_policy_snapshot(&snapshot).unwrap();
+        snapshot["revision"] = json!(i64::MAX);
+        validate_policy_snapshot(&snapshot).unwrap();
+    }
+
+    #[test]
+    fn policy_snapshot_rejects_malformed_and_noncanonical_saved_values() {
+        let (_root, store, _source) = catalog();
+        let original =
+            execute(&store, "default", "scan_policy", &json!({"source":"media"})).unwrap();
+        for mode in 0..10 {
+            let mut snapshot = original.clone();
+            match mode {
+                0 => snapshot = Value::Null,
+                1 => snapshot["revision"] = json!(-1),
+                2 => snapshot["extra"] = json!(true),
+                3 => snapshot["extensions"] = json!([".TXT"]),
+                4 => snapshot["extensions"] = json!([".txt", ".txt"]),
+                5 => snapshot["exclusions"] = json!(["../outside"]),
+                6 => snapshot["include_regex"] = json!(["["]),
+                7 => snapshot["budgets"] = json!({"unknown":1}),
+                8 => snapshot["budgets"]["total_entries"] = json!(0),
+                _ => snapshot
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("exclude_regex")
+                    .map(|_| ())
+                    .unwrap(),
+            }
+            assert!(validate_policy_snapshot(&snapshot).is_err(), "mode {mode}");
+        }
+    }
+
+    #[test]
+    fn policy_snapshot_matches_actual_nonmutating_producer_normalization() {
+        let (_root, store, _source) = catalog();
+        let before = execute(&store, "default", "scan_policy", &json!({"source":"media"})).unwrap();
+        let result = execute(&store, "default", "scan_policy", &json!({
+            "source":"media", "apply":false,
+            "policy":{"extensions":[".TXT", ".txt"],"exclusions":["private", "private"],"include_regex":[".*", ".*"]}
+        })).unwrap();
+        assert_eq!(result["applied"], false);
+        let mut snapshot = result["policy"].clone();
+        snapshot["revision"] = result["revision"].clone();
+        validate_policy_snapshot(&snapshot).unwrap();
+        assert_eq!(snapshot["extensions"], json!([".txt"]));
+        assert_eq!(snapshot["exclusions"], json!(["private"]));
+        assert_eq!(
+            execute(&store, "default", "scan_policy", &json!({"source":"media"})).unwrap(),
+            before
+        );
     }
 
     fn catalog() -> (tempfile::TempDir, Store, std::path::PathBuf) {

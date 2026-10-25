@@ -192,7 +192,7 @@ fn validate_manifest_inner(
                 &store.db,
                 &format!(
                     "SELECT occurrence_id FROM ({}) WHERE profile=? AND association_id=? AND kind='video' AND current=1 LIMIT 257",
-                    crate::query::view_sql("catalog_component_occurrences")
+                    crate::query::view_sql_for(store, "catalog_component_occurrences")
                 ),
                 &[
                     profile.to_owned().into(),

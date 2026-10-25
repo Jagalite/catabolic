@@ -6,7 +6,7 @@
 use crate::{
     Error, Result, Store, definitions, estimates, item_workflow, layout,
     migration::rows,
-    query::{decode, view_sql},
+    query::{decode, view_sql_for},
     selection::Evaluation,
     sql::scalar,
 };
@@ -250,7 +250,7 @@ fn external_candidate(
                     &store.db,
                     &format!(
                         "SELECT r.* FROM ({}) r JOIN receipt_outputs ro ON ro.output_id=r.id WHERE ro.receipt_id=?",
-                        view_sql("catalog_renditions")
+                        view_sql_for(store, "catalog_renditions")
                     ),
                     &[scalar(&job["receipt_id"])?],
                 )?;
@@ -308,7 +308,7 @@ fn render_candidate(
             &store.db,
             &format!(
                 "SELECT * FROM ({}) WHERE file_id=? AND profile=?",
-                view_sql("catalog_renditions")
+                view_sql_for(store, "catalog_renditions")
             ),
             &[file.to_owned().into(), profile.to_owned().into()],
         )? {

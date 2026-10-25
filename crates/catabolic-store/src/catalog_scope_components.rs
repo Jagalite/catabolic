@@ -237,7 +237,9 @@ impl Reader<'_> {
                 vec![node.id.clone()],
             ),
         ] {
-            let mut statement = self.store.db.prepare(sql)?;
+            let sql =
+                crate::catalog_source_succession::current::view(self.store.schema_version, sql);
+            let mut statement = self.store.db.prepare(&sql)?;
             let mut rows = statement.query(rusqlite::params_from_iter(args))?;
             while let Some(row) = rows.next()? {
                 physical::charge_raw(row.get(0)?)?;

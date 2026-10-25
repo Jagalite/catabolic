@@ -1439,3 +1439,44 @@ fn entity_invalidation_overflow_aborts_and_rolls_back_whole_owner() {
         i64::MAX
     );
 }
+
+#[test]
+fn motion_imported_per_field_policy_cannot_accept_a_new_document_field() {
+    // Motion export installs policies for the union of PRESENT doc.values keys,
+    // not an extensible `document` JSON field. This regression deliberately
+    // tests the real owner instead of treating absence as schema permission.
+    let db = fixture();
+    let initialize = MetadataMutation {
+        contract_version: 1,
+        change: MetadataChange::Initialize {
+            subject: SUBJECT.into(),
+            policies: vec![policy(
+                "title",
+                PolicyValueType::Json,
+                false,
+                PolicyNormalization::Exact,
+            )],
+        },
+    };
+    execute(&db, &initialize, &grant(MetadataAccess::Initialize)).unwrap();
+    let schema = read_schema(&db, SUBJECT).unwrap();
+    let mutation = MetadataMutation {
+        contract_version: 1,
+        change: MetadataChange::Patch {
+            subject: SUBJECT.into(),
+            namespace: "motion.local".into(),
+            record_id: "document".into(),
+            schema_fingerprint: schema.fingerprint().into(),
+            expected_revision: 0,
+            edits_json: r#"{"description":{"op":"set","value":"new field"}}"#.into(),
+            evidence_json: "{}".into(),
+        },
+    };
+    unchanged_on_error(
+        &db,
+        &mutation,
+        &source("motion.local", "document", SourceKind::Local),
+        MetadataStoreErrorCode::Core(MetadataError::UnknownField),
+    );
+    assert_eq!(count(&db, "catalog_metadata_sources"), 1);
+}

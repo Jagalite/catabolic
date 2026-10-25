@@ -2,17 +2,22 @@
 // SPDX-License-Identifier: MIT
 //! Current component evidence and accepted assertions. Proposal snapshot and
 //! decision ownership remains in curation; this module owns assertion invariants.
+// Unregistered fixed source composite; no public transfer authority constructor.
+#[allow(dead_code)]
+mod source_succession;
 use crate::{Error, Result, Store, components, migration::rows, query};
 use catabolic_core::{decode_json, encode};
 use rusqlite::params;
 use serde_json::{Value, json};
+pub(crate) use source_succession::{PreparedAssertionTransfer, prepare_assertion_transfer};
 
 pub fn get(store: &Store, profile: &str, identifier: &str, require_current: bool) -> Result<Value> {
+    let _source_read = crate::catalog_source_succession::current::enter_read(store)?;
     let row = rows(
         &store.db,
         &format!(
             "SELECT * FROM ({}) WHERE profile=? AND occurrence_id=?",
-            query::view_sql("catalog_component_occurrences")
+            query::view_sql_for(store, "catalog_component_occurrences")
         ),
         &[profile.to_owned().into(), identifier.to_owned().into()],
     )?
@@ -228,6 +233,19 @@ pub fn validate_claim(
             "component assertion target is stale or mismatched".into(),
         ));
     }
+    validate_claim_row(store, profile, file, item, claim, row)
+}
+
+// Shared invariants after the public owner has obtained current query evidence,
+// or the private fixed succession owner has checked its exact planned post-row.
+fn validate_claim_row(
+    store: &Store,
+    profile: &str,
+    _file: &str,
+    item: &str,
+    claim: Value,
+    row: Value,
+) -> Result<(Value, Value, Vec<Value>)> {
     let logical = claim["component_id"]
         .as_str()
         .filter(|s| !s.is_empty())
@@ -243,7 +261,10 @@ pub fn validate_claim(
     }
     for old in claim["supersedes"].as_array().unwrap() {
         if !store.db.query_row(
-            "SELECT EXISTS(SELECT 1 FROM component_assertions WHERE id=? AND occurrence_id=?)",
+            &crate::catalog_source_succession::current::view(
+                store.schema_version,
+                "SELECT EXISTS(SELECT 1 FROM component_assertions WHERE id=? AND occurrence_id=?)",
+            ),
             params![old.as_str(), row["occurrence_id"].as_str()],
             |r| r.get::<_, bool>(0),
         )? {
@@ -454,7 +475,7 @@ pub fn extraction_plan(
             &store.db,
             &format!(
                 "SELECT locator FROM ({}) WHERE profile=? AND file_id=? AND association_id=? AND revision=? AND kind=? AND current=1",
-                query::view_sql("catalog_component_occurrences")
+                query::view_sql_for(store, "catalog_component_occurrences")
             ),
             &[
                 profile.to_owned().into(),

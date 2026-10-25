@@ -57,7 +57,12 @@ fn contribution_batch() -> ImportBatch {
     let mut b = batch(SUBJECT);
     b.items[0].legacy_metadata = legacy_fields();
     b.typed = Some(TypedBatch {
+        relationships: Vec::new(),
+        logical_aliases: Vec::new(),
+        tags: Vec::new(),
         metadata: vec![ImportedMetadata {
+            contract_version: 1,
+            system_fields: vec![],
             item_id: SUBJECT.into(),
             policies: Value::Array(
                 FIELDS
@@ -126,6 +131,12 @@ fn source_grant(namespace: &str, record_id: &str, kind: SourceKind) -> MetadataA
 fn contribution_grants() -> TypedAuthority {
     // These capabilities are supplied independently; never inferred from a batch.
     TypedAuthority {
+        existing_items: Default::default(),
+        existing_contexts: Default::default(),
+        existing_timelines: Default::default(),
+        logical_aliases: None,
+        relationships: None,
+        tag_sources: Vec::new(),
         metadata: vec![
             MetadataAuthority {
                 host_namespace: "import-host".into(),
@@ -868,4 +879,140 @@ fn v2_imported_local_revision_cas_and_removal_restore_retained_legacy_native34_t
         assert_eq!(durable_snapshot(&f.store, true), after);
         assert_no_metadata_permits(&f.store);
     }
+}
+
+#[test]
+fn native40_explicit_metadata_v2_imports100_fields_per_source_and_retains_v1_wire_shape() {
+    let old = contribution_batch();
+    let old_wire = serde_json::to_value(&old).unwrap();
+    assert!(
+        old_wire["typed"]["metadata"][0]
+            .get("contract_version")
+            .is_none()
+    );
+    assert!(
+        old_wire["typed"]["metadata"][0]
+            .get("system_fields")
+            .is_none()
+    );
+    let f = Fixture::at(40);
+    let mut batch = contribution_batch();
+    batch.items[0].legacy_metadata = json!({});
+    let metadata = &mut batch.typed.as_mut().unwrap().metadata[0];
+    metadata.contract_version = 2;
+    metadata.system_fields = vec!["motion_catalog".into()];
+    let mut policies = Vec::new();
+    let mut contributions = Vec::new();
+    let mut grants = TypedAuthority::default();
+    grants.metadata.push(MetadataAuthority {
+        host_namespace: "import-host".into(),
+        subject: SUBJECT.into(),
+        access: MetadataAccess::InitializeV2 {
+            system_fields: ["motion_catalog".into()].into(),
+        },
+    });
+    for (namespace, prefix) in [("motion.local", "a"), ("motion.provider", "b")] {
+        let fields: serde_json::Map<String, Value> = (0..100)
+            .map(|i| {
+                (
+                    if i == 0 {
+                        format!("{prefix}{}", "x".repeat(99))
+                    } else {
+                        format!("{prefix}{i}")
+                    },
+                    json!(i),
+                )
+            })
+            .collect();
+        policies.extend(fields.keys().map(|field|json!({"field":field,"value_type":"json","nullable":false,"normalization":"exact"})));
+        contributions.push(ImportedContribution {
+            namespace: namespace.into(),
+            record_id: "document".into(),
+            source_revision: 73,
+            kind: if namespace == "motion.local" {
+                ImportedSourceKind::Local
+            } else {
+                ImportedSourceKind::Provider
+            },
+            fields: Value::Object(fields),
+            evidence: json!({"fixture":"v2"}),
+        });
+        grants.metadata.push(MetadataAuthority {
+            host_namespace: "import-host".into(),
+            subject: SUBJECT.into(),
+            access: MetadataAccess::SourceV2 {
+                namespace: namespace.into(),
+                record_id: "document".into(),
+                kind: if namespace == "motion.local" {
+                    SourceKind::Local
+                } else {
+                    SourceKind::Provider
+                },
+                system_fields: Default::default(),
+            },
+        });
+    }
+    policies.push(json!({"field":"motion_catalog","value_type":"json","nullable":false,"normalization":"exact"}));
+    contributions.push(ImportedContribution {
+        namespace: "motion_catalog".into(),
+        record_id: "projection".into(),
+        source_revision: 1,
+        kind: ImportedSourceKind::Scan,
+        fields: json!({"motion_catalog":{"contract_version":1,"item_id":SUBJECT,"kind":"movie"}}),
+        evidence: json!({"owner":"fixture"}),
+    });
+    grants.metadata.push(MetadataAuthority {
+        host_namespace: "import-host".into(),
+        subject: SUBJECT.into(),
+        access: MetadataAccess::SourceV2 {
+            namespace: "motion_catalog".into(),
+            record_id: "projection".into(),
+            kind: SourceKind::Scan,
+            system_fields: ["motion_catalog".into()].into(),
+        },
+    });
+    metadata.policies = Value::Array(policies);
+    metadata.contributions = contributions;
+    let digest = stage_typed(&f, &batch);
+    let validated = run_typed(&f, &validate(&digest), &grants, None).unwrap();
+    let mapping = result(&validated)["mapping_digest"].as_str().unwrap();
+    let activation = activation_grant(&f.store, &digest, mapping);
+    let mutation = activate(&digest, mapping);
+    let command = f.envelope(&mutation);
+    run_typed(&f, &mutation, &grants, Some(&activation)).unwrap();
+    let snapshot = metadata::read_contributions(
+        &f.store,
+        &MetadataReadAuthority {
+            catalog_id: f.store.database_id.clone(),
+            incarnation: f.store.catalog_incarnation.clone().unwrap(),
+            subject: SUBJECT.into(),
+            expected_generation: generation(&f.store),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        snapshot
+            .sources
+            .iter()
+            .find(|s| s.namespace == "motion.local")
+            .unwrap()
+            .fields
+            .len(),
+        100
+    );
+    assert_eq!(
+        snapshot
+            .sources
+            .iter()
+            .find(|s| s.namespace == "motion.provider")
+            .unwrap()
+            .fields
+            .len(),
+        100
+    );
+    assert!(matches!(
+        commands::execute(&f.store, &command, base(), policy()).unwrap(),
+        CommandOutcome::Replay { .. }
+    ));
+    assert_no_metadata_permits(&f.store);
 }

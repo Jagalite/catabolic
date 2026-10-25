@@ -21,14 +21,18 @@ use catabolic_core::{
 use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const IMPORT_CONTRACT_VERSION: u32 = 1;
 pub const TYPED_IMPORT_CONTRACT_VERSION: u32 = 2;
+/// Version three adds an explicitly empty snapshot. An empty source needs the
+/// same frozen-source audit, drained activation and durable restart handshake as
+/// a populated source; it must not invent a placeholder catalog item.
+pub const EMPTY_IMPORT_CONTRACT_VERSION: u32 = 3;
 fn supported(version: u32) -> bool {
     matches!(
         version,
-        IMPORT_CONTRACT_VERSION | TYPED_IMPORT_CONTRACT_VERSION
+        IMPORT_CONTRACT_VERSION | TYPED_IMPORT_CONTRACT_VERSION | EMPTY_IMPORT_CONTRACT_VERSION
     )
 }
 pub const MAX_IMPORT_BATCHES: usize = 16;
@@ -255,7 +259,7 @@ fn validate_manifest(manifest: &SnapshotManifest) -> Result<()> {
     if !identifier(&manifest.import_id)
         || !identifier(&manifest.source_namespace)
         || !identifier(&manifest.source_snapshot_id)
-        || manifest.batches.is_empty()
+        || manifest.batches.is_empty() && manifest.contract_version != EMPTY_IMPORT_CONTRACT_VERSION
         || manifest.batches.len() > MAX_IMPORT_BATCHES
     {
         return Err(invalid("manifest identifiers or batch bound invalid"));
@@ -426,6 +430,10 @@ pub enum ImportReceipt {
         mappings: Vec<LogicalMapping>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         typed_results: Vec<Value>,
+        /// Exact item heads captured atomically with activation, not inferred
+        /// from a later restart snapshot after unrelated native mutations.
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        item_revision_baselines: BTreeMap<String, i64>,
     },
 }
 fn read_receipt(
@@ -499,6 +507,209 @@ fn require_no_collision(store: &Store, batch: &ImportBatch) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Borrowed proof of the complete descriptor-validated activation input. Only
+/// this import owner constructs it after validate_staged; ordinary typed owner
+/// grants or an individual caller batch cannot manufacture this proof.
+pub(crate) struct ValidatedNfoImport<'a> {
+    command: &'a CommandEnvelope,
+    batches: &'a [crate::catalog_import_typed::TypedBatch],
+}
+impl<'a> ValidatedNfoImport<'a> {
+    pub(crate) fn check(
+        &self,
+        command: &CommandEnvelope,
+        batches: &[crate::catalog_import_typed::TypedBatch],
+    ) -> crate::Result<()> {
+        if command != self.command || !std::ptr::eq(batches, self.batches) {
+            return Err(Error("complete validated import input differs".into()));
+        }
+        Ok(())
+    }
+    pub(crate) fn command(&self) -> &'a CommandEnvelope {
+        self.command
+    }
+    pub(crate) fn source_entry(
+        &self,
+        subject: &str,
+        namespace: &str,
+        record: &str,
+    ) -> crate::Result<ValidatedImportSource<'a>> {
+        let mut entries = self
+            .batches
+            .iter()
+            .flat_map(|b| &b.metadata)
+            .filter(|m| m.item_id == subject)
+            .flat_map(|m| {
+                m.contributions
+                    .iter()
+                    .filter(|c| c.namespace == namespace && c.record_id == record)
+                    .map(move |c| (m, c))
+            });
+        let (metadata, source) = entries
+            .next()
+            .ok_or_else(|| Error("validated source absent".into()))?;
+        if entries.next().is_some() {
+            return Err(Error("duplicate validated source".into()));
+        }
+        Ok(ValidatedImportSource {
+            outer: self.command,
+            subject: &metadata.item_id,
+            contract_version: metadata.contract_version,
+            source,
+        })
+    }
+    pub(crate) fn source(
+        &self,
+        subject: &str,
+    ) -> crate::Result<(
+        &'a str,
+        &'a crate::catalog_import_typed::ImportedContribution,
+        Option<&'a crate::catalog_import_typed::ImportedTagSet>,
+    )> {
+        let mut sources = self
+            .batches
+            .iter()
+            .flat_map(|b| &b.metadata)
+            .filter(|m| m.item_id == subject)
+            .flat_map(|m| {
+                m.contributions
+                    .iter()
+                    .filter(|c| c.namespace == "motion.nfo")
+                    .map(move |c| (m.item_id.as_str(), c))
+            });
+        let source = sources
+            .next()
+            .ok_or_else(|| Error("validated NFO metadata source absent".into()))?;
+        if sources.next().is_some() {
+            return Err(Error("duplicate validated NFO source".into()));
+        }
+        let mut tags = self
+            .batches
+            .iter()
+            .flat_map(|b| &b.tags)
+            .filter(|t| t.item_id == subject && t.namespace == "motion.nfo");
+        let tag = tags.next();
+        if tags.next().is_some() {
+            return Err(Error("duplicate validated NFO tag set".into()));
+        }
+        Ok((source.0, source.1, tag))
+    }
+}
+
+/// Exact borrowed declared source from a complete descriptor-validated import.
+/// This is not an NFO source-effect permit or post-bootstrap system-write grant.
+pub(crate) struct ValidatedImportSource<'a> {
+    outer: &'a CommandEnvelope,
+    subject: &'a str,
+    contract_version: u32,
+    source: &'a crate::catalog_import_typed::ImportedContribution,
+}
+impl ValidatedImportSource<'_> {
+    fn check_in(
+        &self,
+        store: &Store,
+        command: &CommandEnvelope,
+        grant: &crate::catalog_metadata_store::MetadataAuthority,
+    ) -> crate::Result<()> {
+        use crate::catalog_metadata_store::MetadataAccess;
+        let exact = matches!(&grant.access,MetadataAccess::Source{namespace,record_id,kind}|MetadataAccess::SourceV2{namespace,record_id,kind,..} if namespace==&self.source.namespace && record_id==&self.source.record_id && *kind==self.source.kind.owner());
+        if store.schema_version != 41
+            || store.db.is_autocommit()
+            || command.key() != self.outer.key()
+            || command.admission_incarnation() != self.outer.admission_incarnation()
+            || grant.subject != self.subject
+            || grant.host_namespace != self.outer.key().host_namespace()
+            || !exact
+            || store
+                .db
+                .prepare("SELECT 1 FROM catalog_nfo_bootstrap")?
+                .exists([])?
+        {
+            return Err(Error(
+                "validated original import source scope differs".into(),
+            ));
+        }
+        Ok(())
+    }
+    pub(crate) fn authorize_v1_in(
+        &self,
+        store: &Store,
+        command: &CommandEnvelope,
+        mutation: &crate::catalog_metadata_store::MetadataMutation,
+        grant: &crate::catalog_metadata_store::MetadataAuthority,
+    ) -> crate::Result<()> {
+        use crate::catalog_metadata_store::MetadataChange;
+        self.check_in(store, command, grant)?;
+        let MetadataChange::Patch {
+            subject,
+            namespace,
+            record_id,
+            expected_revision,
+            edits_json,
+            evidence_json,
+            ..
+        } = &mutation.change
+        else {
+            return Err(Error("validated import requires first source Patch".into()));
+        };
+        let mut budget =
+            crate::catalog_nfo_attribution::ProofBudget::new(store.catalog_operation_budget()?);
+        let fields = self
+            .source
+            .fields
+            .as_object()
+            .ok_or_else(|| Error("validated fields not object".into()))?;
+        let edits = crate::catalog_nfo_attribution::source_effect::ImportEdits(fields);
+        let evidence = crate::catalog_nfo_attribution::source_effect::ImportEvidence {
+            import_operation_id: self.outer.key().operation_id(),
+            source_evidence: &self.source.evidence,
+            source_revision: self.source.source_revision,
+        };
+        budget.serialized(&edits, 64)?;
+        budget.serialized(&evidence, 64)?;
+        if self.contract_version != 1
+            || mutation.contract_version != 1
+            || subject != self.subject
+            || namespace != &self.source.namespace
+            || record_id != &self.source.record_id
+            || *expected_revision != 0
+            || edits_json != &serde_json::to_string(&edits)?
+            || evidence_json != &serde_json::to_string(&evidence)?
+        {
+            return Err(Error("validated imported Patch differs".into()));
+        }
+        Ok(())
+    }
+    pub(crate) fn authorize_v2_in(
+        &self,
+        store: &Store,
+        command: &CommandEnvelope,
+        subject: &str,
+        namespace: &str,
+        record: &str,
+        fields: &Value,
+        evidence: &Value,
+        grant: &crate::catalog_metadata_store::MetadataAuthority,
+    ) -> crate::Result<()> {
+        self.check_in(store, command, grant)?;
+        if self.contract_version != 2
+            || subject != self.subject
+            || namespace != self.source.namespace
+            || record != self.source.record_id
+            || fields != &self.source.fields
+            || evidence.as_object().map(|m| m.len()) != Some(3)
+            || evidence.get("import_operation_id").and_then(Value::as_str)
+                != Some(self.outer.key().operation_id())
+            || evidence.get("source_revision").and_then(Value::as_i64)
+                != Some(self.source.source_revision)
+            || evidence.get("source_evidence") != Some(&self.source.evidence)
+        {
+            return Err(Error("validated imported source differs".into()));
+        }
+        Ok(())
+    }
 }
 
 /// Only the command dispatcher may call this under its writer transaction.
@@ -595,13 +806,18 @@ pub(crate) fn apply(
                 unresolved_evidence,
                 typed_batches,
             } = validate_staged(store, command, &manifest, input_digest)?;
-            let proposed_typed_mappings = crate::catalog_import_typed::rehearse(
+            let validated = ValidatedNfoImport {
+                command,
+                batches: &typed_batches,
+            };
+            let proposed_typed_mappings = crate::catalog_import_typed::rehearse_validated(
                 store,
                 command,
                 &items,
                 &typed_batches,
                 typed_authority,
                 admitted_at_us,
+                &validated,
             )?;
             let digest = complete_mapping_digest(&mappings, &proposed_typed_mappings)?;
             ImportReceipt::ValidatedStaging {
@@ -672,17 +888,22 @@ pub(crate) fn apply(
                     "reference acknowledgment does not match complete validated mapping",
                 );
             }
-            require_settled_cutover(store)?;
+            require_settled_cutover(store, false)?;
             let imported_ids: BTreeSet<String> =
                 items.iter().map(|item| item.item_id.clone()).collect();
             create_import_items(store, &items)?;
-            let typed_results = crate::catalog_import_typed::apply(
+            let validated = ValidatedNfoImport {
+                command,
+                batches: &typed_batches,
+            };
+            let typed_results = crate::catalog_import_typed::apply_validated(
                 store,
                 command,
                 &typed_batches,
                 &imported_ids,
                 typed_authority,
                 admitted_at_us,
+                &validated,
             )?;
             if complete_mapping_digest(&mappings, &typed_results)? != validated_digest {
                 return fail(
@@ -690,7 +911,13 @@ pub(crate) fn apply(
                     "activated typed mapping differs from reviewed validation",
                 );
             }
+            let mut item_revision_baselines = BTreeMap::new();
+            for item in &items {
+                let revision:i64=store.db.query_row("SELECT revision FROM catalog_entity_revisions WHERE entity_kind='items' AND entity_key=json_array(?) AND deleted=0",[&item.item_id],|r|r.get(0)).map_err(|e|ImportError{code:ImportErrorCode::StoreFailure,error:e.into()})?;
+                item_revision_baselines.insert(item.item_id.clone(), revision);
+            }
             ImportReceipt::Activated {
+                item_revision_baselines,
                 contract_version,
                 typed_results,
                 catalog_id: command.key().catalog_id().into(),
@@ -908,15 +1135,63 @@ fn validate_staged(
         typed_batches,
     })
 }
-fn require_settled_cutover(store: &Store) -> Result<()> {
+// Admit only schema contracts shipped by this build. Additive supported native
+// schemas retain the same exact companion witness; unknown future schemas do not.
+fn supports_observation_cleanup(schema: u32) -> bool {
+    schema >= crate::native_observation_companion::SCHEMA_VERSION
+        && crate::migration::is_supported_native_schema(schema)
+}
+
+#[test]
+fn observation_cleanup_schema_admission_rejects_unknown_contracts() {
+    assert!(!supports_observation_cleanup(36));
+    assert!(supports_observation_cleanup(37));
+    assert!(supports_observation_cleanup(39));
+    assert!(!supports_observation_cleanup(
+        crate::migration::NATIVE_SCHEMA_VERSION + 1
+    ));
+    assert!(!supports_observation_cleanup(u32::MAX));
+}
+
+fn require_settled_cutover(store: &Store, activated_restart: bool) -> Result<()> {
     // Reuse the upgrade owner's conservative inventory, without executing an
     // upgrade or restore. Reject rather than recovering any external effect.
-    let pending = crate::migration::native_pending_work(&store.db, store.schema_version).map_err(
-        |error| ImportError {
+    let mut pending = crate::migration::native_pending_work(&store.db, store.schema_version)
+        .map_err(|error| ImportError {
             code: ImportErrorCode::StoreFailure,
             error,
-        },
-    )?;
+        })?;
+    // Restart after an exact retained activation receipt is not an initial
+    // import: historical incomplete scan coverage is not live worker custody.
+    // Preserve every scope row and every other pending-work/cleanup check.
+    if activated_restart && pending["observation_scopes"].as_i64().unwrap_or(0) > 0 {
+        let jobs = store.db.prepare("SELECT DISTINCT job_id FROM observation_scopes WHERE state NOT IN ('complete','excluded','registry_complete') LIMIT 4097")?
+            .query_map([], |r|r.get::<_,String>(0))?.collect::<std::result::Result<Vec<_>,_>>()?;
+        if jobs.len() > 4096 {
+            return fail(
+                ImportErrorCode::RecoveryRequired,
+                "historical observation scope inventory exceeds restart bound",
+            );
+        }
+        for job in jobs {
+            let eligible:bool=store.db.query_row("SELECT EXISTS(SELECT 1 FROM observation_jobs j WHERE j.id=?1 AND j.state IN ('complete','unavailable','failed','stale') AND j.lease_until=0 AND j.completed_at IS NOT NULL AND NOT EXISTS(SELECT 1 FROM observation_scopes s WHERE s.job_id=j.id AND s.state NOT IN ('complete','excluded','registry_complete','deferred')))",[&job],|r|r.get(0))?;
+            if !eligible
+                || !supports_observation_cleanup(store.schema_version)
+                || !crate::native_observation_companion::has_cleanup_witness(store, &job).map_err(
+                    |error| ImportError {
+                        code: ImportErrorCode::StoreFailure,
+                        error,
+                    },
+                )?
+            {
+                return fail(
+                    ImportErrorCode::RecoveryRequired,
+                    "incomplete observation scope has live or unqualified restart ownership",
+                );
+            }
+        }
+        pending["observation_scopes"] = serde_json::json!(0);
+    }
     if !crate::migration::work_is_settled(&pending) {
         return fail(
             ImportErrorCode::RecoveryRequired,
@@ -957,7 +1232,7 @@ fn require_settled_cutover(store: &Store) -> Result<()> {
     let mut rows = statement.query([])?;
     while let Some(row) = rows.next()? {
         let job: String = row.get(0)?;
-        if store.schema_version != crate::native_observation_companion::SCHEMA_VERSION
+        if !supports_observation_cleanup(store.schema_version)
             || !crate::native_observation_companion::has_cleanup_witness(store, &job).map_err(
                 |error| ImportError {
                     code: ImportErrorCode::StoreFailure,
@@ -1045,7 +1320,7 @@ pub fn reconcile_activation(
     }
 }
 
-fn complete_mapping_digest(
+pub(crate) fn complete_mapping_digest(
     mappings: &[LogicalMapping],
     typed_mappings: &[Value],
 ) -> Result<String> {
@@ -1136,7 +1411,29 @@ pub fn reconcile_persisted_activation(
         store.catalog_incarnation.as_deref().unwrap_or(""),
     );
     if decision == Reconciliation::AdmitCatabolicOnly {
-        store.transaction_detailed(|_| require_settled_cutover(store))?;
+        store.transaction_detailed(|_| require_settled_cutover(store, true))?;
     }
     Ok(decision)
+}
+
+#[test]
+fn deferred_history_never_waives_initial_cutover_or_unwitnessed_restart() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("deferred.db");
+    crate::migration::initialize_native_at(&path, 39).unwrap();
+    let store = Store::open(&path, true, false).unwrap();
+    store.transaction(|db|{
+        db.execute("INSERT INTO observation_jobs(id,profile,source,compatibility,exclusions,dirty_generation,generation,state,requested_at,completed_at,lease_until) VALUES('terminal','default','media','fixture','[]',0,1,'failed',1,2,0)",[])?;
+        db.execute("INSERT INTO observation_scopes VALUES('terminal','path','deferred','{}',2)",[])?;Ok(())
+    }).unwrap();
+    assert!(require_settled_cutover(&store, false).is_err());
+    assert!(require_settled_cutover(&store, true).is_err());
+    assert_eq!(
+        store
+            .db
+            .query_row("SELECT count(*) FROM observation_scopes", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
 }

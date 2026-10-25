@@ -6,18 +6,32 @@ pub mod api_catalog;
 pub mod api_events;
 pub mod api_queries;
 pub mod artifact_mutation;
+#[cfg(test)]
+pub(crate) mod candidate41_test_support;
 pub mod catalog_commands;
+pub mod catalog_discovery;
+pub mod catalog_edition_creation;
+pub mod catalog_generated_output;
 pub mod catalog_identity;
 pub mod catalog_identity_mutation;
 pub mod catalog_import;
 pub mod catalog_import_typed;
 pub mod catalog_logical_edits;
 pub mod catalog_metadata_store;
+pub mod catalog_nfo_attribution;
 pub mod catalog_pins;
+pub mod catalog_processing;
+pub mod catalog_projection;
 pub mod catalog_refresh;
+pub mod catalog_relationships;
 pub mod catalog_scope;
 pub mod catalog_search_index;
+// Descriptive normal-host preparation only; no relocation mutation/admission.
+pub mod catalog_source_read;
+pub mod catalog_source_succession;
 pub mod catalog_tag_mutation;
+pub mod catalog_work_capture;
+pub mod catalog_work_relationship;
 pub mod catalog_write;
 pub mod component_mutation;
 pub mod component_selection;
@@ -51,6 +65,7 @@ pub mod interchange;
 mod introspection;
 pub mod item_workflow;
 pub mod journal_conversion;
+mod native41_resources;
 pub use failpoints::FAILPOINTS_ENABLED;
 pub mod layout;
 pub mod layout_mutation;
@@ -432,6 +447,83 @@ pub fn writer_lock(path: &Path) -> Result<WriterLock> {
     writer_lock_typed(path).map_err(Into::into)
 }
 
+/// Closed offline-preparation slots, not a public lock or connection factory.
+pub(crate) enum NativeWriterAcquisition {
+    Unopened(PathBuf),
+    Opened { file: File, path: PathBuf },
+    Locked(WriterLock),
+}
+impl NativeWriterAcquisition {
+    pub(crate) const SUFFIX: &'static str = ".lock";
+    pub(crate) fn new(database: &Path) -> Self {
+        let mut name =
+            std::ffi::OsString::with_capacity(database.as_os_str().len() + Self::SUFFIX.len());
+        name.push(database);
+        name.push(Self::SUFFIX);
+        Self::Unopened(PathBuf::from(name))
+    }
+    pub(crate) fn path_capacity(&self) -> usize {
+        match self {
+            Self::Unopened(path) | Self::Opened { path, .. } => path.capacity(),
+            Self::Locked(_) => 0,
+        }
+    }
+    pub(crate) fn open(&mut self) -> Result<()> {
+        let Self::Unopened(path) = self else {
+            return Err(Error(
+                "native preparation writer open already attempted".into(),
+            ));
+        };
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(&*path)?;
+        *self = Self::Opened {
+            file,
+            path: std::mem::take(path),
+        };
+        Ok(())
+    }
+    pub(crate) fn lock(&mut self) -> Result<()> {
+        let Self::Opened { file, .. } = self else {
+            return Err(Error("native preparation writer file missing".into()));
+        };
+        let metadata = file.metadata()?;
+        if !metadata.is_file() || metadata.nlink() != 1 {
+            return Err(Error(
+                "database lock must be a regular file with one link".into(),
+            ));
+        }
+        let creator_pid = std::process::id();
+        // SAFETY: this caller-owned slot retains the live descriptor.
+        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+            return Err(std::io::Error::last_os_error().into());
+        }
+        match std::mem::replace(self, Self::Unopened(PathBuf::new())) {
+            Self::Opened { file, .. } => {
+                *self = Self::Locked(WriterLock(file, creator_pid));
+                Ok(())
+            }
+            original => {
+                *self = original;
+                Err(Error("native preparation writer state changed".into()))
+            }
+        }
+    }
+    #[cfg(test)]
+    pub(crate) fn descriptor_for_test(&self) -> Option<std::os::fd::RawFd> {
+        match self {
+            Self::Unopened(_) => None,
+            Self::Opened { file, .. } => Some(file.as_raw_fd()),
+            Self::Locked(lock) => Some(lock.0.as_raw_fd()),
+        }
+    }
+}
+
 fn writer_lock_typed(path: &Path) -> OpenResult<WriterLock> {
     let mut lock = path.as_os_str().to_os_string();
     lock.push(".lock");
@@ -468,12 +560,24 @@ pub fn connect(path: &Path, writable: bool) -> Result<Connection> {
 }
 
 fn connect_typed(path: &Path, writable: bool) -> OpenResult<Connection> {
+    let db = open_connection_for_setup(path, writable)?;
+    configure_open_connection(&db)?;
+    Ok(db)
+}
+// The retained preparation owner installs this successful result before calling
+// borrowed configuration. Ordinary connect retains its previous close-on-error.
+fn open_connection_for_setup(path: &Path, writable: bool) -> OpenResult<Connection> {
     let flags = if writable {
         OpenFlags::SQLITE_OPEN_READ_WRITE
     } else {
         OpenFlags::SQLITE_OPEN_READ_ONLY
     };
-    let db = Connection::open_with_flags(path, flags | OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
+    Ok(Connection::open_with_flags(
+        path,
+        flags | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )?)
+}
+fn configure_open_connection(db: &Connection) -> OpenResult<()> {
     // Choose query TEMP storage before any transaction or caller-owned objects.
     // Per-query setup must preserve a caller's later temp_store choice: changing
     // it there can either fail in their transaction or delete their TEMP schema.
@@ -481,9 +585,10 @@ fn connect_typed(path: &Path, writable: bool) -> OpenResult<Connection> {
     db.pragma_update(None, "foreign_keys", true)?;
     db.busy_timeout(Duration::from_secs(5))?;
     let schema: u32 = db.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    configure_native_connection(&db, schema).map_err(OpenError::internal)?;
-    components::install(&db).map_err(OpenError::internal)?;
-    Ok(db)
+    configure_native_connection(db, schema).map_err(OpenError::internal)?;
+    components::install(db).map_err(OpenError::internal)?;
+    catalog_source_succession::install(db).map_err(OpenError::internal)?;
+    Ok(())
 }
 
 /// Required connection semantics for every supported native schema; legacy stays frozen.
@@ -532,6 +637,9 @@ fn native_incarnation(db: &Connection, schema: u32, catalog_id: &str) -> Result<
 }
 
 pub struct Store {
+    offline_bootstrap: Option<crate::migration::OfflineBootstrapIdentity>,
+    #[cfg(test)]
+    candidate41: bool,
     pub db: Connection,
     pub path: PathBuf,
     pub writable: bool,
@@ -633,6 +741,9 @@ impl Store {
             }
         }
         Ok(Self {
+            offline_bootstrap: None,
+            #[cfg(test)]
+            candidate41: false,
             db,
             path,
             writable,
@@ -656,6 +767,12 @@ impl Store {
             .ok_or_else(|| Error("catalog_operation_budget_missing".into()))
     }
     pub(crate) fn transaction_available(&self) -> Result<()> {
+        self.transaction_available_with_control_workspace(None)
+    }
+    pub(crate) fn transaction_available_with_control_workspace(
+        &self,
+        control: Option<&migration::BootstrapWorkspace<'_>>,
+    ) -> Result<()> {
         if self.writable && self.lock.is_none() {
             return Err(Error(
                 "catalog session unavailable after detached execution".into(),
@@ -666,12 +783,31 @@ impl Store {
                 "native store unavailable after transaction cleanup failure".into(),
             ));
         }
-        self.validate_native_identity()?;
+        self.validate_native_identity_with_control_workspace(control)?;
         Ok(())
     }
     /// Fence native lifetime identity before reads, writes and commit. Ordinary
     /// opening does not rotate incarnation or treat replaced bytes as a reopen.
     pub fn validate_native_identity(&self) -> Result<()> {
+        self.validate_native_identity_with_control_workspace(None)
+    }
+    pub(crate) fn validate_native_identity_with_control_workspace(
+        &self,
+        control: Option<&migration::BootstrapWorkspace<'_>>,
+    ) -> Result<()> {
+        if let Some(offline) = &self.offline_bootstrap {
+            return match control {
+                Some(control) => control.validate(self),
+                None => offline.validate(self),
+            };
+        }
+        if control.is_some() {
+            return Err(Error("offline workspace requires its original Store".into()));
+        }
+        #[cfg(test)]
+        if self.candidate41 {
+            return candidate41_test_support::validate_identity(self);
+        }
         let Some(expected) = self.catalog_incarnation.as_deref() else {
             return Ok(());
         };
@@ -727,7 +863,13 @@ impl Store {
         Ok(())
     }
     pub(crate) fn begin_transaction(&self) -> Result<Option<String>> {
-        self.transaction_available()?;
+        self.begin_transaction_with_control_workspace(None)
+    }
+    fn begin_transaction_with_control_workspace(
+        &self,
+        control: Option<&migration::BootstrapWorkspace<'_>>,
+    ) -> Result<Option<String>> {
+        self.transaction_available_with_control_workspace(control)?;
         if self.writable && self.lock.is_none() {
             return Err(Error(
                 "catalog session unavailable after detached execution".into(),
@@ -762,16 +904,17 @@ impl Store {
         savepoint: Option<String>,
         outcome: Result<T>,
     ) -> Result<T> {
-        self.finish_transaction_detailed(savepoint, outcome)
+        self.finish_transaction_detailed(savepoint, outcome, None)
     }
     fn finish_transaction_detailed<T, E: From<Error> + std::fmt::Display>(
         &self,
         savepoint: Option<String>,
         outcome: std::result::Result<T, E>,
+        control: Option<&migration::BootstrapWorkspace<'_>>,
     ) -> std::result::Result<T, E> {
         match outcome {
             Ok(value) => {
-                if let Err(error) = self.transaction_available() {
+                if let Err(error) = self.transaction_available_with_control_workspace(control) {
                     self.rollback_transaction(savepoint.as_deref())?;
                     return Err(error.into());
                 }
@@ -786,6 +929,12 @@ impl Store {
                 {
                     self.rollback_transaction(savepoint.as_deref())?;
                     return Err(error.into());
+                }
+                if let Some(offline) = &self.offline_bootstrap {
+                    if let Err(error) = offline.allocation_before_commit(self) {
+                        self.rollback_transaction(savepoint.as_deref())?;
+                        return Err(error.into());
+                    }
                 }
                 // Keep the private writer's actual VM callback installed through
                 // COMMIT. Poll after all derived/final-output work; top-level
@@ -850,6 +999,13 @@ impl Store {
         &self,
         operation: impl FnOnce(&Connection) -> std::result::Result<T, E>,
     ) -> std::result::Result<T, E> {
+        self.transaction_detailed_with_control_workspace(operation, None)
+    }
+    pub(crate) fn transaction_detailed_with_control_workspace<T, E: From<Error> + std::fmt::Display>(
+        &self,
+        operation: impl FnOnce(&Connection) -> std::result::Result<T, E>,
+        control: Option<&migration::BootstrapWorkspace<'_>>,
+    ) -> std::result::Result<T, E> {
         struct RollbackOnUnwind<'a> {
             store: &'a Store,
             scope: Option<String>,
@@ -864,7 +1020,10 @@ impl Store {
                 }
             }
         }
-        let scope = self.begin_transaction()?;
+        // Declared before rollback guard: retained allocation attachment remains
+        // installed through error/unwind rollback, not only successful COMMIT.
+        let mut _offline_allocation = None;
+        let scope = self.begin_transaction_with_control_workspace(control)?;
         let mut guard = RollbackOnUnwind {
             store: self,
             scope: scope.clone(),
@@ -876,8 +1035,14 @@ impl Store {
             .map(|budget| budget.enter())
             .transpose()
             .map_err(|failure| Error(format!("operation budget: {failure:?}")))?;
+        if let Some(offline) = &self.offline_bootstrap {
+            let budget = budget
+                .as_ref()
+                .ok_or_else(|| Error("offline allocation operation missing".into()))?;
+            _offline_allocation = Some(offline.allocation_operation(self, budget)?);
+        }
         let outcome = operation(&self.db);
-        let result = self.finish_transaction_detailed(scope, outcome);
+        let result = self.finish_transaction_detailed(scope, outcome, control);
         guard.armed = false;
         result
     }
@@ -1182,4 +1347,8 @@ mod operation_budget;
 mod catalog_schema37_test_support;
 
 pub mod native_observation_companion;
+pub(crate) mod native_upgrade_inventory;
 pub mod native_worker_inventory;
+
+pub mod catalog_backup;
+pub mod catalog_restore_lineage;

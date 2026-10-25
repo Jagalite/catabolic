@@ -3,6 +3,19 @@
 //! Persistent native identity owner. Only the durable command dispatcher may
 //! apply a mutation, inside its writer transaction. This module never commits,
 //! writes receipts, rehomes legacy rows, or infers editorial identity.
+mod selected;
+mod source_succession;
+pub(crate) use selected::load_selected_in;
+pub(crate) use source_succession::{
+    PreparedSourceContexts, apply_source_contexts, prepare_source_contexts,
+};
+mod structural;
+pub(crate) use structural::{
+    StructuralContext, StructuralReadBudget, load_structural_context_in,
+    load_structural_context_in_with_control_workspace,
+    revalidate_structural_heads_in, source_succession_heads_cte,
+};
+
 use crate::{
     Error as StoreError, Store,
     catalog_identity::{CatalogManifest, ManifestVersion},
@@ -1067,6 +1080,14 @@ fn validate_equivalence(
 }
 
 fn validate_associations(db: &Connection, profile: &str, v: &VersionContract) -> Result<()> {
+    validate_associations_with_occurrence(db, profile, v, true)
+}
+fn validate_associations_with_occurrence(
+    db: &Connection,
+    profile: &str,
+    v: &VersionContract,
+    current_occurrence: bool,
+) -> Result<()> {
     checked(validate_version(v))?;
     require_live_version(db, &v.version_id)?;
     require_live_timeline(db, &v.timeline_id)?;
@@ -1095,8 +1116,9 @@ fn validate_associations(db: &Connection, profile: &str, v: &VersionContract) ->
         }) {
             return Err(fail("catalog_identity_binding_set_mismatch"));
         }
-        if components::revision(&components::occurrence(db, profile, &binding.file.file_id)?)
-            != binding.file.revision
+        if current_occurrence
+            && components::revision(&components::occurrence(db, profile, &binding.file.file_id)?)
+                != binding.file.revision
         {
             return Err(conflict("catalog_identity_stale_file_revision"));
         }
@@ -1191,9 +1213,22 @@ fn load_context(db: &Connection, profile: &str, context: &str) -> Result<Vec<Man
 }
 
 fn validate_active(db: &Connection, profile: &str, versions: &[ManifestVersion]) -> Result<()> {
+    validate_active_selected(db, profile, versions, None)
+}
+fn validate_active_selected(
+    db: &Connection,
+    profile: &str,
+    versions: &[ManifestVersion],
+    selected: Option<&BTreeSet<String>>,
+) -> Result<()> {
     let heads = live_versions(db)?;
     for entry in versions {
-        validate_associations(db, profile, &entry.version)?;
+        validate_associations_with_occurrence(
+            db,
+            profile,
+            &entry.version,
+            selected.is_none_or(|ids| ids.contains(&entry.version.version_id)),
+        )?;
         let row=rows(db,&format!("SELECT tr.*,t.current_revision,vr.timeline_revision FROM {heads} v JOIN catalog_version_revisions vr ON vr.version_id=v.id AND vr.revision=v.current_revision JOIN catalog_timelines t ON t.id=vr.timeline_id JOIN catalog_timeline_revisions tr ON tr.timeline_id=t.id AND tr.revision=vr.timeline_revision WHERE v.id=?"),&[entry.version.version_id.clone().into()])?.pop().ok_or_else(||fail("catalog_identity_missing_timeline"))?;
         if let Some(evidence) = &entry.equivalence {
             let revision: i64 = db.query_row(
@@ -1457,6 +1492,8 @@ mod retirement_seam_tests {
         )
         .unwrap();
         Store {
+            offline_bootstrap: None,
+            candidate41: false,
             db,
             path: std::path::PathBuf::new(),
             writable: true,

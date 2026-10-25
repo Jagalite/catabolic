@@ -4,7 +4,7 @@ use crate::{
     components::occurrence,
     layout::fact,
     migration::rows,
-    query::{decode, view_sql},
+    query::{decode, view_sql_for},
     source,
 };
 use serde_json::{Value, json};
@@ -25,7 +25,7 @@ pub(crate) fn ready(
         &store.db,
         &format!(
             "SELECT * FROM ({}) WHERE profile=? AND file_id=?",
-            view_sql("catalog_renditions")
+            view_sql_for(store, "catalog_renditions")
         ),
         &[
             profile.to_owned().into(),
@@ -156,7 +156,7 @@ pub fn candidates(
         &store.db,
         &format!(
             "SELECT m.* FROM ({}) m WHERE {} ORDER BY m.id LIMIT 10001",
-            view_sql("catalog_renditions"),
+            view_sql_for(store, "catalog_renditions"),
             clauses.join(" AND ")
         ),
         &values,
@@ -322,7 +322,7 @@ pub fn fallback_evidence(
             &store.db,
             &format!(
                 "SELECT * FROM ({}) WHERE profile=? AND file_id=?",
-                view_sql("catalog_renditions")
+                view_sql_for(store, "catalog_renditions")
             ),
             &[
                 profile.to_owned().into(),

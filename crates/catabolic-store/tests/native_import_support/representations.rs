@@ -35,6 +35,12 @@ fn representations(f: &Fixture, split: bool) -> (Vec<ImportBatch>, TypedAuthorit
         }).unwrap();
     }
     let grants = TypedAuthority {
+        existing_items: Default::default(),
+        existing_contexts: Default::default(),
+        existing_timelines: Default::default(),
+        logical_aliases: None,
+        relationships: None,
+        tag_sources: Vec::new(),
         physical_files: [(
             "default".into(),
             FILES.into_iter().map(str::to_owned).collect(),
@@ -129,6 +135,9 @@ fn representations(f: &Fixture, split: bool) -> (Vec<ImportBatch>, TypedAuthorit
         // Physical maps and source association IDs are in an earlier batch;
         // the owner mutation consumes them only after the complete snapshot loads.
         imported.typed = Some(TypedBatch {
+            relationships: Vec::new(),
+            logical_aliases: Vec::new(),
+            tags: Vec::new(),
             native: Some(NativeIdentityBatch {
                 occurrences,
                 associations,
@@ -143,6 +152,9 @@ fn representations(f: &Fixture, split: bool) -> (Vec<ImportBatch>, TypedAuthorit
                     items: vec![],
                     unresolved_evidence: vec![],
                     typed: Some(TypedBatch {
+                        relationships: Vec::new(),
+                        logical_aliases: Vec::new(),
+                        tags: Vec::new(),
                         native: Some(NativeIdentityBatch {
                             mutations: vec![mutation],
                             ..Default::default()
@@ -155,6 +167,9 @@ fn representations(f: &Fixture, split: bool) -> (Vec<ImportBatch>, TypedAuthorit
         )
     } else {
         imported.typed = Some(TypedBatch {
+            relationships: Vec::new(),
+            logical_aliases: Vec::new(),
+            tags: Vec::new(),
             native: Some(NativeIdentityBatch {
                 occurrences,
                 associations,

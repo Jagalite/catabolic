@@ -33,6 +33,11 @@
 //! shared while forking, and both ends are relocated above the standard
 //! descriptors.
 
+mod restricted;
+mod broker;
+mod custody;
+pub(crate) mod retirement;
+
 use std::collections::BTreeMap;
 use std::ffi::{OsStr, OsString};
 use std::fmt;
@@ -232,6 +237,12 @@ pub fn command_output<S: AsRef<OsStr>>(
             format!("parent-death supervisor unavailable: {error}"),
         )
     })?;
+    if retirement::active() && supervisor.is_none() {
+        return Err(CommandFailure::new(
+            "failed",
+            "external retirement requires qualified parent-death supervisor",
+        ));
+    }
     // Lifeline: the guardian reads it; the worker keeps the write end open for
     // its own lifetime. Errors: the supervisor reports a failed tool exec.
     let pipes = match supervisor {
@@ -344,10 +355,25 @@ pub fn command_output<S: AsRef<OsStr>>(
             Ok(())
         });
     }
-    let child = catabolic_core::spawn_guard::spawn(&mut command)
-        .map_err(|error| CommandFailure::from_io("cannot start command", error))?;
+    let mut obligation = retirement::Obligation::register()
+        .map_err(|error| CommandFailure::from_io("cannot register child obligation", error))?;
+    let child = match catabolic_core::spawn_guard::spawn(&mut command) {
+        Ok(child) => child,
+        Err(error) => {
+            // std::process::Command::spawn owns/reaps its failed pre-exec child;
+            // no tool was admitted and trusted pre-exec code launches no child.
+            if let Some(obligation) = obligation.take() {
+                obligation.not_started();
+            }
+            return Err(CommandFailure::from_io("cannot start command", error));
+        }
+    };
+    if let Some(obligation) = obligation.as_mut() {
+        obligation.spawned();
+    }
     // Install the guard before any user callback or fallible operation.
     let mut process = ProcessGroup::new(child);
+    process.obligation = obligation;
     if let Some((
         (lifeline_read, lifeline_write),
         (errors_read, errors_write),
@@ -369,12 +395,16 @@ pub fn command_output<S: AsRef<OsStr>>(
         )
         .and_then(|()| send_command(command_write, argv, deadline))
         {
-            let _ = process.retire();
+            process.retire().map_err(|error| {
+                CommandFailure::from_io("supervisor startup cleanup unresolved", error)
+            })?;
             return Err(failure);
         }
         process.liveness = Some(liveness_read);
         if let Some(error) = supervised_exec_error(&errors_read, deadline) {
-            let _ = process.retire();
+            process.retire().map_err(|error| {
+                CommandFailure::from_io("supervisor exec cleanup unresolved", error)
+            })?;
             return Err(match error {
                 Err(()) => CommandFailure::new("timeout", "command timed out"),
                 Ok(error) => CommandFailure::from_io("cannot start command", error),
@@ -399,7 +429,9 @@ pub fn command_output<S: AsRef<OsStr>>(
     if let Err(mut failure) = result {
         failure.stdout = stdout;
         failure.stderr = stderr;
-        failure.returncode = status.ok().map(returncode);
+        failure.returncode = Some(returncode(status.map_err(|error| {
+            CommandFailure::from_io("command failure cleanup unresolved", error)
+        })?));
         return Err(failure);
     }
     let status = status.map_err(|error| {
@@ -772,6 +804,7 @@ fn returncode(status: ExitStatus) -> i32 {
 struct ProcessGroup {
     child: Child,
     retired: bool,
+    obligation: Option<retirement::Obligation>,
     /// Write end of the guardian lifeline. Field drop follows `Drop::drop`, so
     /// it closes only after the group has been killed and its leader reaped.
     lifeline: Option<OwnedFd>,
@@ -1399,6 +1432,7 @@ impl ProcessGroup {
         Self {
             child,
             retired: false,
+            obligation: None,
             lifeline: None,
             liveness: None,
         }
@@ -1449,6 +1483,9 @@ impl ProcessGroup {
             && let Err(error) = kill_group(self.child.id() as libc::pid_t)
             && !self.finished_group_error(&error)
         {
+            if let Some(obligation) = &self.obligation {
+                obligation.poison();
+            }
             // Preserve a real signalling failure, but do not leave an
             // already-exited child as a zombie. Never block waiting
             // for a live process whose termination was denied.
@@ -1457,7 +1494,20 @@ impl ProcessGroup {
             }
             return Err(error);
         }
-        self.reap()
+        if let Some(obligation) = &self.obligation {
+            if let Err(error) = retirement::verify_group_exited(self.child.id()) {
+                obligation.poison();
+                return Err(error);
+            }
+        }
+        let result = self.reap();
+        if let Some(obligation) = self.obligation.as_mut() {
+            match &result {
+                Ok(_) => obligation.retired(),
+                Err(_) => obligation.poison(),
+            }
+        }
+        result
     }
 
     fn finished_group_error(&self, error: &io::Error) -> bool {
@@ -3109,5 +3159,68 @@ mod tests {
             io::Error::last_os_error().raw_os_error(),
             Some(libc::ECHILD)
         );
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod external_retirement_tests {
+    use super::*;
+    #[test]
+    fn exact_scope_tracks_normal_descendants_and_postspawn_failure() {
+        let scope = retirement::Scope::begin().unwrap();
+        let output = command_output(
+            &["/bin/sh", "-c", "sleep 30 >/dev/null 2>&1 & printf done"],
+            CommandOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(output.stdout, b"done");
+        let proof = scope.finish().unwrap();
+        assert_eq!(proof.counts(), (1, 1, 1, 0));
+        let scope = retirement::Scope::begin().unwrap();
+        let mut reject = || Err(CommandFailure::new("failed", "fixture callback"));
+        assert!(
+            command_output(
+                &["/bin/sleep", "30"],
+                CommandOptions {
+                    on_start: Some(&mut reject),
+                    ..Default::default()
+                }
+            )
+            .is_err()
+        );
+        assert_eq!(scope.finish().unwrap().counts(), (1, 1, 1, 0));
+    }
+    #[test]
+    fn exact_scope_cancellation_and_preflight_refusal() {
+        let scope = retirement::Scope::begin().unwrap();
+        let cancel = AtomicBool::new(false);
+        let mut cancel_after_start = || {
+            cancel.store(true, Ordering::Release);
+            Ok(())
+        };
+        assert_eq!(
+            command_output(
+                &["/bin/sleep", "30"],
+                CommandOptions {
+                    cancel: Some(&cancel),
+                    on_start: Some(&mut cancel_after_start),
+                    ..Default::default()
+                }
+            )
+            .unwrap_err()
+            .state,
+            "cancelled"
+        );
+        assert_eq!(scope.finish().unwrap().counts(), (1, 1, 1, 0));
+        let scope = retirement::Scope::begin().unwrap();
+        assert!(command_output::<&str>(&[], CommandOptions::default()).is_err());
+        assert_eq!(scope.finish().unwrap().counts(), (0, 0, 0, 0));
+    }
+    #[test]
+    fn exact_scope_unknown_retirement_never_seals() {
+        let scope = retirement::Scope::begin().unwrap();
+        let obligation = retirement::Obligation::register().unwrap().unwrap();
+        drop(obligation);
+        assert!(scope.finish().is_err());
     }
 }

@@ -41,7 +41,7 @@ fn seed_job(path: &Path, state: &str) {
 #[test]
 fn targets_are_explicit_and_legacy_resources_stay_frozen() {
     assert_eq!(SCHEMA_VERSION, 32);
-    assert_eq!(NATIVE_SCHEMA_VERSION, 39);
+    assert_eq!(NATIVE_SCHEMA_VERSION, 40);
     assert_eq!(migration::MIGRATIONS.len(), 32);
     assert_eq!(
         migration::NATIVE_MIGRATIONS.len(),
@@ -638,4 +638,96 @@ fn replaced_catalog_at_commit_boundary_refuses_acknowledgement() {
             .contains("native catalog replaced during upgrade")
     );
     assert_eq!(migration::inspect(&path, true).unwrap()["schema"], 32);
+}
+
+#[test]
+fn historical_39_to_40_owner_keeps_exact_plan_apply_and_reconciliation_target() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("historical.sqlite3");
+    migration::initialize_native_at(&path, 39).unwrap();
+    let plan = migration::plan_native_39_to_40(&path).unwrap();
+    assert_eq!(plan["from_schema"], 39);
+    assert_eq!(plan["to_schema"], 40);
+    assert_eq!(plan["migration_resources"].as_array().unwrap().len(), 40);
+    if NATIVE_SCHEMA_VERSION == 40 {
+        assert_eq!(plan, migration::plan_native(&path).unwrap());
+    }
+    let db = connect(&path, false).unwrap();
+    let (catalog, incarnation): (String, String) = db
+        .query_row(
+            "SELECT catalog_id,incarnation FROM catalog_state WHERE id=1",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    drop(db);
+    let report =
+        migration::upgrade_native_39_to_40(&path, &plan, quiescence(), None, &|_, _, _| Ok(()))
+            .unwrap();
+    assert_eq!(report["schema"], 40);
+    assert_eq!(report["upgraded"], true);
+    let acknowledged = std::cell::Cell::new(false);
+    migration::with_reconciled_native_upgrade(
+        &path,
+        &plan,
+        &catalog,
+        &incarnation,
+        quiescence(),
+        |proof| {
+            assert_eq!(proof.proof()["from_schema"], 39);
+            assert_eq!(proof.proof()["to_schema"], 40);
+            assert_eq!(proof.proof()["plan_fingerprint"], plan["plan_fingerprint"]);
+            acknowledged.set(true);
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert!(acknowledged.get());
+    let completed = migration::plan_native_39_to_40(&path).unwrap();
+    assert_eq!(completed["from_schema"], 40);
+    assert_eq!(completed["to_schema"], 40);
+    let replay =
+        migration::upgrade_native_39_to_40(&path, &completed, quiescence(), None, &|_, _, _| {
+            panic!("completed target cannot migrate")
+        })
+        .unwrap();
+    assert_eq!(replay["upgraded"], false);
+}
+
+#[test]
+fn historical_40_target_refuses_other_sources_and_changed_plan_without_effects() {
+    let (_root, path) = fixture();
+    assert!(migration::plan_native_39_to_40(&path).is_err());
+    let before = fs::read(&path).unwrap();
+    let unrelated = migration::plan_native(&path).unwrap();
+    assert!(
+        migration::upgrade_native_39_to_40(
+            &path,
+            &unrelated,
+            quiescence(),
+            None,
+            &|_, _, _| Ok(())
+        )
+        .is_err()
+    );
+    assert_eq!(fs::read(&path).unwrap(), before);
+
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("historical.sqlite3");
+    migration::initialize_native_at(&path, 39).unwrap();
+    let before = fs::read(&path).unwrap();
+    let mut plan = migration::plan_native_39_to_40(&path).unwrap();
+    plan["native_schema_fingerprint"] = json!("0".repeat(64));
+    assert!(
+        migration::upgrade_native_39_to_40(&path, &plan, quiescence(), None, &|_, _, _| Ok(()))
+            .is_err()
+    );
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert_eq!(
+        connect(&path, false)
+            .unwrap()
+            .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
+            .unwrap(),
+        39
+    );
 }

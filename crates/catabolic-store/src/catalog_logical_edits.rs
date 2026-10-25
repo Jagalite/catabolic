@@ -1135,6 +1135,46 @@ pub(crate) fn apply_logical_edit(
     identity_authority: Option<&IdentityAuthority>,
     now: i64,
 ) -> Result<Value> {
+    apply_logical_edit_inner(
+        store,
+        reviewed,
+        command,
+        authority,
+        identity_authority,
+        now,
+        #[cfg(test)]
+        None,
+    )
+}
+#[cfg(test)]
+pub(crate) fn apply_logical_edit_with_probe(
+    store: &Store,
+    reviewed: &ReviewedLogicalEdit,
+    command: &CommandEnvelope,
+    authority: &LogicalEditAuthority,
+    identity_authority: Option<&IdentityAuthority>,
+    now: i64,
+    probe: &mut dyn FnMut(&Store) -> crate::Result<()>,
+) -> Result<Value> {
+    apply_logical_edit_inner(
+        store,
+        reviewed,
+        command,
+        authority,
+        identity_authority,
+        now,
+        Some(probe),
+    )
+}
+fn apply_logical_edit_inner(
+    store: &Store,
+    reviewed: &ReviewedLogicalEdit,
+    command: &CommandEnvelope,
+    authority: &LogicalEditAuthority,
+    identity_authority: Option<&IdentityAuthority>,
+    now: i64,
+    #[cfg(test)] mut probe: Option<&mut dyn FnMut(&Store) -> crate::Result<()>>,
+) -> Result<Value> {
     if store.db.is_autocommit() {
         return Err(unsupported("catalog_logical_writer_transaction_required"));
     }
@@ -1154,6 +1194,14 @@ pub(crate) fn apply_logical_edit(
     {
         return Err(conflict("catalog_logical_stale_review"));
     }
+    let mut nfo_retirement = if store.schema_version == 41 {
+        let (sources, _) = reviewed.request.endpoints()?;
+        Some(crate::catalog_nfo_attribution::retirement::prepare_in(
+            store, command, reviewed, &sources,
+        )?)
+    } else {
+        None
+    };
     let db = &store.db;
     db.execute(
         "INSERT INTO catalog_logical_edit_permits(operation_id,incarnation) VALUES(?,?)",
@@ -1206,6 +1254,9 @@ pub(crate) fn apply_logical_edit(
             })?,
         );
     }
+    if let Some(nfo) = nfo_retirement.as_mut() {
+        nfo.revalidate_before_retirement(store)?;
+    }
     let (sources, _) = reviewed.request.endpoints()?;
     let (kind, survivor, children) = match &reviewed.request.change {
         LogicalChange::Merge { survivor, .. } => ("merge", Some(survivor.as_str()), json!([])),
@@ -1226,6 +1277,13 @@ pub(crate) fn apply_logical_edit(
                 now
             ],
         )?;
+    }
+    if let Some(nfo) = nfo_retirement {
+        nfo.publish_in(store)?;
+    }
+    #[cfg(test)]
+    if let Some(probe) = probe.as_deref_mut() {
+        probe(store)?;
     }
     db.execute(
         "DELETE FROM catalog_logical_edit_permits WHERE operation_id=?",
@@ -1318,4 +1376,44 @@ pub fn resolve_logical_item(
             },
         }
     }
+}
+
+/// Import composition is already inside the dispatcher writer transaction. It
+/// must execute the same exhaustive graph review and mutation as a normal merge;
+/// only the generation-specific preview is omitted from the stable import map.
+pub(crate) fn import_reviewed_alias(
+    store: &Store,
+    alias: &str,
+    survivor: &str,
+    command: &CommandEnvelope,
+    authority: &LogicalEditAuthority,
+    identity_authority: Option<&IdentityAuthority>,
+    now: i64,
+) -> Result<Value> {
+    if store.db.is_autocommit() {
+        return Err(unsupported("catalog_logical_writer_transaction_required"));
+    }
+    let preview = preview_logical_edit_inner(
+        store,
+        LogicalEditRequest {
+            contract_version: 1,
+            change: LogicalChange::Merge {
+                sources: vec![alias.into()],
+                survivor: survivor.into(),
+            },
+            new_items: vec![],
+            association_clones: vec![],
+            contexts: vec![],
+        },
+        authority,
+        identity_authority,
+    )?;
+    apply_logical_edit(
+        store,
+        &preview.reviewed,
+        command,
+        authority,
+        identity_authority,
+        now,
+    )
 }

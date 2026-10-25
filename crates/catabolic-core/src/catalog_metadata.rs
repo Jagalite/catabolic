@@ -41,11 +41,20 @@ pub const MAX_METADATA_SNAPSHOT_BYTES: usize = 2 * 1024 * 1024;
 pub const MAX_METADATA_JSON_DEPTH: usize = 32;
 pub const MAX_METADATA_JSON_NODES: usize = 8192;
 
+pub mod nfo_refresh;
+mod schema_evolution;
+pub use schema_evolution::{
+    ContributionReplacement, MAX_METADATA_V2_EXTERNAL_FIELDS, MAX_METADATA_V2_FIELD_BYTES,
+    METADATA_CONTRACT_VERSION_V2, plan_replace, plan_schema_extension, replacement_fields,
+    revalidate_document, validate_schema_extension,
+};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MetadataError {
     InvalidIdentifier,
     InvalidField,
     UnknownField,
+    ReservedField,
     DuplicateField,
     InvalidPolicy,
     EmptySchema,
@@ -83,6 +92,7 @@ impl MetadataError {
             Self::InvalidIdentifier => "catalog_metadata_invalid_identifier",
             Self::InvalidField => "catalog_metadata_invalid_field",
             Self::UnknownField => "catalog_metadata_unknown_field",
+            Self::ReservedField => "catalog_metadata_reserved_field",
             Self::DuplicateField => "catalog_metadata_duplicate_field",
             Self::InvalidPolicy => "catalog_metadata_invalid_policy",
             Self::EmptySchema => "catalog_metadata_empty_schema",
@@ -155,6 +165,8 @@ pub struct FieldPolicy {
 pub struct FieldSchema {
     fields: BTreeMap<String, FieldPolicy>,
     fingerprint: String,
+    contract_version: u32,
+    system_fields: BTreeSet<String>,
 }
 impl FieldSchema {
     pub fn new(fields: Vec<(String, FieldPolicy)>) -> Result<Self> {
@@ -184,6 +196,8 @@ impl FieldSchema {
         Ok(Self {
             fields: policies,
             fingerprint,
+            contract_version: METADATA_CONTRACT_VERSION,
+            system_fields: BTreeSet::new(),
         })
     }
     pub fn fields(&self) -> &BTreeMap<String, FieldPolicy> {
@@ -194,7 +208,7 @@ impl FieldSchema {
     }
 
     fn normalize(&self, field: &str, value: Value, legacy: bool) -> Result<Value> {
-        field_name(field)?;
+        self.validate_field_name(field)?;
         let policy = self.fields.get(field).ok_or(MetadataError::UnknownField)?;
         if value.is_null() {
             return if policy.nullable {
@@ -299,6 +313,45 @@ impl ContributionDocument {
         fields_json: &str,
         evidence_json: &str,
     ) -> Result<Self> {
+        Self::from_json_inner(
+            schema,
+            key,
+            kind,
+            revision,
+            fields_json,
+            evidence_json,
+            false,
+        )
+    }
+    /// Trusted-owner rehydration for explicit system fields. This is not a public
+    /// request parser or an authorization to modify reserved contributions.
+    pub fn from_json_with_system_fields(
+        schema: &FieldSchema,
+        key: ContributionKey,
+        kind: SourceKind,
+        revision: i64,
+        fields_json: &str,
+        evidence_json: &str,
+    ) -> Result<Self> {
+        Self::from_json_inner(
+            schema,
+            key,
+            kind,
+            revision,
+            fields_json,
+            evidence_json,
+            true,
+        )
+    }
+    fn from_json_inner(
+        schema: &FieldSchema,
+        key: ContributionKey,
+        kind: SourceKind,
+        revision: i64,
+        fields_json: &str,
+        evidence_json: &str,
+        allow_system: bool,
+    ) -> Result<Self> {
         revision_number(revision, false)?;
         let fields = bounded_json(
             fields_json,
@@ -306,9 +359,7 @@ impl ContributionDocument {
             MetadataError::DocumentBudget,
         )?;
         let fields = fields.as_object().ok_or(MetadataError::ExpectedObject)?;
-        if fields.len() > MAX_METADATA_FIELDS {
-            return Err(MetadataError::FieldBudget);
-        }
+        schema.validate_field_set(fields.keys().map(String::as_str), allow_system)?;
         let fields = fields
             .iter()
             .map(|(field, value)| {
@@ -329,6 +380,7 @@ impl ContributionDocument {
         fields: BTreeMap<String, Value>,
         evidence: Value,
     ) -> Result<Self> {
+        schema.validate_field_set(fields.keys().map(String::as_str), true)?;
         let mut document = Self {
             schema_fingerprint: schema.fingerprint.clone(),
             key,
@@ -338,14 +390,13 @@ impl ContributionDocument {
             evidence,
             encoded_bytes: 0,
         };
-        document.encoded_bytes = crate::encode_with(
-            &serde_json::to_value(&document).expect("validated finite document"),
-            false,
-            true,
-        )
-        .len();
+        let value = serde_json::to_value(&document).expect("validated finite document");
+        document.encoded_bytes = crate::encode_with(&value, false, true).len();
         if document.encoded_bytes > MAX_METADATA_DOCUMENT_BYTES {
             return Err(MetadataError::DocumentBudget);
+        }
+        if schema.contract_version == METADATA_CONTRACT_VERSION_V2 {
+            schema_evolution::json_nodes(&value)?;
         }
         Ok(document)
     }
@@ -395,6 +446,44 @@ impl ContributionPatch {
         edits_json: &str,
         evidence_json: &str,
     ) -> Result<Self> {
+        Self::from_json_inner(
+            schema,
+            key,
+            kind,
+            expected_revision,
+            edits_json,
+            evidence_json,
+            false,
+        )
+    }
+    /// Trusted-owner parser for operations on explicitly reserved system fields.
+    pub fn from_json_with_system_fields(
+        schema: &FieldSchema,
+        key: ContributionKey,
+        kind: SourceKind,
+        expected_revision: i64,
+        edits_json: &str,
+        evidence_json: &str,
+    ) -> Result<Self> {
+        Self::from_json_inner(
+            schema,
+            key,
+            kind,
+            expected_revision,
+            edits_json,
+            evidence_json,
+            true,
+        )
+    }
+    fn from_json_inner(
+        schema: &FieldSchema,
+        key: ContributionKey,
+        kind: SourceKind,
+        expected_revision: i64,
+        edits_json: &str,
+        evidence_json: &str,
+        allow_system: bool,
+    ) -> Result<Self> {
         revision_number(expected_revision, true)?;
         if kind == SourceKind::LegacyImport {
             return Err(MetadataError::LegacyReconciliationRequired);
@@ -405,12 +494,10 @@ impl ContributionPatch {
             MetadataError::DocumentBudget,
         )?;
         let edits = edits.as_object().ok_or(MetadataError::ExpectedObject)?;
-        if edits.len() > MAX_METADATA_FIELDS {
-            return Err(MetadataError::FieldBudget);
-        }
+        schema.validate_field_set(edits.keys().map(String::as_str), allow_system)?;
         let mut fields = BTreeMap::new();
         for (field, operation) in edits {
-            field_name(field)?;
+            schema.validate_field_name(field)?;
             if !schema.fields.contains_key(field) {
                 return Err(MetadataError::UnknownField);
             }
@@ -512,13 +599,11 @@ pub fn plan_legacy_reconciliation(
     if fields.is_empty() {
         return Err(MetadataError::EmptyReconciliation);
     }
-    if fields.len() > MAX_METADATA_FIELDS {
-        return Err(MetadataError::FieldBudget);
-    }
+    schema.validate_field_set(fields.iter().map(String::as_str), true)?;
     let mut seen = BTreeSet::new();
     let mut retained = current.fields.clone();
     for field in fields {
-        field_name(field)?;
+        schema.validate_field_name(field)?;
         if !schema.fields.contains_key(field) {
             return Err(MetadataError::UnknownField);
         }
@@ -602,6 +687,9 @@ pub fn resolve(
     subject: &str,
     documents: &[ContributionDocument],
 ) -> Result<MetadataResolution> {
+    if schema.contract_version == METADATA_CONTRACT_VERSION_V2 {
+        return schema_evolution::resolve_v2(schema, subject, documents);
+    }
     identifier(subject)?;
     if documents.len() > MAX_METADATA_DOCUMENTS {
         return Err(MetadataError::SourceBudget);

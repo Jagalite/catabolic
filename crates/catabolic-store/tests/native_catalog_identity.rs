@@ -43,12 +43,20 @@ struct Fixture {
 
 impl Fixture {
     fn new() -> Self {
+        Self::at_schema(33)
+    }
+
+    fn at_schema(schema: u32) -> Self {
+        Self::with_motion_graph(schema, false)
+    }
+
+    fn with_motion_graph(schema: u32, motion: bool) -> Self {
         let root = tempfile::tempdir().unwrap();
         let source = root.path().join("source");
         fs::create_dir(&source).unwrap();
         let source_meta = source.metadata().unwrap();
         let path = root.path().join("native.db");
-        migration::initialize_native_at(&path, 33).unwrap();
+        migration::initialize_native_at(&path, schema).unwrap();
         let store = Store::open(&path, true, false).unwrap();
         store
             .db
@@ -104,7 +112,7 @@ impl Fixture {
         ] {
             curation::item_put(
                 &store,
-                &json!({"id":item,"kind":"movie",
+                &json!({"id":item,"kind":if motion { if item.ends_with("edition") {"custom:motion_edition"} else {"custom:motion_version"} } else {"movie"},
                 "metadata":{"title":"Same apparent title","edition_id":"guessed-edition",
                     "timeline_id":"guessed-timeline","representation_group":"same-label"}}),
             )
@@ -123,7 +131,24 @@ impl Fixture {
                 "associate",
                 &json!({
                 "file_id":file,"item_id":item,"role":"primary","part":part,
-                "metadata":{"representation_group":"same-label"}}),
+                "metadata":if motion {json!({})} else {json!({"representation_group":"same-label"})}}),
+            )
+            .unwrap();
+        }
+        if motion {
+            curation::item_put(
+                &store,
+                &json!({"id":"work", "kind":"video", "metadata":{"title":"Captured work"}}),
+            )
+            .unwrap();
+            curation::relate(
+                &store,
+                &json!({"source":"work", "target":"edition", "kind":"custom:motion_edition"}),
+            )
+            .unwrap();
+            curation::relate(
+                &store,
+                &json!({"source":"edition", "target":"one", "kind":"custom:motion_version"}),
             )
             .unwrap();
         }
@@ -883,7 +908,7 @@ fn malformed_interval_fields_and_evidence_leave_no_durable_state() {
 
 #[test]
 fn draft_with_unknown_duration_is_retained_without_invented_timing_or_readiness() {
-    let fixture = Fixture::new();
+    let fixture = Fixture::at_schema(39);
     let mut draft = fixture.version("one", 0);
     draft.state = VersionState::Draft;
     draft.declared_coverage = None;
@@ -920,6 +945,45 @@ fn draft_with_unknown_duration_is_retained_without_invented_timing_or_readiness(
         )
         .unwrap();
     assert!(no_bounds);
+    // The real typed owner accepted unknown coverage above. An explicit later
+    // disappearance can be described without inventing interval zeroes or
+    // turning this draft into a playable version.
+    fixture
+        .store
+        .db
+        .execute(
+            "UPDATE observations SET status='missing' WHERE profile='default' AND file_id='shared'",
+            [],
+        )
+        .unwrap();
+    let authority = catabolic_store::catalog_projection::TrustedProjectionAuthority {
+        catalog_id: fixture.store.database_id.clone(),
+        incarnation: fixture.store.catalog_incarnation.clone().unwrap(),
+        expected_generation: fixture.generation(),
+    };
+    let unavailable = catabolic_store::catalog_projection::unavailable_version_facts(
+        &fixture.store,
+        &authority,
+        "default",
+        &[draft.version_id.clone()],
+    )
+    .unwrap();
+    let binding = &unavailable["versions"][0]["bindings"][0];
+    assert!(binding["timeline_start_us"].is_null());
+    assert!(binding["timeline_end_us"].is_null());
+    assert_eq!(binding["observation"]["state"], "missing");
+    assert_eq!(
+        fixture
+            .store
+            .db
+            .query_row(
+                "SELECT state FROM catalog_version_revisions WHERE version_id=? AND revision=1",
+                [&draft.version_id],
+                |row| row.get::<_, String>(0)
+            )
+            .unwrap(),
+        "draft"
+    );
 }
 
 #[test]
@@ -1363,4 +1427,277 @@ fn exhausted_legacy_epoch_rolls_back_identity_heads_history_permits_and_receipt(
     ] {
         assert_eq!(fixture.count(table), 0, "rolled back {table}");
     }
+}
+
+#[test]
+fn projection_tracks_current_timeline_coverage_and_equivalence_under_exact_fence() {
+    use catabolic_store::catalog_projection::{self, TrustedProjectionAuthority};
+    let fixture = Fixture::new();
+    let initial = fixture.mutation(vec![fixture.version("one", 0)]);
+    fixture.commit("projection-initial", &initial);
+    let grant = || TrustedProjectionAuthority {
+        catalog_id: fixture.store.database_id.clone(),
+        incarnation: fixture.store.catalog_incarnation.clone().unwrap(),
+        expected_generation: fixture.generation(),
+    };
+    let old_grant = grant();
+    let first = catalog_projection::version_manifest(
+        &fixture.store,
+        &old_grant,
+        "default",
+        &["version-one".into()],
+    )
+    .unwrap();
+    assert_eq!(
+        first["version_revisions"][0]["timeline_identity_state"],
+        "provisional"
+    );
+    assert_eq!(
+        first["version_revisions"][0]["timeline_coverage"]["end_us"],
+        MINUTE
+    );
+    assert!(first["manifest"]["versions"][0]["equivalence"].is_null());
+    let mut revised = revise(&initial);
+    revised.timelines[0].identity_state = TimelineState::Established;
+    revised.timelines[0].coverage = Some(interval(0, MINUTE / 2));
+    revised.versions[0].version.declared_coverage = Some(interval(0, MINUTE / 2));
+    revised.versions[0].version.bindings[0].source = SourceExtent::Slice {
+        interval: interval(0, MINUTE / 2),
+    };
+    revised.versions[0].version.bindings[0].timeline_interval = Some(interval(0, MINUTE / 2));
+    revised.evidence.push(IdentityEvidence {
+        id: "projection-revised-evidence".into(),
+        basis: EquivalenceBasis::Declared,
+        claims: evidence_claims(&revised),
+        evidence: json!({"source":"explicit fixture editorial revision"}),
+    });
+    revised.versions[0].equivalence = Some(EquivalenceEvidence {
+        basis: EquivalenceBasis::Declared,
+        evidence_id: "projection-revised-evidence".into(),
+    });
+    fixture.commit("projection-revised", &revised);
+    assert!(
+        catalog_projection::version_manifest(
+            &fixture.store,
+            &old_grant,
+            "default",
+            &["version-one".into()]
+        )
+        .is_err()
+    );
+    let current = grant();
+    let result = catalog_projection::version_manifest(
+        &fixture.store,
+        &current,
+        "default",
+        &["version-one".into()],
+    )
+    .unwrap();
+    assert_eq!(result["version_revisions"][0]["version_revision"], 2);
+    assert_eq!(result["version_revisions"][0]["timeline_revision"], 2);
+    assert_eq!(
+        result["version_revisions"][0]["timeline_identity_state"],
+        "established"
+    );
+    assert_eq!(
+        result["version_revisions"][0]["timeline_coverage"]["end_us"],
+        MINUTE / 2
+    );
+    assert_eq!(
+        result["manifest"]["versions"][0]["equivalence"]["evidence_id"],
+        "projection-revised-evidence"
+    );
+    let mut wrong = current.clone();
+    wrong.incarnation = "wrong".into();
+    assert!(
+        catalog_projection::version_manifest(
+            &fixture.store,
+            &wrong,
+            "default",
+            &["version-one".into()]
+        )
+        .is_err()
+    );
+    // The durable owner trigger refuses a partial rollback to a historical
+    // timeline head. Keep that protection active rather than disabling it just
+    // to manufacture a corrupt state for the reader.
+    let rejected = fixture
+        .store
+        .db
+        .execute(
+            "UPDATE catalog_timelines SET current_revision=1 WHERE id='timeline-one'",
+            [],
+        )
+        .unwrap_err();
+    assert!(
+        rejected
+            .to_string()
+            .contains("catalog_revision_or_owner_conflict")
+    );
+    let still_current = catalog_projection::version_manifest(
+        &fixture.store,
+        &grant(),
+        "default",
+        &["version-one".into()],
+    )
+    .unwrap();
+    assert_eq!(
+        still_current["version_revisions"][0]["timeline_revision"],
+        2
+    );
+    assert_eq!(
+        still_current["version_revisions"][0]["timeline_coverage"]["end_us"],
+        MINUTE / 2
+    );
+}
+
+#[test]
+fn complete_work_capture_retains_actual_typed_draft_and_missing_occurrence() {
+    let fixture = Fixture::with_motion_graph(39, true);
+    let mut draft = fixture.version("one", 0);
+    draft.state = VersionState::Draft;
+    draft.declared_coverage = None;
+    draft.bindings[0].source = SourceExtent::WholeFile { duration_us: None };
+    draft.bindings[0].timeline_interval = None;
+    fixture.commit("capture-draft", &fixture.mutation(vec![draft]));
+    let capture = || {
+        catabolic_store::catalog_work_capture::capture(
+            &fixture.store,
+            &catabolic_store::catalog_projection::TrustedProjectionAuthority {
+                catalog_id: fixture.store.database_id.clone(),
+                incarnation: fixture.store.catalog_incarnation.clone().unwrap(),
+                expected_generation: fixture.generation(),
+            },
+            "default",
+            "work",
+        )
+        .unwrap()
+    };
+    let present = capture();
+    assert_eq!(present.work_id(), "work");
+    // The typed draft is real; explicit observation changes below are controlled
+    // fixture facts, not a filesystem observation-owner qualification claim.
+    fixture
+        .store
+        .db
+        .execute(
+            "UPDATE observations SET status='missing' WHERE profile='default' AND file_id='shared'",
+            [],
+        )
+        .unwrap();
+    let missing = capture();
+    assert_ne!(present.dependencies(), missing.dependencies());
+    assert!(
+        serde_json::to_string(missing.dependencies())
+            .unwrap()
+            .contains("missing")
+    );
+    assert_eq!(fixture.store.db.query_row("SELECT state FROM catalog_version_revisions WHERE version_id='version-one' AND revision=1",[],|r|r.get::<_,String>(0)).unwrap(),"draft");
+}
+
+#[test]
+fn named_lineage_tracks_real_relationship_delete_move_and_ambiguous_parents() {
+    use catabolic_store::{
+        catalog_commands::CatalogAuthority,
+        catalog_projection::{self, TrustedProjectionAuthority, VersionLineageRequest},
+        catalog_relationships::{
+            AuthorizedRelationshipDelete, RelationshipAuthority, RelationshipEdge,
+            RelationshipKindRule, RelationshipMutation,
+        },
+    };
+    use std::collections::BTreeSet;
+    let f = Fixture::with_motion_graph(40, true);
+    f.commit("lineage-seed", &f.mutation(vec![f.version("one", 0)]));
+    let request = VersionLineageRequest {
+        work_item_id: "work".into(),
+        edition_item_id: "edition".into(),
+        version_item_id: "one".into(),
+        version_id: "version-one".into(),
+    };
+    let grant = || TrustedProjectionAuthority {
+        catalog_id: f.store.database_id.clone(),
+        incarnation: f.store.catalog_incarnation.clone().unwrap(),
+        expected_generation: f.generation(),
+    };
+    let read =
+        || catalog_projection::version_lineage(&f.store, &grant(), &[request.clone()]).unwrap();
+    let original = grant();
+    assert_eq!(read()["rows"][0]["status"], "active");
+    let (id,revision):(String,i64)=f.store.db.query_row("SELECT e.id,r.revision FROM item_relationships e JOIN catalog_entity_revisions r ON r.entity_kind='item_relationships' AND r.entity_key=json_array(e.id) WHERE e.source_id='work' AND e.target_id='edition' AND e.active=1",[],|r|Ok((r.get(0)?,r.get(1)?))).unwrap();
+    let edge = RelationshipEdge {
+        source: "work".into(),
+        target: "edition".into(),
+        kind: "custom:motion_edition".into(),
+    };
+    let authority = RelationshipAuthority {
+        host_namespace: "identity-test".into(),
+        create_edges: BTreeSet::new(),
+        kind_rules: BTreeMap::new(),
+        delete_edges: BTreeMap::from([(
+            id.clone(),
+            AuthorizedRelationshipDelete {
+                expected_revision: revision,
+                edge: edge.clone(),
+            },
+        )]),
+    };
+    let command=f.envelope("lineage-delete",json!({"operation":"relationships","mutation":RelationshipMutation::Delete{id,expected_revision:revision,expected_edge:edge}}));
+    let outcome = catalog_commands::execute_with_authority(
+        &f.store,
+        &command,
+        CatalogAuthority::new(f.authority()).with_relationships(&authority),
+        policy(),
+    )
+    .unwrap();
+    assert_eq!(outcome.code(), "committed");
+    assert_eq!(read()["rows"][0]["status"], "detached");
+    assert!(catalog_projection::version_lineage(&f.store, &original, &[request.clone()]).is_err());
+    curation::item_put(
+        &f.store,
+        &json!({"id":"other-work","kind":"video","metadata":{}}),
+    )
+    .unwrap();
+    for (key, source, status) in [
+        ("lineage-move", "other-work", "detached"),
+        ("lineage-competing", "work", "ambiguous"),
+    ] {
+        let edge = RelationshipEdge {
+            source: source.into(),
+            target: "edition".into(),
+            kind: "custom:motion_edition".into(),
+        };
+        let authority = RelationshipAuthority {
+            host_namespace: "identity-test".into(),
+            create_edges: BTreeSet::from([edge.clone()]),
+            kind_rules: BTreeMap::from([(edge.kind.clone(), RelationshipKindRule::Acyclic)]),
+            delete_edges: BTreeMap::new(),
+        };
+        let command=f.envelope(key,json!({"operation":"relationships","mutation":RelationshipMutation::Create{id:key.into(),source:edge.source,target:edge.target,kind:edge.kind,metadata:json!({})}}));
+        assert_eq!(
+            catalog_commands::execute_with_authority(
+                &f.store,
+                &command,
+                CatalogAuthority::new(f.authority()).with_relationships(&authority),
+                policy()
+            )
+            .unwrap()
+            .code(),
+            "committed"
+        );
+        assert_eq!(read()["rows"][0]["status"], status);
+    }
+    let mut wrong = grant();
+    wrong.incarnation = "wrong".into();
+    assert!(catalog_projection::version_lineage(&f.store, &wrong, &[request.clone()]).is_err());
+    assert!(
+        catalog_projection::version_lineage(
+            &f.store,
+            &grant(),
+            &[request.clone(), request.clone()]
+        )
+        .is_err()
+    );
+    let mut missing = request;
+    missing.version_id = "missing".into();
+    assert!(catalog_projection::version_lineage(&f.store, &grant(), &[missing]).is_err());
 }

@@ -14,6 +14,7 @@ hmac.workspace = true
 md-5.workspace = true
 catabolic-core.workspace = true
 catabolic-store.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 libc.workspace = true

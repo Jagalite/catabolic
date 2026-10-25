@@ -77,6 +77,39 @@ pub(crate) fn has_cleanup_witness(db: &Connection, id: &str) -> Result<bool> {
     if !cleanup_supported(db)? {
         return Ok(false);
     }
+    cleanup_witness_exact_in(db, id)
+}
+/// Only the separately admitted staged candidate owner can read this exact
+/// predicate before candidate registration. Ordinary admission remains gated by
+/// cleanup_supported above; this creates no witness or execution permission.
+pub(crate) fn cleanup_witness_for_restore(
+    admitted: &crate::catalog_restore_lineage::AdmittedRestoreOwner<'_>,
+    id: &str,
+) -> Result<bool> {
+    cleanup_witness_exact_in(admitted.database(), id)
+}
+/// Read the unchanged exact current-incarnation witness only through the
+/// retained migration owner's closed41 token. This does not admit execution.
+pub(crate) fn cleanup_witness_for_pending41(
+    admitted: &crate::migration::AdmittedPending41<'_>,
+    id: &str,
+) -> Result<bool> {
+    cleanup_witness_exact_in(admitted.database(), id)
+}
+#[cfg(test)]
+pub(crate) fn cleanup_witness_for_source_candidate(
+    admitted: &crate::native_worker_inventory::AdmittedSourceCandidate<'_>,
+    id: &str,
+) -> Result<bool> {
+    cleanup_witness_exact_in(admitted.database(), id)
+}
+pub(crate) fn cleanup_witness_for_completed_source(
+    admitted: &crate::native_worker_inventory::AdmittedCompletedSource<'_>,
+    id: &str,
+) -> Result<bool> {
+    cleanup_witness_exact_in(admitted.database(), id)
+}
+fn cleanup_witness_exact_in(db: &Connection, id: &str) -> Result<bool> {
     let claim: Option<(i64, i64, String, String, String)> = db
         .query_row(
             "SELECT generation,attempt,token,snapshot,options FROM execution_claims WHERE job_id=?",

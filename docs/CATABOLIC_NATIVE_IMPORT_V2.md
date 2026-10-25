@@ -1,5 +1,9 @@
 # Bounded native import V2
 
+See `CATABOLIC_NATIVE_IMPORT_PARTITIONS.md` for additive empty-manifest v3,
+trusted cross-partition endpoint grants, tag/relationship/logical-alias owner
+mappings, and aggregate restart admission.
+
 V2 extends `CATABOLIC_NATIVE_IMPORT_V1.md` through the existing Store command
 transaction and typed owners. It adds no schema, queue, job owner, identity engine,
 resolver, filesystem publisher or external application integration. V1 remains

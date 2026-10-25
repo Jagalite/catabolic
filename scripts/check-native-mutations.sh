@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: MIT
 # Local-only qualification. Never opens a user catalog or contacts live adapters.
 set -eu
+# Keep the official helper within its unchanged 128 MiB packaging bound.
+# An explicit caller override is retained and still checked by preflight.
+export CARGO_PROFILE_DEV_DEBUG="${CARGO_PROFILE_DEV_DEBUG:-0}"
 cd "$(dirname "$0")/.."
 python="${CATABOLIC_QUALIFICATION_PYTHON:-.venv/bin/python}"
 # This pinned Python must also contain the exact frozen Catabolic package: the
@@ -58,7 +61,11 @@ export CATABOLIC_NATIVE_CLI="$CATABOLIC_NATIVE_BINARY"
     tests.test_native_projection_execute \
     tests.test_native_publication_mapping_folder \
     tests.test_native_upgrade_rollback
-cargo test --workspace --locked
+# Mandatory private NFO provenance fixtures need actual closed-child ownership.
+# This exact official artifact was built and copied above, never a test harness.
+export CATABOLIC_HOST_TEST_HELPER="$CATABOLIC_NATIVE_BINARY"
+"$python" scripts/verify_native_test_helper.py "$CATABOLIC_HOST_TEST_HELPER" > "$evidence/native-test-helper.json"
+cargo test --workspace --locked -- --test-threads=1
 # Cargo accepts an empty test filter. Require the exact ignored fixture to exist
 # once, and require one executed success rather than trusting exit status alone.
 required_ignored_test() {

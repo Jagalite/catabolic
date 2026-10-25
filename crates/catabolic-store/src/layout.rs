@@ -462,15 +462,36 @@ fn matching(rule: &Value, item: &Value, association: &Value) -> bool {
     true
 }
 pub fn fact(store: &Store, profile: &str, file: &str, operation: &str) -> Result<Value> {
-    let mut records = rows(
-        &store.db,
-        "SELECT * FROM file_facts WHERE profile=? AND file_id=? AND operation=?",
-        &[
-            profile.to_owned().into(),
-            file.to_owned().into(),
-            operation.to_owned().into(),
-        ],
-    )?;
+    let _source_read = crate::catalog_source_succession::current::enter_read(store)?;
+    let (query, parameters) = if store.schema_version == 41 {
+        let relation = crate::catalog_source_succession::current::seeded_relation(
+            "catalog_source_effective_file_facts",
+            crate::catalog_source_succession::current::ReadSeed::File,
+        )?;
+        (
+            format!("SELECT * FROM {relation} WHERE profile=? AND file_id=? AND operation=?"),
+            vec![
+                profile.to_owned().into(),
+                file.to_owned().into(),
+                profile.to_owned().into(),
+                file.to_owned().into(),
+                operation.to_owned().into(),
+            ],
+        )
+    } else {
+        (
+            "SELECT * FROM file_facts WHERE profile=? AND file_id=? AND operation=?".to_owned(),
+            vec![
+                profile.to_owned().into(),
+                file.to_owned().into(),
+                operation.to_owned().into(),
+            ],
+        )
+    };
+    let mut records = rows(&store.db, &query, &parameters)?;
+    if store.schema_version == 41 {
+        crate::catalog_source_succession::current::finish_read()?;
+    }
     let Some(mut row) = records.pop() else {
         return Ok(Value::Null);
     };

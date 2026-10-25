@@ -75,6 +75,7 @@ pub fn description(step: &Migration) -> Value {
 }
 
 pub fn execute(db: &Connection, step: &Migration) -> Result<()> {
+    let authorizer = crate::catalog_source_succession::authorizer::Guard::for_migration(db)?;
     let query_upgrade = step.version == 15;
     let rebuild = step.version == 16;
     // This migration-only UDF belongs to the original cutover, not the latest target.
@@ -127,7 +128,7 @@ pub fn execute(db: &Connection, step: &Migration) -> Result<()> {
     if rebuild {
         db.pragma_update(None, "defer_foreign_keys", true)?;
     }
-    db.authorizer(Some(move |context: AuthContext<'_>| match context.action {
+    authorizer.replace(move |context: AuthContext<'_>| match context.action {
         AuthAction::Pragma {
             pragma_name: "quick_check",
             pragma_value: Some("processing_recipes"),
@@ -155,10 +156,10 @@ pub fn execute(db: &Connection, step: &Migration) -> Result<()> {
             ..
         } => Authorization::Deny,
         _ => Authorization::Allow,
-    }))?;
+    })?;
     // None of the frozen SQL owns COMMIT. execute_batch preserves the enclosing transaction.
     let result = db.execute_batch(step.sql);
-    db.authorizer(None::<fn(AuthContext<'_>) -> Authorization>)?;
+    authorizer.restore()?;
     if native_upgrade {
         db.remove_function("catabolic_catalog_id_v1", 1)?;
     }
@@ -336,6 +337,61 @@ pub fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 pub fn rows(db: &Connection, sql: &str, args: &[rusqlite::types::Value]) -> Result<Vec<Value>> {
+    rows_with_image(db, sql, args, None)
+}
+// Only the pinned copied-image owner can provide the explicit paid loan. Ordinary
+// callers retain the complete foreign-connection charge, even on this same db.
+pub(in crate::migration) fn rows_with_image(
+    db: &Connection,
+    sql: &str,
+    args: &[rusqlite::types::Value],
+    image: Option<&native_session::allocation::PaidImageSqliteLoan<'_>>,
+) -> Result<Vec<Value>> {
+    let context = native_session::allocation::current();
+    if context.is_some() || image.is_some() {
+        // Offline-only actual borrowed preflight. Ordinary migration encoding
+        // and query behavior below are unchanged.
+        let mut statement = db.prepare(sql)?;
+        let count = statement.column_count();
+        let mut name_bytes = 0_u64;
+        for i in 0..count {
+            name_bytes = name_bytes
+                .checked_add(statement.column_name(i)?.len() as u64)
+                .and_then(|n| n.checked_add(1024))
+                .ok_or_else(|| Error("offline row names overflow".into()))?;
+        }
+        let mut owned = match image {
+            Some(image) => image.reserve(db, name_bytes)?,
+            None => context.as_ref().expect("ordinary offline allocation").reserve(db, name_bytes)?,
+        };
+        let names = (0..count)
+            .map(|i| statement.column_name(i).map(str::to_owned))
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        let mut cursor = statement.query(rusqlite::params_from_iter(args))?;
+        let mut result = Vec::new();
+        let mut admitted = name_bytes;
+        while let Some(row) = cursor.next()? {
+            let bytes = native_session::allocation::row_bytes(row, count)?
+                .checked_add(name_bytes)
+                .ok_or_else(|| Error("offline row storage overflow".into()))?;
+            admitted = admitted
+                .checked_add(bytes)
+                .filter(|n| *n <= 32 * 1024 * 1024)
+                .ok_or_else(|| {
+                    Error("offline retained metadata rows exceed bounded migration scratch".into())
+                })?;
+            match image {
+                Some(image) => image.grow(&mut owned, db, bytes)?,
+                None => owned.grow(db, bytes)?,
+            }
+            let mut object = serde_json::Map::new();
+            for (i, name) in names.iter().enumerate() {
+                object.insert(name.clone(), value(row.get_ref(i)?));
+            }
+            result.push(Value::Object(object));
+        }
+        return Ok(result);
+    }
     let mut s = db.prepare(sql)?;
     let names = s
         .column_names()
@@ -361,6 +417,27 @@ fn digest_table_where(
     columns: &[String],
     predicate: &str,
 ) -> Result<Value> {
+    digest_table_where_params(db, table, columns, predicate, &[])
+}
+// Both SQL predicate and table/column identities are fixed by native owners;
+// only exact retained command-key values enter bound parameters.
+fn digest_table_where_params(
+    db: &Connection,
+    table: &str,
+    columns: &[String],
+    predicate: &str,
+    args: &[rusqlite::types::Value],
+) -> Result<Value> {
+    digest_table_with_image(db, table, columns, predicate, args, None)
+}
+fn digest_table_with_image(
+    db: &Connection,
+    table: &str,
+    columns: &[String],
+    predicate: &str,
+    args: &[rusqlite::types::Value],
+    image: Option<&native_session::allocation::PaidImageSqliteLoan<'_>>,
+) -> Result<Value> {
     use sha2::{Digest, Sha256};
     let selected = columns
         .iter()
@@ -371,10 +448,16 @@ fn digest_table_where(
         "SELECT {selected} FROM {} NOT INDEXED {predicate} ORDER BY {selected}",
         identifier(table)
     ))?;
-    let mut cursor = s.query([])?;
+    let mut cursor = s.query(rusqlite::params_from_iter(args))?;
     let mut digest = Sha256::new();
     let mut count = 0_u64;
     while let Some(row) = cursor.next()? {
+        let _row_allocation = match image {
+            Some(image) => Some(image.reserve(
+                db, native_session::allocation::row_bytes(row, columns.len())?,
+            )?),
+            None => native_session::allocation::row_reservation(db, row, columns.len())?,
+        };
         let mut typed = vec![];
         for i in 0..columns.len() {
             typed.push(match row.get_ref(i)? {
@@ -402,10 +485,17 @@ fn digest_table_where(
     Ok(json!({"columns":columns,"rows":count,"sha256":format!("{:x}",digest.finalize())}))
 }
 pub fn snapshot(db: &Connection) -> Result<Value> {
-    let tables = rows(
+    snapshot_with_image(db, None)
+}
+pub(in crate::migration) fn snapshot_with_image(
+    db: &Connection,
+    image: Option<&native_session::allocation::PaidImageSqliteLoan<'_>>,
+) -> Result<Value> {
+    let tables = rows_with_image(
         db,
         "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
         &[],
+        image,
     )?;
     let mut result = serde_json::Map::new();
     for table in tables {
@@ -417,11 +507,18 @@ pub fn snapshot(db: &Connection) -> Result<Value> {
         let columns = s
             .query_map([], |r| r.get::<_, String>(1))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-        result.insert(name.into(), digest_table(db, name, &columns)?);
+        result.insert(name.into(), digest_table_with_image(db, name, &columns, "", &[], image)?);
     }
     Ok(Value::Object(result))
 }
 pub fn preservation(db: &Connection, before: &Value) -> Result<()> {
+    preservation_with_image(db, before, None)
+}
+fn preservation_with_image(
+    db: &Connection,
+    before: &Value,
+    image: Option<&native_session::allocation::PaidImageSqliteLoan<'_>>,
+) -> Result<()> {
     for (table, expected) in before.as_object().expect("snapshot object") {
         let columns = expected["columns"]
             .as_array()
@@ -429,7 +526,7 @@ pub fn preservation(db: &Connection, before: &Value) -> Result<()> {
             .iter()
             .map(|v| v.as_str().unwrap().to_string())
             .collect::<Vec<_>>();
-        if digest_table(db, table, &columns)? != *expected {
+        if digest_table_with_image(db, table, &columns, "", &[], image)? != *expected {
             return Err(Error(format!(
                 "migration changed existing data in {table}; preservation validation failed"
             )));
@@ -515,27 +612,72 @@ fn apply(
     role: &str,
     checkpoint: &Checkpoint<'_>,
 ) -> Result<Vec<String>> {
+    apply_target(db, current, target, role, checkpoint, None)
+}
+fn apply_target(
+    db: &Connection,
+    current: u32,
+    target: u32,
+    role: &str,
+    checkpoint: &Checkpoint<'_>,
+    closed: Option<&native_session::closed41::Closed41Target>,
+) -> Result<Vec<String>> {
+    apply_target_with_image(db, current, target, role, checkpoint, closed, None)
+}
+#[allow(clippy::too_many_arguments)]
+fn apply_target_with_image(
+    db: &Connection,
+    current: u32,
+    target: u32,
+    role: &str,
+    checkpoint: &Checkpoint<'_>,
+    closed: Option<&native_session::closed41::Closed41Target>,
+    image: Option<&native_session::allocation::PaidImageSqliteLoan<'_>>,
+) -> Result<Vec<String>> {
+    if image.is_some() && (closed.is_none() || current != 40 || target != 41) {
+        return Err(Error("paid image migration requires exact closed40-to41 target".into()));
+    }
     if db.is_autocommit() {
         return Err(Error(
             "migration runner requires an explicit transaction".into(),
         ));
     }
     let result = (|| {
-        for step in steps(target)?.iter().skip(current as usize) {
-            let before = snapshot(db)?;
+        let exact_step;
+        let pending = if let Some(owner) = closed {
+            if current != 40 || target != 41 {
+                return Err(Error("invalid exact offline41 target".into()));
+            }
+            exact_step = owner.step();
+            std::slice::from_ref(&exact_step)
+        } else {
+            steps(target)?.get(current as usize..).unwrap_or(&[])
+        };
+        for step in pending {
+            let before = snapshot_with_image(db, image)?;
             checkpoint(&format!("{role}:before_migration"), db, step.version)?;
             execute(db, step)?;
-            record_history(db, step.version, false)?;
+            if let Some(owner) = closed {
+                owner.record(db)?;
+            } else {
+                record_history(db, step.version, false)?;
+            }
             db.pragma_update(None, "user_version", step.version)?;
             if is_supported_native_schema(step.version) {
                 crate::configure_native_connection(db, step.version)?;
             }
             if step.version == 34 {
                 preservation_schema34(db, &before)?;
+            } else if step.version == 40 {
+                schema40_preservation::preservation_schema40(db, &before)?;
             } else {
-                preservation(db, &before)?;
+                preservation_with_image(db, &before, image)?;
             }
-            validate(db, true)?;
+            if let Some(owner) = closed {
+                owner.validate_with_image(db, image)?;
+            } else {
+                validate(db, true)?;
+            }
             checkpoint(&format!("{role}:after_migration"), db, step.version)?;
         }
         checkpoint(&format!("{role}:before_commit"), db, target)?;
@@ -587,24 +729,45 @@ fn initialize_target(path: &Path, target: u32) -> Result<Value> {
     let db = connect(&path, true)?;
     let id = Uuid::new_v4().to_string();
     db.execute_batch("BEGIN IMMEDIATE")?;
+    initialize_connection(&db, migrations, &id)?;
+    db.execute_batch("COMMIT")?;
+    Ok(json!({"database":path,"database_id":id,"schema":target}))
+}
+// One initialization algorithm for real create-only files and independent
+// closed-resource reference construction. Caller owns the transaction/custody.
+fn initialize_connection(db: &Connection, migrations: &[Migration], id: &str) -> Result<()> {
     for step in migrations {
-        execute(&db, step)?;
+        execute(db, step)?;
         if step.version == 1 {
-            db.execute("INSERT INTO meta VALUES ('database_id',?)", [&id])?;
+            db.execute("INSERT INTO meta VALUES ('database_id',?)", [id])?;
             db.execute_batch(
                 "INSERT INTO profiles VALUES ('default'); INSERT INTO catalogs VALUES ('global')",
             )?;
         }
-        record_history(&db, step.version, true)?;
+        record_history(db, step.version, true)?;
         db.pragma_update(None, "user_version", step.version)?;
         if is_supported_native_schema(step.version) {
-            crate::configure_native_connection(&db, step.version)?;
+            crate::configure_native_connection(db, step.version)?;
         }
     }
-    validate(&db, true)?;
-    db.execute_batch("COMMIT")?;
-    Ok(json!({"database":path,"database_id":id,"schema":target}))
+    validate(db, true)?;
+    Ok(())
 }
+
+/// Independent resource-only predecessor, never a target catalog or an admission
+/// capability. No filesystem, temporary path, lifecycle lease or candidate flag.
+pub(crate) fn closed_native40_reference_connection() -> Result<Connection> {
+    let db = Connection::open_in_memory()?;
+    db.pragma_update(None, "temp_store", "MEMORY")?;
+    db.pragma_update(None, "foreign_keys", true)?;
+    crate::components::install(&db)?;
+    crate::catalog_source_succession::install(&db)?;
+    db.execute_batch("BEGIN IMMEDIATE")?;
+    initialize_connection(&db, steps(40)?, "00000000-0000-0000-0000-000000000001")?;
+    db.execute_batch("COMMIT")?;
+    Ok(db)
+}
+
 pub fn inspect(path: &Path, full: bool) -> Result<Value> {
     let path = database_path(path)?;
     let db = connect(&path, false)?;
@@ -965,12 +1128,23 @@ pub(crate) fn work_is_settled(pending: &Value) -> bool {
         .is_some_and(|entries| entries.values().all(|count| count == 0))
 }
 fn native_inspection(db: &Connection, path: &Path, full: bool) -> Result<Value> {
+    native_inspection_to(db, path, full, NATIVE_SCHEMA_VERSION)
+}
+fn native_inspection_to(db: &Connection, path: &Path, full: bool, target: u32) -> Result<Value> {
+    if !is_supported_native_schema(target) {
+        return Err(Error("unsupported exact native target".into()));
+    }
     let mut info = validate(db, full)?;
     let version = info["schema"].as_u64().expect("validated schema") as u32;
     info["database"] = json!(path);
-    info["latest_schema"] = json!(NATIVE_SCHEMA_VERSION);
+    if version > target {
+        return Err(Error(
+            "native target cannot downgrade current schema".into(),
+        ));
+    }
+    info["latest_schema"] = json!(target);
     info["pending_migrations"] = json!(
-        steps(NATIVE_SCHEMA_VERSION)?
+        steps(target)?
             .iter()
             .skip(version as usize)
             .map(description)
@@ -980,8 +1154,8 @@ fn native_inspection(db: &Connection, path: &Path, full: bool) -> Result<Value> 
     info["journal_mode"] =
         json!(db.pragma_query_value(None, "journal_mode", |row| row.get::<_, String>(0))?);
     info["work_settled"] = json!(work_is_settled(&info["pending_work"]));
-    info["requires_quiescence"] = json!(version < NATIVE_SCHEMA_VERSION);
-    info["safe"] = json!(version == NATIVE_SCHEMA_VERSION);
+    info["requires_quiescence"] = json!(version < target);
+    info["safe"] = json!(version == target);
     // A read-only inspection never declares cross-process quiescence established.
     info["quiescence_verified"] = json!(false);
     Ok(info)
@@ -993,9 +1167,9 @@ pub fn inspect_native(path: &Path, full: bool) -> Result<Value> {
     db.execute_batch("BEGIN")?;
     native_inspection(&db, &path, full)
 }
-fn native_plan(db: &Connection, path: &Path) -> Result<Value> {
+fn native_plan(db: &Connection, path: &Path, target: u32) -> Result<Value> {
     use std::os::unix::fs::MetadataExt;
-    let info = native_inspection(db, path, true)?;
+    let info = native_inspection_to(db, path, true, target)?;
     let metadata = fs::metadata(path)?;
     let sequences = if db
         .prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='sqlite_sequence'")?
@@ -1009,20 +1183,32 @@ fn native_plan(db: &Connection, path: &Path) -> Result<Value> {
     } else {
         vec![]
     };
-    let input = json!({
+    let mut input = json!({
         "database":path, "file_identity":{"device":metadata.dev(),"inode":metadata.ino()},
         "database_id":info["database_id"], "schema":info["schema"],
         "history":info["history"], "tables":snapshot(db)?, "sequences":sequences,
         "pending_work":info["pending_work"], "journal_mode":info["journal_mode"]
     });
+    if matches!(info["schema"].as_u64(), Some(39 | 40)) {
+        let (catalog, incarnation): (String, String) = db.query_row(
+            "SELECT catalog_id,incarnation FROM catalog_state WHERE id=1",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        input["catalog_identity"] = json!({"catalog_id":catalog,"incarnation":incarnation});
+        input["qualified_pending_work"] = crate::native_upgrade_inventory::qualified_pending_work(
+            db,
+            info["schema"].as_u64().unwrap() as u32,
+        )?;
+    }
     let mut plan = json!({
         "contract":"catabolic-native-upgrade-v1", "from_schema":info["schema"],
-        "to_schema":NATIVE_SCHEMA_VERSION, "input":input,
+        "to_schema":target, "input":input,
         "input_fingerprint":sha256(encode(&input)),
         "migrations":info["pending_migrations"],
-        "migration_resources":steps(NATIVE_SCHEMA_VERSION)?.iter().map(description).collect::<Vec<_>>(),
-        "native_schema_fingerprint":sha256(encode(native_reference())),
-        "work_settled":info["work_settled"],
+        "migration_resources":steps(target)?.iter().map(description).collect::<Vec<_>>(),
+        "native_schema_fingerprint":sha256(encode(native_reference_at(target).ok_or_else(|| Error("exact native target reference missing".into()))?)),
+        "work_settled":work_is_settled(input.get("qualified_pending_work").unwrap_or(&input["pending_work"])),
         "quiescence_required":info["requires_quiescence"],
         "execution_journal_modes":["delete","truncate","persist"],
         "quiescence_preconditions":["stop admission", "stop and join all legacy/native readers and workers", "retain exclusive operational ownership of the catalog and managed outputs"],
@@ -1034,10 +1220,28 @@ fn native_plan(db: &Connection, path: &Path) -> Result<Value> {
 /// A plan binds exact logical inputs, file identity, full history and migration
 /// resource checksums. It is read-only and does not authorize or prove quiescence.
 pub fn plan_native(path: &Path) -> Result<Value> {
+    plan_native_to(path, NATIVE_SCHEMA_VERSION)
+}
+/// Preserve the immutable Motion89 historical corridor after a later native
+/// target ships. This neither plans41 nor bypasses any original plan checks.
+pub fn plan_native_39_to_40(path: &Path) -> Result<Value> {
+    let plan = plan_native_to(path, 40)?;
+    require_historical_40_target(&plan)?;
+    Ok(plan)
+}
+fn plan_native_to(path: &Path, target: u32) -> Result<Value> {
     let path = database_path(path)?;
     let db = connect(&path, false)?;
     db.execute_batch("BEGIN")?;
-    native_plan(&db, &path)
+    native_plan(&db, &path, target)
+}
+fn require_historical_40_target(plan: &Value) -> Result<()> {
+    if !matches!(plan["from_schema"].as_u64(), Some(39 | 40)) || plan["to_schema"] != 40 {
+        return Err(Error(
+            "historical native owner requires exact39→40 or completed40 target".into(),
+        ));
+    }
+    Ok(())
 }
 fn require_native_plan(actual: &Value, expected: &Value) -> Result<()> {
     if actual != expected {
@@ -1045,7 +1249,11 @@ fn require_native_plan(actual: &Value, expected: &Value) -> Result<()> {
             "native upgrade plan or inputs changed; inspect and approve a fresh native plan".into(),
         ));
     }
-    if !work_is_settled(&actual["input"]["pending_work"]) {
+    if !work_is_settled(
+        actual["input"]
+            .get("qualified_pending_work")
+            .unwrap_or(&actual["input"]["pending_work"]),
+    ) {
         return Err(Error(format!(
             "settle or recover all pending catalog work before native upgrade: {}",
             encode(&actual["input"]["pending_work"])
@@ -1073,111 +1281,73 @@ pub fn upgrade_native(
     parent: Option<&Path>,
     checkpoint: &Checkpoint<'_>,
 ) -> Result<Value> {
-    quiescence.require()?;
-    let path = database_path(path)?;
-    let _admission = crate::native_admission_exclusive(&path)?;
-    let _writer = writer_lock(&path)?;
-    let db = connect(&path, true)?;
-    let mut saved: Option<(PathBuf, Value)> = None;
-    let result: Result<Value> = (|| {
-        db.execute_batch("BEGIN")?;
-        let plan = native_plan(&db, &path)?;
-        let current = plan["from_schema"].as_u64().expect("validated schema") as u32;
-        require_native_plan(&plan, expected_plan)?;
-        if current == NATIVE_SCHEMA_VERSION {
-            return Ok(json!({"database":path,"schema":current,"upgraded":false,"backup":null}));
-        }
-        require_native_journal(&db)?;
-        let mut info = validate(&db, true)?;
-        info["pending_migrations"] = plan["migrations"].clone();
-        let before = plan["input"]["tables"].clone();
-        let default_parent = PathBuf::from(format!("{}.backups", path.display()));
-        saved = Some(backup(
-            &db,
-            &path,
-            parent.unwrap_or(&default_parent),
-            &info,
-            &before,
-            NATIVE_SCHEMA_VERSION,
-            Some(&plan),
-        )?);
-        db.execute_batch("ROLLBACK")?;
-        checkpoint("upgrade:after_backup", &db, current)?;
-        let (directory, receipt) = saved.as_mut().expect("verified backup");
-        {
-            let temporary = tempfile::Builder::new()
-                .prefix("rehearsal-")
-                .tempdir_in(&*directory)?;
-            let source = connect(
-                Path::new(receipt["backup"].as_str().expect("backup path")),
-                false,
-            )?;
-            let rehearsal_path = temporary.path().join("rehearsal.sqlite3");
-            copy(&source, &rehearsal_path)?;
-            let rehearsal = connect(&rehearsal_path, true)?;
-            rehearsal.execute_batch("BEGIN EXCLUSIVE")?;
-            apply(
-                &rehearsal,
-                current,
-                NATIVE_SCHEMA_VERSION,
-                "rehearsal",
-                checkpoint,
-            )?;
-        }
-        receipt["status"] = json!("rehearsed");
-        manifest(directory, receipt)?;
-        checkpoint("upgrade:after_rehearsal", &db, current)?;
-        require_native_journal(&db)?;
-        // This is an actual SQLite EXCLUSIVE database lock. In WAL mode the same
-        // SQL would not exclude readers, which is why WAL is rejected above.
-        db.execute_batch("BEGIN EXCLUSIVE")?;
-        require_native_journal(&db)?;
-        require_native_plan(&native_plan(&db, &path)?, &plan)?;
-        let guarded_checkpoint = |stage: &str, connection: &Connection, version: u32| {
-            checkpoint(stage, connection, version)?;
-            _admission.validate_path()?;
-            use std::os::unix::fs::MetadataExt;
-            let metadata = fs::symlink_metadata(&path)?;
-            let identity = json!({"device":metadata.dev(),"inode":metadata.ino()});
-            if !metadata.is_file()
-                || metadata.nlink() != 1
-                || identity != plan["input"]["file_identity"]
-            {
-                return Err(Error("native catalog replaced during upgrade".into()));
-            }
-            Ok(())
-        };
-        _admission.validate_path()?;
-        let mut warnings = apply(
-            &db,
-            current,
-            NATIVE_SCHEMA_VERSION,
-            "upgrade",
-            &guarded_checkpoint,
-        )?;
-        receipt["status"] = json!("committed");
-        if let Err(error) = manifest(directory, receipt) {
-            warnings.push(format!(
-                "upgrade committed, but backup manifest could not be updated: {error}"
-            ));
-        }
-        Ok(
-            json!({"database":path,"database_id":info["database_id"],"from_schema":current,"schema":NATIVE_SCHEMA_VERSION,"upgraded":true,"backup":receipt["backup"],"applied":plan["migrations"],"plan_fingerprint":plan["plan_fingerprint"],"warnings":warnings}),
-        )
-    })();
-    if let Err(error) = &result {
-        if !db.is_autocommit() {
-            let _ = db.execute_batch("ROLLBACK");
-        }
-        if let Some((directory, receipt)) = &mut saved {
-            receipt["status"] = json!("failed");
-            receipt["error"] = json!(error.to_string());
-            let _ = manifest(directory, receipt);
-        }
-    }
-    result
+    upgrade_native_to(
+        path,
+        expected_plan,
+        quiescence,
+        parent,
+        checkpoint,
+        NATIVE_SCHEMA_VERSION,
+    )
+}
+/// Apply only the exact historical target through the same backup, rehearsal,
+/// exclusive-lock, full-plan comparison and preservation owner as latest upgrade.
+pub fn upgrade_native_39_to_40(
+    path: &Path,
+    expected_plan: &Value,
+    quiescence: NativeUpgradeQuiescence,
+    parent: Option<&Path>,
+    checkpoint: &Checkpoint<'_>,
+) -> Result<Value> {
+    require_historical_40_target(expected_plan)?;
+    upgrade_native_to(path, expected_plan, quiescence, parent, checkpoint, 40)
+}
+#[path = "migration_native_session.rs"]
+mod native_session;
+pub(crate) use native_session::{BootstrapWorkspace, CurrentImageInventory, OfflineAllocationSink, OwnedImageAllocation};
+#[path = "migration_offline_bootstrap.rs"]
+pub mod offline_bootstrap;
+#[cfg(test)]
+pub(crate) use native_session::assert_live_pending41_for_test;
+pub(crate) use native_session::{
+    AdmittedPending41, CompletedCurrentImageAdmission, CompletedSourceAdmission,
+    CompletedSourcePreparationAdmission, CompletedSourceWithdrawalAdmission, CurrentImageProof,
+    CurrentImageRotationAdmission, OfflineBootstrapComplete, OfflineBootstrapExecution,
+    OfflineBootstrapIdentity, OfflineBootstrapSession, OfflineImageAllocation,
+};
+
+fn upgrade_native_to(
+    path: &Path,
+    expected_plan: &Value,
+    quiescence: NativeUpgradeQuiescence,
+    parent: Option<&Path>,
+    checkpoint: &Checkpoint<'_>,
+    target: u32,
+) -> Result<Value> {
+    let session = native_session::RetainedNativeUpgrade::acquire(path, quiescence)?;
+    let (_session, result) = session.apply(expected_plan, parent, checkpoint, target)?;
+    Ok(result)
 }
 
 #[cfg(test)]
 #[path = "migration_schema34_tests.rs"]
 mod schema34_preservation_tests;
+
+#[path = "migration_schema40.rs"]
+mod schema40_preservation;
+
+#[path = "migration_upgrade_reconcile.rs"]
+mod migration_upgrade_reconcile;
+pub use migration_upgrade_reconcile::{ReconciledNativeUpgrade, with_reconciled_native_upgrade};
+
+/// Descriptive retained-capacity measurement using the offline allocation owner's
+/// existing bounded borrowed-tree convention. This does not admit an operation.
+pub(crate) fn retained_value_allocation_bytes(value: &serde_json::Value) -> Result<u64> {
+    native_session::allocation::value_bytes(value)
+}
+
+pub(crate) use native_session::EndpointFreshFacts;
+
+// Fixed source history representation, retaining private allocation custody.
+#[path = "catalog_source_succession/history/fixed_rows.rs"]
+pub(crate) mod source_history_rows;

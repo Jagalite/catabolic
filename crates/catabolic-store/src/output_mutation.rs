@@ -7,7 +7,7 @@ use crate::{
     Error, Result, Store, components,
     migration::rows,
     mutation,
-    query::{decode, view_sql},
+    query::{decode, view_sql_for},
     source,
 };
 use catabolic_core::{encode, encode_with, sha256};
@@ -210,7 +210,7 @@ pub fn get(store: &Store, profile: &str, id: &str) -> Result<Value> {
         &store.db,
         &format!(
             "SELECT * FROM ({}) WHERE profile=? AND id=?",
-            view_sql("catalog_renditions")
+            view_sql_for(store, "catalog_renditions")
         ),
         &[profile.to_owned().into(), id.to_owned().into()],
     )?
@@ -251,7 +251,7 @@ pub fn validate_source_item_mode(
             &store.db,
             &format!(
                 "SELECT * FROM ({}) WHERE profile=? AND file_id=? AND item_id=?",
-                view_sql("catalog_renditions")
+                view_sql_for(store, "catalog_renditions")
             ),
             &[
                 profile.to_owned().into(),

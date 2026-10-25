@@ -26,6 +26,49 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+mod nfo_refresh_initialization;
+pub(crate) use nfo_refresh_initialization::{
+    RefreshFirstMetadataPlan, plan_first_refresh_metadata,
+};
+mod nfo_refresh;
+#[cfg(test)]
+pub(crate) use nfo_refresh::apply_refresh_source_with_probe;
+pub(crate) use nfo_refresh::classification::revalidate_retained_document;
+pub(crate) use nfo_refresh::{
+    RefreshMetadataSnapshot, RefreshSourcePlan, apply_refresh_source, normalize_refresh_fields,
+    plan_first_refresh_source, plan_refresh_source, read_refresh_metadata,
+};
+mod matching_projection;
+pub(crate) use matching_projection::{
+    UnmatchProjectionPlan, apply_unmatch_projection_in, plan_unmatch_projection_in,
+};
+mod nfo_refresh_projection;
+pub(crate) use nfo_refresh_projection::ProjectionGrants as RefreshProjectionGrants;
+mod system_replace;
+pub use system_replace::MetadataSystemReplace;
+pub(crate) use system_replace::replace_system;
+mod artwork_attach;
+pub(crate) use artwork_attach::attach_artwork;
+pub use artwork_attach::{ArtworkAttachAuthority, MetadataArtworkAttach};
+mod origin;
+pub(crate) use origin::verify_created_origin_nfo;
+pub use origin::{VerifiedCreatedOrigin, verify_created_origin};
+mod initialization_v2;
+pub use initialization_v2::MetadataInitializeV2;
+pub(crate) use initialization_v2::{import_source_v2, import_source_v2_authorized, initialize_v2};
+mod replacement;
+mod schema_registry;
+mod snapshot;
+pub use replacement::ContributionReplace;
+pub(crate) use replacement::{
+    replace as replace_contribution, replace_nfo as replace_nfo_contribution,
+};
+pub use schema_registry::registered_public_projection_fields;
+pub(crate) use schema_registry::{
+    current_fingerprint as current_schema_fingerprint, read_registered as read_registered_schema,
+};
+pub use snapshot::{ContributionSnapshot, SourceSnapshot, read_contributions};
+
 pub const METADATA_STORE_CONTRACT_VERSION: u32 = 1;
 pub const LEGACY_NAMESPACE: &str = "catabolic.legacy_import.v1";
 pub const LEGACY_RECORD_ID: &str = "items.metadata";
@@ -41,6 +84,16 @@ pub struct MetadataAuthority {
 #[derive(Clone, Debug)]
 pub enum MetadataAccess {
     Initialize,
+    InitializeV2 {
+        system_fields: std::collections::BTreeSet<String>,
+    },
+    SourceV2 {
+        namespace: String,
+        record_id: String,
+        kind: SourceKind,
+        system_fields: std::collections::BTreeSet<String>,
+    },
+    ExtendSchema,
     Source {
         namespace: String,
         record_id: String,
@@ -279,24 +332,15 @@ fn check_fingerprint(schema: &FieldSchema, fingerprint: &str) -> Result<()> {
     Ok(())
 }
 fn read_schema(db: &Connection, subject: &str) -> Result<FieldSchema> {
-    let row: Option<(String, String)> = db.query_row(
-        "SELECT schema_fingerprint,policies_json FROM catalog_metadata_subjects WHERE item_id=?1",
-        [subject], |row| Ok((row.get(0)?, row.get(1)?)),
-    ).optional()?;
-    let Some((fingerprint, raw)) = row else {
-        return Err(fail(
+    let fingerprint = schema_registry::current_fingerprint(db, subject)?.ok_or_else(|| {
+        fail(
             MetadataStoreErrorCode::NotInitialized,
             "metadata subject requires explicit initialization",
-        ));
-    };
-    let policies: Vec<PolicyField> =
-        serde_json::from_str(&raw).map_err(|_| corrupt("invalid stored metadata policies"))?;
-    let schema = field_schema(&policies).map_err(|_| corrupt("invalid stored metadata schema"))?;
-    if schema.fingerprint() != fingerprint {
-        return Err(corrupt("stored metadata schema fingerprint mismatch"));
-    }
-    Ok(schema)
+        )
+    })?;
+    schema_registry::read_registered(db, subject, &fingerprint)
 }
+
 fn read_documents(
     db: &Connection,
     schema: &FieldSchema,
@@ -325,19 +369,25 @@ fn read_documents(
     let mut query = db.prepare("SELECT namespace,record_id,source_kind,revision,schema_fingerprint,fields_json,evidence_json FROM catalog_metadata_sources WHERE item_id=?1 ORDER BY namespace,record_id LIMIT ?2")?;
     let mut rows = query.query(params![subject, (MAX_METADATA_DOCUMENTS + 1) as i64])?;
     let mut documents = Vec::new();
+    let mut historical_schemas = std::collections::BTreeMap::new();
+    let mut classification = None;
     while let Some(row) = rows.next()? {
         if documents.len() == MAX_METADATA_DOCUMENTS {
             return Err(MetadataError::SourceBudget.into());
         }
         let fingerprint: String = row.get(4)?;
-        if fingerprint != schema.fingerprint() {
-            return Err(corrupt("stored source schema fingerprint mismatch"));
+        if !historical_schemas.contains_key(&fingerprint) {
+            historical_schemas.insert(
+                fingerprint.clone(),
+                schema_registry::read_registered(db, subject, &fingerprint)?,
+            );
         }
+        let historical = &historical_schemas[&fingerprint];
         let key = ContributionKey::new(subject, row.get::<_, String>(0)?, row.get::<_, String>(1)?)
             .map_err(|_| corrupt("invalid stored source key"))?;
         let kind = stored_kind(&row.get::<_, String>(2)?)?;
-        let document = ContributionDocument::from_json(
-            schema,
+        let document = ContributionDocument::from_json_with_system_fields(
+            historical,
             key,
             kind,
             row.get(3)?,
@@ -345,6 +395,14 @@ fn read_documents(
             &row.get::<_, String>(6)?,
         )
         .map_err(|_| corrupt("invalid stored source document"))?;
+        let document = nfo_refresh::classification::revalidate_retained_cached(
+            db,
+            subject,
+            schema,
+            historical,
+            &document,
+            &mut classification,
+        )?;
         documents.push(document);
     }
     Ok(documents)
@@ -360,7 +418,7 @@ fn write_revision(
     let fields = serde_json::to_string(document.fields())?;
     let evidence = encode(document.evidence());
     db.execute("INSERT INTO catalog_metadata_history(item_id,namespace,record_id,revision,source_kind,schema_fingerprint,fields_json,evidence_json,raw_mutation_json,command_catalog_id,command_host_namespace,command_operation_id,admitted_at_us) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)", params![key.subject(),key.namespace(),key.record_id(),document.revision(),kind_sql(document.kind()),document.schema_fingerprint(),fields,evidence,raw_mutation,command.key().catalog_id(),command.key().host_namespace(),command.key().operation_id(),admitted_at_us])?;
-    db.execute("INSERT INTO catalog_metadata_sources(item_id,namespace,record_id,source_kind,revision,schema_fingerprint,fields_json,evidence_json) VALUES(?1,?2,?3,?4,?5,?6,?7,?8) ON CONFLICT(item_id,namespace,record_id) DO UPDATE SET revision=excluded.revision,fields_json=excluded.fields_json,evidence_json=excluded.evidence_json", params![key.subject(),key.namespace(),key.record_id(),kind_sql(document.kind()),document.revision(),document.schema_fingerprint(),fields,evidence])?;
+    db.execute("INSERT INTO catalog_metadata_sources(item_id,namespace,record_id,source_kind,revision,schema_fingerprint,fields_json,evidence_json) VALUES(?1,?2,?3,?4,?5,?6,?7,?8) ON CONFLICT(item_id,namespace,record_id) DO UPDATE SET revision=excluded.revision,schema_fingerprint=excluded.schema_fingerprint,fields_json=excluded.fields_json,evidence_json=excluded.evidence_json", params![key.subject(),key.namespace(),key.record_id(),kind_sql(document.kind()),document.revision(),document.schema_fingerprint(),fields,evidence])?;
     Ok(())
 }
 fn write_projection(db: &Connection, resolution: &MetadataResolution) -> Result<()> {
@@ -379,7 +437,7 @@ fn write_projection(db: &Connection, resolution: &MetadataResolution) -> Result<
     );
     let projection = serde_json::to_string(resolution)?;
     let effective_json = encode(&effective);
-    db.execute("INSERT INTO catalog_metadata_projection(item_id,schema_fingerprint,resolution_json,effective_json) VALUES(?1,?2,?3,?4) ON CONFLICT(item_id) DO UPDATE SET resolution_json=excluded.resolution_json,effective_json=excluded.effective_json",params![resolution.subject,resolution.schema_fingerprint,projection,effective_json])?;
+    db.execute("INSERT INTO catalog_metadata_projection(item_id,schema_fingerprint,resolution_json,effective_json) VALUES(?1,?2,?3,?4) ON CONFLICT(item_id) DO UPDATE SET schema_fingerprint=excluded.schema_fingerprint,resolution_json=excluded.resolution_json,effective_json=excluded.effective_json",params![resolution.subject,resolution.schema_fingerprint,projection,effective_json])?;
     let old: String = db.query_row(
         "SELECT metadata FROM items WHERE id=?1",
         [&resolution.subject],
@@ -490,6 +548,46 @@ pub(crate) fn apply_metadata(
     authority: &MetadataAuthority,
     admitted_at_us: i64,
 ) -> Result<Value> {
+    apply_metadata_inner(db, mutation, command, authority, admitted_at_us, None, None)
+}
+pub(crate) fn apply_metadata_import(
+    store: &crate::Store,
+    mutation: &MetadataMutation,
+    command: &CommandEnvelope,
+    authority: &MetadataAuthority,
+    admitted_at_us: i64,
+    permit: Option<&crate::catalog_nfo_attribution::source_effect::ImportedSourceEffect<'_>>,
+    validated: Option<&crate::catalog_import::ValidatedImportSource<'_>>,
+) -> Result<Value> {
+    if let Some(validated) = validated {
+        validated
+            .authorize_v1_in(store, command, mutation, authority)
+            .map_err(|e| fail(MetadataStoreErrorCode::AuthorityDenied, e.to_string()))?;
+    }
+    if let Some(permit) = permit {
+        permit
+            .authorize_v1_in(store, command, mutation)
+            .map_err(|e| fail(MetadataStoreErrorCode::AuthorityDenied, e.to_string()))?;
+    }
+    apply_metadata_inner(
+        &store.db,
+        mutation,
+        command,
+        authority,
+        admitted_at_us,
+        permit,
+        validated,
+    )
+}
+fn apply_metadata_inner(
+    db: &Connection,
+    mutation: &MetadataMutation,
+    command: &CommandEnvelope,
+    authority: &MetadataAuthority,
+    admitted_at_us: i64,
+    imported: Option<&crate::catalog_nfo_attribution::source_effect::ImportedSourceEffect<'_>>,
+    validated: Option<&crate::catalog_import::ValidatedImportSource<'_>>,
+) -> Result<Value> {
     if db.is_autocommit() {
         return Err(fail(
             MetadataStoreErrorCode::TransactionRequired,
@@ -500,6 +598,15 @@ pub(crate) fn apply_metadata(
         return Err(fail(
             MetadataStoreErrorCode::UnsupportedContract,
             "unsupported metadata store contract",
+        ));
+    }
+    if db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))? == 41
+        && imported.is_none()
+        && matches!(&mutation.change,MetadataChange::Patch { namespace,.. } if namespace=="motion.nfo")
+    {
+        return Err(fail(
+            MetadataStoreErrorCode::AuthorityDenied,
+            "NFO source requires its private attributed owner",
         ));
     }
     let subject = mutation.change.subject();
@@ -632,6 +739,12 @@ pub(crate) fn apply_metadata(
                     namespace: trusted_namespace,
                     record_id: trusted_record,
                     kind,
+                }
+                | MetadataAccess::SourceV2 {
+                    namespace: trusted_namespace,
+                    record_id: trusted_record,
+                    kind,
+                    ..
                 } if trusted_namespace == namespace
                     && trusted_record == record_id
                     && *kind != SourceKind::LegacyImport
@@ -648,10 +761,30 @@ pub(crate) fn apply_metadata(
             };
             let schema = read_schema(db, subject)?;
             check_fingerprint(&schema, schema_fingerprint)?;
+            if schema.contract_version() == 2 {
+                let edits: Value = serde_json::from_str(edits_json)?;
+                let allowed = match &authority.access {
+                    MetadataAccess::SourceV2 { system_fields, .. } => system_fields.clone(),
+                    _ => Default::default(),
+                };
+                if !allowed.is_subset(schema.system_fields())
+                    || edits.as_object().is_some_and(|fields| {
+                        fields.keys().any(|field| {
+                            schema.system_fields().contains(field) && !allowed.contains(field)
+                        })
+                    })
+                {
+                    return Err(fail(
+                        MetadataStoreErrorCode::AuthorityDenied,
+                        "source cannot edit another system owner field",
+                    ));
+                }
+            }
+
             let key = ContributionKey::new(subject, namespace, record_id)?;
             let documents = read_documents(db, &schema, subject)?;
             let current = documents.iter().find(|document| document.key() == &key);
-            let patch = ContributionPatch::from_json(
+            let patch = ContributionPatch::from_json_with_system_fields(
                 &schema,
                 key,
                 kind,
@@ -659,6 +792,15 @@ pub(crate) fn apply_metadata(
                 edits_json,
                 evidence_json,
             )?;
+            if db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))? == 41
+                && validated.is_none()
+                && patch.edits().contains_key("motion_catalog")
+            {
+                return Err(fail(
+                    MetadataStoreErrorCode::AuthorityDenied,
+                    "protected NFO projection requires exact composite owner",
+                ));
+            }
             let next = plan_update(&schema, current, &patch)?;
             (schema, next, documents, None)
         }
@@ -682,6 +824,14 @@ pub(crate) fn apply_metadata(
                 .iter()
                 .find(|document| document.key() == &key)
                 .ok_or_else(|| corrupt("initialized subject has no legacy import head"))?;
+            if db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))? == 41
+                && fields.iter().any(|field| field == "motion_catalog")
+            {
+                return Err(fail(
+                    MetadataStoreErrorCode::AuthorityDenied,
+                    "protected NFO projection reconciliation requires exact composite owner",
+                ));
+            }
             let next = plan_legacy_reconciliation(&schema, legacy, *expected_revision, fields)?;
             (schema, next, documents, None)
         }
@@ -804,16 +954,18 @@ pub(crate) fn read_metadata_provenance_in_snapshot(
     }
     legacy_key(&authority.subject)?;
     check_read_admission(db, authority)?;
-    let policy_bytes: Option<i64> = db.query_row(
-        "SELECT length(CAST(policies_json AS BLOB)) FROM main.catalog_metadata_subjects WHERE item_id=?", [&authority.subject], |r|r.get(0),
-    ).optional()?;
+    let policy_bytes: Option<i64> = if schema_registry::installed(db)? {
+        db.query_row("SELECT length(CAST(s.policies_json AS BLOB)) FROM catalog_metadata_schema_heads h JOIN catalog_metadata_schemas s ON s.item_id=h.item_id AND s.schema_fingerprint=h.schema_fingerprint WHERE h.item_id=?", [&authority.subject], |r|r.get(0)).optional()?
+    } else {
+        db.query_row("SELECT length(CAST(policies_json AS BLOB)) FROM catalog_metadata_subjects WHERE item_id=?", [&authority.subject], |r|r.get(0)).optional()?
+    };
     let Some(policy_bytes) = policy_bytes else {
         return Err(fail(
             MetadataStoreErrorCode::NotInitialized,
             "metadata provenance requires explicit initialization",
         ));
     };
-    if !(0..=MAX_METADATA_DOCUMENT_BYTES as i64).contains(&policy_bytes) {
+    if !(0..=MAX_METADATA_SNAPSHOT_BYTES as i64).contains(&policy_bytes) {
         return Err(MetadataError::DocumentBudget.into());
     }
     let (count, bytes): (i64,i64) = db.query_row(
@@ -825,13 +977,25 @@ pub(crate) fn read_metadata_provenance_in_snapshot(
     if !(0..=MAX_METADATA_SNAPSHOT_BYTES as i64).contains(&bytes) {
         return Err(MetadataError::SnapshotBudget.into());
     }
+    schema_registry::charge_retained_schemas(db, budget, &authority.subject)?;
+    let schema = read_schema(db, &authority.subject)?;
+    let charged_fields = if schema.contract_version() == 1 {
+        (count as usize + 1) * catabolic_core::catalog_metadata::MAX_METADATA_FIELDS
+    } else {
+        let source_fields: i64 = db.query_row("SELECT count(*) FROM catalog_metadata_sources s,json_each(s.fields_json) WHERE s.item_id=?", [&authority.subject], |r|r.get(0))?;
+        schema.fields().len() + source_fields as usize
+    };
     budget
         .charge(crate::operation_budget::BudgetCharge {
             items: count as usize,
             bytes: bytes as usize + policy_bytes as usize,
-            values: (count as usize + 1) * catabolic_core::catalog_metadata::MAX_METADATA_FIELDS,
+            values: charged_fields,
             work: bytes as usize / 64
-                + count as usize * catabolic_core::catalog_metadata::MAX_METADATA_FIELDS
+                + if schema.contract_version() == 1 {
+                    count as usize * catabolic_core::catalog_metadata::MAX_METADATA_FIELDS
+                } else {
+                    charged_fields
+                }
                 + 1,
         })
         .map_err(|_| {
@@ -840,7 +1004,6 @@ pub(crate) fn read_metadata_provenance_in_snapshot(
                 "scoped metadata operation budget exhausted",
             )
         })?;
-    let schema = read_schema(db, &authority.subject)?;
     let documents = read_documents(db, &schema, &authority.subject)?;
     let mut resolution = resolve(&schema, &authority.subject, &documents)?;
     resolution.fields.retain(|field, _| fields.contains(field));
@@ -856,4 +1019,85 @@ pub(crate) fn read_metadata_provenance_in_snapshot(
         json!({"contract_version":resolution.contract_version,"item_id":authority.subject,
         "fields":resolution.fields,"scoped_total":contributions.len(),"contributions":contributions}),
     )
+}
+
+/// Current source CAS facts only, for one independently authorized item. This
+/// does not expose other source documents or derive authority from a namespace.
+/// An unmanaged item has no fingerprint and source revision zero.
+#[derive(Clone, Debug, Serialize)]
+pub struct MetadataSourceHead {
+    pub catalog_id: String,
+    pub incarnation: String,
+    pub generation: i64,
+    pub subject: String,
+    pub namespace: String,
+    pub record_id: String,
+    pub schema_fingerprint: Option<String>,
+    pub source_revision: i64,
+}
+pub fn read_source_head(
+    store: &crate::Store,
+    authority: &MetadataReadAuthority,
+    namespace: &str,
+    record_id: &str,
+) -> Result<MetadataSourceHead> {
+    if store.schema_version < 34 || store.catalog_incarnation.is_none() {
+        return Err(fail(
+            MetadataStoreErrorCode::UnsupportedContract,
+            "metadata source head requires native34 or newer",
+        ));
+    }
+    ContributionKey::new(&authority.subject, namespace, record_id)?;
+    store
+        .transaction_available()
+        .map_err(|error| MetadataStoreError {
+            code: MetadataStoreErrorCode::StoreFailure,
+            error,
+        })?;
+    if !store.db.is_autocommit() {
+        return Err(fail(
+            MetadataStoreErrorCode::AmbientReadTransaction,
+            "metadata source head requires fresh admission",
+        ));
+    }
+    check_read_admission(&store.db, authority)?;
+    if !store
+        .db
+        .prepare("SELECT 1 FROM items WHERE id=?")?
+        .exists([&authority.subject])?
+    {
+        return Err(fail(
+            MetadataStoreErrorCode::SubjectMissing,
+            "metadata subject missing",
+        ));
+    }
+    if store
+        .db
+        .prepare("SELECT 1 FROM catalog_logical_retirements WHERE item_id=?")?
+        .exists([&authority.subject])?
+    {
+        return Err(fail(
+            MetadataStoreErrorCode::RetiredSubject,
+            "metadata subject retired",
+        ));
+    }
+    let schema_fingerprint = schema_registry::current_fingerprint(&store.db, &authority.subject)?;
+    let source_revision=store.db.query_row("SELECT revision FROM catalog_metadata_sources WHERE item_id=? AND namespace=? AND record_id=?",params![authority.subject,namespace,record_id],|r|r.get::<_,i64>(0)).optional()?.unwrap_or(0);
+    store
+        .transaction_available()
+        .map_err(|error| MetadataStoreError {
+            code: MetadataStoreErrorCode::StoreFailure,
+            error,
+        })?;
+    check_read_admission(&store.db, authority)?;
+    Ok(MetadataSourceHead {
+        catalog_id: authority.catalog_id.clone(),
+        incarnation: authority.incarnation.clone(),
+        generation: authority.expected_generation,
+        subject: authority.subject.clone(),
+        namespace: namespace.into(),
+        record_id: record_id.into(),
+        schema_fingerprint,
+        source_revision,
+    })
 }

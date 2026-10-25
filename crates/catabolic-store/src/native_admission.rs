@@ -54,6 +54,98 @@ impl Drop for NativeAdmissionLock {
     }
 }
 
+/// Private single-attempt acquisition slots. A successfully returned File is
+/// installed before metadata/flock, and the held lease before path validation.
+pub(crate) enum NativeAdmissionAcquisition {
+    Unopened(PathBuf),
+    Opened { file: File, path: PathBuf },
+    Locked(NativeAdmissionLock),
+}
+impl NativeAdmissionAcquisition {
+    pub(crate) const SUFFIX: &'static str = ".native-admission.lock";
+    pub(crate) fn new(database: &Path) -> Self {
+        let mut name =
+            std::ffi::OsString::with_capacity(database.as_os_str().len() + Self::SUFFIX.len());
+        name.push(database);
+        name.push(Self::SUFFIX);
+        Self::Unopened(PathBuf::from(name))
+    }
+    pub(crate) fn path_capacity(&self) -> usize {
+        match self {
+            Self::Unopened(path) | Self::Opened { path, .. } => path.capacity(),
+            Self::Locked(lock) => lock.path.capacity(),
+        }
+    }
+    pub(crate) fn open(&mut self) -> Result<()> {
+        let Self::Unopened(path) = self else {
+            return Err(Error(
+                "native preparation lifecycle open already attempted".into(),
+            ));
+        };
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(&*path)?;
+        // Only moves between successful open and stable ownership.
+        *self = Self::Opened {
+            file,
+            path: std::mem::take(path),
+        };
+        Ok(())
+    }
+    pub(crate) fn lock(&mut self) -> Result<()> {
+        let Self::Opened { file, .. } = self else {
+            return Err(Error("native preparation lifecycle file missing".into()));
+        };
+        let metadata = file.metadata()?;
+        if !metadata.is_file() || metadata.nlink() != 1 {
+            return Err(Error(
+                "native catalog admission lock must be a regular file with one link".into(),
+            ));
+        }
+        let creator_pid = std::process::id();
+        // SAFETY: the caller-owned acquisition slot retains this live File.
+        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+            return Err(std::io::Error::last_os_error().into());
+        }
+        // No fallible call, allocation or poll intervenes after successful flock.
+        match std::mem::replace(self, Self::Unopened(PathBuf::new())) {
+            Self::Opened { file, path } => {
+                *self = Self::Locked(NativeAdmissionLock {
+                    file,
+                    path,
+                    device: metadata.dev(),
+                    inode: metadata.ino(),
+                    creator_pid,
+                });
+                Ok(())
+            }
+            original => {
+                *self = original;
+                Err(Error("native preparation lifecycle state changed".into()))
+            }
+        }
+    }
+    pub(crate) fn validate(&self) -> Result<()> {
+        match self {
+            Self::Locked(lock) => lock.validate_path(),
+            _ => Err(Error("native preparation lifecycle lease missing".into())),
+        }
+    }
+    #[cfg(test)]
+    pub(crate) fn descriptor_for_test(&self) -> Option<std::os::fd::RawFd> {
+        match self {
+            Self::Unopened(_) => None,
+            Self::Opened { file, .. } => Some(file.as_raw_fd()),
+            Self::Locked(lock) => Some(lock.file.as_raw_fd()),
+        }
+    }
+}
+
 fn lock(path: &Path, exclusive: bool) -> OpenResult<NativeAdmissionLock> {
     let mut name = path.as_os_str().to_os_string();
     name.push(".native-admission.lock");

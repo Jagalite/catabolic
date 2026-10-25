@@ -91,6 +91,7 @@ impl<'a> CatalogQuery<'a> {
         args: &Value,
         context: Value,
     ) -> DetailedResult<Value> {
+        let _source_read = crate::catalog_source_succession::current::enter_read(self.store)?;
         let limit = get(args, "limit", json!(100))
             .as_i64()
             .filter(|n| (1..=1000).contains(n))
@@ -160,6 +161,9 @@ impl<'a> CatalogQuery<'a> {
             ),
             &values,
         )?;
+        if self.store.schema_version == 41 {
+            crate::catalog_source_succession::current::finish_read()?;
+        }
         let more = records.len() > limit as usize;
         records.truncate(limit as usize);
         let cursor = if more {
@@ -285,7 +289,7 @@ impl<'a> CatalogQuery<'a> {
         Ok(())
     }
     pub fn decorate_items(&self, records: &mut [Value]) -> Result<()> {
-        let summary = view_sql("catalog_item_workflow");
+        let summary = view_sql_for(self.store, "catalog_item_workflow");
         for batch in records.chunks_mut(400) {
             let ids: Vec<SqlValue> = batch
                 .iter()
@@ -331,6 +335,7 @@ impl<'a> CatalogQuery<'a> {
         self.execute_detailed(key, args).map_err(Into::into)
     }
     pub fn execute_detailed(&self, key: &str, args: &Value) -> DetailedResult<Value> {
+        let _source_read = crate::catalog_source_succession::current::enter_read(self.store)?;
         if !args.is_object() {
             return Err(Error("catalog query options must be an object".into()).into());
         }
@@ -385,7 +390,7 @@ impl<'a> CatalogQuery<'a> {
             }
             clauses.push(format!(
                 "i.id IN (SELECT item_id FROM ({}) WHERE profile=? AND status=?)",
-                view_sql("catalog_item_workflow")
+                view_sql_for(self.store, "catalog_item_workflow")
             ));
             values.extend([SqlValue::Text(self.profile.into()), scalar(status)?]);
         }
@@ -395,7 +400,7 @@ impl<'a> CatalogQuery<'a> {
                 clauses.push(format!(
                     "{}EXISTS (SELECT 1 FROM ({}) r WHERE r.profile=? AND r.source_item_id=i.id{})",
                     if negate { "NOT " } else { "" },
-                    view_sql("catalog_rendition_state"),
+                    view_sql_for(self.store, "catalog_rendition_state"),
                     if extra.is_empty() {
                         String::new()
                     } else {
@@ -506,7 +511,30 @@ impl<'a> CatalogQuery<'a> {
             get(args, "not_tags", json!([])),
             boolean(args, "descendants")?
         ]);
-        self.page_detailed("files","f.*,o.size,o.mtime_ns,coalesce(o.status,'unknown') AS status,o.scan_id,s.finished_at AS observed_at,coalesce(h.status,'unknown') AS media_header_status,h.reason AS media_header_reason","files f LEFT JOIN observations o ON o.file_id=f.id AND o.profile=? LEFT JOIN scans s ON s.id=o.scan_id LEFT JOIN media_header_checks h ON h.profile=o.profile AND h.file_id=f.id AND h.scan_id=o.scan_id AND o.status='present' AND h.size=o.size AND h.mtime_ns=o.mtime_ns AND h.device=o.device AND h.inode=o.inode",&clauses,values,&[("id","f.id"),("path","f.path"),("size","coalesce(o.size,-1)"),("mtime","coalesce(o.mtime_ns,-1)")],args,context)
+        let mut source = crate::catalog_source_succession::current::view(
+            self.store.schema_version,
+            "files f LEFT JOIN observations o ON o.file_id=f.id AND o.profile=? LEFT JOIN scans s ON s.id=o.scan_id LEFT JOIN media_header_checks h ON h.profile=o.profile AND h.file_id=f.id AND h.scan_id=o.scan_id AND o.status='present' AND h.size=o.size AND h.mtime_ns=o.mtime_ns AND h.device=o.device AND h.inode=o.inode",
+        );
+        if self.store.schema_version == 41 && !args["location"].is_null() {
+            let headers = crate::catalog_source_succession::current::seeded_relation(
+                "catalog_source_effective_headers",
+                crate::catalog_source_succession::current::ReadSeed::Location,
+            )?;
+            source = source.replace(
+                "catalog_source_effective_headers h",
+                &format!("{headers} h"),
+            );
+            // Source SQL encounters the observation profile first, then the two
+            // seed bindings, then the unchanged filter/cursor/limit bindings.
+            values.splice(
+                1..1,
+                [
+                    SqlValue::Text(self.profile.into()),
+                    scalar(&args["location"])?,
+                ],
+            );
+        }
+        self.page_detailed("files","f.*,o.size,o.mtime_ns,coalesce(o.status,'unknown') AS status,o.scan_id,s.finished_at AS observed_at,coalesce(h.status,'unknown') AS media_header_status,h.reason AS media_header_reason",&source,&clauses,values,&[("id","f.id"),("path","f.path"),("size","coalesce(o.size,-1)"),("mtime","coalesce(o.mtime_ns,-1)")],args,context)
     }
     fn relations(&self, key: &str, args: &Value) -> DetailedResult<Value> {
         self.exists("items", &args["item"])?;
@@ -796,6 +824,10 @@ impl<'a> CatalogQuery<'a> {
         Ok(result)
     }
 }
+pub(crate) fn view_sql_for(store: &Store, name: &str) -> String {
+    crate::catalog_source_succession::current::view(store.schema_version, view_sql(name))
+}
+
 pub fn view_sql(name: &str) -> &'static str {
     reference()["views"]
         .as_array()
