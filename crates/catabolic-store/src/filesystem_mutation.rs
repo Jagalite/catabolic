@@ -2254,6 +2254,48 @@ fn execute_operation_context(
     }
     failpoint(args, "after_filesystem")?;
     context.observe(op)?;
+    // A callback or interruption can expose the output to another writer.
+    // Re-observe immediately before acknowledgement and retain the journal if
+    // the output no longer matches. Filesystem and SQLite are still separate
+    // resources, so this is not an atomic fence against a later external race.
+    use catabolic_core::publication_recovery::{
+        self, Effect as AckEffect, Evidence as AckEvidence, Kind as AckKind,
+        Observed as AckObserved,
+    };
+    let ack_kind = match kind {
+        "prepare" => AckKind::Prepare,
+        "create" => AckKind::Create,
+        "replace" => AckKind::Replace,
+        "remove" => AckKind::Remove,
+        "forget" => AckKind::Forget,
+        _ => return Err(Error(format!("unknown journal operation: {kind}"))),
+    };
+    let (current_root, _) = crate::observation::checked_root(context.store(), profile, &output)?;
+    let same_root = identity(&current_root.metadata()?) == identity(&root.metadata()?);
+    let owner_matches = same_root
+        && owner_state(&current_root, &owner(context.store(), profile, catalog))? == "owned";
+    let observed = if kind == "prepare" {
+        AckObserved::Absent // Prepare acknowledges the owner marker, not a leaf.
+    } else {
+        let (current, actual) = state(&current_root, path)?;
+        if current == "absent" {
+            AckObserved::Absent
+        } else if current == "link" && actual.as_deref() == target && target.is_some() {
+            AckObserved::DesiredLink
+        } else {
+            AckObserved::Other
+        }
+    };
+    if publication_recovery::acknowledge(AckEvidence {
+        kind: ack_kind,
+        owner_matches,
+        observed,
+    }) != AckEffect::Acknowledge
+    {
+        return Err(Error(
+            "publication changed before acknowledgement; journal retained".into(),
+        ));
+    }
     context.store().transaction(|db|{
         if matches!(kind,"create"|"replace"){db.execute("INSERT INTO owned_links VALUES(?,?,?,?) ON CONFLICT(profile,catalog,path) DO UPDATE SET target=excluded.target",params![profile,catalog,path,target])?;}
         else if matches!(kind,"remove"|"forget"){db.execute("DELETE FROM owned_links WHERE profile=? AND catalog=? AND path=?",[profile,catalog,path])?;}
@@ -2495,18 +2537,77 @@ fn published_context(
     result: &mut Value,
     refresh: bool,
 ) -> Result<()> {
+    published_context_inner(
+        context,
+        profile,
+        catalog,
+        result,
+        refresh,
+        #[cfg(test)]
+        |_| Ok(()),
+    )
+}
+
+fn published_context_inner(
+    context: &mut Reconciliation<'_, '_>,
+    profile: &str,
+    catalog: &str,
+    result: &mut Value,
+    refresh: bool,
+    #[cfg(test)] before_commit: impl FnOnce(&Store) -> Result<()>,
+) -> Result<()> {
+    // Capture the generation before verification; a newer one admitted during
+    // a detached probe cannot be acknowledged by this older observation.
+    let observed_publication: Option<(i64, String)> = context
+        .store()
+        .db
+        .query_row(
+            "SELECT generation,local_binding FROM publication_generations WHERE profile=? AND catalog=?",
+            [profile, catalog],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+    // A verification only covers the consumer revisions and generations that
+    // existed when it started. Detached probes may let newer work arrive.
+    let observed_consumers: Vec<(String, i64, i64, String)> = {
+        let mut statement = context.store().db.prepare(
+            "SELECT id,revision,generation,local_binding FROM consumer_bindings WHERE profile=? AND catalog=? AND enabled=1 AND generation>verified",
+        )?;
+        let records = statement.query_map([profile, catalog], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })?;
+        records.collect::<std::result::Result<_, _>>()?
+    };
     let verification = verify_context(context, profile, catalog)?;
     if verification["healthy"] != true {
         return Ok(());
     }
     let binding = crate::observation::binding(context.store(), profile, "output", catalog)?;
+    #[cfg(test)]
+    before_commit(context.store())?;
     context.store().transaction(|db|{
         let publication_rows=rows(db,"SELECT * FROM publication_generations WHERE profile=? AND catalog=? AND generation>verified",&[profile.to_string().into(),catalog.to_string().into()])?;
-        if let Some(row)=publication_rows.first()&& catabolic_core::decode_json(row["local_binding"].as_str().unwrap())?==binding {
-            db.execute("UPDATE publication_generations SET verified=generation,verified_at=CURRENT_TIMESTAMP WHERE profile=? AND catalog=?",[profile,catalog])?;
-            crate::notifications::emit(db,profile,"projection_updated","info",catalog,&json!(format!("publication:{catalog}:{}",row["generation"])))?;
+        if let Some(row)=publication_rows.first() {
+            let recorded_binding = row["local_binding"].as_str().ok_or_else(|| Error("invalid publication binding".into()))?;
+            let current = row["generation"].as_i64().ok_or_else(|| Error("invalid publication generation".into()))?;
+            let verified = row["verified"].as_i64().ok_or_else(|| Error("invalid verified generation".into()))?;
+            let decision = catabolic_core::publication_progress::decide(catabolic_core::publication_progress::Evidence {
+                observed_generation: observed_publication.as_ref().map(|(generation, _)| *generation), current_generation: current, verified_generation: verified,
+                binding_matches: observed_publication.as_ref().is_some_and(|(_, old)| old == recorded_binding) && catabolic_core::decode_json(recorded_binding)? == binding, healthy: true,
+            });
+            if let catabolic_core::publication_progress::Effect::Verify { generation } = decision {
+                let changed = db.execute("UPDATE publication_generations SET verified=?,verified_at=CURRENT_TIMESTAMP WHERE profile=? AND catalog=? AND generation=? AND verified<? AND local_binding=?",params![generation,profile,catalog,generation,generation,recorded_binding])?;
+                if changed == 1 {
+                    crate::notifications::emit(db,profile,"projection_updated","info",catalog,&json!(format!("publication:{catalog}:{generation}")))?;
+                }
+            }
         }
-        db.execute("UPDATE consumer_bindings SET verified=generation,verified_at=CURRENT_TIMESTAMP,error=NULL WHERE profile=? AND catalog=? AND enabled=1 AND generation>verified AND local_binding=?",params![profile,catalog,encode(&binding)])?;
+        let current_binding = encode(&binding);
+        for (id, revision, generation, local_binding) in &observed_consumers {
+            if *local_binding == current_binding {
+                db.execute("UPDATE consumer_bindings SET verified=?,verified_at=CURRENT_TIMESTAMP,error=NULL WHERE profile=? AND catalog=? AND id=? AND enabled=1 AND revision=? AND generation=? AND verified<? AND local_binding=?",params![generation,profile,catalog,id,revision,generation,generation,local_binding])?;
+            }
+        }
         if refresh {
             let dirty=rows(db,"SELECT * FROM refresh_dirty WHERE profile=? AND catalog=?",&[profile.to_string().into(),catalog.to_string().into()])?;
             let mut ids=Vec::new();for row in dirty {db.execute("INSERT INTO refresh_events(profile,catalog,target) VALUES(?,?,?)",params![profile,catalog,row["target"].as_str()])?;ids.push(db.last_insert_rowid());db.execute("DELETE FROM refresh_dirty WHERE profile=? AND catalog=?",[profile,catalog])?;}
@@ -2746,6 +2847,44 @@ mod tests {
         crate::observation::execute(&store, "default", "scan", &json!({"source":"media"})).unwrap();
         store.transaction(|db|{db.execute("INSERT INTO items(id,kind,metadata) VALUES('item','movie','{}')",[])?;db.execute("INSERT INTO mappings(id,catalog,file_id,item_id,path) SELECT 'mapping','global',id,'item','folder/one.txt' FROM files WHERE path='one.txt'",[])?;Ok(())}).unwrap();
         (root, store, source, output)
+    }
+    #[test]
+    fn consumer_verification_rejects_new_generations_and_revisions() {
+        let (_root, store, _, _) = catalog();
+        execute(&store, "default", "apply", &json!({})).unwrap();
+        let binding =
+            encode(&crate::observation::binding(&store, "default", "output", "global").unwrap());
+        store.transaction(|db| {
+            db.execute("INSERT INTO consumer_connections(profile,id,application,endpoint,credential_env,server_id,evidence) VALUES('default','conn','plex','endpoint','credential','server','{}')", [])?;
+            for id in ["stable", "new_generation", "new_revision"] {
+                db.execute("INSERT INTO consumer_bindings(profile,id,connection_id,catalog,subtree,remote_root,local_binding,library,group_id,origin,generation) VALUES('default',?,'conn','global','','remote',?,'library','group','origin',1)", params![id,binding])?;
+            }
+            Ok(())
+        }).unwrap();
+        published_context_inner(&mut Reconciliation::Fixed(&store), "default", "global", &mut json!({}), false, |store| {
+            store.transaction(|db| {
+                db.execute("UPDATE consumer_bindings SET generation=2 WHERE id='new_generation'", [])?;
+                db.execute("UPDATE consumer_bindings SET revision=revision+1 WHERE id='new_revision'", [])?;
+                db.execute("INSERT INTO consumer_bindings(profile,id,connection_id,catalog,subtree,remote_root,local_binding,library,group_id,origin,generation) VALUES('default','new_binding','conn','global','','remote',?,'library','group','origin',1)", [&binding])?;
+                Ok(())
+            })
+        }).unwrap();
+        for (id, expected) in [
+            ("stable", 1),
+            ("new_generation", 0),
+            ("new_revision", 0),
+            ("new_binding", 0),
+        ] {
+            let verified: i64 = store
+                .db
+                .query_row(
+                    "SELECT verified FROM consumer_bindings WHERE id=?",
+                    [id],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(verified, expected, "{id}");
+        }
     }
     #[test]
     fn held_publication_guard_survives_detach_and_refuses_other_catalog() {
@@ -3272,6 +3411,31 @@ mod tests {
         eprintln!(
             "RESIDUAL: a same-user writer inside the 0700 private directory can substitute the verified entry before unlink"
         );
+    }
+    #[test]
+    fn changed_output_after_filesystem_effect_retains_journal() {
+        let (_root, store, _source, output) = catalog();
+        let changed = output.join("folder/one.txt");
+        let observer = |operation: &Value| -> Result<()> {
+            if operation["kind"] == "create" {
+                std::fs::remove_file(&changed)?;
+                std::fs::write(&changed, b"foreign output")?;
+            }
+            Ok(())
+        };
+        let error =
+            execute_observed(&store, "default", "apply", &json!({}), &observer).unwrap_err();
+        assert!(
+            error
+                .0
+                .contains("publication changed before acknowledgement"),
+            "{error:?}"
+        );
+        assert_eq!(std::fs::read(&changed).unwrap(), b"foreign output");
+        assert_eq!(journal_rows(&store), 1);
+        assert!(execute(&store, "default", "recover", &json!({})).is_err());
+        assert_eq!(std::fs::read(&changed).unwrap(), b"foreign output");
+        assert_eq!(journal_rows(&store), 1);
     }
     #[test]
     fn symlink_publication_and_unconfirmed_missing_preserve_output() {

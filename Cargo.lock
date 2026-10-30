@@ -300,6 +300,7 @@ dependencies = [
 name = "catabolic-core"
 version = "1.0.0"
 dependencies = [
+ "libc",
  "serde",
  "serde_json",
  "sha2",

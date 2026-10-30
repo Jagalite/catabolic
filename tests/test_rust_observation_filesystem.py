@@ -350,6 +350,54 @@ class NativeObservationDifferentialTest(unittest.TestCase):
         )
         self.assertEqual(self.snapshot(self.database), self.snapshot(self.reference))
 
+    def test_dirty_interrupted_scan_readmits_before_publishing_missing(self):
+        (self.source / "healthy").mkdir()
+        (self.source / "healthy" / "one.txt").write_text("one")
+        (self.source / "later").mkdir()
+        vanished = self.source / "later" / "old.txt"
+        vanished.write_text("old")
+        native(self.database, "observe", "scan", source="media")
+        vanished.unlink()
+        native(self.database, "observe", "scan", source="media", crash_after_scope="healthy", expected=86)
+        with sqlite3.connect(self.database) as db:
+            request, old_job, old_scan = db.execute("SELECT r.id,j.id,j.scan_id FROM observation_requests r JOIN observation_jobs j ON j.id=r.job_id ORDER BY j.requested_at DESC LIMIT 1").fetchone()
+            self.assertEqual(db.execute("SELECT o.status FROM observations o JOIN files f ON f.id=o.file_id WHERE f.path='later/old.txt'").fetchone()[0], "present")
+        native(self.database, "observe", "dirty", source="media")
+        result = native(self.database, "observe", "scan", request_id=request)
+        self.assertTrue(result["complete"], result)
+        with sqlite3.connect(self.database) as db:
+            new_job, new_scan, dirty = db.execute("SELECT j.id,j.scan_id,j.dirty_generation FROM observation_requests r JOIN observation_jobs j ON j.id=r.job_id WHERE r.id=?", (request,)).fetchone()
+            status, recorded_scan = db.execute("SELECT o.status,o.scan_id FROM observations o JOIN files f ON f.id=o.file_id WHERE f.path='later/old.txt'").fetchone()
+            current_dirty = db.execute("SELECT dirty_generation FROM observation_sources WHERE profile='default' AND source='media'").fetchone()[0]
+        self.assertNotEqual(new_job, old_job)
+        self.assertNotEqual(new_scan, old_scan)
+        self.assertEqual(dirty, current_dirty)
+        self.assertEqual((status, recorded_scan), ("missing", new_scan))
+
+    def test_continuation_refuses_active_parent_without_changing_inventory(self):
+        (self.source / "one.txt").write_text("one")
+        native(self.database, "observe", "scan", source="media", crash_after_scope="", expected=86)
+        with sqlite3.connect(self.database) as db:
+            request, job = db.execute("SELECT id,job_id FROM observation_requests").fetchone()
+            state = db.execute("SELECT state,claim_token FROM observation_jobs WHERE id=?", (job,)).fetchone()
+        self.assertEqual(state[0], "running")
+        before = self.snapshot(self.database)
+        with self.assertRaisesRegex(CatabolicError, "observation still active"):
+            native(self.database, "observe", "scan", continue_id=request, extended=True)
+        self.assertEqual(self.snapshot(self.database), before)
+        with sqlite3.connect(self.database) as db:
+            self.assertEqual(db.execute("SELECT state,claim_token FROM observation_jobs WHERE id=?", (job,)).fetchone(), state)
+
+    def test_continuation_rejects_changed_policy_without_publishing_absence(self):
+        for index in range(8):
+            (self.source / f"{index}.txt").write_text(str(index))
+        first = native(self.database, "observe", "scan", source="media", budgets={"directory_entries": 3})
+        native(self.database, "observe", "scan_policy", source="media", policy={"extensions": [".txt"]}, apply=True)
+        before = self.snapshot(self.database)
+        with self.assertRaisesRegex(CatabolicError, "observation policy or binding changed"):
+            native(self.database, "observe", "scan", continue_id=first["observations"][0]["request_id"], extended=True)
+        self.assertEqual(self.snapshot(self.database), before)
+
     def test_continuation_rejects_new_dirty_generation(self):
         for i in range(8):
             (self.source / f"{i}.txt").write_text(str(i))

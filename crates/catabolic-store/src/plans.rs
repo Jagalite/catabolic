@@ -348,75 +348,21 @@ pub fn evaluate_fallback(
         .all(|d| d["state"] != "blocked");
     Ok(json!({"kind":"fallback","complete":complete,"value":value,"description":description}))
 }
-pub fn semantic(result: &Value) -> Result<Value> {
-    let kind = string(result, "kind")?;
-    let original = &result["value"];
-    let mut value = original.clone();
-    if ["fallback", "projection"].contains(&kind) {
-        let key = if kind == "fallback" {
-            "decisions"
-        } else {
-            "desired"
-        };
-        let mut selected = vec![];
-        for decision in original[key].as_array().map(Vec::as_slice).unwrap_or(&[]) {
-            let mut normalized = json!({});
-            for field in [
-                "entry_id",
-                "file_id",
-                "revision",
-                "state",
-                "policy_id",
-                "selected_tier",
-                "rendition_id",
-            ] {
-                normalized[field] = decision[field].clone();
-            }
-            if kind == "projection" {
-                normalized["path"] = decision["path"].clone();
-            }
-            let mut evidence = json!({});
-            if let Some(object) = decision["evidence"].as_object() {
-                for (k, v) in object {
-                    if [
-                        "semantic_relationship",
-                        "byte_identity",
-                        "source_currentness",
-                        "lineage_requirement",
-                        "accepted_source_revision",
-                        "output_digest",
-                        "layout_digest",
-                        "component_package",
-                        "component_package_signature",
-                        "occurrence_id",
-                    ]
-                    .contains(&k.as_str())
-                    {
-                        evidence[k] = v.clone();
-                    }
-                }
-            }
-            normalized["evidence"] = evidence;
-            selected.push(normalized);
+fn plan_semantic_error(error: catabolic_core::plan_semantics::Error) -> Error {
+    match error {
+        catabolic_core::plan_semantics::Error::InvalidKind => {
+            Error("invalid plan: kind must be a string".into())
         }
-        value = if kind == "projection" {
-            json!({"desired":selected,"removed":original["removed"],"safe":original["safe"]})
-        } else {
-            json!(selected)
-        };
-    } else if kind == "rows" {
-        value = json!({"columns":original["columns"],"rows":original["rows"]});
-    } else if kind == "document" {
-        value = original["data"].clone();
+        catabolic_core::plan_semantics::Error::Incomplete => {
+            Error("incomplete_evaluation_has_no_baseline".into())
+        }
     }
-    Ok(json!({"kind":kind,"value":value}))
+}
+pub fn semantic(result: &Value) -> Result<Value> {
+    catabolic_core::plan_semantics::semantic(result).map_err(plan_semantic_error)
 }
 pub fn compare(previous: &Value, current: &Value) -> Result<Value> {
-    if current["complete"] != true {
-        return fail("incomplete_evaluation_has_no_baseline");
-    }
-    let value = semantic(current)?;
-    Ok(json!({"changed":previous!=&value,"baseline":value}))
+    catabolic_core::plan_semantics::compare(previous, current).map_err(plan_semantic_error)
 }
 pub fn dispatch(evaluation: &mut Evaluation, action: &str, args: &Value) -> Result<Value> {
     match action {

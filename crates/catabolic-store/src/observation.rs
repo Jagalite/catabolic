@@ -11,7 +11,7 @@ use scan_regex::qualify_pattern;
 
 use crate::filesystem_mutation::{entries, identity, now, open_at, open_root, stat_at, version};
 use crate::{Error, Result, Store, migration::rows};
-use catabolic_core::{coordination as lifecycle, encode, sha256};
+use catabolic_core::{coordination as lifecycle, encode, scan_publication, sha256};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
 use std::{
@@ -1244,7 +1244,7 @@ impl Scan {
         self.publisher.with(|p| p.writer())
     }
     fn fence(&self, store: &Store) -> Result<()> {
-        self.publisher.with(|p| p.fence(store))
+        self.publisher.with(|p| p.fence(store).map(|_| ()))
     }
     fn generated_entry(&self, path: &str) -> Result<Value> {
         self.publisher.with(|p| p.generated_entry(path))
@@ -1582,6 +1582,19 @@ impl Scan {
         Ok(())
     }
 }
+/// Apply the durable missing-row effect for one verified scope. The caller
+/// owns the transaction and must establish the scan fence before calling.
+fn publish_missing(
+    db: &Connection,
+    profile: &str,
+    scan: &str,
+    source: &str,
+    job: &str,
+    prefix: &str,
+) -> Result<usize> {
+    Ok(db.execute("INSERT INTO observations(profile,file_id,size,mtime_ns,device,inode,status,scan_id) SELECT ?,f.id,0,0,0,0,'missing',? FROM files f WHERE scan_file_in_scope(f.path) AND f.location=? AND f.path>=? AND f.path<? AND (instr(substr(f.path,?),'/')=0 OR NOT EXISTS(SELECT 1 FROM observation_scopes child WHERE child.job_id=? AND child.path=substr(f.path,1,?+instr(substr(f.path,?),'/')-1))) AND NOT EXISTS(SELECT 1 FROM observation_seen s WHERE s.job_id=? AND s.file_id=f.id) ON CONFLICT(profile,file_id) DO UPDATE SET status='missing',scan_id=excluded.scan_id WHERE observations.status!='missing'", params![profile,scan,source,prefix,format!("{prefix}\u{10ffff}"),prefix.chars().count() as i64+1,job,prefix.chars().count() as i64,prefix.chars().count() as i64+1,job])?)
+}
+
 impl Publication {
     fn checkpoint(&self) -> bool {
         let limits = &self.execution["budgets"];
@@ -1608,10 +1621,13 @@ impl Publication {
             }
         }
     }
-    fn fence(&self, store: &Store) -> Result<()> {
-        if identity(&std::fs::metadata(&self.path)?) != self.database_identity {
-            return Err(Error("catalog replaced during scan".into()));
-        }
+    fn fence(&self, store: &Store) -> Result<scan_publication::Fence> {
+        use scan_publication::{Evidence, Fence, advance};
+        let fence = advance(
+            Fence::Catalog,
+            Evidence::Catalog(identity(&std::fs::metadata(&self.path)?) == self.database_identity),
+        )
+        .map_err(|_| Error("catalog replaced during scan".into()))?;
         let current = rows(&store.db,"SELECT j.*,s.dirty_generation AS current_dirty FROM observation_jobs j JOIN observation_sources s USING(profile,source) WHERE j.id=?", &[self.job.clone().into()])?.pop().ok_or_else(||Error("stale_observation_claim".into()))?;
         let generation = current["generation"]
             .as_i64()
@@ -1632,7 +1648,7 @@ impl Publication {
                 None
             },
         };
-        lifecycle::reduce(
+        let claim_result = lifecycle::reduce(
             &state,
             &lifecycle::Input::Fence {
                 now: now(),
@@ -1643,38 +1659,51 @@ impl Publication {
                     current["current_dirty"]
                 ]))),
             },
-        )
-        .map_err(|_| Error("stale_observation_claim".into()))?;
-        if compatibility_for(
+        );
+        let claim_valid = matches!(claim_result, Ok(lifecycle::Effect::Fenced));
+        let fence = advance(fence, Evidence::Claim(claim_valid))
+            .map_err(|_| Error("stale_observation_claim".into()))?;
+        let policy_matches = compatibility_for(
             store,
             &self.profile,
             &self.source,
             &self.exclusions,
             &self.execution,
             false,
-        )? != self.compatibility
-            && compatibility_for(
+        )? == self.compatibility
+            || compatibility_for(
                 store,
                 &self.profile,
                 &self.source,
                 &self.exclusions,
                 &self.execution,
                 true,
-            )? != self.compatibility
-        {
-            return Err(Error("stale_observation_claim".into()));
-        }
+            )? == self.compatibility;
+        let fence = advance(fence, Evidence::Policy(policy_matches))
+            .map_err(|_| Error("stale_observation_claim".into()))?;
         let (root, _) = checked_root(
             store,
             &self.profile,
             &binding(store, &self.profile, "source", &self.source)?,
         )?;
-        if Some(identity(&root.metadata()?)) != self.root_identity {
-            return Err(Error("source root changed during scan".into()));
-        }
-        Ok(())
+        advance(
+            fence,
+            Evidence::Root(Some(identity(&root.metadata()?)) == self.root_identity),
+        )
+        .map_err(|_| Error("source root changed during scan".into()))
     }
     fn flush(&mut self, store: Option<&Store>) -> Result<()> {
+        self.flush_inner(
+            store,
+            #[cfg(test)]
+            |_| Ok(()),
+        )
+    }
+    fn flush_inner(
+        &mut self,
+        store: Option<&Store>,
+        #[cfg(test)] before_transaction: impl FnOnce(&Store) -> Result<()>,
+    ) -> Result<()> {
         let owned;
         let store = match store {
             Some(store) => store,
@@ -1698,8 +1727,15 @@ impl Publication {
             .0;
             &opened
         };
-        let mut actual_scopes = self.scopes.clone();
-        for (path, state, detail) in &mut actual_scopes {
+        // Keep the observation separate from the reported scope state: only
+        // an actual successful directory recheck can authorize missing rows.
+        let mut actual_scopes: Vec<_> = self
+            .scopes
+            .iter()
+            .cloned()
+            .map(|(path, state, detail)| (path, state, detail, false))
+            .collect();
+        for (path, state, detail, directory_verified) in &mut actual_scopes {
             if state != "complete" {
                 continue;
             }
@@ -1713,9 +1749,12 @@ impl Publication {
                 }
                 Ok(())
             })();
-            if let Err(error) = verification {
-                *state = "failed".into();
-                detail["reason"] = json!(error.0);
+            match verification {
+                Ok(()) => *directory_verified = true,
+                Err(error) => {
+                    *state = "failed".into();
+                    detail["reason"] = json!(error.0);
+                }
             }
         }
         if self.generated {
@@ -1737,11 +1776,13 @@ impl Publication {
         let profile = &self.profile;
         let source = &self.source;
         let ctimes = &self.ctimes;
+        #[cfg(test)]
+        before_transaction(store)?;
         store.transaction(|db|{
-            self.fence(store)?;
+            let fence = self.fence(store)?;
             if db.prepare("SELECT 1 FROM observation_batches WHERE job_id=? AND sequence=?")?.exists(params![self.job,sequence])?{return Err(Error("duplicate_observation_batch".into()));}
             let mut changed=false;
-            for (path,state,_) in &actual_scopes { if state=="running"{let prefix=if path.is_empty(){String::new()}else{format!("{path}/")};db.execute("DELETE FROM observation_seen WHERE job_id=? AND file_id IN(SELECT id FROM files WHERE location=? AND path>=? AND path<? AND instr(substr(path,?),'/')=0)",params![self.job,source,prefix,format!("{prefix}\u{10ffff}"),prefix.chars().count() as i64+1])?;}}
+            for (path,state,_,_) in &actual_scopes { if state=="running"{let prefix=if path.is_empty(){String::new()}else{format!("{path}/")};db.execute("DELETE FROM observation_seen WHERE job_id=? AND file_id IN(SELECT id FROM files WHERE location=? AND path>=? AND path<? AND instr(substr(path,?),'/')=0)",params![self.job,source,prefix,format!("{prefix}\u{10ffff}"),prefix.chars().count() as i64+1])?;}}
             for entry in &self.entries {
                 let identifier=uuid::Uuid::new_v5(&uuid::Uuid::parse_str(&self.database_id).map_err(|_|Error("invalid catalog identity".into()))?,encode(&json!([source,entry["path"]])).as_bytes()).to_string();
                 let old=rows(db,"SELECT * FROM observations WHERE profile=? AND file_id=?",&[profile.to_string().into(),identifier.clone().into()])?;
@@ -1761,11 +1802,13 @@ impl Publication {
                 db.execute("INSERT INTO media_header_checks VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(profile,file_id) DO UPDATE SET scan_id=excluded.scan_id,size=excluded.size,mtime_ns=excluded.mtime_ns,device=excluded.device,inode=excluded.inode,status=excluded.status,reason=excluded.reason,bytes_read=excluded.bytes_read",params![profile,identifier,self.scan,entry["size"].as_i64(),entry["mtime_ns"].as_i64(),entry["device"].as_i64(),entry["inode"].as_i64(),health["status"].as_str(),health["reason"].as_str(),health["bytes_read"].as_i64()])?;
                 db.execute("INSERT OR IGNORE INTO observation_seen VALUES(?,?)",params![self.job,identifier])?;
             }
-            for (path,state,detail) in &actual_scopes {
+            for (path,state,detail,directory_verified) in &actual_scopes {
                 db.execute("INSERT INTO observation_scopes VALUES(?,?,?,?,?) ON CONFLICT(job_id,path) DO UPDATE SET state=excluded.state,detail=excluded.detail,updated_at=excluded.updated_at",params![self.job,path,state,encode(detail),now()])?;
-                if state=="complete" {
+                let effect = scan_publication::scope_effect(fence, state == "complete", *directory_verified)
+                    .map_err(|_| Error("scan publication evidence incomplete".into()))?;
+                if effect == scan_publication::ScopeEffect::PublishMissing {
                     let prefix=if path.is_empty(){String::new()}else{format!("{path}/")};
-                    let count=db.execute("INSERT INTO observations(profile,file_id,size,mtime_ns,device,inode,status,scan_id) SELECT ?,f.id,0,0,0,0,'missing',? FROM files f WHERE scan_file_in_scope(f.path) AND f.location=? AND f.path>=? AND f.path<? AND (instr(substr(f.path,?),'/')=0 OR NOT EXISTS(SELECT 1 FROM observation_scopes child WHERE child.job_id=? AND child.path=substr(f.path,1,?+instr(substr(f.path,?),'/')-1))) AND NOT EXISTS(SELECT 1 FROM observation_seen s WHERE s.job_id=? AND s.file_id=f.id) ON CONFLICT(profile,file_id) DO UPDATE SET status='missing',scan_id=excluded.scan_id WHERE observations.status!='missing'",params![profile,self.scan,source,prefix,format!("{prefix}\u{10ffff}"),prefix.chars().count() as i64+1,self.job,prefix.chars().count() as i64,prefix.chars().count() as i64+1,self.job])?;changed|=count>0;
+                    let count=publish_missing(db,profile,&self.scan,source,&self.job,&prefix)?;changed|=count>0;
                 }
             }
             db.execute("INSERT INTO observation_batches VALUES(?,?,?,?,?)",params![self.job,sequence,self.entries.len() as i64,self.bytes as i64,now()])?;
@@ -1946,14 +1989,17 @@ fn scan(
             .first()
             .ok_or_else(|| Error("unknown_observation_request".into()))?
             .clone();
-        if matches!(old["state"].as_str(), Some("queued" | "running")) {
-            return Err(Error(
-                "observation still active; resume the existing request".into(),
-            ));
-        }
+        let continuation_fence = scan_publication::advance_continuation(
+            scan_publication::ContinuationFence::Parent,
+            scan_publication::ContinuationEvidence::ParentFinished(!matches!(
+                old["state"].as_str(),
+                Some("queued" | "running")
+            )),
+        )
+        .map_err(|_| Error("observation still active; resume the existing request".into()))?;
         let old_execution = catabolic_core::decode_json(old["execution"].as_str().unwrap())?;
         let old_exclusions = catabolic_core::decode_json(old["exclusions"].as_str().unwrap())?;
-        if compatibility_for(
+        let policy_matches = compatibility_for(
             store,
             profile,
             source,
@@ -1961,22 +2007,24 @@ fn scan(
             &old_execution,
             catabolic_core::decode_json(old["guarantees"].as_str().unwrap())?["require_complete"]
                 == true,
-        )? != old["compatibility"].as_str().unwrap()
-        {
-            return Err(Error(
-                "observation policy or binding changed; request a new scan".into(),
-            ));
-        }
+        )? == old["compatibility"].as_str().unwrap();
+        let continuation_fence = scan_publication::advance_continuation(
+            continuation_fence,
+            scan_publication::ContinuationEvidence::PolicyMatches(policy_matches),
+        )
+        .map_err(|_| Error("observation policy or binding changed; request a new scan".into()))?;
         let watermark: i64 = store.db.query_row(
             "SELECT dirty_generation FROM observation_sources WHERE profile=? AND source=?",
             [profile, source],
             |r| r.get(0),
         )?;
-        if watermark > old["dirty_generation"].as_i64().unwrap() {
-            return Err(Error(
-                "source changed since observation; request a new scan".into(),
-            ));
-        }
+        scan_publication::advance_continuation(
+            continuation_fence,
+            scan_publication::ContinuationEvidence::DirtyUnchanged(
+                watermark <= old["dirty_generation"].as_i64().unwrap(),
+            ),
+        )
+        .map_err(|_| Error("source changed since observation; request a new scan".into()))?;
         if let Some(scopes) = args.get("scopes").filter(|v| !v.is_null()) {
             for path in paths(scopes, true)? {
                 if !store.db.prepare("SELECT 1 FROM observation_scopes WHERE job_id=? AND path=? AND state NOT IN ('complete','excluded')")?.exists(params![old["job_id"].as_str(),path])?{return Err(Error("scope is not outstanding".into()));}
@@ -3400,5 +3448,154 @@ mod tests {
                 .unwrap(),
             0
         );
+    }
+}
+
+#[cfg(test)]
+mod scan_absence_query_tests {
+    use super::*;
+    use rusqlite::functions::FunctionFlags;
+
+    #[test]
+    fn dirty_generation_between_directory_check_and_commit_rejects_missing_rows() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("source");
+        std::fs::create_dir(&source).unwrap();
+        let file = source.join("old.txt");
+        std::fs::write(&file, b"old").unwrap();
+        let path = root.path().join("catalog.sqlite3");
+        crate::migration::initialize(&path).unwrap();
+        let store = Store::open(&path, true, false).unwrap();
+        execute(
+            &store,
+            "default",
+            "bind",
+            &json!({"source":"media","root":source}),
+        )
+        .unwrap();
+        execute(&store, "default", "scan", &json!({"source":"media"})).unwrap();
+        std::fs::remove_file(&file).unwrap();
+        store.transaction(|db| {
+            db.execute("UPDATE observation_jobs SET state='running',claim_token='test-claim',lease_until=? WHERE id=(SELECT id FROM observation_jobs ORDER BY generation DESC LIMIT 1)",[now()+3600.0])?;
+            Ok(())
+        }).unwrap();
+        let job = rows(
+            &store.db,
+            "SELECT * FROM observation_jobs ORDER BY generation DESC LIMIT 1",
+            &[],
+        )
+        .unwrap()
+        .pop()
+        .unwrap();
+        let publisher = Publisher::new(&store, "default", &job).unwrap();
+        let metadata = std::fs::metadata(&source).unwrap();
+        publisher
+            .set_root_identity(Some(identity(&metadata)))
+            .unwrap();
+        let mut detail = version(&metadata);
+        detail["identity"] = json!([metadata.dev(), metadata.ino()]);
+        publisher.directory("", "complete", &detail).unwrap();
+        let batches_before: i64 = store
+            .db
+            .query_row("SELECT count(*) FROM observation_batches", [], |r| r.get(0))
+            .unwrap();
+        let error=publisher.with(|p|p.flush_inner(Some(&store), |store| {
+            store.transaction(|db| {
+                db.execute("UPDATE observation_sources SET dirty_generation=dirty_generation+1 WHERE profile='default' AND source='media'",[])?;
+                Ok(())
+            })
+        })).unwrap_err();
+        assert!(error.0.contains("stale_observation_claim"), "{error}");
+        let status:String=store.db.query_row("SELECT o.status FROM observations o JOIN files f ON f.id=o.file_id WHERE f.path='old.txt'",[],|r|r.get(0)).unwrap();
+        assert_eq!(status, "present");
+        assert_eq!(
+            store
+                .db
+                .query_row("SELECT count(*) FROM observation_batches", [], |r| r
+                    .get::<_, i64>(0))
+                .unwrap(),
+            batches_before
+        );
+    }
+
+    #[test]
+    fn seen_and_unfinished_child_scopes_preserve_committed_observations() {
+        // Six independent bits cover direct and nested seen records, a child
+        // scope, completed child, root verification and the active filter.
+        for bits in 0_u8..64 {
+            let seen_top = bits & 1 != 0;
+            let seen_child = bits & 2 != 0;
+            let child_scope = bits & 4 != 0;
+            let child_complete = bits & 8 != 0;
+            let root_verified = bits & 16 != 0;
+            let include_filtered = bits & 32 != 0;
+            let db = Connection::open_in_memory().unwrap();
+            db.execute_batch("CREATE TABLE files(id TEXT PRIMARY KEY,location TEXT,path TEXT); CREATE TABLE observation_seen(job_id TEXT,file_id TEXT); CREATE TABLE observation_scopes(job_id TEXT,path TEXT); CREATE TABLE observations(profile TEXT,file_id TEXT,size INTEGER,mtime_ns INTEGER,device INTEGER,inode INTEGER,status TEXT,scan_id TEXT,PRIMARY KEY(profile,file_id)); INSERT INTO files VALUES('top','media','top.txt'),('child','media','child/item.txt'),('filtered','media','filtered.txt'),('other','other','top.txt'); INSERT INTO observations VALUES('default','top',1,1,1,1,'present','old'),('default','child',1,1,1,1,'present','old'),('default','filtered',1,1,1,1,'present','old'),('default','other',1,1,1,1,'present','old');").unwrap();
+            db.create_scalar_function(
+                "scan_file_in_scope",
+                1,
+                FunctionFlags::SQLITE_UTF8,
+                move |ctx| {
+                    let path: String = ctx.get(0)?;
+                    Ok(include_filtered || path != "filtered.txt")
+                },
+            )
+            .unwrap();
+            if seen_top {
+                db.execute("INSERT INTO observation_seen VALUES('job','top')", [])
+                    .unwrap();
+            }
+            if seen_child {
+                db.execute("INSERT INTO observation_seen VALUES('job','child')", [])
+                    .unwrap();
+            }
+            if child_scope {
+                db.execute("INSERT INTO observation_scopes VALUES('job','child')", [])
+                    .unwrap();
+            }
+            let tx = db.unchecked_transaction().unwrap();
+            if scan_publication::scope_effect(scan_publication::Fence::Ready, true, root_verified)
+                .unwrap()
+                == scan_publication::ScopeEffect::PublishMissing
+            {
+                publish_missing(&tx, "default", "scan", "media", "job", "").unwrap();
+            }
+            if child_scope
+                && scan_publication::scope_effect(
+                    scan_publication::Fence::Ready,
+                    child_complete,
+                    child_complete,
+                )
+                .unwrap()
+                    == scan_publication::ScopeEffect::PublishMissing
+            {
+                publish_missing(&tx, "default", "scan", "media", "job", "child/").unwrap();
+            }
+            tx.commit().unwrap();
+            let status = |id: &str| -> String {
+                db.query_row(
+                    "SELECT status FROM observations WHERE profile='default' AND file_id=?",
+                    [id],
+                    |r| r.get(0),
+                )
+                .unwrap()
+            };
+            assert_eq!(
+                status("top") == "missing",
+                root_verified && !seen_top,
+                "bits={bits}"
+            );
+            assert_eq!(
+                status("child") == "missing",
+                !seen_child && ((root_verified && !child_scope) || (child_scope && child_complete)),
+                "bits={bits}"
+            );
+            assert_eq!(
+                status("filtered") == "missing",
+                root_verified && include_filtered,
+                "bits={bits}"
+            );
+            assert_eq!(status("other"), "present", "bits={bits}");
+        }
     }
 }

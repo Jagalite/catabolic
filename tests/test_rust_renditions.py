@@ -190,6 +190,91 @@ class NativeRenditionTest(unittest.TestCase):
                 pinned,
             )
 
+    def test_competing_native_admissions_share_one_physical_reservation(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        import time
+
+        self.pair()
+        barrier = Barrier(2)
+
+        def submit(principal):
+            token = self.headers[principal]["Authorization"].split(" ", 1)[1]
+            request = {"body": self.body, "idempotency_key": f"parallel-{principal}"}
+            command = [str(BINARY), "--db", str(self.database), "--json", "operation",
+                       "rendition-request", "admit", "--options", json.dumps(request)]
+            barrier.wait(timeout=10)
+            for attempt in range(40):
+                result = subprocess.run(command, env={**os.environ, "CATABOLIC_API_TOKEN": token},
+                                        capture_output=True, text=True, timeout=120)
+                if result.returncode == 0:
+                    return json.loads(result.stdout)
+                if "another Catabolic writer" not in result.stderr:
+                    raise AssertionError((result.returncode, result.stdout, result.stderr))
+                time.sleep(0.05)
+            raise AssertionError("catalog writer remained busy after bounded admission retries")
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first, second = list(pool.map(submit, (0, 1)))
+        self.assertNotEqual(first["request_id"], second["request_id"])
+        with Store(self.database) as store:
+            jobs = store.rows("SELECT id,state FROM processing_jobs")
+            requests = store.rows("SELECT id,job_id,state FROM api_requests")
+            reservations = store.rows("SELECT job_id FROM api_reservations")
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(len(requests), 2)
+        self.assertEqual({row["job_id"] for row in requests}, {jobs[0]["id"]})
+        self.assertEqual(reservations, [{"job_id": jobs[0]["id"]}])
+        self.assertEqual({row["state"] for row in requests}, {"queued"})
+
+    def test_concurrent_cancel_and_worker_completion_keep_survivor_and_release_once(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from threading import Barrier
+        import time
+
+        self.pair()
+        first = self.native("admit", body=self.body, idempotency_key="race-one")["request_id"]
+        second = self.native("admit", principal=1, body=self.body, idempotency_key="race-two")["request_id"]
+        token = self.headers[0]["Authorization"].split(" ", 1)[1]
+        barrier = Barrier(2)
+        worker = [str(BINARY), "--db", str(self.database), "--json", "operation",
+                  "rendition-worker", "tick", "--options", "{}"]
+        cancel = [str(BINARY), "--db", str(self.database), "--json", "operation",
+                  "rendition-request", "cancel", "--options", json.dumps({"id": first})]
+
+        def execute(command, env):
+            barrier.wait(timeout=10)
+            for _ in range(120):
+                result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=180)
+                if result.returncode == 0:
+                    return json.loads(result.stdout)
+                if "another Catabolic writer" not in result.stderr:
+                    raise AssertionError((result.returncode, result.stdout, result.stderr))
+                time.sleep(0.05)
+            raise AssertionError("catalog writer remained busy during completion race")
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            worker_result = pool.submit(execute, worker, os.environ.copy())
+            cancel_result = pool.submit(execute, cancel, {**os.environ, "CATABOLIC_API_TOKEN": token})
+            worker_result.result()
+            cancel_result.result()
+        self.assertEqual(self.native("status", id=first)["state"], "cancelled")
+        survivor = self.native("status", principal=1, id=second)
+        self.assertEqual(survivor["state"], "ready")
+        self.assertIsNotNone(survivor["result"])
+        with Store(self.database) as store:
+            self.assertEqual(store.rows("SELECT state FROM processing_jobs"), [{"state": "complete"}])
+            self.assertEqual(store.rows("SELECT * FROM api_reservations"), [])
+            self.assertEqual(len(store.rows("SELECT * FROM processing_artifacts WHERE state='ready'")), 1)
+            self.assertTrue(all(row["reserved_bytes"] == 0 for row in store.rows("SELECT reserved_bytes FROM api_requests")))
+            events_before = store.rows("SELECT * FROM api_events ORDER BY rowid")
+        repeated = subprocess.run(worker, capture_output=True, text=True, timeout=180)
+        self.assertEqual(repeated.returncode, 0, repeated.stdout + repeated.stderr)
+        with Store(self.database) as store:
+            self.assertEqual(store.rows("SELECT * FROM api_events ORDER BY rowid"), events_before)
+            self.assertEqual(len(store.rows("SELECT * FROM processing_artifacts WHERE state='ready'")), 1)
+            self.assertEqual(store.rows("SELECT * FROM api_reservations"), [])
+
     def test_request_limit_counts_cancelled_demands_and_rolls_back(self):
         self.pair()
         for index in range(10):

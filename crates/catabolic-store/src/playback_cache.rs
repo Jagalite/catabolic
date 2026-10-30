@@ -203,6 +203,18 @@ pub fn available_bytes(root: &File) -> Result<u128> {
     Ok(u128::from(stat.f_bavail) * u128::from(stat.f_frsize))
 }
 pub fn cleanup(store: &Store, profile: &str) -> Result<()> {
+    cleanup_inner(
+        store,
+        profile,
+        #[cfg(test)]
+        |_, _| Ok(()),
+    )
+}
+fn cleanup_inner(
+    store: &Store,
+    profile: &str,
+    #[cfg(test)] mut before_recheck: impl FnMut(&Store, &Value) -> Result<()>,
+) -> Result<()> {
     if !store.writable || !store.owns_writer_lock() {
         return Err(Error(
             "playback cleanup requires a writable catalog session".into(),
@@ -219,7 +231,37 @@ pub fn cleanup(store: &Store, profile: &str) -> Result<()> {
         "SELECT j.* FROM api_playback_jobs j WHERE j.profile=? AND j.state!='running' AND (j.state!='stale' OR j.directory_inode IS NOT NULL) AND NOT EXISTS(SELECT 1 FROM api_playback_sessions s WHERE s.job_id=j.id AND s.cancelled=0 AND s.expires>?) AND (j.state!='ready' OR j.updated_at<?) ORDER BY j.created_at LIMIT 20",
         &[profile.to_owned().into(), now.into(), (now - 3600.0).into()],
     )?;
-    for job in jobs {
+    for selected in jobs {
+        #[cfg(test)]
+        before_recheck(store, &selected)?;
+        // Re-read the candidate and live session demand immediately before
+        // filesystem work; the initial query may no longer describe it.
+        let now = crate::notifications::now();
+        let current = rows(
+            &store.db,
+            "SELECT j.*, EXISTS(SELECT 1 FROM api_playback_sessions s WHERE s.job_id=j.id AND s.cancelled=0 AND s.expires>?) AS active_session FROM api_playback_jobs j WHERE j.id=? AND j.profile=?",
+            &[
+                now.into(),
+                selected["id"]
+                    .as_str()
+                    .ok_or_else(|| Error("invalid_playback_cache".into()))?
+                    .to_owned()
+                    .into(),
+                profile.to_owned().into(),
+            ],
+        )?;
+        let Some(job) = current.into_iter().next() else {
+            continue;
+        };
+        if !catabolic_core::playback_admission::cache_retirement_allowed(
+            job["state"].as_str().unwrap_or("running"),
+            !job["directory_inode"].is_null(),
+            job["active_session"].as_i64() != Some(0),
+            job["updated_at"].as_f64().unwrap_or(now),
+            now,
+        ) {
+            continue;
+        }
         let retired: Result<()> = (|| {
             if !job["directory_inode"].is_null() {
                 let dir = job_directory(store, &job)?;
@@ -312,6 +354,26 @@ mod tests {
                         .0
                         .contains("standalone transaction boundary")
                 );
+                Ok(())
+            })
+            .unwrap();
+        store.transaction(|db| {
+            db.execute("INSERT INTO api_principals(id,profile) VALUES ('p','default')", [])?;
+            db.execute("INSERT INTO api_tokens(id,principal,digest,grants,expires) VALUES ('t','p',?,'[]',?)", rusqlite::params![catabolic_core::sha256("t.secret"), 4_000_000_000.0])?;
+            Ok(())
+        }).unwrap();
+        cleanup_inner(&store, "default", |store, selected| {
+            assert_eq!(selected["id"], id);
+            store.transaction(|db| {
+                db.execute("INSERT INTO api_playback_sessions(id,profile,principal,token_id,idempotency_key,body,job_id,created_at,expires) VALUES ('s','default','p','t','key','{}',?,0,?)", rusqlite::params![id, 4_000_000_000.0])?;
+                Ok(())
+            })
+        }).unwrap();
+        assert!(cache.join("index.m3u8").exists());
+        assert_eq!(crate::playback::job(&store, &id).unwrap()["state"], "ready");
+        store
+            .transaction(|db| {
+                db.execute("DELETE FROM api_playback_sessions WHERE id='s'", [])?;
                 Ok(())
             })
             .unwrap();

@@ -225,6 +225,63 @@ class NativeWatcherRuntimeTest(unittest.TestCase):
         self.assertGreater(row["requested_generation"], row["completed_generation"])
         self.assertTrue(self.call("due", name="wait")["due"])
 
+    def test_replaced_run_during_tool_wait_cannot_complete_or_clear_new_demand(self):
+        with Store(self.database, writable=True) as store:
+            app = Application(store)
+            file_id = store.rows("SELECT id FROM files")[0]["id"]
+            item = app.put_item("movie", {"fixture": "replacement"}, {"title": "Title"})["id"]
+            app.media.associate(file_id, item)
+            operation = Operations(app).put(
+                "probe", {"kind": "analysis", "operation": "probe", "options": {}}
+            )["id"]
+        self.call("put", name="replacement", definition={
+            "plan": {"kind": "query", "query_id": self.query},
+            "reaction": "processing", "operation_id": operation,
+        })
+        tools = self.root / "replacement-tools"
+        tools.mkdir()
+        ready, release = self.root / "replacement-ready", self.root / "replacement-release"
+        probe = tools / "ffprobe"
+        probe.write_text('#!/bin/sh\n: > "$WATCHER_READY"\nwhile [ ! -f "$WATCHER_RELEASE" ]; do sleep 0.01; done\necho fixture-version\n')
+        probe.chmod(0o755)
+        child = subprocess.Popen(
+            [str(BINARY), "--db", str(self.database), "operation", "watcher", "run",
+             "--options", json.dumps({"name": "replacement"})],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            env=os.environ | {"PATH": str(tools) + os.pathsep + os.environ.get("PATH", ""),
+                              "WATCHER_READY": str(ready), "WATCHER_RELEASE": str(release)},
+        )
+        deadline = time.monotonic() + 10
+        while not ready.exists() and time.monotonic() < deadline:
+            self.assertIsNone(child.poll())
+            time.sleep(0.01)
+        try:
+            self.assertTrue(ready.exists())
+            with Store(self.database, writable=True) as store:
+                with store.transaction() as db:
+                    old, definition, generation = db.execute(
+                        "SELECT active_run,definition_id,pending_generation FROM watchers WHERE name='replacement'"
+                    ).fetchone()
+                    self.assertIsNotNone(old)
+                    db.execute("INSERT INTO watcher_runs(id,profile,watcher,definition_id,generation,trigger,scheduled_at,started_at,state) VALUES('new-run','default','replacement',?,?,'manual',0,0,'observing')", (definition, generation + 1))
+                    db.execute("UPDATE watchers SET active_run='new-run',lease_until=?,pending_generation=?,requested_generation=? WHERE name='replacement'", (time.time() + 3600, generation + 1, generation + 1))
+        finally:
+            release.touch()
+        output, error = child.communicate(timeout=30)
+        self.assertEqual(child.returncode, 0, error)
+        result = json.loads(output)
+        self.assertFalse(result["complete"])
+        self.assertEqual(result["error"], "stale_watcher_run")
+        with sqlite3.connect(self.database) as db:
+            active, pending, requested, completed = db.execute(
+                "SELECT active_run,pending_generation,requested_generation,completed_generation FROM watchers WHERE name='replacement'"
+            ).fetchone()
+            new_state = db.execute("SELECT state FROM watcher_runs WHERE id='new-run'").fetchone()[0]
+        self.assertEqual(active, "new-run")
+        self.assertEqual((pending, requested), (generation + 1, generation + 1))
+        self.assertLess(completed, pending)
+        self.assertEqual(new_state, "observing")
+
     def test_processing_budget_failure_retains_retry_demand(self):
         with Store(self.database, writable=True) as store:
             app = Application(store)

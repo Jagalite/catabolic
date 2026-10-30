@@ -181,18 +181,18 @@ pub fn admit(
         .iter()
         .map(|v| v["count"].as_i64().unwrap_or(0))
         .sum();
-    if total >= 100
-        || pending
-            .iter()
-            .filter(|v| v["principal"] == access.principal())
-            .map(|v| v["count"].as_i64().unwrap_or(0))
-            .sum::<i64>()
-            >= 10
-    {
+    let principal_total = pending
+        .iter()
+        .filter(|v| v["principal"] == access.principal())
+        .map(|v| v["count"].as_i64().unwrap_or(0))
+        .sum::<i64>();
+    if !catabolic_core::playback_admission::session_allowed(total, principal_total) {
         return Err(Error("playback_session_limit".into()));
     }
     let recipe=artifact_mutation::get_recipe(access.store(),text(&operation,"recipe_id")?)?["definition"].clone();
-    if !["h264-720p", "h264-1080p"].contains(&recipe["preset"].as_str().unwrap_or("")) {
+    if !catabolic_core::playback_admission::preset_supported(
+        recipe["preset"].as_str().unwrap_or(""),
+    ) {
         return Err(Error("playback_profile_unsupported".into()));
     }
     let mut source = content_access::snapshot(
@@ -235,7 +235,7 @@ pub fn admit(
                 let max=recipe["max_output_bytes"].as_u64().ok_or_else(||Error("invalid_playback_request".into()))?;
                 let reserve=recipe["reserve_bytes"].as_u64().ok_or_else(||Error("invalid_playback_request".into()))?;
                 let reserved=cache::reserved_bytes(store,device)?;
-                if reserved<0 || cache::available_bytes(&root)? < reserved as u128+u128::from(max)+u128::from(reserve) {return Err(Error("storage_reservation_unavailable".into()));}
+                if reserved<0 || !catabolic_core::playback_admission::reservation_available(reserved,cache::available_bytes(&root)?,max,reserve) {return Err(Error("storage_reservation_unavailable".into()));}
                 let id=uuid::Uuid::new_v4().to_string();
                 db.execute("INSERT INTO api_playback_jobs(id,profile,cache_key,body,snapshot,recipe,tools,destination,reserved_bytes,reservation_device,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",params![id,access.profile(),key,encode(body),encode(&source),encode(&recipe),encode(tools),encode(&binding),i64::try_from(max).map_err(|_|Error("invalid_playback_request".into()))?,i64::try_from(device).map_err(|_|Error("invalid_playback_request".into()))?,instant,instant])?;
                 job_id=Some(id);
