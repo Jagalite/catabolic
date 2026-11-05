@@ -12,12 +12,28 @@ use stateless::explore::{SearchConfig, SearchTermination, ShrinkConfig, enumerat
 use stateless::trace::{ReadLimits, RunConfig, Termination, Trace};
 use stateless::{Check, Enumerate, Model, ModelCodec, ModelError, ModelMetadata, Transition};
 use std::{error::Error, fs::File, path::Path};
+// Two immutable run identities, at most three demand generations and time
+// 0..=2. Planning and event admission abstract durable lookup/transactions;
+// watcher_event_crash exercises the corresponding committed production owners.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+struct Run {
+    generation: u8,
+    planned: bool,
+    changed: bool,
+    previous: Option<u8>,
+}
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 struct Audited {
     pending: u8,
     requested: u8,
     completed: u8,
     active: Option<u8>,
+    until: u8,
+    now: u8,
+    runs: [Option<Run>; 2],
+    reaction: Option<u8>,
+    delivered: u8,
+    notifications: [u8; 2],
     event: bool,
     violation: bool,
 }
@@ -25,12 +41,41 @@ struct Audited {
 enum Event {
     Request,
     Observe,
-    Claim,
-    Complete,
-    WrongGeneration,
+    Tick,
+    Claim(u8),
+    Plan(bool),
+    LegacyDeliver(u8),
+    Complete(u8),
+    WrongGeneration(u8),
 }
 struct Adapter {
     fault: bool,
+}
+fn token(owner: u8) -> String {
+    format!("run-{owner}")
+}
+fn reaction_root(state: &Audited, owner: u8) -> Option<u8> {
+    let mut current = owner;
+    for _ in 0..2 {
+        let run = state.runs[current as usize].as_ref()?;
+        match watcher_schedule::reaction_step(
+            Some(if run.planned { "planned" } else { "observing" }),
+            Some(if run.changed { "true" } else { "false" }),
+            Some(if run.previous.is_some() {
+                "text"
+            } else {
+                "null"
+            }),
+            run.previous.map(|_| "previous"),
+        ) {
+            watcher_schedule::ReactionStep::Changed => return Some(current),
+            watcher_schedule::ReactionStep::Previous(_) => current = run.previous?,
+            watcher_schedule::ReactionStep::NoChange | watcher_schedule::ReactionStep::Reject => {
+                return None;
+            }
+        }
+    }
+    None
 }
 impl Model for Adapter {
     type State = Audited;
@@ -39,14 +84,15 @@ impl Model for Adapter {
     fn metadata(&self) -> ModelMetadata {
         ModelMetadata {
             name: "catabolic-watcher-generation".into(),
-            model_version: 1,
-            properties_version: 1,
-            codec_version: 1,
+            model_version: 2,
+            properties_version: 2,
+            codec_version: 2,
             build: format!(
                 "{}-fault={}",
                 sha256(
                     [
                         include_bytes!("../../catabolic-core/src/watcher_schedule.rs").as_slice(),
+                        include_bytes!("../../catabolic-core/src/coordination.rs").as_slice(),
                         include_bytes!("watcher_generation.rs").as_slice(),
                         include_bytes!("../../../Cargo.lock").as_slice()
                     ]
@@ -64,6 +110,7 @@ impl Model for Adapter {
         before: &Audited,
         event: &Event,
     ) -> Result<Transition<Audited, String>, ModelError> {
+        use catabolic_core::coordination::{self, Effect, Generation, Input, Lease, State};
         let mut after = before.clone();
         match event {
             Event::Request if before.pending < 3 => {
@@ -74,52 +121,175 @@ impl Model for Adapter {
                 after.pending += 1;
                 after.event = true;
             }
-            Event::Claim if before.active.is_none() && before.pending > before.completed => {
-                after.active = Some(before.pending);
+            Event::Tick if before.now < 2 => after.now += 1,
+            Event::Claim(owner)
+                if before.runs[*owner as usize].is_none() && before.completed < 3 =>
+            {
+                let due = watcher_schedule::due(watcher_schedule::DueEvidence {
+                    enabled: true,
+                    requested_generation: before.requested.into(),
+                    completed_generation: before.completed.into(),
+                    pending_generation: before.pending.into(),
+                    active_run: before.active.is_some(),
+                    lease_until: before.until.into(),
+                    retry_at: 0.0,
+                    pending_reaction: before.reaction.is_some(),
+                    manual_schedule: true,
+                    next_due: 0.0,
+                    events_enabled: true,
+                    event_first: before.event.then_some(0.0),
+                    event_last: 0.0,
+                    debounce_seconds: Some(0.0),
+                    maximum_delay_seconds: Some(0.0),
+                    now: before.now.into(),
+                });
+                let expected_due = (before.active.is_none() || before.until <= before.now)
+                    && (before.requested > before.completed
+                        || before.reaction.is_some()
+                        || (before.event && before.pending > before.completed));
+                after.violation |= due != expected_due;
+                if due {
+                    let state = State {
+                        generation: before.completed.into(),
+                        lease: before.active.map(|active| Lease {
+                            generation: before.pending.into(),
+                            token: token(active),
+                            identity: "definition".into(),
+                            until: before.until.into(),
+                        }),
+                    };
+                    let result = coordination::reduce(
+                        &state,
+                        &Input::Acquire {
+                            now: before.now.into(),
+                            duration: 1.0,
+                            generation: Generation::AtLeast(before.pending.into()),
+                            token: token(*owner),
+                            identity: "definition".into(),
+                            owner_alive: true,
+                        },
+                    );
+                    let allowed = before.active.is_none() || before.until <= before.now;
+                    match result {
+                        Ok(Effect::Acquire(lease)) => {
+                            let expected = (before.completed + 1).max(before.pending);
+                            after.violation |= !allowed || lease.generation != i64::from(expected);
+                            after.pending = lease.generation as u8;
+                            after.until = lease.until as u8;
+                            after.active = Some(*owner);
+                            after.runs[*owner as usize] = Some(Run {
+                                generation: expected,
+                                ..Run::default()
+                            });
+                        }
+                        _ => after.violation |= allowed,
+                    }
+                }
             }
-            Event::Complete | Event::WrongGeneration if before.active.is_some() => {
-                let generation = before.active.unwrap();
-                let claimed = if matches!(event, Event::WrongGeneration) {
-                    generation + 1
-                } else {
-                    generation
+            Event::Plan(changed) if before.active.is_some() && before.until > before.now => {
+                let owner = before.active.unwrap();
+                if !before.runs[owner as usize].as_ref().unwrap().planned {
+                    let run = after.runs[owner as usize].as_mut().unwrap();
+                    run.planned = true;
+                    run.changed = *changed;
+                    run.previous = before.reaction;
+                    after.reaction = Some(owner);
+                }
+            }
+            Event::LegacyDeliver(owner) => {
+                // A frozen split-protocol writer may have committed under the
+                // original or retry identity before losing its process. Bound
+                // the environment to one such commit per logical change.
+                if let Some(root) = reaction_root(before, *owner)
+                    && before.notifications[root as usize] == 0
+                {
+                    after.delivered |= 1 << owner;
+                    after.notifications[root as usize] = 1;
+                }
+            }
+            Event::Complete(owner) | Event::WrongGeneration(owner)
+                if before.runs[*owner as usize]
+                    .as_ref()
+                    .is_some_and(|r| r.planned) =>
+            {
+                let run = before.runs[*owner as usize].as_ref().unwrap();
+                let claimed = run.generation + u8::from(matches!(event, Event::WrongGeneration(_)));
+                // Match production require_run: historical run generation plus
+                // current active token and lease. Same-generation takeover is
+                // safe only if the token fence survives composition.
+                let state = State {
+                    generation: run.generation.into(),
+                    lease: before.active.map(|active| Lease {
+                        generation: run.generation.into(),
+                        token: token(active),
+                        identity: "definition".into(),
+                        until: before.until.into(),
+                    }),
                 };
-                let mut effect = watcher_schedule::complete(CompletionEvidence {
-                    run_generation: generation.into(),
+                let fenced = coordination::reduce(
+                    &state,
+                    &Input::Fence {
+                        now: before.now.into(),
+                        generation: run.generation.into(),
+                        token: token(*owner),
+                        identity: "definition".into(),
+                    },
+                ) == Ok(Effect::Fenced);
+                let effect = watcher_schedule::complete(CompletionEvidence {
+                    run_generation: run.generation.into(),
                     claimed_generation: claimed.into(),
                     pending_generation: before.pending.into(),
                 });
-                if self.fault
-                    && claimed == generation
-                    && before.event
-                    && before.pending > generation
-                {
-                    effect = CompletionEffect::Complete {
-                        generation: generation.into(),
-                        clear_events: true,
-                    };
-                }
-                match effect {
-                    CompletionEffect::Reject => {
-                        if claimed == generation {
-                            after.violation = true;
-                        }
-                    }
-                    CompletionEffect::Complete {
-                        generation: accepted,
+                let accepted =
+                    (fenced || self.fault) && matches!(effect, CompletionEffect::Complete { .. });
+                let expected = before.active == Some(*owner)
+                    && before.until > before.now
+                    && claimed == run.generation;
+                after.violation |= accepted != expected;
+                if accepted {
+                    let CompletionEffect::Complete {
+                        generation,
                         clear_events,
-                    } => {
-                        if claimed != generation
-                            || accepted != i64::from(generation)
-                            || clear_events != (before.pending <= generation)
-                        {
-                            after.violation = true;
+                    } = effect
+                    else {
+                        unreachable!()
+                    };
+                    after.violation |= generation != i64::from(run.generation)
+                        || clear_events != (before.pending <= run.generation);
+                    if let Some(root) = reaction_root(before, *owner) {
+                        // Independent root: a changed run owns its identity;
+                        // an unchanged retry retains the prior changed run.
+                        let expected_root = if run.changed {
+                            Some(*owner)
+                        } else {
+                            run.previous.filter(|p| {
+                                before.runs[*p as usize].as_ref().is_some_and(|r| r.changed)
+                            })
+                        };
+                        after.violation |= Some(root) != expected_root;
+                        let chain = (1 << owner)
+                            | if run.changed {
+                                0
+                            } else {
+                                run.previous.map_or(0, |previous| 1 << previous)
+                            };
+                        if before.delivered & chain == 0 {
+                            after.delivered |= 1 << root;
+                            after.notifications[root as usize] += 1;
                         }
-                        after.completed = accepted as u8;
-                        after.active = None;
-                        if clear_events {
-                            after.event = false;
-                        }
+                        after.violation |= after.notifications[root as usize] != 1;
+                    } else if run.changed
+                        || run.previous.is_some_and(|p| {
+                            before.runs[p as usize].as_ref().is_some_and(|r| r.changed)
+                        })
+                    {
+                        after.violation = true;
+                    }
+                    after.completed = generation as u8;
+                    after.active = None;
+                    after.reaction = None;
+                    if clear_events {
+                        after.event = false;
                     }
                 }
             }
@@ -134,7 +304,7 @@ impl Model for Adapter {
         Ok(vec![if s.violation {
             Check::failed(
                 "watcher.generation",
-                "completion lost newer work or accepted a mismatched generation",
+                "completion lost newer work, bypassed owner/lease fencing, or changed reaction identity",
             )
         } else {
             Check::passed("watcher.generation")
@@ -146,9 +316,17 @@ impl Enumerate for Adapter {
         Ok(vec![
             Event::Request,
             Event::Observe,
-            Event::Claim,
-            Event::Complete,
-            Event::WrongGeneration,
+            Event::Tick,
+            Event::Claim(0),
+            Event::Claim(1),
+            Event::Plan(false),
+            Event::Plan(true),
+            Event::LegacyDeliver(0),
+            Event::LegacyDeliver(1),
+            Event::Complete(0),
+            Event::Complete(1),
+            Event::WrongGeneration(0),
+            Event::WrongGeneration(1),
         ])
     }
 }
@@ -202,7 +380,11 @@ pub fn find(directory: &str) -> Result<(), Box<dyn Error>> {
     let config = RunConfig {
         strategy: "catabolic-watcher-generation".into(),
         seed: None,
-        parameters: vec![("maximum-generation".into(), "3".into())],
+        parameters: vec![
+            ("maximum-generation".into(), "3".into()),
+            ("owners".into(), "2".into()),
+            ("maximum-time".into(), "2".into()),
+        ],
     };
     std::fs::create_dir(directory)?;
     for (name, inputs) in [

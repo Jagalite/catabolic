@@ -30,3 +30,183 @@ The pinned reference inventory was verified and this worktree generated all 32 s
 Workspace Clippy passed with `--locked --workspace --all-targets --all-features -- -D warnings` after the playback retirement changes. The current core unit-test executable passed 121 tests with no ignored tests. A worktree-local qualification Python environment imports the verified reference with `PYTHONPATH` unset and reuses dependencies from the existing Python environment; its pinned-reference `catabolic spec check` passed with `PYTHONPATH` unset. A `cargo test --locked --workspace` compilation was cancelled after four resource-pressure deferrals; the `-j 1` replacement succeeded after three deferrals, producing 119 test executables. The initial serial executable run was stopped after the notification-provider target reported 6 passed and 3 failed with worker warm-up and loopback timeouts, and a later target reported that the qualification interpreter environment variable was missing. The runner now sets the verified pinned reference interpreter and has restarted from the beginning. The notification-provider target passed all nine tests on the restarted run; the initial warm-up and loopback failures remain recorded. The oracle-dependent notification wire target passed all four cases with the corrected environment. The restarted run was stopped at the user’s request after 46 of 119 targets completed: 45 passed and the fallback probe target failed because its timed-out helper had not created the PID file. The store library target was interrupted and is incomplete; the failed case remains open for rerun and investigation. Doctests and ignored tests are not covered by that run. The runner passed a controlled success/failure check and records the Cargo log and executable hashes. The full qualification has not been run.
 
 The bundled-guide sync check and GraphQL printable-table check passed. The Plex XML encoding regeneration check did not run: its pinned oracle requires Linux, Python 3.14.6, and Expat 2.8.2; this macOS Python reports Expat 2.7.4. Full qualification remains unproven.
+
+## Resumed Linux qualification (2026-11-02)
+
+Work resumed from `756d4edde35562bea32360b79dfbc39e6e9b3700` in a fresh
+checkout. The [completion checklist](STATELESSNESS_COMPLETION_CHECKLIST.md)
+maps the original audit to finite acceptance obligations; model bounds are not
+whole-system guarantees. No merge or deployment is part of this qualification.
+
+The isolated Rust 1.99.0 toolchain has compiled the verification changes. The
+first complete pass exhausted all 24 model graphs with zero skipped checks and
+found/replayed all 24 deliberate faults exactly in fresh processes. Subsequent
+expanded models were checked individually on matching builds: scan lineage
+924 states / 14,784 transitions; staged hardlink recovery 297 / 3,564;
+notification retries/revisions 810 / 9,720; processing retry/source identity
+149 / 1,043; playback demand/deletion 768 / 9,984; watcher ownership/reaction
+10,740 / 139,620; shared ticket/transfer 6,208 / 124,160; fallback health/history
+50,750 / 913,500. Watcher deadline evidence covers 30,720 combinations. Each
+expanded fault was freshly found and replayed. These results still require a
+final-source aggregate rerun after all edits.
+
+Production tests passed for committed/reopened processing retries and checksum
+acceptance (3 tests), mapped notification batch refusal/replacement and retry
+exhaustion (2), content-ticket debit/rollback/concurrency and transfer authority
+revalidation (4), and watcher crash/retry/ownership composition (9). Both new
+hardlink replacement tests passed across repeated recovery and retained/foreign
+reference checks. The existing process-exit publication matrix passed its three
+ordinary tests. Its alternate-filesystem replacement-mode test remains ignored:
+that optional platform-specific lane requires a separately supplied filesystem,
+and is not promoted by the native qualification script.
+
+The runtime library passed 182 tests with two ignored document-tool cases; its
+fallback integration target passed two tests. The timeout/reaping regression now
+captures the actual child PID through a private test-only hook after durable
+handoff, rather than assuming that the child ran early enough to write a PID
+file. It preserves the deadline, wall-time, dead-child and cleared-slot checks.
+The new committed shared-job completion/rollback/retry cases and reservation
+fault control passed; the larger existing ledger and final aggregate checks must
+be recorded separately when complete.
+
+The exact Linux Python 3.14.6 / Expat 2.8.2 oracle was built using the repository's
+checksum-pinned sources and isolated build prerequisites. Runtime identity and
+locked-package checks passed. The reference remains pinned to
+`453fca983222c6665a48775eef67c489c96b527e`. Historical fixture generation,
+reference-dependent native checks, final workspace Clippy and full qualification
+are not established merely by successful environment preparation.
+
+Available Python checks passed: eight synthetic SQLite trigger/retirement tests,
+32 qualification-shell/source-manifest tests, and two model-gate wiring tests.
+The wiring tests use a recording stand-in and inject failure into all 72 gate
+commands; they are not Rust verification evidence. Earlier reference-discovery
+attempts failed because dependencies were unavailable, and must not be counted
+as passing reference tests.
+
+Independent production review confirmed that playback failure classification is
+behavior-preserving and the fallback process-observation hook is test-only.
+Health accumulation retains the exact candidate/revision lookup and finite valid
+history behavior. It deliberately refuses malformed/nonfinite history or negative
+counts instead of propagating/defaulting them, and reports counter overflow rather
+than panicking or wrapping. It does not impose a new monotonic-clock rule:
+finite duplicate/backward timestamps retain their prior semantics. Three core
+boundary tests and three production identity/rollback tests passed, including
+eight malformed/overflow catalog fixtures with unchanged durable snapshots after
+reopen. The timeout test now allows the production supervisor's bounded deferred
+reaping path while preserving the original operation timeout/return bound; it
+checks ownership until reaping and requires death/slot release before reuse.
+
+The audit's adapter-comparison requirement is interpreted as representative,
+bounded comparisons against independently expected committed state, including
+stale, duplicate, interrupted and competing operations. The checks do not replay
+every enumerated Statelessness trace through the real application and do not
+claim an exhaustive model/production refinement proof. That stronger proof is
+not a prerequisite stated by the audit. Filesystem/database atomicity, alternate
+platforms and live external service qualification remain explicit limits.
+
+The first aggregate attempt was interrupted for the health and deferred-reaping
+regressions. The next prerequisite batch ran 34 tests: 33 passed and the existing
+dirty-interrupted-scan fixture failed because it assumed sibling directory order.
+Its deferred directory is now nested beneath the interruption scope, making the
+precondition independent of filesystem enumeration order without weakening the
+absence/readmission assertions. Both that test and the selected-scope lineage
+case then passed on the pinned oracle and qualification binary. Aggregate results
+must come from the subsequent final-source rerun, not either earlier attempt.
+
+### Resumed Linux aggregate and explicit qualification gaps
+
+The next aggregate passed its 34 native Python prerequisite cases and stopped at
+`native_backup_and_controlled_restore_commands_rotate_the_incarnation`: the
+available overlay/tmpfs mounts have no durable volume UUID. Production correctly
+refused controlled restore. A separate no-fail-fast non-CLI workspace run reached
+all remaining targets. Its only failing targets were the store library (556
+passed, one existing bulk-FTS setup operation-budget timeout, six ignored) and
+native restore (six passed, 22 failures at or downstream of the same UUID
+prerequisite). Other successful target summaries total 1,036 passes; these counts
+include subprocess targets and are not a deduplicated scenario count.
+
+A separate run of the post-workspace qualification stages passed every promoted
+ignored fixture, then ran the native differential qualifier to its terminal
+result: **1,323 tests, 13 failures, seven errors, no skips**, in 8,510.257 seconds.
+Discovery selected 1,326 scenarios; HTTP-management class setup failed before
+its three scenarios ran. Subtest failures and class-setup errors must not be
+subtracted from this total to invent a passing-case count. The receipt confirms
+source, artifacts, oracle, historical fixtures and dynamic prerequisites stayed
+unchanged during the run; outcome coverage and aggregate qualification are
+explicitly unsuccessful. Later scoped repairs do not turn that historical run
+into a pass.
+
+The remaining environment/provenance requirements are distinct from audit model
+coverage:
+
+- Controlled restore needs an actual writable filesystem reporting a stable
+  volume UUID. No fabricated `findmnt` identity or weakened restore guard is used.
+- Three capture-retention assertions need the original sealed capture directory
+  `/workspace/shared/catalog-parser-lexical-capture-preparation-20261015`, including
+  4,974 raw receipts. The missing seal's SHA-256 is
+  `c2f5193760f889a37bcb2e2e4a52a2c15bc1ca768617dff0a535a8ff8cb08c96`.
+  Fresh captures cannot replace these historical originals.
+- Four mapping-JSON cases require the historical Python executable SHA-256
+  `2f7fff382c9d335d6d63f134b55cb8ced9d0b2e1d47e6f210ad3f059adfa71c1`;
+  resource regeneration also embeds that runtime's August 4/Clang build identity.
+  The approved source-built Python has the correct version/Expat but different
+  bytes. A bounded official Astral archive/checksum retrieval returned HTTP 403;
+  no replacement identity was claimed.
+- Two retained parser/string residuals contain original absolute reference paths
+  in complete traceback envelopes. The local checkout path differs; expectations
+  were not normalized or rewritten.
+- The source-built Python links SQLite 3.46.1, whereas native uses 3.53.2. The
+  schema comparison differs only in actual available functions: native-only
+  `if`, reference-only `soundex`. All other schema fields match. The exact
+  function comparison remains intact rather than hiding the capability mismatch.
+
+Recoverable prerequisite/test failures were separately identified: missing locked
+client build, direct in-process imports not consuming the already verified native
+package stage, and a 300 KiB environment variable exceeding Linux's exec limit.
+Two fallback comparisons and one inbox comparison also required isolated reruns;
+resource contention is a hypothesis, not proof that a failed comparison passed.
+The final scoped results below distinguish these repairs from unavailable
+historical/runtime prerequisites. No remote CI, push, merge or deployment is
+included in this local qualification record.
+
+### Scoped repair results (same final production Rust source)
+
+- The store library passed all 557 executed tests with two test threads, including
+  the unchanged bulk-FTS case; six explicitly ignored tests remain separately
+  accounted for. No operation deadline was changed.
+- The exact projection/inbox failures passed unchanged when rerun serially. A
+  second bounded-tier diagnostic actually observed the frozen helper's 1,000 ms
+  timeout; the candidate-budget fixture now uses the neighboring fixtures'
+  explicit 5,000 ms probe budget, retaining `max_candidates=2`, per-tier
+  `max_ids=1`, exact parity and production defaults. The full seven-case
+  fallback-resolution module passed, including its dedicated fail-closed probe
+  budget test.
+- Linux credential transport now uses 50 KiB of an exec-safe control character
+  whose JSON-encoded field is asserted equal in size to the old 300 KiB ASCII
+  field. Envelope-budget validation precedes HTTP-header validation in both
+  engines. The focused case and full 12-case diagnostics module passed with the
+  original refusal, zero-request and durable-state assertions. The in-process
+  Rust test still retains the literal 300 KiB credential.
+- Locked npm dependencies were installed with lifecycle scripts disabled; the
+  explicit 1.7 generation/typecheck passed without tracked generated changes.
+  Source-fenced qualifiers then passed logical transport (four cases), management
+  (three previously unexecuted cases), and retry clients (16 cases).
+- Query ownership now consumes the existing source/hash-verified package stage
+  in-process, refuses ambient native modules and rechecks loaded paths and bytes
+  afterward. Independent review found no identity-fence relaxation. The two
+  ownership scenarios and 42 prerequisite/receipt regressions passed.
+- All 24 model checks and all 24 fresh fault-discovery/exact matching-build
+  replays passed again; no checks were skipped. CLI notification-provider
+  integration passed all nine cases. Workspace all-target/all-feature Clippy
+  with warnings denied and Rust formatting passed.
+
+Each scoped qualifier retained unchanged source/artifact/oracle identity and
+complete selected-scenario coverage. These receipts cover their selected cases,
+not a rerun or a passing replacement for the failed aggregate. The final Rust
+production and model files are unchanged from the broad run; subsequent source
+changes are qualification plumbing, test fixtures and this status record.
+
+The optimized release build subsequently completed. Its copied native binary
+passed `check_native_output_gate.py`; bundled-guide synchronization and the
+pinned reference's spec/generated-artifact check passed. This output check is
+not installed-wheel, cross-platform, live-consumer or overall release approval.

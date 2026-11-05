@@ -323,3 +323,110 @@ fn missing_or_malformed_comparison_and_link_fields_fail_closed() {
         assert_eq!(retry_fails_closed(&path), 2, "{expression}");
     }
 }
+
+#[test]
+fn expired_retry_late_completion_preserves_newer_demand_and_original_event() {
+    let (_root, path, first) = crash_before_completion();
+    legacy_event(&path, &first["pending_reaction"]);
+    let original_event: String = {
+        let store = Store::open(&path, false, false).unwrap();
+        store
+            .db
+            .query_row(
+                "SELECT id FROM consumer_events WHERE event='watcher_changed'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap()
+    };
+    let second = crash_worker(&path);
+    assert_ne!(first["pending_reaction"], second["pending_reaction"]);
+    let mut store = Store::open(&path, true, false).unwrap();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs_f64();
+    let old = watcher::run(
+        &mut store,
+        "default",
+        "changes",
+        "manual",
+        now,
+        &mut |_, request| panic!("no sources: {request}"),
+        &mut |store, context| {
+            let evaluated = watcher::evaluate(store, "default", &context.definition["plan"])?;
+            // A second durable owner expires/replaces this run while its
+            // evaluation is detached. No schema edits or replacement receipts.
+            let replacement = store.detached(|| {
+                let mut writer = Store::open(&path, true, false)?;
+                writer.transaction(|db| {
+                    db.execute("UPDATE watchers SET lease_until=0 WHERE name='changes'", [])?;
+                    Ok(())
+                })?;
+                watcher::execute(&writer, "default", "admit", &json!({"name":"changes"}))?;
+                let report = watcher::run(
+                    &mut writer,
+                    "default",
+                    "changes",
+                    "manual",
+                    now,
+                    &mut |_, request| panic!("no sources: {request}"),
+                    &mut |writer, replacement| {
+                        let evaluated = watcher::evaluate(writer, "default", &replacement.definition["plan"])?;
+                        // Newer demand arrives after the replacement took its
+                        // generation. Completing it must preserve that demand.
+                        watcher::execute(writer, "default", "admit", &json!({"name":"changes"}))?;
+                        writer.transaction(|db| {
+                            db.execute("UPDATE watchers SET event_first=10,event_last=12 WHERE name='changes'", [])?;
+                            Ok(())
+                        })?;
+                        watcher::complete_evaluation(writer, "default", &replacement, &evaluated, &mut |_, _, _, _| Ok(Value::Null))
+                    },
+                )?;
+                assert_eq!(report["complete"], true, "{report}");
+                assert_eq!(report["evaluation"]["changed"], false, "{report}");
+                assert_eq!(notifications(&writer), 1);
+                watcher::execute(&writer, "default", "get", &json!({"name":"changes"}))
+            })?;
+            let error = watcher::complete_evaluation(
+                store, "default", &context, &evaluated, &mut |_, _, _, _| Ok(Value::Null),
+            ).unwrap_err();
+            assert_eq!(error.0, "stale_watcher_run");
+            assert_eq!(watcher::execute(store, "default", "get", &json!({"name":"changes"}))?, replacement);
+            assert_eq!(notifications(store), 1);
+            Err(error)
+        },
+    ).unwrap();
+    assert_eq!(old["complete"], false);
+    assert_eq!(old["error"], "stale_watcher_run");
+    drop(store);
+    let mut store = Store::open(&path, true, false).unwrap();
+    let row = watcher::execute(&store, "default", "get", &json!({"name":"changes"})).unwrap();
+    assert!(row["active_run"].is_null());
+    assert!(row["pending_reaction"].is_null());
+    assert_eq!(
+        row["pending_generation"].as_i64().unwrap(),
+        row["completed_generation"].as_i64().unwrap() + 1
+    );
+    assert_eq!(row["requested_generation"], row["pending_generation"]);
+    assert_eq!(row["event_first"].as_f64(), Some(10.0));
+    assert_eq!(row["event_last"].as_f64(), Some(12.0));
+    assert_eq!(notifications(&store), 1);
+    let recorded: String = store
+        .db
+        .query_row(
+            "SELECT id FROM consumer_events WHERE event='watcher_changed'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(recorded, original_event);
+    let drained = run(&mut store);
+    assert_eq!(drained["complete"], true);
+    drop(store);
+    let store = Store::open(&path, false, false).unwrap();
+    assert_eq!(notifications(&store), 1);
+    let row = watcher::execute(&store, "default", "get", &json!({"name":"changes"})).unwrap();
+    assert_eq!(row["completed_generation"], row["pending_generation"]);
+    assert!(row["event_first"].is_null());
+}

@@ -1,19 +1,15 @@
 // SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 // SPDX-License-Identifier: MIT
-//! Actual durable probe ownership and detached resolver boundaries. A sleeping
-//! executable injects only an external-process fault; all slot, timeout, reap,
-//! source checks, catalog writes and epoch decisions use production owners.
+//! Actual durable probe ownership and detached resolver boundaries.
+//! Source checks, catalog writes and epoch decisions use production owners.
+//! Timeout/reaping coverage lives in the fallback module's unit tests, where a
+//! test-only durable-handoff observer can capture PID without a startup race.
 use catabolic_runtime::fallback;
 use catabolic_store::{
     Store, definitions, fallback_mutation, fallback_resolution, migration, selection::Evaluation,
 };
 use serde_json::json;
-use std::{
-    collections::BTreeMap,
-    fs,
-    os::unix::fs::{MetadataExt, PermissionsExt},
-    time::{Duration, Instant},
-};
+use std::{collections::BTreeMap, fs, os::unix::fs::MetadataExt};
 
 fn fixture() -> (tempfile::TempDir, Store) {
     let root = tempfile::tempdir().unwrap();
@@ -73,49 +69,6 @@ fn live_process_keeps_every_durable_probe_slot() {
         )
         .unwrap();
     assert_eq!(retained, count);
-}
-#[test]
-fn sleeping_child_times_out_and_is_reaped_before_slot_reuse() {
-    let (root, store) = fixture();
-    let path = store.path.clone();
-    let database = store.database_id.clone();
-    drop(store);
-    let helper = root.path().join("sleeping-helper");
-    let pidfile = root.path().join("helper.pid");
-    fs::write(
-        &helper,
-        format!(
-            "#!/bin/sh\nprintf '%s' \"$$\" > '{}'\nexec /bin/sleep 30\n",
-            pidfile.display()
-        ),
-    )
-    .unwrap();
-    fs::set_permissions(&helper, fs::Permissions::from_mode(0o700)).unwrap();
-    catabolic_runtime::helper::register(&helper, None).unwrap();
-    let before = Instant::now();
-    // Give the shell fixture time to publish its PID under host startup load.
-    // The timeout, three-second wall bound, reaping and slot checks remain real.
-    let result = fallback::probe(&path, "default", &database, &json!([{}]), 1000).unwrap();
-    assert_eq!(result, json!({"usable":false,"reason":"probe_timeout"}));
-    assert!(
-        before.elapsed() < Duration::from_secs(3),
-        "bounded helper exceeded deadline"
-    );
-    let pid: i64 = fs::read_to_string(pidfile).unwrap().parse().unwrap();
-    assert!(
-        !fallback_resolution::process_alive(pid),
-        "timed-out child is still alive"
-    );
-    let store = Store::open(&path, false, false).unwrap();
-    let occupied: i64 = store
-        .db
-        .query_row(
-            "SELECT count(*) FROM fallback_probe_slots WHERE owner IS NOT NULL OR pid IS NOT NULL",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap();
-    assert_eq!(occupied, 0);
 }
 #[test]
 fn real_catalog_change_during_detached_probe_rejects_receipt() {

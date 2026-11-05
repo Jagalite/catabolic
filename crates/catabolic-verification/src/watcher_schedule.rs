@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2026 The Catabolic Contributors
 // SPDX-License-Identifier: MIT
 //! Bounded watcher admission and debounce audit.
+//! Time 0..=4 crosses the fixed maximum delay of 3. The last event is either
+//! fixed at 1 or refreshed to now, independently exercising both deadlines.
+//! This decision table does not model durable claims or elapsed-time fairness.
 use catabolic_core::{
     encode, sha256,
     watcher_schedule::{self, DueEvidence},
@@ -30,9 +33,50 @@ struct Event {
     events: bool,
     first: bool,
     now: u8,
+    refreshed: bool,
 }
 struct Adapter {
     fault: bool,
+}
+fn facts(e: &Event) -> DueEvidence {
+    let now = f64::from(e.now);
+    let retry = match e.retry {
+        0 => 0.0,
+        1 => now,
+        _ => now + 1.0,
+    };
+    DueEvidence {
+        enabled: e.enabled,
+        requested_generation: i64::from(e.requested),
+        completed_generation: 0,
+        pending_generation: i64::from(e.pending),
+        active_run: e.active,
+        lease_until: if e.lease_live { now + 1.0 } else { now },
+        retry_at: retry,
+        pending_reaction: e.reaction,
+        manual_schedule: e.manual,
+        next_due: if e.scheduled { now } else { now + 1.0 },
+        events_enabled: e.events,
+        event_first: e.first.then_some(0.0),
+        event_last: if e.refreshed { now } else { 1.0 },
+        debounce_seconds: Some(1.0),
+        maximum_delay_seconds: Some(3.0),
+        now,
+    }
+}
+fn evaluate(e: &Event, fault: bool) -> (bool, bool) {
+    let mut actual = watcher_schedule::due(facts(e));
+    if fault && e.retry == 2 && e.requested {
+        actual = true;
+    }
+    let fenced = (!e.enabled && !e.requested) || (e.active && e.lease_live) || e.retry == 2;
+    let expected = !fenced
+        && (e.requested
+            || e.reaction
+            || (e.retry == 1 && e.now > 0)
+            || (!e.manual && e.scheduled)
+            || (e.events && e.pending && e.first && ((!e.refreshed && e.now >= 2) || e.now >= 3)));
+    (actual, expected)
 }
 impl Model for Adapter {
     type State = Audited;
@@ -41,9 +85,9 @@ impl Model for Adapter {
     fn metadata(&self) -> ModelMetadata {
         ModelMetadata {
             name: "catabolic-watcher-schedule".into(),
-            model_version: 1,
-            properties_version: 1,
-            codec_version: 1,
+            model_version: 2,
+            properties_version: 2,
+            codec_version: 2,
             build: format!(
                 "{}-fault={}",
                 sha256(
@@ -62,41 +106,7 @@ impl Model for Adapter {
         Ok(Audited::default())
     }
     fn step(&self, before: &Audited, e: &Event) -> Result<Transition<Audited, bool>, ModelError> {
-        let now = f64::from(e.now);
-        let retry = match e.retry {
-            0 => 0.0,
-            1 => now,
-            _ => now + 1.0,
-        };
-        let facts = DueEvidence {
-            enabled: e.enabled,
-            requested_generation: i64::from(e.requested),
-            completed_generation: 0,
-            pending_generation: i64::from(e.pending),
-            active_run: e.active,
-            lease_until: if e.lease_live { now + 1.0 } else { now },
-            retry_at: retry,
-            pending_reaction: e.reaction,
-            manual_schedule: e.manual,
-            next_due: if e.scheduled { now } else { now + 1.0 },
-            events_enabled: e.events,
-            event_first: e.first.then_some(0.0),
-            event_last: 1.0,
-            debounce_seconds: Some(1.0),
-            maximum_delay_seconds: Some(3.0),
-            now,
-        };
-        let mut actual = watcher_schedule::due(facts);
-        if self.fault && e.retry == 2 && e.requested {
-            actual = true;
-        }
-        let fenced = (!e.enabled && !e.requested) || (e.active && e.lease_live) || e.retry == 2;
-        let expected = !fenced
-            && (e.requested
-                || e.reaction
-                || (e.retry == 1 && e.now > 0)
-                || (!e.manual && e.scheduled)
-                || (e.events && e.pending && e.first && e.now >= 2));
+        let (actual, expected) = evaluate(e, self.fault);
         Ok(Transition::accepted(
             Audited {
                 violation: before.violation || actual != expected,
@@ -120,21 +130,24 @@ impl Enumerate for Adapter {
         let mut v = Vec::new();
         for mask in 0..1024 {
             for retry in 0..3 {
-                for now in 0..3 {
-                    v.push(Event {
-                        enabled: mask & 1 != 0,
-                        requested: mask & 2 != 0,
-                        pending: mask & 4 != 0,
-                        active: mask & 8 != 0,
-                        lease_live: mask & 16 != 0,
-                        reaction: mask & 32 != 0,
-                        manual: mask & 64 != 0,
-                        scheduled: mask & 128 != 0,
-                        events: mask & 256 != 0,
-                        first: mask & 512 != 0,
-                        retry,
-                        now,
-                    });
+                for now in 0..=4 {
+                    for refreshed in [false, true] {
+                        v.push(Event {
+                            enabled: mask & 1 != 0,
+                            requested: mask & 2 != 0,
+                            pending: mask & 4 != 0,
+                            active: mask & 8 != 0,
+                            lease_live: mask & 16 != 0,
+                            reaction: mask & 32 != 0,
+                            manual: mask & 64 != 0,
+                            scheduled: mask & 128 != 0,
+                            events: mask & 256 != 0,
+                            first: mask & 512 != 0,
+                            retry,
+                            now,
+                            refreshed,
+                        });
+                    }
                 }
             }
         }
@@ -155,7 +168,11 @@ impl ModelCodec for Adapter {
         codec(v)
     }
     fn decode_input(&self, v: &[u8]) -> Result<Event, ModelError> {
-        serde_json::from_slice(v).map_err(|e| ModelError::new(e.to_string()))
+        let event: Event = serde_json::from_slice(v).map_err(|e| ModelError::new(e.to_string()))?;
+        if event.now > 4 || event.retry > 2 {
+            return Err(ModelError::new("watcher evidence outside declared bounds"));
+        }
+        Ok(event)
     }
     fn encode_output(&self, v: &bool) -> Result<Vec<u8>, ModelError> {
         codec(v)
@@ -194,7 +211,8 @@ pub fn find(directory: &str) -> Result<(), Box<dyn Error>> {
         parameters: vec![
             ("boolean-facts".into(), "10".into()),
             ("retry-cases".into(), "3".into()),
-            ("times".into(), "0..2".into()),
+            ("times".into(), "0..4".into()),
+            ("last-event".into(), "fixed-or-refreshed".into()),
         ],
     };
     std::fs::create_dir(directory)?;
@@ -231,4 +249,66 @@ pub fn replay_trace(path: &str) -> Result<(), Box<dyn Error>> {
     }
     println!("watcher fresh-process replay exact, failed property reproduced, matching build");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn event(now: u8, refreshed: bool) -> Event {
+        Event {
+            enabled: true,
+            requested: false,
+            pending: true,
+            active: false,
+            lease_live: false,
+            retry: 0,
+            reaction: false,
+            manual: true,
+            scheduled: false,
+            events: true,
+            first: true,
+            now,
+            refreshed,
+        }
+    }
+
+    #[test]
+    fn trace_codec_rejects_time_or_retry_outside_the_enumerated_domain() {
+        let model = Adapter { fault: false };
+        let mut e = event(5, true);
+        assert!(model.decode_input(&codec(&e).unwrap()).is_err());
+        e.now = 3;
+        e.retry = 3;
+        assert!(model.decode_input(&codec(&e).unwrap()).is_err());
+    }
+
+    #[test]
+    fn refreshed_events_cannot_defer_beyond_maximum_delay() {
+        for now in 0..=4 {
+            let e = event(now, true);
+            assert_eq!(evaluate(&e, false), (now >= 3, now >= 3));
+        }
+        let e = event(3, true);
+        let mut omission = facts(&e);
+        omission.maximum_delay_seconds = Some(100.0);
+        assert!(!watcher_schedule::due(omission));
+        assert!(evaluate(&e, false).1);
+    }
+
+    #[test]
+    fn quiet_debounce_and_retry_or_lease_fences_remain_independent() {
+        for now in 0..=4 {
+            assert_eq!(evaluate(&event(now, false), false), (now >= 2, now >= 2));
+        }
+        let mut e = event(3, true);
+        e.retry = 2;
+        assert_eq!(evaluate(&e, false), (false, false));
+        e.requested = true;
+        assert_eq!(evaluate(&e, true), (true, false));
+        e.retry = 0;
+        e.active = true;
+        e.lease_live = true;
+        assert_eq!(evaluate(&e, false), (false, false));
+    }
 }

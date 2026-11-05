@@ -33,6 +33,16 @@ pub struct Decision {
     pub stop: bool,
     pub release_reservation: bool,
 }
+/// Classify an operational failure without allowing an arbitrary error code
+/// to impersonate successful completion. The store owns the active-job fence
+/// and reservation update, not this domain classification.
+pub fn failure_state(code: &str) -> State {
+    if code == "playback_cancelled" {
+        State::Cancelled
+    } else {
+        State::Failed
+    }
+}
 pub fn decide(state: State, evidence: Evidence, event: Event) -> Decision {
     let mut d = Decision {
         state,
@@ -88,6 +98,19 @@ pub fn decide(state: State, evidence: Evidence, event: Event) -> Decision {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn operational_failure_only_cancels_for_the_explicit_cancel_code() {
+        assert_eq!(failure_state("playback_cancelled"), State::Cancelled);
+        for code in [
+            "",
+            "playback_timeout",
+            "playback_worker_interrupted",
+            "ready",
+            "unknown",
+        ] {
+            assert_eq!(failure_state(code), State::Failed);
+        }
+    }
     #[test]
     fn independent_exhaustive_fences_and_shared_cancellation() {
         for state in [

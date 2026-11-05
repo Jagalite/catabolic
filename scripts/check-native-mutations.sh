@@ -57,6 +57,7 @@ export CATABOLIC_NATIVE_CLI="$CATABOLIC_NATIVE_BINARY"
     tests.test_rendition_trigger_model \
     tests.test_playback_retirement_query \
     tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_dirty_interrupted_scan_readmits_before_publishing_missing \
+    tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_selected_continuation_chain_revalidates_after_dirty_interruption \
     tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_continuation_refuses_active_parent_without_changing_inventory \
     tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_continuation_rejects_changed_policy_without_publishing_absence \
     tests.test_rust_renditions.NativeRenditionTest.test_competing_native_admissions_share_one_physical_reservation \

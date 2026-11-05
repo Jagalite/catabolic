@@ -290,6 +290,66 @@ class DynamicPrerequisiteTest(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     qualifier.completion_extension_snapshot(staged)
 
+    def test_ownership_requires_explicit_extension_before_execution(self):
+        with self.assertRaisesRegex(ValueError, "explicit --extension-binary"):
+            qualifier.validate_native_scenarios(
+                [qualifier.QUERY_SETUP_PREFIX + "test_one"], None, None, None, None
+            )
+
+    def test_ownership_activation_and_postflight_bind_current_imports(self):
+        staged = self.stage()
+        modules = {
+            "catabolic_native": types.SimpleNamespace(
+                __file__=staged["root"] + "/catabolic_native/__init__.py"
+            ),
+            "catabolic_native._native": types.SimpleNamespace(
+                __file__=staged["root"] + "/catabolic_native/_native.abi3.so"
+            ),
+        }
+        # Disposable admission control only, not executable extension evidence.
+        with patch.dict(sys.modules), patch.object(sys, "path", sys.path.copy()):
+            for name in list(sys.modules):
+                if name == "catabolic_native" or name.startswith("catabolic_native."):
+                    del sys.modules[name]
+
+            def load(name):
+                self.assertEqual(sys.path[0], staged["root"])
+                sys.modules.update(modules)
+
+            with patch.object(
+                qualifier.importlib, "import_module", side_effect=load
+            ) as load_module:
+                qualifier.activate_ownership_extension(staged)
+                self.assertEqual(load_module.call_count, 3)
+            qualifier.current_extension_snapshot(staged)
+            with self.assertRaisesRegex(ValueError, "ambient native modules"):
+                qualifier.activate_ownership_extension(staged)
+            sys.modules["catabolic_native._native"] = types.SimpleNamespace(
+                __file__="/ambient/_native.abi3.so"
+            )
+            with self.assertRaises(ValueError):
+                qualifier.current_extension_snapshot(staged)
+            sys.modules.update(modules)
+            (Path(staged["root"]) / "catabolic_native/store.py").write_text("drift")
+            with self.assertRaisesRegex(ValueError, "package changed"):
+                qualifier.current_extension_snapshot(staged)
+
+    def test_ownership_failed_import_never_falls_back_and_restores_search_path(self):
+        staged = self.stage()
+        with patch.dict(sys.modules), patch.object(sys, "path", sys.path.copy()):
+            for name in list(sys.modules):
+                if name == "catabolic_native" or name.startswith("catabolic_native."):
+                    del sys.modules[name]
+            before = sys.path.copy()
+            with patch.object(
+                qualifier.importlib,
+                "import_module",
+                side_effect=ImportError("bad artifact"),
+            ):
+                with self.assertRaisesRegex(ImportError, "bad artifact"):
+                    qualifier.activate_ownership_extension(staged)
+            self.assertEqual(sys.path, before)
+
     def test_linked_package_payloads_are_refused(self):
         staged = self.stage()
         path = Path(staged["root"]) / "catabolic_native/store.py"
@@ -419,6 +479,29 @@ class DynamicReceiptControlTest(unittest.TestCase):
         stage.assert_not_called()
         worker.assert_not_called()
         self.assertEqual(self.receipt()["dynamic_prerequisites_before"], {})
+        self.assertTrue(self.receipt()["dynamic_prerequisites_unchanged"])
+
+    def test_ownership_only_selection_stages_and_checks_current_process(self):
+        staged = {"root": "/disposable/verified-stage"}
+        with (
+            patch.object(
+                self.driver, "stage_completion_extension", return_value=staged
+            ) as stage,
+            patch.object(
+                self.driver,
+                "completion_extension_snapshot",
+                return_value={"verified": True},
+            ),
+            patch.object(self.driver, "activate_ownership_extension") as activate,
+            patch.object(self.driver, "current_extension_snapshot") as postflight,
+        ):
+            code = self.fixture.run_legacy_qualification_fixture(
+                {"native_extension"}, qualifier.QUERY_SETUP_PREFIX + "test_one"
+            )
+        self.assertEqual(code, 0)
+        stage.assert_called_once()
+        activate.assert_called_once_with(staged)
+        postflight.assert_called_once_with(staged)
         self.assertTrue(self.receipt()["dynamic_prerequisites_unchanged"])
 
     def test_missing_explicit_oracle_invalidates_success_before_tests(self):

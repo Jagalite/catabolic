@@ -350,25 +350,149 @@ class NativeObservationDifferentialTest(unittest.TestCase):
         )
         self.assertEqual(self.snapshot(self.database), self.snapshot(self.reference))
 
+    def test_selected_continuation_chain_revalidates_after_dirty_interruption(self):
+        for folder in ("one", "two"):
+            (self.source / folder).mkdir()
+            for index in range(6):
+                (self.source / folder / f"{index}.txt").write_text(str(index))
+        native(self.database, "observe", "scan", source="media")
+        for folder in ("one", "two"):
+            (self.source / folder / "5.txt").unlink()
+
+        def committed_rows():
+            with sqlite3.connect(self.database) as db:
+                return {
+                    path: (status, scan)
+                    for path, status, scan in db.execute(
+                        "SELECT f.path,o.status,o.scan_id FROM observations o "
+                        "JOIN files f ON f.id=o.file_id"
+                    )
+                }
+
+        first = native(
+            self.database,
+            "observe",
+            "scan",
+            source="media",
+            budgets={"directory_entries": 3},
+        )["observations"][0]
+        self.assertEqual(committed_rows()["one/5.txt"][0], "present")
+        self.assertEqual(committed_rows()["two/5.txt"][0], "present")
+        selected = native(
+            self.database,
+            "observe",
+            "scan",
+            continue_id=first["request_id"],
+            extended=True,
+            scopes=["one"],
+        )
+        self.assertFalse(selected["complete"])
+        second = selected["observations"][0]
+        self.assertEqual(second["parent_job"], first["id"])
+        self.assertEqual(committed_rows()["one/5.txt"][0], "missing")
+        self.assertEqual(committed_rows()["two/5.txt"][0], "present")
+
+        # A third generation finishes the other selected scope, then exits
+        # before acknowledging completion. Every native call is a fresh process.
+        native(
+            self.database,
+            "observe",
+            "scan",
+            continue_id=second["request_id"],
+            extended=True,
+            scopes=["two"],
+            crash_after_scope="two",
+            expected=86,
+        )
+        with sqlite3.connect(self.database) as db:
+            request, interrupted_job, interrupted_scan, parent = db.execute(
+                "SELECT r.id,j.id,j.scan_id,j.parent_job "
+                "FROM observation_requests r "
+                "JOIN observation_jobs j ON j.id=r.job_id "
+                "WHERE j.parent_job=?",
+                (second["id"],),
+            ).fetchone()
+        self.assertEqual(parent, second["id"])
+        self.assertEqual(committed_rows()["two/5.txt"], ("missing", interrupted_scan))
+
+        # Invalidate both the completed ancestor scope and the interrupted
+        # child's seen evidence. Readmission must not inherit either as fresh.
+        (self.source / "one/0.txt").unlink()
+        (self.source / "two/5.txt").write_text("returned after interruption")
+        native(self.database, "observe", "dirty", source="media")
+        resumed = native(self.database, "observe", "scan", request_id=request)
+        self.assertTrue(resumed["complete"], resumed)
+        with sqlite3.connect(self.database) as db:
+            job, scan, parent, generation, current = db.execute(
+                "SELECT j.id,j.scan_id,j.parent_job,j.dirty_generation,"
+                "s.dirty_generation FROM observation_requests r "
+                "JOIN observation_jobs j ON j.id=r.job_id "
+                "JOIN observation_sources s ON s.profile=j.profile "
+                "AND s.source=j.source WHERE r.id=?",
+                (request,),
+            ).fetchone()
+            self.assertEqual(
+                db.execute(
+                    "SELECT parent_job FROM observation_jobs WHERE id=?",
+                    (interrupted_job,),
+                ).fetchone()[0],
+                second["id"],
+            )
+        self.assertNotEqual(job, interrupted_job)
+        self.assertNotEqual(scan, interrupted_scan)
+        self.assertEqual(parent, second["id"])
+        self.assertEqual(generation, current)
+        rows = committed_rows()
+        self.assertEqual(rows["one/0.txt"], ("missing", scan))
+        self.assertEqual(rows["two/5.txt"], ("present", scan))
+        self.assertEqual(
+            {path for path, (status, _) in rows.items() if status == "missing"},
+            {"one/0.txt", "one/5.txt"},
+        )
+
     def test_dirty_interrupted_scan_readmits_before_publishing_missing(self):
         (self.source / "healthy").mkdir()
         (self.source / "healthy" / "one.txt").write_text("one")
-        (self.source / "later").mkdir()
-        vanished = self.source / "later" / "old.txt"
+        # Directory enumeration does not promise sibling order. Nest the
+        # deferred work below the interruption scope so it cannot be visited
+        # before healthy's completion callback exits the process.
+        (self.source / "healthy" / "later").mkdir()
+        vanished = self.source / "healthy" / "later" / "old.txt"
         vanished.write_text("old")
         native(self.database, "observe", "scan", source="media")
         vanished.unlink()
-        native(self.database, "observe", "scan", source="media", crash_after_scope="healthy", expected=86)
+        native(
+            self.database,
+            "observe",
+            "scan",
+            source="media",
+            crash_after_scope="healthy",
+            expected=86,
+        )
         with sqlite3.connect(self.database) as db:
-            request, old_job, old_scan = db.execute("SELECT r.id,j.id,j.scan_id FROM observation_requests r JOIN observation_jobs j ON j.id=r.job_id ORDER BY j.requested_at DESC LIMIT 1").fetchone()
-            self.assertEqual(db.execute("SELECT o.status FROM observations o JOIN files f ON f.id=o.file_id WHERE f.path='later/old.txt'").fetchone()[0], "present")
+            request, old_job, old_scan = db.execute(
+                "SELECT r.id,j.id,j.scan_id FROM observation_requests r JOIN observation_jobs j ON j.id=r.job_id ORDER BY j.requested_at DESC LIMIT 1"
+            ).fetchone()
+            self.assertEqual(
+                db.execute(
+                    "SELECT o.status FROM observations o JOIN files f ON f.id=o.file_id WHERE f.path='healthy/later/old.txt'"
+                ).fetchone()[0],
+                "present",
+            )
         native(self.database, "observe", "dirty", source="media")
         result = native(self.database, "observe", "scan", request_id=request)
         self.assertTrue(result["complete"], result)
         with sqlite3.connect(self.database) as db:
-            new_job, new_scan, dirty = db.execute("SELECT j.id,j.scan_id,j.dirty_generation FROM observation_requests r JOIN observation_jobs j ON j.id=r.job_id WHERE r.id=?", (request,)).fetchone()
-            status, recorded_scan = db.execute("SELECT o.status,o.scan_id FROM observations o JOIN files f ON f.id=o.file_id WHERE f.path='later/old.txt'").fetchone()
-            current_dirty = db.execute("SELECT dirty_generation FROM observation_sources WHERE profile='default' AND source='media'").fetchone()[0]
+            new_job, new_scan, dirty = db.execute(
+                "SELECT j.id,j.scan_id,j.dirty_generation FROM observation_requests r JOIN observation_jobs j ON j.id=r.job_id WHERE r.id=?",
+                (request,),
+            ).fetchone()
+            status, recorded_scan = db.execute(
+                "SELECT o.status,o.scan_id FROM observations o JOIN files f ON f.id=o.file_id WHERE f.path='healthy/later/old.txt'"
+            ).fetchone()
+            current_dirty = db.execute(
+                "SELECT dirty_generation FROM observation_sources WHERE profile='default' AND source='media'"
+            ).fetchone()[0]
         self.assertNotEqual(new_job, old_job)
         self.assertNotEqual(new_scan, old_scan)
         self.assertEqual(dirty, current_dirty)
@@ -376,26 +500,63 @@ class NativeObservationDifferentialTest(unittest.TestCase):
 
     def test_continuation_refuses_active_parent_without_changing_inventory(self):
         (self.source / "one.txt").write_text("one")
-        native(self.database, "observe", "scan", source="media", crash_after_scope="", expected=86)
+        native(
+            self.database,
+            "observe",
+            "scan",
+            source="media",
+            crash_after_scope="",
+            expected=86,
+        )
         with sqlite3.connect(self.database) as db:
-            request, job = db.execute("SELECT id,job_id FROM observation_requests").fetchone()
-            state = db.execute("SELECT state,claim_token FROM observation_jobs WHERE id=?", (job,)).fetchone()
+            request, job = db.execute(
+                "SELECT id,job_id FROM observation_requests"
+            ).fetchone()
+            state = db.execute(
+                "SELECT state,claim_token FROM observation_jobs WHERE id=?", (job,)
+            ).fetchone()
         self.assertEqual(state[0], "running")
         before = self.snapshot(self.database)
         with self.assertRaisesRegex(CatabolicError, "observation still active"):
             native(self.database, "observe", "scan", continue_id=request, extended=True)
         self.assertEqual(self.snapshot(self.database), before)
         with sqlite3.connect(self.database) as db:
-            self.assertEqual(db.execute("SELECT state,claim_token FROM observation_jobs WHERE id=?", (job,)).fetchone(), state)
+            self.assertEqual(
+                db.execute(
+                    "SELECT state,claim_token FROM observation_jobs WHERE id=?", (job,)
+                ).fetchone(),
+                state,
+            )
 
     def test_continuation_rejects_changed_policy_without_publishing_absence(self):
         for index in range(8):
             (self.source / f"{index}.txt").write_text(str(index))
-        first = native(self.database, "observe", "scan", source="media", budgets={"directory_entries": 3})
-        native(self.database, "observe", "scan_policy", source="media", policy={"extensions": [".txt"]}, apply=True)
+        first = native(
+            self.database,
+            "observe",
+            "scan",
+            source="media",
+            budgets={"directory_entries": 3},
+        )
+        native(
+            self.database,
+            "observe",
+            "scan_policy",
+            source="media",
+            policy={"extensions": [".txt"]},
+            apply=True,
+        )
         before = self.snapshot(self.database)
-        with self.assertRaisesRegex(CatabolicError, "observation policy or binding changed"):
-            native(self.database, "observe", "scan", continue_id=first["observations"][0]["request_id"], extended=True)
+        with self.assertRaisesRegex(
+            CatabolicError, "observation policy or binding changed"
+        ):
+            native(
+                self.database,
+                "observe",
+                "scan",
+                continue_id=first["observations"][0]["request_id"],
+                extended=True,
+            )
         self.assertEqual(self.snapshot(self.database), before)
 
     def test_continuation_rejects_new_dirty_generation(self):

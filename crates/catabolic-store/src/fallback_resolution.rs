@@ -648,9 +648,26 @@ impl<'a, 'b> Resolver<'a, 'b> {
                 text(candidate, "revision")?.to_owned().into(),
             ],
         )?;
-        let old = rows.first();
+        let old = rows
+            .first()
+            .map(|old| -> Result<_> {
+                Ok(catabolic_core::resolution::Health {
+                    healthy_since: old["healthy_since"]
+                        .as_f64()
+                        .ok_or_else(|| Error("invalid_fallback_health".into()))?,
+                    successes: old["successes"]
+                        .as_i64()
+                        .ok_or_else(|| Error("invalid_fallback_health".into()))?,
+                    last_check: old["last_check"]
+                        .as_f64()
+                        .ok_or_else(|| Error("invalid_fallback_health".into()))?,
+                })
+            })
+            .transpose()?;
+        let health = catabolic_core::resolution::health_success(old, now)
+            .map_err(|error| Error(error.into()))?;
         Ok(
-            json!({"profile":self.profile(),"catalog":catalog,"entry_id":entry,"file_id":candidate["file_id"],"revision":candidate["revision"],"healthy_since":old.map_or(json!(now),|r|r["healthy_since"].clone()),"successes":old.and_then(|r|r["successes"].as_i64()).unwrap_or(0)+1,"last_check":now}),
+            json!({"profile":self.profile(),"catalog":catalog,"entry_id":entry,"file_id":candidate["file_id"],"revision":candidate["revision"],"healthy_since":health.healthy_since,"successes":health.successes,"last_check":health.last_check}),
         )
     }
     pub fn resolve(

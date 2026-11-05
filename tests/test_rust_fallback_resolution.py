@@ -102,7 +102,12 @@ class NativeFallbackResolutionTest(unittest.TestCase):
             tiers.append({"name": name, "query_id": query})
         policy = Policies(self.store).put(
             "bounded-tiers",
-            {"fallbacks": tiers, "budgets": {"max_candidates": 2}},
+            {
+                "fallbacks": tiers,
+                # This case tests cumulative candidate admission, not helper
+                # startup deadlines; use the same probe budget as policy().
+                "budgets": {"max_candidates": 2, "probe_timeout_ms": 5000},
+            },
         )["id"]
         (self.source / "main.bin").unlink()
         result = self.pair(policy)

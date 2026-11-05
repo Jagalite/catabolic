@@ -334,10 +334,25 @@ pub fn check() -> Result<(), Box<dyn Error>> {
         "production resolution graph exhausted: {} states, {} transitions, zero skipped checks",
         report.states, report.transitions
     );
+    let history = enumerate(&HistoryAdapter { fault: false }, SearchConfig::default())?;
+    if history.failure.is_some()
+        || history.termination != SearchTermination::GraphExhausted
+        || history.skipped_checks != 0
+    {
+        return Err(format!(
+            "resolution history failed/incomplete: {:?}",
+            history.termination
+        )
+        .into());
+    }
+    println!(
+        "resolution history graph exhausted: {} states, {} transitions, zero skipped checks",
+        history.states, history.transitions
+    );
     Ok(())
 }
 pub fn find(directory: &str) -> Result<(), Box<dyn Error>> {
-    let model = Auto::new(Adapter { fault: true });
+    let model = Auto::new(HistoryAdapter { fault: true });
     let failure = enumerate(&model, SearchConfig::default())?
         .failure
         .ok_or("injected resolution fault not found")?;
@@ -349,8 +364,9 @@ pub fn find(directory: &str) -> Result<(), Box<dyn Error>> {
         strategy: "catabolic-resolution".into(),
         seed: None,
         parameters: vec![
-            ("candidates".into(), "3".into()),
-            ("observations".into(), "3".into()),
+            ("candidates".into(), "2".into()),
+            ("revisions".into(), "2 per candidate".into()),
+            ("admissions".into(), "3".into()),
         ],
     };
     std::fs::create_dir(directory)?;
@@ -376,7 +392,7 @@ pub fn find(directory: &str) -> Result<(), Box<dyn Error>> {
 pub fn replay_trace(path: &str) -> Result<(), Box<dyn Error>> {
     let trace = Trace::read_from(File::open(path)?, &ReadLimits::default())?;
     let result = replay(
-        &Adapter { fault: true },
+        &HistoryAdapter { fault: true },
         &trace,
         ReplayOptions {
             allow_build_mismatch: false,
@@ -388,4 +404,422 @@ pub fn replay_trace(path: &str) -> Result<(), Box<dyn Error>> {
     }
     println!("resolution fresh-process replay exact, failed property reproduced, matching build");
     Ok(())
+}
+
+// Two candidate identities, two revisions each, three accepted plans, time 0..2.
+// Probe, SQL key lookup and health-set replacement are adapter abstractions.
+// Core owns accumulation, failback, admission and verification decisions. A
+// restart preserves durable history while dropping uncommitted observations.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+struct HealthSlot {
+    revision: u8,
+    count: u8,
+    since: u8,
+    last: u8,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+struct Probe {
+    candidate: u8,
+    revision: u8,
+    generation: u8,
+    stale: bool,
+}
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+struct History {
+    revisions: [u8; 2],
+    health: [Option<HealthSlot>; 2],
+    now: u8,
+    generation: u8,
+    verified: u8,
+    probe: Option<Probe>,
+    verification: Option<u8>,
+    violation: bool,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+enum HistoryEvent {
+    Begin(u8),
+    Result(bool),
+    Revise(u8),
+    Tick,
+    CompetingAdmission,
+    Choose { candidate: u8, previous_live: bool },
+    BeginVerification,
+    Verify { healthy: bool, binding: bool },
+    Restart,
+}
+struct HistoryAdapter {
+    fault: bool,
+}
+impl HistoryAdapter {
+    fn apply(&self, before: &History, event: &HistoryEvent) -> Result<History, ModelError> {
+        use catabolic_core::publication_progress::{self, Effect, Evidence};
+        let mut after = before.clone();
+        match *event {
+            HistoryEvent::Tick if before.now < 2 => after.now += 1,
+            HistoryEvent::Begin(candidate) if before.generation < 3 => {
+                after.probe = Some(Probe {
+                    candidate,
+                    revision: before.revisions[usize::from(candidate)],
+                    generation: before.generation,
+                    stale: false,
+                });
+            }
+            HistoryEvent::Revise(candidate) if before.revisions[usize::from(candidate)] == 0 => {
+                after.revisions[usize::from(candidate)] = 1;
+                if let Some(p) = &mut after.probe {
+                    p.stale = true;
+                }
+            }
+            HistoryEvent::CompetingAdmission if before.generation < 3 => after.generation += 1,
+            HistoryEvent::Result(success) if before.generation < 3 => {
+                if let Some(p) = &before.probe {
+                    let index = usize::from(p.candidate);
+                    let eligible = !p.stale
+                        && p.generation == before.generation
+                        && p.revision == before.revisions[index];
+                    let effect = resolution::projection(ProjectionAdmission {
+                        expected_epoch: 0,
+                        current_epoch: i64::from(p.stale),
+                        expected_generation: i64::from(p.generation),
+                        current_generation: i64::from(before.generation),
+                        safe: true,
+                        changes: 0,
+                        removals: 0,
+                        max_changes: 1,
+                        max_removals: 1,
+                    });
+                    after.violation |= effect.is_ok() != eligible;
+                    if let Ok(effect) = effect {
+                        after.violation |=
+                            effect.generation != i64::from(before.generation + 1) || effect.retain;
+                        after.generation = effect.generation as u8;
+                        after.health[index] = if success {
+                            let old = before.health[index]
+                                .as_ref()
+                                .filter(|h| h.revision == p.revision || self.fault);
+                            let record = resolution::health_success(
+                                old.map(|h| resolution::Health {
+                                    healthy_since: f64::from(h.since),
+                                    successes: i64::from(h.count),
+                                    last_check: f64::from(h.last),
+                                }),
+                                f64::from(before.now),
+                            )
+                            .map_err(ModelError::new)?;
+                            Some(HealthSlot {
+                                revision: p.revision,
+                                count: record.successes as u8,
+                                since: record.healthy_since as u8,
+                                last: record.last_check as u8,
+                            })
+                        } else {
+                            None
+                        };
+                    }
+                    // Independent accepted-history oracle: candidate identity,
+                    // exact revision, failure reset, and no early verification.
+                    let expected = if !eligible {
+                        before.health[index].clone()
+                    } else if !success {
+                        None
+                    } else {
+                        let old = before.health[index]
+                            .as_ref()
+                            .filter(|h| h.revision == p.revision);
+                        Some(HealthSlot {
+                            revision: p.revision,
+                            count: old.map_or(1, |h| h.count + 1),
+                            since: old.map_or(before.now, |h| h.since),
+                            last: before.now,
+                        })
+                    };
+                    after.violation |= after.health[index] != expected
+                        || after.health[1 - index] != before.health[1 - index]
+                        || after.generation != before.generation + u8::from(eligible)
+                        || after.verified != before.verified;
+                    after.probe = None;
+                }
+            }
+            HistoryEvent::Choose {
+                candidate,
+                previous_live,
+            } => {
+                let i = usize::from(candidate);
+                let h = before.health[i]
+                    .as_ref()
+                    .filter(|h| h.revision == before.revisions[i]);
+                let count = h.map_or(0, |h| h.count);
+                let since = h.map_or(before.now, |h| h.since);
+                let effect = resolution::failback(Failback {
+                    mode: FailbackMode::Stable,
+                    manual_override: false,
+                    improving_tier: true,
+                    previous_eligible_and_live: previous_live,
+                    successful_checks: u64::from(count),
+                    minimum_successful_checks: 2,
+                    healthy_since: f64::from(since),
+                    now: f64::from(before.now),
+                    minimum_healthy_seconds: 1,
+                });
+                let expected = !previous_live || (count >= 2 && before.now > since);
+                after.violation |= (effect == FailbackEffect::Preferred) != expected;
+            }
+            HistoryEvent::BeginVerification => after.verification = Some(before.generation),
+            HistoryEvent::Verify { healthy, binding } => {
+                let effect = publication_progress::decide(Evidence {
+                    observed_generation: before.verification.map(i64::from),
+                    current_generation: i64::from(before.generation),
+                    verified_generation: i64::from(before.verified),
+                    binding_matches: binding,
+                    healthy,
+                });
+                let expected = healthy
+                    && binding
+                    && before.verification == Some(before.generation)
+                    && before.generation > before.verified;
+                match effect {
+                    Effect::Verify { generation } => {
+                        after.violation |= !expected || generation != i64::from(before.generation);
+                        after.verified = generation as u8;
+                    }
+                    Effect::RetainPending => after.violation |= expected,
+                }
+            }
+            HistoryEvent::Restart => {
+                after = serde_json::from_slice(
+                    &serde_json::to_vec(before).map_err(|e| ModelError::new(e.to_string()))?,
+                )
+                .map_err(|e| ModelError::new(e.to_string()))?;
+                after.probe = None;
+                after.verification = None;
+                after.violation |= after.health != before.health
+                    || after.generation != before.generation
+                    || after.verified != before.verified;
+            }
+            _ => {}
+        }
+        after.violation |= after.verified > after.generation;
+        Ok(after)
+    }
+}
+impl Model for HistoryAdapter {
+    type State = History;
+    type Input = HistoryEvent;
+    type Output = String;
+    fn metadata(&self) -> ModelMetadata {
+        ModelMetadata {
+            name: "catabolic-resolution".into(),
+            model_version: 2,
+            properties_version: 2,
+            codec_version: 2,
+            build: format!(
+                "{}-fault={}",
+                sha256(
+                    [
+                        include_bytes!("../../catabolic-core/src/resolution.rs").as_slice(),
+                        include_bytes!("../../catabolic-core/src/publication_progress.rs")
+                            .as_slice(),
+                        include_bytes!("resolution.rs").as_slice(),
+                        include_bytes!("../../../Cargo.lock").as_slice()
+                    ]
+                    .concat()
+                ),
+                self.fault
+            ),
+        }
+    }
+    fn initial_state(&self) -> Result<History, ModelError> {
+        Ok(History::default())
+    }
+    fn step(
+        &self,
+        before: &History,
+        input: &HistoryEvent,
+    ) -> Result<Transition<History, String>, ModelError> {
+        Ok(Transition::accepted(
+            self.apply(before, input)?,
+            vec![format!("{input:?}")],
+        ))
+    }
+    fn check_state(&self, s: &History) -> Result<Vec<Check>, ModelError> {
+        Ok(vec![if s.violation {
+            Check::failed(
+                "resolution.history",
+                "candidate/revision health, stable failback or verified-generation obligation violated",
+            )
+        } else {
+            Check::passed("resolution.history")
+        }])
+    }
+}
+impl Enumerate for HistoryAdapter {
+    fn inputs(&self, _: &History) -> Result<Vec<HistoryEvent>, ModelError> {
+        let mut inputs = vec![
+            HistoryEvent::Tick,
+            HistoryEvent::Result(false),
+            HistoryEvent::Result(true),
+            HistoryEvent::CompetingAdmission,
+            HistoryEvent::BeginVerification,
+            HistoryEvent::Restart,
+        ];
+        for candidate in 0..2 {
+            inputs.extend([
+                HistoryEvent::Begin(candidate),
+                HistoryEvent::Revise(candidate),
+                HistoryEvent::Choose {
+                    candidate,
+                    previous_live: true,
+                },
+                HistoryEvent::Choose {
+                    candidate,
+                    previous_live: false,
+                },
+            ]);
+        }
+        for healthy in [false, true] {
+            for binding in [false, true] {
+                inputs.push(HistoryEvent::Verify { healthy, binding });
+            }
+        }
+        Ok(inputs)
+    }
+}
+impl ModelCodec for HistoryAdapter {
+    fn encode_state(&self, v: &History) -> Result<Vec<u8>, ModelError> {
+        codec(v)
+    }
+    fn decode_state(&self, v: &[u8]) -> Result<History, ModelError> {
+        let s: History = serde_json::from_slice(v).map_err(|e| ModelError::new(e.to_string()))?;
+        if s.now > 2
+            || s.generation > 3
+            || s.verified > s.generation
+            || s.revisions.iter().any(|r| *r > 1)
+            || s.verification.is_some_and(|g| g > 3)
+            || s.probe
+                .as_ref()
+                .is_some_and(|p| p.candidate > 1 || p.revision > 1 || p.generation > 3)
+            || s.health.iter().flatten().any(|h| {
+                h.revision > 1 || h.count == 0 || h.count > 3 || h.since > h.last || h.last > s.now
+            })
+        {
+            return Err(ModelError::new("resolution history state outside bounds"));
+        }
+        Ok(s)
+    }
+    fn encode_input(&self, v: &HistoryEvent) -> Result<Vec<u8>, ModelError> {
+        codec(v)
+    }
+    fn decode_input(&self, v: &[u8]) -> Result<HistoryEvent, ModelError> {
+        let e: HistoryEvent =
+            serde_json::from_slice(v).map_err(|e| ModelError::new(e.to_string()))?;
+        if matches!(e,HistoryEvent::Begin(c)|HistoryEvent::Revise(c)|HistoryEvent::Choose{candidate:c,..} if c>1)
+        {
+            return Err(ModelError::new("resolution candidate outside bounds"));
+        }
+        Ok(e)
+    }
+    fn encode_output(&self, v: &String) -> Result<Vec<u8>, ModelError> {
+        codec(v)
+    }
+}
+#[cfg(test)]
+mod history_tests {
+    use super::*;
+    fn run(fault: bool, events: &[HistoryEvent]) -> History {
+        let model = HistoryAdapter { fault };
+        events
+            .iter()
+            .fold(History::default(), |s, e| model.apply(&s, e).unwrap())
+    }
+    #[test]
+    fn revision_change_cannot_inherit_health_even_after_restart() {
+        use HistoryEvent::*;
+        let events = [
+            Begin(0),
+            Result(true),
+            Tick,
+            Revise(0),
+            Restart,
+            Begin(0),
+            Result(true),
+        ];
+        let good = run(false, &events);
+        assert_eq!(good.health[0].as_ref().unwrap().count, 1);
+        assert_eq!(good.health[0].as_ref().unwrap().since, 1);
+        assert!(!good.violation);
+        assert!(run(true, &events).violation);
+    }
+    #[test]
+    fn failed_and_stale_evidence_do_not_advance_health_or_publication() {
+        use HistoryEvent::*;
+        let stale = run(false, &[Begin(0), Revise(0), Result(true)]);
+        assert_eq!(stale.generation, 0);
+        assert!(stale.health[0].is_none());
+        let failed = run(
+            false,
+            &[
+                Begin(0),
+                Result(true),
+                Begin(1),
+                Result(true),
+                Begin(0),
+                Result(false),
+            ],
+        );
+        assert!(failed.health[0].is_none());
+        assert_eq!(failed.health[1].as_ref().unwrap().count, 1);
+        assert_eq!(failed.verified, 0);
+        assert!(!failed.violation);
+        let stale_verify = run(
+            false,
+            &[
+                Begin(0),
+                Result(true),
+                BeginVerification,
+                CompetingAdmission,
+                Verify {
+                    healthy: true,
+                    binding: true,
+                },
+                Restart,
+            ],
+        );
+        assert_eq!(stale_verify.generation, 2);
+        assert_eq!(stale_verify.verified, 0);
+        assert!(!stale_verify.violation);
+    }
+    #[test]
+    fn count_and_age_thresholds_are_both_required() {
+        use HistoryEvent::*;
+        let s = run(
+            false,
+            &[
+                Begin(0),
+                Result(true),
+                Choose {
+                    candidate: 0,
+                    previous_live: true,
+                },
+                Begin(0),
+                Result(true),
+                Choose {
+                    candidate: 0,
+                    previous_live: true,
+                },
+                Tick,
+                Choose {
+                    candidate: 0,
+                    previous_live: true,
+                },
+                BeginVerification,
+                Verify {
+                    healthy: true,
+                    binding: true,
+                },
+            ],
+        );
+        assert_eq!(s.health[0].as_ref().unwrap().count, 2);
+        assert_eq!(s.verified, 2);
+        assert!(!s.violation);
+    }
 }

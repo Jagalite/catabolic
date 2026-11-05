@@ -545,7 +545,9 @@ pub fn complete_job(
     store.transaction(|db|{apply_decision(store,job,decision)?;if decision.state==catabolic_core::playback::State::Ready {db.execute("UPDATE api_playback_jobs SET segment_count=?,available_seconds=? WHERE id=? AND state='ready'",params![i64::try_from(count).map_err(|_|Error("invalid_playback_cache".into()))?,seconds,text(job,"id")?])?;}Ok(())})
 }
 pub fn fail_job(store: &Store, id: &str, code: &str) -> Result<()> {
-    let state = if code == "playback_cancelled" {
+    let state = if catabolic_core::playback::failure_state(code)
+        == catabolic_core::playback::State::Cancelled
+    {
         "cancelled"
     } else {
         "failed"
