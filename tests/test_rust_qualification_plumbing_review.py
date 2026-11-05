@@ -634,8 +634,10 @@ class QualificationShellReview(unittest.TestCase):
     def test_linux_uses_custom_target_explicit_artifacts_oracle_and_budget_case(self):
         checkout, reference, calls = self.run_shell("Linux")
         self.assertEqual(
-            calls[:2],
+            calls[:4],
             [
+                ["uname", ["-s"]],
+                ["python", ["scripts/check_native_audit_prerequisites.py"]],
                 ["python", ["scripts/generate_graphql_printable.py", "--check"]],
                 ["python", ["scripts/generate_plex_xml_encodings.py", "--check"]],
             ],

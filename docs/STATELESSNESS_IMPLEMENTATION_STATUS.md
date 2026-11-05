@@ -1,8 +1,41 @@
 # Statelessness implementation status
 
-This is a working inventory for the roadmap in [STATELESSNESS_AUDIT.md](STATELESSNESS_AUDIT.md). The audit remains a historical snapshot; this file tracks subsequent work. A checked model covers only its stated bounds and does not replace committed-database, crash, or live-effect qualification.
+This file preserves the execution history for [STATELESSNESS_AUDIT.md](STATELESSNESS_AUDIT.md). A checked model covers only its stated bounds and does not replace committed-database, crash, or live-effect qualification.
 
-| Area | Current scope | Remaining work |
+## Current state (2026-11-04)
+
+The bounded implementation and reviewed local checkpoint were completed at
+`a6a2ff0307f0bf035f22cee8e89fc2c3eb185fc2`. That exact commit was restored after
+workspace replacement, checking all 1,872 tracked file hashes. Its 24 model checks
+and fault replays passed, with the scoped adapter results retained below.
+**Overall qualification remains incomplete** because required storage and
+historical evidence/runtime prerequisites are unavailable. See the
+[local closure checklist](STATELESSNESS_COMPLETION_CHECKLIST.md#local-closure-status-after-resumed-implementation)
+and the resumed result sections below; the opening historical inventory is not a
+list of remaining implementation tasks today.
+
+A read-only diagnostic can expose three known late Linux blockers before costly
+builds/tests: `python3 scripts/check_native_audit_prerequisites.py`. It checks the
+native Rust test temporary filesystem's reported UUID, invokes the original complete capture
+verifier, and checks the historical Python executable hash. Pass
+`--python-oracle PATH` when the retained interpreter is elsewhere. A nonzero exit
+reports missing prerequisites together. Even an all-available report explicitly
+says qualification was not run; toolchains, packages, SQLite capabilities,
+reference traceback paths and all existing test gates remain separate checks.
+The Linux aggregate invokes this diagnostic before building, without removing
+any mandatory test. Running it with system Python is diagnostic execution only,
+not substitution of the qualification oracle.
+
+On 2026-11-04, 32 standard-Python diagnostic/gate-wiring regression tests passed,
+including all 72 deliberate model-command failure controls. Ruff checks and
+bundled-guide synchronization passed. The real diagnostic exited nonzero and
+reported the unavailable UUID/capture/interpreter prerequisites together. These
+are diagnostic and wiring results only; no native qualification was rerun, and
+all historical failure receipts and identity requirements remain unchanged.
+
+## Historical inventory before the 2026-11-02 resumed work
+
+| Area | Scope at that checkpoint | Work remaining at that checkpoint |
 | --- | --- | --- |
 | Shared request and playback | Required-effect obligations and omission unit controls; bounded checks and fault replay. | Check actual durable shared-job behavior and composition; maintain gate evidence. |
 | Existing core reducers | Coordination, execution, rendition and resolution have bounded Statelessness adapters and fault discovery/replay. | Their bounded domains omit some inputs and their isolated decisions are not database comparisons; composition remains open. |
@@ -19,7 +52,7 @@ This is a working inventory for the roadmap in [STATELESSNESS_AUDIT.md](STATELES
 
 The native qualification script invokes the available checks and records fault traces. Running its individual commands is not a pass of the full script. Keep source review, compile-only results, executed tests, bounded checks, database integration, and production qualification distinct in evidence receipts.
 
-## Current validation limits
+## Historical validation limits before the resumed work
 
 An earlier failpoints-enabled filesystem suite passed 21 tests and the notification store suite passed eight. A subsequent filesystem run without the required failpoints feature returned 15 passed and seven failed; the subsequent failpoints-enabled rerun passed all 22 tests. The runtime library suite initially returned 167 passed, 12 failed and two ignored with a symlinked macOS temporary root. The same pre-processing-change binary passed 179 tests with two ignored when rerun with `TMPDIR=/private/tmp`; this is not evidence for later source changes. The current workspace-built runtime library executable subsequently passed 179 tests with two ignored, using `TMPDIR=/private/tmp`; this does not cover the ignored tests or all integration targets. Focused processing and ticket tests and models have since passed; they do not establish the full concurrency or transfer contracts. Recheck job results and source identities before treating any later result as current.
 

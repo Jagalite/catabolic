@@ -24,6 +24,11 @@ if [ ! -f "$fixtures/schema-32/before.sqlite3" ]; then
     echo "Historical fixtures are missing. Generate them with scripts/migration_fixtures.py from the pinned reference before qualification." >&2
     exit 1
 fi
+# Refuse known late Linux prerequisites before expensive builds and scenarios.
+# This diagnostic does not replace any mandatory check below.
+if [ "$(uname -s)" = Linux ]; then
+    "$python" scripts/check_native_audit_prerequisites.py
+fi
 # Reproduce interpreter-dependent tables without mutating qualified source bytes.
 "$python" scripts/generate_graphql_printable.py --check
 PYTHONPATH="$CATABOLIC_PYTHON_REFERENCE" "$python" scripts/generate_plex_xml_encodings.py --check
