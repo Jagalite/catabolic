@@ -11,7 +11,9 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sqlite3
+import sys
 import unittest
 from contextlib import closing
 from datetime import datetime, timezone
@@ -175,6 +177,10 @@ class PublicationBundlePreviewTest(unittest.TestCase):
             + "'\nexit 99\n"
         )
         program.chmod(0o755)
+        if sys.platform.startswith("linux"):
+            findmnt = shutil.which("findmnt")
+            self.assertIsNotNone(findmnt, "Linux volume identity requires findmnt")
+            (self.bin / "findmnt").symlink_to(findmnt)
         self.env["PATH"] = str(self.bin)
 
     def snapshot(self):

@@ -40,7 +40,9 @@ PYTHONPATH="$CATABOLIC_PYTHON_REFERENCE" "$python" scripts/generate_plex_xml_enc
 target_dir=$(cargo metadata --locked --format-version=1 --no-deps | "$python" -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])')
 cargo fmt --all -- --check
 cargo clippy --locked --workspace --all-targets -- -D warnings
-cargo build --locked -p catabolic-cli -p catabolic-verification -p catabolic-http --bins
+# Qualification exercises crash recovery through request-field failpoints. These
+# debug artifacts are separate from the release builds checked below.
+cargo build --locked -p catabolic-cli -p catabolic-verification -p catabolic-http --bins --features catabolic-store/failpoints
 cargo build --locked -p catabolic-cli --example legacy_parse
 cargo build --locked -p catabolic-python
 evidence=.local-tests/rust-migration/m4-plus

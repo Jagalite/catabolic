@@ -609,6 +609,7 @@ class QualificationShellReview(unittest.TestCase):
             "STUB_FAILURE": failure or "",
             "STUB_SCRIPT_FAILURE": script_failure or "",
         }
+        env.pop("CATABOLIC_CI_EXCLUDE_HISTORICAL", None)
         run = subprocess.run(
             ["sh", str(script)],
             env=env,
@@ -642,6 +643,13 @@ class QualificationShellReview(unittest.TestCase):
                 ["python", ["scripts/generate_plex_xml_encodings.py", "--check"]],
             ],
         )
+        builds = [
+            args for tool, args in calls if tool == "cargo" and args[0] == "build"
+        ]
+        build = next(
+            args for args in builds if "catabolic-cli" in args and "--bins" in args
+        )
+        self.assertIn("catabolic-store/failpoints", build)
         qualifier = next(
             args
             for tool, args in calls
