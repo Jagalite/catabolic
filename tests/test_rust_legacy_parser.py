@@ -17,6 +17,7 @@ import itertools
 import json
 import math
 import os
+import re
 import subprocess
 import tempfile
 import tomllib
@@ -166,6 +167,39 @@ def strict(value):
     if isinstance(value, float):
         return ["float", "nan" if math.isnan(value) else repr(value)]
     return [type(value).__name__, value]
+
+
+def portable_graphql_traceback(envelope):
+    """Compare captured traceback frames independently of installation roots."""
+    result = dict(envelope)
+    result["reference"] = dict(result["reference"])
+    result["reference"]["stderr"] = re.sub(
+        r'(?m)^(  File ")[^"\n]*/((?:catabolic/(?:cli|graphql_query)|graphql/language/(?:parser|lexer))\.py)(", line \d+, in )',
+        r"\1<installation>/\2\3",
+        result["reference"]["stderr"],
+    )
+    return result
+
+
+class PortableGraphqlTracebackTest(unittest.TestCase):
+    def test_only_installation_roots_of_known_reference_frames_change(self):
+        original = {
+            "reference": {
+                "stderr": '  File "/one/catabolic/cli.py", line 3, in main\n'
+                '  File "/one/unrelated.py", line 4, in other\n'
+                "IndexError: detail\n"
+            },
+            "legacy": {"stderr": '  File "/one/catabolic/cli.py", line 3, in main\n'},
+        }
+        normalized = portable_graphql_traceback(original)
+        self.assertEqual(
+            normalized["reference"]["stderr"],
+            '  File "<installation>/catabolic/cli.py", line 3, in main\n'
+            '  File "/one/unrelated.py", line 4, in other\n'
+            "IndexError: detail\n",
+        )
+        self.assertEqual(normalized["legacy"], original["legacy"])
+        self.assertIn("/one/catabolic/cli.py", original["reference"]["stderr"])
 
 
 class NativeLegacyParserTest(unittest.TestCase):

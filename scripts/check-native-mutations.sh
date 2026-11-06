@@ -64,6 +64,13 @@ export CATABOLIC_NATIVE_PARSER_BINARY="$(pwd)/$evidence/artifacts/qualification-
 # The four newer native oracle suites have assertions for missing
 # prerequisites; they belong here rather than in the Python reference lane.
 export CATABOLIC_NATIVE_CLI="$CATABOLIC_NATIVE_BINARY"
+# Fail early on the Linux checkpoint's cross-runtime schema and large-rule
+# cases; the full qualification still runs these as part of its inventory.
+if [ "${CATABOLIC_CI_EXCLUDE_HISTORICAL:-0}" = 1 ] && [ "$(uname -s)" = Linux ]; then
+    "$python" -m unittest \
+        tests.test_rust_queries.NativeQueryTest.test_all_catalog_views_and_column_contracts \
+        tests.test_rust_rules.NativeRuleTest.test_full_large_selection_requirements_are_independent_of_display_and_queue_limits
+fi
 "$python" -m unittest \
     tests.test_rendition_trigger_model \
     tests.test_playback_retirement_query \

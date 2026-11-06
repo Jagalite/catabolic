@@ -689,7 +689,7 @@ class NativeLegacyIndependentReview(unittest.TestCase):
         )
         self.assertTrue(rows["rule run"]["gap"])
 
-    def test_resource_regeneration_is_byte_identical(self):
+    def test_resource_regeneration_matches_except_interpreter_build_metadata(self):
         output = self.root / "resource.json"
         result = subprocess.run(
             [
@@ -706,10 +706,19 @@ class NativeLegacyIndependentReview(unittest.TestCase):
             timeout=30,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(
-            output.read_bytes(),
-            (ROOT / "crates/catabolic-cli/resources/legacy-cli.json").read_bytes(),
-        )
+        generated = output.read_bytes()
+        frozen = (ROOT / "crates/catabolic-cli/resources/legacy-cli.json").read_bytes()
+        # Build date and compiler are provenance, not parser behavior. Retain
+        # them in the artifact, but do not require the historical Python build.
+        actual_interpreter = json.loads(generated)["interpreter"]
+        frozen_interpreter = json.loads(frozen)["interpreter"]
+        self.assertTrue(actual_interpreter.startswith("3.14.6 "))
+        self.assertTrue(frozen_interpreter.startswith("3.14.6 "))
+        actual_field = f'"interpreter": {json.dumps(actual_interpreter)}'.encode()
+        frozen_field = f'"interpreter": {json.dumps(frozen_interpreter)}'.encode()
+        self.assertEqual(generated.count(actual_field), 1)
+        self.assertEqual(frozen.count(frozen_field), 1)
+        self.assertEqual(generated.replace(actual_field, frozen_field, 1), frozen)
 
 
 if __name__ == "__main__":
