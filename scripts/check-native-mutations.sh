@@ -27,7 +27,11 @@ fi
 # Refuse known late Linux prerequisites before expensive builds and scenarios.
 # This diagnostic does not replace any mandatory check below.
 if [ "$(uname -s)" = Linux ]; then
-    "$python" scripts/check_native_audit_prerequisites.py
+    if [ "${CATABOLIC_CI_EXCLUDE_HISTORICAL:-0}" = 1 ]; then
+        "$python" scripts/check_native_audit_prerequisites.py --volume-only
+    else
+        "$python" scripts/check_native_audit_prerequisites.py
+    fi
 fi
 # Reproduce interpreter-dependent tables without mutating qualified source bytes.
 "$python" scripts/generate_graphql_printable.py --check
@@ -111,7 +115,9 @@ required_ignored_test access_admin::tests::inherited_scalar_cache_confusion_rema
 # The two exact ASGI test files require an installed release wheel. Verify their
 # fixed 21-scenario inventory before import, and record this mandatory separate
 # prerequisite as pending rather than treating it as skipped or passed.
-"$python" scripts/qualify_native_mutations.py --defer-installed-asgi --binary "$CATABOLIC_NATIVE_BINARY" --http-binary "$CATABOLIC_HTTP_BINARY" --legacy-binary "$CATABOLIC_LEGACY_BINARY" --parser-binary "$CATABOLIC_NATIVE_PARSER_BINARY" --extension-binary "$CATABOLIC_NATIVE_EXTENSION" --reference-root "$reference_root" --python-oracle "$CATABOLIC_PYTHON_ORACLE" --report "$evidence/native-results.json"
+historical_option=""
+if [ "${CATABOLIC_CI_EXCLUDE_HISTORICAL:-0}" = 1 ]; then historical_option="--exclude-historical-evidence"; fi
+"$python" scripts/qualify_native_mutations.py --defer-installed-asgi $historical_option --binary "$CATABOLIC_NATIVE_BINARY" --http-binary "$CATABOLIC_HTTP_BINARY" --legacy-binary "$CATABOLIC_LEGACY_BINARY" --parser-binary "$CATABOLIC_NATIVE_PARSER_BINARY" --extension-binary "$CATABOLIC_NATIVE_EXTENSION" --reference-root "$reference_root" --python-oracle "$CATABOLIC_PYTHON_ORACLE" --report "$evidence/native-results.json"
 "$target_dir"/debug/catabolic-verification check
 "$target_dir"/debug/catabolic-verification check-playback
 "$target_dir"/debug/catabolic-verification check-coordination

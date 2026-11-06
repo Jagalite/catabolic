@@ -146,10 +146,24 @@ def main():
         ),
     )
     parser.add_argument("--temp-root", type=Path, default=native_temp_root())
+    parser.add_argument("--volume-only", action="store_true")
     args = parser.parse_args()
     executable = args.python_oracle
     if not executable.is_absolute():
         executable = ROOT / executable
+    if args.volume_only:
+        try:
+            details = linux_volume_uuid(args.temp_root)
+            report = {"qualification_status": "not_run", "volume": details}
+            print(json.dumps(report, indent=2))
+            return 0
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            print(
+                json.dumps(
+                    {"qualification_status": "not_run", "volume_error": str(error)}
+                )
+            )
+            return 1
     report = inspect(ROOT, executable, args.temp_root)
     print(json.dumps(report, indent=2))
     return 0 if report["known_prerequisites_available"] else 1

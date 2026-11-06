@@ -77,6 +77,7 @@ def argument_parser():
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--pattern", default="test_rust_*.py")
     parser.add_argument("--expected-count", type=int)
+    parser.add_argument("--exclude-historical-evidence", action="store_true")
     parser.add_argument(
         "--defer-installed-asgi",
         action="store_true",
@@ -701,6 +702,44 @@ def cases(suite):
             yield value.id()
 
 
+HISTORICAL_EXCLUSIONS = frozenset(
+    {
+        "tests.test_rust_graphql_lexical_capture.CapturedLexicalFixtureTest.test_raw_receipts_bind_complete_observed_envelopes",
+        "tests.test_rust_graphql_grammar_provenance.GrammarProvenanceFixtureTest.test_complete_original_raw_receipts_remain_verified",
+        "tests.test_rust_graphql_final_composition.FinalCompositionFixtureTest.test_complete_4974_original_capture_receipts_are_retained",
+        *(
+            "tests.test_rust_legacy_mapping_json_diagnostics.NativeLegacyMappingJsonDiagnosticsTest."
+            + name
+            for name in (
+                "test_malformed_subject_syntax_exact_full_process_envelopes",
+                "test_valid_error_looking_values_and_duplicate_keys_are_ordinary_data",
+                "test_decoder_refusals_are_not_reclassified_as_syntax",
+                "test_runtime_v2_preserves_exception_and_exit_without_traceback",
+            )
+        ),
+    }
+)
+
+
+def exclude_historical(suite):
+    def flatten(node):
+        for item in node:
+            if isinstance(item, unittest.TestSuite):
+                yield from flatten(item)
+            else:
+                yield item
+
+    tests = list(flatten(suite))
+    excluded = sorted(test.id() for test in tests if test.id() in HISTORICAL_EXCLUSIONS)
+    if set(excluded) != HISTORICAL_EXCLUSIONS:
+        raise ValueError(
+            "historical exclusion inventory differs from discovered scenarios"
+        )
+    return unittest.TestSuite(
+        test for test in tests if test.id() not in HISTORICAL_EXCLUSIONS
+    ), excluded
+
+
 def discover_native_suite(root, pattern, defer_installed_asgi=False):
     if not defer_installed_asgi:
         from scripts.native_asgi_scenarios import REQUIRED_FILES, validate_sources
@@ -869,9 +908,13 @@ def main():
         suite, installed_prerequisites = discover_native_suite(
             root, args.pattern, args.defer_installed_asgi
         )
+        excluded_historical = []
+        if args.exclude_historical_evidence:
+            suite, excluded_historical = exclude_historical(suite)
     except ValueError as error:
         parser.error(str(error))
     initial_report["installed_prerequisites"] = installed_prerequisites
+    initial_report["excluded_historical_scenarios"] = excluded_historical
     args.report.write_text(json.dumps(initial_report, indent=2) + "\n")
     identifiers = list(cases(suite))
     if not identifiers:
@@ -1018,12 +1061,13 @@ def main():
         if installed_prerequisites
         else "completed",
         "scope": (
-            "Selected native aggregate only; mandatory installed ASGI prerequisites remain pending; "
+            "Selected native aggregate only; excluded historical scenarios are listed separately; mandatory installed ASGI prerequisites remain pending; "
             "not complete milestone qualification"
             if installed_prerequisites
             else "Opt-in native companion checkpoint; not complete milestone qualification"
         ),
         "installed_prerequisites": installed_prerequisites,
+        "excluded_historical_scenarios": excluded_historical,
         "platform": platform.platform(),
         "python": sys.version,
         "binary": str(binary),
@@ -1065,7 +1109,9 @@ def main():
         "seconds": time.monotonic() - start,
         "outcome_coverage_complete": complete,
         "selected_aggregate_passed_without_skips": selected_passed,
-        "passed_without_skips": selected_passed and not installed_prerequisites,
+        "passed_without_skips": selected_passed
+        and not installed_prerequisites
+        and not excluded_historical,
     }
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(value, indent=2) + "\n")

@@ -172,6 +172,11 @@ into a pass.
 The remaining environment/provenance requirements are distinct from audit model
 coverage:
 
+The hosted native checkpoint excludes the three original receipt assertions and
+four historical-interpreter mapping cases, recording their exact IDs in its
+report. A passing selected aggregate does not establish those historical claims
+or full qualification. The full local qualification retains these checks.
+
 - Controlled restore needs an actual writable filesystem reporting a stable
   volume UUID. No fabricated `findmnt` identity or weakened restore guard is used.
 - Three capture-retention assertions need the original sealed capture directory
