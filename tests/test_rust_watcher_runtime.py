@@ -229,27 +229,53 @@ class NativeWatcherRuntimeTest(unittest.TestCase):
         with Store(self.database, writable=True) as store:
             app = Application(store)
             file_id = store.rows("SELECT id FROM files")[0]["id"]
-            item = app.put_item("movie", {"fixture": "replacement"}, {"title": "Title"})["id"]
+            item = app.put_item(
+                "movie", {"fixture": "replacement"}, {"title": "Title"}
+            )["id"]
             app.media.associate(file_id, item)
             operation = Operations(app).put(
                 "probe", {"kind": "analysis", "operation": "probe", "options": {}}
             )["id"]
-        self.call("put", name="replacement", definition={
-            "plan": {"kind": "query", "query_id": self.query},
-            "reaction": "processing", "operation_id": operation,
-        })
+        self.call(
+            "put",
+            name="replacement",
+            definition={
+                "plan": {"kind": "query", "query_id": self.query},
+                "reaction": "processing",
+                "operation_id": operation,
+            },
+        )
         tools = self.root / "replacement-tools"
         tools.mkdir()
-        ready, release = self.root / "replacement-ready", self.root / "replacement-release"
+        ready, release = (
+            self.root / "replacement-ready",
+            self.root / "replacement-release",
+        )
         probe = tools / "ffprobe"
-        probe.write_text('#!/bin/sh\n: > "$WATCHER_READY"\nwhile [ ! -f "$WATCHER_RELEASE" ]; do sleep 0.01; done\necho fixture-version\n')
+        probe.write_text(
+            '#!/bin/sh\n: > "$WATCHER_READY"\nwhile [ ! -f "$WATCHER_RELEASE" ]; do sleep 0.01; done\necho fixture-version\n'
+        )
         probe.chmod(0o755)
         child = subprocess.Popen(
-            [str(BINARY), "--db", str(self.database), "operation", "watcher", "run",
-             "--options", json.dumps({"name": "replacement"})],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-            env=os.environ | {"PATH": str(tools) + os.pathsep + os.environ.get("PATH", ""),
-                              "WATCHER_READY": str(ready), "WATCHER_RELEASE": str(release)},
+            [
+                str(BINARY),
+                "--db",
+                str(self.database),
+                "operation",
+                "watcher",
+                "run",
+                "--options",
+                json.dumps({"name": "replacement"}),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=os.environ
+            | {
+                "PATH": str(tools) + os.pathsep + os.environ.get("PATH", ""),
+                "WATCHER_READY": str(ready),
+                "WATCHER_RELEASE": str(release),
+            },
         )
         deadline = time.monotonic() + 10
         while not ready.exists() and time.monotonic() < deadline:
@@ -263,8 +289,14 @@ class NativeWatcherRuntimeTest(unittest.TestCase):
                         "SELECT active_run,definition_id,pending_generation FROM watchers WHERE name='replacement'"
                     ).fetchone()
                     self.assertIsNotNone(old)
-                    db.execute("INSERT INTO watcher_runs(id,profile,watcher,definition_id,generation,trigger,scheduled_at,started_at,state) VALUES('new-run','default','replacement',?,?,'manual',0,0,'observing')", (definition, generation + 1))
-                    db.execute("UPDATE watchers SET active_run='new-run',lease_until=?,pending_generation=?,requested_generation=? WHERE name='replacement'", (time.time() + 3600, generation + 1, generation + 1))
+                    db.execute(
+                        "INSERT INTO watcher_runs(id,profile,watcher,definition_id,generation,trigger,scheduled_at,started_at,state) VALUES('new-run','default','replacement',?,?,'manual',0,0,'observing')",
+                        (definition, generation + 1),
+                    )
+                    db.execute(
+                        "UPDATE watchers SET active_run='new-run',lease_until=?,pending_generation=?,requested_generation=? WHERE name='replacement'",
+                        (time.time() + 3600, generation + 1, generation + 1),
+                    )
         finally:
             release.touch()
         output, error = child.communicate(timeout=30)
@@ -276,7 +308,9 @@ class NativeWatcherRuntimeTest(unittest.TestCase):
             active, pending, requested, completed = db.execute(
                 "SELECT active_run,pending_generation,requested_generation,completed_generation FROM watchers WHERE name='replacement'"
             ).fetchone()
-            new_state = db.execute("SELECT state FROM watcher_runs WHERE id='new-run'").fetchone()[0]
+            new_state = db.execute(
+                "SELECT state FROM watcher_runs WHERE id='new-run'"
+            ).fetchone()[0]
         self.assertEqual(active, "new-run")
         self.assertEqual((pending, requested), (generation + 1, generation + 1))
         self.assertLess(completed, pending)
