@@ -4,19 +4,6 @@
 name: Opt-in native Linux checkpoint
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'crates/**'
-      - 'src/**'
-      - 'requirements/**'
-      - 'pyproject.toml'
-      - 'Cargo.*'
-      - 'rust-toolchain.toml'
-      - '.cargo/**'
-      - 'vendor/**'
-      - 'scripts/**'
-      - 'tests/**'
-      - '.github/workflows/**'
 permissions:
   contents: read
 env:
