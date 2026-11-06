@@ -54,6 +54,7 @@ class AuditPrerequisiteTest(unittest.TestCase):
     def volume(self, payload):
         with (
             patch.object(preflight.sys, "platform", "linux"),
+            patch.object(preflight.os, "readlink", return_value=str(self.root)),
             patch.object(
                 preflight.subprocess,
                 "run",
