@@ -325,9 +325,21 @@ class ExternalWorkerDiagnosticsTest(fixture.NativeLegacyExternalRuleTest):
         # A wider character fails header encoding before any connection.
         self.env[variable] = "FAKE-\u2603"
         self.failed_without_request(NETWORK)
-        # A long credential is bounded by the exact worker envelope, not by a
-        # separate credential-length refusal.
-        self.env[variable] = "F" * (300 * 1024)
+        # Keep the inherited environment entry below Linux's per-string exec
+        # limit, but retain the original 300 KiB serialized credential size.
+        # Both dispatchers check the envelope before HTTP header validation;
+        # token validation rejects CR/LF, not this JSON-escaped control byte.
+        # The literal 300 KiB credential remains covered after process startup
+        # by processors.rs::credential_header_encoding_failures_use_frozen_worker_diagnostic.
+        credential = "\x01" * (50 * 1024)
+        serialized = json.dumps(credential, ensure_ascii=False).encode()
+        self.assertEqual(len(serialized), 300 * 1024 + 2)
+        self.assertEqual(
+            len(serialized),
+            len(json.dumps("F" * (300 * 1024), ensure_ascii=False).encode()),
+        )
+        self.assertLess(len(f"{variable}={credential}".encode()) + 1, 128 * 1024)
+        self.env[variable] = credential
         self.failed_without_request("HTTP request exceeds input limit")
 
     def test_resumed_poll_cleanup_neighbor(self):

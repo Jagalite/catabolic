@@ -524,9 +524,23 @@ pub fn debit_ticket(access: &Access, id: &str, length: u64) -> Result<()> {
     // The owning writer lock prevents a competing admitted mutation. Release
     // the validation reader before COMMIT, avoiding SQLite reader/writer lockup.
     drop(current);
-    let bytes = i64::try_from(length).map_err(|_| denied("ticket_transfer_limit"))?;
-    access.store().transaction(|db|{
-        if db.execute("UPDATE api_tickets SET remaining_bytes=remaining_bytes-? WHERE id=? AND token_id=? AND remaining_bytes>=? AND revoked=0 AND expires>?",params![bytes,id,access.token_id(),bytes,crate::notifications::now()])?!=1 {return Err(denied("ticket_transfer_limit"));}Ok(())
+    access.store().transaction(|db| {
+        let now = crate::notifications::now();
+        let row: Option<(i64, bool, f64)> = db.query_row(
+            "SELECT remaining_bytes,revoked,expires FROM api_tickets WHERE id=? AND token_id=?",
+            params![id, access.token_id()], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        ).optional()?;
+        let Some((remaining, revoked, expires)) = row else { return Err(denied("ticket_transfer_limit")); };
+        let catabolic_core::content_ticket::DebitEffect::Debit { bytes, .. } =
+            catabolic_core::content_ticket::debit(catabolic_core::content_ticket::DebitEvidence {
+                remaining, revoked, expires, now, requested: length,
+            }) else { return Err(denied("ticket_transfer_limit")); };
+        // Retain the atomic SQL predicate even after the decision, so a
+        // competing debit or revocation cannot overdraw the shared allowance.
+        if db.execute("UPDATE api_tickets SET remaining_bytes=remaining_bytes-? WHERE id=? AND token_id=? AND remaining_bytes>=? AND revoked=0 AND expires>?",params![bytes,id,access.token_id(),bytes,now])? != 1 {
+            return Err(denied("ticket_transfer_limit"));
+        }
+        Ok(())
     })
 }
 pub fn execute(access: &mut Access, operation: &str, request: &Value) -> Result<Value> {
@@ -589,10 +603,16 @@ impl TransferEvidence {
         start: u64,
         length: u64,
     ) -> Result<TransferBody<'a>> {
+        let verification = catabolic_core::transfer_completion::verification(
+            self.digest.is_some(),
+            start,
+            length,
+            stat.len(),
+        );
         let digest = self
             .digest
             .as_ref()
-            .filter(|_| start == 0 && length == stat.len())
+            .filter(|_| verification == catabolic_core::transfer_completion::Verification::Required)
             .map(|expected| (<sha2::Sha256 as sha2::Digest>::new(), expected.clone()));
         let mut body = TransferBody {
             evidence: self,
@@ -600,6 +620,7 @@ impl TransferEvidence {
             stat,
             offset: start,
             remaining: length,
+            verification,
             digest,
         };
         if length == 0 {
@@ -632,6 +653,7 @@ pub struct TransferBody<'a> {
     stat: &'a std::fs::Metadata,
     offset: u64,
     remaining: u64,
+    verification: catabolic_core::transfer_completion::Verification,
     digest: Option<(sha2::Sha256, String)>,
 }
 impl TransferBody<'_> {
@@ -663,13 +685,19 @@ impl TransferBody<'_> {
         Ok(bytes[..read as usize].to_vec())
     }
     fn finish(&mut self) -> Result<()> {
-        let Some((hasher, expected)) = self.digest.take() else {
-            return Ok(());
-        };
-        if format!("{:x}", sha2::Digest::finalize(hasher)) != expected {
-            // Quarantine this exact revision for the process: later reuse,
-            // HEAD and range requests refuse it on every filesystem class.
-            crate::timestamps::record_mismatch(self.stat, &expected);
+        use catabolic_core::transfer_completion::{self, Effect};
+        let computed = self.digest.take().map(|(hasher, expected)| {
+            let matches = format!("{:x}", sha2::Digest::finalize(hasher)) == expected;
+            (matches, expected)
+        });
+        let result = transfer_completion::finish(
+            self.verification,
+            computed.as_ref().map(|(matches, _)| *matches),
+        );
+        if result == Effect::Reject {
+            if let Some((_, expected)) = computed {
+                crate::timestamps::record_mismatch(self.stat, &expected);
+            }
             return Err(denied("revision_mismatch"));
         }
         Ok(())

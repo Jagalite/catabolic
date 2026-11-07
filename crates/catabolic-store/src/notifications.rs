@@ -362,7 +362,13 @@ pub fn claim(
 /// Recheck immediately before I/O. An edit after dispatch cannot unsend bytes;
 /// acknowledge nevertheless rechecks the revision and token independently.
 pub fn lease_current(store: &Store, lease: &DeliveryLease, timestamp: f64) -> Result<bool> {
-    Ok(store.db.query_row("SELECT EXISTS(SELECT 1 FROM notification_deliveries n JOIN notification_destinations d ON d.profile=n.profile AND d.id=n.destination_id WHERE n.profile=? AND n.event_id=? AND n.destination_id=? AND n.state='leased' AND n.lease_token=? AND n.lease_until>? AND d.enabled=1 AND d.revision=?)", params![lease.profile,lease.event_id,lease.destination_id,lease.token,timestamp,lease.destination_revision], |r| r.get(0))?)
+    use catabolic_core::notification_delivery::{self, LeaseEvidence};
+    let evidence = store.db.query_row(
+        "SELECT n.state='leased',coalesce(n.lease_token=?,0),coalesce(n.lease_until>?,0),d.enabled=1,d.revision=? FROM notification_deliveries n JOIN notification_destinations d ON d.profile=n.profile AND d.id=n.destination_id WHERE n.profile=? AND n.event_id=? AND n.destination_id=?",
+        params![lease.token,timestamp,lease.destination_revision,lease.profile,lease.event_id,lease.destination_id],
+        |r| Ok(LeaseEvidence { leased:r.get(0)?, token_matches:r.get(1)?, unexpired:r.get(2)?, destination_enabled:r.get(3)?, revision_matches:r.get(4)? }),
+    ).optional()?;
+    Ok(evidence.is_some_and(notification_delivery::lease_current))
 }
 
 /// HTTP-owned callbacks and mapped operations require the shared access engine.
@@ -476,19 +482,19 @@ pub fn acknowledge(
     outcome: Outcome,
     timestamp: f64,
 ) -> Result<Value> {
-    if !timestamp.is_finite() {
-        return Err(error("invalid_configuration"));
-    }
-    let state = match outcome {
-        Outcome::Complete => "complete",
-        Outcome::TemporarilyFailed if lease.previous_attempts + 1 >= 5 => "exhausted",
-        Outcome::TemporarilyFailed => "retry",
-        _ => "repair",
+    use catabolic_core::notification_delivery::{self, Outcome as PolicyOutcome};
+    let policy_outcome = match outcome {
+        Outcome::Complete => PolicyOutcome::Complete,
+        Outcome::TemporarilyFailed => PolicyOutcome::TemporaryFailure,
+        _ => PolicyOutcome::Repair,
     };
-    let backoff = 5.0 * (2_u32.pow(lease.previous_attempts.min(10)) as f64);
+    let decision =
+        notification_delivery::acknowledge(policy_outcome, lease.previous_attempts, timestamp)
+            .map_err(|_| error("invalid_configuration"))?;
+    let state = decision.state.as_str();
     let updated = store.transaction(|db| Ok(db.execute(
         "UPDATE notification_deliveries SET state=?,error=?,lease_token=NULL,lease_until=NULL,due_at=? WHERE profile=? AND event_id=? AND destination_id=? AND lease_token=? AND lease_until>? AND EXISTS(SELECT 1 FROM notification_destinations d WHERE d.profile=notification_deliveries.profile AND d.id=notification_deliveries.destination_id AND d.enabled=1 AND d.revision=?)",
-        params![state,if outcome == Outcome::Complete {None} else {Some(outcome.code())},timestamp+backoff.min(3600.0),lease.profile,lease.event_id,lease.destination_id,lease.token,timestamp,lease.destination_revision],
+        params![state,if outcome == Outcome::Complete {None} else {Some(outcome.code())},decision.due_at,lease.profile,lease.event_id,lease.destination_id,lease.token,timestamp,lease.destination_revision],
     )?))?;
     Ok(
         json!({"event_id":lease.event_id,"destination_id":lease.destination_id,"state":if updated==0 {"stale_acknowledgement"} else {state}}),

@@ -72,7 +72,10 @@ class NativeQueryTest(unittest.TestCase):
         # SQLite's build/version is reported, not rewritten to resemble Python.
         native.pop("sqlite_version")
         reference.pop("sqlite_version")
-        self.assertEqual(native, reference)
+        self.assertEqual(native.keys(), reference.keys())
+        for key in reference:
+            with self.subTest(schema_field=key):
+                self.assertEqual(native[key], reference[key])
         self.assertEqual(before, self.path.read_bytes())
 
     def test_sql_types_aliases_parameters_and_row_budget(self):

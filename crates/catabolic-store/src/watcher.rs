@@ -4,7 +4,7 @@
 //! Durable local-owner watcher definitions, schedules and fenced report/event
 //! runs. Unsupported reaction owners are refused before admission.
 use crate::{Error, Result, Store, migration::rows};
-use catabolic_core::{coordination as lifecycle, decode_json, encode, sha256};
+use catabolic_core::{coordination as lifecycle, decode_json, encode, sha256, watcher_schedule};
 use chrono::{DateTime, Datelike, LocalResult, TimeZone, Timelike, Utc};
 use rusqlite::{OptionalExtension, params};
 use serde_json::{Value, json};
@@ -680,25 +680,26 @@ pub fn due(row: &Value, now: f64) -> Result<bool> {
     };
     let integer = |key: &str| row[key].as_i64().unwrap_or(0);
     let timestamp = |key: &str| row[key].as_f64().unwrap_or(0.0);
-    let explicit = integer("requested_generation") > integer("completed_generation");
-    if integer("enabled") == 0 && !explicit
-        || !row["active_run"].is_null() && timestamp("lease_until") > now
-        || timestamp("retry_at") > now
-    {
-        return Ok(false);
-    }
-    if explicit || !row["pending_reaction"].is_null() || timestamp("retry_at") != 0.0 {
-        return Ok(true);
-    }
-    if value["schedule"]["kind"] != "manual" && timestamp("next_due") <= now {
-        return Ok(true);
-    }
-    Ok(value["events"] == true
-        && integer("pending_generation") > integer("completed_generation")
-        && !row["event_first"].is_null()
-        && now
-            >= (timestamp("event_last") + value["debounce_seconds"].as_f64().unwrap())
-                .min(timestamp("event_first") + value["maximum_delay_seconds"].as_f64().unwrap()))
+    Ok(catabolic_core::watcher_schedule::due(
+        catabolic_core::watcher_schedule::DueEvidence {
+            enabled: integer("enabled") != 0,
+            requested_generation: integer("requested_generation"),
+            completed_generation: integer("completed_generation"),
+            pending_generation: integer("pending_generation"),
+            active_run: !row["active_run"].is_null(),
+            lease_until: timestamp("lease_until"),
+            retry_at: timestamp("retry_at"),
+            pending_reaction: !row["pending_reaction"].is_null(),
+            manual_schedule: value["schedule"]["kind"] == "manual",
+            next_due: timestamp("next_due"),
+            events_enabled: value["events"] == true,
+            event_first: (!row["event_first"].is_null()).then(|| timestamp("event_first")),
+            event_last: timestamp("event_last"),
+            debounce_seconds: value["debounce_seconds"].as_f64(),
+            maximum_delay_seconds: value["maximum_delay_seconds"].as_f64(),
+            now,
+        },
+    ))
 }
 pub fn require_run(
     store: &Store,
@@ -1078,21 +1079,16 @@ fn transition(
             })
             .optional()?
             .ok_or_else(unresolved)?;
-        if phase.as_deref() != Some("planned") {
-            return Err(unresolved());
-        }
-        // The link is validated for every run, including the changed run that
-        // ends the walk, so a damaged record never admits or clears anything.
-        let previous = match (link_type.as_deref(), link) {
-            (Some("null"), _) => None,
-            (Some("text"), Some(previous)) => Some(previous),
-            _ => return Err(unresolved()),
-        };
-        match (changed.as_deref(), previous) {
-            (Some("true"), _) => return Ok(Some(chain)),
-            (Some("false"), None) => return Ok(None),
-            (Some("false"), Some(previous)) => current = previous,
-            _ => return Err(unresolved()),
+        match watcher_schedule::reaction_step(
+            phase.as_deref(),
+            changed.as_deref(),
+            link_type.as_deref(),
+            link.as_deref(),
+        ) {
+            watcher_schedule::ReactionStep::Changed => return Ok(Some(chain)),
+            watcher_schedule::ReactionStep::NoChange => return Ok(None),
+            watcher_schedule::ReactionStep::Previous(previous) => current = previous.to_owned(),
+            watcher_schedule::ReactionStep::Reject => return Err(unresolved()),
         }
     }
     Err(unresolved())
@@ -1130,8 +1126,56 @@ fn finish(
     now: f64,
     report: Value,
 ) -> Result<Value> {
-    require_run(store, profile, name, id, &row["definition_id"])?;
-    store.transaction(|db|{db.execute("UPDATE watcher_runs SET state='complete',completed_at=?,result=? WHERE id=?",params![time(),encode(&report),id])?;db.execute("UPDATE watchers SET completed_generation=?,active_run=NULL,lease_until=0,pending_reaction=NULL,last_run=?,retry_at=0,next_due=?,event_first=CASE WHEN pending_generation<=? THEN NULL ELSE event_first END,event_last=CASE WHEN pending_generation<=? THEN NULL ELSE event_last END WHERE profile=? AND name=? AND active_run=?",params![generation,id,next_due(&value["schedule"],now)?,generation,generation,profile,name,id])?;Ok(())})?;
+    finish_inner(
+        store,
+        profile,
+        name,
+        row,
+        value,
+        id,
+        generation,
+        now,
+        report,
+        #[cfg(test)]
+        || Ok(()),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn finish_inner(
+    store: &Store,
+    profile: &str,
+    name: &str,
+    row: &Value,
+    value: &Value,
+    id: &str,
+    generation: i64,
+    now: f64,
+    report: Value,
+    #[cfg(test)] before_transaction: impl FnOnce() -> Result<()>,
+) -> Result<Value> {
+    #[cfg(test)]
+    before_transaction()?;
+    store.transaction(|db| {
+        // Completion and its ownership fence must share the transaction: a
+        // stale run must not record completion after its lease or definition
+        // has been replaced.
+        require_run(store, profile, name, id, &row["definition_id"])?;
+        let (run_generation, pending_generation): (i64, i64) = db.query_row(
+            "SELECT r.generation,w.pending_generation FROM watcher_runs r JOIN watchers w ON w.profile=r.profile AND w.name=r.watcher WHERE r.id=? AND w.profile=? AND w.name=? AND w.active_run=r.id",
+            params![id, profile, name], |r| Ok((r.get(0)?, r.get(1)?)),
+        )?;
+        let catabolic_core::watcher_schedule::CompletionEffect::Complete { generation, clear_events } =
+            catabolic_core::watcher_schedule::complete(catabolic_core::watcher_schedule::CompletionEvidence {
+                run_generation, claimed_generation: generation, pending_generation,
+            }) else { return Err(Error("stale_watcher_run".into())); };
+        let changed = db.execute("UPDATE watchers SET completed_generation=?,active_run=NULL,lease_until=0,pending_reaction=NULL,last_run=?,retry_at=0,next_due=?,event_first=CASE WHEN ? THEN NULL ELSE event_first END,event_last=CASE WHEN ? THEN NULL ELSE event_last END WHERE profile=? AND name=? AND active_run=? AND pending_generation=?",params![generation,id,next_due(&value["schedule"],now)?,clear_events,clear_events,profile,name,id,pending_generation])?;
+        if changed != 1 {
+            return Err(Error("stale_watcher_run".into()));
+        }
+        db.execute("UPDATE watcher_runs SET state='complete',completed_at=?,result=? WHERE id=?", params![time(),encode(&report),id])?;
+        Ok(())
+    })?;
     Ok(report)
 }
 /// Native watcher restart admission is conservative: neither lease expiry nor
@@ -1185,4 +1229,104 @@ fn recover(store: &Store, profile: &str, now: f64) -> Result<Value> {
     }
     crate::observation::execute(store, profile, "recover", &json!({}))?;
     Ok(json!({"recovered":recovered}))
+}
+
+#[cfg(test)]
+mod completion_fence_tests {
+    use super::*;
+    use crate::migration;
+
+    fn fixture() -> (tempfile::TempDir, Store, Value, Value) {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("catalog.sqlite3");
+        migration::initialize(&path).unwrap();
+        let store = Store::open(&path, true, false).unwrap();
+        let definition = json!({"reaction":"report","schedule":{"kind":"manual"}});
+        store.transaction(|db| {
+            db.execute("INSERT INTO watcher_definitions VALUES('definition','default','watch',1,?,'digest',0)", [encode(&definition)])?;
+            db.execute("INSERT INTO watchers(profile,name,definition_id,enabled,pending_generation,requested_generation,completed_generation,active_run,lease_until,event_first,event_last) VALUES('default','watch','definition',1,2,2,0,'old',?,10,12)", [time()+3600.0])?;
+            db.execute("INSERT INTO watcher_runs(id,profile,watcher,definition_id,generation,trigger,scheduled_at,started_at,state) VALUES('old','default','watch','definition',1,'manual',0,0,'reacting')", [])?;
+            Ok(())
+        }).unwrap();
+        let row = get(&store, "default", "watch").unwrap();
+        (root, store, row, definition)
+    }
+
+    #[test]
+    fn replaced_owner_at_transaction_entry_cannot_complete_old_run() {
+        let (_root, store, row, definition) = fixture();
+        let error = finish_inner(&store, "default", "watch", &row, &definition, "old", 1, 100.0, json!({"complete":true}), || {
+            require_run(&store, "default", "watch", "old", &row["definition_id"])?;
+            store.transaction(|db| {
+                db.execute("UPDATE watchers SET active_run='new',pending_generation=3,requested_generation=3 WHERE profile='default' AND name='watch'", [])?;
+                Ok(())
+            })
+        }).unwrap_err();
+        assert!(error.0.contains("stale_watcher_run"), "{error}");
+        let (active, pending, completed): (String, i64, i64) = store.db.query_row("SELECT active_run,pending_generation,completed_generation FROM watchers WHERE name='watch'", [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).unwrap();
+        assert_eq!((active.as_str(), pending, completed), ("new", 3, 0));
+        let state: String = store
+            .db
+            .query_row("SELECT state FROM watcher_runs WHERE id='old'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(state, "reacting");
+    }
+
+    #[test]
+    fn claimed_generation_must_match_the_fenced_run() {
+        let (_root, store, row, definition) = fixture();
+        let error = finish(
+            &store,
+            "default",
+            "watch",
+            &row,
+            &definition,
+            "old",
+            2,
+            100.0,
+            json!({"complete":true}),
+        )
+        .unwrap_err();
+        assert!(error.0.contains("stale_watcher_run"), "{error}");
+        let (active, completed): (String, i64) = store
+            .db
+            .query_row(
+                "SELECT active_run,completed_generation FROM watchers WHERE name='watch'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((active.as_str(), completed), ("old", 0));
+    }
+
+    #[test]
+    fn valid_completion_preserves_events_for_newer_pending_generation() {
+        let (_root, store, row, definition) = fixture();
+        finish(
+            &store,
+            "default",
+            "watch",
+            &row,
+            &definition,
+            "old",
+            1,
+            100.0,
+            json!({"complete":true}),
+        )
+        .unwrap();
+        let (pending, requested, completed, first, last): (i64,i64,i64,f64,f64) = store.db.query_row("SELECT pending_generation,requested_generation,completed_generation,event_first,event_last FROM watchers WHERE name='watch'", [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))).unwrap();
+        assert_eq!(
+            (pending, requested, completed, first, last),
+            (2, 2, 1, 10.0, 12.0)
+        );
+        let state: String = store
+            .db
+            .query_row("SELECT state FROM watcher_runs WHERE id='old'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(state, "complete");
+    }
 }

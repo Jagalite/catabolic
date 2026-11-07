@@ -103,6 +103,24 @@ pub fn probe(
     snapshots: &Value,
     timeout_ms: u64,
 ) -> Result<Value> {
+    probe_inner(
+        path,
+        profile,
+        database_id,
+        snapshots,
+        timeout_ms,
+        #[cfg(test)]
+        None,
+    )
+}
+fn probe_inner(
+    path: &Path,
+    profile: &str,
+    database_id: &str,
+    snapshots: &Value,
+    timeout_ms: u64,
+    #[cfg(test)] fixture: Option<(&Path, &mut dyn FnMut(u32))>,
+) -> Result<Value> {
     if !(10..=10000).contains(&timeout_ms)
         || snapshots
             .as_array()
@@ -122,7 +140,13 @@ pub fn probe(
     if input.len() > 1024 * 1024 {
         return Err(Error("fallback probe input exceeds 1 MiB".into()));
     }
+    #[cfg(not(test))]
     let executable = crate::helper::executable()?;
+    #[cfg(test)]
+    let executable = match fixture.as_ref() {
+        Some((path, _)) => crate::helper::verified(&crate::helper::pin(path)?)?,
+        None => crate::helper::executable()?,
+    };
     reap_pending()?;
     let Some(slot) = fallback_resolution::reserve_probe(path, database_id)? else {
         return Ok(json!({"usable":false,"reason":"probe_capacity"}));
@@ -171,6 +195,10 @@ pub fn probe(
     if let Err(error) = fallback_resolution::attach_probe(path, database_id, &slot, child.id()) {
         retire(child, path, database_id, slot)?;
         return Err(error);
+    }
+    #[cfg(test)]
+    if let Some((_, attached)) = fixture {
+        attached(child.id());
     }
     let result = (|| -> Result<(Value, bool)> {
         let mut stdin = child.stdin.take();
@@ -513,4 +541,143 @@ pub fn with_projection_plan<T>(
         let mut writer = evaluation.into_store();
         operation(&mut writer, prepared, &guard)
     })
+}
+
+#[cfg(test)]
+mod probe_timeout_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    fn reaped_or_owned(path: &Path, pid: u32) -> bool {
+        // Keep the supervisor stable while checking its durable counterpart;
+        // another test may also call the process-wide reaper concurrently.
+        let supervised = pending().lock().unwrap();
+        let owned = supervised
+            .iter()
+            .find(|entry| entry.path == path && entry.child.id() == pid);
+        let store = Store::open(path, false, false).unwrap();
+        let occupied = catabolic_store::migration::rows(
+            &store.db,
+            "SELECT id,owner,pid FROM fallback_probe_slots WHERE owner IS NOT NULL OR pid IS NOT NULL",
+            &[],
+        )
+        .unwrap();
+        if let Some(entry) = owned {
+            assert_eq!(occupied.len(), 1, "pending child lost its durable slot");
+            assert_eq!(occupied[0]["id"], entry.slot.id);
+            assert_eq!(occupied[0]["owner"], entry.slot.owner);
+            assert_eq!(occupied[0]["pid"], pid);
+            false
+        } else {
+            assert!(occupied.is_empty(), "reaped child retained a durable slot");
+            assert!(
+                !fallback_resolution::process_alive(i64::from(pid)),
+                "unsupervised child is still alive"
+            );
+            true
+        }
+    }
+
+    fn await_reaped(path: &Path, pid: u32) {
+        // Separate cleanup bound, not extra time for the probe operation.
+        // retire deliberately defers waitpid after its 50ms synchronous budget.
+        let cleanup_deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            if reaped_or_owned(path, pid) {
+                break;
+            }
+            reap_pending().unwrap();
+            if reaped_or_owned(path, pid) {
+                break;
+            }
+            assert!(
+                Instant::now() < cleanup_deadline,
+                "timed-out child or reservation leaked beyond cleanup bound"
+            );
+            std::thread::sleep(Duration::from_millis(2));
+        }
+    }
+
+    #[test]
+    fn sleeping_child_times_out_and_is_reaped_before_slot_reuse() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("catalog.db");
+        catabolic_store::migration::initialize(&path).unwrap();
+        let store = Store::open(&path, true, false).unwrap();
+        let database = store.database_id.clone();
+        drop(store);
+        let helper = root.path().join("sleeping-helper");
+        std::fs::write(&helper, "#!/bin/sh\nexec /bin/sleep 30\n").unwrap();
+        std::fs::set_permissions(&helper, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let mut attached_pid = None;
+        let before = Instant::now();
+        // Capture the actual PID immediately after its durable handoff, before
+        // the timeout starts. A correctly killed child may never execute a
+        // child-side PID-file write. No global helper registration or schema
+        // instrumentation is needed, and the production deadline is unchanged.
+        let result = probe_inner(
+            &path,
+            "default",
+            &database,
+            &json!([{}]),
+            1000,
+            Some((&helper, &mut |pid| attached_pid = Some(pid))),
+        )
+        .unwrap();
+        assert_eq!(result, json!({"usable":false,"reason":"probe_timeout"}));
+        assert!(
+            before.elapsed() < Duration::from_secs(3),
+            "bounded helper exceeded deadline"
+        );
+        let pid = attached_pid.expect("child was durably attached");
+        assert_ne!(pid, std::process::id());
+        await_reaped(&path, pid);
+        let reusable = fallback_resolution::reserve_probe(&path, &database)
+            .unwrap()
+            .expect("reaped slot is reusable");
+        fallback_resolution::release_probe(&path, &database, &reusable).unwrap();
+    }
+
+    #[test]
+    fn deferred_reaper_preserves_live_child_slot_until_reaped() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("catalog.db");
+        catabolic_store::migration::initialize(&path).unwrap();
+        let store = Store::open(&path, true, false).unwrap();
+        let database = store.database_id.clone();
+        drop(store);
+        let slot = fallback_resolution::reserve_probe(&path, &database)
+            .unwrap()
+            .unwrap();
+        let child = Command::new("/bin/sleep")
+            .arg("30")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+        let pid = child.id();
+        fallback_resolution::attach_probe(&path, &database, &slot, pid).unwrap();
+        // Deterministically exercise the deferred supervisor with a real live
+        // child, without depending on scheduler load exceeding retire's 50ms.
+        pending().lock().unwrap().push(Pending {
+            child,
+            path: path.clone(),
+            database_id: database,
+            slot,
+        });
+        reap_pending().unwrap();
+        let released_early = reaped_or_owned(&path, pid);
+        pending()
+            .lock()
+            .unwrap()
+            .iter_mut()
+            .find(|entry| entry.path == path && entry.child.id() == pid)
+            .expect("live child must remain supervised")
+            .child
+            .kill()
+            .unwrap();
+        assert!(!released_early, "live child released its reservation");
+        await_reaped(&path, pid);
+    }
 }

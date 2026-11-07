@@ -8,6 +8,7 @@ import os
 import shutil
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import unittest
 import wave
@@ -159,7 +160,13 @@ class NativeMediaParityTest(unittest.TestCase):
         self.run_pair("probe", options={"required_streams": ["video"]})
 
     def test_missing_optional_probe_is_durable_unsupported_evidence(self):
-        with patch.dict(os.environ, {"PATH": ""}):
+        tools = self.root / "identity-tools"
+        tools.mkdir()
+        if sys.platform.startswith("linux"):
+            findmnt = shutil.which("findmnt")
+            self.assertIsNotNone(findmnt, "Linux volume identity requires findmnt")
+            (tools / "findmnt").symlink_to(findmnt)
+        with patch.dict(os.environ, {"PATH": str(tools)}):
             self.run_pair("probe")
 
     def test_immutable_analysis_revisions_have_identical_definition_bytes_and_digest(

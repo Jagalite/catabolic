@@ -119,7 +119,8 @@
     "excluded_reason": null,
     "legacy_fallback_triggers": [],
     "mutation_owner_files": [
-      "crates/catabolic-store/src/playback.rs"
+      "crates/catabolic-store/src/playback.rs",
+      "crates/catabolic-store/src/playback_cache.rs"
     ],
     "primary_key": [
       "id"
@@ -143,6 +144,7 @@
       "crates/catabolic-store/src/admin_cli.rs",
       "crates/catabolic-store/src/content_access.rs",
       "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/playback_cache.rs",
       "crates/catabolic-store/src/private_secret.rs",
       "crates/catabolic-store/src/webhooks.rs"
     ],
@@ -280,6 +282,7 @@
       "crates/catabolic-store/src/admin_cli.rs",
       "crates/catabolic-store/src/content_access.rs",
       "crates/catabolic-store/src/graphql.rs",
+      "crates/catabolic-store/src/playback_cache.rs",
       "crates/catabolic-store/src/webhooks.rs"
     ],
     "primary_key": [
@@ -849,7 +852,8 @@
       "fallback_change_consumer_connections_delete"
     ],
     "mutation_owner_files": [
-      "crates/catabolic-store/src/consumers.rs"
+      "crates/catabolic-store/src/consumers.rs",
+      "crates/catabolic-store/src/filesystem_mutation.rs"
     ],
     "primary_key": [
       "profile",
@@ -1809,6 +1813,7 @@
       "crates/catabolic-store/src/artifact_mutation.rs",
       "crates/catabolic-store/src/catalog_scope_components_tests.rs",
       "crates/catabolic-store/src/catalog_scope_physical_tests.rs",
+      "crates/catabolic-store/src/media_mutation.rs",
       "crates/catabolic-store/src/observation.rs",
       "crates/catabolic-store/src/receipt_mutation.rs",
       "crates/catabolic-store/src/remount.rs"

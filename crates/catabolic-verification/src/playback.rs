@@ -36,7 +36,7 @@ impl Model for Adapter {
         ModelMetadata {
             name: "catabolic-playback-production".into(),
             model_version: 1,
-            properties_version: 1,
+            properties_version: 2,
             codec_version: 1,
             build: format!(
                 "{}-fault={}",
@@ -98,6 +98,9 @@ impl Model for Adapter {
         if !matches!(result.state, State::Queued | State::Running) && !result.release_reservation {
             violation = Some("playback.reservation_leak".into());
         }
+        if let Some(required) = required_progress_violation(before.state, input, &result) {
+            violation = Some(required.into());
+        }
         Ok(Transition::accepted(
             Audited {
                 state: result.state,
@@ -112,6 +115,8 @@ impl Model for Adapter {
             "playback.terminal_resurrection",
             "playback.sibling_cancellation",
             "playback.reservation_leak",
+            "playback.required_start",
+            "playback.required_completion",
         ]
         .iter()
         .map(|id| {
@@ -124,6 +129,33 @@ impl Model for Adapter {
         .collect())
     }
 }
+fn required_progress_violation(
+    before: State,
+    input: &Input,
+    result: &Decision,
+) -> Option<&'static str> {
+    let valid = input.evidence.authorized_viewers > 0
+        && input.evidence.source_current
+        && input.evidence.tools_current
+        && input.evidence.destination_current
+        && input.evidence.within_budget;
+    if valid
+        && before == State::Queued
+        && input.event == Event::Start
+        && result.state != State::Running
+    {
+        return Some("playback.required_start");
+    }
+    if valid
+        && before == State::Running
+        && input.event == (Event::Complete { valid_output: true })
+        && (result.state != State::Ready || !result.stop || !result.release_reservation)
+    {
+        return Some("playback.required_completion");
+    }
+    None
+}
+
 impl Enumerate for Adapter {
     fn inputs(&self, _: &Audited) -> Result<Vec<Input>, ModelError> {
         let mut inputs = vec![];
@@ -249,4 +281,75 @@ pub fn replay_trace(path: &str) -> Result<(), Box<dyn Error>> {
         "production playback fresh-process replay exact, failed property reproduced, matching build"
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod obligation_tests {
+    use super::*;
+
+    #[test]
+    fn missing_start_and_completion_are_detected() {
+        let evidence = Evidence {
+            authorized_viewers: 1,
+            source_current: true,
+            tools_current: true,
+            destination_current: true,
+            within_budget: true,
+        };
+        let start = Input {
+            evidence,
+            event: Event::Start,
+        };
+        let stalled = Decision {
+            state: State::Queued,
+            error: None,
+            stop: false,
+            release_reservation: false,
+        };
+        assert_eq!(
+            required_progress_violation(State::Queued, &start, &stalled),
+            Some("playback.required_start")
+        );
+        assert_eq!(
+            required_progress_violation(
+                State::Queued,
+                &start,
+                &decide(State::Queued, evidence, Event::Start)
+            ),
+            None
+        );
+        let complete = Input {
+            evidence,
+            event: Event::Complete { valid_output: true },
+        };
+        let stalled = Decision {
+            state: State::Running,
+            error: None,
+            stop: false,
+            release_reservation: false,
+        };
+        assert_eq!(
+            required_progress_violation(State::Running, &complete, &stalled),
+            Some("playback.required_completion")
+        );
+        assert_eq!(
+            required_progress_violation(
+                State::Running,
+                &complete,
+                &decide(State::Running, evidence, complete.event)
+            ),
+            None
+        );
+        let invalid = Input {
+            evidence: Evidence {
+                authorized_viewers: 0,
+                ..evidence
+            },
+            event: complete.event,
+        };
+        assert_eq!(
+            required_progress_violation(State::Running, &invalid, &stalled),
+            None
+        );
+    }
 }

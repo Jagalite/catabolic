@@ -507,6 +507,30 @@ pub fn complete(
     retry_delay: u32,
     started_at: Option<&str>,
 ) -> Result<String> {
+    complete_inner(
+        store,
+        profile,
+        claim,
+        result,
+        now,
+        retry_delay,
+        started_at,
+        #[cfg(test)]
+        || Ok(()),
+    )
+}
+
+#[cfg_attr(test, allow(clippy::too_many_arguments))]
+fn complete_inner(
+    store: &Store,
+    profile: &str,
+    claim: &Claim,
+    result: &Value,
+    now: f64,
+    retry_delay: u32,
+    started_at: Option<&str>,
+    #[cfg(test)] before_transaction: impl FnOnce() -> Result<()>,
+) -> Result<String> {
     validate_now(now)?;
     if !(1..=3600).contains(&retry_delay) {
         return Err(Error("retry delay must be 1..3600 seconds".into()));
@@ -536,14 +560,14 @@ pub fn complete(
     }
     let mut error = result["error"].as_str().map(str::to_owned);
     let invalid = data["media_health"]["status"] == "invalid";
-    if state == "complete" || invalid {
+    let needs_source_validation = catabolic_core::processing_acceptance::source_action(
+        Phase::parse(&state).ok_or_else(|| Error("invalid processing result state".into()))?,
+        invalid,
+    )
+        == catabolic_core::processing_acceptance::SourceAction::Validate;
+    if needs_source_validation {
         let current = snapshot(store, profile, job["file_id"].as_str().unwrap())?;
-        if job["snapshot"]
-            .as_object()
-            .unwrap()
-            .iter()
-            .any(|(k, v)| k != "ctime_ns" && current.get(k) != Some(v))
-        {
+        if !catabolic_core::processing_acceptance::inventory_matches(&job["snapshot"], &current) {
             state = "changed".into();
             error = Some("inventory changed before publishing".into());
         } else if let Err(e) = crate::source::validate(&job["snapshot"]) {
@@ -551,7 +575,19 @@ pub fn complete(
             error = Some(e.0);
         }
     }
+    #[cfg(test)]
+    before_transaction()?;
     store.transaction(|db| {
+        // The initial source check occurs before this transaction. Re-read the
+        // catalog observation inside it so a newer scan cannot be overwritten
+        // by a result based on an older snapshot.
+        if needs_source_validation && state != "changed" {
+            let current = components::occurrence(db, profile, job["file_id"].as_str().unwrap())?;
+            if !catabolic_core::processing_acceptance::inventory_matches(&job["snapshot"], &current) {
+                state = "changed".into();
+                error = Some("inventory changed before publishing".into());
+            }
+        }
         let outcome = Phase::parse(&state).ok_or_else(|| Error("invalid processing result state".into()))?;
         let Effect::Finish { outcome } = decide(db,&claim.job_id,now,Input::Finish { now, proof: proof(claim), outcome })? else { return Err(Error("invalid completion effect".into())); };
         state = outcome.as_str().into();
@@ -562,7 +598,11 @@ pub fn complete(
             let digest = data["digest"].as_str().filter(|s| s.len()==64 && s.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())).ok_or_else(|| Error("invalid SHA-256 processing result".into()))?;
             let size = data["size"].as_i64().filter(|n| *n>=0).ok_or_else(|| Error("invalid checksum size".into()))?;
             let baseline: Option<String> = db.query_row("SELECT digest FROM content_baselines WHERE profile=? AND file_id=? AND algorithm='sha256'",params![profile,file],|r|r.get(0)).optional()?;
-            match baseline { Some(old) if old != digest => { state="mismatch".into(); error=Some("checksum differs from preserved baseline".into()); data["expected_digest"]=json!(old); db.execute("UPDATE file_facts SET status='invalidated' WHERE profile=? AND file_id=?",params![profile,file])?; }, None => { db.execute("INSERT INTO content_baselines VALUES (?,?,?,?,?,?)",params![profile,file,"sha256",digest,size,claim.job_id])?; }, _ => {} }
+            match catabolic_core::processing_acceptance::baseline_action(baseline.as_deref(), digest) {
+                catabolic_core::processing_acceptance::BaselineAction::Mismatch => { state="mismatch".into(); error=Some("checksum differs from preserved baseline".into()); data["expected_digest"]=json!(baseline); db.execute("UPDATE file_facts SET status='invalidated' WHERE profile=? AND file_id=?",params![profile,file])?; },
+                catabolic_core::processing_acceptance::BaselineAction::Establish => { db.execute("INSERT INTO content_baselines VALUES (?,?,?,?,?,?)",params![profile,file,"sha256",digest,size,claim.job_id])?; },
+                catabolic_core::processing_acceptance::BaselineAction::Preserve => {}
+            }
         }
         if state == "complete" {
             db.execute("INSERT INTO file_facts VALUES (?,?,?,?,?,?,?) ON CONFLICT(profile,file_id,operation) DO UPDATE SET job_id=excluded.job_id,snapshot=excluded.snapshot,data=excluded.data,status=excluded.status", params![profile,file,operation,claim.job_id,encode(&job["snapshot"]),encode(&data),state])?;
@@ -581,11 +621,13 @@ pub fn complete(
         }
         db.execute("UPDATE processing_jobs SET state=?,result=?,error=?,finished_at=CURRENT_TIMESTAMP WHERE id=?",params![state,encode(&data),error,claim.job_id])?;
         if state == "complete" && operation == "probe" { components::index_file(db,profile,file,false)?; }
-        let retryable = ["failed","timeout"].contains(&state.as_str()) && result["retryable"] == true;
-        let retry_after = now + f64::from(retry_delay.saturating_mul(1 << (claim.attempt-1).clamp(0,12)).min(3600));
+        let retry = catabolic_core::processing_acceptance::retry_decision(
+            Phase::parse(&state).ok_or_else(|| Error("invalid processing result state".into()))?,
+            result["retryable"] == true, claim.attempt, retry_delay, now,
+        );
         db.execute("DELETE FROM processing_retry_queue WHERE job_id=?",[&claim.job_id])?;
-        if retryable && claim.attempt <= 10 { db.execute("INSERT INTO processing_retry_queue VALUES (?,?,?,?)",params![claim.job_id,profile,claim.attempt,retry_after])?; }
-        db.execute("INSERT INTO processing_attempts(job_id,attempt,state,error,retryable,retry_after,result,started_at,finished_at) VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",params![claim.job_id,claim.attempt,state,error,retryable,retry_after,encode(&data),started_at])?;
+        if retry.enqueue { db.execute("INSERT INTO processing_retry_queue VALUES (?,?,?,?)",params![claim.job_id,profile,claim.attempt,retry.due_at])?; }
+        db.execute("INSERT INTO processing_attempts(job_id,attempt,state,error,retryable,retry_after,result,started_at,finished_at) VALUES (?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)",params![claim.job_id,claim.attempt,state,error,retry.retryable,retry.due_at,encode(&data),started_at])?;
         db.execute("UPDATE execution_claims SET lease_until=0 WHERE job_id=? AND token=?",params![claim.job_id,claim.token])?;
         Ok(state)
     })
@@ -719,4 +761,74 @@ pub fn prepare_run_admitted(
         }
         Ok(due.len())
     })
+}
+
+#[cfg(all(test, unix))]
+mod acceptance_race_tests {
+    use super::*;
+    use crate::{migration, observation};
+
+    #[test]
+    fn changed_observation_between_source_check_and_transaction_rejects_result() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("source");
+        std::fs::create_dir(&source).unwrap();
+        std::fs::write(source.join("a.txt"), b"original").unwrap();
+        let path = root.path().join("catalog.sqlite3");
+        migration::initialize(&path).unwrap();
+        let store = Store::open(&path, true, false).unwrap();
+        observation::execute(
+            &store,
+            "default",
+            "bind",
+            &json!({"source":"media","root":source}),
+        )
+        .unwrap();
+        observation::execute(&store, "default", "scan", &json!({"source":"media"})).unwrap();
+        let file: String = store
+            .db
+            .query_row("SELECT id FROM files WHERE path='a.txt'", [], |r| r.get(0))
+            .unwrap();
+        let job = enqueue(&store, "default", &file, "sniff", &json!({}), true, None).unwrap();
+        let claim = start(&store, "default", job["id"].as_str().unwrap(), 100.0).unwrap();
+        let state = complete_inner(
+            &store,
+            "default",
+            &claim,
+            &json!({"state":"complete","data":{}}),
+            101.0,
+            5,
+            None,
+            || {
+                store.transaction(|db| {
+                    let changed = db.execute(
+                        "UPDATE observations SET size=size+1 WHERE profile='default' AND file_id=?",
+                        [&file],
+                    )?;
+                    assert_eq!(changed, 1);
+                    Ok(())
+                })
+            },
+        )
+        .unwrap();
+        assert_eq!(state, "changed");
+        let facts: i64 = store
+            .db
+            .query_row(
+                "SELECT count(*) FROM file_facts WHERE profile='default' AND file_id=?",
+                [&file],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(facts, 0);
+        let persisted: String = store
+            .db
+            .query_row(
+                "SELECT state FROM processing_jobs WHERE id=?",
+                [&claim.job_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(persisted, "changed");
+    }
 }

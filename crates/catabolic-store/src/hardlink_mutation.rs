@@ -708,6 +708,33 @@ fn execute_with(
     fs::sync_ancestry(&root, path)?;
     fs::failpoint(args, "after_filesystem")?;
     observer("after_filesystem", op)?;
+    // The callback may have exposed the output or retained predecessor to an
+    // external writer. Re-observe both before clearing the durable intent.
+    let current_binding = observation::binding(store, profile, "output", catalog)?;
+    let (current_root, _) = observation::checked_root(store, profile, &current_binding)?;
+    let owner_matches = current_binding == output
+        && fs::identity(&current_root.metadata()?) == fs::identity(&root.metadata()?)
+        && fs::owner_state(&current_root, &fs::owner(store, profile, catalog))? == "owned";
+    let current = state(&current_root, path)?;
+    let destination_matches = if ["hard_create", "hard_replace"].contains(&kind) {
+        matches(current.as_ref(), field(op, "target")?)?
+    } else {
+        current.is_none()
+    };
+    let retention_matches = !was_retained || retained(store, profile, &current_root, op)?;
+    if catabolic_core::publication_recovery::acknowledge_hardlink(
+        catabolic_core::publication_recovery::HardlinkEvidence {
+            owner_matches,
+            destination_matches,
+            retention_required: was_retained,
+            retention_matches,
+        },
+    ) != catabolic_core::publication_recovery::Effect::Acknowledge
+    {
+        return Err(Error(
+            "hardlink publication changed before acknowledgement; journal retained".into(),
+        ));
+    }
     store.transaction(|db|{
         if was_retained{record_retention(db,profile,op)?;}
         if ["hard_create","hard_replace"].contains(&kind){db.execute("INSERT INTO owned_hardlinks VALUES (?,?,?,?) ON CONFLICT(profile,catalog,path) DO UPDATE SET target=excluded.target",params![profile,catalog,path,field(op,"target")?])?;}
@@ -736,25 +763,32 @@ pub fn cancel_obsolete(store: &Store, profile: &str, op: &Value, force: bool) ->
     } else {
         matches(actual.as_ref(), field(op, "previous")?)? && !was_retained
     };
-    if !untouched && !(actual.is_none() && was_retained) {
+    use catabolic_core::publication_recovery::{
+        HardlinkCancellation, hardlink_cancellable_layout, hardlink_cancellation,
+    };
+    if !hardlink_cancellable_layout(untouched, actual.is_none(), was_retained) {
         return Ok(false);
     }
-    if !force {
+    let obsolete = if force {
+        false
+    } else {
         let wanted = desired(store, profile, op)?;
-        let obsolete = if kind == "hard_remove" {
+        if kind == "hard_remove" {
             wanted.is_some()
         } else {
             wanted.as_deref() != op["target"].as_str()
-        };
-        if !obsolete {
-            return Ok(false);
         }
+    };
+    if hardlink_cancellation(force, obsolete, false) == HardlinkCancellation::KeepIntent {
+        return Ok(false);
     }
     // An interrupted creation may have staged a link that is now the source
     // inode's only reference; never orphan it by clearing the intent.
     if let Ok((parent, _)) = fs::parent(&root, field(op, "path")?, false) {
         let staged = format!(".catabolic-hardlink-{}", field(op, "id")?);
-        if leaf_exists(&parent, &staged)? {
+        if hardlink_cancellation(force, obsolete, leaf_exists(&parent, &staged)?)
+            == HardlinkCancellation::PreserveStaged
+        {
             return Err(Error(format!(
                 "staged hardlink {staged} exists; inspect it before cancelling"
             )));
@@ -883,6 +917,99 @@ mod tests {
         op
     }
     #[test]
+    fn changed_hardlink_after_effect_preserves_foreign_output_and_journal() {
+        let (_temporary, store, source, output) = fixture();
+        let op = intent(&store, "hard_create");
+        let path = output.join("folder/one.txt");
+        let error = execute_observed(
+            &store,
+            "default",
+            &op,
+            &json!({"disposable_fixture":true}),
+            &|_| {
+                std::fs::remove_file(&path)?;
+                std::fs::write(&path, b"foreign")?;
+                Ok(())
+            },
+        )
+        .unwrap_err();
+        assert!(error.0.contains("journal retained"), "{error}");
+        assert_eq!(std::fs::read(&path).unwrap(), b"foreign");
+        assert_eq!(
+            std::fs::read(source.join("one.txt")).unwrap(),
+            b"original source"
+        );
+        assert!(
+            store
+                .db
+                .prepare("SELECT 1 FROM journal WHERE id=?")
+                .unwrap()
+                .exists([op["id"].as_str().unwrap()])
+                .unwrap()
+        );
+        assert!(
+            !store
+                .db
+                .prepare("SELECT 1 FROM owned_hardlinks WHERE path='folder/one.txt'")
+                .unwrap()
+                .exists([])
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn changed_retained_hardlink_after_effect_is_not_acknowledged() {
+        let (_temporary, store, _source, output) = fixture();
+        execute(
+            &store,
+            "default",
+            &intent(&store, "hard_create"),
+            &json!({"disposable_fixture":true}),
+        )
+        .unwrap();
+        store
+            .transaction(|db| {
+                db.execute("UPDATE mappings SET active=0", [])?;
+                Ok(())
+            })
+            .unwrap();
+        let op = intent(&store, "hard_remove");
+        let retained = output.join(format!("{RETAINED}/{}/data", op["id"].as_str().unwrap()));
+        let saved = retained.with_file_name("saved");
+        let error = execute_observed(
+            &store,
+            "default",
+            &op,
+            &json!({"disposable_fixture":true}),
+            &|_| {
+                std::fs::rename(&retained, &saved)?;
+                std::fs::write(&retained, b"foreign")?;
+                Ok(())
+            },
+        )
+        .unwrap_err();
+        assert!(error.0.contains("retained hardlink changed"), "{error}");
+        assert_eq!(std::fs::read(&saved).unwrap(), b"original source");
+        assert_eq!(std::fs::read(&retained).unwrap(), b"foreign");
+        assert!(
+            store
+                .db
+                .prepare("SELECT 1 FROM journal WHERE id=?")
+                .unwrap()
+                .exists([op["id"].as_str().unwrap()])
+                .unwrap()
+        );
+        assert!(
+            store
+                .db
+                .prepare("SELECT 1 FROM owned_hardlinks WHERE path='folder/one.txt'")
+                .unwrap()
+                .exists([])
+                .unwrap()
+        );
+    }
+
+    #[test]
     fn removing_source_after_final_count_check_preserves_retained_bytes() {
         let (_temporary, store, source, output) = fixture();
         execute(
@@ -1008,6 +1135,298 @@ mod tests {
             b"original source"
         );
     }
+    #[cfg(feature = "failpoints")]
+    #[test]
+    fn repeated_staging_interruptions_preserve_journal_and_recover_once() {
+        use std::os::unix::fs::MetadataExt;
+        let (_temporary, store, source, output) = fixture();
+        let op = intent(&store, "hard_create");
+        let staged = output.join(format!(
+            "folder/.catabolic-hardlink-{}",
+            op["id"].as_str().unwrap()
+        ));
+        let args = json!({"disposable_fixture":true,"failpoint":"after_staged_link"});
+        for _ in 0..2 {
+            let error = execute(&store, "default", &op, &args).unwrap_err();
+            assert!(
+                error
+                    .0
+                    .contains("injected filesystem failure: after_staged_link")
+            );
+            assert_eq!(
+                std::fs::metadata(&staged).unwrap().ino(),
+                std::fs::metadata(source.join("one.txt")).unwrap().ino()
+            );
+            assert!(!output.join("folder/one.txt").exists());
+            assert!(
+                store
+                    .db
+                    .prepare("SELECT 1 FROM journal WHERE id=?")
+                    .unwrap()
+                    .exists([op["id"].as_str().unwrap()])
+                    .unwrap()
+            );
+            assert!(
+                !store
+                    .db
+                    .prepare("SELECT 1 FROM owned_hardlinks")
+                    .unwrap()
+                    .exists([])
+                    .unwrap()
+            );
+        }
+        for _ in 0..2 {
+            crate::filesystem_mutation::execute(
+                &store,
+                "default",
+                "recover",
+                &json!({"catalog":"global","disposable_fixture":true}),
+            )
+            .unwrap();
+        }
+        assert!(!staged.exists());
+        assert_eq!(
+            std::fs::metadata(output.join("folder/one.txt"))
+                .unwrap()
+                .ino(),
+            std::fs::metadata(source.join("one.txt")).unwrap().ino()
+        );
+        assert!(
+            !store
+                .db
+                .prepare("SELECT 1 FROM journal WHERE id=?")
+                .unwrap()
+                .exists([op["id"].as_str().unwrap()])
+                .unwrap()
+        );
+        assert_eq!(
+            store
+                .db
+                .query_row("SELECT count(*) FROM owned_hardlinks", [], |row| row
+                    .get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+    }
+    #[cfg(feature = "failpoints")]
+    fn replacement_intent(store: &Store, source: &std::path::Path) -> Value {
+        execute(
+            store,
+            "default",
+            &intent(store, "hard_create"),
+            &json!({"disposable_fixture":true}),
+        )
+        .unwrap();
+        std::fs::write(source.join("replacement.txt"), b"replacement source").unwrap();
+        observation::execute(store, "default", "scan", &json!({"source":"media"})).unwrap();
+        store
+            .transaction(|db| {
+                db.execute(
+                    "UPDATE mappings SET file_id=(SELECT id FROM files WHERE location='media' AND path='replacement.txt') WHERE id='mapping'",
+                    [],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        intent(store, "hard_replace")
+    }
+
+    #[cfg(feature = "failpoints")]
+    fn assert_same_inode(left: &std::path::Path, right: &std::path::Path) {
+        let left = left.metadata().unwrap();
+        let right = right.metadata().unwrap();
+        assert_eq!((left.dev(), left.ino()), (right.dev(), right.ino()));
+    }
+
+    #[cfg(feature = "failpoints")]
+    fn assert_replacement_ledger(store: &Store, op: &Value, committed: bool) {
+        let count = |sql| {
+            store
+                .db
+                .query_row(sql, [], |row| row.get::<_, i64>(0))
+                .unwrap()
+        };
+        assert_eq!(count("SELECT count(*) FROM journal"), i64::from(!committed));
+        assert_eq!(count("SELECT count(*) FROM owned_hardlinks"), 1);
+        assert_eq!(
+            count("SELECT count(*) FROM retained_hardlinks"),
+            i64::from(committed)
+        );
+        // Initial publication plus exactly one committed replacement. A
+        // rolled-back or repeated acknowledgement must not add a generation.
+        assert_eq!(
+            count(
+                "SELECT generation FROM publication_generations WHERE profile='default' AND catalog='global'"
+            ),
+            1 + i64::from(committed)
+        );
+        let target: String = store
+            .db
+            .query_row("SELECT target FROM owned_hardlinks", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(target, op[if committed { "target" } else { "previous" }]);
+        if committed {
+            let retained: (String, String, String) = store
+                .db
+                .query_row(
+                    "SELECT id,original_path,target FROM retained_hardlinks",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .unwrap();
+            assert_eq!(retained.0, op["id"]);
+            assert_eq!(retained.1, op["path"]);
+            assert_eq!(retained.2, op["previous"]);
+        }
+    }
+
+    #[cfg(feature = "failpoints")]
+    #[test]
+    fn replacement_reopens_at_each_boundary_and_acknowledges_once() {
+        for stage in [
+            "before_retention_rename",
+            "after_retention",
+            "before_link",
+            "after_staged_link",
+            "after_link",
+            "after_filesystem",
+            "before_commit",
+            "after_commit",
+        ] {
+            let (temporary, store, source, output) = fixture();
+            let op = replacement_intent(&store, &source);
+            let retained = output.join(format!("{RETAINED}/{}/data", op["id"].as_str().unwrap()));
+            let destination = output.join("folder/one.txt");
+            let staged = output.join(format!(
+                "folder/.catabolic-hardlink-{}",
+                op["id"].as_str().unwrap()
+            ));
+            let error = execute(
+                &store,
+                "default",
+                &op,
+                &json!({"disposable_fixture":true,"failpoint":stage}),
+            )
+            .unwrap_err();
+            assert!(
+                error
+                    .0
+                    .contains(&format!("injected filesystem failure: {stage}"))
+            );
+            drop(store);
+            let database = temporary.path().join("catalog.db");
+            let store = Store::open(&database, true, false).unwrap();
+            assert_replacement_ledger(&store, &op, stage == "after_commit");
+            if stage == "before_retention_rename" {
+                assert!(!retained.exists());
+                assert_same_inode(&destination, &source.join("one.txt"));
+            } else {
+                assert_same_inode(&retained, &source.join("one.txt"));
+            }
+            if matches!(
+                stage,
+                "after_retention" | "before_link" | "after_staged_link"
+            ) {
+                assert!(!destination.exists());
+            }
+            if stage == "after_staged_link" {
+                assert_same_inode(&staged, &source.join("replacement.txt"));
+            } else {
+                assert!(!staged.exists());
+            }
+            if matches!(
+                stage,
+                "after_link" | "after_filesystem" | "before_commit" | "after_commit"
+            ) {
+                assert_same_inode(&destination, &source.join("replacement.txt"));
+            }
+            if stage != "after_commit" {
+                // Interrupt recovery too: the post-effect acknowledgement must
+                // roll back both ownership and retained-reference records.
+                let error = fs::execute(
+                    &store,
+                    "default",
+                    "recover",
+                    &json!({"catalog":"global","disposable_fixture":true,"failpoint":"before_commit"}),
+                )
+                .unwrap_err();
+                assert!(
+                    error
+                        .0
+                        .contains("injected filesystem failure: before_commit")
+                );
+                assert_replacement_ledger(&store, &op, false);
+            }
+            drop(store);
+            for _ in 0..2 {
+                let store = Store::open(&database, true, false).unwrap();
+                fs::execute(
+                    &store,
+                    "default",
+                    "recover",
+                    &json!({"catalog":"global","disposable_fixture":true}),
+                )
+                .unwrap();
+                assert_replacement_ledger(&store, &op, true);
+                assert_same_inode(&retained, &source.join("one.txt"));
+                assert_same_inode(&destination, &source.join("replacement.txt"));
+                assert_eq!(std::fs::read(&retained).unwrap(), b"original source");
+                assert_eq!(std::fs::read(&destination).unwrap(), b"replacement source");
+                assert!(!staged.exists());
+            }
+        }
+    }
+
+    #[cfg(feature = "failpoints")]
+    #[test]
+    fn replacement_reopen_preserves_foreign_output_and_retained_predecessor() {
+        let (temporary, store, source, output) = fixture();
+        let op = replacement_intent(&store, &source);
+        let retained = output.join(format!("{RETAINED}/{}/data", op["id"].as_str().unwrap()));
+        let staged = output.join(format!(
+            "folder/.catabolic-hardlink-{}",
+            op["id"].as_str().unwrap()
+        ));
+        let destination = output.join("folder/one.txt");
+        let error = execute(
+            &store,
+            "default",
+            &op,
+            &json!({"disposable_fixture":true,"failpoint":"after_staged_link"}),
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .0
+                .contains("injected filesystem failure: after_staged_link")
+        );
+        drop(store);
+        std::fs::write(&destination, b"foreign output").unwrap();
+        let foreign_inode = destination.metadata().unwrap().ino();
+        for _ in 0..2 {
+            let store = Store::open(&temporary.path().join("catalog.db"), true, false).unwrap();
+            let error = fs::execute(
+                &store,
+                "default",
+                "recover",
+                &json!({"catalog":"global","disposable_fixture":true}),
+            )
+            .unwrap_err();
+            assert!(
+                error
+                    .0
+                    .contains("hardlink creation destination changed externally")
+            );
+            assert_replacement_ledger(&store, &op, false);
+            assert_eq!(destination.metadata().unwrap().ino(), foreign_inode);
+            assert_eq!(std::fs::read(&destination).unwrap(), b"foreign output");
+            assert_same_inode(&retained, &source.join("one.txt"));
+            assert_same_inode(&staged, &source.join("replacement.txt"));
+            assert_eq!(std::fs::read(&retained).unwrap(), b"original source");
+            assert_eq!(std::fs::read(&staged).unwrap(), b"replacement source");
+        }
+    }
+
     #[test]
     fn swapped_source_is_preserved_for_inspection_without_false_ownership() {
         let (_temporary, store, source, output) = fixture();

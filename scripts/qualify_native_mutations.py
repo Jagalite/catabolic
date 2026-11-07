@@ -10,6 +10,7 @@ Run only against disposable fixtures; production effect gates remain closed.
 import argparse
 import atexit
 import hashlib
+import importlib
 import json
 import os
 import platform
@@ -76,6 +77,7 @@ def argument_parser():
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--pattern", default="test_rust_*.py")
     parser.add_argument("--expected-count", type=int)
+    parser.add_argument("--exclude-historical-evidence", action="store_true")
     parser.add_argument(
         "--defer-installed-asgi",
         action="store_true",
@@ -88,6 +90,9 @@ REFERENCE = "453fca983222c6665a48775eef67c489c96b527e"
 COMPLETION_PREFIX = "tests.test_rust_graphql_empty_completion.EmptyCompletionTest."
 COMPLETION_EMBEDDING = (
     COMPLETION_PREFIX + "test_direct_and_persistent_embedding_complete_responses"
+)
+QUERY_SETUP_PREFIX = (
+    "tests.test_rust_query_setup_ownership.NativeQuerySetupOwnershipTest."
 )
 COMPLETION_HTTP = COMPLETION_PREFIX + "test_actual_loopback_http_and_scoped_absence"
 SORT_OWNER_SCENARIOS = frozenset(
@@ -498,9 +503,17 @@ def completion_extension_snapshot(staged):
         timeout=30,
     )
     imported = json.loads(completed.stdout)
+    validate_extension_imports(root, files, imported)
+    return {**staged, "imported_modules": imported}
+
+
+def validate_extension_imports(root, files, imported):
+    """Require every loaded native module to be an exact staged payload."""
     if not {"catabolic_native", "catabolic_native._native"} <= imported.keys():
         raise ValueError("completion package import identity is incomplete")
     for name, filename in imported.items():
+        if not isinstance(filename, str) or not filename:
+            raise ValueError(f"completion import has no qualified file: {name}")
         path = Path(filename).absolute()
         relative = str(path.relative_to(root))
         candidates = {
@@ -510,7 +523,41 @@ def completion_extension_snapshot(staged):
             candidates = {"catabolic_native/_native.abi3.so"}
         if relative not in candidates or relative not in files:
             raise ValueError(f"completion import escaped qualified package: {name}")
-    return {**staged, "imported_modules": imported}
+
+
+def current_extension_snapshot(staged):
+    root = Path(staged["root"])
+    if package_snapshot(root) != staged["files"]:
+        raise ValueError("staged ownership package changed")
+    imported = {
+        name: getattr(module, "__file__", "")
+        for name, module in sys.modules.items()
+        if name == "catabolic_native" or name.startswith("catabolic_native.")
+    }
+    validate_extension_imports(root, staged["files"], imported)
+
+
+def activate_ownership_extension(staged):
+    """Admit the explicit staged artifact, never an ambient installed package."""
+    if any(
+        name == "catabolic_native" or name.startswith("catabolic_native.")
+        for name in sys.modules
+    ):
+        raise ValueError("ambient native modules cannot qualify ownership scenarios")
+    if package_snapshot(Path(staged["root"])) != staged["files"]:
+        raise ValueError("staged ownership package changed")
+    sys.path.insert(0, staged["root"])
+    try:
+        for name in (
+            "catabolic_native",
+            "catabolic_native.sql_query",
+            "catabolic_native.graphql_query",
+        ):
+            importlib.import_module(name)
+        current_extension_snapshot(staged)
+    except BaseException:
+        sys.path.remove(staged["root"])
+        raise
 
 
 def oracle_runtime_snapshot(python):
@@ -655,6 +702,44 @@ def cases(suite):
             yield value.id()
 
 
+HISTORICAL_EXCLUSIONS = frozenset(
+    {
+        "tests.test_rust_graphql_lexical_capture.CapturedLexicalFixtureTest.test_raw_receipts_bind_complete_observed_envelopes",
+        "tests.test_rust_graphql_grammar_provenance.GrammarProvenanceFixtureTest.test_complete_original_raw_receipts_remain_verified",
+        "tests.test_rust_graphql_final_composition.FinalCompositionFixtureTest.test_complete_4974_original_capture_receipts_are_retained",
+        *(
+            "tests.test_rust_legacy_mapping_json_diagnostics.NativeLegacyMappingJsonDiagnosticsTest."
+            + name
+            for name in (
+                "test_malformed_subject_syntax_exact_full_process_envelopes",
+                "test_valid_error_looking_values_and_duplicate_keys_are_ordinary_data",
+                "test_decoder_refusals_are_not_reclassified_as_syntax",
+                "test_runtime_v2_preserves_exception_and_exit_without_traceback",
+            )
+        ),
+    }
+)
+
+
+def exclude_historical(suite):
+    def flatten(node):
+        for item in node:
+            if isinstance(item, unittest.TestSuite):
+                yield from flatten(item)
+            else:
+                yield item
+
+    tests = list(flatten(suite))
+    excluded = sorted(test.id() for test in tests if test.id() in HISTORICAL_EXCLUSIONS)
+    if set(excluded) != HISTORICAL_EXCLUSIONS:
+        raise ValueError(
+            "historical exclusion inventory differs from discovered scenarios"
+        )
+    return unittest.TestSuite(
+        test for test in tests if test.id() not in HISTORICAL_EXCLUSIONS
+    ), excluded
+
+
 def discover_native_suite(root, pattern, defer_installed_asgi=False):
     if not defer_installed_asgi:
         from scripts.native_asgi_scenarios import REQUIRED_FILES, validate_sources
@@ -735,9 +820,13 @@ def validate_native_scenarios(
         )
         or (not extension_binary and COMPLETION_EMBEDDING in identifiers)
         or (not extension_binary and SORT_OWNER_SCENARIOS.intersection(identifiers))
+        or (
+            not extension_binary
+            and any(name.startswith(QUERY_SETUP_PREFIX) for name in identifiers)
+        )
     ):
         raise ValueError(
-            "PyO3 interruption/completion/sort scenarios require an explicit --extension-binary artifact"
+            "PyO3 interruption/completion/sort/ownership scenarios require an explicit --extension-binary artifact"
         )
 
 
@@ -819,9 +908,13 @@ def main():
         suite, installed_prerequisites = discover_native_suite(
             root, args.pattern, args.defer_installed_asgi
         )
+        excluded_historical = []
+        if args.exclude_historical_evidence:
+            suite, excluded_historical = exclude_historical(suite)
     except ValueError as error:
         parser.error(str(error))
     initial_report["installed_prerequisites"] = installed_prerequisites
+    initial_report["excluded_historical_scenarios"] = excluded_historical
     args.report.write_text(json.dumps(initial_report, indent=2) + "\n")
     identifiers = list(cases(suite))
     if not identifiers:
@@ -849,8 +942,9 @@ def main():
     prerequisites_before = {}
     staged = None
     needs_worker = any(name.startswith(WORKER_PREFIXES) for name in identifiers)
+    needs_ownership = any(name.startswith(QUERY_SETUP_PREFIX) for name in identifiers)
     try:
-        if COMPLETION_EMBEDDING in identifiers:
+        if COMPLETION_EMBEDDING in identifiers or needs_ownership:
             staged = stage_completion_extension(
                 root,
                 sources_before,
@@ -861,6 +955,8 @@ def main():
             prerequisites_before["completion_extension"] = (
                 completion_extension_snapshot(staged)
             )
+        if needs_ownership:
+            activate_ownership_extension(staged)
         if needs_worker:
             prerequisites_before["worker_oracle"] = worker_oracle_snapshot(
                 args.python_oracle, oracle_before
@@ -869,7 +965,13 @@ def main():
             prerequisites_before["oracle_runtime"] = oracle_runtime_snapshot(
                 args.python_oracle
             )
-    except (ValueError, OSError, AssertionError, subprocess.SubprocessError) as error:
+    except (
+        ValueError,
+        OSError,
+        ImportError,
+        AssertionError,
+        subprocess.SubprocessError,
+    ) as error:
         initial_report.update(
             qualification_status="preflight_failed", prerequisite_error=str(error)
         )
@@ -902,6 +1004,8 @@ def main():
             prerequisites_after["completion_extension"] = completion_extension_snapshot(
                 staged
             )
+        if needs_ownership:
+            current_extension_snapshot(staged)
         if needs_worker:
             prerequisites_after["worker_oracle"] = worker_oracle_snapshot(
                 args.python_oracle, oracle_after
@@ -910,7 +1014,13 @@ def main():
             prerequisites_after["oracle_runtime"] = oracle_runtime_snapshot(
                 args.python_oracle
             )
-    except (ValueError, OSError, AssertionError, subprocess.SubprocessError) as error:
+    except (
+        ValueError,
+        OSError,
+        ImportError,
+        AssertionError,
+        subprocess.SubprocessError,
+    ) as error:
         prerequisite_error = str(error)
     prerequisites_unchanged = (
         prerequisite_error is None and prerequisites_before == prerequisites_after
@@ -951,12 +1061,13 @@ def main():
         if installed_prerequisites
         else "completed",
         "scope": (
-            "Selected native aggregate only; mandatory installed ASGI prerequisites remain pending; "
+            "Selected native aggregate only; excluded historical scenarios are listed separately; mandatory installed ASGI prerequisites remain pending; "
             "not complete milestone qualification"
             if installed_prerequisites
             else "Opt-in native companion checkpoint; not complete milestone qualification"
         ),
         "installed_prerequisites": installed_prerequisites,
+        "excluded_historical_scenarios": excluded_historical,
         "platform": platform.platform(),
         "python": sys.version,
         "binary": str(binary),
@@ -998,7 +1109,9 @@ def main():
         "seconds": time.monotonic() - start,
         "outcome_coverage_complete": complete,
         "selected_aggregate_passed_without_skips": selected_passed,
-        "passed_without_skips": selected_passed and not installed_prerequisites,
+        "passed_without_skips": selected_passed
+        and not installed_prerequisites
+        and not excluded_historical,
     }
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(value, indent=2) + "\n")

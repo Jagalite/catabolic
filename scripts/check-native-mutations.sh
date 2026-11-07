@@ -24,6 +24,15 @@ if [ ! -f "$fixtures/schema-32/before.sqlite3" ]; then
     echo "Historical fixtures are missing. Generate them with scripts/migration_fixtures.py from the pinned reference before qualification." >&2
     exit 1
 fi
+# Refuse known late Linux prerequisites before expensive builds and scenarios.
+# This diagnostic does not replace any mandatory check below.
+if [ "$(uname -s)" = Linux ]; then
+    if [ "${CATABOLIC_CI_EXCLUDE_HISTORICAL:-0}" = 1 ]; then
+        "$python" scripts/check_native_audit_prerequisites.py --volume-only
+    else
+        "$python" scripts/check_native_audit_prerequisites.py
+    fi
+fi
 # Reproduce interpreter-dependent tables without mutating qualified source bytes.
 "$python" scripts/generate_graphql_printable.py --check
 PYTHONPATH="$CATABOLIC_PYTHON_REFERENCE" "$python" scripts/generate_plex_xml_encodings.py --check
@@ -31,7 +40,9 @@ PYTHONPATH="$CATABOLIC_PYTHON_REFERENCE" "$python" scripts/generate_plex_xml_enc
 target_dir=$(cargo metadata --locked --format-version=1 --no-deps | "$python" -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])')
 cargo fmt --all -- --check
 cargo clippy --locked --workspace --all-targets -- -D warnings
-cargo build --locked -p catabolic-cli -p catabolic-verification -p catabolic-http --bins
+# Qualification exercises crash recovery through request-field failpoints. These
+# debug artifacts are separate from the release builds checked below.
+cargo build --locked -p catabolic-cli -p catabolic-verification -p catabolic-http --bins --features catabolic-store/failpoints
 cargo build --locked -p catabolic-cli --example legacy_parse
 cargo build --locked -p catabolic-python
 evidence=.local-tests/rust-migration/m4-plus
@@ -54,6 +65,17 @@ export CATABOLIC_NATIVE_PARSER_BINARY="$(pwd)/$evidence/artifacts/qualification-
 # prerequisites; they belong here rather than in the Python reference lane.
 export CATABOLIC_NATIVE_CLI="$CATABOLIC_NATIVE_BINARY"
 "$python" -m unittest \
+    tests.test_rendition_trigger_model \
+    tests.test_playback_retirement_query \
+    tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_dirty_interrupted_scan_readmits_before_publishing_missing \
+    tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_selected_continuation_chain_revalidates_after_dirty_interruption \
+    tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_continuation_refuses_active_parent_without_changing_inventory \
+    tests.test_rust_observation_filesystem.NativeObservationDifferentialTest.test_continuation_rejects_changed_policy_without_publishing_absence \
+    tests.test_rust_renditions.NativeRenditionTest.test_competing_native_admissions_share_one_physical_reservation \
+    tests.test_rust_renditions.NativeRenditionTest.test_concurrent_cancel_and_worker_completion_keep_survivor_and_release_once \
+    tests.test_rust_watcher_runtime.NativeWatcherRuntimeTest.test_replaced_run_during_tool_wait_cannot_complete_or_clear_new_demand \
+    tests.test_rust_http_content_selection_review \
+    tests.test_rust_http_ticket_concurrency_review \
     tests.test_native_mapping_runtime_v2 \
     tests.test_native_projection_execute \
     tests.test_native_publication_mapping_folder \
@@ -95,9 +117,83 @@ required_ignored_test access_admin::tests::inherited_scalar_cache_confusion_rema
 # The two exact ASGI test files require an installed release wheel. Verify their
 # fixed 21-scenario inventory before import, and record this mandatory separate
 # prerequisite as pending rather than treating it as skipped or passed.
-"$python" scripts/qualify_native_mutations.py --defer-installed-asgi --binary "$CATABOLIC_NATIVE_BINARY" --http-binary "$CATABOLIC_HTTP_BINARY" --legacy-binary "$CATABOLIC_LEGACY_BINARY" --parser-binary "$CATABOLIC_NATIVE_PARSER_BINARY" --extension-binary "$CATABOLIC_NATIVE_EXTENSION" --reference-root "$reference_root" --python-oracle "$CATABOLIC_PYTHON_ORACLE" --report "$evidence/native-results.json"
+historical_option=""
+if [ "${CATABOLIC_CI_EXCLUDE_HISTORICAL:-0}" = 1 ]; then historical_option="--exclude-historical-evidence"; fi
+"$python" scripts/qualify_native_mutations.py --defer-installed-asgi $historical_option --binary "$CATABOLIC_NATIVE_BINARY" --http-binary "$CATABOLIC_HTTP_BINARY" --legacy-binary "$CATABOLIC_LEGACY_BINARY" --parser-binary "$CATABOLIC_NATIVE_PARSER_BINARY" --extension-binary "$CATABOLIC_NATIVE_EXTENSION" --reference-root "$reference_root" --python-oracle "$CATABOLIC_PYTHON_ORACLE" --report "$evidence/native-results.json"
 "$target_dir"/debug/catabolic-verification check
 "$target_dir"/debug/catabolic-verification check-playback
+"$target_dir"/debug/catabolic-verification check-coordination
+"$target_dir"/debug/catabolic-verification check-rendition
+"$target_dir"/debug/catabolic-verification check-shared-job
+"$target_dir"/debug/catabolic-verification check-resolution
+"$target_dir"/debug/catabolic-verification check-execution
+"$target_dir"/debug/catabolic-verification check-scan-continuation
+"$target_dir"/debug/catabolic-verification check-scan-publication
+"$target_dir"/debug/catabolic-verification check-scan-publication-race
+"$target_dir"/debug/catabolic-verification check-hardlink-recovery
+"$target_dir"/debug/catabolic-verification check-hardlink-cancellation
+"$target_dir"/debug/catabolic-verification check-publication-recovery
+"$target_dir"/debug/catabolic-verification check-notification-lease
+"$target_dir"/debug/catabolic-verification check-notification
+"$target_dir"/debug/catabolic-verification check-processing-acceptance
+"$target_dir"/debug/catabolic-verification check-transfer-completion
+"$target_dir"/debug/catabolic-verification check-content-ticket
+"$target_dir"/debug/catabolic-verification check-watcher-reaction
+"$target_dir"/debug/catabolic-verification check-watcher-generation
+"$target_dir"/debug/catabolic-verification check-watcher-schedule
+"$target_dir"/debug/catabolic-verification check-publication-progress
+"$target_dir"/debug/catabolic-verification check-playback-admission
+"$target_dir"/debug/catabolic-verification check-playback-retirement
+# Retain both counterexamples as qualification evidence and require exact replay.
+fault_evidence=$(mktemp -d "$evidence/artifacts/statelessness-faults.XXXXXX")
+"$target_dir"/debug/catabolic-verification find "$fault_evidence/request"
+"$target_dir"/debug/catabolic-verification replay "$fault_evidence/request/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-playback "$fault_evidence/playback"
+"$target_dir"/debug/catabolic-verification replay-playback "$fault_evidence/playback/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-coordination "$fault_evidence/coordination"
+"$target_dir"/debug/catabolic-verification replay-coordination "$fault_evidence/coordination/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-shared-job "$fault_evidence/shared-job"
+"$target_dir"/debug/catabolic-verification replay-shared-job "$fault_evidence/shared-job/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-rendition "$fault_evidence/rendition"
+"$target_dir"/debug/catabolic-verification replay-rendition "$fault_evidence/rendition/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-resolution "$fault_evidence/resolution"
+"$target_dir"/debug/catabolic-verification replay-resolution "$fault_evidence/resolution/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-execution "$fault_evidence/execution"
+"$target_dir"/debug/catabolic-verification replay-execution "$fault_evidence/execution/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-scan-continuation "$fault_evidence/scan-continuation"
+"$target_dir"/debug/catabolic-verification replay-scan-continuation "$fault_evidence/scan-continuation/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-scan-publication-race "$fault_evidence/scan-race"
+"$target_dir"/debug/catabolic-verification replay-scan-publication-race "$fault_evidence/scan-race/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-scan-publication "$fault_evidence/scan"
+"$target_dir"/debug/catabolic-verification replay-scan-publication "$fault_evidence/scan/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-hardlink-cancellation "$fault_evidence/hardlink-cancellation"
+"$target_dir"/debug/catabolic-verification replay-hardlink-cancellation "$fault_evidence/hardlink-cancellation/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-hardlink-recovery "$fault_evidence/hardlink"
+"$target_dir"/debug/catabolic-verification replay-hardlink-recovery "$fault_evidence/hardlink/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-publication-recovery "$fault_evidence/publication"
+"$target_dir"/debug/catabolic-verification replay-publication-recovery "$fault_evidence/publication/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-notification-lease "$fault_evidence/notification-lease"
+"$target_dir"/debug/catabolic-verification replay-notification-lease "$fault_evidence/notification-lease/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-notification "$fault_evidence/notification"
+"$target_dir"/debug/catabolic-verification replay-notification "$fault_evidence/notification/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-processing-acceptance "$fault_evidence/processing"
+"$target_dir"/debug/catabolic-verification replay-processing-acceptance "$fault_evidence/processing/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-transfer-completion "$fault_evidence/transfer"
+"$target_dir"/debug/catabolic-verification replay-transfer-completion "$fault_evidence/transfer/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-content-ticket "$fault_evidence/ticket"
+"$target_dir"/debug/catabolic-verification replay-content-ticket "$fault_evidence/ticket/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-watcher-reaction "$fault_evidence/watcher-reaction"
+"$target_dir"/debug/catabolic-verification replay-watcher-reaction "$fault_evidence/watcher-reaction/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-watcher-generation "$fault_evidence/watcher-generation"
+"$target_dir"/debug/catabolic-verification replay-watcher-generation "$fault_evidence/watcher-generation/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-watcher-schedule "$fault_evidence/watcher"
+"$target_dir"/debug/catabolic-verification replay-watcher-schedule "$fault_evidence/watcher/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-publication-progress "$fault_evidence/progress"
+"$target_dir"/debug/catabolic-verification replay-publication-progress "$fault_evidence/progress/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-playback-retirement "$fault_evidence/playback-retirement"
+"$target_dir"/debug/catabolic-verification replay-playback-retirement "$fault_evidence/playback-retirement/minimized.sttrace"
+"$target_dir"/debug/catabolic-verification find-playback-admission "$fault_evidence/playback-admission"
+"$target_dir"/debug/catabolic-verification replay-playback-admission "$fault_evidence/playback-admission/minimized.sttrace"
 cargo build --locked --release -p catabolic-cli
 cp "$target_dir"/release/catabolic-native "$evidence/artifacts/qualification-native-release"
 "$python" scripts/check_native_output_gate.py "$(pwd)/$evidence/artifacts/qualification-native-release" > "$evidence/release-output-gate.json"

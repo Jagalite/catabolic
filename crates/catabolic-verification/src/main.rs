@@ -1,5 +1,27 @@
 //! Bounded Statelessness adapter around the application-owned production reducer.
+mod content_ticket;
+mod coordination;
+mod execution;
+mod hardlink_cancellation;
+mod hardlink_recovery;
+mod notification_delivery;
+mod notification_lease;
 mod playback;
+mod playback_admission;
+mod playback_retirement;
+mod processing_acceptance;
+mod publication_progress;
+mod publication_recovery;
+mod rendition;
+mod resolution;
+mod scan_continuation;
+mod scan_publication;
+mod scan_publication_race;
+mod shared_job;
+mod transfer_completion;
+mod watcher_generation;
+mod watcher_reaction;
+mod watcher_schedule;
 use catabolic_core::{
     encode,
     lifecycle::{Caller, Effect, Input, State, reduce},
@@ -30,7 +52,7 @@ impl Model for Adapter {
         ModelMetadata {
             name: "catabolic-shared-request".into(),
             model_version: 1,
-            properties_version: 1,
+            properties_version: 2,
             codec_version: 1,
             build: format!(
                 "{}-fault={}",
@@ -91,6 +113,9 @@ impl Model for Adapter {
                 _ => {}
             }
         }
+        if let Some(required) = required_effect_violation(&before.state, input, &effects) {
+            violation = Some(required.into());
+        }
         Ok(Transition::accepted(Audited { state, violation }, effects))
     }
     fn check_state(&self, state: &Audited) -> Result<Vec<Check>, ModelError> {
@@ -98,6 +123,8 @@ impl Model for Adapter {
             "request.stale_completion",
             "request.cancelled_delivery",
             "request.cancel_stops_sibling",
+            "request.required_start",
+            "request.required_delivery",
         ]
         .iter()
         .map(|property| {
@@ -113,6 +140,43 @@ impl Model for Adapter {
         .collect())
     }
 }
+fn required_effect_violation(
+    before: &State,
+    input: &Input,
+    effects: &[Effect],
+) -> Option<&'static str> {
+    let required_start = match input {
+        Input::Attach(caller) => *caller < 2 && !before.running && !before.started,
+        Input::Advance(generation) => {
+            *generation > before.generation && before.callers.contains(&Caller::Waiting)
+        }
+        _ => false,
+    };
+    let start_generation = match input {
+        Input::Advance(generation) => *generation,
+        _ => before.generation,
+    };
+    if required_start && !effects.contains(&Effect::Start(start_generation)) {
+        return Some("request.required_start");
+    }
+    if let Input::Complete(generation) = input
+        && *generation == before.generation
+        && before.running
+    {
+        for (caller, status) in before.callers.iter().enumerate() {
+            if *status == Caller::Waiting
+                && !effects.contains(&Effect::Deliver {
+                    caller: caller as u8,
+                    generation: *generation,
+                })
+            {
+                return Some("request.required_delivery");
+            }
+        }
+    }
+    None
+}
+
 impl Enumerate for Adapter {
     fn inputs(&self, _: &Audited) -> Result<Vec<Input>, ModelError> {
         Ok(vec![
@@ -160,6 +224,90 @@ fn run(args: &[String]) -> Result<u8, Box<dyn Error>> {
         .collect::<Vec<_>>()
         .as_slice()
     {
+        ["check-publication-progress"] => { publication_progress::check()?; Ok(0) }
+        ["find-publication-progress", directory] => { publication_progress::find(directory)?; Ok(0) }
+        ["replay-publication-progress", path] => { publication_progress::replay_trace(path)?; Ok(0) }
+        ["check-playback-retirement"] => { playback_retirement::check()?; Ok(0) }
+        ["find-playback-retirement", directory] => { playback_retirement::find(directory)?; Ok(0) }
+        ["replay-playback-retirement", path] => { playback_retirement::replay_trace(path)?; Ok(0) }
+        ["check-playback-admission"] => { playback_admission::check()?; Ok(0) }
+        ["find-playback-admission", directory] => { playback_admission::find(directory)?; Ok(0) }
+        ["replay-playback-admission", path] => { playback_admission::replay_trace(path)?; Ok(0) }
+        ["check-watcher-reaction"] => { watcher_reaction::check()?; Ok(0) }
+        ["find-watcher-reaction", directory] => { watcher_reaction::find(directory)?; Ok(0) }
+        ["replay-watcher-reaction", path] => { watcher_reaction::replay_trace(path)?; Ok(0) }
+        ["check-watcher-generation"] => { watcher_generation::check()?; Ok(0) }
+        ["find-watcher-generation", directory] => { watcher_generation::find(directory)?; Ok(0) }
+        ["replay-watcher-generation", path] => { watcher_generation::replay_trace(path)?; Ok(0) }
+        ["check-watcher-schedule"] => { watcher_schedule::check()?; Ok(0) }
+        ["find-watcher-schedule", directory] => { watcher_schedule::find(directory)?; Ok(0) }
+        ["replay-watcher-schedule", path] => { watcher_schedule::replay_trace(path)?; Ok(0) }
+        ["check-transfer-completion"] => { transfer_completion::check()?; Ok(0) }
+        ["find-transfer-completion", directory] => { transfer_completion::find(directory)?; Ok(0) }
+        ["replay-transfer-completion", path] => { transfer_completion::replay_trace(path)?; Ok(0) }
+        ["check-content-ticket"] => { content_ticket::check()?; Ok(0) }
+        ["find-content-ticket", directory] => { content_ticket::find(directory)?; Ok(0) }
+        ["replay-content-ticket", path] => { content_ticket::replay_trace(path)?; Ok(0) }
+        ["check-processing-acceptance"] => { processing_acceptance::check()?; Ok(0) }
+        ["find-processing-acceptance", directory] => { processing_acceptance::find(directory)?; Ok(0) }
+        ["replay-processing-acceptance", path] => { processing_acceptance::replay_trace(path)?; Ok(0) }
+        ["check-notification-lease"] => { notification_lease::check()?; Ok(0) }
+        ["find-notification-lease", directory] => { notification_lease::find(directory)?; Ok(0) }
+        ["replay-notification-lease", path] => { notification_lease::replay_trace(path)?; Ok(0) }
+        ["check-notification"] => { notification_delivery::check()?; Ok(0) }
+        ["find-notification", directory] => { notification_delivery::find(directory)?; Ok(0) }
+        ["replay-notification", path] => { notification_delivery::replay_trace(path)?; Ok(0) }
+        ["check-hardlink-cancellation"] => { hardlink_cancellation::check()?; Ok(0) }
+        ["find-hardlink-cancellation", directory] => { hardlink_cancellation::find(directory)?; Ok(0) }
+        ["replay-hardlink-cancellation", path] => { hardlink_cancellation::replay_trace(path)?; Ok(0) }
+        ["check-hardlink-recovery"] => { hardlink_recovery::check()?; Ok(0) }
+        ["find-hardlink-recovery", directory] => { hardlink_recovery::find(directory)?; Ok(0) }
+        ["replay-hardlink-recovery", path] => { hardlink_recovery::replay_trace(path)?; Ok(0) }
+        ["check-publication-recovery"] => { publication_recovery::check()?; Ok(0) }
+        ["find-publication-recovery", directory] => { publication_recovery::find(directory)?; Ok(0) }
+        ["replay-publication-recovery", path] => { publication_recovery::replay_trace(path)?; Ok(0) }
+        ["check-scan-continuation"] => { scan_continuation::check()?; Ok(0) }
+        ["find-scan-continuation", directory] => { scan_continuation::find(directory)?; Ok(0) }
+        ["replay-scan-continuation", path] => { scan_continuation::replay_trace(path)?; Ok(0) }
+        ["check-scan-publication-race"] => { scan_publication_race::check()?; Ok(0) }
+        ["find-scan-publication-race", directory] => { scan_publication_race::find(directory)?; Ok(0) }
+        ["replay-scan-publication-race", path] => { scan_publication_race::replay_trace(path)?; Ok(0) }
+        ["check-scan-publication"] => { scan_publication::check()?; Ok(0) }
+        ["find-scan-publication", directory] => { scan_publication::find(directory)?; Ok(0) }
+        ["replay-scan-publication", path] => { scan_publication::replay_trace(path)?; Ok(0) }
+        ["check-execution"] => { execution::check()?; Ok(0) }
+        ["find-execution", directory] => { execution::find(directory)?; Ok(0) }
+        ["replay-execution", path] => { execution::replay_trace(path)?; Ok(0) }
+        ["check-resolution"] => { resolution::check()?; Ok(0) }
+        ["find-resolution", directory] => { resolution::find(directory)?; Ok(0) }
+        ["replay-resolution", path] => { resolution::replay_trace(path)?; Ok(0) }
+        ["check-shared-job"] => { shared_job::check()?; Ok(0) }
+        ["find-shared-job", directory] => { shared_job::find(directory)?; Ok(0) }
+        ["replay-shared-job", path] => { shared_job::replay_trace(path)?; Ok(0) }
+        ["check-rendition"] => {
+            rendition::check()?;
+            Ok(0)
+        }
+        ["find-rendition", directory] => {
+            rendition::find(directory)?;
+            Ok(0)
+        }
+        ["replay-rendition", path] => {
+            rendition::replay_trace(path)?;
+            Ok(0)
+        }
+        ["find-coordination", directory] => {
+            coordination::find(directory)?;
+            Ok(0)
+        }
+        ["replay-coordination", path] => {
+            coordination::replay_trace(path)?;
+            Ok(0)
+        }
+        ["check-coordination"] => {
+            coordination::check()?;
+            Ok(0)
+        }
         ["check-playback"] => {
             playback::check()?;
             Ok(0)
@@ -262,7 +410,7 @@ fn run(args: &[String]) -> Result<u8, Box<dyn Error>> {
             }
             Ok(0)
         }
-        _ => Err("usage: catabolic-verification check | find NEW_DIRECTORY | replay TRACE".into()),
+        _ => Err("usage: catabolic-verification check | check-playback | check-coordination | find NEW_DIRECTORY | replay TRACE".into()),
     }
 }
 fn main() -> ExitCode {
@@ -272,5 +420,47 @@ fn main() -> ExitCode {
             eprintln!("{error}");
             ExitCode::from(2)
         }
+    }
+}
+
+#[cfg(test)]
+mod obligation_tests {
+    use super::*;
+
+    #[test]
+    fn missing_start_and_delivery_are_detected() {
+        let initial = State::default();
+        assert_eq!(
+            required_effect_violation(&initial, &Input::Attach(0), &[]),
+            Some("request.required_start")
+        );
+        assert_eq!(
+            required_effect_violation(&initial, &Input::Attach(0), &[Effect::Start(0)]),
+            None
+        );
+        let (running, _) = reduce(&initial, &Input::Attach(0));
+        assert_eq!(
+            required_effect_violation(&running, &Input::Complete(0), &[]),
+            Some("request.required_delivery")
+        );
+        assert_eq!(
+            required_effect_violation(
+                &running,
+                &Input::Complete(0),
+                &[Effect::Deliver {
+                    caller: 0,
+                    generation: 0
+                }]
+            ),
+            None
+        );
+        assert_eq!(
+            required_effect_violation(&running, &Input::Complete(1), &[]),
+            None
+        );
+        assert_eq!(
+            required_effect_violation(&running, &Input::Advance(1), &[]),
+            Some("request.required_start")
+        );
     }
 }

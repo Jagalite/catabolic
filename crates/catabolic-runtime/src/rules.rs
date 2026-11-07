@@ -90,9 +90,18 @@ fn apply(store: &mut Store, profile: &str, id: &str, args: &Value) -> Result<Val
     let candidates = matches
         .iter()
         .filter(|r| {
-            r["state"] == "missing"
-                || !external && r["state"] == "stale"
-                || retry && r["state"] == "failed"
+            use catabolic_core::rule_planning::{CandidateState, Eligibility, eligible};
+            let state = match r["state"].as_str() {
+                Some("missing") => CandidateState::Missing,
+                Some("stale") => CandidateState::Stale,
+                Some("failed") => CandidateState::Failed,
+                _ => CandidateState::Other,
+            };
+            eligible(Eligibility {
+                state,
+                external,
+                retry_failed: retry,
+            })
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -102,33 +111,31 @@ fn apply(store: &mut Store, profile: &str, id: &str, args: &Value) -> Result<Val
     } else {
         storage::total(selected)?
     };
-    let mut blockers = vec![];
-    if external {
-        if !candidates.is_empty() && max.is_some() {
-            blockers.push(json!("External storage is unknown; a local byte budget cannot authorize this external batch."));
-        }
-    } else {
-        if !selected.is_empty()
-            && !plan["space"]["available_bytes"].is_null()
-            && storage::compare(
-                &storage::add(
-                    &batch_space["planning_bytes"],
-                    &plan["space"]["reserve_bytes"],
-                )?,
-                &plan["space"]["available_bytes"],
-            )
-            .is_gt()
-        {
-            blockers.push(json!(
-                "Selected batch exceeds available destination space using the planning estimate."
-            ));
-        }
-        if max.is_some_and(|max| storage::compare(&batch_space["planning_bytes"], max).is_gt()) {
-            blockers.push(json!(
-                "Selected batch exceeds --max-new-bytes using the planning estimate."
-            ));
-        }
-    }
+    let exceeds_available = !external
+        && !selected.is_empty()
+        && !plan["space"]["available_bytes"].is_null()
+        && storage::compare(
+            &storage::add(
+                &batch_space["planning_bytes"],
+                &plan["space"]["reserve_bytes"],
+            )?,
+            &plan["space"]["available_bytes"],
+        )
+        .is_gt();
+    let exceeds_local_budget = !external
+        && max.is_some_and(|max| storage::compare(&batch_space["planning_bytes"], max).is_gt());
+    let blockers: Vec<Value> = catabolic_core::rule_planning::blockers(catabolic_core::rule_planning::BudgetEvidence {
+        external,
+        any_candidates: !candidates.is_empty(),
+        any_selected: !selected.is_empty(),
+        local_budget_supplied: max.is_some(),
+        exceeds_available,
+        exceeds_local_budget,
+    }).into_iter().map(|blocker| json!(match blocker {
+        catabolic_core::rule_planning::Blocker::ExternalStorageUnknown => "External storage is unknown; a local byte budget cannot authorize this external batch.",
+        catabolic_core::rule_planning::Blocker::DestinationSpace => "Selected batch exceeds available destination space using the planning estimate.",
+        catabolic_core::rule_planning::Blocker::NewBytesBudget => "Selected batch exceeds --max-new-bytes using the planning estimate.",
+    })).collect();
     let mut result = storage::bounded(&plan, limit);
     result["batch_space"] = batch_space;
     result["queued"] = json!([]);

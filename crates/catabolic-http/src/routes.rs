@@ -232,26 +232,51 @@ pub fn dispatch(app: &App, input: Input) -> Result<Response<Body>> {
                     &[input.id().to_owned().into()],
                 )?;
                 values.extend(rows(&access.store().db,"SELECT file_id FROM media_outputs WHERE source_item_id=? AND profile=? ORDER BY id LIMIT 1001",&[input.id().to_owned().into(),access.profile().to_owned().into()])?);
+                use catabolic_core::content_selection::{Effect, Input, State, advance};
+                let mut selection = State::Candidate;
                 let mut chosen = None;
                 for row in values {
                     let id = row["file_id"].as_str().unwrap();
-                    if input.body["file_id"].as_str().is_some_and(|v| v != id) {
+                    let (next, effect) = advance(
+                        selection,
+                        Input::Candidate {
+                            requested_file_matches: input.body["file_id"]
+                                .as_str()
+                                .is_none_or(|v| v == id),
+                        },
+                    )
+                    .expect("candidate follows an unsuccessful selection");
+                    selection = next;
+                    if effect == Effect::Continue {
                         continue;
                     }
-                    if let Some(def)=input.body["definition_id"].as_str()&&!access.store().db.prepare("SELECT 1 FROM media_outputs WHERE file_id=? AND definition_id=? AND profile=?")?.exists(rusqlite_params(id,def,access.profile()))?{continue}
+                    let matches = if let Some(def) = input.body["definition_id"].as_str() {
+                        access.store().db.prepare("SELECT 1 FROM media_outputs WHERE file_id=? AND definition_id=? AND profile=?")?.exists(rusqlite_params(id,def,access.profile()))?
+                    } else {
+                        true
+                    };
+                    let (next, effect) = advance(selection, Input::Definition { matches })
+                        .expect("definition follows a candidate");
+                    selection = next;
+                    if effect == Effect::Continue {
+                        continue;
+                    }
                     let revision = catabolic_store::content_access::revision_of(
                         access.store(),
                         access.profile(),
                         id,
                     )?;
-                    if catabolic_store::content_access::with_opened(
+                    let usable = catabolic_store::content_access::with_opened(
                         &mut access,
                         id,
                         &revision,
                         |_, _| Ok(()),
                     )
-                    .is_ok()
-                    {
+                    .is_ok();
+                    let (next, effect) = advance(selection, Input::Opened { usable })
+                        .expect("open result follows a matching definition");
+                    selection = next;
+                    if effect == Effect::Select {
                         chosen = Some(
                             json!({"file_id":id,"revision":revision,"content_path":format!("/v1/files/{id}/content?revision={revision}")}),
                         );

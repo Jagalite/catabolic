@@ -100,6 +100,34 @@ pub fn failback(value: Failback) -> FailbackEffect {
         FailbackEffect::Preferred
     }
 }
+/// Accumulated successful evidence for one candidate revision. The adapter
+/// selects the exact profile/catalog/entry/file/revision row and commits this
+/// result only with the captured plan's epoch/generation fence. An omitted
+/// candidate in an admitted health set resets that candidate's history.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Health {
+    pub healthy_since: f64,
+    pub successes: i64,
+    pub last_check: f64,
+}
+pub fn health_success(previous: Option<Health>, now: f64) -> Result<Health, &'static str> {
+    if !now.is_finite()
+        || previous.is_some_and(|old| {
+            !old.healthy_since.is_finite() || !old.last_check.is_finite() || old.successes < 0
+        })
+    {
+        return Err("invalid_fallback_health");
+    }
+    let successes = previous
+        .map_or(0, |old| old.successes)
+        .checked_add(1)
+        .ok_or("fallback_health_overflow")?;
+    Ok(Health {
+        healthy_since: previous.map_or(now, |old| old.healthy_since),
+        successes,
+        last_check: now,
+    })
+}
 /// Admission fences are pure; SQL owns their capture and applies the effect in
 /// the same write transaction as the new projection generation.
 #[derive(Clone, Copy, Debug)]
@@ -142,6 +170,121 @@ pub fn projection(input: ProjectionAdmission) -> Result<ProjectionEffect, &'stat
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn health_accumulation_preserves_start_and_refuses_overflow() {
+        let first = health_success(None, 5.0).unwrap();
+        assert_eq!(first.successes, 1);
+        assert_eq!(first.healthy_since, 5.0);
+        let second = health_success(Some(first), 8.0).unwrap();
+        assert_eq!(second.successes, 2);
+        assert_eq!(second.healthy_since, 5.0);
+        assert_eq!(second.last_check, 8.0);
+        assert_eq!(
+            health_success(
+                Some(Health {
+                    successes: i64::MAX,
+                    ..first
+                }),
+                8.0
+            ),
+            Err("fallback_health_overflow")
+        );
+        assert_eq!(
+            health_success(None, f64::NAN),
+            Err("invalid_fallback_health")
+        );
+    }
+    #[test]
+    fn health_rejects_nonfinite_times_and_negative_counts() {
+        let valid = Health {
+            healthy_since: 5.0,
+            successes: 2,
+            last_check: 8.0,
+        };
+        for time in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(health_success(None, time), Err("invalid_fallback_health"));
+            assert_eq!(
+                health_success(Some(valid), time),
+                Err("invalid_fallback_health")
+            );
+            assert_eq!(
+                health_success(
+                    Some(Health {
+                        healthy_since: time,
+                        ..valid
+                    }),
+                    9.0
+                ),
+                Err("invalid_fallback_health")
+            );
+            assert_eq!(
+                health_success(
+                    Some(Health {
+                        last_check: time,
+                        ..valid
+                    }),
+                    9.0
+                ),
+                Err("invalid_fallback_health")
+            );
+        }
+        for count in [-1, i64::MIN] {
+            assert_eq!(
+                health_success(
+                    Some(Health {
+                        successes: count,
+                        ..valid
+                    }),
+                    9.0
+                ),
+                Err("invalid_fallback_health")
+            );
+        }
+    }
+
+    #[test]
+    fn health_keeps_existing_duplicate_and_backward_clock_semantics() {
+        let previous = Health {
+            healthy_since: 5.0,
+            successes: 2,
+            last_check: 8.0,
+        };
+        for now in [8.0, 7.0, 3.0, -1.0] {
+            assert_eq!(
+                health_success(Some(previous), now).unwrap(),
+                Health {
+                    healthy_since: 5.0,
+                    successes: 3,
+                    last_check: now,
+                }
+            );
+        }
+        assert_eq!(
+            health_success(None, -1.0).unwrap(),
+            Health {
+                healthy_since: -1.0,
+                successes: 1,
+                last_check: -1.0,
+            }
+        );
+        assert_eq!(
+            health_success(
+                Some(Health {
+                    healthy_since: -5.0,
+                    successes: 0,
+                    last_check: -2.0
+                }),
+                -3.0
+            )
+            .unwrap(),
+            Health {
+                healthy_since: -5.0,
+                successes: 1,
+                last_check: -3.0,
+            }
+        );
+    }
+
     #[test]
     fn a_failed_top_rank_does_not_suppress_live_lower_rank() {
         let mut c = vec![
